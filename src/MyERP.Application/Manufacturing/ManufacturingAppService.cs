@@ -500,6 +500,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     [Authorize(MyERPPermissions.Manufacturing.Create)]
     public async Task<BatchCreateWorkOrdersResultDto> CreateWorkOrdersFromSalesOrderAsync(Guid salesOrderId)
     {
+        await AuthorizationService.CheckAsync(MyERPPermissions.SalesOrders.Default);
+
         var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
         var so = await soRepo.GetAsync(salesOrderId, includeDetails: true);
         var companyId = so.CompanyId;

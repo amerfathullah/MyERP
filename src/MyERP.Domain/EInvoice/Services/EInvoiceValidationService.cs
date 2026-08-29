@@ -199,6 +199,10 @@ public class EInvoiceValidationService : ITransientDependency
                     errors.Add("The original purchase invoice must have a valid LHDN submission (LhdnUuid) before its Credit Note can be submitted.");
             }
         }
+        else if (typeCode is "12" or "14")
+        {
+            errors.Add("Self-Billed Credit Note or Refund Note type code can only be used on return purchase invoices.");
+        }
 
         // All-or-nothing tax template rule
         var anyItemHasTax = invoice.Items.Any(i => i.TaxCategoryId.HasValue);

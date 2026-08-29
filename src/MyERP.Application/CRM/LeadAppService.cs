@@ -284,6 +284,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
         return notes.Select(MapNoteToDto).ToList();
     }
 
+    [Authorize(MyERPPermissions.Leads.Edit)]
     public async Task<CrmNoteDto> AddNoteAsync(Guid id, AddCrmNoteDto input)
     {
         var lead = await _leadRepository.GetAsync(id);

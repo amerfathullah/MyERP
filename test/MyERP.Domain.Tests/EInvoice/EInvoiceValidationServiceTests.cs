@@ -169,4 +169,17 @@ public class EInvoiceValidationServiceTests
         var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
         Assert.Contains(errors, e => e.Contains("all items must have a Tax Category/Template"));
     }
+
+    [Fact]
+    public async Task ValidatePurchaseInvoice_NonReturnWithSelfBilledCreditNoteType_ReturnsError()
+    {
+        var invoice = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "PINV-004", DateTime.UtcNow);
+        invoice.AddItem(_itemId, "Item", 1, 50m, 0m);
+        invoice.Submit();
+        invoice.IsReturn = false;
+        invoice.EInvoiceDocType = EInvoiceDocumentType.SelfBilledCreditNote;
+
+        var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("Self-Billed Credit Note or Refund Note type code can only be used on return purchase invoices"));
+    }
 }
