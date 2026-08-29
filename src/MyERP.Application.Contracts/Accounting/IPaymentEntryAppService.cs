@@ -23,4 +23,5 @@ public interface IPaymentEntryAppService : IApplicationService
     Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids);
     Task<BulkOperationResultDto> BulkPostAsync(List<Guid> ids);
     Task<PaymentEntryDto> AmendAsync(Guid id);
+    Task<CreatePaymentEntryDto> GetPaymentEntryTemplateAsync(string documentType, Guid documentId);
 }

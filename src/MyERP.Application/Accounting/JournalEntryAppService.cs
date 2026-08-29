@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
@@ -351,6 +352,240 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         amended.Validate();
         await _repository.InsertAsync(amended, autoSave: true);
         return ObjectMapper.Map<JournalEntry, JournalEntryDto>(amended);
+    }
+
+    [Authorize(MyERPPermissions.JournalEntries.Create)]
+    public async Task<CreateJournalEntryDto> GetJournalEntryTemplateAsync(string documentType, Guid documentId)
+    {
+        Check.NotNullOrWhiteSpace(documentType, nameof(documentType));
+        Check.NotDefaultOrNull<Guid>(documentId, nameof(documentId));
+
+        switch (documentType)
+        {
+            case "SalesOrder":
+            {
+                await AuthorizationService.CheckAsync(MyERPPermissions.SalesOrders.Default);
+                var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+                var so = await soRepo.GetAsync(documentId);
+
+                if (so.Status is Core.DocumentStatus.Cancelled or Core.DocumentStatus.Closed)
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+                if (so.PerBilled >= 100)
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Can only make payment against unbilled Sales Order.");
+
+                var company = await _companyRepository.GetAsync(so.CompanyId);
+                var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+                var customer = await customerRepo.GetAsync(so.CustomerId);
+
+                var partyAccountId = customer.DefaultReceivableAccountId
+                    ?? company.DefaultReceivableAccountId
+                    ?? Guid.Empty;
+                var bankAccountId = company.DefaultBankAccountId
+                    ?? Guid.Empty;
+
+                var outstanding = Math.Max(0, so.GrandTotal - so.AdvancePaid);
+                var fy = (await _fiscalYearRepository.GetQueryableAsync())
+                    .FirstOrDefault(f => f.CompanyId == so.CompanyId && f.StartDate <= DateTime.UtcNow.Date && f.EndDate >= DateTime.UtcNow.Date)
+                    ?? (await _fiscalYearRepository.GetQueryableAsync()).FirstOrDefault(f => f.CompanyId == so.CompanyId);
+
+                return new CreateJournalEntryDto
+                {
+                    CompanyId = so.CompanyId,
+                    FiscalYearId = fy?.Id ?? Guid.Empty,
+                    PostingDate = DateTime.UtcNow.Date,
+                    VoucherType = JournalEntryVoucherType.BankEntry,
+                    ReferenceType = "SalesOrder",
+                    ReferenceId = so.Id,
+                    ReferenceNumber = so.OrderNumber,
+                    Narration = $"Payment against Sales Order {so.OrderNumber}",
+                    Lines = new List<CreateJournalEntryLineDto>
+                    {
+                        new()
+                        {
+                            AccountId = bankAccountId,
+                            Amount = outstanding > 0 ? outstanding : 0.01m,
+                            IsDebit = true,
+                            Description = $"Payment against Sales Order {so.OrderNumber}"
+                        },
+                        new()
+                        {
+                            AccountId = partyAccountId,
+                            Amount = outstanding > 0 ? outstanding : 0.01m,
+                            IsDebit = false,
+                            Description = $"Payment against Sales Order {so.OrderNumber}"
+                        }
+                    }
+                };
+            }
+            case "PurchaseOrder":
+            {
+                await AuthorizationService.CheckAsync(MyERPPermissions.PurchaseOrders.Default);
+                var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+                var po = await poRepo.GetAsync(documentId);
+
+                if (po.Status is Core.DocumentStatus.Cancelled or Core.DocumentStatus.Closed)
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+                if (po.PerBilled >= 100)
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Can only make payment against unbilled Purchase Order.");
+
+                var company = await _companyRepository.GetAsync(po.CompanyId);
+                var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+                var supplier = await supplierRepo.GetAsync(po.SupplierId);
+
+                var partyAccountId = supplier.DefaultPayableAccountId
+                    ?? company.DefaultPayableAccountId
+                    ?? Guid.Empty;
+                var bankAccountId = company.DefaultBankAccountId
+                    ?? Guid.Empty;
+
+                var outstanding = Math.Max(0, po.GrandTotal - po.AdvancePaid);
+                var fy = (await _fiscalYearRepository.GetQueryableAsync())
+                    .FirstOrDefault(f => f.CompanyId == po.CompanyId && f.StartDate <= DateTime.UtcNow.Date && f.EndDate >= DateTime.UtcNow.Date)
+                    ?? (await _fiscalYearRepository.GetQueryableAsync()).FirstOrDefault(f => f.CompanyId == po.CompanyId);
+
+                return new CreateJournalEntryDto
+                {
+                    CompanyId = po.CompanyId,
+                    FiscalYearId = fy?.Id ?? Guid.Empty,
+                    PostingDate = DateTime.UtcNow.Date,
+                    VoucherType = JournalEntryVoucherType.BankEntry,
+                    ReferenceType = "PurchaseOrder",
+                    ReferenceId = po.Id,
+                    ReferenceNumber = po.OrderNumber,
+                    Narration = $"Payment against Purchase Order {po.OrderNumber}",
+                    Lines = new List<CreateJournalEntryLineDto>
+                    {
+                        new()
+                        {
+                            AccountId = partyAccountId,
+                            Amount = outstanding > 0 ? outstanding : 0.01m,
+                            IsDebit = true,
+                            Description = $"Payment against Purchase Order {po.OrderNumber}"
+                        },
+                        new()
+                        {
+                            AccountId = bankAccountId,
+                            Amount = outstanding > 0 ? outstanding : 0.01m,
+                            IsDebit = false,
+                            Description = $"Payment against Purchase Order {po.OrderNumber}"
+                        }
+                    }
+                };
+            }
+            case "SalesInvoice":
+            {
+                await AuthorizationService.CheckAsync(MyERPPermissions.SalesInvoices.Default);
+                var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+                var si = await siRepo.GetAsync(documentId);
+
+                if (si.Status != Core.DocumentStatus.Submitted)
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+                var company = await _companyRepository.GetAsync(si.CompanyId);
+                var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+                var customer = await customerRepo.GetAsync(si.CustomerId);
+
+                var partyAccountId = customer.DefaultReceivableAccountId
+                    ?? company.DefaultReceivableAccountId
+                    ?? Guid.Empty;
+                var bankAccountId = company.DefaultBankAccountId
+                    ?? Guid.Empty;
+
+                var outstanding = Math.Max(0, si.GrandTotal - si.AmountPaid);
+                var fy = (await _fiscalYearRepository.GetQueryableAsync())
+                    .FirstOrDefault(f => f.CompanyId == si.CompanyId && f.StartDate <= DateTime.UtcNow.Date && f.EndDate >= DateTime.UtcNow.Date)
+                    ?? (await _fiscalYearRepository.GetQueryableAsync()).FirstOrDefault(f => f.CompanyId == si.CompanyId);
+
+                return new CreateJournalEntryDto
+                {
+                    CompanyId = si.CompanyId,
+                    FiscalYearId = fy?.Id ?? Guid.Empty,
+                    PostingDate = DateTime.UtcNow.Date,
+                    VoucherType = JournalEntryVoucherType.BankEntry,
+                    ReferenceType = "SalesInvoice",
+                    ReferenceId = si.Id,
+                    ReferenceNumber = si.InvoiceNumber,
+                    Narration = $"Payment against Sales Invoice {si.InvoiceNumber}",
+                    Lines = new List<CreateJournalEntryLineDto>
+                    {
+                        new()
+                        {
+                            AccountId = bankAccountId,
+                            Amount = outstanding > 0 ? outstanding : 0.01m,
+                            IsDebit = true,
+                            Description = $"Payment against Sales Invoice {si.InvoiceNumber}"
+                        },
+                        new()
+                        {
+                            AccountId = partyAccountId,
+                            Amount = outstanding > 0 ? outstanding : 0.01m,
+                            IsDebit = false,
+                            Description = $"Payment against Sales Invoice {si.InvoiceNumber}"
+                        }
+                    }
+                };
+            }
+            case "PurchaseInvoice":
+            {
+                await AuthorizationService.CheckAsync(MyERPPermissions.PurchaseInvoices.Default);
+                var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+                var pi = await piRepo.GetAsync(documentId);
+
+                if (pi.Status != Core.DocumentStatus.Submitted)
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+                var company = await _companyRepository.GetAsync(pi.CompanyId);
+                var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+                var supplier = await supplierRepo.GetAsync(pi.SupplierId);
+
+                var partyAccountId = supplier.DefaultPayableAccountId
+                    ?? company.DefaultPayableAccountId
+                    ?? Guid.Empty;
+                var bankAccountId = company.DefaultBankAccountId
+                    ?? Guid.Empty;
+
+                var outstanding = Math.Max(0, pi.GrandTotal - pi.AmountPaid);
+                var fy = (await _fiscalYearRepository.GetQueryableAsync())
+                    .FirstOrDefault(f => f.CompanyId == pi.CompanyId && f.StartDate <= DateTime.UtcNow.Date && f.EndDate >= DateTime.UtcNow.Date)
+                    ?? (await _fiscalYearRepository.GetQueryableAsync()).FirstOrDefault(f => f.CompanyId == pi.CompanyId);
+
+                return new CreateJournalEntryDto
+                {
+                    CompanyId = pi.CompanyId,
+                    FiscalYearId = fy?.Id ?? Guid.Empty,
+                    PostingDate = DateTime.UtcNow.Date,
+                    VoucherType = JournalEntryVoucherType.BankEntry,
+                    ReferenceType = "PurchaseInvoice",
+                    ReferenceId = pi.Id,
+                    ReferenceNumber = pi.InvoiceNumber,
+                    Narration = $"Payment against Purchase Invoice {pi.InvoiceNumber}",
+                    Lines = new List<CreateJournalEntryLineDto>
+                    {
+                        new()
+                        {
+                            AccountId = partyAccountId,
+                            Amount = outstanding > 0 ? outstanding : 0.01m,
+                            IsDebit = true,
+                            Description = $"Payment against Purchase Invoice {pi.InvoiceNumber}"
+                        },
+                        new()
+                        {
+                            AccountId = bankAccountId,
+                            Amount = outstanding > 0 ? outstanding : 0.01m,
+                            IsDebit = false,
+                            Description = $"Payment against Purchase Invoice {pi.InvoiceNumber}"
+                        }
+                    }
+                };
+            }
+            default:
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                    .WithData("documentType", documentType);
+        }
     }
 }
 

@@ -1384,5 +1384,219 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         await _repository.InsertAsync(amended, autoSave: true);
         return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(amended);
     }
+
+    [Authorize(MyERPPermissions.PaymentEntries.Create)]
+    public async Task<CreatePaymentEntryDto> GetPaymentEntryTemplateAsync(string documentType, Guid documentId)
+    {
+        Check.NotNullOrWhiteSpace(documentType, nameof(documentType));
+        Check.NotDefaultOrNull<Guid>(documentId, nameof(documentId));
+
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+
+        switch (documentType)
+        {
+            case "SalesOrder":
+            {
+                await AuthorizationService.CheckAsync(MyERPPermissions.SalesOrders.Default);
+                var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+                var so = await soRepo.GetAsync(documentId);
+
+                if (so.Status is Core.DocumentStatus.Cancelled or Core.DocumentStatus.Closed)
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+                if (so.PerBilled >= 100)
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Can only make payment against unbilled Sales Order.");
+
+                var company = await companyRepo.GetAsync(so.CompanyId);
+                var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+                var customer = await customerRepo.GetAsync(so.CustomerId);
+
+                var partyAccountId = customer.DefaultReceivableAccountId
+                    ?? company.DefaultReceivableAccountId
+                    ?? Guid.Empty;
+                var bankAccountId = company.DefaultBankAccountId
+                    ?? Guid.Empty;
+
+                var outstanding = Math.Max(0, so.GrandTotal - so.AdvancePaid);
+
+                return new CreatePaymentEntryDto
+                {
+                    CompanyId = so.CompanyId,
+                    PaymentType = PaymentType.Receive,
+                    PostingDate = DateTime.UtcNow.Date,
+                    PaidAmount = outstanding > 0 ? outstanding : 0.01m,
+                    ReceivedAmount = outstanding > 0 ? outstanding : 0.01m,
+                    PaidFromAccountId = partyAccountId,
+                    PaidToAccountId = bankAccountId,
+                    PartyType = "Customer",
+                    PartyId = so.CustomerId,
+                    AgainstOrderId = so.Id,
+                    AgainstOrderType = "SalesOrder",
+                    PaymentCurrency = so.CurrencyCode,
+                    ExchangeRate = 1m,
+                    References = new List<PaymentReferenceDto>
+                    {
+                        new()
+                        {
+                            ReferenceType = "SalesOrder",
+                            ReferenceId = so.Id,
+                            AllocatedAmount = outstanding > 0 ? outstanding : 0.01m,
+                            ExchangeRate = 1m
+                        }
+                    }
+                };
+            }
+            case "PurchaseOrder":
+            {
+                await AuthorizationService.CheckAsync(MyERPPermissions.PurchaseOrders.Default);
+                var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+                var po = await poRepo.GetAsync(documentId);
+
+                if (po.Status is Core.DocumentStatus.Cancelled or Core.DocumentStatus.Closed)
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+                if (po.PerBilled >= 100)
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Can only make payment against unbilled Purchase Order.");
+
+                var company = await companyRepo.GetAsync(po.CompanyId);
+                var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+                var supplier = await supplierRepo.GetAsync(po.SupplierId);
+
+                var partyAccountId = supplier.DefaultPayableAccountId
+                    ?? company.DefaultPayableAccountId
+                    ?? Guid.Empty;
+                var bankAccountId = company.DefaultBankAccountId
+                    ?? Guid.Empty;
+
+                var outstanding = Math.Max(0, po.GrandTotal - po.AdvancePaid);
+
+                return new CreatePaymentEntryDto
+                {
+                    CompanyId = po.CompanyId,
+                    PaymentType = PaymentType.Pay,
+                    PostingDate = DateTime.UtcNow.Date,
+                    PaidAmount = outstanding > 0 ? outstanding : 0.01m,
+                    ReceivedAmount = outstanding > 0 ? outstanding : 0.01m,
+                    PaidFromAccountId = bankAccountId,
+                    PaidToAccountId = partyAccountId,
+                    PartyType = "Supplier",
+                    PartyId = po.SupplierId,
+                    AgainstOrderId = po.Id,
+                    AgainstOrderType = "PurchaseOrder",
+                    PaymentCurrency = po.CurrencyCode,
+                    ExchangeRate = 1m,
+                    References = new List<PaymentReferenceDto>
+                    {
+                        new()
+                        {
+                            ReferenceType = "PurchaseOrder",
+                            ReferenceId = po.Id,
+                            AllocatedAmount = outstanding > 0 ? outstanding : 0.01m,
+                            ExchangeRate = 1m
+                        }
+                    }
+                };
+            }
+            case "SalesInvoice":
+            {
+                await AuthorizationService.CheckAsync(MyERPPermissions.SalesInvoices.Default);
+                var si = await _salesInvoiceRepository.GetAsync(documentId);
+
+                if (si.Status != Core.DocumentStatus.Submitted)
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+                var company = await companyRepo.GetAsync(si.CompanyId);
+                var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+                var customer = await customerRepo.GetAsync(si.CustomerId);
+
+                var partyAccountId = customer.DefaultReceivableAccountId
+                    ?? company.DefaultReceivableAccountId
+                    ?? Guid.Empty;
+                var bankAccountId = company.DefaultBankAccountId
+                    ?? Guid.Empty;
+
+                var outstanding = Math.Max(0, si.GrandTotal - si.AmountPaid);
+
+                return new CreatePaymentEntryDto
+                {
+                    CompanyId = si.CompanyId,
+                    PaymentType = PaymentType.Receive,
+                    PostingDate = DateTime.UtcNow.Date,
+                    PaidAmount = outstanding > 0 ? outstanding : 0.01m,
+                    ReceivedAmount = outstanding > 0 ? outstanding : 0.01m,
+                    PaidFromAccountId = partyAccountId,
+                    PaidToAccountId = bankAccountId,
+                    PartyType = "Customer",
+                    PartyId = si.CustomerId,
+                    AgainstInvoiceId = si.Id,
+                    AgainstInvoiceType = "SalesInvoice",
+                    PaymentCurrency = si.CurrencyCode,
+                    ExchangeRate = 1m,
+                    References = new List<PaymentReferenceDto>
+                    {
+                        new()
+                        {
+                            ReferenceType = "SalesInvoice",
+                            ReferenceId = si.Id,
+                            AllocatedAmount = outstanding > 0 ? outstanding : 0.01m,
+                            ExchangeRate = 1m
+                        }
+                    }
+                };
+            }
+            case "PurchaseInvoice":
+            {
+                await AuthorizationService.CheckAsync(MyERPPermissions.PurchaseInvoices.Default);
+                var pi = await _purchaseInvoiceRepository.GetAsync(documentId);
+
+                if (pi.Status != Core.DocumentStatus.Submitted)
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+                var company = await companyRepo.GetAsync(pi.CompanyId);
+                var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+                var supplier = await supplierRepo.GetAsync(pi.SupplierId);
+
+                var partyAccountId = supplier.DefaultPayableAccountId
+                    ?? company.DefaultPayableAccountId
+                    ?? Guid.Empty;
+                var bankAccountId = company.DefaultBankAccountId
+                    ?? Guid.Empty;
+
+                var outstanding = Math.Max(0, pi.GrandTotal - pi.AmountPaid);
+
+                return new CreatePaymentEntryDto
+                {
+                    CompanyId = pi.CompanyId,
+                    PaymentType = PaymentType.Pay,
+                    PostingDate = DateTime.UtcNow.Date,
+                    PaidAmount = outstanding > 0 ? outstanding : 0.01m,
+                    ReceivedAmount = outstanding > 0 ? outstanding : 0.01m,
+                    PaidFromAccountId = bankAccountId,
+                    PaidToAccountId = partyAccountId,
+                    PartyType = "Supplier",
+                    PartyId = pi.SupplierId,
+                    AgainstInvoiceId = pi.Id,
+                    AgainstInvoiceType = "PurchaseInvoice",
+                    PaymentCurrency = pi.CurrencyCode,
+                    ExchangeRate = 1m,
+                    References = new List<PaymentReferenceDto>
+                    {
+                        new()
+                        {
+                            ReferenceType = "PurchaseInvoice",
+                            ReferenceId = pi.Id,
+                            AllocatedAmount = outstanding > 0 ? outstanding : 0.01m,
+                            ExchangeRate = 1m
+                        }
+                    }
+                };
+            }
+            default:
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                    .WithData("documentType", documentType);
+        }
+    }
 }
 
