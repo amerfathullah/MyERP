@@ -343,9 +343,37 @@ public class DunningAutoResolveAndManufactureStockEntryTests
 
         var targetWh = Guid.NewGuid();
         var sourceWh = Guid.NewGuid();
-        se.AddItem(Guid.NewGuid(), 5m, sourceWh, null, valuationRate: 10m);
-        se.AddItem(Guid.NewGuid(), 10m, null, targetWh, valuationRate: 5m);
-
         manager.ValidateManufactureItems(se, trackSemiFinishedGoods: false);
+    }
+
+    [Fact]
+    public void StockEntryManager_CalculateManufactureFgRate_ZeroValuedInputs_KeepsRateZero()
+    {
+        // Per ERPNext PR #57334: manufactured item rate remains 0 when inputs are free
+        var manager = new MyERP.Inventory.DomainServices.StockEntryManager(null!, null!, null!);
+        var se = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Manufacture, DateTime.UtcNow);
+        var sourceWh = Guid.NewGuid();
+        var targetWh = Guid.NewGuid();
+
+        se.AddItem(Guid.NewGuid(), 10m, sourceWh, null, valuationRate: 0m); // Free RM
+        se.AddItem(Guid.NewGuid(), 10m, null, targetWh); // FG
+
+        var rate = manager.CalculateManufactureFgRate(se.Items, fgQty: 10m, additionalOperatingCost: 0m, bomEstimatedCost: 150m);
+        Assert.Equal(0m, rate); // Must NOT fall back to BOM estimate 150
+    }
+
+    [Fact]
+    public void StockEntryManager_CalculateManufactureFgRate_ValuedInputs_CalculatesAccurateRate()
+    {
+        var manager = new MyERP.Inventory.DomainServices.StockEntryManager(null!, null!, null!);
+        var se = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Manufacture, DateTime.UtcNow);
+        var sourceWh = Guid.NewGuid();
+        var targetWh = Guid.NewGuid();
+
+        se.AddItem(Guid.NewGuid(), 10m, sourceWh, null, valuationRate: 5m); // 50 total RM
+        se.AddItem(Guid.NewGuid(), 2m, null, targetWh); // FG qty 2
+
+        var rate = manager.CalculateManufactureFgRate(se.Items, fgQty: 2m, additionalOperatingCost: 10m);
+        Assert.Equal(30m, rate); // (50 + 10) / 2 = 30
     }
 }

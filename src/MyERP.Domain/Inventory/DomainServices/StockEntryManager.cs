@@ -240,6 +240,33 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Calculates basic valuation rate for a manufactured FG item.
+    /// Per ERPNext PR #57334: when inputs are consumed at zero cost (e.g. free raw materials),
+    /// rate remains zero (plus additional operating cost) and must not fall back to BOM or standard rates.
+    /// </summary>
+    public decimal CalculateManufactureFgRate(
+        IReadOnlyList<StockEntryItem> items,
+        decimal fgQty,
+        decimal additionalOperatingCost = 0m,
+        decimal? bomEstimatedCost = null)
+    {
+        if (fgQty <= 0) return 0m;
+
+        var rawMaterialItems = items.Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem).ToList();
+        var hasConsumptionBasis = rawMaterialItems.Count > 0;
+
+        var outgoingCost = rawMaterialItems.Sum(i => i.Quantity * (i.ValuationRate ?? 0m));
+
+        if (!hasConsumptionBasis && bomEstimatedCost.HasValue)
+        {
+            outgoingCost = bomEstimatedCost.Value;
+        }
+
+        var totalFgCost = outgoingCost + additionalOperatingCost;
+        return Math.Round(totalFgCost / fgQty, 4);
+    }
+
+    /// <summary>
     /// Validates Disassemble Stock Entry rules.
     /// Per ERPNext: Disassemble reverses a Manufacture entry — breaks FG back into components.
     /// 
