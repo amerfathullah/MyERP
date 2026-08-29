@@ -64,6 +64,21 @@ public class StockClosingService : DomainService
     }
 
     /// <summary>
+    /// Check if a date range overlaps with any existing submitted stock closing entry.
+    /// Per ERPNext PR #56877 / commit 10c6cda6db:
+    /// Two date ranges [from1, to1] and [from2, to2] overlap when from1 <= to2 && to1 >= from2.
+    /// Catches partial overlaps, containment, and enclosure.
+    /// </summary>
+    public async Task<bool> IsRangeOverlappingWithClosingAsync(Guid companyId, DateTime fromDate, DateTime toDate)
+    {
+        var query = await _closingRepository.GetQueryableAsync();
+        return query.Any(c => c.CompanyId == companyId
+                           && c.Status == StockClosingStatus.Submitted
+                           && (c.ScannedFromDate ?? DateTime.MinValue) <= toDate
+                           && c.ToDate >= fromDate);
+    }
+
+    /// <summary>
     /// Generate a stock closing entry for a company up to the specified date.
     /// Uses incremental logic: builds on the latest previous closing.
     ///
