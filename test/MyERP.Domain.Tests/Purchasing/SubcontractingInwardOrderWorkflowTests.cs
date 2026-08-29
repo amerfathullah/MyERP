@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
 using MyERP.Core.Entities;
+using MyERP.Inventory.DomainServices;
 using MyERP.Purchasing;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
@@ -22,6 +23,12 @@ public class SubcontractingInwardOrderWorkflowTests
 {
     private readonly IRepository<SubcontractingInwardOrder, Guid> _scioRepo = Substitute.For<IRepository<SubcontractingInwardOrder, Guid>>();
     private readonly IRepository<DocumentSeries, Guid> _seriesRepo = Substitute.For<IRepository<DocumentSeries, Guid>>();
+    private readonly StockValuationService _stockValuationService = Substitute.For<StockValuationService>(
+        Substitute.For<IRepository<global::MyERP.Inventory.Entities.StockLedgerEntry, Guid>>(),
+        Substitute.For<IRepository<global::MyERP.Inventory.Entities.Item, Guid>>(),
+        Substitute.For<Volo.Abp.Settings.ISettingProvider>());
+    private readonly BinService _binService = Substitute.For<BinService>(
+        Substitute.For<IRepository<global::MyERP.Inventory.Entities.Bin, Guid>>());
     private readonly SubcontractingInwardOrderAppService _appService;
 
     private readonly Guid _companyId = Guid.NewGuid();
@@ -29,7 +36,8 @@ public class SubcontractingInwardOrderWorkflowTests
 
     public SubcontractingInwardOrderWorkflowTests()
     {
-        _appService = new SubcontractingInwardOrderAppService(_scioRepo, _seriesRepo);
+        _appService = new SubcontractingInwardOrderAppService(
+            _scioRepo, _seriesRepo, _stockValuationService, _binService);
     }
 
     [Fact]
@@ -100,5 +108,46 @@ public class SubcontractingInwardOrderWorkflowTests
         Assert.True(summary.CanCancel);
         Assert.False(summary.CanReopen);
         Assert.Equal(1, summary.PendingItemCount);
+    }
+
+    [Fact]
+    public async Task ReceiveItemsAsync_QtyExceedsPending_ThrowsValidationException()
+    {
+        var scioId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var scio = new SubcontractingInwardOrder(scioId, _companyId, "SCIO-2026-006", DateTime.UtcNow, _supplierId);
+        scio.AddItem(new SubcontractingInwardOrderItem(Guid.NewGuid(), scio.Id, itemId, 10m, 50m)
+        {
+            WarehouseId = Guid.NewGuid()
+        });
+        scio.Submit();
+        _scioRepo.GetAsync(scioId).Returns(scio);
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => _appService.ReceiveItemsAsync(scioId, new ScioReceiveItemsDto
+        {
+            PostingDate = DateTime.UtcNow,
+            Items = new List<ScioReceiveItemDto> { new() { ItemId = itemId, Qty = 11m } }
+        }));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+    }
+
+    [Fact]
+    public async Task ReceiveItemsAsync_DraftOrder_ThrowsInvalidStatusTransition()
+    {
+        var scioId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var scio = new SubcontractingInwardOrder(scioId, _companyId, "SCIO-2026-007", DateTime.UtcNow, _supplierId);
+        scio.AddItem(new SubcontractingInwardOrderItem(Guid.NewGuid(), scio.Id, itemId, 10m, 50m)
+        {
+            WarehouseId = Guid.NewGuid()
+        });
+        _scioRepo.GetAsync(scioId).Returns(scio);
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => _appService.ReceiveItemsAsync(scioId, new ScioReceiveItemsDto
+        {
+            PostingDate = DateTime.UtcNow,
+            Items = new List<ScioReceiveItemDto> { new() { ItemId = itemId, Qty = 1m } }
+        }));
+        Assert.Equal(MyERPDomainErrorCodes.InvalidStatusTransition, ex.Code);
     }
 }

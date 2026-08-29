@@ -1,4 +1,4 @@
-import type { CreateSubcontractingInwardOrderDto, SubcontractingInwardOrderDto } from './models';
+import type { CreateSubcontractingInwardOrderDto, ScioReceiveItemsDto, SubcontractingInwardOrderDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -44,6 +44,15 @@ export class SubcontractingInwardOrderService {
     },
     { apiName: this.apiName,...config });
   
+
+  receiveItems = (id: string, input: ScioReceiveItemsDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SubcontractingInwardOrderDto>({
+      method: 'POST',
+      url: `/api/app/subcontracting-inward-order/${id}/receive-items`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
 
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SubcontractingInwardOrderDto>>({

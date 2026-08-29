@@ -722,6 +722,16 @@ export interface SubcontractingInwardOrderItemDto extends EntityDto<string> {
   serviceCostPerQty?: number;
 }
 
+export interface ScioReceiveItemsDto {
+  postingDate?: string;
+  items: ScioReceiveItemDto[];
+}
+
+export interface ScioReceiveItemDto {
+  itemId: string;
+  qty?: number;
+}
+
 export interface SubcontractingOrderDto extends AuditedEntityDto<string> {
   orderNumber?: string;
   orderDate?: string;

@@ -341,20 +341,14 @@ export class SubcontractingInwardDetailComponent implements OnInit {
     const items = this.receiptItems().filter(i => i.receiveQty > 0);
     if (!items.length) return;
     this.isCreatingReceipt.set(true);
-    const o = this.order();
-    this.subcontractingService.createReceipt({
-      subcontractingOrderId: o.subcontractingOrderId || this.orderId,
-      companyId: o.companyId,
-      supplierId: o.supplierId,
+    this.scioService.receiveItems(this.orderId, {
       postingDate: new Date().toISOString().split('T')[0],
       items: items.map(i => ({
         itemId: i.itemId,
-        itemName: this.getItemName(i.itemId),
         qty: i.receiveQty,
-        rate: 0,
       })),
     }).subscribe({
-      next: (receipt: any) => {
+      next: () => {
         this.isCreatingReceipt.set(false);
         this.showReceiptDialog.set(false);
         this.toaster.success('::ReceiptCreatedSuccessfully');

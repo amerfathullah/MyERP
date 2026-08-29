@@ -225,3 +225,15 @@ public class SubcontractingInwardOrderActionSummaryDto
     public bool CanCancel { get; set; }
     public int PendingItemCount { get; set; }
 }
+
+public class ScioReceiveItemsDto
+{
+    [Required] public DateTime PostingDate { get; set; }
+    public List<ScioReceiveItemDto> Items { get; set; } = new();
+}
+
+public class ScioReceiveItemDto
+{
+    [Required] public Guid ItemId { get; set; }
+    public decimal Qty { get; set; }
+}

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
+using MyERP.Inventory.DomainServices;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Shared;
@@ -23,13 +24,19 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
 {
     private readonly IRepository<SubcontractingInwardOrder, Guid> _repository;
     private readonly IRepository<Core.Entities.DocumentSeries, Guid> _seriesRepository;
+    private readonly StockValuationService _stockValuationService;
+    private readonly BinService _binService;
 
     public SubcontractingInwardOrderAppService(
         IRepository<SubcontractingInwardOrder, Guid> repository,
-        IRepository<Core.Entities.DocumentSeries, Guid> seriesRepository)
+        IRepository<Core.Entities.DocumentSeries, Guid> seriesRepository,
+        StockValuationService stockValuationService,
+        BinService binService)
     {
         _repository = repository;
         _seriesRepository = seriesRepository;
+        _stockValuationService = stockValuationService;
+        _binService = binService;
     }
 
     public async Task<PagedResultDto<SubcontractingInwardOrderDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -245,6 +252,75 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
             CanCancel = entity.Status == SubcontractingInwardOrderStatus.Open || entity.Status == SubcontractingInwardOrderStatus.PartiallyReceived,
             PendingItemCount = pendingItems
         };
+    }
+
+    /// <summary>
+    /// Receives finished goods against a Subcontracting Inward Order: updates each item's
+    /// ReceivedQty, stocks the received qty into its warehouse (valued at the item's
+    /// ServiceCostPerQty — our conversion cost basis, not the customer billing Rate, since the
+    /// underlying goods remain the customer's property), and recalculates order fulfillment.
+    /// Previously the Angular UI called the unrelated SubcontractingOrder/Receipt API here, which
+    /// created an orphaned Draft SubcontractingReceipt with no route to submit it and zero
+    /// real-world stock/GL effect (Gap: SCIO "Create Receipt" dead-end).
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseReceipts.Create)]
+    public async Task<SubcontractingInwardOrderDto> ReceiveItemsAsync(Guid id, ScioReceiveItemsDto input)
+    {
+        if (input.Items == null || input.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        var entity = await _repository.GetAsync(id);
+
+        if (entity.Status != SubcontractingInwardOrderStatus.Open &&
+            entity.Status != SubcontractingInwardOrderStatus.PartiallyReceived)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Items can only be received against an Open or Partially Received Subcontracting Inward Order.");
+        }
+
+        var receivedAny = false;
+        foreach (var receiveItem in input.Items)
+        {
+            if (receiveItem.Qty <= 0) continue;
+
+            var item = entity.Items.FirstOrDefault(i => i.ItemId == receiveItem.ItemId)
+                ?? throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound)
+                    .WithData("detail", "Item is not part of this Subcontracting Inward Order.");
+
+            if (receiveItem.Qty > item.PendingReceiptQty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Receive quantity ({receiveItem.Qty}) exceeds pending quantity ({item.PendingReceiptQty}) for the item.");
+            }
+
+            var warehouseId = item.WarehouseId
+                ?? throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse);
+
+            await _stockValuationService.CreateLedgerEntryAsync(
+                entity.CompanyId, item.ItemId, warehouseId, input.PostingDate,
+                receiveItem.Qty, item.ServiceCostPerQty, "SubcontractingInwardOrder", entity.Id, entity.TenantId);
+
+            await _binService.ApplyStockMovementAsync(
+                item.ItemId, warehouseId, receiveItem.Qty, receiveItem.Qty * item.ServiceCostPerQty);
+
+            item.ReceivedQty += receiveItem.Qty;
+            receivedAny = true;
+        }
+
+        if (!receivedAny)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        entity.UpdateReceivedStatus();
+        await _repository.UpdateAsync(entity);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
+            "ItemsReceived", entity.CompanyId,
+            entity.OrderNumber, entity.Status.ToString(), entity.Status.ToString(), CurrentUser.Id,
+            $"Received items against Subcontracting Inward Order '{entity.OrderNumber}'", CurrentTenant.Id));
+
+        return MapToDto(entity);
     }
 
     private static SubcontractingInwardOrderDto MapToDto(SubcontractingInwardOrder entity) => new()
