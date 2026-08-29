@@ -52,10 +52,27 @@ public class AccountingDimension : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public AccountingDimension(Guid id, string documentType, string label, Guid? tenantId = null)
         : base(id)
     {
-        DocumentType = documentType ?? throw new ArgumentNullException(nameof(documentType));
-        Label = label ?? throw new ArgumentNullException(nameof(label));
+        DocumentType = Volo.Abp.Check.NotNullOrWhiteSpace(documentType, nameof(documentType));
+        Label = Volo.Abp.Check.NotNullOrWhiteSpace(label, nameof(label));
+        ValidateDocumentType(documentType);
         FieldName = GenerateFieldName(documentType);
         TenantId = tenantId;
+    }
+
+    public static void ValidateDocumentType(string documentType)
+    {
+        var trimmed = documentType?.Trim() ?? string.Empty;
+        if (trimmed.EndsWith("Item", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Detail", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Reference", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Row", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("ScheduleEntry", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Tax", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Charge", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"{trimmed} cannot be used as an accounting dimension as it is not a standalone document type.");
+        }
     }
 
     public void Enable() => IsEnabled = true;

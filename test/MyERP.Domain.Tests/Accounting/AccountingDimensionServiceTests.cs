@@ -358,4 +358,13 @@ public class AccountingDimensionServiceTests
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.CostCenterRequiredForPlAccount);
     }
+
+    [Fact]
+    public void ChildTable_NotAllowed_AsAccountingDimension_Throws()
+    {
+        var ex = Assert.Throws<BusinessException>(() =>
+            new AccountingDimension(Guid.NewGuid(), "SalesOrderItem", "Sales Order Item"));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
 }
