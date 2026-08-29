@@ -573,10 +573,8 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
         // Guard: cannot cancel a PR whose linked PO has since been Closed — reversing received
         // qty against a closed PO would corrupt its fulfillment tracking. The PO must be
-        // reopened first. Distinct from the "block PR creation against a closed PO" check at
-        // create/submit time (line ~255) — this one guards the opposite direction (cancelling
-        // an existing PR after its PO was closed later).
-        if (receipt.PurchaseOrderId.HasValue)
+        // reopened first. (Exempt for return documents per upstream PR #58126)
+        if (receipt.PurchaseOrderId.HasValue && !receipt.IsReturn)
         {
             var poForCancelGuard = await _purchaseOrderRepository.FindAsync(receipt.PurchaseOrderId.Value);
             if (poForCancelGuard != null && poForCancelGuard.Status == Core.DocumentStatus.Closed)
