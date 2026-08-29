@@ -368,13 +368,31 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         if (shippingRules.Any())
         {
             var netTotal = order.Items.Sum(i => i.LineTotal);
+
+            // Only compute net weight when a rule actually needs it — Calculate() was being fed
+            // netTotal unconditionally before, so a "Based on Net Weight" rule matched its tiers
+            // against the order's currency total instead of its weight.
+            decimal netWeight = 0m;
+            if (shippingRules.Any(r => r.CalculationMode == ShippingCalculationMode.BasedOnNetWeight))
+            {
+                foreach (var soItem in order.Items)
+                {
+                    var itemEntity = await itemRepo.FindAsync(soItem.ItemId);
+                    netWeight += soItem.Quantity * (itemEntity?.WeightPerUnit ?? 0m);
+                }
+            }
+
             foreach (var rule in shippingRules)
             {
                 // Check country restriction (if any)
                 if (!string.IsNullOrEmpty(input.ShippingCountry) && !rule.AppliesToCountry(input.ShippingCountry))
                     continue;
 
-                var shippingCharge = rule.Calculate(netTotal);
+                var value = rule.CalculationMode == ShippingCalculationMode.BasedOnNetWeight
+                    ? netWeight
+                    : netTotal;
+
+                var shippingCharge = rule.Calculate(value);
                 if (shippingCharge > 0)
                 {
                     order.ShippingCharge = shippingCharge;
