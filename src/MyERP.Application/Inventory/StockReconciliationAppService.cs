@@ -136,6 +136,9 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
     [Authorize(MyERPPermissions.StockReconciliations.Create)]
     public async Task<StockReconciliationDto> CreateAsync(CreateStockReconciliationDto input)
     {
+        // Validate that all rows for a Standard Cost item share the same rate (ERPNext PR #56799)
+        await ValidateStandardCostRatesAsync(input);
+
         var sr = new StockReconciliation(GuidGenerator.Create(), input.CompanyId,
             input.PostingDate, CurrentTenant.Id)
         {
@@ -151,6 +154,41 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
 
         await _repository.InsertAsync(sr);
         return ObjectMapper.Map<StockReconciliation, StockReconciliationDto>(sr);
+    }
+
+    private async Task ValidateStandardCostRatesAsync(CreateStockReconciliationDto input)
+    {
+        if (input.Items == null || !input.Items.Any()) return;
+
+        var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var standardCostItems = itemQuery
+            .Where(i => itemIds.Contains(i.Id) && i.ValuationMethod == ValuationMethod.StandardCost)
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName })
+            .ToList();
+
+        if (!standardCostItems.Any()) return;
+
+        var standardCostMap = standardCostItems.ToDictionary(i => i.Id, i => i);
+        var ratesByItem = new Dictionary<Guid, decimal>();
+
+        foreach (var item in input.Items)
+        {
+            if (!standardCostMap.ContainsKey(item.ItemId)) continue;
+
+            if (item.NewValuationRate > 0)
+            {
+                var rate = Math.Round(item.NewValuationRate, 4);
+                if (ratesByItem.TryGetValue(item.ItemId, out var existingRate) && existingRate != rate)
+                {
+                    var itemInfo = standardCostMap[item.ItemId];
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Valuation Rate for Item {itemInfo.ItemName ?? itemInfo.ItemCode} must be the same across all rows, as it is the item's company-wide Standard Cost.");
+                }
+                ratesByItem[item.ItemId] = rate;
+            }
+        }
     }
 
     [Authorize(MyERPPermissions.StockReconciliations.Submit)]
