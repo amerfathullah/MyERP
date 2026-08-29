@@ -784,4 +784,155 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
         if (conversionGroup.Items.Any()) result.Groups.Add(conversionGroup);
         return result;
     }
+
+    /// <summary>
+    /// Finds draft documents of a target type created from/linking back to a source document.
+    /// Warns the user when attempting to create duplicate downstream documents (PR #57299 / get_existing_drafts).
+    /// </summary>
+    public async Task<List<ExistingDraftDto>> GetExistingDraftsAsync(string sourceDocType, Guid sourceId, string targetDocType)
+    {
+        var drafts = new List<ExistingDraftDto>();
+
+        switch ((sourceDocType, targetDocType))
+        {
+            case ("SalesOrder", "DeliveryNote"):
+            {
+                var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
+                var query = await dnRepo.GetQueryableAsync();
+                drafts.AddRange(query
+                    .Where(dn => dn.Status == DocumentStatus.Draft && dn.SalesOrderId == sourceId)
+                    .Select(dn => new ExistingDraftDto
+                    {
+                        Id = dn.Id,
+                        DocumentNumber = dn.DeliveryNumber,
+                        TargetDocType = "DeliveryNote",
+                        Amount = dn.GrandTotal,
+                        Date = dn.PostingDate
+                    }));
+                break;
+            }
+            case ("SalesOrder", "SalesInvoice"):
+            {
+                var soItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrderItem, Guid>>();
+                var soItemQuery = await soItemRepo.GetQueryableAsync();
+                var soItemIds = soItemQuery.Where(i => i.SalesOrderId == sourceId).Select(i => (Guid?)i.Id).ToList();
+
+                var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+                var query = await siRepo.GetQueryableAsync();
+                drafts.AddRange(query
+                    .Where(si => si.Status == DocumentStatus.Draft && si.Items.Any(i => i.SalesOrderItemId.HasValue && soItemIds.Contains(i.SalesOrderItemId)))
+                    .Select(si => new ExistingDraftDto
+                    {
+                        Id = si.Id,
+                        DocumentNumber = si.InvoiceNumber,
+                        TargetDocType = "SalesInvoice",
+                        Amount = si.GrandTotal,
+                        Date = si.IssueDate
+                    }));
+                break;
+            }
+            case ("SalesOrder", "PickList"):
+            {
+                var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PickList, Guid>>();
+                var query = await plRepo.GetQueryableAsync();
+                drafts.AddRange(query
+                    .Where(pl => pl.Status == DocumentStatus.Draft && pl.SalesOrderId == sourceId)
+                    .Select(pl => new ExistingDraftDto
+                    {
+                        Id = pl.Id,
+                        DocumentNumber = pl.PickListNumber,
+                        TargetDocType = "PickList",
+                        Amount = null,
+                        Date = pl.CreationTime
+                    }));
+                break;
+            }
+            case ("SalesOrder", "WorkOrder"):
+            {
+                var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+                var query = await woRepo.GetQueryableAsync();
+                drafts.AddRange(query
+                    .Where(wo => wo.Status == Manufacturing.WorkOrderStatus.Draft && wo.SalesOrderId == sourceId)
+                    .Select(wo => new ExistingDraftDto
+                    {
+                        Id = wo.Id,
+                        DocumentNumber = wo.WorkOrderNumber,
+                        TargetDocType = "WorkOrder",
+                        Amount = null,
+                        Date = wo.CreationTime
+                    }));
+                break;
+            }
+            case ("PurchaseOrder", "PurchaseReceipt"):
+            {
+                var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+                var query = await prRepo.GetQueryableAsync();
+                drafts.AddRange(query
+                    .Where(pr => pr.Status == DocumentStatus.Draft && pr.PurchaseOrderId == sourceId)
+                    .Select(pr => new ExistingDraftDto
+                    {
+                        Id = pr.Id,
+                        DocumentNumber = pr.ReceiptNumber,
+                        TargetDocType = "PurchaseReceipt",
+                        Amount = pr.GrandTotal,
+                        Date = pr.PostingDate
+                    }));
+                break;
+            }
+            case ("PurchaseOrder", "PurchaseInvoice"):
+            {
+                var poItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrderItem, Guid>>();
+                var poItemQuery = await poItemRepo.GetQueryableAsync();
+                var poItemIds = poItemQuery.Where(i => i.PurchaseOrderId == sourceId).Select(i => (Guid?)i.Id).ToList();
+
+                var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseInvoice, Guid>>();
+                var query = await piRepo.GetQueryableAsync();
+                drafts.AddRange(query
+                    .Where(pi => pi.Status == DocumentStatus.Draft && pi.Items.Any(i => i.PurchaseOrderItemId.HasValue && poItemIds.Contains(i.PurchaseOrderItemId)))
+                    .Select(pi => new ExistingDraftDto
+                    {
+                        Id = pi.Id,
+                        DocumentNumber = pi.InvoiceNumber,
+                        TargetDocType = "PurchaseInvoice",
+                        Amount = pi.GrandTotal,
+                        Date = pi.IssueDate
+                    }));
+                break;
+            }
+            case ("Quotation", "SalesOrder"):
+            {
+                var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+                var query = await soRepo.GetQueryableAsync();
+                drafts.AddRange(query
+                    .Where(so => so.Status == DocumentStatus.Draft && so.QuotationId == sourceId)
+                    .Select(so => new ExistingDraftDto
+                    {
+                        Id = so.Id,
+                        DocumentNumber = so.OrderNumber,
+                        TargetDocType = "SalesOrder",
+                        Amount = so.GrandTotal,
+                        Date = so.OrderDate
+                    }));
+                break;
+            }
+            case ("Opportunity", "Quotation"):
+            {
+                var qRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
+                var query = await qRepo.GetQueryableAsync();
+                drafts.AddRange(query
+                    .Where(q => q.Status == DocumentStatus.Draft && q.OpportunityId == sourceId)
+                    .Select(q => new ExistingDraftDto
+                    {
+                        Id = q.Id,
+                        DocumentNumber = q.QuotationNumber,
+                        TargetDocType = "Quotation",
+                        Amount = q.GrandTotal,
+                        Date = q.IssueDate
+                    }));
+                break;
+            }
+        }
+
+        return drafts;
+    }
 }

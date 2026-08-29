@@ -171,20 +171,19 @@ public class DocumentConnectionsAndCurrencyPipeTests
     // ── Session tracking ──
 
     [Fact]
-    public void Session_DocumentConnectionsOnQuotation()
+    public void ExistingDraftDto_Properties_Initialized()
     {
-        Assert.True(true, "DocumentConnectionsComponent wired into Quotation detail for non-Draft quotations");
-    }
+        var draft = new ExistingDraftDto
+        {
+            Id = Guid.NewGuid(),
+            DocumentNumber = "DN-001",
+            TargetDocType = "DeliveryNote",
+            Amount = 100m,
+            Date = DateTime.Today
+        };
 
-    [Fact]
-    public void Session_HardcodedMyrReplaced()
-    {
-        Assert.True(true, "5 hardcoded 'MYR' fallbacks replaced with CompanyCurrencyPipe across SI/PI/DN/SO/QTN detail pages");
-    }
-
-    [Fact]
-    public void Session_UpstreamUnchanged()
-    {
-        Assert.True(true, "erpnext f71946def7 (unchanged), myinvois 6501660 (unchanged)");
+        Assert.Equal("DN-001", draft.DocumentNumber);
+        Assert.Equal("DeliveryNote", draft.TargetDocType);
+        Assert.Equal(100m, draft.Amount);
     }
 }

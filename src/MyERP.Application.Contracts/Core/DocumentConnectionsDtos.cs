@@ -31,3 +31,15 @@ public class ConnectionDocumentDto
     public DateTime? Date { get; set; }
     public string Route { get; set; } = null!;
 }
+
+/// <summary>
+/// Draft linked document found for a source document (per ERPNext PR #57299 / get_existing_drafts).
+/// </summary>
+public class ExistingDraftDto
+{
+    public Guid Id { get; set; }
+    public string DocumentNumber { get; set; } = null!;
+    public string TargetDocType { get; set; } = null!;
+    public decimal? Amount { get; set; }
+    public DateTime? Date { get; set; }
+}
