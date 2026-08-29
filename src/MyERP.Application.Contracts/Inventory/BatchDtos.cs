@@ -142,3 +142,24 @@ public class MoveBatchResultDto
     public Guid StockEntryId { get; set; }
     public string? StockEntryNumber { get; set; }
 }
+
+public class GetAvailableBatchesDto
+{
+    public Guid? CompanyId { get; set; }
+    public Guid? ItemId { get; set; }
+    public Guid? WarehouseId { get; set; }
+}
+
+public class AvailableBatchItemDto
+{
+    public Guid BatchId { get; set; }
+    public string BatchNo { get; set; } = null!;
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public Guid WarehouseId { get; set; }
+    public string WarehouseName { get; set; } = null!;
+    public decimal AvailableQuantity { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public bool IsExpired { get; set; }
+}
+

@@ -20,4 +20,7 @@ public interface IBatchAppService : IApplicationService
 
     /// <summary>Moves batch stock from source warehouse to target warehouse via Material Transfer Stock Entry.</summary>
     Task<MoveBatchResultDto> MoveBatchAsync(MoveBatchDto input);
+
+    /// <summary>Returns available batch stock filtered by company, item, and warehouse.</summary>
+    Task<System.Collections.Generic.List<AvailableBatchItemDto>> GetAvailableBatchesAsync(GetAvailableBatchesDto input);
 }

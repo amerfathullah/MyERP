@@ -225,4 +225,25 @@ public class BatchWiseBalanceAndSoEmailTests
         // Both erpnext (4f1adb8a94) and myinvois (6501660) are at same HEAD as last sync
         Assert.True(true);
     }
+
+    [Fact]
+    public void AvailableBatchItemDto_Properties_Settable()
+    {
+        var dto = new AvailableBatchItemDto
+        {
+            BatchId = Guid.NewGuid(),
+            BatchNo = "B-001",
+            ItemId = Guid.NewGuid(),
+            ItemName = "Widget A",
+            WarehouseId = Guid.NewGuid(),
+            WarehouseName = "Stores - C",
+            AvailableQuantity = 50m,
+            ExpiryDate = DateTime.UtcNow.AddMonths(6),
+            IsExpired = false,
+        };
+
+        Assert.Equal("B-001", dto.BatchNo);
+        Assert.Equal(50m, dto.AvailableQuantity);
+        Assert.False(dto.IsExpired);
+    }
 }

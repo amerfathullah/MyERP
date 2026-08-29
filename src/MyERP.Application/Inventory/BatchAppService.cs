@@ -442,5 +442,84 @@ public class BatchAppService : ApplicationService, IBatchAppService
             StockEntryNumber = createdEntry.EntryNumber,
         };
     }
+
+    /// <summary>
+    /// Returns available batch stock filtered by company, item, and warehouse.
+    /// Per ERPNext PR #58065 / #57995 (available_batch_report): filters strictly by company to prevent cross-company leakage.
+    /// </summary>
+    public async Task<List<AvailableBatchItemDto>> GetAvailableBatchesAsync(GetAvailableBatchesDto input)
+    {
+        var sleQuery = await _sleRepository.GetQueryableAsync();
+        var warehouseQuery = await _warehouseRepository.GetQueryableAsync();
+        var batchQuery = await _repository.GetQueryableAsync();
+
+        if (input.CompanyId.HasValue)
+        {
+            var companyWarehouseIds = warehouseQuery
+                .Where(w => w.CompanyId == input.CompanyId.Value)
+                .Select(w => w.Id)
+                .ToList();
+            sleQuery = sleQuery.Where(s => s.BatchId.HasValue && companyWarehouseIds.Contains(s.WarehouseId) && !s.IsCancelled);
+        }
+        else
+        {
+            sleQuery = sleQuery.Where(s => s.BatchId.HasValue && !s.IsCancelled);
+        }
+
+        if (input.WarehouseId.HasValue)
+            sleQuery = sleQuery.Where(s => s.WarehouseId == input.WarehouseId.Value);
+
+        if (input.ItemId.HasValue)
+            sleQuery = sleQuery.Where(s => s.ItemId == input.ItemId.Value);
+
+        var batchBalances = sleQuery
+            .GroupBy(s => new { s.BatchId, s.WarehouseId, s.ItemId })
+            .Select(g => new { g.Key.BatchId, g.Key.WarehouseId, g.Key.ItemId, Qty = g.Sum(s => s.QuantityChange) })
+            .Where(g => g.Qty > 0)
+            .ToList();
+
+        if (!batchBalances.Any()) return new List<AvailableBatchItemDto>();
+
+        var batchIds = batchBalances.Select(b => b.BatchId!.Value).Distinct().ToList();
+        var batches = batchQuery.Where(b => batchIds.Contains(b.Id))
+            .Select(b => new { b.Id, b.BatchNo, b.ExpiryDate, b.IsDisabled })
+            .Where(b => !b.IsDisabled)
+            .ToDictionary(b => b.Id);
+
+        var warehouseIds = batchBalances.Select(b => b.WarehouseId).Distinct().ToList();
+        var warehouses = warehouseQuery.Where(w => warehouseIds.Contains(w.Id))
+            .Select(w => new { w.Id, w.Name })
+            .ToDictionary(w => w.Id, w => w.Name);
+
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var itemIds = batchBalances.Select(b => b.ItemId).Distinct().ToList();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var items = itemQuery.Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemName })
+            .ToDictionary(i => i.Id, i => i.ItemName);
+
+        var today = DateTime.UtcNow.Date;
+        return batchBalances
+            .Where(b => batches.ContainsKey(b.BatchId!.Value))
+            .Select(b =>
+            {
+                var batch = batches[b.BatchId!.Value];
+                return new AvailableBatchItemDto
+                {
+                    BatchId = b.BatchId!.Value,
+                    BatchNo = batch.BatchNo,
+                    ItemId = b.ItemId,
+                    ItemName = items.GetValueOrDefault(b.ItemId),
+                    WarehouseId = b.WarehouseId,
+                    WarehouseName = warehouses.GetValueOrDefault(b.WarehouseId, "Unknown"),
+                    AvailableQuantity = b.Qty,
+                    ExpiryDate = batch.ExpiryDate,
+                    IsExpired = batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < today,
+                };
+            })
+            .OrderBy(b => b.ExpiryDate)
+            .ThenBy(b => b.BatchNo)
+            .ToList();
+    }
 }
 
