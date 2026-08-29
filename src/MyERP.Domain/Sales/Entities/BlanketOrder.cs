@@ -55,6 +55,9 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        if (qty <= 0)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Quantity must be greater than zero.");
         if (_items.Any(x => x.ItemId == itemId))
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("itemId", itemId)

@@ -118,4 +118,12 @@ public class BlanketOrderTests
         bo.Submit();
         Should.Throw<BusinessException>(() => bo.AddItem(Guid.NewGuid(), 50, 3m));
     }
+
+    [Fact]
+    public void AddItem_ZeroOrNegativeQuantity_Throws()
+    {
+        var bo = CreateBO();
+        Should.Throw<BusinessException>(() => bo.AddItem(Guid.NewGuid(), 0, 5m));
+        Should.Throw<BusinessException>(() => bo.AddItem(Guid.NewGuid(), -10, 5m));
+    }
 }

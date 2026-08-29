@@ -167,6 +167,7 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
                 Uom = item.Uom,
             });
         }
+        opp.ValidateItems();
         opp.RecalculateAmount();
 
         await _repository.InsertAsync(opp);
@@ -218,6 +219,7 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
                 Uom = item.Uom,
             });
         }
+        opp.ValidateItems();
         opp.RecalculateAmount();
 
         await _repository.UpdateAsync(opp);

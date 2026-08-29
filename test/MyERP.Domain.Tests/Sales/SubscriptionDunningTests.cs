@@ -147,6 +147,18 @@ public class SubscriptionTests
         // 2-month billing intervals
         sub.CurrentInvoiceEnd.ShouldBe(new DateTime(2026, 2, 28));
     }
+
+    [Fact]
+    public void DetermineStatus_CancelledSubscription_StaysCancelled()
+    {
+        var sub = CreateSub();
+        sub.Cancel();
+
+        var engine = new DomainServices.SubscriptionBillingEngine(null!);
+        var status = engine.DetermineStatus(sub, DateTime.UtcNow, hasOutstandingInvoices: false, isFullyRefunded: false);
+
+        status.ShouldBe(SubscriptionStatus.Cancelled);
+    }
 }
 
 public class DunningTests

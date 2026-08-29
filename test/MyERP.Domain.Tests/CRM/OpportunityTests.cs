@@ -110,6 +110,24 @@ public class OpportunityTests
         opp.Status.ShouldBe(OpportunityStatus.Closed);
     }
 
+    [Fact]
+    public void AddItem_ZeroOrNegativeQty_Throws()
+    {
+        var opp = CreateOpportunity();
+        Should.Throw<BusinessException>(() => opp.AddItem("Widget A", 0, 100));
+        Should.Throw<BusinessException>(() => opp.AddItem("Widget B", -5, 100));
+    }
+
+    [Fact]
+    public void ValidateItems_ZeroOrNegativeQty_Throws()
+    {
+        var opp = CreateOpportunity();
+        opp.Items.Add(new OpportunityItem(Guid.NewGuid(), opp.Id, "Widget Zero", 0, 100));
+
+        var ex = Should.Throw<BusinessException>(() => opp.ValidateItems());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
     private static Opportunity CreateOpportunity()
     {
         return new Opportunity(

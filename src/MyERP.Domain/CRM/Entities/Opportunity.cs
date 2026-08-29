@@ -102,6 +102,35 @@ public class Opportunity : FullAuditedAggregateRoot<Guid>, IMultiTenant
         LostReason = null;
     }
 
+    public void ValidateItems()
+    {
+        foreach (var item in Items)
+        {
+            if (item.Quantity <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Quantity must be greater than 0 for item '{item.Description}'.");
+            }
+        }
+    }
+
+    public void AddItem(string description, decimal quantity, decimal unitPrice, Guid? itemId = null, string? uom = null)
+    {
+        if (quantity <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Quantity must be greater than 0 for item '{description}'.");
+        }
+
+        var item = new OpportunityItem(Guid.NewGuid(), Id, description, quantity, unitPrice)
+        {
+            ItemId = itemId,
+            Uom = uom
+        };
+        Items.Add(item);
+        RecalculateAmount();
+    }
+
     public void RecalculateAmount()
     {
         OpportunityAmount = 0;

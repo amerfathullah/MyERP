@@ -43,6 +43,10 @@ public class SubscriptionBillingEngine : DomainService
         bool hasOutstandingInvoices,
         bool isFullyRefunded)
     {
+        // 0. Once cancelled, stay cancelled (PR #57774 / commit 0f428ed854)
+        if (sub.Status == SubscriptionStatus.Cancelled)
+            return SubscriptionStatus.Cancelled;
+
         // 1. Trialing
         if (sub.TrialEndDate.HasValue && asOfDate <= sub.TrialEndDate.Value)
             return SubscriptionStatus.Active; // Trialing maps to Active with 100% discount
