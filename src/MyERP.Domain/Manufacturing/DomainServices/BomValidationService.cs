@@ -71,12 +71,13 @@ public class BomValidationService : DomainService
 
         foreach (var item in bom.Items)
         {
-            var qty = item.Quantity * multiplier;
+            var bomOutputQty = bom.Quantity > 0 ? bom.Quantity : 1m;
+            var qty = (item.StockQty / bomOutputQty) * multiplier;
 
             if (item.IsPhantom && item.SubBomId.HasValue)
             {
                 // Phantom: explode sub-BOM and bubble up components
-                var subItems = await ExplodeBomAsync(item.SubBomId.Value, qty / bom.Quantity);
+                var subItems = await ExplodeBomAsync(item.SubBomId.Value, qty);
                 result.AddRange(subItems);
             }
             else if (item.SubBomId.HasValue && !item.IsPhantom)
