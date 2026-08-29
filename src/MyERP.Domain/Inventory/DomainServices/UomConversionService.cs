@@ -124,4 +124,29 @@ public class UomConversionService : DomainService
         var factor = await GetConversionFactorAsync(itemId, transactionUom, stockUom);
         return transactionQty * factor;
     }
+
+    /// <summary>
+    /// Converts stock quantity to purchase UOM quantity.
+    /// Per ERPNext PR #57873 / commit ee8eb18daf:
+    /// When ConsiderMinimumOrderQty is active and standard nearest rounding dips below
+    /// min_order_qty, takes the grid-ceiling to ensure stock equivalent meets minimum order qty.
+    /// </summary>
+    public static decimal CalculatePurchaseUomQty(
+        decimal plannedStockQty,
+        decimal conversionFactor,
+        decimal minOrderQty = 0m,
+        bool considerMinOrderQty = false,
+        int precision = 4)
+    {
+        if (conversionFactor <= 0) return plannedStockQty;
+
+        var qty = Math.Round(plannedStockQty / conversionFactor, precision);
+        if (considerMinOrderQty && minOrderQty > 0 && (qty * conversionFactor) < minOrderQty && minOrderQty <= plannedStockQty)
+        {
+            var factor = (decimal)Math.Pow(10, precision);
+            qty = Math.Ceiling((minOrderQty / conversionFactor) * factor) / factor;
+        }
+
+        return qty;
+    }
 }
