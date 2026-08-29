@@ -158,10 +158,13 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
                         entry.ScheduleDate,
                         asset.TenantId);
 
+                    // Round depreciation amount to currency precision (2 decimal places) to match JE debit (ERPNext PR #56964)
+                    var deprAmount = Math.Round(entry.DepreciationAmount, 2);
+
                     // Tag JE lines with finance book for multi-book GL separation
-                    journal.AddLine(depreciationExpenseAccountId.Value, entry.DepreciationAmount, true,
+                    journal.AddLine(depreciationExpenseAccountId.Value, deprAmount, true,
                         $"Depreciation of {asset.AssetName}" + (financeBookName != null ? $" [{financeBookName}]" : ""));
-                    journal.AddLine(accumulatedDepAccountId.Value, entry.DepreciationAmount, false,
+                    journal.AddLine(accumulatedDepAccountId.Value, deprAmount, false,
                         $"Accumulated depreciation - {asset.AssetName}" + (financeBookName != null ? $" [{financeBookName}]" : ""));
 
                     // Set finance book on all lines (after AddLine, which returns void)
@@ -181,12 +184,12 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
                     // Update per-book book value if DepreciationDetail exists
                     if (detail != null)
                     {
-                        detail.ValueAfterDepreciation -= entry.DepreciationAmount;
+                        detail.ValueAfterDepreciation -= deprAmount;
                         if (detail.ValueAfterDepreciation < 0) detail.ValueAfterDepreciation = 0;
                     }
 
                     // Update overall asset book value (primary/default book drives asset status)
-                    asset.ValueAfterDepreciation -= entry.DepreciationAmount;
+                    asset.ValueAfterDepreciation -= deprAmount;
                     if (asset.ValueAfterDepreciation <= 0)
                     {
                         asset.ValueAfterDepreciation = 0;
