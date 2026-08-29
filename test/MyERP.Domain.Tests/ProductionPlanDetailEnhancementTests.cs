@@ -49,9 +49,12 @@ public class ProductionPlanDetailEnhancementTests
     public void ProductionPlan_Cancel_FromSubmitted()
     {
         var pp = CreatePPWithItem();
+        pp.AddMaterialRequirement(new ProductionPlanMrItem(Guid.NewGuid(), pp.Id, ItemId, "Material A", 10m));
+        Assert.Single(pp.MaterialRequirements);
         pp.Submit();
         pp.Cancel();
         Assert.Equal(ProductionPlanStatus.Cancelled, pp.Status);
+        Assert.Empty(pp.MaterialRequirements);
     }
 
     [Fact]

@@ -86,6 +86,7 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status is ProductionPlanStatus.Cancelled or ProductionPlanStatus.Completed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = ProductionPlanStatus.Cancelled;
+        MaterialRequirements.Clear();
         AddLocalEvent(new MyERP.Manufacturing.Events.ProductionPlanCancelledEvent(Id, TenantId));
     }
 
