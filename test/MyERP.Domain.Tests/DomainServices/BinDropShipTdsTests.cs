@@ -6,6 +6,7 @@ using MyERP.Manufacturing.DomainServices;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using MyERP.Tax.DomainServices;
+using NSubstitute;
 using Shouldly;
 using Xunit;
 
@@ -345,5 +346,79 @@ public class SalesOrderDropShipTests
         so.AddItem(Guid.NewGuid(), "Drop Ship", 1, 100m, 0m);
         so.Items.First().DeliveredBySupplier = true;
         so.Items.First().WarehouseId.ShouldBeNull(); // Drop-ship = no warehouse
+    }
+}
+
+/// <summary>
+/// Tests for BinService.ResetBinIfNoLedgerEntriesAsync (upstream PR #58362).
+/// </summary>
+public class BinResetIfNoLedgerEntriesTests
+{
+    [Fact]
+    public async System.Threading.Tasks.Task ResetBinIfNoLedgerEntries_Resets_WhenNoActiveSle()
+    {
+        var binRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Bin, Guid>>();
+        var sleRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<StockLedgerEntry, Guid>>();
+        var binService = new MyERP.Inventory.DomainServices.BinService(binRepo);
+
+        var itemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var bin = new Bin(Guid.NewGuid(), itemId, whId)
+        {
+            ActualQty = 10m,
+            StockValue = 100m,
+            ValuationRate = 10m
+        };
+
+        binRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<Bin> { bin }.AsQueryable()));
+
+        // All SLEs are cancelled
+        var cancelledSle = new StockLedgerEntry(Guid.NewGuid(), Guid.NewGuid(), itemId, whId, DateTime.UtcNow, 10m, 10m, 100m, 10m)
+        {
+            IsCancelled = true
+        };
+        sleRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<StockLedgerEntry> { cancelledSle }.AsQueryable()));
+
+        await binService.ResetBinIfNoLedgerEntriesAsync(itemId, whId, sleRepo);
+
+        bin.ActualQty.ShouldBe(0m);
+        bin.StockValue.ShouldBe(0m);
+        bin.ValuationRate.ShouldBe(0m);
+        await binRepo.Received(1).UpdateAsync(bin);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ResetBinIfNoLedgerEntries_DoesNotReset_WhenActiveSleExists()
+    {
+        var binRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Bin, Guid>>();
+        var sleRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<StockLedgerEntry, Guid>>();
+        var binService = new MyERP.Inventory.DomainServices.BinService(binRepo);
+
+        var itemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var bin = new Bin(Guid.NewGuid(), itemId, whId)
+        {
+            ActualQty = 10m,
+            StockValue = 100m,
+            ValuationRate = 10m
+        };
+
+        binRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<Bin> { bin }.AsQueryable()));
+
+        var activeSle = new StockLedgerEntry(Guid.NewGuid(), Guid.NewGuid(), itemId, whId, DateTime.UtcNow, 10m, 10m, 100m, 10m)
+        {
+            IsCancelled = false
+        };
+        sleRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<StockLedgerEntry> { activeSle }.AsQueryable()));
+
+        await binService.ResetBinIfNoLedgerEntriesAsync(itemId, whId, sleRepo);
+
+        bin.ActualQty.ShouldBe(10m);
+        bin.StockValue.ShouldBe(100m);
+        await binRepo.DidNotReceive().UpdateAsync(bin);
     }
 }

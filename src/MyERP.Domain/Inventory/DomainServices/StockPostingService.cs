@@ -158,6 +158,8 @@ public class StockPostingService : DomainService
         {
             await _valuationService.RevaluateFromDateAsync(
                 combo.ItemId, combo.WarehouseId, stockEntry.PostingDate);
+            await _binService.ResetBinIfNoLedgerEntriesAsync(
+                combo.ItemId, combo.WarehouseId, _sleRepository, stockEntry.TenantId);
         }
     }
 

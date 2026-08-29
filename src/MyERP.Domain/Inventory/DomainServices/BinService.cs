@@ -203,4 +203,17 @@ public class BinService : DomainService
         // For now, ensures the entity is marked dirty and re-persisted with current computed values
         await _binRepository.UpdateAsync(bin);
     }
+
+    /// <summary>
+    /// Resets Bin actual_qty, valuation_rate, and stock_value to 0 when no non-cancelled SLEs remain (PR #58362).
+    /// </summary>
+    public virtual async Task ResetBinIfNoLedgerEntriesAsync(Guid itemId, Guid warehouseId, IRepository<StockLedgerEntry, Guid> sleRepository, Guid? tenantId = null)
+    {
+        var sleQuery = await sleRepository.GetQueryableAsync();
+        var hasActiveSle = sleQuery.Any(s => s.ItemId == itemId && s.WarehouseId == warehouseId && !s.IsCancelled);
+        if (!hasActiveSle)
+        {
+            await SetBalanceAsync(itemId, warehouseId, 0m, 0m, tenantId);
+        }
+    }
 }

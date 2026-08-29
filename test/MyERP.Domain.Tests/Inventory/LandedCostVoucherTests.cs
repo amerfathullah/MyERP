@@ -112,4 +112,17 @@ public class LandedCostVoucherTests
         (lcv.Items[0].ApplicableCharges + lcv.Items[1].ApplicableCharges + lcv.Items[2].ApplicableCharges)
             .ShouldBe(100m);
     }
+
+    [Fact]
+    public void AddCharge_PreservesDimensions()
+    {
+        var lcv = CreateLCV();
+        var ccId = Guid.NewGuid();
+        var projId = Guid.NewGuid();
+        lcv.AddCharge("Customs", Guid.NewGuid(), 250m, costCenterId: ccId, projectId: projId);
+
+        lcv.Charges.Count.ShouldBe(1);
+        lcv.Charges[0].CostCenterId.ShouldBe(ccId);
+        lcv.Charges[0].ProjectId.ShouldBe(projId);
+    }
 }
