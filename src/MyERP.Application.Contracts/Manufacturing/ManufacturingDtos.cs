@@ -25,6 +25,7 @@ public class BomDto : AuditedEntityDto<Guid>
     public decimal ProcessLossPercentage { get; set; }
     public decimal FgCostAllocationPercentage { get; set; }
     public Guid? ScrapWarehouseId { get; set; }
+    public bool SetQtyBasedOnPercentage { get; set; }
     public List<BomItemDto> Items { get; set; } = new();
     public List<BomOperationDto> Operations { get; set; } = new();
     public List<BomSecondaryItemDto> SecondaryItems { get; set; } = new();
@@ -68,6 +69,8 @@ public class BomItemDto
     public string? Uom { get; set; }
     public decimal Rate { get; set; }
     public decimal Amount { get; set; }
+    public decimal Percentage { get; set; }
+    public bool IsBalanceItem { get; set; }
 }
 
 public class BomSecondaryItemDto
@@ -98,6 +101,7 @@ public class CreateBomDto
     public Guid? RoutingId { get; set; }
     public Guid? ScrapWarehouseId { get; set; }
     public decimal ProcessLossPercentage { get; set; }
+    public bool SetQtyBasedOnPercentage { get; set; }
     public List<CreateBomItemDto> Items { get; set; } = new();
     public List<CreateBomOperationDto> Operations { get; set; } = new();
     public List<CreateBomSecondaryItemDto> SecondaryItems { get; set; } = new();
@@ -133,9 +137,11 @@ public class CreateBomItemDto
 {
     [Required] public Guid ItemId { get; set; }
     [Required] public string ItemName { get; set; } = null!;
-    [Range(0.01, double.MaxValue)] public decimal Quantity { get; set; }
+    public decimal Quantity { get; set; }
     public string? Uom { get; set; }
     [Range(0, double.MaxValue)] public decimal Rate { get; set; }
+    public decimal Percentage { get; set; }
+    public bool IsBalanceItem { get; set; }
 }
 
 // === Work Order DTOs ===

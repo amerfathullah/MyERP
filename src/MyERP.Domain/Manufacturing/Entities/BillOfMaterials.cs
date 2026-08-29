@@ -78,6 +78,9 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Scrap/secondary items target warehouse.</summary>
     public Guid? ScrapWarehouseId { get; set; }
 
+    /// <summary>Set component quantities based on percentage formulation (ERPNext commit d07f4bb857).</summary>
+    public bool SetQtyBasedOnPercentage { get; set; }
+
     public List<BomItem> Items { get; private set; } = new();
     public List<BomOperation> Operations { get; private set; } = new();
     public List<BomSecondaryItem> SecondaryItems { get; private set; } = new();
@@ -93,8 +96,69 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
+    /// <summary>
+    /// Computes component quantities from formulation percentages.
+    /// Per ERPNext commit d07f4bb857:
+    /// - Mutually exclusive with TrackSemiFinishedGoods.
+    /// - Validates at most one balance item.
+    /// - Automatically sets balance item percentage = 100 - sum(others).
+    /// - Requires total percentage to be exactly 100%.
+    /// - Computes row.Quantity = (Percentage / 100) * Quantity.
+    /// </summary>
+    public void SetQtyFromPercentage()
+    {
+        if (!SetQtyBasedOnPercentage || !Items.Any()) return;
+
+        if (TrackSemiFinishedGoods)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "'Set Component Quantities Based On Percentage' cannot be used together with 'Track Semi Finished Goods'.");
+        }
+
+        foreach (var row in Items)
+        {
+            if (row.Percentage <= 0 && !row.IsBalanceItem)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Percentage is required for item {row.ItemName} as 'Set Component Quantities Based On Percentage' is enabled.");
+            }
+        }
+
+        var balanceRows = Items.Where(r => r.IsBalanceItem).ToList();
+        if (balanceRows.Count > 1)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Only one component can be marked as Balance Item.");
+        }
+
+        if (balanceRows.Count == 1)
+        {
+            var nonBalanceSum = Items.Where(r => !r.IsBalanceItem).Sum(r => r.Percentage);
+            if (nonBalanceSum >= 100m)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"The other components already total {nonBalanceSum}%, so no percentage remains for the Balance Item {balanceRows[0].ItemName}.");
+            }
+            balanceRows[0].Percentage = 100m - nonBalanceSum;
+        }
+
+        var totalPercentage = Items.Sum(r => r.Percentage);
+        if (Math.Abs(totalPercentage - 100m) > 0.0001m)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"The percentages of the components must total 100%. The current total is {totalPercentage}%.");
+        }
+
+        foreach (var row in Items)
+        {
+            row.Quantity = (row.Percentage / 100m) * Quantity;
+            row.Recalculate();
+        }
+    }
+
     public void RecalculateCost()
     {
+        SetQtyFromPercentage();
         TotalMaterialCost = 0;
         foreach (var item in Items)
         {

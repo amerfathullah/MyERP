@@ -99,13 +99,18 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             RoutingId = input.RoutingId,
             ScrapWarehouseId = input.ScrapWarehouseId,
             ProcessLossPercentage = input.ProcessLossPercentage,
+            SetQtyBasedOnPercentage = input.SetQtyBasedOnPercentage,
         };
 
         foreach (var item in input.Items)
         {
             bom.Items.Add(new BomItem(
                 GuidGenerator.Create(), bom.Id, item.ItemId, item.ItemName, item.Quantity, item.Rate)
-            { Uom = item.Uom });
+            {
+                Uom = item.Uom,
+                Percentage = item.Percentage,
+                IsBalanceItem = item.IsBalanceItem,
+            });
         }
 
         // Add operations (sorted by SequenceId to enforce monotonic insertion)
@@ -163,13 +168,18 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         bom.RoutingId = input.RoutingId;
         bom.ScrapWarehouseId = input.ScrapWarehouseId;
         bom.ProcessLossPercentage = input.ProcessLossPercentage;
+        bom.SetQtyBasedOnPercentage = input.SetQtyBasedOnPercentage;
 
         bom.Items.Clear();
         foreach (var item in input.Items)
         {
             bom.Items.Add(new BomItem(
                 GuidGenerator.Create(), bom.Id, item.ItemId, item.ItemName, item.Quantity, item.Rate)
-            { Uom = item.Uom });
+            {
+                Uom = item.Uom,
+                Percentage = item.Percentage,
+                IsBalanceItem = item.IsBalanceItem,
+            });
         }
 
         bom.Operations.Clear();

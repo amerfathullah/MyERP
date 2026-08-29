@@ -33,6 +33,12 @@ public class BomItem : FullAuditedEntity<Guid>
     /// </summary>
     public bool IsPhantom { get; set; }
 
+    /// <summary>Percentage formulation when BOM.SetQtyBasedOnPercentage is active (ERPNext commit d07f4bb857).</summary>
+    public decimal Percentage { get; set; }
+
+    /// <summary>Absorbs the remaining percentage to make components sum to 100%.</summary>
+    public bool IsBalanceItem { get; set; }
+
     protected BomItem() { }
 
     public BomItem(Guid id, Guid bomId, Guid itemId, string itemName, decimal quantity, decimal rate,
