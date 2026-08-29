@@ -191,4 +191,24 @@ public class ProductBundleDecompositionTests
         var valuation = bundle.CalculateValuation(_ => 100m);
         valuation.ShouldBe(0m);
     }
+
+    [Fact]
+    public void DecomposedItem_PreservesWarehouseId()
+    {
+        var warehouseId = Guid.NewGuid();
+        var item = new DecomposedItem(
+            ComponentItemId: Guid.NewGuid(),
+            ComponentItemName: "Comp",
+            Qty: 2m,
+            Rate: 50m,
+            Uom: "Nos",
+            ParentBundleItemId: Guid.NewGuid(),
+            ParentBundleId: Guid.NewGuid(),
+            WarehouseId: warehouseId);
+
+        item.WarehouseId.ShouldBe(warehouseId);
+
+        var txnItem = new BundleTransactionItem(Guid.NewGuid(), 2m, 100m, warehouseId);
+        txnItem.WarehouseId.ShouldBe(warehouseId);
+    }
 }

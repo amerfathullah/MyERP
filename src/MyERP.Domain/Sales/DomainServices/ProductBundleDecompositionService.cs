@@ -62,8 +62,9 @@ public class ProductBundleDecompositionService : DomainService
     /// <param name="itemId">The bundle parent item ID</param>
     /// <param name="transactionQty">Quantity of the parent in the transaction</param>
     /// <param name="parentRate">Rate/unit price of the parent bundle item</param>
+    /// <param name="warehouseId">Optional warehouse from parent item row</param>
     /// <returns>List of decomposed component items with qty and proportional rate</returns>
-    public async Task<List<DecomposedItem>> DecomposeAsync(Guid itemId, decimal transactionQty, decimal parentRate)
+    public async Task<List<DecomposedItem>> DecomposeAsync(Guid itemId, decimal transactionQty, decimal parentRate, Guid? warehouseId = null)
     {
         var queryable = await _bundleRepository.GetQueryableAsync();
         var bundle = queryable.FirstOrDefault(b => b.ItemId == itemId && b.IsActive);
@@ -92,7 +93,8 @@ public class ProductBundleDecompositionService : DomainService
                 Rate: proportionalRate,
                 Uom: component.Uom ?? "Unit",
                 ParentBundleItemId: itemId,
-                ParentBundleId: bundle.Id
+                ParentBundleId: bundle.Id,
+                WarehouseId: warehouseId
             ));
         }
 
@@ -117,7 +119,7 @@ public class ProductBundleDecompositionService : DomainService
         {
             if (bundleItemIds.Contains(item.ItemId))
             {
-                var components = await DecomposeAsync(item.ItemId, item.Qty, item.Rate);
+                var components = await DecomposeAsync(item.ItemId, item.Qty, item.Rate, item.WarehouseId);
                 packedItems.AddRange(components);
             }
             else
@@ -140,7 +142,8 @@ public record DecomposedItem(
     decimal Rate,
     string Uom,
     Guid ParentBundleItemId,
-    Guid ParentBundleId
+    Guid ParentBundleId,
+    Guid? WarehouseId = null
 );
 
 /// <summary>
@@ -149,7 +152,8 @@ public record DecomposedItem(
 public record BundleTransactionItem(
     Guid ItemId,
     decimal Qty,
-    decimal Rate
+    decimal Rate,
+    Guid? WarehouseId = null
 );
 
 /// <summary>

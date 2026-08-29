@@ -77,6 +77,24 @@ public class SupplierQuotationAppService : ApplicationService, ISupplierQuotatio
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
 
+        // Prevent duplicate supplier quotation against same RFQ (upstream PR #58377)
+        if (input.RequestForQuotationId.HasValue)
+        {
+            var sqQuery = await _repository.GetQueryableAsync();
+            var existingSq = sqQuery.FirstOrDefault(x =>
+                x.SupplierId == input.SupplierId &&
+                x.RequestForQuotationId == input.RequestForQuotationId.Value &&
+                x.Status != DocumentStatus.Cancelled);
+
+            if (existingSq != null)
+            {
+                var rfqRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<RequestForQuotation, Guid>>();
+                var rfq = await rfqRepo.FindAsync(input.RequestForQuotationId.Value);
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Supplier Quotation {existingSq.QuotationNumber} already exists against Request for Quotation {rfq?.RfqNumber ?? input.RequestForQuotationId.ToString()}.");
+            }
+        }
+
         var sq = new SupplierQuotation(GuidGenerator.Create(), input.CompanyId,
             input.SupplierId, input.TransactionDate, CurrentTenant.Id)
         {
