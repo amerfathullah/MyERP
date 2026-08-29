@@ -58,6 +58,10 @@ public class Opportunity : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
+    /// <summary>Creates a note-thread entry for this Opportunity.</summary>
+    public CrmNote AddNote(Guid noteId, string noteText, Guid addedByUserId) =>
+        new(noteId, "Opportunity", Id, noteText, addedByUserId, TenantId);
+
     public void MarkReplied()
     {
         if (Status != OpportunityStatus.Open)

@@ -293,6 +293,36 @@ public class LeadAppService : ApplicationService, ILeadAppService
         return MapNoteToDto(note);
     }
 
+    [Authorize(MyERPPermissions.Leads.Edit)]
+    public async Task<CrmNoteDto> EditNoteAsync(Guid id, Guid noteId, UpdateCrmNoteDto input)
+    {
+        await _leadRepository.GetAsync(id);
+        var note = await _noteRepository.GetAsync(noteId);
+        if (note.ParentType != "Lead" || note.ParentId != id)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Note does not belong to the specified Lead.");
+        }
+
+        note.UpdateNoteText(input.NoteText);
+        await _noteRepository.UpdateAsync(note);
+        return MapNoteToDto(note);
+    }
+
+    [Authorize(MyERPPermissions.Leads.Delete)]
+    public async Task DeleteNoteAsync(Guid id, Guid noteId)
+    {
+        await _leadRepository.GetAsync(id);
+        var note = await _noteRepository.GetAsync(noteId);
+        if (note.ParentType != "Lead" || note.ParentId != id)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Note does not belong to the specified Lead.");
+        }
+
+        await _noteRepository.DeleteAsync(note);
+    }
+
     private static CrmNoteDto MapNoteToDto(CrmNote note) => new()
     {
         Id = note.Id,

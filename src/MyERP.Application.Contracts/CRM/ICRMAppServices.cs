@@ -21,6 +21,8 @@ public interface ILeadAppService : IApplicationService
 
     Task<List<CrmNoteDto>> GetNotesAsync(Guid id);
     Task<CrmNoteDto> AddNoteAsync(Guid id, AddCrmNoteDto input);
+    Task<CrmNoteDto> EditNoteAsync(Guid id, Guid noteId, UpdateCrmNoteDto input);
+    Task DeleteNoteAsync(Guid id, Guid noteId);
 }
 
 public interface IOpportunityAppService : IApplicationService
@@ -37,6 +39,11 @@ public interface IOpportunityAppService : IApplicationService
     Task<OpportunityDto> ReopenAsync(Guid id);
     Task<CompetitorDetailDto> CreateCompetitorAsync(AddCompetitorDetailDto input);
     Task DeleteCompetitorAsync(Guid competitorDetailId);
+
+    Task<List<CrmNoteDto>> GetNotesAsync(Guid id);
+    Task<CrmNoteDto> AddNoteAsync(Guid id, AddCrmNoteDto input);
+    Task<CrmNoteDto> EditNoteAsync(Guid id, Guid noteId, UpdateCrmNoteDto input);
+    Task DeleteNoteAsync(Guid id, Guid noteId);
 }
 
 public interface IProspectAppService : IApplicationService

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
@@ -19,15 +20,18 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
     private readonly IRepository<Opportunity, Guid> _repository;
     private readonly IRepository<Quotation, Guid> _quotationRepository;
     private readonly IRepository<CompetitorDetail, Guid> _competitorDetailRepository;
+    private readonly IRepository<CrmNote, Guid> _noteRepository;
 
     public OpportunityAppService(
         IRepository<Opportunity, Guid> repository,
         IRepository<Quotation, Guid> quotationRepository,
-        IRepository<CompetitorDetail, Guid> competitorDetailRepository)
+        IRepository<CompetitorDetail, Guid> competitorDetailRepository,
+        IRepository<CrmNote, Guid> noteRepository)
     {
         _repository = repository;
         _quotationRepository = quotationRepository;
         _competitorDetailRepository = competitorDetailRepository;
+        _noteRepository = noteRepository;
     }
 
     public async Task<OpportunityDto> GetAsync(Guid id)
@@ -383,5 +387,62 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         await _repository.UpdateAsync(opp);
         return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
+
+    public async Task<List<CrmNoteDto>> GetNotesAsync(Guid id)
+    {
+        var query = await _noteRepository.GetQueryableAsync();
+        var notes = query.Where(n => n.ParentType == "Opportunity" && n.ParentId == id)
+            .OrderByDescending(n => n.AddedOn).ToList();
+        return notes.Select(MapNoteToDto).ToList();
+    }
+
+    [Authorize(MyERPPermissions.Opportunities.Edit)]
+    public async Task<CrmNoteDto> AddNoteAsync(Guid id, AddCrmNoteDto input)
+    {
+        var opp = await _repository.GetAsync(id);
+        var note = opp.AddNote(GuidGenerator.Create(), input.NoteText, CurrentUser.Id ?? Guid.Empty);
+        await _noteRepository.InsertAsync(note);
+        return MapNoteToDto(note);
+    }
+
+    [Authorize(MyERPPermissions.Opportunities.Edit)]
+    public async Task<CrmNoteDto> EditNoteAsync(Guid id, Guid noteId, UpdateCrmNoteDto input)
+    {
+        await _repository.GetAsync(id);
+        var note = await _noteRepository.GetAsync(noteId);
+        if (note.ParentType != "Opportunity" || note.ParentId != id)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Note does not belong to the specified Opportunity.");
+        }
+
+        note.UpdateNoteText(input.NoteText);
+        await _noteRepository.UpdateAsync(note);
+        return MapNoteToDto(note);
+    }
+
+    [Authorize(MyERPPermissions.Opportunities.Delete)]
+    public async Task DeleteNoteAsync(Guid id, Guid noteId)
+    {
+        await _repository.GetAsync(id);
+        var note = await _noteRepository.GetAsync(noteId);
+        if (note.ParentType != "Opportunity" || note.ParentId != id)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Note does not belong to the specified Opportunity.");
+        }
+
+        await _noteRepository.DeleteAsync(note);
+    }
+
+    private static CrmNoteDto MapNoteToDto(CrmNote note) => new()
+    {
+        Id = note.Id,
+        ParentType = note.ParentType,
+        ParentId = note.ParentId,
+        NoteText = note.NoteText,
+        AddedByUserId = note.AddedByUserId,
+        AddedOn = note.AddedOn,
+    };
 }
 

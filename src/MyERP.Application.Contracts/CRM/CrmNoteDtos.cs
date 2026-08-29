@@ -17,3 +17,9 @@ public class AddCrmNoteDto
 {
     [Required][StringLength(CrmNoteConsts.MaxNoteTextLength)] public string NoteText { get; set; } = null!;
 }
+
+public class UpdateCrmNoteDto
+{
+    [Required][StringLength(CrmNoteConsts.MaxNoteTextLength)] public string NoteText { get; set; } = null!;
+}
+

@@ -34,4 +34,9 @@ public class CrmNote : FullAuditedAggregateRoot<Guid>, IMultiTenant
         AddedOn = DateTime.UtcNow;
         TenantId = tenantId;
     }
+
+    public void UpdateNoteText(string noteText)
+    {
+        NoteText = Check.NotNullOrWhiteSpace(noteText, nameof(noteText), CrmNoteConsts.MaxNoteTextLength);
+    }
 }
