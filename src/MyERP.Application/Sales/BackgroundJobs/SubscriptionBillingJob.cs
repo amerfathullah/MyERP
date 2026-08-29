@@ -29,6 +29,7 @@ public class SubscriptionBillingJob : AsyncBackgroundJob<SubscriptionBillingJobA
     private readonly IRepository<Subscription, Guid> _subscriptionRepository;
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
     private readonly SubscriptionBillingEngine _billingEngine;
+    private readonly MyERP.Accounting.DomainServices.GlRepostService _glRepostService;
     private readonly IGuidGenerator _guidGenerator;
     private readonly ILogger<SubscriptionBillingJob> _logger;
 
@@ -36,12 +37,14 @@ public class SubscriptionBillingJob : AsyncBackgroundJob<SubscriptionBillingJobA
         IRepository<Subscription, Guid> subscriptionRepository,
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
         SubscriptionBillingEngine billingEngine,
+        MyERP.Accounting.DomainServices.GlRepostService glRepostService,
         IGuidGenerator guidGenerator,
         ILogger<SubscriptionBillingJob> logger)
     {
         _subscriptionRepository = subscriptionRepository;
         _salesInvoiceRepository = salesInvoiceRepository;
         _billingEngine = billingEngine;
+        _glRepostService = glRepostService;
         _guidGenerator = guidGenerator;
         _logger = logger;
     }
@@ -105,7 +108,13 @@ public class SubscriptionBillingJob : AsyncBackgroundJob<SubscriptionBillingJobA
                         invoice.AddItem(item.ItemId, item.ItemName ?? "Subscription Item",
                             item.Qty, item.Rate, 0m);
 
-                    await _salesInvoiceRepository.InsertAsync(invoice);
+                    invoice.Submit();
+                    await _salesInvoiceRepository.InsertAsync(invoice, autoSave: true);
+
+                    invoice.Post();
+                    await _glRepostService.RebuildSalesInvoiceGlAsync(invoice);
+                    await _salesInvoiceRepository.UpdateAsync(invoice, autoSave: true);
+
                     invoicesGenerated++;
 
                     // Advance period and check completion

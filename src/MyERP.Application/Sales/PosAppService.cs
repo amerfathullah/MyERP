@@ -84,7 +84,15 @@ public class PosAppService : ApplicationService, IPosAppService
 
         // POS invoices go straight to Posted status
         invoice.Submit();
+        await _invoiceRepository.InsertAsync(invoice, autoSave: true);
+
+        // Post() only flips status — the actual GL/PLE journal entry (AR debit, income/tax
+        // credit) is built here. Without this call every POS sale reached Posted status with
+        // zero ledger impact: no receivable, no revenue, no tax booked.
         invoice.Post();
+        var glService = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.GlRepostService>();
+        await glService.RebuildSalesInvoiceGlAsync(invoice);
+        await _invoiceRepository.UpdateAsync(invoice, autoSave: true);
 
         // Deduct stock for stock items
         if (input.WarehouseId.HasValue)
@@ -110,8 +118,6 @@ public class PosAppService : ApplicationService, IPosAppService
                     item.ItemId, input.WarehouseId.Value, -item.Quantity, -(item.Quantity * item.UnitPrice));
             }
         }
-
-        await _invoiceRepository.InsertAsync(invoice, autoSave: true);
 
         var change = input.AmountReceived - invoice.GrandTotal;
 

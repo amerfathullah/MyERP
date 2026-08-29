@@ -138,7 +138,7 @@ public class SubscriptionAppService : ApplicationService, ISubscriptionAppServic
                     invoice.AddItem(item.ItemId, item.ItemName ?? "Subscription Item",
                         item.Qty, item.Rate, 0m);
 
-                await _salesInvoiceRepository.InsertAsync(invoice);
+                await SubmitAndPostInvoiceAsync(invoice);
 
                 finalInvoice = new GeneratedInvoiceDto
                 {
@@ -209,7 +209,7 @@ public class SubscriptionAppService : ApplicationService, ISubscriptionAppServic
             invoice.AddItem(item.ItemId, item.ItemName ?? "Subscription Item",
                 item.Qty, item.Rate, 0m);
 
-        await _salesInvoiceRepository.InsertAsync(invoice);
+        await SubmitAndPostInvoiceAsync(invoice);
 
         // Advance period and check completion via engine
         _billingEngine.AdvancePeriodAndCheckCompletion(sub);
@@ -271,7 +271,7 @@ public class SubscriptionAppService : ApplicationService, ISubscriptionAppServic
                 invoice.AddItem(item.ItemId, item.ItemName ?? "Subscription Item",
                     item.Qty, item.Rate, 0m);
 
-            await _salesInvoiceRepository.InsertAsync(invoice);
+            await SubmitAndPostInvoiceAsync(invoice);
 
             results.Add(new GeneratedInvoiceDto
             {
@@ -300,6 +300,22 @@ public class SubscriptionAppService : ApplicationService, ISubscriptionAppServic
     {
         var costCenterId = await ResolvePlanCostCenterAsync(itemId, companyId, partyType);
         return new PlanDimensionsDto { CostCenterId = costCenterId };
+    }
+
+    /// <summary>
+    /// Submits and posts a subscription-generated invoice so it actually hits GL/PLE instead of
+    /// sitting Draft forever. Matches ERPNext's default submit_invoice=1 behavior — MyERP's
+    /// Subscription entity has no equivalent opt-out flag, so every generated invoice auto-posts.
+    /// </summary>
+    private async Task SubmitAndPostInvoiceAsync(SalesInvoice invoice)
+    {
+        invoice.Submit();
+        await _salesInvoiceRepository.InsertAsync(invoice, autoSave: true);
+
+        invoice.Post();
+        var glService = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.GlRepostService>();
+        await glService.RebuildSalesInvoiceGlAsync(invoice);
+        await _salesInvoiceRepository.UpdateAsync(invoice, autoSave: true);
     }
 
     private async Task<Guid?> ResolvePlanCostCenterAsync(Guid itemId, Guid companyId, string? partyType)
