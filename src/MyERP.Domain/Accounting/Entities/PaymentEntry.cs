@@ -77,8 +77,28 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// </summary>
     public decimal BaseReceivedAmount => ReceivedAmount * TargetExchangeRate;
 
-    /// <summary>Exchange gain/loss = PaidAmount × (ExchangeRate - SourceExchangeRate).</summary>
-    public decimal ExchangeGainLoss => PaidAmount * (ExchangeRate - SourceExchangeRate);
+    /// <summary>
+    /// Exchange gain/loss:
+    /// - For Receive/Pay: PaidAmount × (ExchangeRate - SourceExchangeRate)
+    /// - For InternalTransfer: (PaidAmount × SourceExchangeRate) - (ReceivedAmount × TargetExchangeRate) - OtherDeductions
+    ///   where OtherDeductions is the sum of non-FX deductions (e.g. Bank Charges)
+    /// </summary>
+    public decimal ExchangeGainLoss
+    {
+        get
+        {
+            if (PaymentType == PaymentType.InternalTransfer)
+            {
+                var otherDeductions = Taxes
+                    .Where(t => !t.IsExchangeGainLoss && t.AddDeductTax == TaxAddDeduct.Deduct)
+                    .Sum(t => t.TaxAmount);
+                var basePaid = PaidAmount * (SourceExchangeRate > 0 ? SourceExchangeRate : ExchangeRate);
+                var baseReceived = ReceivedAmount * (TargetExchangeRate > 0 ? TargetExchangeRate : ExchangeRate);
+                return Math.Round(basePaid - baseReceived - otherDeductions, 2);
+            }
+            return PaidAmount * (ExchangeRate - SourceExchangeRate);
+        }
+    }
 
     /// <summary>Bank reference / cheque number.</summary>
     public string? ReferenceNumber { get; set; }

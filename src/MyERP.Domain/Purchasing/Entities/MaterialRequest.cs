@@ -69,13 +69,17 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     public void AddItem(Guid itemId, string itemName, decimal quantity, string uom,
-        Guid? warehouseId = null)
+        Guid? warehouseId = null, Guid? salesOrderId = null, Guid? salesOrderItemId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         _items.Add(new MaterialRequestItem(
-            Guid.NewGuid(), Id, itemId, itemName, quantity, uom, warehouseId));
+            Guid.NewGuid(), Id, itemId, itemName, quantity, uom, warehouseId)
+        {
+            SalesOrderId = salesOrderId,
+            SalesOrderItemId = salesOrderItemId,
+        });
     }
 
     public void Submit()

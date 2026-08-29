@@ -73,10 +73,20 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     /// <summary>Source quotation (if converted from quotation).</summary>
     public Guid? QuotationId { get; set; }
 
-    /// <summary>Percentage of total qty delivered (0-100). Uses min per-item completion (all items must be fulfilled).</summary>
-    public decimal PerDelivered => _items.Count > 0
-        ? Math.Round(_items.Min(i => i.Quantity > 0 ? i.DeliveredQty / i.Quantity * 100 : 100m), 2)
-        : 0;
+    /// <summary>
+    /// Percentage of total qty delivered (0-100).
+    /// Items with SkipDelivery=true are excluded from delivery fulfillment tracking.
+    /// If all items skip delivery (e.g. pure service SO), returns 100%.
+    /// </summary>
+    public decimal PerDelivered
+    {
+        get
+        {
+            var deliverable = _items.Where(i => !i.SkipDelivery).ToList();
+            if (deliverable.Count == 0) return _items.Count > 0 ? 100m : 0m;
+            return Math.Round(deliverable.Min(i => i.Quantity > 0 ? i.DeliveredQty / i.Quantity * 100 : 100m), 2);
+        }
+    }
 
     /// <summary>Percentage of total amount billed (0-100).</summary>
     public decimal PerBilled => NetTotal > 0
@@ -151,7 +161,10 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
             }
         }
 
-        Status = DocumentStatus.ToDeliverAndBill;
+        if (PerDelivered >= 100m)
+            Status = DocumentStatus.ToBill;
+        else
+            Status = DocumentStatus.ToDeliverAndBill;
     }
 
     /// <summary>
@@ -281,8 +294,11 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Quantity already invoiced via Sales Invoices.</summary>
     public decimal BilledQty { get; set; }
 
+    /// <summary>For service/non-stock items when SkipDeliveryNoteForServiceItems is active or Maintenance order.</summary>
+    public bool SkipDelivery { get; set; }
+
     /// <summary>Remaining qty to deliver.</summary>
-    public decimal PendingDeliveryQty => Math.Max(0, Quantity - DeliveredQty);
+    public decimal PendingDeliveryQty => SkipDelivery ? 0 : Math.Max(0, Quantity - DeliveredQty);
 
     /// <summary>Remaining qty to bill.</summary>
     public decimal PendingBillingQty => Math.Max(0, Quantity - BilledQty);

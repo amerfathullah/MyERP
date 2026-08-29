@@ -78,6 +78,20 @@ public class MaterialRequestTests
             mr.AddItem(Guid.NewGuid(), "Bolt M8", 50, "Unit"));
     }
 
+    [Fact]
+    public void AddItem_WithSalesOrderLine_ShouldSetProperties()
+    {
+        var mr = CreateMaterialRequest();
+        var soId = Guid.NewGuid();
+        var soItemId = Guid.NewGuid();
+
+        mr.AddItem(Guid.NewGuid(), "Steel Bar", 10, "Kg", salesOrderId: soId, salesOrderItemId: soItemId);
+
+        mr.Items.Count.ShouldBe(1);
+        mr.Items[0].SalesOrderId.ShouldBe(soId);
+        mr.Items[0].SalesOrderItemId.ShouldBe(soItemId);
+    }
+
     private static MaterialRequest CreateMaterialRequest() =>
         new(Guid.NewGuid(), Guid.NewGuid(), "MR-0001",
             MaterialRequestType.Purchase, DateTime.UtcNow, Guid.NewGuid());

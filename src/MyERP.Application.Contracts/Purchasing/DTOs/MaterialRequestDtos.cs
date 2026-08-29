@@ -38,6 +38,8 @@ public class MaterialRequestItemDto
     public decimal ReceivedQuantity { get; set; }
     public string? Uom { get; set; }
     public Guid? WarehouseId { get; set; }
+    public Guid? SalesOrderId { get; set; }
+    public Guid? SalesOrderItemId { get; set; }
 }
 
 public class CreateMaterialRequestDto
@@ -79,6 +81,8 @@ public class CreateMaterialRequestItemDto
     public string Uom { get; set; } = "Unit";
 
     public Guid? WarehouseId { get; set; }
+    public Guid? SalesOrderId { get; set; }
+    public Guid? SalesOrderItemId { get; set; }
 }
 
 public class GetMaterialRequestListDto : PagedAndSortedResultRequestDto

@@ -59,6 +59,7 @@ public static class MyERPSettings
         public const string UseLegacyJsReactivity = G + ".UseLegacyJsReactivity";
         public const string AllowDeliveryOfOverproducedQty = G + ".AllowDeliveryOfOverproducedQty";
         public const string AllowSalesOrderCreationForExpiredQuotation = G + ".AllowSalesOrderCreationForExpiredQuotation";
+        public const string SkipDeliveryNoteForServiceItems = G + ".SkipDeliveryNoteForServiceItems";
     }
 
     // ═══════════════════════════════════════════════════

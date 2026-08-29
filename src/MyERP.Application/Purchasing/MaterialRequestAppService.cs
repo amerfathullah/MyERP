@@ -103,8 +103,10 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
 
         foreach (var item in input.Items)
         {
-            entity.AddItem(item.ItemId, item.ItemName, item.Quantity, item.Uom, item.WarehouseId);
+            entity.AddItem(item.ItemId, item.ItemName, item.Quantity, item.Uom, item.WarehouseId, item.SalesOrderId, item.SalesOrderItemId);
         }
+
+        await ValidateItemsAgainstSalesOrderAsync(entity);
 
         await _repository.InsertAsync(entity);
         return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
@@ -120,6 +122,8 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
     public async Task<MaterialRequestDto> SubmitAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id, includeDetails: true);
+
+        await ValidateItemsAgainstSalesOrderAsync(entity);
 
         // Budget validation (Level 1: MR enforcement) — only for Purchase type
         if (entity.RequestType == MaterialRequestType.Purchase)
@@ -245,5 +249,44 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             IsFullyFulfilled = isFullyFulfilled,
             Items = items,
         };
+    }
+
+    /// <summary>
+    /// Validates Material Request items against linked Sales Order lines (gotcha upstream #58443).
+    /// If an item line links to a Sales Order, verifies item matches and company matches.
+    /// </summary>
+    private async Task ValidateItemsAgainstSalesOrderAsync(MaterialRequest mr)
+    {
+        var soItems = mr.Items.Where(i => i.SalesOrderId.HasValue).ToList();
+        if (!soItems.Any()) return;
+
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+        var soIds = soItems.Select(i => i.SalesOrderId!.Value).Distinct().ToList();
+
+        foreach (var soId in soIds)
+        {
+            var so = await soRepo.FindAsync(soId);
+            if (so == null) continue;
+
+            if (so.CompanyId != mr.CompanyId)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Material Request company does not match Sales Order {so.OrderNumber} company.");
+            }
+
+            var soItemRows = soItems.Where(i => i.SalesOrderId == soId).ToList();
+            foreach (var mrItem in soItemRows)
+            {
+                if (mrItem.SalesOrderItemId.HasValue)
+                {
+                    var targetSoItem = so.Items.FirstOrDefault(i => i.Id == mrItem.SalesOrderItemId.Value);
+                    if (targetSoItem != null && targetSoItem.ItemId != mrItem.ItemId)
+                    {
+                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", "Material Request item does not match linked Sales Order item row.");
+                    }
+                }
+            }
+        }
     }
 }

@@ -157,6 +157,7 @@ public class WorkOrderDto : AuditedEntityDto<Guid>
     public decimal PercentComplete { get; set; }
     public Guid CompanyId { get; set; }
     public Guid? SalesOrderId { get; set; }
+    public Guid? SalesOrderItemId { get; set; }
     public DateTime? PlannedStartDate { get; set; }
     public DateTime? PlannedEndDate { get; set; }
     public DateTime? ActualStartDate { get; set; }
@@ -182,6 +183,7 @@ public class CreateWorkOrderDto
     [Required] [Range(0.01, double.MaxValue)] public decimal Quantity { get; set; }
     [Required] public Guid CompanyId { get; set; }
     public Guid? SalesOrderId { get; set; }
+    public Guid? SalesOrderItemId { get; set; }
     public Guid? SourceWarehouseId { get; set; }
     public Guid? WipWarehouseId { get; set; }
     public Guid? FgWarehouseId { get; set; }

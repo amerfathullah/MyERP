@@ -75,6 +75,43 @@ public class SalesOrderFulfillmentTests
         so.Items[0].PendingBillingQty.ShouldBe(6);
     }
 
+    [Fact]
+    public void PerDelivered_AllServiceItemsWithSkipDelivery_Returns100()
+    {
+        var so = CreateSalesOrder();
+        so.AddItem(Guid.NewGuid(), "Consulting Service", 1, 1000, 0);
+        so.Items[0].SkipDelivery = true;
+
+        so.PerDelivered.ShouldBe(100m);
+        so.Items[0].PendingDeliveryQty.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void PerDelivered_MixedGoodsAndService_TracksOnlyGoods()
+    {
+        var so = CreateSalesOrder();
+        so.AddItem(Guid.NewGuid(), "Physical Item", 10, 100, 0);
+        so.AddItem(Guid.NewGuid(), "Installation Service", 1, 200, 0);
+        so.Items[1].SkipDelivery = true;
+
+        so.PerDelivered.ShouldBe(0m);
+
+        so.Items[0].DeliveredQty = 10m;
+        so.PerDelivered.ShouldBe(100m);
+    }
+
+    [Fact]
+    public void Submit_WhenAllItemsSkipDelivery_StatusIsToBill()
+    {
+        var so = CreateSalesOrder();
+        so.AddItem(Guid.NewGuid(), "Consulting Service", 1, 1000, 0);
+        so.Items[0].SkipDelivery = true;
+
+        so.Submit();
+
+        so.Status.ShouldBe(Core.DocumentStatus.ToBill);
+    }
+
     private static SalesOrder CreateSalesOrder() =>
         new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SO-001", DateTime.UtcNow);
 }

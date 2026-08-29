@@ -145,4 +145,31 @@ public class PaymentEntryExchangeTests
         isGain.ShouldBeTrue();
         partyAccountId.ShouldBe(paidTo); // Payable
     }
+
+    [Fact]
+    public void ExchangeGainLoss_InternalTransfer_SplitsBankChargesFromExchangeDifference()
+    {
+        // Transfer USD 1,000 (rate 4.5 -> MYR 4,500) to EUR 900 (rate 4.8 -> MYR 4,320)
+        // Bank charge deduction: MYR 50
+        // Expected residual Exchange Loss: 4500 - 4320 - 50 = MYR 130
+        var pe = new PaymentEntry(
+            Guid.NewGuid(), Guid.NewGuid(), PaymentType.InternalTransfer,
+            DateTime.UtcNow, 1000m, Guid.NewGuid(), Guid.NewGuid());
+
+        pe.PaidAmount = 1000m;
+        pe.SourceExchangeRate = 4.5m; // Base paid = 4500
+        pe.ReceivedAmount = 900m;
+        pe.TargetExchangeRate = 4.8m; // Base received = 4320
+
+        // Add bank charge deduction tax row
+        var taxRow = new PaymentEntryTax(Guid.NewGuid(), pe.Id, Guid.NewGuid())
+        {
+            Description = "Bank Charges",
+            AddDeductTax = TaxAddDeduct.Deduct,
+            TaxAmount = 50m,
+        };
+        pe.AddTax(taxRow);
+
+        pe.ExchangeGainLoss.ShouldBe(130m);
+    }
 }

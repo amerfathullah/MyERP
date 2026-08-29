@@ -187,7 +187,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         {
             foreach (var item in salesOrder.Items)
             {
-                if (item.DeliveredBySupplier) continue;
+                if (item.DeliveredBySupplier || item.SkipDelivery) continue;
                 var pendingQty = item.PendingDeliveryQty;
                 if (pendingQty > 0)
                 {
@@ -231,7 +231,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         var deliveryNumber = await _numberGenerator.GenerateAsync("DeliveryNote", salesOrder.CompanyId);
 
         var warehouseId = salesOrder.Items
-            .Where(i => i.WarehouseId.HasValue && !i.DeliveredBySupplier)
+            .Where(i => i.WarehouseId.HasValue && !i.DeliveredBySupplier && !i.SkipDelivery)
             .Select(i => i.WarehouseId!.Value)
             .FirstOrDefault();
 
@@ -253,8 +253,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         foreach (var item in salesOrder.Items)
         {
-            // Per ERPNext: exclude drop-ship items (delivered by supplier directly)
-            if (item.DeliveredBySupplier) continue;
+            // Per ERPNext: exclude drop-ship items (delivered by supplier directly) and service items marked skip delivery
+            if (item.DeliveredBySupplier || item.SkipDelivery) continue;
 
             // Per ERPNext: delivery date cutoff filter
             // Item-level delivery_date takes precedence; falls back to parent SO delivery_date

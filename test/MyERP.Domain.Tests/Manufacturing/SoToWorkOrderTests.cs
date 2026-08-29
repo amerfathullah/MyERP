@@ -52,4 +52,20 @@ public class SoToWorkOrderTests
         wo.RequiredItems.Count.ShouldBe(2);
         wo.RequiredItems[0].RequiredQuantity.ShouldBe(20);
     }
+
+    [Fact]
+    public void WorkOrder_SalesOrderItemId_CanBeSet()
+    {
+        var soId = Guid.NewGuid();
+        var soItemId = Guid.NewGuid();
+        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-004",
+            Guid.NewGuid(), Guid.NewGuid(), 10, Guid.NewGuid())
+        {
+            SalesOrderId = soId,
+            SalesOrderItemId = soItemId
+        };
+
+        wo.SalesOrderId.ShouldBe(soId);
+        wo.SalesOrderItemId.ShouldBe(soItemId);
+    }
 }

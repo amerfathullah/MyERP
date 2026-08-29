@@ -224,16 +224,22 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
     public async Task<TimesheetBillingResultDto> CreateInvoiceFromTimesheetsAsync(CreateTimesheetInvoiceDto input)
     {
+        var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
+        var cancelledInvoiceIds = invoiceQuery
+            .Where(i => i.CompanyId == input.CompanyId && i.Status == Core.DocumentStatus.Cancelled)
+            .Select(i => i.Id)
+            .ToHashSet();
+
         var query = await _repository.GetQueryableAsync();
         var timesheets = query
             .Where(t => t.CompanyId == input.CompanyId
                 && t.Status == TimesheetStatus.Submitted)
             .ToList();
 
-        // Gather unbilled billable details
+        // Gather unbilled billable details (ignoring cancelled invoices)
         var unbilledDetails = timesheets
             .SelectMany(ts => ts.Details.Where(d =>
-                d.IsBillable && d.SalesInvoiceId == null && d.BillingAmount > 0
+                d.IsBillable && (d.SalesInvoiceId == null || cancelledInvoiceIds.Contains(d.SalesInvoiceId.Value)) && d.BillingAmount > 0
                 && (!input.ProjectId.HasValue || d.ProjectId == input.ProjectId)))
             .ToList();
 
@@ -301,6 +307,12 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
     /// <summary>Returns unbilled billable hours summary for a company/project.</summary>
     public async Task<List<UnbilledTimesheetSummaryDto>> GetUnbilledSummaryAsync(Guid companyId, Guid? projectId)
     {
+        var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
+        var cancelledInvoiceIds = invoiceQuery
+            .Where(i => i.CompanyId == companyId && i.Status == Core.DocumentStatus.Cancelled)
+            .Select(i => i.Id)
+            .ToHashSet();
+
         var query = await _repository.GetQueryableAsync();
         var timesheets = query
             .Where(t => t.CompanyId == companyId && t.Status == TimesheetStatus.Submitted)
@@ -308,7 +320,7 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
 
         var unbilled = timesheets
             .SelectMany(ts => ts.Details.Where(d =>
-                d.IsBillable && d.SalesInvoiceId == null && d.BillingAmount > 0
+                d.IsBillable && (d.SalesInvoiceId == null || cancelledInvoiceIds.Contains(d.SalesInvoiceId.Value)) && d.BillingAmount > 0
                 && (!projectId.HasValue || d.ProjectId == projectId)))
             .GroupBy(d => d.ActivityType)
             .Select(g => new UnbilledTimesheetSummaryDto

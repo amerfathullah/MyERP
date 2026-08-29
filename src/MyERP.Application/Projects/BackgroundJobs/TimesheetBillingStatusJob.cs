@@ -56,15 +56,21 @@ public class TimesheetBillingStatusJob : AsyncBackgroundJob<TimesheetBillingStat
         if (!submittedTimesheets.Any())
             return;
 
+        var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
+        var cancelledInvoiceIds = invoiceQuery
+            .Where(i => i.CompanyId == args.CompanyId && i.Status == Core.DocumentStatus.Cancelled)
+            .Select(i => i.Id)
+            .ToHashSet();
+
         var unbilledTimesheets = submittedTimesheets
-            .Where(t => t.Details.Any(d => d.IsBillable && d.SalesInvoiceId == null))
+            .Where(t => t.Details.Any(d => d.IsBillable && (d.SalesInvoiceId == null || cancelledInvoiceIds.Contains(d.SalesInvoiceId.Value))))
             .ToList();
 
         if (!unbilledTimesheets.Any())
             return;
 
-        var totalUnbilledHours = unbilledTimesheets.Sum(t => t.Details.Where(d => d.IsBillable && d.SalesInvoiceId == null).Sum(d => d.Hours));
-        var totalUnbilledAmount = unbilledTimesheets.Sum(t => t.Details.Where(d => d.IsBillable && d.SalesInvoiceId == null).Sum(d => d.BillingAmount));
+        var totalUnbilledHours = unbilledTimesheets.Sum(t => t.Details.Where(d => d.IsBillable && (d.SalesInvoiceId == null || cancelledInvoiceIds.Contains(d.SalesInvoiceId.Value))).Sum(d => d.Hours));
+        var totalUnbilledAmount = unbilledTimesheets.Sum(t => t.Details.Where(d => d.IsBillable && (d.SalesInvoiceId == null || cancelledInvoiceIds.Contains(d.SalesInvoiceId.Value))).Sum(d => d.BillingAmount));
 
         var usersQuery = await _userRepository.GetQueryableAsync();
         var projectManagers = usersQuery

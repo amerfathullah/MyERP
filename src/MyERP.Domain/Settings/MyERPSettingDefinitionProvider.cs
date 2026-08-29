@@ -42,7 +42,8 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Selling.DefaultProformaPrintFormat, ""),
             new SettingDefinition(MyERPSettings.Selling.UseLegacyJsReactivity, "false"),
             new SettingDefinition(MyERPSettings.Selling.AllowDeliveryOfOverproducedQty, "false"),
-            new SettingDefinition(MyERPSettings.Selling.AllowSalesOrderCreationForExpiredQuotation, "false")
+            new SettingDefinition(MyERPSettings.Selling.AllowSalesOrderCreationForExpiredQuotation, "false"),
+            new SettingDefinition(MyERPSettings.Selling.SkipDeliveryNoteForServiceItems, "false")
         );
 
         // ═══════════ Buying Settings ═══════════

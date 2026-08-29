@@ -665,10 +665,94 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             }
         }
 
+        // --- Standalone / Internal Transfer / Unallocated Payment Entry GL Posting ---
+        if (pe.PaymentType == PaymentType.InternalTransfer)
+        {
+            var fyRepoTransfer = LazyServiceProvider.LazyGetRequiredService<IRepository<FiscalYear, Guid>>();
+            var fyQueryTransfer = await fyRepoTransfer.GetQueryableAsync();
+            var fyTransfer = fyQueryTransfer.FirstOrDefault(f => f.CompanyId == pe.CompanyId
+                && f.StartDate <= pe.PostingDate && f.EndDate >= pe.PostingDate);
+
+            if (fyTransfer != null)
+            {
+                var transferJe = new JournalEntry(
+                    GuidGenerator.Create(), pe.CompanyId, fyTransfer.Id, pe.PostingDate, pe.TenantId)
+                {
+                    VoucherType = JournalEntryVoucherType.BankEntry,
+                    ReferenceType = "PaymentEntry",
+                    ReferenceId = pe.Id,
+                };
+
+                var basePaid = Math.Round(pe.PaidAmount * (pe.SourceExchangeRate > 0 ? pe.SourceExchangeRate : pe.ExchangeRate), 2);
+                var baseReceived = Math.Round(pe.ReceivedAmount * (pe.TargetExchangeRate > 0 ? pe.TargetExchangeRate : pe.ExchangeRate), 2);
+
+                // CR Source Bank Account (funds outgoing)
+                transferJe.AddLineWithDimensions(pe.PaidFromAccountId, basePaid, false, pe.CostCenterId, pe.ProjectId, null, "Internal Transfer - Paid From");
+
+                // DR Destination Bank Account (funds incoming)
+                transferJe.AddLineWithDimensions(pe.PaidToAccountId, baseReceived, true, pe.CostCenterId, pe.ProjectId, null, "Internal Transfer - Paid To");
+
+                // Process deductions (e.g. Bank Charges)
+                decimal otherDeductions = 0m;
+                foreach (var tax in pe.Taxes.Where(t => !t.IsExchangeGainLoss))
+                {
+                    tax.Calculate(pe.PaidAmount, pe.ExchangeRate);
+                    var deductionAmount = tax.BaseTaxAmount > 0 ? tax.BaseTaxAmount : tax.TaxAmount;
+                    if (deductionAmount > 0)
+                    {
+                        otherDeductions += deductionAmount;
+                        transferJe.AddLineWithDimensions(tax.AccountId, deductionAmount, true, tax.CostCenterId ?? pe.CostCenterId, pe.ProjectId, null, tax.Description ?? "Bank Charges / Deductions");
+                    }
+                }
+
+                // Residual Exchange Gain/Loss (upstream PR #58071: bank charges co-exist with residual FX)
+                var fxResidual = Math.Round(basePaid - baseReceived - otherDeductions, 2);
+                if (fxResidual != 0)
+                {
+                    var companyTransfer = await LazyServiceProvider
+                        .LazyGetRequiredService<IRepository<Company, Guid>>()
+                        .GetAsync(pe.CompanyId);
+                    if (companyTransfer.ExchangeGainLossAccountId.HasValue)
+                    {
+                        if (fxResidual > 0)
+                        {
+                            // Loss (paid more base than received + charges): DR Exchange Gain/Loss
+                            transferJe.AddLineWithDimensions(companyTransfer.ExchangeGainLossAccountId.Value, fxResidual, true, pe.CostCenterId, pe.ProjectId, null, "Exchange Loss");
+                        }
+                        else
+                        {
+                            // Gain (paid less base): CR Exchange Gain/Loss
+                            transferJe.AddLineWithDimensions(companyTransfer.ExchangeGainLossAccountId.Value, Math.Abs(fxResidual), false, pe.CostCenterId, pe.ProjectId, null, "Exchange Gain");
+                        }
+                    }
+                }
+
+                transferJe.Validate();
+                transferJe.Post();
+                var jeRepo = LazyServiceProvider
+                    .LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+                await jeRepo.InsertAsync(transferJe);
+            }
+        }
+        else if (!pe.AgainstInvoiceId.HasValue && (pe.References == null || !pe.References.Any()))
+        {
+            var partyAccountId = pe.PaymentType == PaymentType.Receive ? pe.PaidFromAccountId : pe.PaidToAccountId;
+            await _postingOrchestrator.PostPaymentEntryAsync(
+                pe,
+                partyAccountId: partyAccountId,
+                partyType: pe.PartyType ?? string.Empty,
+                partyId: pe.PartyId ?? Guid.Empty,
+                accountCurrency: pe.CurrencyCode ?? "MYR",
+                exchangeRate: pe.ExchangeRate,
+                allocations: Array.Empty<PaymentAllocation>(),
+                paidFromAccountId: pe.PaidFromAccountId,
+                paidToAccountId: pe.PaidToAccountId);
+        }
+
         // --- Payment Entry Tax GL Posting ---
         // Per ERPNext: PE taxes post separate GL entries per tax row
         // Per gotcha #624: direction = add_deduct_tax × payment_type
-        if (pe.Taxes.Any(t => !t.IsExchangeGainLoss))
+        if (pe.PaymentType != PaymentType.InternalTransfer && pe.Taxes.Any(t => !t.IsExchangeGainLoss))
         {
             pe.RecalculateTaxes();
 

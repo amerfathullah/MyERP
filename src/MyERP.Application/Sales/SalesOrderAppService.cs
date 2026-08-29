@@ -315,7 +315,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                 order.Items[^1].BlanketOrderId = item.BlanketOrderId;
         }
 
-        // Resolve UOM conversion factors for stock qty calculation
+        // Resolve UOM conversion factors for stock qty calculation & service items skip delivery
+        var skipDnForService = (await SettingProvider.GetOrNullAsync(MyERPSettings.Selling.SkipDeliveryNoteForServiceItems)) == "true";
         var uomService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.UomConversionService>();
         var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
         foreach (var soItem in order.Items)
@@ -328,6 +329,10 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                 {
                     soItem.ConversionFactor = await uomService.GetConversionFactorAsync(
                         soItem.ItemId, soItem.Uom, itemEntity.Uom);
+                }
+                if (skipDnForService && !itemEntity.MaintainStock)
+                {
+                    soItem.SkipDelivery = true;
                 }
             }
         }
@@ -846,13 +851,32 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         // Replace items
         order.ClearItems();
+        var updateSkipDnForService = (await SettingProvider.GetOrNullAsync(MyERPSettings.Selling.SkipDeliveryNoteForServiceItems)) == "true";
+        var updateUomService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.UomConversionService>();
+        var updateItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
         foreach (var item in input.Items)
         {
             order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            var lastSoItem = order.Items[^1];
             if (item.WarehouseId.HasValue)
-                order.Items[^1].WarehouseId = item.WarehouseId;
+                lastSoItem.WarehouseId = item.WarehouseId;
             if (item.BlanketOrderId.HasValue)
-                order.Items[^1].BlanketOrderId = item.BlanketOrderId;
+                lastSoItem.BlanketOrderId = item.BlanketOrderId;
+
+            var itemEntity = await updateItemRepo.FindAsync(item.ItemId);
+            if (itemEntity != null)
+            {
+                lastSoItem.StockUom = itemEntity.Uom;
+                if (!string.Equals(lastSoItem.Uom, itemEntity.Uom, StringComparison.OrdinalIgnoreCase))
+                {
+                    lastSoItem.ConversionFactor = await updateUomService.GetConversionFactorAsync(
+                        lastSoItem.ItemId, lastSoItem.Uom, itemEntity.Uom);
+                }
+                if (updateSkipDnForService && !itemEntity.MaintainStock)
+                {
+                    lastSoItem.SkipDelivery = true;
+                }
+            }
         }
 
         await _repository.UpdateAsync(order, autoSave: true);

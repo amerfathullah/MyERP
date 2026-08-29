@@ -412,6 +412,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var wo = new WorkOrder(GuidGenerator.Create(), input.CompanyId, number, input.ItemId, input.BomId, input.Quantity, CurrentTenant.Id)
         {
             SalesOrderId = input.SalesOrderId,
+            SalesOrderItemId = input.SalesOrderItemId,
             SourceWarehouseId = input.SourceWarehouseId,
             WipWarehouseId = input.WipWarehouseId,
             FgWarehouseId = input.FgWarehouseId,
@@ -438,11 +439,11 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
     /// <summary>
     /// Creates a Work Order from a Sales Order (make-to-order manufacturing).
-    /// Auto-resolves the default BOM for the item.
+    /// Auto-resolves the default BOM for the item and pulls the exact delivery date for the SO item row.
     /// </summary>
     [Authorize(MyERPPermissions.Manufacturing.Create)]
     public async Task<WorkOrderDto> CreateWorkOrderFromSalesOrderAsync(
-        Guid salesOrderId, Guid itemId, decimal quantity, Guid companyId)
+        Guid salesOrderId, Guid itemId, decimal quantity, Guid companyId, Guid? salesOrderItemId = null)
     {
         // Find the default active BOM for this item
         var bomQuery = await _bomRepository.GetQueryableAsync();
@@ -456,6 +457,25 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 .WithData("message", $"No active BOM found for item {itemId}");
         }
 
+        DateTime? plannedEndDate = null;
+        if (salesOrderId != default)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var so = await soRepo.FindAsync(salesOrderId);
+            if (so != null)
+            {
+                if (salesOrderItemId.HasValue)
+                {
+                    var soItem = so.Items.FirstOrDefault(i => i.Id == salesOrderItemId.Value);
+                    plannedEndDate = soItem?.DeliveryDate ?? so.DeliveryDate;
+                }
+                else
+                {
+                    plannedEndDate = so.DeliveryDate;
+                }
+            }
+        }
+
         var input = new CreateWorkOrderDto
         {
             ItemId = itemId,
@@ -463,9 +483,11 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             Quantity = quantity,
             CompanyId = companyId,
             SalesOrderId = salesOrderId,
+            SalesOrderItemId = salesOrderItemId,
             SourceWarehouseId = bom.SourceWarehouseId,
             FgWarehouseId = bom.TargetWarehouseId,
             PlannedStartDate = DateTime.UtcNow,
+            PlannedEndDate = plannedEndDate,
         };
 
         return await CreateWorkOrderAsync(input);
@@ -498,7 +520,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
             try
             {
-                var wo = await CreateWorkOrderFromSalesOrderAsync(salesOrderId, item.ItemId, pendingQty, companyId);
+                var wo = await CreateWorkOrderFromSalesOrderAsync(salesOrderId, item.ItemId, pendingQty, companyId, item.Id);
                 created.Add(new CreatedWorkOrderInfo
                 {
                     WorkOrderId = wo.Id,
