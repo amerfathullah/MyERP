@@ -162,4 +162,16 @@ public class ReturnValidationTests
 
         await manager.ValidateReturnAsync(newReturn);
     }
+
+    [Fact]
+    public void ReturnInvoice_AddItem_ZeroOrPositiveQty_ThrowsArgumentException()
+    {
+        var returnInvoice = new SalesInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "CN-ZERO", DateTime.UtcNow)
+        {
+            IsReturn = true
+        };
+
+        Should.Throw<ArgumentException>(() => returnInvoice.AddItem(Guid.NewGuid(), "Widget Zero", 0m, 100m, 0m));
+        Should.Throw<ArgumentException>(() => returnInvoice.AddItem(Guid.NewGuid(), "Widget Pos", 5m, 100m, 0m));
+    }
 }

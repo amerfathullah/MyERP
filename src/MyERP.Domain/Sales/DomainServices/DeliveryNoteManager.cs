@@ -85,7 +85,20 @@ public class DeliveryNoteManager : DomainService
     /// </summary>
     public async Task ValidateReturnAsync(DeliveryNote returnDN)
     {
-        if (!returnDN.IsReturn || !returnDN.ReturnAgainstId.HasValue) return;
+        if (!returnDN.IsReturn) return;
+
+        if (!returnDN.ReturnAgainstId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ReturnMustReferenceOriginal)
+                .WithData("documentType", "Delivery Note");
+        }
+
+        // Returns must have negative quantities and at least one item with negative quantity
+        if (returnDN.Items.Any(i => i.Quantity > 0) || !returnDN.Items.Any(i => i.Quantity < 0))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyMustBeNegative)
+                .WithData("documentType", "Delivery Note");
+        }
 
         var original = await _dnRepository.GetAsync(returnDN.ReturnAgainstId.Value);
 

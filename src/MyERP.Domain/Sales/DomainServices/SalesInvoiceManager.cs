@@ -76,8 +76,8 @@ public class SalesInvoiceManager : DomainService
     {
         if (!returnInvoice.IsReturn) return;
 
-        // Returns must have negative quantities
-        if (returnInvoice.Items.Any(i => i.Quantity > 0))
+        // Returns must have negative quantities and at least one item with negative quantity (PR #57647 / commit a3e9d13da3)
+        if (returnInvoice.Items.Any(i => i.Quantity > 0) || !returnInvoice.Items.Any(i => i.Quantity < 0))
         {
             throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyMustBeNegative)
                 .WithData("documentType", "Sales Invoice");
