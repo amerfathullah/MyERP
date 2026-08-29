@@ -295,6 +295,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             {
                 SalesOrderId = item.SalesOrderId,
                 FgWarehouseId = item.WarehouseId,
+                TrackSemiFinishedGoods = bom.TrackSemiFinishedGoods,
             };
             wo.SetPlannedDates(item.PlannedStartDate, null);
 

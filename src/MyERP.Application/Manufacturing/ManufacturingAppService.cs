@@ -440,6 +440,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             SourceWarehouseId = sourceWarehouseId,
             WipWarehouseId = wipWarehouseId,
             FgWarehouseId = fgWarehouseId,
+            TrackSemiFinishedGoods = bom.TrackSemiFinishedGoods,
             Notes = input.Notes,
         };
         wo.SetPlannedDates(input.PlannedStartDate, input.PlannedEndDate);

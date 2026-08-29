@@ -174,6 +174,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
         await seManager.ValidateFgConversionAsync(entry, woRepo, altRepo, _repository);
 
+        var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
+        var mfgSettings = await mfgSettingsRepo.FindAsync(s => s.CompanyId == entry.CompanyId);
+        var overproductionPct = mfgSettings?.OverproductionPercentage ?? 5m;
+        await seManager.ValidateDuplicateManufactureEntryAsync(entry, woRepo, _repository, overproductionPct);
+
         await _repository.InsertAsync(entry, autoSave: true);
         return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
     }
@@ -225,6 +230,16 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         .WithData("detail", $"Operations are not completed for Work Order. Please complete active Job Cards before submitting manufacture entry.");
                 }
             }
+        }
+
+        // Duplicate manufacture entry check against Work Order (PR #58004)
+        if (entry.WorkOrderId.HasValue && entry.EntryType == StockEntryType.Manufacture)
+        {
+            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
+            var mfgSettings = await mfgSettingsRepo.FindAsync(s => s.CompanyId == entry.CompanyId);
+            var overproductionPct = mfgSettings?.OverproductionPercentage ?? 5m;
+            await seManager.ValidateDuplicateManufactureEntryAsync(entry, woRepo, _repository, overproductionPct);
         }
 
         entry.Submit();

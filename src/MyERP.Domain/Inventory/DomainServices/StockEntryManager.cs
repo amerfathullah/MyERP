@@ -225,6 +225,50 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Blocks another manufacture entry once existing entries already cover the work order qty plus allowance.
+    /// Per ERPNext PR #58004 / PR #58005 (commits 22fa520500, 492ee05727):
+    /// Gated to work orders without track_semi_finished_goods.
+    /// </summary>
+    public async Task ValidateDuplicateManufactureEntryAsync(
+        StockEntry entry,
+        IRepository<Manufacturing.Entities.WorkOrder, Guid> woRepository,
+        IRepository<StockEntry, Guid> stockEntryRepository,
+        decimal overproductionPercentage = 0m)
+    {
+        if (entry.EntryType != StockEntryType.Manufacture || !entry.WorkOrderId.HasValue)
+            return;
+
+        var wo = await woRepository.FindAsync(entry.WorkOrderId.Value);
+        if (wo == null || wo.TrackSemiFinishedGoods)
+            return;
+
+        var seQuery = await stockEntryRepository.GetQueryableAsync();
+        var otherEntries = seQuery
+            .Where(se => se.WorkOrderId == entry.WorkOrderId.Value
+                      && se.EntryType == StockEntryType.Manufacture
+                      && se.Status != Core.DocumentStatus.Cancelled
+                      && se.Id != entry.Id)
+            .ToList();
+
+        if (!otherEntries.Any())
+            return;
+
+        var alreadyEnteredFgQty = otherEntries
+            .SelectMany(se => se.Items)
+            .Where(i => i.ItemId == wo.ItemId && i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
+            .Sum(i => i.Quantity);
+
+        var allowedQty = wo.Quantity + (overproductionPercentage / 100m * wo.Quantity);
+
+        if (alreadyEnteredFgQty >= allowedQty)
+        {
+            var otherEntryNumbers = string.Join(", ", otherEntries.Select(e => e.EntryNumber));
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
+                .WithData("detail", $"Stock Entries already created for Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}: {otherEntryNumbers}");
+        }
+    }
+
+    /// <summary>
     /// Calculates valuation rate for Repack FG items.
     /// Single FG: rate = total_outgoing_cost / fg_qty
     /// Multiple FGs: each must have rate set manually (validated separately).

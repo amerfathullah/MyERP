@@ -57,6 +57,7 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public DateTime? ActualEndDate { get; set; }
 
     public string? Notes { get; set; }
+    public bool TrackSemiFinishedGoods { get; set; }
 
     public List<WorkOrderItem> RequiredItems { get; private set; } = new();
 
