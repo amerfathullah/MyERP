@@ -39,4 +39,6 @@ public class CreateUpdateWarehouseDto
     public bool IsActive { get; set; } = true;
 
     public WarehouseType WarehouseType { get; set; } = WarehouseType.Standard;
+
+    public Guid? DefaultAccountId { get; set; }
 }

@@ -61,6 +61,16 @@ public class WarehouseAppService :
 
     public override async Task<WarehouseDto> CreateAsync(CreateUpdateWarehouseDto input)
     {
+        // Inherit DefaultAccountId from parent warehouse if unassigned (per ERPNext PR #58036)
+        if (!input.IsGroup && !input.DefaultAccountId.HasValue && input.ParentWarehouseId.HasValue)
+        {
+            var parent = await Repository.FindAsync(input.ParentWarehouseId.Value);
+            if (parent?.DefaultAccountId.HasValue == true)
+            {
+                input.DefaultAccountId = parent.DefaultAccountId;
+            }
+        }
+
         var result = await base.CreateAsync(input);
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -120,6 +130,7 @@ public class WarehouseAppService :
         entity.IsGroup = input.IsGroup;
         entity.IsActive = input.IsActive;
         entity.WarehouseType = input.WarehouseType;
+        entity.DefaultAccountId = input.DefaultAccountId;
     }
 
     /// <summary>
