@@ -517,7 +517,8 @@ public class BatchAppService : ApplicationService, IBatchAppService
                     IsExpired = batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < today,
                 };
             })
-            .OrderBy(b => b.ExpiryDate)
+            .OrderBy(b => b.ExpiryDate == null)
+            .ThenBy(b => b.ExpiryDate)
             .ThenBy(b => b.BatchNo)
             .ToList();
     }
