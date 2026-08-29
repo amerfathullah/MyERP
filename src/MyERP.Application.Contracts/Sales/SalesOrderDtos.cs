@@ -14,6 +14,8 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     public Guid CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public string? CustomerPoNumber { get; set; }
+    public Guid? ContactPersonId { get; set; }
+    public Guid? ShippingContactPersonId { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public Guid? PriceListId { get; set; }
     public decimal NetTotal { get; set; }
@@ -109,6 +111,9 @@ public class CreateSalesOrderDto
 
     [StringLength(SalesOrderConsts.MaxCustomerPoLength)]
     public string? CustomerPoNumber { get; set; }
+
+    public Guid? ContactPersonId { get; set; }
+    public Guid? ShippingContactPersonId { get; set; }
 
     [StringLength(SalesOrderConsts.MaxCurrencyCodeLength)]
     public string CurrencyCode { get; set; } = "MYR";

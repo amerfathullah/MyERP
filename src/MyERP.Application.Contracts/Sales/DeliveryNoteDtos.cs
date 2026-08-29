@@ -15,6 +15,8 @@ public class DeliveryNoteDto : EntityDto<Guid>
     public Guid? SalesOrderId { get; set; }
     public Guid WarehouseId { get; set; }
     public string? ShippingAddress { get; set; }
+    public Guid? ContactPersonId { get; set; }
+    public Guid? ShippingContactPersonId { get; set; }
     public string? Transporter { get; set; }
     public string? TrackingNumber { get; set; }
     public string CurrencyCode { get; set; } = null!;
@@ -51,6 +53,8 @@ public class CreateDeliveryNoteDto
     [Required] public Guid WarehouseId { get; set; }
     [Required] public DateTime PostingDate { get; set; }
     public Guid? SalesOrderId { get; set; }
+    public Guid? ContactPersonId { get; set; }
+    public Guid? ShippingContactPersonId { get; set; }
     [StringLength(500)] public string? ShippingAddress { get; set; }
     [StringLength(200)] public string? Transporter { get; set; }
     [StringLength(100)] public string? TrackingNumber { get; set; }

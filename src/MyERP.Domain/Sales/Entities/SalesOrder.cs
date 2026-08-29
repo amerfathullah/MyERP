@@ -44,6 +44,12 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     /// <summary>Shipping/delivery address (auto-resolved from Customer on create).</summary>
     public Guid? ShippingAddressId { get; set; }
 
+    /// <summary>Billing contact person (Contact ID).</summary>
+    public Guid? ContactPersonId { get; set; }
+
+    /// <summary>Shipping contact person (Contact ID) per ERPNext PR #58159.</summary>
+    public Guid? ShippingContactPersonId { get; set; }
+
     /// <summary>Shipping charge calculated from ShippingRule.</summary>
     public decimal ShippingCharge { get; set; }
 

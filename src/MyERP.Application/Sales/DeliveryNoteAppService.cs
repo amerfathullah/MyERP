@@ -157,6 +157,8 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             CurrentTenant.Id);
 
         dn.SalesOrderId = input.SalesOrderId;
+        dn.ContactPersonId = input.ContactPersonId;
+        dn.ShippingContactPersonId = input.ShippingContactPersonId;
         dn.ShippingAddress = input.ShippingAddress;
         dn.Transporter = input.Transporter;
         dn.TrackingNumber = input.TrackingNumber;
@@ -164,25 +166,27 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         dn.ReturnAgainstId = input.ReturnAgainstId;
         dn.Notes = input.Notes;
 
-    // Auto-fill addresses from linked SO or customer
-    if (input.SalesOrderId.HasValue)
-    {
-        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
-        var so = await soRepo.FindAsync(input.SalesOrderId.Value);
-        if (so != null)
+        // Auto-fill addresses and contacts from linked SO or customer
+        if (input.SalesOrderId.HasValue)
         {
-            dn.BillingAddressId = so.BillingAddressId;
-            dn.ShippingAddressId = so.ShippingAddressId;
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var so = await soRepo.FindAsync(input.SalesOrderId.Value);
+            if (so != null)
+            {
+                dn.BillingAddressId = so.BillingAddressId;
+                dn.ShippingAddressId = so.ShippingAddressId;
+                dn.ContactPersonId ??= so.ContactPersonId;
+                dn.ShippingContactPersonId ??= so.ShippingContactPersonId;
+            }
         }
-    }
-    else
-    {
-        var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
-        var shipping = await partyDefaults.GetShippingAddressAsync("Customer", input.CustomerId);
-        if (shipping != null) dn.ShippingAddressId = shipping.Id;
-        var billing = await partyDefaults.GetPrimaryAddressAsync("Customer", input.CustomerId);
-        if (billing != null) dn.BillingAddressId = billing.Id;
-    }
+        else
+        {
+            var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
+            var shipping = await partyDefaults.GetShippingAddressAsync("Customer", input.CustomerId);
+            if (shipping != null) dn.ShippingAddressId = shipping.Id;
+            var billing = await partyDefaults.GetPrimaryAddressAsync("Customer", input.CustomerId);
+            if (billing != null) dn.BillingAddressId = billing.Id;
+        }
 
         // Add items + resolve UOM conversion
         var uomService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.UomConversionService>();
@@ -219,6 +223,8 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         await updateCompanyRestriction.ValidateTransactionCompanyAsync("DeliveryNote", dn.CompanyId, updateItemIds, customerIds: new[] { dn.CustomerId });
 
         dn.PostingDate = input.PostingDate;
+        dn.ContactPersonId = input.ContactPersonId;
+        dn.ShippingContactPersonId = input.ShippingContactPersonId;
         dn.ShippingAddress = input.ShippingAddress;
         dn.Transporter = input.Transporter;
         dn.TrackingNumber = input.TrackingNumber;

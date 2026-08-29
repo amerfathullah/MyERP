@@ -80,6 +80,12 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Shipping address (auto-resolved from Customer on create).</summary>
     public Guid? ShippingAddressId { get; set; }
 
+    /// <summary>Billing contact person (Contact ID).</summary>
+    public Guid? ContactPersonId { get; set; }
+
+    /// <summary>Shipping contact person (Contact ID) per ERPNext PR #58159.</summary>
+    public Guid? ShippingContactPersonId { get; set; }
+
     /// <summary>If true, this is a return (credit note).</summary>
     public bool IsReturn { get; set; }
 

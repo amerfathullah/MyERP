@@ -40,6 +40,12 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Shipping address reference (auto-resolved from SO or Customer).</summary>
     public Guid? ShippingAddressId { get; set; }
 
+    /// <summary>Billing contact person (Contact ID).</summary>
+    public Guid? ContactPersonId { get; set; }
+
+    /// <summary>Shipping contact person (Contact ID) per ERPNext PR #58159.</summary>
+    public Guid? ShippingContactPersonId { get; set; }
+
     /// <summary>Transporter name or reference.</summary>
     public string? Transporter { get; set; }
 

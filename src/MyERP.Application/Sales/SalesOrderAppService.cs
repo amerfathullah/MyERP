@@ -260,6 +260,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         order.DeliveryDate = input.DeliveryDate;
         order.CustomerPoNumber = input.CustomerPoNumber;
+        order.ContactPersonId = input.ContactPersonId;
+        order.ShippingContactPersonId = input.ShippingContactPersonId;
         order.CurrencyCode = input.CurrencyCode;
         order.Terms = input.Terms;
         order.Notes = input.Notes;

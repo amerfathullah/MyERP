@@ -61,6 +61,8 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public DateTime? DueDate { get; set; }
     public Guid CustomerId { get; set; }
     public string? CustomerName { get; set; }
+    public Guid? ContactPersonId { get; set; }
+    public Guid? ShippingContactPersonId { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public decimal ExchangeRate { get; set; } = 1m;
     public Guid? PriceListId { get; set; }
@@ -133,6 +135,9 @@ public class CreateSalesInvoiceDto
 
     [Required]
     public Guid CustomerId { get; set; }
+
+    public Guid? ContactPersonId { get; set; }
+    public Guid? ShippingContactPersonId { get; set; }
 
     [Required]
     public DateTime IssueDate { get; set; }

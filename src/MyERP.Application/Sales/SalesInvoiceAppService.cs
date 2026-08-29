@@ -397,6 +397,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         invoice.DueDate = input.DueDate;
         invoice.CurrencyCode = input.CurrencyCode;
+        invoice.ContactPersonId = input.ContactPersonId;
+        invoice.ShippingContactPersonId = input.ShippingContactPersonId;
 
         // Per ERPNext: Price List defaults from the customer's own default when not given explicitly.
         invoice.PriceListId = input.PriceListId
