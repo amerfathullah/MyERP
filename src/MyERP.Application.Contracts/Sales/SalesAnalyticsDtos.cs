@@ -14,6 +14,7 @@ public class SalesAnalyticsRequestDto
     public AnalyticsGroupBy GroupBy { get; set; }
     public AnalyticsPeriodType PeriodType { get; set; }
     public string? ValueField { get; set; }
+    public List<string>? EntityIds { get; set; }
 }
 
 public class SalesAnalyticsReportDto

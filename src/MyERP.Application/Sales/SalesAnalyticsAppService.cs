@@ -124,6 +124,13 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
             }
         }
 
+        // Filter by entity IDs if specified (ERPNext commit 3f29cdf8d2)
+        if (input.EntityIds != null && input.EntityIds.Count > 0)
+        {
+            var entitySet = input.EntityIds.ToHashSet();
+            rows = rows.Where(r => entitySet.Contains(r.EntityId)).ToList();
+        }
+
         // Sort by total descending (top revenue first)
         rows = rows.OrderByDescending(r => r.Total).ToList();
 
