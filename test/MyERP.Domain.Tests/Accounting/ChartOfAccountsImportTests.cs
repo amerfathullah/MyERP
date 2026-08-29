@@ -1,9 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Threading.Tasks;
 using MyERP.Accounting;
 using MyERP.Accounting.DomainServices;
+using MyERP.Accounting.Entities;
+using NSubstitute;
 using Shouldly;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.DomainServices;
@@ -159,5 +164,38 @@ public class ChartOfAccountsImportTests
         var cogs = template.FirstOrDefault(r => r.AccountCode == "5100");
         cogs.ShouldNotBeNull();
         cogs!.AccountName.ShouldBe("Cost of Goods Sold");
+    }
+
+    [Fact]
+    public async Task ImportAsync_WithCompany_UnsetsAndReassignsCompanyDefaults()
+    {
+        var companyId = Guid.NewGuid();
+        var company = new MyERP.Core.Entities.Company(companyId, "Test Co");
+
+        var accountRepo = Substitute.For<IRepository<Account, Guid>>();
+        var journalRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
+        var companyRepo = Substitute.For<IRepository<MyERP.Core.Entities.Company, Guid>>();
+
+        journalRepo.AnyAsync(Arg.Any<Expression<Func<JournalEntry, bool>>>())
+            .Returns(Task.FromResult(false));
+
+        companyRepo.FindAsync(companyId).Returns(Task.FromResult<MyERP.Core.Entities.Company?>(company));
+
+        var importService = new ChartOfAccountsImportService(accountRepo, journalRepo, companyRepo);
+        var rows = new List<CoaTemplateRow>
+        {
+            new("1000", "Assets", AccountType.Asset, isGroup: true),
+            new("1100", "Current Assets", AccountType.Asset, isGroup: true, parentCode: "1000"),
+            new("1130", "Accounts Receivable", AccountType.Asset, parentCode: "1100", subType: AccountSubType.AccountsReceivable),
+            new("2000", "Liabilities", AccountType.Liability, isGroup: true),
+            new("2100", "Current Liabilities", AccountType.Liability, isGroup: true, parentCode: "2000"),
+            new("2110", "Accounts Payable", AccountType.Liability, parentCode: "2100", subType: AccountSubType.AccountsPayable),
+        };
+
+        var count = await importService.ImportAsync(companyId, rows);
+        count.ShouldBe(6);
+
+        company.DefaultReceivableAccountId.ShouldNotBeNull();
+        company.DefaultPayableAccountId.ShouldNotBeNull();
     }
 }

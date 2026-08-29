@@ -24,20 +24,26 @@ public class ChartOfAccountsImportService : DomainService
 {
     private readonly IRepository<Account, Guid> _accountRepository;
     private readonly IRepository<JournalEntry, Guid> _journalRepository;
+    private readonly IRepository<Core.Entities.Company, Guid>? _companyRepository;
 
     public ChartOfAccountsImportService(
         IRepository<Account, Guid> accountRepository,
-        IRepository<JournalEntry, Guid> journalRepository)
+        IRepository<JournalEntry, Guid> journalRepository,
+        IRepository<Core.Entities.Company, Guid>? companyRepository = null)
     {
         _accountRepository = accountRepository;
         _journalRepository = journalRepository;
+        _companyRepository = companyRepository;
     }
 
     /// <summary>
     /// Imports a full chart of accounts from a structured template.
     /// Creates accounts top-down (parents before children) with proper ID linkage.
     /// 
-    /// Per DO-NOT: blocked if GL entries exist for this company.
+    /// Per DO-NOT & ERPNext PR #58065:
+    /// - Blocked if GL entries exist for this company (data corruption).
+    /// - Clears old company default accounts and removes existing accounts if no GL entries exist.
+    /// - Auto-assigns standard company default accounts after import.
     /// </summary>
     /// <returns>Number of accounts created.</returns>
     public async Task<int> ImportAsync(Guid companyId, IReadOnlyList<CoaTemplateRow> rows, Guid? tenantId = null)
@@ -61,13 +67,43 @@ public class ChartOfAccountsImportService : DomainService
                 .WithData("codes", string.Join(", ", duplicates));
         }
 
+        // Reset existing company default accounts before replacing (per ERPNext unset_existing_data)
+        Core.Entities.Company? company = null;
+        if (_companyRepository != null)
+        {
+            company = await _companyRepository.FindAsync(companyId);
+            if (company != null)
+            {
+                company.DefaultReceivableAccountId = null;
+                company.DefaultPayableAccountId = null;
+                company.DefaultIncomeAccountId = null;
+                company.DefaultExpenseAccountId = null;
+                company.DefaultTaxPayableAccountId = null;
+                company.DefaultBankAccountId = null;
+                company.DefaultInventoryAccountId = null;
+                company.DefaultStockAdjustmentAccountId = null;
+                company.StockReceivedButNotBilledAccountId = null;
+                company.StockDeliveredButNotBilledAccountId = null;
+                company.ExchangeGainLossAccountId = null;
+                company.ExchangeGainAccountId = null;
+                company.ExchangeLossAccountId = null;
+                company.DepreciationExpenseAccountId = null;
+                company.AccumulatedDepreciationAccountId = null;
+                company.RoundOffAccountId = null;
+                await _companyRepository.UpdateAsync(company);
+            }
+        }
+
+        // Remove existing un-posted accounts for this company before importing new ones
+        await _accountRepository.DeleteAsync(a => a.CompanyId == companyId);
+
         // Build parent code → ID map for hierarchical linking
         var codeToIdMap = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
 
         // Sort by depth (parents first) — use parent code presence as proxy
         var sortedRows = TopologicalSort(rows);
 
-        int created = 0;
+        var createdAccounts = new List<Account>();
         foreach (var row in sortedRows)
         {
             Guid? parentId = null;
@@ -81,8 +117,9 @@ public class ChartOfAccountsImportService : DomainService
                 parentId = pid;
             }
 
+            var accountId = LazyServiceProvider != null ? GuidGenerator.Create() : Guid.NewGuid();
             var account = new Account(
-                GuidGenerator.Create(),
+                accountId,
                 companyId,
                 row.AccountCode,
                 row.AccountName,
@@ -97,10 +134,32 @@ public class ChartOfAccountsImportService : DomainService
 
             await _accountRepository.InsertAsync(account);
             codeToIdMap[row.AccountCode] = account.Id;
-            created++;
+            createdAccounts.Add(account);
         }
 
-        return created;
+        // Auto-assign default accounts on company based on created accounts (per ERPNext set_default_accounts)
+        if (company != null && _companyRepository != null)
+        {
+            var leafAccounts = createdAccounts.Where(a => !a.IsGroup).ToList();
+
+            company.DefaultReceivableAccountId = leafAccounts.FirstOrDefault(a => a.AccountSubType == AccountSubType.AccountsReceivable || a.AccountName.Contains("Receivable", StringComparison.OrdinalIgnoreCase))?.Id;
+            company.DefaultPayableAccountId = leafAccounts.FirstOrDefault(a => a.AccountSubType == AccountSubType.AccountsPayable || a.AccountName.Contains("Payable", StringComparison.OrdinalIgnoreCase))?.Id;
+            company.DefaultIncomeAccountId = leafAccounts.FirstOrDefault(a => a.AccountType == AccountType.Revenue && (a.AccountName.Contains("Sales", StringComparison.OrdinalIgnoreCase) || a.AccountName.Contains("Revenue", StringComparison.OrdinalIgnoreCase)))?.Id;
+            company.DefaultExpenseAccountId = leafAccounts.FirstOrDefault(a => a.AccountType == AccountType.Expense && (a.AccountName.Contains("Cost of Goods", StringComparison.OrdinalIgnoreCase) || a.AccountName.Contains("Operating", StringComparison.OrdinalIgnoreCase)))?.Id;
+            company.DefaultTaxPayableAccountId = leafAccounts.FirstOrDefault(a => a.AccountSubType == AccountSubType.TaxPayable || a.AccountName.Contains("SST", StringComparison.OrdinalIgnoreCase))?.Id;
+            company.DefaultBankAccountId = leafAccounts.FirstOrDefault(a => a.AccountSubType == AccountSubType.BankAccount || a.AccountName.Contains("Bank", StringComparison.OrdinalIgnoreCase))?.Id;
+            company.DefaultInventoryAccountId = leafAccounts.FirstOrDefault(a => a.AccountSubType == AccountSubType.Stock || a.AccountName.Contains("Inventory", StringComparison.OrdinalIgnoreCase))?.Id;
+            company.DefaultStockAdjustmentAccountId = leafAccounts.FirstOrDefault(a => a.AccountName.Contains("Stock Adjustment", StringComparison.OrdinalIgnoreCase))?.Id;
+            company.StockReceivedButNotBilledAccountId = leafAccounts.FirstOrDefault(a => a.AccountName.Contains("Stock Received But Not Billed", StringComparison.OrdinalIgnoreCase))?.Id;
+            company.ExchangeGainLossAccountId = leafAccounts.FirstOrDefault(a => a.AccountName.Contains("Exchange Gain", StringComparison.OrdinalIgnoreCase))?.Id;
+            company.DepreciationExpenseAccountId = leafAccounts.FirstOrDefault(a => a.AccountSubType == AccountSubType.DepreciationExpense || a.AccountName.Contains("Depreciation Expense", StringComparison.OrdinalIgnoreCase))?.Id;
+            company.AccumulatedDepreciationAccountId = leafAccounts.FirstOrDefault(a => a.AccountSubType == AccountSubType.AccumulatedDepreciation || a.AccountName.Contains("Accumulated Depreciation", StringComparison.OrdinalIgnoreCase))?.Id;
+            company.RoundOffAccountId = leafAccounts.FirstOrDefault(a => a.AccountName.Contains("Round Off", StringComparison.OrdinalIgnoreCase))?.Id;
+
+            await _companyRepository.UpdateAsync(company);
+        }
+
+        return createdAccounts.Count;
     }
 
     /// <summary>
