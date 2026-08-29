@@ -11,6 +11,7 @@ public interface IDunningAppService : IApplicationService
     Task<PagedResultDto<DunningDto>> GetListAsync(CompanyFilteredPagedRequestDto input);
     Task<DunningDto> GetAsync(Guid id);
     Task<DunningDto> CreateAsync(CreateDunningDto input);
+    Task<DunningDto> CreateFromSalesInvoiceAsync(Guid salesInvoiceId);
     Task<DunningDto> SubmitAsync(Guid id);
     Task<DunningDto> ResolveAsync(Guid id);
     Task<DunningDto> CancelAsync(Guid id);

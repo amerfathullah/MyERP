@@ -138,6 +138,46 @@ public class DunningAppService : ApplicationService, IDunningAppService
         return ObjectMapper.Map<Dunning, DunningDto>(d);
     }
 
+    /// <summary>
+    /// Creates a Dunning document directly from a submitted overdue Sales Invoice.
+    /// Per ERPNext PR #56883 / #56006: uses transaction-currency outstanding for foreign-currency invoices.
+    /// </summary>
+    [Authorize(MyERPPermissions.SalesInvoices.Create)]
+    public async Task<DunningDto> CreateFromSalesInvoiceAsync(Guid salesInvoiceId)
+    {
+        var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+        var si = await siRepo.GetAsync(salesInvoiceId, includeDetails: true);
+
+        if (si.Status != DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        // Transaction-currency outstanding
+        var outstanding = si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance;
+        if (outstanding <= 0.01m)
+            throw new BusinessException(MyERPDomainErrorCodes.InvoiceAlreadySettled);
+
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+        var customer = await customerRepo.FindAsync(si.CustomerId);
+
+        var today = DateTime.UtcNow.Date;
+        var dueDate = si.DueDate ?? si.IssueDate;
+        var overdueDays = Math.Max(0, (int)(today - dueDate).TotalDays);
+
+        var level = await _dunningManager.DetermineDunningLevelAsync(
+            si.CustomerId, si.CompanyId, CurrentTenant.Id);
+
+        var d = new Dunning(GuidGenerator.Create(), si.CompanyId, si.CustomerId,
+            today, level, CurrentTenant.Id)
+        {
+            CustomerName = customer?.Name,
+        };
+
+        d.AddOverduePayment(si.Id, outstanding, dueDate, overdueDays);
+
+        await _repository.InsertAsync(d);
+        return ObjectMapper.Map<Dunning, DunningDto>(d);
+    }
+
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]
     public async Task<DunningDto> SubmitAsync(Guid id)
     {
