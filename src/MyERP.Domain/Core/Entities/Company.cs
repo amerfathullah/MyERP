@@ -95,6 +95,8 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? AccumulatedDepreciationAccountId { get; set; }
     /// <summary>Exchange gain/loss account (multi-currency).</summary>
     public Guid? ExchangeGainLossAccountId { get; set; }
+    /// <summary>Default Bank Charges account for payment deductions (single-currency transfers). Per ERPNext PR #57840.</summary>
+    public Guid? BankChargesAccountId { get; set; }
     /// <summary>Gain/loss on fixed asset disposal (sale or scrap). Per ERPNext: Company.disposal_account.</summary>
     public Guid? DisposalAccountId { get; set; }
     /// <summary>

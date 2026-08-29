@@ -36,6 +36,7 @@ public class UpdateCompanySettingsDto
     public Guid? DepreciationExpenseAccountId { get; set; }
     public Guid? AccumulatedDepreciationAccountId { get; set; }
     public Guid? ExchangeGainLossAccountId { get; set; }
+    public Guid? BankChargesAccountId { get; set; }
     public Guid? DefaultCostCenterId { get; set; }
     public Guid? RoundOffAccountId { get; set; }
     public Guid? RoundOffForOpeningAccountId { get; set; }
@@ -190,6 +191,7 @@ public class CompanyAppService :
         company.DepreciationExpenseAccountId = input.DepreciationExpenseAccountId;
         company.AccumulatedDepreciationAccountId = input.AccumulatedDepreciationAccountId;
         company.ExchangeGainLossAccountId = input.ExchangeGainLossAccountId;
+        company.BankChargesAccountId = input.BankChargesAccountId;
         company.DefaultCostCenterId = input.DefaultCostCenterId;
         company.RoundOffAccountId = input.RoundOffAccountId;
         company.RoundOffForOpeningAccountId = input.RoundOffForOpeningAccountId;

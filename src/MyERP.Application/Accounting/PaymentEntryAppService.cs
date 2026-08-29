@@ -705,24 +705,35 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     }
                 }
 
-                // Residual Exchange Gain/Loss (upstream PR #58071: bank charges co-exist with residual FX)
+                // Residual Exchange Gain/Loss or Bank Charges (upstream PR #57840):
+                // For single-currency internal transfers, use BankChargesAccountId if configured;
+                // for cross-currency transfers, use ExchangeGainLossAccountId.
                 var fxResidual = Math.Round(basePaid - baseReceived - otherDeductions, 2);
                 if (fxResidual != 0)
                 {
                     var companyTransfer = await LazyServiceProvider
                         .LazyGetRequiredService<IRepository<Company, Guid>>()
                         .GetAsync(pe.CompanyId);
-                    if (companyTransfer.ExchangeGainLossAccountId.HasValue)
+
+                    var isSingleCurrency = (pe.SourceExchangeRate <= 0 || pe.SourceExchangeRate == 1m)
+                        && (pe.TargetExchangeRate <= 0 || pe.TargetExchangeRate == 1m)
+                        || (pe.SourceExchangeRate == pe.TargetExchangeRate);
+                    var residualAccountId = (isSingleCurrency && companyTransfer.BankChargesAccountId.HasValue)
+                        ? companyTransfer.BankChargesAccountId
+                        : companyTransfer.ExchangeGainLossAccountId;
+
+                    if (residualAccountId.HasValue)
                     {
+                        var lineDesc = isSingleCurrency ? "Bank Charges" : (fxResidual > 0 ? "Exchange Loss" : "Exchange Gain");
                         if (fxResidual > 0)
                         {
-                            // Loss (paid more base than received + charges): DR Exchange Gain/Loss
-                            transferJe.AddLineWithDimensions(companyTransfer.ExchangeGainLossAccountId.Value, fxResidual, true, pe.CostCenterId, pe.ProjectId, null, "Exchange Loss");
+                            // Loss / Bank Charge: DR
+                            transferJe.AddLineWithDimensions(residualAccountId.Value, fxResidual, true, pe.CostCenterId, pe.ProjectId, null, lineDesc);
                         }
                         else
                         {
-                            // Gain (paid less base): CR Exchange Gain/Loss
-                            transferJe.AddLineWithDimensions(companyTransfer.ExchangeGainLossAccountId.Value, Math.Abs(fxResidual), false, pe.CostCenterId, pe.ProjectId, null, "Exchange Gain");
+                            // Gain: CR
+                            transferJe.AddLineWithDimensions(residualAccountId.Value, Math.Abs(fxResidual), false, pe.CostCenterId, pe.ProjectId, null, lineDesc);
                         }
                     }
                 }
