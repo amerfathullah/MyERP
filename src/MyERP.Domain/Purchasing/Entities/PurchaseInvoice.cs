@@ -72,6 +72,9 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>Billing address (auto-resolved from Supplier on create).</summary>
     public Guid? BillingAddressId { get; set; }
 
+    /// <summary>Source Subscription ID when generated from recurring supplier subscription billing.</summary>
+    public Guid? SubscriptionId { get; set; }
+
     /// <summary>If true, this is a return (debit note).</summary>
     public bool IsReturn { get; set; }
 

@@ -89,4 +89,21 @@ public class PaymentRequestWorkflowTests
         Assert.True(summary.CanResendEmail);
         Assert.True(summary.CanCancel);
     }
+
+    [Fact]
+    public void PaymentRequest_SubscriptionProperties_CanBeSetAndRead()
+    {
+        var prId = Guid.NewGuid();
+        var subId = Guid.NewGuid();
+        var pr = new PaymentRequest(prId, _companyId, "PurchaseInvoice", _referenceId, _partyId, "Supplier", 800m)
+        {
+            IsASubscription = true,
+            SubscriptionId = subId
+        };
+
+        Assert.True(pr.IsASubscription);
+        Assert.Equal(subId, pr.SubscriptionId);
+        Assert.Equal("PurchaseInvoice", pr.ReferenceDoctype);
+        Assert.Equal("Supplier", pr.PartyType);
+    }
 }

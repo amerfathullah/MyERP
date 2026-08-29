@@ -141,6 +141,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.EntryNumber = entryNumber;
         entry.ReferenceType = input.ReferenceType;
         entry.ReferenceId = input.ReferenceId;
+        entry.WorkOrderId = input.WorkOrderId;
+        entry.IsFgConversion = input.IsFgConversion;
         entry.Notes = input.Notes;
 
         foreach (var item in input.Items)
@@ -159,6 +161,10 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         // rule). Both are no-ops for every other entry type, so wiring them here is safe.
         seManager.ValidateRepackItems(entry);
         seManager.ValidateManufactureItems(entry);
+
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
+        await seManager.ValidateFgConversionAsync(entry, woRepo, altRepo, _repository);
 
         await _repository.InsertAsync(entry, autoSave: true);
         return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
@@ -183,6 +189,14 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 await rmService.ValidateTransferQuantityAsync(
                     entry.SubcontractingOrderId.Value, line.Key, line.Sum(i => i.Quantity), allowancePct);
             }
+        }
+
+        if (entry.IsFgConversion)
+        {
+            var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
+            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
+            await seManager.ValidateFgConversionAsync(entry, woRepo, altRepo, _repository);
         }
 
         entry.Submit();

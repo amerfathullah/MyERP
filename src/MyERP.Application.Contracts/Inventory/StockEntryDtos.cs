@@ -13,6 +13,8 @@ public class StockEntryDto : FullAuditedEntityDto<Guid>
     public DateTime PostingDate { get; set; }
     public string? ReferenceType { get; set; }
     public Guid? ReferenceId { get; set; }
+    public Guid? WorkOrderId { get; set; }
+    public bool IsFgConversion { get; set; }
     public string? Notes { get; set; }
     public string Status { get; set; } = null!;
     public List<StockEntryItemDto> Items { get; set; } = new();
@@ -47,6 +49,8 @@ public class CreateStockEntryDto
     public string? ReferenceType { get; set; }
 
     public Guid? ReferenceId { get; set; }
+    public Guid? WorkOrderId { get; set; }
+    public bool IsFgConversion { get; set; }
 
     [StringLength(StockEntryConsts.MaxNoteLength)]
     public string? Notes { get; set; }

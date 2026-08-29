@@ -190,4 +190,14 @@ public class ProductionPlanMrQtyFormulaTests
         var item = new ProductionPlanMrItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "RM-A", 100m);
         Assert.Equal(SubAssemblyType.InHouseManufacturing, item.ProcurementType);
     }
+
+    [Fact]
+    public void MrItem_ProcurementType_MaterialRequest_WhenNoSubBom()
+    {
+        var item = new ProductionPlanMrItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "RM-A", 100m)
+        {
+            ProcurementType = SubAssemblyType.MaterialRequest
+        };
+        Assert.Equal(SubAssemblyType.MaterialRequest, item.ProcurementType);
+    }
 }

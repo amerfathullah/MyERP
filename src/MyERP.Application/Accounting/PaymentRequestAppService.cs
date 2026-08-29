@@ -54,12 +54,43 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
                 .WithData("field", "GrandTotal");
         }
 
+        var isSubscription = input.IsASubscription;
+        var subscriptionId = input.SubscriptionId;
+
+        if (!isSubscription && input.ReferenceDoctype == "SalesInvoice")
+        {
+            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+            var si = await siRepo.FindAsync(input.ReferenceId);
+            if (si?.SubscriptionId != null)
+            {
+                isSubscription = true;
+                subscriptionId = si.SubscriptionId;
+            }
+        }
+        else if (!isSubscription && input.ReferenceDoctype == "PurchaseInvoice")
+        {
+            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var pi = await piRepo.FindAsync(input.ReferenceId);
+            if (pi?.SubscriptionId != null)
+            {
+                isSubscription = true;
+                subscriptionId = pi.SubscriptionId;
+            }
+        }
+        else if (!isSubscription && input.ReferenceDoctype == "Subscription")
+        {
+            isSubscription = true;
+            subscriptionId = input.ReferenceId;
+        }
+
         var pr = new PaymentRequest(GuidGenerator.Create(), input.CompanyId,
             input.ReferenceDoctype, input.ReferenceId, input.PartyId, input.PartyType,
             input.GrandTotal, CurrentTenant.Id)
         {
             PartyName = input.PartyName, Currency = input.Currency,
             EmailTo = input.EmailTo, Subject = input.Subject, Message = input.Message,
+            IsASubscription = isSubscription,
+            SubscriptionId = subscriptionId,
         };
         await _repository.InsertAsync(pr);
 

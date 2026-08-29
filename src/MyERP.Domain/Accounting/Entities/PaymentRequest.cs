@@ -41,6 +41,12 @@ public class PaymentRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Bank account for bank transfers.</summary>
     public Guid? BankAccountId { get; set; }
 
+    /// <summary>Whether this payment request is linked to a recurring subscription.</summary>
+    public bool IsASubscription { get; set; }
+
+    /// <summary>Linked subscription ID if created against subscription or subscription invoice.</summary>
+    public Guid? SubscriptionId { get; set; }
+
     public string? EmailTo { get; set; }
     public string? Subject { get; set; }
     public string? Message { get; set; }

@@ -315,4 +315,97 @@ public class StockEntryManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Validates Finished Good Conversion Repack Stock Entry (upstream PR #58479).
+    /// Converts produced finished goods of a Work Order into alternative finished goods.
+    /// </summary>
+    public async Task ValidateFgConversionAsync(
+        StockEntry entry,
+        IRepository<MyERP.Manufacturing.Entities.WorkOrder, Guid> woRepo,
+        IRepository<ItemAlternative, Guid> altRepo,
+        IRepository<StockEntry, Guid> seRepo)
+    {
+        if (!entry.IsFgConversion) return;
+
+        if (entry.EntryType != StockEntryType.Repack)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "A finished good conversion entry must have the purpose 'Repack'.");
+        }
+
+        if (!entry.WorkOrderId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Work Order is mandatory for a finished good conversion entry.");
+        }
+
+        var wo = await woRepo.FindAsync(entry.WorkOrderId.Value);
+        if (wo == null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Linked Work Order not found.");
+        }
+
+        var productionItem = wo.ItemId;
+
+        // Fetch valid alternative items for this production item (both 1-way and 2-way)
+        var altQuery = await altRepo.GetQueryableAsync();
+        var directAlts = altQuery.Where(a => a.ItemId == productionItem).Select(a => a.AlternativeItemId).ToList();
+        var twoWayAlts = altQuery.Where(a => a.AlternativeItemId == productionItem && a.TwoWay).Select(a => a.ItemId).ToList();
+        var allowedAlternatives = directAlts.Concat(twoWayAlts).ToHashSet();
+
+        if (!allowedAlternatives.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "No Item Alternative records found for the production item.");
+        }
+
+        // Validate consumed quantity of production item
+        var consumedQty = entry.Items
+            .Where(i => i.SourceWarehouseId.HasValue && i.ItemId == productionItem)
+            .Sum(i => i.Quantity);
+
+        if (consumedQty <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "A finished good conversion entry must consume the production item of the Work Order.");
+        }
+
+        // Validate target alternative items and output qty
+        var outputItems = entry.Items
+            .Where(i => (i.IsFinishedItem || i.TargetWarehouseId.HasValue) && i.ItemId != productionItem)
+            .ToList();
+
+        foreach (var outItem in outputItems)
+        {
+            if (!allowedAlternatives.Contains(outItem.ItemId))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Item is not an alternative item of the production item.");
+            }
+        }
+
+        var outputQty = outputItems.Sum(i => i.Quantity);
+        if (Math.Round(outputQty, 4) != Math.Round(consumedQty, 4))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Total output quantity of alternative finished goods ({outputQty}) must equal converted quantity ({consumedQty}).");
+        }
+
+        // Available produced quantity check against WO (produced_qty - already_converted_qty)
+        var seQuery = await seRepo.GetQueryableAsync();
+        var alreadyConvertedQty = seQuery
+            .Where(s => s.WorkOrderId == wo.Id && s.IsFgConversion && s.Id != entry.Id && s.Status == MyERP.Core.DocumentStatus.Posted)
+            .SelectMany(s => s.Items)
+            .Where(i => i.ItemId == productionItem && i.SourceWarehouseId.HasValue)
+            .Sum(i => (decimal?)i.Quantity) ?? 0m;
+
+        var availableQty = wo.ProducedQuantity - alreadyConvertedQty;
+        if (consumedQty > availableQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Quantity ({consumedQty}) to convert cannot exceed available produced quantity ({availableQty}) against Work Order {wo.WorkOrderNumber}.");
+        }
+    }
 }

@@ -58,4 +58,15 @@ public class BatchAndStockEntryInvariantTests
         se.IsAdditionalTransferEntry = true;
         Assert.True(se.IsAdditionalTransferEntry);
     }
+
+    [Fact]
+    public void StockEntry_IsFgConversion_DefaultsFalse_AndCanBeSet()
+    {
+        var se = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Repack, DateTime.UtcNow);
+
+        Assert.False(se.IsFgConversion);
+
+        se.IsFgConversion = true;
+        Assert.True(se.IsFgConversion);
+    }
 }

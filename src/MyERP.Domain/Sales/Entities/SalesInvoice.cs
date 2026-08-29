@@ -71,6 +71,9 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Payment terms template for auto-generating due dates.</summary>
     public Guid? PaymentTermsTemplateId { get; set; }
 
+    /// <summary>Source Subscription ID when generated from recurring subscription billing.</summary>
+    public Guid? SubscriptionId { get; set; }
+
     /// <summary>Billing address (auto-resolved from Customer on create).</summary>
     public Guid? BillingAddressId { get; set; }
 

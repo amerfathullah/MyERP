@@ -49,6 +49,12 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     /// </summary>
     public bool IsAdditionalTransferEntry { get; set; }
 
+    /// <summary>
+    /// Finished Good Conversion flag (upstream PR #58479):
+    /// Converts produced FG of a Work Order to alternative finished goods via Repack entry.
+    /// </summary>
+    public bool IsFgConversion { get; set; }
+
     // IAccountableDocument implementation
     string IAccountableDocument.DocumentType => "StockEntry";
     public string CurrencyCode { get; set; } = "MYR";

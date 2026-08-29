@@ -16,6 +16,8 @@ public class PaymentRequestDto : EntityDto<Guid>
     public decimal OutstandingAmount { get; set; }
     public string Currency { get; set; } = null!;
     public int Status { get; set; }
+    public bool IsASubscription { get; set; }
+    public Guid? SubscriptionId { get; set; }
     public Guid? PaymentEntryId { get; set; }
 }
 
@@ -30,6 +32,8 @@ public class CreatePaymentRequestDto
     public string? PartyName { get; set; }
     public decimal GrandTotal { get; set; }
     public string Currency { get; set; } = "MYR";
+    public bool IsASubscription { get; set; }
+    public Guid? SubscriptionId { get; set; }
     public string? EmailTo { get; set; }
     public string? Subject { get; set; }
     public string? Message { get; set; }
