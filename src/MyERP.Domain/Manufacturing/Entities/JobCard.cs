@@ -50,6 +50,7 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public decimal ForQuantity { get; set; }
     public decimal CompletedQty { get; set; }
+    public decimal PendingQty { get; set; }
     public decimal ProcessLossQty { get; set; }
     public decimal TotalTimeInMins { get; set; }
 

@@ -1,5 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Manufacturing.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
 using Xunit;
@@ -108,5 +112,41 @@ public class JobCardTests
         jc.Complete();
         Should.Throw<BusinessException>(() =>
             jc.AddTimeLog(DateTime.UtcNow, DateTime.UtcNow.AddHours(1), 10m));
+    }
+
+    [Fact]
+    public void JobCard_PendingQty_DefaultZero_CanBeSet()
+    {
+        var jc = CreateJobCard();
+        jc.PendingQty.ShouldBe(0m);
+
+        jc.PendingQty = 30m;
+        jc.PendingQty.ShouldBe(30m);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task GetTotalJobCardQtyAsync_SubtractsPendingQty()
+    {
+        var jcRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        var wsRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        var manager = new MyERP.Manufacturing.DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        var woId = Guid.NewGuid();
+        var opId = Guid.NewGuid();
+
+        var jc1 = new JobCard(Guid.NewGuid(), Guid.NewGuid(), woId, opId, 10m, 1)
+        {
+            PendingQty = 3m // Net effective qty = 10 - 3 = 7
+        };
+        var jc2 = new JobCard(Guid.NewGuid(), Guid.NewGuid(), woId, opId, 5m, 2)
+        {
+            PendingQty = 0m // Net effective qty = 5 - 0 = 5
+        };
+
+        jcRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new System.Collections.Generic.List<JobCard> { jc1, jc2 }.AsQueryable()));
+
+        var totalQty = await manager.GetTotalJobCardQtyAsync(woId, opId);
+        totalQty.ShouldBe(12m); // (10 - 3) + (5 - 0) = 12
     }
 }

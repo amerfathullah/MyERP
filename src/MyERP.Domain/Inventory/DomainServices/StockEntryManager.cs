@@ -408,4 +408,55 @@ public class StockEntryManager : DomainService
                 .WithData("detail", $"Quantity ({consumedQty}) to convert cannot exceed available produced quantity ({availableQty}) against Work Order {wo.WorkOrderNumber}.");
         }
     }
+
+    /// <summary>
+    /// Validates Batch Split Repack Stock Entry (upstream PR #58530).
+    /// Splits consumed batch inventory into one child batch per finished piece.
+    /// </summary>
+    public void ValidateBatchSplit(StockEntry entry)
+    {
+        if (entry.WeightPerPiece <= 0) return;
+
+        if (entry.EntryType != StockEntryType.Repack)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Batch Split operation is only supported for 'Repack' Stock Entry purpose.");
+        }
+
+        var sourceItems = entry.Items.Where(i => i.SourceWarehouseId.HasValue).ToList();
+        var uniqueSourceItemIds = sourceItems.Select(i => i.ItemId).Distinct().ToList();
+
+        if (uniqueSourceItemIds.Count > 1)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Batch Split repack requires exactly one raw material item type to be consumed.");
+        }
+
+        var outputItems = entry.Items.Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue).ToList();
+        var totalOutputQty = outputItems.Sum(i => i.Quantity);
+
+        if (totalOutputQty <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Batch Split repack must have finished/incoming goods.");
+        }
+
+        var totalPieces = totalOutputQty / entry.WeightPerPiece;
+        if (Math.Abs(totalPieces - Math.Round(totalPieces)) > 0.0001m)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Total output quantity ({totalOutputQty}) must be an exact multiple of Weight Per Piece ({entry.WeightPerPiece}).");
+        }
+
+        // Validate each consumed line divides into whole pieces
+        foreach (var source in sourceItems)
+        {
+            var pieces = source.Quantity / entry.WeightPerPiece;
+            if (Math.Abs(pieces - Math.Round(pieces)) > 0.0001m)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Consumed quantity ({source.Quantity}) must divide evenly into whole pieces of weight {entry.WeightPerPiece}.");
+            }
+        }
+    }
 }

@@ -15,6 +15,7 @@ public class StockEntryDto : FullAuditedEntityDto<Guid>
     public Guid? ReferenceId { get; set; }
     public Guid? WorkOrderId { get; set; }
     public bool IsFgConversion { get; set; }
+    public decimal WeightPerPiece { get; set; }
     public string? Notes { get; set; }
     public string Status { get; set; } = null!;
     public List<StockEntryItemDto> Items { get; set; } = new();
@@ -51,6 +52,7 @@ public class CreateStockEntryDto
     public Guid? ReferenceId { get; set; }
     public Guid? WorkOrderId { get; set; }
     public bool IsFgConversion { get; set; }
+    public decimal WeightPerPiece { get; set; }
 
     [StringLength(StockEntryConsts.MaxNoteLength)]
     public string? Notes { get; set; }

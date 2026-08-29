@@ -143,6 +143,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.ReferenceId = input.ReferenceId;
         entry.WorkOrderId = input.WorkOrderId;
         entry.IsFgConversion = input.IsFgConversion;
+        entry.WeightPerPiece = input.WeightPerPiece;
         entry.Notes = input.Notes;
 
         foreach (var item in input.Items)
@@ -161,6 +162,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         // rule). Both are no-ops for every other entry type, so wiring them here is safe.
         seManager.ValidateRepackItems(entry);
         seManager.ValidateManufactureItems(entry);
+        seManager.ValidateBatchSplit(entry);
 
         var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
         var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
@@ -191,9 +193,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
 
+        var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
+        seManager.ValidateBatchSplit(entry);
+
         if (entry.IsFgConversion)
         {
-            var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
             var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
             var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
             await seManager.ValidateFgConversionAsync(entry, woRepo, altRepo, _repository);

@@ -24,6 +24,9 @@ public class Batch : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string? ReferenceDocType { get; set; }
     public Guid? ReferenceDocId { get; set; }
 
+    /// <summary>Parent batch ID when split from an upstream batch (PR #58530).</summary>
+    public Guid? ParentBatchId { get; set; }
+
     /// <summary>Manufacturing/production date.</summary>
     public DateTime? ManufacturingDate { get; set; }
 

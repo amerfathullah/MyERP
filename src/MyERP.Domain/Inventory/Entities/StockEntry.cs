@@ -55,6 +55,12 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     /// </summary>
     public bool IsFgConversion { get; set; }
 
+    /// <summary>
+    /// Weight/Quantity per piece for Batch Split Repack operation (upstream PR #58530).
+    /// When set (> 0), splits produced finished goods into child batches of this unit size.
+    /// </summary>
+    public decimal WeightPerPiece { get; set; }
+
     // IAccountableDocument implementation
     string IAccountableDocument.DocumentType => "StockEntry";
     public string CurrencyCode { get; set; } = "MYR";

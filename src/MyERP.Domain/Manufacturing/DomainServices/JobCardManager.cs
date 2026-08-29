@@ -203,4 +203,22 @@ public class JobCardManager : DomainService
                 .WithData("total", total);
         }
     }
+
+    /// <summary>
+    /// Gets total effective job card quantity for a work order operation.
+    /// Per ERPNext PR #58466: accounts for pending_qty so partially completed job cards
+    /// don't block creating follow-up job cards for remaining quantity.
+    /// Formula: SUM(for_quantity - pending_qty) for non-cancelled job cards.
+    /// </summary>
+    public async Task<decimal> GetTotalJobCardQtyAsync(Guid workOrderId, Guid operationId)
+    {
+        var queryable = await _jobCardRepository.GetQueryableAsync();
+        var total = queryable
+            .Where(jc => jc.WorkOrderId == workOrderId
+                && jc.OperationId == operationId
+                && jc.Status != JobCardStatus.Cancelled)
+            .Sum(jc => (decimal?)(jc.ForQuantity - jc.PendingQty)) ?? 0m;
+
+        return total;
+    }
 }

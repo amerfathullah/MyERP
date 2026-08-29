@@ -15,6 +15,7 @@ public class JobCardDto : EntityDto<Guid>
     public bool IsCorrective { get; set; }
     public decimal ForQuantity { get; set; }
     public decimal CompletedQty { get; set; }
+    public decimal PendingQty { get; set; }
     public decimal TotalTimeInMins { get; set; }
     public decimal PlannedTimeInMins { get; set; }
     public int SequenceId { get; set; }

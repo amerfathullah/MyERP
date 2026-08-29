@@ -69,4 +69,127 @@ public class BatchAndStockEntryInvariantTests
         se.IsFgConversion = true;
         Assert.True(se.IsFgConversion);
     }
+
+    [Fact]
+    public void Batch_ParentBatchId_CanBeSet()
+    {
+        var parentId = Guid.NewGuid();
+        var child = new Batch(Guid.NewGuid(), _itemId, "BATCH-CHILD-001")
+        {
+            ParentBatchId = parentId
+        };
+
+        Assert.Equal(parentId, child.ParentBatchId);
+    }
+
+    [Fact]
+    public void StockEntry_WeightPerPiece_DefaultsZero_CanBeSet()
+    {
+        var se = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Repack, DateTime.UtcNow);
+
+        Assert.Equal(0m, se.WeightPerPiece);
+
+        se.WeightPerPiece = 10m;
+        Assert.Equal(10m, se.WeightPerPiece);
+    }
+
+    [Fact]
+    public void ValidateBatchSplit_Throws_WhenNonRepack()
+    {
+        var manager = new MyERP.Inventory.DomainServices.StockEntryManager(
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>(),
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+            new MyERP.Core.DomainServices.CompanyRestrictionValidationService(
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.CompanyRestrictionEntry, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.Customer, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Accounting.Entities.Account, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>()));
+
+        var se = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.MaterialTransfer, DateTime.UtcNow)
+        {
+            WeightPerPiece = 10m
+        };
+
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() => manager.ValidateBatchSplit(se));
+        Assert.Contains("Repack", ex.Data["detail"]!.ToString());
+    }
+
+    [Fact]
+    public void ValidateBatchSplit_Throws_WhenMultiRawMaterials()
+    {
+        var manager = new MyERP.Inventory.DomainServices.StockEntryManager(
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>(),
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+            new MyERP.Core.DomainServices.CompanyRestrictionValidationService(
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.CompanyRestrictionEntry, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.Customer, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Accounting.Entities.Account, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>()));
+
+        var se = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Repack, DateTime.UtcNow)
+        {
+            WeightPerPiece = 10m
+        };
+        se.AddItem(Guid.NewGuid(), 10m, Guid.NewGuid(), null);
+        se.AddItem(Guid.NewGuid(), 10m, Guid.NewGuid(), null); // 2 distinct RM items
+        se.AddItem(Guid.NewGuid(), 20m, null, Guid.NewGuid(), isFinishedItem: true);
+
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() => manager.ValidateBatchSplit(se));
+        Assert.Contains("exactly one raw material item type", ex.Data["detail"]!.ToString());
+    }
+
+    [Fact]
+    public void ValidateBatchSplit_Throws_WhenNotWholePieceCapacity()
+    {
+        var manager = new MyERP.Inventory.DomainServices.StockEntryManager(
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>(),
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+            new MyERP.Core.DomainServices.CompanyRestrictionValidationService(
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.CompanyRestrictionEntry, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.Customer, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Accounting.Entities.Account, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>()));
+
+        var rmId = Guid.NewGuid();
+        var se = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Repack, DateTime.UtcNow)
+        {
+            WeightPerPiece = 10m
+        };
+        se.AddItem(rmId, 25m, Guid.NewGuid(), null); // 25 is not divisible by 10
+        se.AddItem(Guid.NewGuid(), 25m, null, Guid.NewGuid(), isFinishedItem: true);
+
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() => manager.ValidateBatchSplit(se));
+        Assert.Contains("must be an exact multiple", ex.Data["detail"]!.ToString());
+    }
+
+    [Fact]
+    public void ValidateBatchSplit_Succeeds_WhenValid()
+    {
+        var manager = new MyERP.Inventory.DomainServices.StockEntryManager(
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>(),
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+            new MyERP.Core.DomainServices.CompanyRestrictionValidationService(
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.CompanyRestrictionEntry, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.Customer, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Accounting.Entities.Account, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>()));
+
+        var rmId = Guid.NewGuid();
+        var se = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Repack, DateTime.UtcNow)
+        {
+            WeightPerPiece = 10m
+        };
+        se.AddItem(rmId, 50m, Guid.NewGuid(), null);
+        se.AddItem(Guid.NewGuid(), 50m, null, Guid.NewGuid(), isFinishedItem: true);
+
+        manager.ValidateBatchSplit(se);
+    }
 }
