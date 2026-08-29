@@ -445,11 +445,24 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     public async Task<WorkOrderDto> CreateWorkOrderFromSalesOrderAsync(
         Guid salesOrderId, Guid itemId, decimal quantity, Guid companyId, Guid? salesOrderItemId = null)
     {
-        // Find the default active BOM for this item
+        // Find the default active BOM for this item (or its template if it's a variant)
         var bomQuery = await _bomRepository.GetQueryableAsync();
         var bom = bomQuery.FirstOrDefault(b =>
             b.ItemId == itemId && b.IsActive && b.IsDefault && b.CompanyId == companyId)
             ?? bomQuery.FirstOrDefault(b => b.ItemId == itemId && b.IsActive && b.CompanyId == companyId);
+
+        if (bom == null)
+        {
+            var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+            var item = await itemRepo.FindAsync(itemId);
+            if (item?.VariantOfId.HasValue == true)
+            {
+                var templateItemId = item.VariantOfId.Value;
+                bom = bomQuery.FirstOrDefault(b =>
+                    b.ItemId == templateItemId && b.IsActive && b.IsDefault && b.CompanyId == companyId)
+                    ?? bomQuery.FirstOrDefault(b => b.ItemId == templateItemId && b.IsActive && b.CompanyId == companyId);
+            }
+        }
 
         if (bom == null)
         {

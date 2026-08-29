@@ -67,9 +67,13 @@ public class WorkOrderManager : DomainService
 
         if (bom.ItemId != itemId)
         {
-            throw new BusinessException("MyERP:10011")
-                .WithData("bomItem", bom.ItemId)
-                .WithData("woItem", itemId);
+            var item = await _itemRepository.FindAsync(itemId);
+            if (item?.VariantOfId == null || bom.ItemId != item.VariantOfId.Value)
+            {
+                throw new BusinessException("MyERP:10011")
+                    .WithData("bomItem", bom.ItemId)
+                    .WithData("woItem", itemId);
+            }
         }
     }
 
