@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
@@ -88,16 +89,33 @@ public class DeliveryNoteManager : DomainService
 
         var original = await _dnRepository.GetAsync(returnDN.ReturnAgainstId.Value);
 
+        // Query prior submitted/posted returns against this same original delivery note
+        var dnQuery = await _dnRepository.GetQueryableAsync();
+        var priorReturns = dnQuery
+            .Where(dn => dn.ReturnAgainstId == original.Id
+                && dn.Id != returnDN.Id
+                && (dn.Status == Core.DocumentStatus.Submitted || dn.Status == Core.DocumentStatus.Posted))
+            .SelectMany(dn => dn.Items)
+            .ToList();
+
+        var priorReturnedByItem = priorReturns
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity)));
+
         foreach (var returnItem in returnDN.Items)
         {
             var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
             if (originalItem == null) continue;
 
-            if (Math.Abs(returnItem.Quantity) > originalItem.Quantity)
+            var alreadyReturned = priorReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+            var maxReturnable = originalItem.Quantity - alreadyReturned;
+
+            if (Math.Abs(returnItem.Quantity) > maxReturnable)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
                     .WithData("itemName", returnItem.Description)
                     .WithData("originalQty", originalItem.Quantity)
+                    .WithData("alreadyReturned", alreadyReturned)
                     .WithData("returnQty", Math.Abs(returnItem.Quantity));
             }
 

@@ -110,18 +110,35 @@ public class SalesInvoiceManager : DomainService
                 .WithData("actual", returnInvoice.ExchangeRate);
         }
 
-        // Return qty per item cannot exceed original qty; return rate cannot exceed original
+        // Query prior submitted/posted returns against this same original invoice
+        var siQuery = await _invoiceRepository.GetQueryableAsync();
+        var priorReturns = siQuery
+            .Where(si => si.ReturnAgainstId == original.Id
+                && si.Id != returnInvoice.Id
+                && (si.Status == Core.DocumentStatus.Submitted || si.Status == Core.DocumentStatus.Posted))
+            .SelectMany(si => si.Items)
+            .ToList();
+
+        var priorReturnedByItem = priorReturns
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity)));
+
+        // Return qty per item cannot exceed (original qty - already_returned); return rate cannot exceed original
         // rate (Moving Average valuation items are exempt — their rate legitimately fluctuates).
         foreach (var returnItem in returnInvoice.Items)
         {
             var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
             if (originalItem == null) continue;
 
-            if (Math.Abs(returnItem.Quantity) > originalItem.Quantity)
+            var alreadyReturned = priorReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+            var maxReturnable = originalItem.Quantity - alreadyReturned;
+
+            if (Math.Abs(returnItem.Quantity) > maxReturnable)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
                     .WithData("itemName", returnItem.Description)
                     .WithData("originalQty", originalItem.Quantity)
+                    .WithData("alreadyReturned", alreadyReturned)
                     .WithData("returnQty", Math.Abs(returnItem.Quantity));
             }
 

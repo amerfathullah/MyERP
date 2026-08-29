@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Assets.Entities;
@@ -141,14 +142,33 @@ public class PurchaseReceiptManager : DomainService
 
         var original = await _prRepository.GetAsync(returnReceipt.ReturnAgainstId.Value);
 
+        // Query prior submitted/posted returns against this same original purchase receipt
+        var prQuery = await _prRepository.GetQueryableAsync();
+        var priorReturns = prQuery
+            .Where(pr => pr.ReturnAgainstId == original.Id
+                && pr.Id != returnReceipt.Id
+                && (pr.Status == Core.DocumentStatus.Submitted || pr.Status == Core.DocumentStatus.Posted))
+            .SelectMany(pr => pr.Items)
+            .ToList();
+
+        var priorReturnedByItem = priorReturns
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity)));
+
         foreach (var returnItem in returnReceipt.Items)
         {
             var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
-            if (originalItem != null && Math.Abs(returnItem.Quantity) > originalItem.Quantity)
+            if (originalItem == null) continue;
+
+            var alreadyReturned = priorReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+            var maxReturnable = originalItem.Quantity - alreadyReturned;
+
+            if (Math.Abs(returnItem.Quantity) > maxReturnable)
             {
                 throw new BusinessException("MyERP:08004")
                     .WithData("itemName", returnItem.Description)
                     .WithData("originalQty", originalItem.Quantity)
+                    .WithData("alreadyReturned", alreadyReturned)
                     .WithData("returnQty", Math.Abs(returnItem.Quantity));
             }
         }

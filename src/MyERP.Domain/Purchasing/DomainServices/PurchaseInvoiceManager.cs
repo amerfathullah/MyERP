@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Inventory.Entities;
@@ -150,15 +151,34 @@ public class PurchaseInvoiceManager : DomainService
                 .WithData("actual", returnInvoice.ExchangeRate);
         }
 
-        // Return qty per item cannot exceed original qty
+        // Query prior submitted/posted returns against this same original invoice
+        var piQuery = await _invoiceRepository.GetQueryableAsync();
+        var priorReturns = piQuery
+            .Where(pi => pi.ReturnAgainstId == original.Id
+                && pi.Id != returnInvoice.Id
+                && (pi.Status == Core.DocumentStatus.Submitted || pi.Status == Core.DocumentStatus.Posted))
+            .SelectMany(pi => pi.Items)
+            .ToList();
+
+        var priorReturnedByItem = priorReturns
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity)));
+
+        // Return qty per item cannot exceed (original qty - already_returned)
         foreach (var returnItem in returnInvoice.Items)
         {
             var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
-            if (originalItem != null && Math.Abs(returnItem.Quantity) > originalItem.Quantity)
+            if (originalItem == null) continue;
+
+            var alreadyReturned = priorReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+            var maxReturnable = originalItem.Quantity - alreadyReturned;
+
+            if (Math.Abs(returnItem.Quantity) > maxReturnable)
             {
                 throw new BusinessException("MyERP:08004")
                     .WithData("itemName", returnItem.Description)
                     .WithData("originalQty", originalItem.Quantity)
+                    .WithData("alreadyReturned", alreadyReturned)
                     .WithData("returnQty", Math.Abs(returnItem.Quantity));
             }
         }
