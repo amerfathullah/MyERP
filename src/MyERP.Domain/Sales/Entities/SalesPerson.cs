@@ -176,10 +176,10 @@ public class SalesTeamEntry : Entity<Guid>
         if (list.Count == 0) return;
 
         var total = list.Sum(x => x.AllocatedPercentage);
-        if (Math.Abs(total - 100m) > 0.00001m)
+        if (Math.Round(total, 2) != 100m)
         {
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", $"Sales team allocated percentage must sum to exactly 100%. Current sum: {total}%.");
+                .WithData("detail", $"Sales team allocated percentage must sum to exactly 100%. Current sum: {Math.Round(total, 2)}%.");
         }
     }
 }

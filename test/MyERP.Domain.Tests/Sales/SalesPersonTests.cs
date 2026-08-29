@@ -166,4 +166,19 @@ public class SalesPersonTests
         Assert.Equal(40m, entry.AllocatedPercentage);
         Assert.Equal(7.5m, entry.CommissionRate);
     }
+
+    [Fact]
+    public void SalesTeamEntry_ValidateAllocatedPercentages_FloatingDriftAccepted()
+    {
+        var parentId = Guid.NewGuid();
+        var entries = new[]
+        {
+            new SalesTeamEntry(Guid.NewGuid(), Guid.NewGuid(), "SalesOrder", parentId, 10.0m, 1000m, 5m),
+            new SalesTeamEntry(Guid.NewGuid(), Guid.NewGuid(), "SalesOrder", parentId, 58.02m, 1000m, 5m),
+            new SalesTeamEntry(Guid.NewGuid(), Guid.NewGuid(), "SalesOrder", parentId, 31.98m, 1000m, 5m),
+        };
+
+        // 10.0 + 58.02 + 31.98 = 100.00
+        SalesTeamEntry.ValidateAllocatedPercentages(entries);
+    }
 }
