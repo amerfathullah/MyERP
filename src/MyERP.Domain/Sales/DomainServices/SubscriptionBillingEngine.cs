@@ -219,6 +219,38 @@ public class SubscriptionBillingEngine : DomainService
         "Yearly" => 12 * sub.BillingIntervalCount,
         _ => 1
     };
+
+    /// <summary>
+    /// Calculates the subscription cost for a Monthly Rate plan across any date range.
+    /// Per ERPNext PR #56827 / commit 196730c535:
+    /// Cross-year date spans must account for the year component (years * 12 + months + 1)
+    /// so a 14-month span across year boundary (e.g. Jan 2026 to Feb 2027) bills all 14 months.
+    /// </summary>
+    public static decimal CalculateMonthlyRateCost(decimal monthlyCost, DateTime startDate, DateTime endDate)
+    {
+        if (endDate < startDate) return 0m;
+
+        int months = ((endDate.Year - startDate.Year) * 12) + endDate.Month - startDate.Month + 1;
+        var cost = monthlyCost * Math.Max(0, months);
+
+        // If start date is not the 1st of the month, prorate start month
+        if (startDate.Day > 1)
+        {
+            var daysInStartMonth = DateTime.DaysInMonth(startDate.Year, startDate.Month);
+            var unbilledDays = startDate.Day - 1;
+            cost -= monthlyCost * ((decimal)unbilledDays / daysInStartMonth);
+        }
+
+        // If end date is not the last day of the month, prorate end month
+        var daysInEndMonth = DateTime.DaysInMonth(endDate.Year, endDate.Month);
+        if (endDate.Day < daysInEndMonth)
+        {
+            var unbilledDays = daysInEndMonth - endDate.Day;
+            cost -= monthlyCost * ((decimal)unbilledDays / daysInEndMonth);
+        }
+
+        return Math.Max(0, Math.Round(cost, 2));
+    }
 }
 
 /// <summary>

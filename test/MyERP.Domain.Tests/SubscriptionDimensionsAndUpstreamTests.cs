@@ -132,13 +132,30 @@ public class SubscriptionDimensionsAndUpstreamTests
         Assert.False(group.IsGroup);
     }
 
-    // Upstream PR #57609: Title field parity (MR/Timesheet) - no code change needed
+    // Upstream PR #56827 / PR #57609: Title field parity & cross-year monthly rate calculation
     [Fact]
     public void Subscription_Plans_Empty_By_Default()
     {
         var sub = new Subscription(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Customer",
             DateTime.UtcNow, "Monthly");
         Assert.Empty(sub.Plans);
+    }
+
+    [Fact]
+    public void CalculateMonthlyRateCost_SameYear_CalculatesFullMonths()
+    {
+        var cost = MyERP.Sales.DomainServices.SubscriptionBillingEngine.CalculateMonthlyRateCost(
+            100m, new DateTime(2026, 1, 1), new DateTime(2026, 3, 31));
+        Assert.Equal(300m, cost);
+    }
+
+    [Fact]
+    public void CalculateMonthlyRateCost_CrossYearBoundary_CalculatesAllMonths()
+    {
+        // 14-month span (Jan 2026 to Feb 2027) = 1400 (ERPNext PR #56827)
+        var cost = MyERP.Sales.DomainServices.SubscriptionBillingEngine.CalculateMonthlyRateCost(
+            100m, new DateTime(2026, 1, 1), new DateTime(2027, 2, 28));
+        Assert.Equal(1400m, cost);
     }
 
     [Theory]
