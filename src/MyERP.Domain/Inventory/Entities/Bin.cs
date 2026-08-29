@@ -78,19 +78,37 @@ public class Bin : AuditedEntity<Guid>, IMultiTenant, IHasConcurrencyStamp
         TenantId = tenantId;
     }
 
-    /// <summary>Update actual qty and valuation from stock ledger.</summary>
+    /// <summary>Update actual qty and valuation from stock ledger. Resets value and rate when empty (commit 6fbcfade6c).</summary>
     public void UpdateActualQty(decimal actualQty, decimal stockValue)
     {
         ActualQty = actualQty;
-        StockValue = stockValue;
-        ValuationRate = actualQty != 0 ? stockValue / actualQty : 0;
+        if (Math.Abs(actualQty) < 0.0000001m)
+        {
+            ActualQty = 0;
+            StockValue = 0;
+            ValuationRate = 0;
+        }
+        else
+        {
+            StockValue = stockValue;
+            ValuationRate = stockValue / actualQty;
+        }
     }
 
-    /// <summary>Add to actual qty (from a single SLE movement).</summary>
+    /// <summary>Add to actual qty (from a single SLE movement). Resets value and rate when empty (commit 6fbcfade6c).</summary>
     public void ApplyStockMovement(decimal qtyChange, decimal valueChange)
     {
         ActualQty += qtyChange;
         StockValue += valueChange;
-        ValuationRate = ActualQty != 0 ? StockValue / ActualQty : 0;
+        if (Math.Abs(ActualQty) < 0.0000001m)
+        {
+            ActualQty = 0;
+            StockValue = 0;
+            ValuationRate = 0;
+        }
+        else
+        {
+            ValuationRate = StockValue / ActualQty;
+        }
     }
 }

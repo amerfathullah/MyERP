@@ -121,24 +121,30 @@ public class SalesInvoiceManager : DomainService
 
         var priorReturnedByItem = priorReturns
             .GroupBy(i => i.ItemId)
-            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity)));
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m))));
 
         // Return qty per item cannot exceed (original qty - already_returned); return rate cannot exceed original
         // rate (Moving Average valuation items are exempt — their rate legitimately fluctuates).
+        // Uses stock qty comparison to support different UOM returns (ERPNext commit abf94bc72d).
         foreach (var returnItem in returnInvoice.Items)
         {
             var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
             if (originalItem == null) continue;
 
-            var alreadyReturned = priorReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
-            var maxReturnable = originalItem.Quantity - alreadyReturned;
+            var returnFactor = returnItem.ConversionFactor > 0 ? returnItem.ConversionFactor : 1m;
+            var originalFactor = originalItem.ConversionFactor > 0 ? originalItem.ConversionFactor : 1m;
+            var originalStockQty = originalItem.Quantity * originalFactor;
+            var returnStockQty = Math.Abs(returnItem.Quantity) * returnFactor;
 
-            if (Math.Abs(returnItem.Quantity) > maxReturnable)
+            var alreadyReturnedStock = priorReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+            var maxReturnableStock = originalStockQty - alreadyReturnedStock;
+
+            if (returnStockQty > maxReturnableStock + 0.0000001m)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
                     .WithData("itemName", returnItem.Description)
                     .WithData("originalQty", originalItem.Quantity)
-                    .WithData("alreadyReturned", alreadyReturned)
+                    .WithData("alreadyReturned", alreadyReturnedStock / returnFactor)
                     .WithData("returnQty", Math.Abs(returnItem.Quantity));
             }
 
