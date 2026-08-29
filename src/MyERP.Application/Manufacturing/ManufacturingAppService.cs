@@ -940,7 +940,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 entry.AddItem(
                     itemId: secItem.ItemId, quantity: secQty,
                     sourceWarehouseId: null, targetWarehouseId: secWarehouseId.Value,
-                    valuationRate: secRate);
+                    valuationRate: secRate,
+                    secondaryItemType: secItem.SecondaryItemType.ToString(),
+                    processLossPercentage: secItem.ProcessLossPercentage);
             }
         }
 
