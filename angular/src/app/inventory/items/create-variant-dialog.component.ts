@@ -1,4 +1,4 @@
-import { Component, inject, Input, Output, EventEmitter, signal, OnInit } from '@angular/core';
+import { Component, inject, Input, Output, EventEmitter, signal, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -77,7 +77,7 @@ interface AttributeInput {
     }
   `,
 })
-export class CreateVariantDialogComponent implements OnInit {
+export class CreateVariantDialogComponent implements OnInit, OnChanges {
   @Input() visible = false;
   @Input() templateItemId = '';
   @Input() templateName = '';
@@ -94,6 +94,17 @@ export class CreateVariantDialogComponent implements OnInit {
 
   ngOnInit() {
     if (this.visible) this.loadAttributes();
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    // The dialog stays mounted and toggles via [visible] rather than being
+    // created fresh each time it opens, so ngOnInit alone only catches the
+    // case where it's already visible on first render — reload on every
+    // false-to-true flip so attributes/values are fresh each time it opens.
+    if (changes['visible'] && this.visible && !changes['visible'].previousValue) {
+      this.attributes.forEach(a => (a.value = ''));
+      this.loadAttributes();
+    }
   }
 
   loadAttributes() {

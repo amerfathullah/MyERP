@@ -11,11 +11,12 @@ import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { CreateVariantDialogComponent } from './create-variant-dialog.component';
 
 @Component({
   selector: 'app-item-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
+  imports: [CommonModule, RouterLink, FormsModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, CreateVariantDialogComponent],
   template: `
     <app-breadcrumb />
 
@@ -476,9 +477,15 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
       </div>
 
       <!-- Item Variants (for template items) -->
-      @if (item.hasVariants && variants().length > 0) {
+      @if (item.hasVariants) {
         <div class="card mb-4">
-          <div class="card-header"><i class="fas fa-clone me-2"></i>{{ '::Variants' | abpLocalization }} ({{ variants().length }})</div>
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-clone me-2"></i>{{ '::Variants' | abpLocalization }} ({{ variants().length }})</span>
+            <button class="btn btn-sm btn-outline-primary" (click)="openCreateVariant()">
+              <i class="fas fa-plus me-1"></i>{{ '::CreateVariant' | abpLocalization }}
+            </button>
+          </div>
+          @if (variants().length > 0) {
           <div class="card-body p-0">
             <div class="table-responsive">
               <table class="table table-sm table-hover mb-0">
@@ -503,8 +510,19 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
               </table>
             </div>
           </div>
+          } @else {
+            <div class="card-body text-center text-muted py-3">{{ '::NoVariantsYet' | abpLocalization }}</div>
+          }
         </div>
       }
+
+      <app-create-variant-dialog
+        [visible]="showCreateVariant()"
+        [templateItemId]="entityId"
+        [templateName]="item.itemName"
+        (closed)="showCreateVariant.set(false)"
+        (created)="onVariantCreated()"
+      />
 
       <!-- Activity Log -->
       <app-activity-log [documentType]="'Item'" [documentId]="entityId" />
@@ -536,6 +554,7 @@ export class ItemDetailComponent implements OnInit {
   whereUsedLoading = signal(true);
   whereUsed = signal<any[]>([]);
   variants = signal<any[]>([]);
+  showCreateVariant = signal(false);
   txSummary = signal<any>(null);
   txSummaryLoading = signal(true);
 
@@ -608,6 +627,15 @@ export class ItemDetailComponent implements OnInit {
       next: (data: any) => this.variants.set(data ?? []),
       error: () => {},
     });
+  }
+
+  openCreateVariant(): void {
+    this.showCreateVariant.set(true);
+  }
+
+  onVariantCreated(): void {
+    this.showCreateVariant.set(false);
+    this.loadVariants();
   }
 
   private loadTransactionSummary() {
