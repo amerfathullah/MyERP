@@ -23,6 +23,8 @@ public class PricingRuleDto : EntityDto<Guid>
     public DateTime? ValidFrom { get; set; }
     public DateTime? ValidUpto { get; set; }
     public bool IsDisabled { get; set; }
+    public bool ApplyOnOtherItem { get; set; }
+    public Guid? OtherItemId { get; set; }
 }
 
 public class CreatePricingRuleDto
@@ -44,6 +46,8 @@ public class CreatePricingRuleDto
     public DateTime? ValidFrom { get; set; }
     public DateTime? ValidUpto { get; set; }
     public Guid? CompanyId { get; set; }
+    public bool ApplyOnOtherItem { get; set; }
+    public Guid? OtherItemId { get; set; }
 }
 
 /// <summary>

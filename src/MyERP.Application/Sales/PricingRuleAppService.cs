@@ -59,6 +59,9 @@ public class PricingRuleAppService : ApplicationService, IPricingRuleAppService
                 .WithData("field", "Rate");
         }
 
+        // Validate template and its variant in the same Pricing Rule (ERPNext PR #56926)
+        await ValidateTemplateWithVariantAsync(input);
+
         var rule = new PricingRule(GuidGenerator.Create(), input.Title, input.ApplyOn, input.RuleType, CurrentTenant.Id)
         {
             CompanyId = input.CompanyId,
@@ -75,9 +78,29 @@ public class PricingRuleAppService : ApplicationService, IPricingRuleAppService
             Priority = input.Priority,
             ValidFrom = input.ValidFrom,
             ValidUpto = input.ValidUpto,
+            ApplyOnOtherItem = input.ApplyOnOtherItem,
+            OtherItemId = input.OtherItemId,
         };
         await _repository.InsertAsync(rule);
         return ObjectMapper.Map<PricingRule, PricingRuleDto>(rule);
+    }
+
+    private async Task ValidateTemplateWithVariantAsync(CreatePricingRuleDto input)
+    {
+        if (input.ApplyOn == PricingRuleApplyOn.ItemCode && input.ApplyOnId.HasValue && input.ApplyOnOtherItem && input.OtherItemId.HasValue)
+        {
+            var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+            var itemA = await itemRepo.FindAsync(input.ApplyOnId.Value);
+            var itemB = await itemRepo.FindAsync(input.OtherItemId.Value);
+            if (itemA != null && itemB != null)
+            {
+                if (itemA.VariantOfId == itemB.Id || itemB.VariantOfId == itemA.Id)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Variant and its template cannot both be added to the same Pricing Rule");
+                }
+            }
+        }
     }
 
     /// <summary>
