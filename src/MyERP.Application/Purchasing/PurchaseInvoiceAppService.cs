@@ -659,6 +659,9 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 invoice.SupplierId, invoice.CompanyId, invoice.SupplierInvoiceNumber, invoice.Id);
         }
 
+        // Linked PO status validation (allows returns against closed PO, blocks cancelled)
+        await piManager.ValidatePurchaseOrderStatusAsync(invoice);
+
         // Temporal ordering: PI date must not precede linked PO dates
         await piManager.ValidatePostingDateWithPOAsync(invoice);
 

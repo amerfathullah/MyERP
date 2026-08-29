@@ -47,20 +47,26 @@ public class PurchaseReceiptManager : DomainService
     /// <summary>
     /// Validates receipt quantities and posting date against the linked Purchase Order.
     /// Prevents over-receipt and temporal ordering violations.
+    /// <summary>
+    /// Validates linked PO: active status, temporal ordering, and pending receipt limits.
+    /// Per ERPNext PR #58126: purchase returns against a Closed PO are allowed (cancelled POs are always blocked).
     /// </summary>
     public async Task ValidateAgainstPurchaseOrderAsync(PurchaseReceipt receipt)
     {
-        if (receipt.IsReturn || !receipt.PurchaseOrderId.HasValue) return;
+        if (!receipt.PurchaseOrderId.HasValue) return;
 
         var po = await _poRepository.GetAsync(receipt.PurchaseOrderId.Value);
 
-        // PO must be in an active fulfillment state
-        if (po.Status == Core.DocumentStatus.Cancelled || po.Status == Core.DocumentStatus.Closed)
+        // PO must be in an active fulfillment state (returns allowed against Closed PO, but blocked against Cancelled)
+        if (po.Status == Core.DocumentStatus.Cancelled || (!receipt.IsReturn && po.Status == Core.DocumentStatus.Closed))
         {
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("documentType", "Purchase Order")
                 .WithData("status", po.Status.ToString());
         }
+
+        // Return PRs bypass temporal ordering and pending quantity checks against PO
+        if (receipt.IsReturn) return;
 
         // Temporal ordering: cannot receive before ordering
         if (receipt.PostingDate < po.OrderDate)

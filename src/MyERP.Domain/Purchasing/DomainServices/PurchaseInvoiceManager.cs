@@ -65,6 +65,38 @@ public class PurchaseInvoiceManager : DomainService
     }
 
     /// <summary>
+    /// Validates linked Purchase Orders are not cancelled or closed.
+    /// Per ERPNext PR #58126: purchase returns (IsReturn=true) are allowed against Closed POs,
+    /// but blocked against Cancelled POs. Regular invoices are blocked against both Closed and Cancelled.
+    /// </summary>
+    public async Task ValidatePurchaseOrderStatusAsync(PurchaseInvoice invoice)
+    {
+        var poItemIds = invoice.Items
+            .Where(i => i.PurchaseOrderItemId.HasValue)
+            .Select(i => i.PurchaseOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!poItemIds.Any()) return;
+
+        var poQuery = await _poRepository.GetQueryableAsync();
+        var linkedPOs = poQuery
+            .Where(po => po.Items.Any(i => poItemIds.Contains(i.Id)))
+            .ToList();
+
+        foreach (var po in linkedPOs)
+        {
+            if (po.Status == Core.DocumentStatus.Cancelled || (!invoice.IsReturn && po.Status == Core.DocumentStatus.Closed))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                    .WithData("documentType", "Purchase Order")
+                    .WithData("status", po.Status.ToString())
+                    .WithData("poNumber", po.OrderNumber);
+            }
+        }
+    }
+
+    /// <summary>
     /// Validates that no submitted Assets exist on the original document before allowing return.
     /// Per DO-NOT: "Allow purchase return (PR/PI) when submitted Assets exist on the original document"
     /// </summary>
