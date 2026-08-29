@@ -117,7 +117,7 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         ActualStartDate ??= DateTime.UtcNow;
     }
 
-    public void RecordProduction(decimal quantity, decimal overproductionPercentage = 0)
+    public void RecordProduction(decimal quantity, decimal overproductionPercentage = 0, decimal processLoss = 0)
     {
         if (Status != WorkOrderStatus.InProcess)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -133,7 +133,14 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
 
         ProducedQuantity += quantity;
-        if (ProducedQuantity >= Quantity)
+        if (processLoss > 0)
+        {
+            ProcessLossQty += processLoss;
+        }
+
+        // Per ERPNext PR #57895 / #57903 / commit 0eb61c9fac:
+        // Completion is reached when ProducedQuantity + ProcessLossQty covers ordered Quantity
+        if (ProducedQuantity + ProcessLossQty >= Quantity)
         {
             Status = WorkOrderStatus.Completed;
             ActualEndDate = DateTime.UtcNow;

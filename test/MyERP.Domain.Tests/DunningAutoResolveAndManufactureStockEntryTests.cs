@@ -177,6 +177,23 @@ public class DunningAutoResolveAndManufactureStockEntryTests
     }
 
     [Fact]
+    public void WorkOrder_RecordProduction_WithProcessLoss_CompletesWhenTotalReachesOrderedQty()
+    {
+        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-005B",
+            Guid.NewGuid(), Guid.NewGuid(), 100m);
+        wo.Submit();
+        wo.Start();
+
+        // 95 produced + 5 process loss = 100 total ordered qty -> Completed
+        wo.RecordProduction(95m, overproductionPercentage: 0, processLoss: 5m);
+
+        Assert.Equal(95m, wo.ProducedQuantity);
+        Assert.Equal(5m, wo.ProcessLossQty);
+        Assert.Equal(WorkOrderStatus.Completed, wo.Status);
+        Assert.NotNull(wo.ActualEndDate);
+    }
+
+    [Fact]
     public void WorkOrder_CannotStartFromDraft()
     {
         var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-006",

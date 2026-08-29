@@ -286,9 +286,10 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             var fgQty = entry.Items
                 .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
                 .Sum(i => i.Quantity);
-            if (fgQty > 0)
+            var processLoss = entry.FgCompletedQty > fgQty ? entry.FgCompletedQty - fgQty : 0m;
+            if (fgQty > 0 || processLoss > 0)
             {
-                wo.RecordProduction(fgQty);
+                wo.RecordProduction(fgQty, processLoss: processLoss);
                 await woRepo.UpdateAsync(wo, autoSave: true);
             }
         }
