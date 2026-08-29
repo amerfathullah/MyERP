@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
 using MyERP.Permissions;
+using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
@@ -21,17 +22,52 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IRepository<MyERP.CRM.Entities.CompetitorDetail, Guid> _competitorDetailRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
+    private readonly PricingRuleApplicationService _pricingRuleService;
 
     public QuotationAppService(
         IRepository<Quotation, Guid> repository,
         IRepository<Customer, Guid> customerRepository,
         IRepository<MyERP.CRM.Entities.CompetitorDetail, Guid> competitorDetailRepository,
-        IDocumentNumberGenerator numberGenerator)
+        IDocumentNumberGenerator numberGenerator,
+        PricingRuleApplicationService pricingRuleService)
     {
         _repository = repository;
         _customerRepository = customerRepository;
         _competitorDetailRepository = competitorDetailRepository;
         _numberGenerator = numberGenerator;
+        _pricingRuleService = pricingRuleService;
+    }
+
+    /// <summary>
+    /// Applies matching pricing rules to a quotation's items in-place, mirroring
+    /// SalesOrderAppService/SalesInvoiceAppService — Quotation was the only Selling
+    /// document missing this, so its rates never picked up auto-discounts a Sales Order
+    /// created from the same items would have applied.
+    /// </summary>
+    private async Task ApplyPricingRulesAsync(Quotation quotation)
+    {
+        var pricingContexts = quotation.Items.Select(i => new PricingRuleContext
+        {
+            ItemId = i.ItemId,
+            ItemName = i.Description,
+            Qty = i.Quantity,
+            Rate = i.UnitPrice,
+        }).ToList();
+
+        if (!pricingContexts.Any()) return;
+
+        await _pricingRuleService.ApplyToItemsAsync(
+            pricingContexts, quotation.IssueDate, "Selling",
+            quotation.CustomerId, quotation.CompanyId);
+
+        for (int idx = 0; idx < quotation.Items.Count; idx++)
+        {
+            var ctx = pricingContexts[idx];
+            if (ctx.DiscountedRate > 0 && ctx.DiscountedRate != ctx.Rate)
+            {
+                quotation.Items[idx].UnitPrice = ctx.DiscountedRate;
+            }
+        }
     }
 
     private async Task<string?> ResolveCustomerNameAsync(Guid customerId)
@@ -173,6 +209,8 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
             quotation.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
         }
 
+        await ApplyPricingRulesAsync(quotation);
+
         await _repository.InsertAsync(quotation, autoSave: true);
         var createDto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
         createDto.CustomerName = await ResolveCustomerNameAsync(quotation.CustomerId);
@@ -205,6 +243,8 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         {
             quotation.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
         }
+
+        await ApplyPricingRulesAsync(quotation);
 
         await _repository.UpdateAsync(quotation, autoSave: true);
         var dto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
