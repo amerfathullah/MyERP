@@ -358,7 +358,12 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// True when this invoice itself is blocked from payment — on hold with no release date,
     /// or a release date that hasn't arrived yet. Independent of Supplier.HoldType.
     /// </summary>
-    public bool IsBlocked => OnHold && (!ReleaseDate.HasValue || ReleaseDate.Value.Date > DateTime.UtcNow.Date);
+    public bool IsBlocked => IsBlockedOnDate(DateTime.UtcNow);
+
+    /// <summary>
+    /// Checks if invoice is blocked as of a specific date (e.g. Journal Entry posting date).
+    /// </summary>
+    public bool IsBlockedOnDate(DateTime date) => OnHold && (!ReleaseDate.HasValue || ReleaseDate.Value.Date >= date.Date);
 
     private void RecalculateTotals()
     {

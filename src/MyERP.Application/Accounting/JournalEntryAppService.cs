@@ -187,6 +187,19 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
                 entry.CompanyId, entry.PostingDate, budgetItems, entry.TenantId);
         }
 
+        // Validate blocked purchase invoice references (PR #57825 / commit cbafa16fbc)
+        if (string.Equals(entry.ReferenceType, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase) && entry.ReferenceId.HasValue)
+        {
+            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var pi = await piRepo.FindAsync(entry.ReferenceId.Value);
+            if (pi != null && pi.IsBlockedOnDate(entry.PostingDate))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InvoiceOnHold)
+                    .WithData("invoiceNumber", pi.InvoiceNumber)
+                    .WithData("holdUntil", pi.ReleaseDate?.ToString("yyyy-MM-dd") ?? "indefinite");
+            }
+        }
+
         entry.Post();
         await _repository.UpdateAsync(entry, autoSave: true);
 

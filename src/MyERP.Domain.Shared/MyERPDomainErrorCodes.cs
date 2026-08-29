@@ -275,10 +275,11 @@ public static class MyERPDomainErrorCodes
     // HR — Extended
     public const string AdvanceExceedsPayment = "MyERP:14005";
 
-    // Returns — Extended
+    // Returns & Invoices — Extended
     public const string ReturnAccountMismatch = "MyERP:08008";
     public const string ReturnWithStockZeroQty = "MyERP:08009";
     public const string ReturnRateExceedsOriginal = "MyERP:08011";
+    public const string InvoiceOnHold = "MyERP:08012";
 
     // Payment Entry — Term Allocation
     public const string PaymentTermRequired = "MyERP:02061"; // was MyERP:02026 (collided with MandatoryDimensionMissing)

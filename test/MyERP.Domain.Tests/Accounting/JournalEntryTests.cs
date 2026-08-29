@@ -254,4 +254,23 @@ public class JournalEntryTests
         entry.VoucherType.ShouldBe(JournalEntryVoucherType.Reversal);
         entry.ReversalOfId.ShouldBe(sourceId);
     }
+
+    [Fact]
+    public void PurchaseInvoice_IsBlocked_EvaluatesOnHoldAndReleaseDate()
+    {
+        var pi = new Purchasing.Entities.PurchaseInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PINV-2026-0001", DateTime.UtcNow);
+
+        pi.IsBlocked.ShouldBeFalse();
+
+        pi.OnHold = true;
+        pi.ReleaseDate = null; // indefinite hold
+        pi.IsBlocked.ShouldBeTrue();
+
+        pi.ReleaseDate = DateTime.UtcNow.AddDays(5);
+        pi.IsBlockedOnDate(DateTime.UtcNow).ShouldBeTrue();
+
+        pi.ReleaseDate = DateTime.UtcNow.AddDays(-1); // already expired
+        pi.IsBlockedOnDate(DateTime.UtcNow).ShouldBeFalse();
+    }
 }
