@@ -11,10 +11,12 @@ using MyERP.Permissions;
 using MyERP.Settings;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Settings;
+using MyERP.Manufacturing;
 
 namespace MyERP.Inventory;
 
@@ -202,6 +204,24 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
             var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
             await seManager.ValidateFgConversionAsync(entry, woRepo, altRepo, _repository);
+        }
+
+        // Operations completion check (per ERPNext PR #58000 / commit 401eb30963)
+        if (entry.WorkOrderId.HasValue
+            && (entry.EntryType == StockEntryType.Manufacture || entry.EntryType == StockEntryType.MaterialConsumptionForManufacture))
+        {
+            var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
+            var jcQuery = await jcRepo.GetQueryableAsync();
+            var jobCards = jcQuery.Where(jc => jc.WorkOrderId == entry.WorkOrderId.Value).ToList();
+            if (jobCards.Any())
+            {
+                var uncompleted = jobCards.Where(jc => jc.Status != JobCardStatus.Completed && jc.Status != JobCardStatus.Cancelled).ToList();
+                if (uncompleted.Any())
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Operations are not completed for Work Order. Please complete active Job Cards before submitting manufacture entry.");
+                }
+            }
         }
 
         entry.Submit();
