@@ -274,8 +274,16 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         if (!itemsNeedingWo.Any())
             throw new BusinessException(MyERPDomainErrorCodes.ProductionPlanWorkOrdersAlreadyGenerated);
 
+        // Batch load BOMs to prevent N+1 queries during bulk Work Order generation (ERPNext PR #57154)
+        var bomIds = itemsNeedingWo.Select(i => i.BomId).Distinct().ToList();
+        var bomQuery = await _bomRepository.WithDetailsAsync();
+        var bomMap = bomQuery.Where(b => bomIds.Contains(b.Id)).ToList().ToDictionary(b => b.Id);
+
         foreach (var item in itemsNeedingWo)
         {
+            if (!bomMap.TryGetValue(item.BomId, out var bom))
+                continue;
+
             var woNumber = await _numberGenerator.GenerateAsync("WO", plan.CompanyId);
             var wo = new WorkOrder(
                 GuidGenerator.Create(), plan.CompanyId, woNumber,
@@ -287,7 +295,6 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             wo.SetPlannedDates(item.PlannedStartDate, null);
 
             // Populate required items from BOM
-            var bom = await _bomRepository.GetAsync(item.BomId, includeDetails: true);
             var multiplier = item.PlannedQty / (bom.Quantity > 0 ? bom.Quantity : 1);
             foreach (var bi in bom.Items)
             {
