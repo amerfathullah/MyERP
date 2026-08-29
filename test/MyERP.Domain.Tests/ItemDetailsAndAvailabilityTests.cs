@@ -242,5 +242,23 @@ public class ItemDetailsAndAvailabilityTests
         Assert.Equal(70m, bin.ActualQty - bin.ReservedQty);
     }
 
+    [Fact]
+    public void ResolvedItemDetails_WeightUomAndBarcode_Settable()
+    {
+        var details = new MyERP.Inventory.DomainServices.ResolvedItemDetails
+        {
+            ItemId = Guid.NewGuid(),
+            ItemCode = "ITEM-001",
+            ItemName = "Widget",
+            WeightPerUnit = 2.5m,
+            WeightUom = "Kg",
+            Barcode = "9551234567890",
+        };
+
+        Assert.Equal("Kg", details.WeightUom);
+        Assert.Equal("9551234567890", details.Barcode);
+        Assert.Equal(2.5m, details.WeightPerUnit);
+    }
+
     #endregion
 }

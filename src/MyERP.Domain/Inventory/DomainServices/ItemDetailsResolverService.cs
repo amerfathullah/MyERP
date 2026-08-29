@@ -50,6 +50,9 @@ public class ItemDetailsResolverService : DomainService
         // STEP 2: Load per-company defaults (3-tier: ItemDefault → ItemGroup → fallback)
         var defaults = await LoadDefaultsAsync(item, context.CompanyId);
 
+        var defaultBarcode = item.Barcodes?.FirstOrDefault(b => b.IsDefault)?.Barcode
+            ?? item.Barcodes?.FirstOrDefault()?.Barcode;
+
         // STEP 3: Build result with basic details
         var result = new ResolvedItemDetails
         {
@@ -62,6 +65,8 @@ public class ItemDetailsResolverService : DomainService
             HasSerialNo = item.HasSerialNo,
             ItemGroup = item.ItemGroup,
             WeightPerUnit = item.WeightPerUnit,
+            WeightUom = item.WeightUom,
+            Barcode = defaultBarcode,
             DefaultBomId = item.DefaultBomId,
         };
 
@@ -429,6 +434,8 @@ public class ResolvedItemDetails
     public decimal DefaultDiscountPercentage { get; set; }
     public decimal MinOrderQty { get; set; }
     public decimal WeightPerUnit { get; set; }
+    public string? WeightUom { get; set; }
+    public string? Barcode { get; set; }
     public decimal TotalWeight { get; set; }
     public decimal LastPurchaseRate { get; set; }
     /// <summary>Tax category ID for item tax template resolution. Per ERPNext: Item.taxes fallback chain.</summary>
