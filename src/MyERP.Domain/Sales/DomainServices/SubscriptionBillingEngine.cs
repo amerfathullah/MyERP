@@ -47,6 +47,14 @@ public class SubscriptionBillingEngine : DomainService
         if (sub.Status == SubscriptionStatus.Cancelled)
             return SubscriptionStatus.Cancelled;
 
+        // Cancel at period end (PR #57774 / commit 0f428ed854)
+        if (sub.CancelAtPeriodEnd && (
+            (sub.CurrentInvoiceEnd.HasValue && asOfDate.Date >= sub.CurrentInvoiceEnd.Value.Date)
+            || (sub.EndDate.HasValue && asOfDate.Date >= sub.EndDate.Value.Date)))
+        {
+            return SubscriptionStatus.Cancelled;
+        }
+
         // 1. Trialing
         if (sub.TrialEndDate.HasValue && asOfDate <= sub.TrialEndDate.Value)
             return SubscriptionStatus.Active; // Trialing maps to Active with 100% discount

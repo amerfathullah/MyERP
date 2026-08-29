@@ -53,6 +53,10 @@ public class Subscription : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public SubscriptionStatus Status { get; private set; } = SubscriptionStatus.Active;
     public decimal TotalPerInterval { get; set; }
 
+    /// <summary>Whether to cancel subscription when current billing period ends. Per PR #57774.</summary>
+    public bool CancelAtPeriodEnd { get; set; }
+    public DateTime? CancellationDate { get; set; }
+
     /// <summary>Per PR #57615: auto-filled from plan item's company default cost center.</summary>
     public Guid? CostCenterId { get; set; }
 
@@ -119,11 +123,12 @@ public class Subscription : FullAuditedAggregateRoot<Guid>, IMultiTenant
             CostCenterId = costCenterId;
     }
 
-    public void Cancel()
+    public void Cancel(DateTime? cancellationDate = null)
     {
         if (Status == SubscriptionStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = SubscriptionStatus.Cancelled;
+        CancellationDate = cancellationDate ?? DateTime.UtcNow;
     }
 
     public void Pause()
