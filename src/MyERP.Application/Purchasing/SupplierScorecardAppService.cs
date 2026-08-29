@@ -131,6 +131,20 @@ public class SupplierScorecardAppService : ApplicationService, ISupplierScorecar
 
         var scorecard = await _repository.GetAsync(scorecardId);
 
+        // Deduplicate overlapping submitted scorecard periods (ERPNext PR #57115)
+        var existingPeriods = await _periodRepository.GetQueryableAsync();
+        var exists = existingPeriods.Any(p =>
+            p.SupplierScorecardId == scorecardId &&
+            p.IsSubmitted &&
+            p.StartDate <= input.EndDate &&
+            p.EndDate >= input.StartDate);
+
+        if (exists)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
+                .WithData("reason", "A scorecard period overlapping these dates has already been submitted");
+        }
+
         var period = new ScorecardPeriod(
             GuidGenerator.Create(),
             scorecardId,
