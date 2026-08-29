@@ -1,7 +1,9 @@
 using System;
+using System.Linq;
 using MyERP.Sales.Entities;
 using MyERP.Purchasing.Entities;
 using MyERP.Inventory.Entities;
+using NSubstitute;
 using Shouldly;
 using Xunit;
 
@@ -229,5 +231,43 @@ public class UomConversionIntegrationTests
         totalTransaction.ShouldBe(720m);
         totalStock.ShouldBe(720m);
         totalTransaction.ShouldBe(totalStock);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task UomConversionService_SharedTarget_CalculatesFactorCorrectly()
+    {
+        var repo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<UomConversion, Guid>>();
+        var service = new MyERP.Inventory.DomainServices.UomConversionService(repo);
+
+        // 3 Kg Bag -> Kg is 3; 25 Kg Bag -> Kg is 25
+        var conversions = new System.Collections.Generic.List<UomConversion>
+        {
+            new(Guid.NewGuid(), "3 Kg Bag", "Kg", 3m, null),
+            new(Guid.NewGuid(), "25 Kg Bag", "Kg", 25m, null),
+        };
+
+        repo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(conversions.AsQueryable()));
+
+        var factor = await service.GetConversionFactorAsync(null, "3 Kg Bag", "25 Kg Bag");
+        factor.ShouldBe(0.12m); // 3 / 25
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task UomConversionService_SharedSource_CalculatesFactorCorrectly()
+    {
+        var repo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<UomConversion, Guid>>();
+        var service = new MyERP.Inventory.DomainServices.UomConversionService(repo);
+
+        // Kg -> mg is 1,000,000; Kg -> Gram is 1,000
+        var conversions = new System.Collections.Generic.List<UomConversion>
+        {
+            new(Guid.NewGuid(), "Kg", "mg", 1000000m, null),
+            new(Guid.NewGuid(), "Kg", "Gram", 1000m, null),
+        };
+
+        repo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(conversions.AsQueryable()));
+
+        var factor = await service.GetConversionFactorAsync(null, "Gram", "mg");
+        factor.ShouldBe(1000m); // 1,000,000 / 1,000
     }
 }

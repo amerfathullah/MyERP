@@ -84,8 +84,32 @@ public class UomConversionService : DomainService
             .FirstOrDefault(c => c.ItemId == null
                 && c.FromUom == stockUom && c.ToUom == transactionUom);
 
-        if (reverseGlobal != null)
+        if (reverseGlobal != null && reverseGlobal.ConversionFactor != 0)
             return 1m / reverseGlobal.ConversionFactor;
+
+        // Priority 3: Intermediate conversion via shared source UOM (per PR #58305)
+        // e.g. Kg -> mg (1,000,000) and Kg -> g (1,000) => g -> mg = 1,000,000 / 1,000 = 1,000
+        var sharedSource = (
+            from first in query.Where(c => c.ItemId == null && c.ToUom == stockUom)
+            join second in query.Where(c => c.ItemId == null && c.ToUom == transactionUom && c.ConversionFactor != 0)
+                on first.FromUom equals second.FromUom
+            select first.ConversionFactor / second.ConversionFactor
+        ).FirstOrDefault();
+
+        if (sharedSource != 0)
+            return sharedSource;
+
+        // Priority 4: Intermediate conversion via shared target UOM (per PR #58305)
+        // e.g. 3 Kg Bag -> Kg (3) and 25 Kg Bag -> Kg (25) => 3 Kg Bag -> 25 Kg Bag = 3 / 25 = 0.12
+        var sharedTarget = (
+            from first in query.Where(c => c.ItemId == null && c.FromUom == transactionUom)
+            join second in query.Where(c => c.ItemId == null && c.FromUom == stockUom && c.ConversionFactor != 0)
+                on first.ToUom equals second.ToUom
+            select first.ConversionFactor / second.ConversionFactor
+        ).FirstOrDefault();
+
+        if (sharedTarget != 0)
+            return sharedTarget;
 
         // Default: no conversion found (assume same UOM or factor = 1)
         return 1m;
