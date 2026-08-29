@@ -36,6 +36,8 @@ public class UpdateCompanySettingsDto
     public Guid? DepreciationExpenseAccountId { get; set; }
     public Guid? AccumulatedDepreciationAccountId { get; set; }
     public Guid? ExchangeGainLossAccountId { get; set; }
+    public Guid? ExchangeGainAccountId { get; set; }
+    public Guid? ExchangeLossAccountId { get; set; }
     public Guid? BankChargesAccountId { get; set; }
     public Guid? DefaultCostCenterId { get; set; }
     public Guid? RoundOffAccountId { get; set; }
@@ -144,6 +146,10 @@ public class CompanyAppService :
         entity.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
         entity.StockReceivedButNotBilledAccountId = input.StockReceivedButNotBilledAccountId;
         entity.StockDeliveredButNotBilledAccountId = input.StockDeliveredButNotBilledAccountId;
+        entity.ExchangeGainLossAccountId = input.ExchangeGainLossAccountId;
+        entity.ExchangeGainAccountId = input.ExchangeGainAccountId;
+        entity.ExchangeLossAccountId = input.ExchangeLossAccountId;
+        entity.BankChargesAccountId = input.BankChargesAccountId;
         entity.DefaultCostCenterId = input.DefaultCostCenterId;
         entity.RoundOffAccountId = input.RoundOffAccountId;
         entity.RoundOffForOpeningAccountId = input.RoundOffForOpeningAccountId;
@@ -191,6 +197,8 @@ public class CompanyAppService :
         company.DepreciationExpenseAccountId = input.DepreciationExpenseAccountId;
         company.AccumulatedDepreciationAccountId = input.AccumulatedDepreciationAccountId;
         company.ExchangeGainLossAccountId = input.ExchangeGainLossAccountId;
+        company.ExchangeGainAccountId = input.ExchangeGainAccountId;
+        company.ExchangeLossAccountId = input.ExchangeLossAccountId;
         company.BankChargesAccountId = input.BankChargesAccountId;
         company.DefaultCostCenterId = input.DefaultCostCenterId;
         company.RoundOffAccountId = input.RoundOffAccountId;

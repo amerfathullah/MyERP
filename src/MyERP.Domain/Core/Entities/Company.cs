@@ -93,8 +93,12 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? DepreciationExpenseAccountId { get; set; }
     /// <summary>Default accumulated depreciation account.</summary>
     public Guid? AccumulatedDepreciationAccountId { get; set; }
-    /// <summary>Exchange gain/loss account (multi-currency).</summary>
+    /// <summary>Exchange gain/loss account (multi-currency fallback).</summary>
     public Guid? ExchangeGainLossAccountId { get; set; }
+    /// <summary>Specific account for booking exchange gains. Falls back to ExchangeGainLossAccountId. Per ERPNext PR #57839.</summary>
+    public Guid? ExchangeGainAccountId { get; set; }
+    /// <summary>Specific account for booking exchange losses. Falls back to ExchangeGainLossAccountId. Per ERPNext PR #57839.</summary>
+    public Guid? ExchangeLossAccountId { get; set; }
     /// <summary>Default Bank Charges account for payment deductions (single-currency transfers). Per ERPNext PR #57840.</summary>
     public Guid? BankChargesAccountId { get; set; }
     /// <summary>Gain/loss on fixed asset disposal (sale or scrap). Per ERPNext: Company.disposal_account.</summary>
@@ -234,5 +238,15 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("attemptedCurrency", currencyCode);
         }
         CurrencyCode = Check.NotNullOrWhiteSpace(currencyCode, nameof(currencyCode), 3);
+    }
+
+    /// <summary>
+    /// Resolves the appropriate account for exchange gain or loss. Per ERPNext PR #57839.
+    /// </summary>
+    public Guid? GetExchangeGainLossAccountId(bool isGain)
+    {
+        return isGain
+            ? (ExchangeGainAccountId ?? ExchangeGainLossAccountId)
+            : (ExchangeLossAccountId ?? ExchangeGainLossAccountId);
     }
 }

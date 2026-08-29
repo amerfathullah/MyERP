@@ -452,8 +452,10 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 var company = await LazyServiceProvider
                     .LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>()
                     .GetAsync(pe.CompanyId);
-
-                if (company.ExchangeGainLossAccountId.HasValue)
+                var (fxPartyAccountId, isGain) = ResolveExchangeGainLossPosting(
+                    pe.PaymentType, pe.PaidFromAccountId, pe.PaidToAccountId, pe.ExchangeGainLoss);
+                var fxAccountId = company.GetExchangeGainLossAccountId(isGain);
+                if (fxAccountId.HasValue)
                 {
                     // Resolve fiscal year for the posting date
                     var fyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
@@ -471,33 +473,19 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                             ReferenceId = pe.Id,
                         };
 
-                        // ExchangeGainLoss's raw sign (PaidAmount × (ExchangeRate - SourceExchangeRate)) is
-                        // defined from the Receive side by convention (see PaymentEntryExchangeTests: "higher
-                        // payment rate = gain for receivable") — a higher settlement rate means the company
-                        // collected more home-currency value than the invoice booked. For Pay it's the
-                        // opposite: a higher settlement rate means the company paid MORE to settle the same
-                        // foreign debt, i.e. a loss. The offsetting leg (besides the Exchange Gain/Loss
-                        // account) must hit the PARTY account, not pe.PaidToAccountId (= Bank for Receive but
-                        // Payable for Pay) — the main JE (DR PaidTo/CR PaidFrom, both at the payment rate)
-                        // leaves the party account with exactly this residual, since it was originally booked
-                        // at SourceExchangeRate. Worked example (Receive, SI booked at 4.00, paid at 4.20):
-                        // Receivable Dr 400 (invoice) then Cr 420 (main JE) = -20 residual → needs Dr
-                        // Receivable 20 / Cr Gain 20 to zero out. Symmetric for Pay against Payable.
-                        var (fxPartyAccountId, isGain) = ResolveExchangeGainLossPosting(
-                            pe.PaymentType, pe.PaidFromAccountId, pe.PaidToAccountId, pe.ExchangeGainLoss);
                         var gainLossAmount = Math.Abs(pe.ExchangeGainLoss);
                         if (isGain)
                         {
                             // Gain: DR party account (clears the residual the main JE left), CR Exchange Gain
                             je.AddLineWithDimensions(fxPartyAccountId, gainLossAmount, true,
                                 pe.CostCenterId, pe.ProjectId, null, "Exchange Gain");
-                            je.AddLineWithDimensions(company.ExchangeGainLossAccountId.Value, gainLossAmount, false,
+                            je.AddLineWithDimensions(fxAccountId.Value, gainLossAmount, false,
                                 pe.CostCenterId, pe.ProjectId, null, "Exchange Gain");
                         }
                         else
                         {
                             // Loss: DR Exchange Loss, CR party account
-                            je.AddLineWithDimensions(company.ExchangeGainLossAccountId.Value, gainLossAmount, true,
+                            je.AddLineWithDimensions(fxAccountId.Value, gainLossAmount, true,
                                 pe.CostCenterId, pe.ProjectId, null, "Exchange Loss");
                             je.AddLineWithDimensions(fxPartyAccountId, gainLossAmount, false,
                                 pe.CostCenterId, pe.ProjectId, null, "Exchange Loss");
@@ -618,7 +606,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             var companyForFx = await LazyServiceProvider
                 .LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>()
                 .FindAsync(pe.CompanyId);
-            if (companyForFx?.ExchangeGainLossAccountId.HasValue == true)
+            if (companyForFx != null)
             {
                 foreach (var refRow in pe.References)
                 {
@@ -631,6 +619,8 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     // Receive, PaidTo for Pay), not pe.PaidToAccountId unconditionally.
                     var (partyAccountIdForFx, isRefGain) = ResolveExchangeGainLossPosting(
                         pe.PaymentType, pe.PaidFromAccountId, pe.PaidToAccountId, refGainLoss);
+                    var refFxAccountId = companyForFx.GetExchangeGainLossAccountId(isRefGain);
+                    if (!refFxAccountId.HasValue) continue;
 
                     var fxFyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.FiscalYear, Guid>>();
                     var fxFyQuery = await fxFyRepo.GetQueryableAsync();
@@ -649,11 +639,11 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     if (isRefGain)
                     {
                         fxJe.AddLine(partyAccountIdForFx, Math.Abs(refGainLoss), true); // DR party account
-                        fxJe.AddLine(companyForFx.ExchangeGainLossAccountId.Value, Math.Abs(refGainLoss), false); // CR Exchange GL
+                        fxJe.AddLine(refFxAccountId.Value, Math.Abs(refGainLoss), false); // CR Exchange GL
                     }
                     else
                     {
-                        fxJe.AddLine(companyForFx.ExchangeGainLossAccountId.Value, Math.Abs(refGainLoss), true); // DR Exchange GL
+                        fxJe.AddLine(refFxAccountId.Value, Math.Abs(refGainLoss), true); // DR Exchange GL
                         fxJe.AddLine(partyAccountIdForFx, Math.Abs(refGainLoss), false); // CR party account
                     }
 
