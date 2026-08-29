@@ -891,6 +891,12 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        // Validate exchange rate parity with linked Purchase Receipts (upstream PR #58177)
+        var prRepoForFx = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+        var setLandedCostOnPiRate = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetLandedCostBasedOnPurchaseInvoiceRate);
+        await piManager.ValidateExchangeRateWithPurchaseReceiptAsync(
+            invoice, prRepoForFx, isPerpetualInventory: true, setLandedCostBasedOnPiRate: setLandedCostOnPiRate);
+
         invoice.Submit();
 
         // Inter-Company: create corresponding SI in source company if supplier represents another company.

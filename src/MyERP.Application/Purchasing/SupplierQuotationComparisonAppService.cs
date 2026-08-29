@@ -36,18 +36,23 @@ public class SupplierQuotationComparisonAppService : ApplicationService, ISuppli
 
     /// <summary>
     /// Gets a comparison matrix for all supplier quotations against a specific RFQ.
+    /// Supports status filtering (Draft, Submitted, or all non-cancelled).
     /// </summary>
-    public async Task<SupplierQuotationComparisonDto> GetComparisonByRfqAsync(Guid rfqId)
+    public async Task<SupplierQuotationComparisonDto> GetComparisonByRfqAsync(Guid rfqId, string? status = null)
     {
         var sqQueryable = await _sqRepository.GetQueryableAsync();
         var supplierQueryable = await _supplierRepository.GetQueryableAsync();
 
-        // Get all submitted SQs for this RFQ
-        var quotations = sqQueryable
-            .Where(sq => sq.RequestForQuotationId == rfqId
-                      && sq.Status != DocumentStatus.Cancelled)
-            .OrderBy(sq => sq.SupplierName)
-            .ToList();
+        var query = sqQueryable.Where(sq => sq.RequestForQuotationId == rfqId);
+
+        if (string.Equals(status, "Draft", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(sq => sq.Status == DocumentStatus.Draft);
+        else if (string.Equals(status, "Submitted", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(sq => sq.Status == DocumentStatus.Submitted);
+        else
+            query = query.Where(sq => sq.Status != DocumentStatus.Cancelled);
+
+        var quotations = query.OrderBy(sq => sq.SupplierName).ToList();
 
         if (!quotations.Any())
             return new SupplierQuotationComparisonDto { RfqId = rfqId };
