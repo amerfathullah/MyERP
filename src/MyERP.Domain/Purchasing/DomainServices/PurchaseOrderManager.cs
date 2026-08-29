@@ -269,6 +269,38 @@ public class PurchaseOrderManager : DomainService
                 .ToList()
         };
     }
+
+    /// <summary>
+    /// Validates that ordered quantity meets minimum order quantity defined on the Item.
+    /// Per ERPNext PR #57859 / commit 98b7407949: compares at stock_qty precision to tolerate UOM conversion dust.
+    /// </summary>
+    public async Task ValidateMinOrderQtyAsync(PurchaseOrder order)
+    {
+        var itemIds = order.Items.Select(i => i.ItemId).Distinct().ToList();
+        var itemQuery = await _itemRepository.GetQueryableAsync();
+        var items = itemQuery
+            .Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.MinOrderQty, i.ItemCode, i.ItemName })
+            .ToDictionary(i => i.Id);
+
+        var itemwiseQty = order.Items
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.StockQty));
+
+        foreach (var (itemId, stockQty) in itemwiseQty)
+        {
+            if (items.TryGetValue(itemId, out var item) && item.MinOrderQty > 0)
+            {
+                var roundedStockQty = Math.Round(stockQty, 4);
+                var roundedMinOrderQty = Math.Round(item.MinOrderQty, 4);
+                if (roundedStockQty < roundedMinOrderQty)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Item {item.ItemCode}: Ordered qty {roundedStockQty} cannot be less than minimum order qty {roundedMinOrderQty}.");
+                }
+            }
+        }
+    }
 }
 
 /// <summary>Summary of overdue items in a Purchase Order.</summary>

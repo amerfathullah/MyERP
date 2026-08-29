@@ -246,6 +246,9 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         // Supplier hold + scorecard enforcement (domain service)
         await _purchaseOrderManager.ValidateSupplierEligibilityAsync(po.SupplierId);
 
+        // Minimum order quantity validation (tolerating conversion dust)
+        await _purchaseOrderManager.ValidateMinOrderQtyAsync(po);
+
         // Check approval workflow — block submit if approval is pending
         var isFullyApproved = await _approvalManager.IsFullyApprovedAsync("PurchaseOrder", po.Id);
         if (!isFullyApproved)

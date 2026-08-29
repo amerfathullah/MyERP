@@ -50,18 +50,21 @@ public class Uom : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>
     /// Validates that a quantity is a whole number (within float tolerance).
+    /// Per ERPNext PR #57861 / commit a464a6e4a1:
+    /// Round to precision first to eliminate conversion factor dust (e.g. 1999.99999 -> 2000),
+    /// then verify it equals the rounded integer value.
     /// Throws UOMMustBeIntegerError if fractional.
     /// </summary>
-    public void ValidateWholeNumber(decimal qty)
+    public void ValidateWholeNumber(decimal qty, int precision = 4)
     {
         if (!MustBeWholeNumber) return;
 
-        var remainder = qty - Math.Floor(qty);
-        if (remainder > 0.0000001m)
+        var roundedQty = Math.Round(qty, precision);
+        if (Math.Abs(roundedQty - Math.Round(roundedQty, 0)) > 0.0000001m)
         {
             throw new BusinessException("MyERP:05029")
                 .WithData("uom", Name)
-                .WithData("qty", qty);
+                .WithData("qty", roundedQty);
         }
     }
 }

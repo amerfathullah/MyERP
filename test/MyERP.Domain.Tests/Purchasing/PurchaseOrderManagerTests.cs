@@ -182,6 +182,67 @@ public class PurchaseOrderManagerTests
         po.PerBilled.ShouldBe(50m);
     }
 
+    [Fact]
+    public async Task PO_ValidateMinOrderQtyAsync_ThrowsWhenBelowMinOrderQty()
+    {
+        var itemRepo = Substitute.For<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var manager = new DomainServices.PurchaseOrderManager(null!, itemRepo, null!);
+
+        var itemId = Guid.NewGuid();
+        var item = new MyERP.Inventory.Entities.Item(itemId, Guid.NewGuid(), "ITEM-001", "Raw Material 1", MyERP.Inventory.ItemType.Goods)
+        {
+            MinOrderQty = 100m
+        };
+
+        itemRepo.GetQueryableAsync().Returns(Task.FromResult(new List<MyERP.Inventory.Entities.Item> { item }.AsQueryable()));
+
+        var po = CreatePO();
+        po.AddItem(itemId, "Raw Material 1", 50m, 10m, 0m); // 50 < 100
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            manager.ValidateMinOrderQtyAsync(po));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public async Task PO_ValidateMinOrderQtyAsync_ToleratesUomConversionDust()
+    {
+        var itemRepo = Substitute.For<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var manager = new DomainServices.PurchaseOrderManager(null!, itemRepo, null!);
+
+        var itemId = Guid.NewGuid();
+        var item = new MyERP.Inventory.Entities.Item(itemId, Guid.NewGuid(), "ITEM-002", "Raw Material 2", MyERP.Inventory.ItemType.Goods)
+        {
+            MinOrderQty = 2000m
+        };
+
+        itemRepo.GetQueryableAsync().Returns(Task.FromResult(new List<MyERP.Inventory.Entities.Item> { item }.AsQueryable()));
+
+        var po = CreatePO();
+        po.AddItem(itemId, "Raw Material 2", 2000m, 10m, 0m);
+        // Simulate minor float dust on stock qty
+        po.Items[0].ConversionFactor = 0.99999999m;
+
+        await manager.ValidateMinOrderQtyAsync(po);
+    }
+
+    [Fact]
+    public void Uom_ValidateWholeNumber_ToleratesConversionDust()
+    {
+        var uom = new MyERP.Inventory.Entities.Uom(Guid.NewGuid(), "Nos")
+        {
+            MustBeWholeNumber = true
+        };
+
+        // 1999.99999 rounds to 2000 at precision 4 -> should NOT throw
+        uom.ValidateWholeNumber(1999.99999m);
+        uom.ValidateWholeNumber(2000.00001m);
+
+        // 2000.5 is truly fractional -> should throw
+        Should.Throw<BusinessException>(() => uom.ValidateWholeNumber(2000.5m));
+    }
+
     private static PurchaseOrder CreatePO()
     {
         return new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-001", DateTime.UtcNow);
