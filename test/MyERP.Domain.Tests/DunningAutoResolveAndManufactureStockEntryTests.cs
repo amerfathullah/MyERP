@@ -376,4 +376,31 @@ public class DunningAutoResolveAndManufactureStockEntryTests
         var rate = manager.CalculateManufactureFgRate(se.Items, fgQty: 2m, additionalOperatingCost: 10m);
         Assert.Equal(30m, rate); // (50 + 10) / 2 = 30
     }
+
+    [Fact]
+    public void StockEntry_SyncProcessLoss_RecalculatesPercentageFromQty()
+    {
+        // Per ERPNext PR #57063: changing process loss qty recomputes percentage
+        var se = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Manufacture, DateTime.UtcNow);
+        se.FgCompletedQty = 200m;
+        se.ProcessLossQty = 100m;
+        se.ProcessLossPercentage = 80m;
+
+        se.SyncProcessLoss();
+
+        Assert.Equal(50m, se.ProcessLossPercentage);
+    }
+
+    [Fact]
+    public void StockEntry_SyncProcessLoss_DerivesQtyFromPercentageWhenQtyZero()
+    {
+        var se = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Manufacture, DateTime.UtcNow);
+        se.FgCompletedQty = 200m;
+        se.ProcessLossQty = 0m;
+        se.ProcessLossPercentage = 25m;
+
+        se.SyncProcessLoss();
+
+        Assert.Equal(50m, se.ProcessLossQty);
+    }
 }

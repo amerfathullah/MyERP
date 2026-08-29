@@ -15,6 +15,8 @@ public class StockEntryDto : FullAuditedEntityDto<Guid>
     public Guid? ReferenceId { get; set; }
     public Guid? WorkOrderId { get; set; }
     public decimal FgCompletedQty { get; set; }
+    public decimal ProcessLossQty { get; set; }
+    public decimal ProcessLossPercentage { get; set; }
     public bool IsFgConversion { get; set; }
     public decimal WeightPerPiece { get; set; }
     public string? Notes { get; set; }
@@ -53,6 +55,8 @@ public class CreateStockEntryDto
     public Guid? ReferenceId { get; set; }
     public Guid? WorkOrderId { get; set; }
     public decimal FgCompletedQty { get; set; }
+    public decimal ProcessLossQty { get; set; }
+    public decimal ProcessLossPercentage { get; set; }
     public bool IsFgConversion { get; set; }
     public decimal WeightPerPiece { get; set; }
 

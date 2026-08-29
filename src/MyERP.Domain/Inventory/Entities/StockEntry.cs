@@ -158,4 +158,23 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
     }
+
+    /// <summary>
+    /// Synchronizes ProcessLossQty and ProcessLossPercentage based on FgCompletedQty.
+    /// Per ERPNext PR #57063: when ProcessLossQty is specified, recomputes ProcessLossPercentage;
+    /// otherwise derives ProcessLossQty from ProcessLossPercentage.
+    /// </summary>
+    public void SyncProcessLoss()
+    {
+        if (FgCompletedQty <= 0) return;
+
+        if (ProcessLossQty > 0)
+        {
+            ProcessLossPercentage = Math.Round((ProcessLossQty / FgCompletedQty) * 100m, 4);
+        }
+        else if (ProcessLossPercentage > 0)
+        {
+            ProcessLossQty = Math.Round((FgCompletedQty * ProcessLossPercentage) / 100m, 4);
+        }
+    }
 }

@@ -145,6 +145,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.ReferenceId = input.ReferenceId;
         entry.WorkOrderId = input.WorkOrderId;
         entry.FgCompletedQty = input.FgCompletedQty;
+        entry.ProcessLossQty = input.ProcessLossQty;
+        entry.ProcessLossPercentage = input.ProcessLossPercentage;
+        entry.SyncProcessLoss();
         entry.IsFgConversion = input.IsFgConversion;
         entry.WeightPerPiece = input.WeightPerPiece;
         entry.Notes = input.Notes;
@@ -569,6 +572,13 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.Notes = input.Notes;
         entry.ReferenceType = input.ReferenceType;
         entry.ReferenceId = input.ReferenceId;
+        entry.WorkOrderId = input.WorkOrderId;
+        entry.FgCompletedQty = input.FgCompletedQty;
+        entry.ProcessLossQty = input.ProcessLossQty;
+        entry.ProcessLossPercentage = input.ProcessLossPercentage;
+        entry.SyncProcessLoss();
+        entry.IsFgConversion = input.IsFgConversion;
+        entry.WeightPerPiece = input.WeightPerPiece;
 
         // Replace items
         entry.ClearItems();
