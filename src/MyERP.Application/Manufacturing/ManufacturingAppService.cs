@@ -419,13 +419,27 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         await itemValidation.ValidateItemsForTransactionAsync(bom.Items.Select(i => i.ItemId).Concat(new[] { input.ItemId }).Distinct().ToArray());
 
         var number = await _numberGenerator.GenerateAsync("WO", input.CompanyId);
+        var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+        var company = await companyRepo.FindAsync(input.CompanyId);
+
+        var fgWarehouseId = input.FgWarehouseId
+            ?? company?.DefaultFgWarehouseId
+            ?? await itemDefaultsService.ResolveWarehouseAsync(input.ItemId);
+
+        var wipWarehouseId = input.WipWarehouseId
+            ?? company?.DefaultWipWarehouseId;
+
+        var sourceWarehouseId = input.SourceWarehouseId
+            ?? bom.SourceWarehouseId;
+
         var wo = new WorkOrder(GuidGenerator.Create(), input.CompanyId, number, input.ItemId, input.BomId, input.Quantity, CurrentTenant.Id)
         {
             SalesOrderId = input.SalesOrderId,
             SalesOrderItemId = input.SalesOrderItemId,
-            SourceWarehouseId = input.SourceWarehouseId,
-            WipWarehouseId = input.WipWarehouseId,
-            FgWarehouseId = input.FgWarehouseId,
+            SourceWarehouseId = sourceWarehouseId,
+            WipWarehouseId = wipWarehouseId,
+            FgWarehouseId = fgWarehouseId,
             Notes = input.Notes,
         };
         wo.SetPlannedDates(input.PlannedStartDate, input.PlannedEndDate);
@@ -438,9 +452,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var multiplier = input.Quantity / (bom.Quantity > 0 ? bom.Quantity : 1);
         foreach (var bi in bom.Items)
         {
+            var rawWarehouseId = bi.SourceWarehouseId
+                ?? sourceWarehouseId
+                ?? await itemDefaultsService.ResolveWarehouseAsync(bi.ItemId);
+
             wo.RequiredItems.Add(new WorkOrderItem(
                 GuidGenerator.Create(), wo.Id, bi.ItemId, bi.ItemName, bi.Quantity * multiplier)
-            { SourceWarehouseId = bi.SourceWarehouseId ?? bom.SourceWarehouseId });
+            { SourceWarehouseId = rawWarehouseId });
         }
 
         await _workOrderRepository.InsertAsync(wo);
