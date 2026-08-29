@@ -602,6 +602,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     public async Task<WorkOrderDto> SubmitWorkOrderAsync(Guid id)
     {
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
+        var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+        woManager.ValidateMandatoryWarehouses(wo);
         wo.Submit();
         await _workOrderRepository.UpdateAsync(wo);
 

@@ -181,6 +181,26 @@ public class WorkOrderManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Validates mandatory warehouses before Work Order submit.
+    /// WIP Warehouse is required unless skipTransfer is true.
+    /// Target Warehouse (FgWarehouseId) is required UNLESS TrackSemiFinishedGoods is true (PR #9df527bf3f).
+    /// </summary>
+    public void ValidateMandatoryWarehouses(WorkOrder wo, bool skipTransfer = false)
+    {
+        if (!wo.WipWarehouseId.HasValue && !skipTransfer)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Work-in-Progress Warehouse is required before submit.");
+        }
+
+        if (!wo.FgWarehouseId.HasValue && !wo.TrackSemiFinishedGoods)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Target Warehouse is required before submit.");
+        }
+    }
 }
 
 /// <summary>
