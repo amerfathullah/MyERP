@@ -140,6 +140,13 @@ public class PurchaseReceiptManager : DomainService
     {
         if (!returnReceipt.IsReturn || !returnReceipt.ReturnAgainstId.HasValue) return;
 
+        // Must have negative quantities and at least one item with negative quantity (PR #57645 / commit d44ed5357d)
+        if (returnReceipt.Items.Any(i => i.Quantity > 0) || !returnReceipt.Items.Any(i => i.Quantity < 0))
+        {
+            throw new BusinessException("MyERP:08001")
+                .WithData("documentType", "Purchase Receipt");
+        }
+
         var original = await _prRepository.GetAsync(returnReceipt.ReturnAgainstId.Value);
 
         // Query prior submitted/posted returns against this same original purchase receipt

@@ -117,8 +117,8 @@ public class PurchaseInvoiceManager : DomainService
     {
         if (!returnInvoice.IsReturn) return;
 
-        // Must have negative quantities
-        if (returnInvoice.Items.Any(i => i.Quantity > 0))
+        // Must have negative quantities and at least one item with negative quantity (PR #57645 / commit d44ed5357d)
+        if (returnInvoice.Items.Any(i => i.Quantity > 0) || !returnInvoice.Items.Any(i => i.Quantity < 0))
         {
             throw new BusinessException("MyERP:08001")
                 .WithData("documentType", "Purchase Invoice");
