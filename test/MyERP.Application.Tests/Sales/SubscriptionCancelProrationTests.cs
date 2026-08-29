@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting;
+using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.Inventory;
@@ -40,6 +42,10 @@ public abstract class SubscriptionCancelProrationTests<TStartupModule> : MyERPAp
             var customer = await customerRepository.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Sub Cancel Cust"), autoSave: true);
             var item = await itemRepository.InsertAsync(
                 new Item(Guid.NewGuid(), company.Id, "SUBCANCEL-1", "Sub Cancel Item", ItemType.Goods), autoSave: true);
+
+            // The final prorated invoice now Submit+Post (see SubscriptionAppService.SubmitAndPostInvoiceAsync),
+            // so GL posting needs a real accounts/rules/fiscal-year fixture.
+            await SeedGlFixtureAsync(companyRepository, company);
 
             // 30-day period, cancelling exactly 10 days in (day 1..10 inclusive elapsed).
             var periodStart = DateTime.UtcNow.Date.AddDays(-9);
@@ -170,5 +176,44 @@ public abstract class SubscriptionCancelProrationTests<TStartupModule> : MyERPAp
 
             await Should.ThrowAsync<Volo.Abp.BusinessException>(() => subscriptionAppService.CancelAsync(sub.Id));
         });
+    }
+
+    /// <summary>
+    /// Minimal accounts/rules/fiscal-year fixture a SalesInvoice needs to actually Post() — see
+    /// SubscriptionCatchUpInvoiceTests.SeedGlFixtureAsync for the full rationale (same fixture,
+    /// duplicated per this test suite's established one-file-per-class convention).
+    /// </summary>
+    private async Task SeedGlFixtureAsync(IRepository<Company, Guid> companyRepository, Company company)
+    {
+        var accountRepository = GetRequiredService<IRepository<Account, Guid>>();
+        var fiscalYearRepository = GetRequiredService<IRepository<FiscalYear, Guid>>();
+        var ruleRepository = GetRequiredService<IRepository<AccountingRule, Guid>>();
+        var costCenterRepository = GetRequiredService<IRepository<CostCenter, Guid>>();
+
+        var receivableAccount = await accountRepository.InsertAsync(
+            new Account(Guid.NewGuid(), company.Id, "1130-" + company.Id.ToString("N")[..6], "Test Receivable", AccountType.Asset), autoSave: true);
+        var incomeAccount = await accountRepository.InsertAsync(
+            new Account(Guid.NewGuid(), company.Id, "4000-" + company.Id.ToString("N")[..6], "Test Revenue", AccountType.Revenue), autoSave: true);
+        // Every P&L (Revenue/Expense) GL line needs a cost center — AccountingDimensionService
+        // falls back to Company.DefaultCostCenterId when the line itself doesn't carry one, but
+        // throws CostCenterRequiredForPlAccount if neither is set.
+        var costCenter = await costCenterRepository.InsertAsync(
+            new CostCenter(Guid.NewGuid(), company.Id, "Test Cost Center"), autoSave: true);
+
+        company.DefaultReceivableAccountId = receivableAccount.Id;
+        company.DefaultIncomeAccountId = incomeAccount.Id;
+        company.DefaultCostCenterId = costCenter.Id;
+        await companyRepository.UpdateAsync(company, autoSave: true);
+
+        await fiscalYearRepository.InsertAsync(
+            new FiscalYear(Guid.NewGuid(), company.Id, "FY Test", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)),
+            autoSave: true);
+
+        await ruleRepository.InsertAsync(
+            new AccountingRule(Guid.NewGuid(), company.Id, "SI DR Receivable", "SalesInvoice", true, AccountSource.CustomerReceivable, AmountSource.GrandTotal) { SortOrder = 1 },
+            autoSave: true);
+        await ruleRepository.InsertAsync(
+            new AccountingRule(Guid.NewGuid(), company.Id, "SI CR Revenue", "SalesInvoice", false, AccountSource.ItemIncome, AmountSource.NetTotal) { SortOrder = 2 },
+            autoSave: true);
     }
 }

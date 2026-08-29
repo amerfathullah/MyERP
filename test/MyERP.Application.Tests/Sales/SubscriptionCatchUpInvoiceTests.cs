@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting;
+using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.Inventory;
@@ -39,6 +41,11 @@ public abstract class SubscriptionCatchUpInvoiceTests<TStartupModule> : MyERPApp
             var customer = await customerRepository.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Subscription Catch-Up Cust"), autoSave: true);
             var item = await itemRepository.InsertAsync(
                 new Item(Guid.NewGuid(), company.Id, "SUBCATCH-1", "Subscription Catch-Up Item", ItemType.Goods), autoSave: true);
+
+            // Generated invoices now Submit+Post (see SubscriptionAppService.SubmitAndPostInvoiceAsync),
+            // so GL posting needs a real accounts/rules/fiscal-year fixture, same as any other
+            // AppService test that exercises GlRepostService.RebuildSalesInvoiceGlAsync.
+            await SeedGlFixtureAsync(companyRepository, company);
 
             var today = DateTime.UtcNow.Date;
             var start = today.AddMonths(-2);
@@ -99,5 +106,48 @@ public abstract class SubscriptionCatchUpInvoiceTests<TStartupModule> : MyERPApp
 
             results.ShouldBeEmpty();
         });
+    }
+
+    /// <summary>
+    /// Minimal accounts/rules/fiscal-year fixture a SalesInvoice needs to actually Post() —
+    /// GlRepostService.RebuildSalesInvoiceGlAsync -&gt; AccountingRuleEngine.PostDocumentAsync needs
+    /// a matching AccountingRule row per document type (companies created via the real
+    /// ICompanyAppService get 11 of these seeded automatically; a bare `new Company(...)` here
+    /// does not). Only DR Receivable and CR Revenue are needed: "SI CR Tax" resolves to a
+    /// zero-amount line for these subscription test invoices (TaxAmount is always 0) and the rule
+    /// engine skips zero-amount lines entirely, so no tax account setup is required.
+    /// </summary>
+    private async Task SeedGlFixtureAsync(IRepository<Company, Guid> companyRepository, Company company)
+    {
+        var accountRepository = GetRequiredService<IRepository<Account, Guid>>();
+        var fiscalYearRepository = GetRequiredService<IRepository<FiscalYear, Guid>>();
+        var ruleRepository = GetRequiredService<IRepository<AccountingRule, Guid>>();
+        var costCenterRepository = GetRequiredService<IRepository<CostCenter, Guid>>();
+
+        var receivableAccount = await accountRepository.InsertAsync(
+            new Account(Guid.NewGuid(), company.Id, "1130-" + company.Id.ToString("N")[..6], "Test Receivable", AccountType.Asset), autoSave: true);
+        var incomeAccount = await accountRepository.InsertAsync(
+            new Account(Guid.NewGuid(), company.Id, "4000-" + company.Id.ToString("N")[..6], "Test Revenue", AccountType.Revenue), autoSave: true);
+        // Every P&L (Revenue/Expense) GL line needs a cost center — AccountingDimensionService
+        // falls back to Company.DefaultCostCenterId when the line itself doesn't carry one, but
+        // throws CostCenterRequiredForPlAccount if neither is set.
+        var costCenter = await costCenterRepository.InsertAsync(
+            new CostCenter(Guid.NewGuid(), company.Id, "Test Cost Center"), autoSave: true);
+
+        company.DefaultReceivableAccountId = receivableAccount.Id;
+        company.DefaultIncomeAccountId = incomeAccount.Id;
+        company.DefaultCostCenterId = costCenter.Id;
+        await companyRepository.UpdateAsync(company, autoSave: true);
+
+        await fiscalYearRepository.InsertAsync(
+            new FiscalYear(Guid.NewGuid(), company.Id, "FY Test", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)),
+            autoSave: true);
+
+        await ruleRepository.InsertAsync(
+            new AccountingRule(Guid.NewGuid(), company.Id, "SI DR Receivable", "SalesInvoice", true, AccountSource.CustomerReceivable, AmountSource.GrandTotal) { SortOrder = 1 },
+            autoSave: true);
+        await ruleRepository.InsertAsync(
+            new AccountingRule(Guid.NewGuid(), company.Id, "SI CR Revenue", "SalesInvoice", false, AccountSource.ItemIncome, AmountSource.NetTotal) { SortOrder = 2 },
+            autoSave: true);
     }
 }
