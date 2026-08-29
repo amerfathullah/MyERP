@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MyERP.Tax.DomainServices;
 using MyERP.Tax.Entities;
 using Shouldly;
@@ -393,5 +394,26 @@ public class TaxesAndTotalsTests
         // SST: 6% of 1000 = 60
         // Cess: 1% of (1000 + 60) = 1% of 1060 = 10.6
         result.TotalTax.ShouldBeInRange(70.5m, 70.7m);
+    }
+
+    [Fact]
+    public void Calculate_DiscountOnNetTotal_RoundingDifferencePreservesTotal()
+    {
+        var items = new List<TransactionItem>
+        {
+            new() { ItemId = Guid.NewGuid(), Qty = 1, Rate = 100, NetAmount = 100 },
+            new() { ItemId = Guid.NewGuid(), Qty = 1, Rate = 100, NetAmount = 100 },
+            new() { ItemId = Guid.NewGuid(), Qty = 1, Rate = 100, NetAmount = 100 },
+        };
+        var taxes = new List<TransactionTaxRow>();
+
+        var result = _service.Calculate(items, taxes, discountAmount: 10m, applyDiscountOn: "Net Total");
+
+        result.NetTotal.ShouldBe(290m);
+        items.Sum(i => i.DiscountAmount).ShouldBe(10m);
+        foreach (var item in items)
+        {
+            (item.Rate * item.Qty - item.DiscountAmount).ShouldBe(item.NetAmount);
+        }
     }
 }

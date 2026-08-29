@@ -51,10 +51,14 @@ public class TaxesAndTotalsService : DomainService
                 item.DiscountAmount = Math.Round(discountAmount * proportion, 2);
                 item.NetAmount -= item.DiscountAmount;
             }
-            // Last item absorbs rounding difference
+            // Last item absorbs rounding difference (per ERPNext PR #58047)
             var totalDistributed = items.Sum(i => i.DiscountAmount);
             if (totalDistributed != discountAmount && items.Count > 0)
-                items[^1].NetAmount -= (discountAmount - totalDistributed);
+            {
+                var diff = discountAmount - totalDistributed;
+                items[^1].DiscountAmount += diff;
+                items[^1].NetAmount -= diff;
+            }
 
             netTotal = items.Sum(i => i.NetAmount);
         }
