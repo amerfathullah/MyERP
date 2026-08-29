@@ -113,4 +113,24 @@ public class GrossProfitTests
         var result = service.CalculateForInvoice(si);
         result.GrossProfit.ShouldBeLessThan(0);
     }
+
+    [Fact]
+    public void GrossProfitService_CalculateForReturnInvoice_NetsProperly()
+    {
+        var si = new SalesInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            "CN-001", DateTime.UtcNow)
+        {
+            IsReturn = true
+        };
+        si.AddItem(Guid.NewGuid(), "Returned Widget", -3m, 150m, 0m);
+        si.Items[0].ValuationRate = 80m;
+
+        var service = new GrossProfitService(null!);
+        var result = service.CalculateForInvoice(si);
+
+        result.TotalRevenue.ShouldBe(-450m);
+        result.TotalCost.ShouldBe(-240m);
+        result.GrossProfit.ShouldBe(-210m);
+    }
 }

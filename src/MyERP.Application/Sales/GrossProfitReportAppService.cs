@@ -33,7 +33,6 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
         var invoices = query
             .Where(si => si.CompanyId == input.CompanyId
                       && si.Status == Core.DocumentStatus.Posted
-                      && !si.IsReturn
                       && si.IssueDate >= from
                       && si.IssueDate <= to)
             .OrderByDescending(si => si.IssueDate)
