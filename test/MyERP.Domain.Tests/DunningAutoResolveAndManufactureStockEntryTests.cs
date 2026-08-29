@@ -403,4 +403,32 @@ public class DunningAutoResolveAndManufactureStockEntryTests
 
         Assert.Equal(50m, se.ProcessLossQty);
     }
+
+    [Fact]
+    public void DunningType_SetLetterText_RejectsDuplicateLanguages()
+    {
+        var dt = new DunningType(Guid.NewGuid(), Guid.NewGuid(), "Overdue Reminder");
+        var rows = new List<(string?, bool, string?, string?)>
+        {
+            ("en", true, "Body 1", "Close 1"),
+            ("en", false, "Body 2", "Close 2"),
+        };
+
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() => dt.SetLetterText(rows));
+        Assert.Equal(MyERPDomainErrorCodes.DuplicateRecord, ex.Code);
+    }
+
+    [Fact]
+    public void DunningType_SetLetterText_RejectsMultipleDefaultLanguages()
+    {
+        var dt = new DunningType(Guid.NewGuid(), Guid.NewGuid(), "Overdue Reminder");
+        var rows = new List<(string?, bool, string?, string?)>
+        {
+            ("en", true, "Body 1", "Close 1"),
+            ("ms", true, "Body 2", "Close 2"),
+        };
+
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() => dt.SetLetterText(rows));
+        Assert.Equal(MyERPDomainErrorCodes.DuplicateRecord, ex.Code);
+    }
 }

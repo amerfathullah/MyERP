@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting;
+using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
@@ -57,6 +59,8 @@ public class DunningTypeAppService : ApplicationService, IDunningTypeAppService
                 .WithData("field", "RateOfInterest");
         }
 
+        await ValidateDunningTypeAccountsAndCostCentersAsync(input.CompanyId, input.IncomeAccountId, input.CostCenterId);
+
         var t = new DunningType(GuidGenerator.Create(), input.CompanyId, input.DunningTypeName, CurrentTenant.Id);
         ApplyFields(t, input);
         await _repository.InsertAsync(t);
@@ -89,6 +93,8 @@ public class DunningTypeAppService : ApplicationService, IDunningTypeAppService
         }
 
         var t = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
+        await ValidateDunningTypeAccountsAndCostCentersAsync(t.CompanyId, input.IncomeAccountId, input.CostCenterId);
+
         t.Rename(input.DunningTypeName);
         ApplyFields(t, input);
         await _repository.UpdateAsync(t);
@@ -127,6 +133,56 @@ public class DunningTypeAppService : ApplicationService, IDunningTypeAppService
         {
             other.IsDefault = false;
             await _repository.UpdateAsync(other);
+        }
+    }
+
+    private async Task ValidateDunningTypeAccountsAndCostCentersAsync(Guid companyId, Guid? incomeAccountId, Guid? costCenterId)
+    {
+        if (incomeAccountId.HasValue)
+        {
+            var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+            var account = await accountRepo.FindAsync(incomeAccountId.Value);
+            if (account == null || account.CompanyId != companyId)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EntityNotFound)
+                    .WithData("reason", "Income Account does not belong to the specified Company");
+            }
+            if (!account.IsActive)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("reason", "Income Account is disabled/inactive");
+            }
+            if (account.IsGroup)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+                    .WithData("reason", "Income Account cannot be a group account");
+            }
+            if (account.AccountType != AccountType.Revenue)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Selected account must be an Income/Revenue account");
+            }
+        }
+
+        if (costCenterId.HasValue)
+        {
+            var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+            var cc = await ccRepo.FindAsync(costCenterId.Value);
+            if (cc == null || cc.CompanyId != companyId)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EntityNotFound)
+                    .WithData("reason", "Cost Center does not belong to the specified Company");
+            }
+            if (!cc.IsActive)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cost Center is disabled/inactive");
+            }
+            if (cc.IsGroup)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cost Center cannot be a group cost center");
+            }
         }
     }
 }
