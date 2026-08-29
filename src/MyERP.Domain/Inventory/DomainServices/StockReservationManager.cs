@@ -185,7 +185,8 @@ public class StockReservationManager : DomainService
     /// </summary>
     public async Task ReserveStockAsync(
         Guid itemId, Guid warehouseId, Guid companyId,
-        decimal qty, string voucherType, Guid voucherId, Guid? batchId = null, Guid? tenantId = null)
+        decimal qty, string voucherType, Guid voucherId, Guid? batchId = null, Guid? tenantId = null,
+        decimal? voucherDemandQty = null, Guid? voucherDetailId = null)
     {
         if (qty <= 0) return;
 
@@ -193,9 +194,10 @@ public class StockReservationManager : DomainService
 
         var sre = new StockReservationEntry(
             GuidGenerator.Create(), companyId, itemId, warehouseId,
-            voucherType, voucherId, qty, voucherQty: qty, tenantId: tenantId)
+            voucherType, voucherId, qty, voucherQty: voucherDemandQty ?? qty, tenantId: tenantId)
         {
-            BatchId = batchId
+            BatchId = batchId,
+            VoucherDetailId = voucherDetailId
         };
 
         sre.Submit();
