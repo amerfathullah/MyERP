@@ -140,9 +140,9 @@ public class AssetRepair : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status == AssetRepairStatus.Completed && FailureDate.HasValue && CompletionDate.HasValue)
         {
             var hours = (decimal)(CompletionDate.Value - FailureDate.Value).TotalHours;
-            Downtime = $"{Math.Round(hours, 2)} Hrs";
+            Downtime = $"{Math.Round(hours, 1):0.0} Hrs";
         }
-        else if (Status != AssetRepairStatus.Completed)
+        else
         {
             Downtime = null;
         }
