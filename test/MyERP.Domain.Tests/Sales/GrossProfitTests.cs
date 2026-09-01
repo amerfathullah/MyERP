@@ -133,4 +133,27 @@ public class GrossProfitTests
         result.TotalCost.ShouldBe(-240m);
         result.GrossProfit.ShouldBe(-210m);
     }
+
+    [Fact]
+    public void GrossProfitService_DropShipUnitCost_AllocatedByQuantity()
+    {
+        var si = CreateSIWithItems();
+        var dropShipItem1Id = si.Items[0].ItemId;
+
+        // Drop-ship unit buying rate is RM75/unit (from PO/PI total cost / stock qty)
+        var dropShipRates = new System.Collections.Generic.Dictionary<Guid, decimal>
+        {
+            { dropShipItem1Id, 75m }
+        };
+
+        var service = new GrossProfitService(null!);
+        var result = service.CalculateForInvoice(si, dropShipRates);
+
+        // Item 0: 10 qty × RM75 = RM750 cost (selling 10 × 150 = 1500)
+        // Item 1: 5 qty × RM0 = RM0 cost (selling 5 × 200 = 1000)
+        result.TotalCost.ShouldBe(750m);
+        result.TotalRevenue.ShouldBe(2500m);
+        result.GrossProfit.ShouldBe(1750m);
+        result.GrossProfitPercentage.ShouldBe(70m);
+    }
 }

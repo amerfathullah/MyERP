@@ -40,11 +40,37 @@ public class GrossProfitService : DomainService
 
     /// <summary>
     /// Calculates aggregate gross profit metrics for an invoice.
+    /// Supports drop-ship unit buying rates per ERPNext PR #58226 (commit d40679cffe).
     /// </summary>
-    public GrossProfitResult CalculateForInvoice(SalesInvoice invoice)
+    public GrossProfitResult CalculateForInvoice(
+        SalesInvoice invoice,
+        IReadOnlyDictionary<Guid, decimal>? dropShipUnitBuyingRates = null)
     {
-        var totalRevenue = invoice.Items.Sum(i => i.Quantity * i.UnitPrice);
-        var totalCost = invoice.Items.Sum(i => i.Quantity * i.ValuationRate);
+        var itemDetails = invoice.Items.Select(i =>
+        {
+            var costRate = (dropShipUnitBuyingRates != null && dropShipUnitBuyingRates.TryGetValue(i.ItemId, out var dropShipRate))
+                ? dropShipRate
+                : i.ValuationRate;
+
+            var revenue = i.Quantity * i.UnitPrice;
+            var cost = i.Quantity * costRate;
+            var profit = revenue - cost;
+            var profitPercent = revenue > 0 ? (profit / revenue) * 100m : 0m;
+
+            return new GrossProfitItemDetail
+            {
+                ItemId = i.ItemId,
+                Description = i.Description,
+                Quantity = i.Quantity,
+                SellingRate = i.UnitPrice,
+                ValuationRate = costRate,
+                GrossProfit = profit,
+                GrossProfitPercentage = Math.Round(profitPercent, 2)
+            };
+        }).ToList();
+
+        var totalRevenue = itemDetails.Sum(i => i.Quantity * i.SellingRate);
+        var totalCost = itemDetails.Sum(i => i.Quantity * i.ValuationRate);
         var grossProfit = totalRevenue - totalCost;
         var grossProfitPercent = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100m : 0m;
 
@@ -54,18 +80,7 @@ public class GrossProfitService : DomainService
             TotalCost = totalCost,
             GrossProfit = grossProfit,
             GrossProfitPercentage = Math.Round(grossProfitPercent, 2),
-            ItemDetails = invoice.Items.Select(i => new GrossProfitItemDetail
-            {
-                ItemId = i.ItemId,
-                Description = i.Description,
-                Quantity = i.Quantity,
-                SellingRate = i.UnitPrice,
-                ValuationRate = i.ValuationRate,
-                GrossProfit = i.GrossProfit,
-                GrossProfitPercentage = i.UnitPrice > 0
-                    ? Math.Round(((i.UnitPrice - i.ValuationRate) / i.UnitPrice) * 100m, 2)
-                    : 0m
-            }).ToList()
+            ItemDetails = itemDetails
         };
     }
 }
