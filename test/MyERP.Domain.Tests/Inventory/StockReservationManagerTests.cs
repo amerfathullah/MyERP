@@ -94,13 +94,47 @@ public class StockReservationManagerTests
         resolved.ShouldBe(otherWarehouseId);
     }
 
-    private static DomainServices.StockReservationManager CreateManager(List<StockReservationEntry> entries)
+    [Fact]
+    public async Task ValidateAvailabilityAsync_IgnoresFutureStockEntries()
+    {
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var voucherDate = DateTime.UtcNow.AddDays(-1);
+
+        var pastSle = new StockLedgerEntry(
+            Guid.NewGuid(), Guid.NewGuid(), itemId, warehouseId,
+            voucherDate, quantityChange: 5, valuationRate: 10, balanceQuantity: 5,
+            balanceValue: 50);
+
+        var futureSle = new StockLedgerEntry(
+            Guid.NewGuid(), Guid.NewGuid(), itemId, warehouseId,
+            DateTime.UtcNow.AddDays(2), quantityChange: 10, valuationRate: 10, balanceQuantity: 15,
+            balanceValue: 150);
+
+        var manager = CreateManager(
+            new List<StockReservationEntry>(),
+            sles: new List<StockLedgerEntry> { pastSle, futureSle });
+
+        // Requesting 5 as of voucherDate should pass
+        await manager.ValidateAvailabilityAsync(itemId, warehouseId, requestedQty: 5, asOfDate: voucherDate);
+
+        // Requesting 6 as of voucherDate should throw even though future balance is 15
+        await Should.ThrowAsync<BusinessException>(() =>
+            manager.ValidateAvailabilityAsync(itemId, warehouseId, requestedQty: 6, asOfDate: voucherDate));
+    }
+
+    private static DomainServices.StockReservationManager CreateManager(
+        List<StockReservationEntry> entries,
+        List<StockLedgerEntry>? sles = null)
     {
         var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
         sreRepo.GetQueryableAsync().Returns(Task.FromResult(entries.AsQueryable()));
 
         var binRepo = Substitute.For<IRepository<Bin, Guid>>();
 
-        return new DomainServices.StockReservationManager(sreRepo, binRepo);
+        var sleRepo = Substitute.For<IRepository<StockLedgerEntry, Guid>>();
+        sleRepo.GetQueryableAsync().Returns(Task.FromResult((sles ?? new List<StockLedgerEntry>()).AsQueryable()));
+
+        return new DomainServices.StockReservationManager(sreRepo, binRepo, sleRepo);
     }
 }

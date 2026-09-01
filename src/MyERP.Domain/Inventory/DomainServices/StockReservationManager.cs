@@ -20,27 +20,50 @@ public class StockReservationManager : DomainService
 {
     private readonly IRepository<StockReservationEntry, Guid> _sreRepository;
     private readonly IRepository<Bin, Guid> _binRepository;
+    private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
 
     public StockReservationManager(
         IRepository<StockReservationEntry, Guid> sreRepository,
-        IRepository<Bin, Guid> binRepository)
+        IRepository<Bin, Guid> binRepository,
+        IRepository<StockLedgerEntry, Guid> sleRepository)
     {
         _sreRepository = sreRepository;
         _binRepository = binRepository;
+        _sleRepository = sleRepository;
     }
 
     /// <summary>
     /// Validates that sufficient unreserved stock exists before creating a reservation.
-    /// Available = Bin.ActualQty - SUM(active SRE reserved qty for same item+warehouse).
+    /// Available = ActualQty (as of postingDate, ignoring future stock) - SUM(active SRE reserved qty for same item+warehouse).
+    /// Per ERPNext PR #58303 (commit 478a2f4f4b): ignore future stock during batch/stock reservation.
     /// </summary>
-    public async Task ValidateAvailabilityAsync(Guid itemId, Guid warehouseId, decimal requestedQty, Guid? batchId = null)
+    public async Task ValidateAvailabilityAsync(Guid itemId, Guid warehouseId, decimal requestedQty, Guid? batchId = null, DateTime? asOfDate = null)
     {
-        // Get actual stock
-        var binQueryable = await _binRepository.GetQueryableAsync();
-        var actualQty = binQueryable
-            .Where(b => b.ItemId == itemId && b.WarehouseId == warehouseId)
-            .Select(b => b.ActualQty)
-            .FirstOrDefault();
+        decimal actualQty;
+        if (asOfDate.HasValue)
+        {
+            var sleQueryable = await _sleRepository.GetQueryableAsync();
+            var lastSle = sleQueryable
+                .Where(s => s.ItemId == itemId
+                    && s.WarehouseId == warehouseId
+                    && (batchId == null || s.BatchId == batchId)
+                    && s.PostingDate <= asOfDate.Value
+                    && !s.IsCancelled)
+                .OrderByDescending(s => s.PostingDate)
+                .ThenByDescending(s => s.CreationTime)
+                .FirstOrDefault();
+
+            actualQty = lastSle?.BalanceQuantity ?? 0m;
+        }
+        else
+        {
+            // Get actual stock from Bin
+            var binQueryable = await _binRepository.GetQueryableAsync();
+            actualQty = binQueryable
+                .Where(b => b.ItemId == itemId && b.WarehouseId == warehouseId)
+                .Select(b => b.ActualQty)
+                .FirstOrDefault();
+        }
 
         // Get already reserved
         var sreQueryable = await _sreRepository.GetQueryableAsync();
@@ -181,16 +204,16 @@ public class StockReservationManager : DomainService
     /// <summary>
     /// Creates a new Stock Reservation Entry and validates availability.
     /// Per ERPNext auto_reserve_stock_for_sales_order_on_purchase: auto-reserves on PR submit.
-    /// Supports batch-specific stock reservation.
+    /// Supports batch-specific stock reservation and as-of posting date stock validation.
     /// </summary>
     public async Task ReserveStockAsync(
         Guid itemId, Guid warehouseId, Guid companyId,
         decimal qty, string voucherType, Guid voucherId, Guid? batchId = null, Guid? tenantId = null,
-        decimal? voucherDemandQty = null, Guid? voucherDetailId = null)
+        decimal? voucherDemandQty = null, Guid? voucherDetailId = null, DateTime? postingDate = null)
     {
         if (qty <= 0) return;
 
-        await ValidateAvailabilityAsync(itemId, warehouseId, qty, batchId);
+        await ValidateAvailabilityAsync(itemId, warehouseId, qty, batchId, postingDate);
 
         var sre = new StockReservationEntry(
             GuidGenerator.Create(), companyId, itemId, warehouseId,
