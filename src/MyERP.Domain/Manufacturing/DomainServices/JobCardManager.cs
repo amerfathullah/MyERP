@@ -156,14 +156,42 @@ public class JobCardManager : DomainService
     }
 
     /// <summary>
+    /// Calculates the maximum completable quantity for a Job Card capped by previous operation completions.
+    /// Per ERPNext PR #58256 (commit b68324ce78):
+    /// If not first operation sequence, max completable = min(previous_op_completed_qty) - current_op_completed_qty.
+    /// Returns null if first operation sequence or corrective job card.
+    /// </summary>
+    public async Task<decimal?> GetMaxCompletableQtyAsync(JobCard jobCard)
+    {
+        if (jobCard.IsCorrective || jobCard.SequenceId <= 1)
+            return null;
+
+        var queryable = await _jobCardRepository.GetQueryableAsync();
+
+        var previousOperations = queryable
+            .Where(jc => jc.WorkOrderId == jobCard.WorkOrderId
+                && jc.SequenceId < jobCard.SequenceId
+                && jc.Status != JobCardStatus.Cancelled
+                && !jc.IsCorrective)
+            .GroupBy(jc => jc.SequenceId)
+            .Select(g => g.Sum(jc => jc.CompletedQty))
+            .ToList();
+
+        if (previousOperations.Count == 0)
+            return null;
+
+        var minPrevCompleted = previousOperations.Min();
+        return Math.Max(0, minPrevCompleted - jobCard.CompletedQty);
+    }
+
+    /// <summary>
     /// Validates that the previous operation in the routing has been manufactured
     /// before allowing this operation's job card to start or complete.
-    /// Per ERPNext PR #57684: with semi-FG tracking, each operation must wait for
-    /// the prior operation to produce its output before consuming it as input.
+    /// Per ERPNext PR #57684 and PR #58256: each operation must wait for prior operation output.
     /// </summary>
-    public async Task ValidatePreviousOperationManufacturedAsync(JobCard jobCard)
+    public async Task ValidatePreviousOperationManufacturedAsync(JobCard jobCard, decimal? attemptingQty = null)
     {
-        if (jobCard.SequenceId <= 1) return; // First operation has no predecessor
+        if (jobCard.SequenceId <= 1 || jobCard.IsCorrective) return; // First operation has no predecessor
 
         var queryable = await _jobCardRepository.GetQueryableAsync();
 
@@ -178,12 +206,13 @@ public class JobCardManager : DomainService
             .Select(g => g.Sum(jc => jc.CompletedQty))
             .FirstOrDefault();
 
-        if (previousOpCompletedQty < jobCard.ForQuantity)
+        var qtyToCheck = attemptingQty ?? jobCard.ForQuantity;
+        if (previousOpCompletedQty < qtyToCheck)
         {
             throw new BusinessException("MyERP:10020")
                 .WithData("sequenceId", jobCard.SequenceId)
                 .WithData("previousCompleted", previousOpCompletedQty)
-                .WithData("required", jobCard.ForQuantity);
+                .WithData("required", qtyToCheck);
         }
     }
 

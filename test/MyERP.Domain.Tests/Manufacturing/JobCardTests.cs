@@ -246,4 +246,30 @@ public class JobCardTests
 
         await Should.NotThrowAsync(() => manager.ValidateMaterialTransferAsync(jc, woRepo));
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task GetMaxCompletableQtyAsync_CappedByPreviousOperation()
+    {
+        var jcRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        var wsRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        var manager = new MyERP.Manufacturing.DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        var woId = Guid.NewGuid();
+        var jc1 = new JobCard(Guid.NewGuid(), Guid.NewGuid(), woId, Guid.NewGuid(), 10m, 1);
+        jc1.Start();
+        jc1.AddTimeLog(DateTime.UtcNow.AddHours(-2), DateTime.UtcNow.AddHours(-1), 8m); // completed 8 of 10
+
+        var jc2 = new JobCard(Guid.NewGuid(), Guid.NewGuid(), woId, Guid.NewGuid(), 10m, 2);
+
+        var list = new List<JobCard> { jc1, jc2 }.AsQueryable();
+        jcRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(list));
+
+        // For sequence 1: returns null
+        var max1 = await manager.GetMaxCompletableQtyAsync(jc1);
+        max1.ShouldBeNull();
+
+        // For sequence 2: capped at 8 (min previous completed = 8 - current 0 = 8)
+        var max2 = await manager.GetMaxCompletableQtyAsync(jc2);
+        max2.ShouldBe(8m);
+    }
 }
