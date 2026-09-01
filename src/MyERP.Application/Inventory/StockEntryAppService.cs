@@ -293,13 +293,25 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         await postingOrchestratorForPost.PostStockEntryAsync(entry);
 
         // Update Work Order material transferred qty for manufacturing transfers
+        // Per ERPNext PR #58091 / #58080: exclude corrective job card transfers from Work Order transferred qty
         if (entry.EntryType == StockEntryType.MaterialTransferForManufacture && entry.WorkOrderId.HasValue)
         {
-            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
-            var wo = await woRepo.GetAsync(entry.WorkOrderId.Value);
-            var totalTransferredQty = entry.Items.Sum(i => i.Quantity);
-            wo.RecordMaterialTransfer(totalTransferredQty);
-            await woRepo.UpdateAsync(wo, autoSave: true);
+            bool isCorrective = false;
+            if (entry.JobCardId.HasValue)
+            {
+                var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
+                var jc = await jcRepo.FindAsync(entry.JobCardId.Value);
+                isCorrective = jc?.IsCorrective ?? false;
+            }
+
+            if (!isCorrective)
+            {
+                var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+                var wo = await woRepo.GetAsync(entry.WorkOrderId.Value);
+                var totalTransferredQty = entry.Items.Sum(i => i.Quantity);
+                wo.RecordMaterialTransfer(totalTransferredQty);
+                await woRepo.UpdateAsync(wo, autoSave: true);
+            }
         }
 
         // Update Subcontracting Order's supplied-item TransferredQty for RM transfers.

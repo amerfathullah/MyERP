@@ -272,4 +272,16 @@ public class JobCardTests
         var max2 = await manager.GetMaxCompletableQtyAsync(jc2);
         max2.ShouldBe(8m);
     }
+
+    [Fact]
+    public void CorrectiveJobCard_IsCorrective_DefaultFalse_CanBeSet()
+    {
+        // Per ERPNext PR #58091 / #58080:
+        // Corrective job card transfers are excluded from standard Work Order transferred qty
+        var jc = CreateJobCard();
+        jc.IsCorrective.ShouldBeFalse();
+
+        jc.IsCorrective = true;
+        jc.IsCorrective.ShouldBeTrue();
+    }
 }

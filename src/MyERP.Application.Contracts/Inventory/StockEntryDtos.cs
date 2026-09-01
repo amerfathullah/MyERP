@@ -14,6 +14,7 @@ public class StockEntryDto : FullAuditedEntityDto<Guid>
     public string? ReferenceType { get; set; }
     public Guid? ReferenceId { get; set; }
     public Guid? WorkOrderId { get; set; }
+    public Guid? JobCardId { get; set; }
     public decimal FgCompletedQty { get; set; }
     public decimal ProcessLossQty { get; set; }
     public decimal ProcessLossPercentage { get; set; }
@@ -54,6 +55,7 @@ public class CreateStockEntryDto
 
     public Guid? ReferenceId { get; set; }
     public Guid? WorkOrderId { get; set; }
+    public Guid? JobCardId { get; set; }
     public decimal FgCompletedQty { get; set; }
     public decimal ProcessLossQty { get; set; }
     public decimal ProcessLossPercentage { get; set; }
