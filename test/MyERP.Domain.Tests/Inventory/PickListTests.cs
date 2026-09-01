@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MyERP.Inventory.Entities;
 using Shouldly;
 using Volo.Abp;
@@ -95,5 +96,67 @@ public class PickListTests
         pl.Submit();
         pl.Cancel();
         pl.Status.ShouldBe(Core.DocumentStatus.Cancelled);
+    }
+
+    [Fact]
+    public void RecordDelivery_UpdatesDeliveredQtyAndPerDelivered()
+    {
+        var pl = CreatePickList();
+        pl.AddItem(Guid.NewGuid(), Guid.NewGuid(), 100m);
+        pl.AddItem(Guid.NewGuid(), Guid.NewGuid(), 100m);
+        pl.Submit();
+
+        pl.Items[0].RecordDelivery(50m);
+        pl.PerDelivered.ShouldBe(25m); // 50 / 200 = 25%
+        pl.IsPartiallyDelivered.ShouldBeTrue();
+        pl.IsFullyDelivered.ShouldBeFalse();
+
+        pl.Items[0].RecordDelivery(50m);
+        pl.Items[1].RecordDelivery(100m);
+        pl.PerDelivered.ShouldBe(100m);
+        pl.IsFullyDelivered.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Cancel_WithDelivered_Throws()
+    {
+        var pl = CreatePickList();
+        pl.AddItem(Guid.NewGuid(), Guid.NewGuid(), 50m);
+        pl.Submit();
+        pl.Items[0].RecordDelivery(10m);
+        Should.Throw<BusinessException>(() => pl.Cancel());
+    }
+
+    [Fact]
+    public void PickListManager_UpdateDeliveredQuantities_MatchesComponents()
+    {
+        var plRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<PickList, Guid>>();
+        var binRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Bin, Guid>>();
+        var manager = new MyERP.Inventory.DomainServices.PickListManager(plRepo, binRepo);
+
+        var pl = CreatePickList();
+        var comp1Id = Guid.NewGuid();
+        var comp2Id = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var soDetailId = Guid.NewGuid();
+
+        pl.AddItem(comp1Id, warehouseId, 10m);
+        pl.AddItem(comp2Id, warehouseId, 20m);
+        pl.Items[0].SourceDocumentItemId = soDetailId;
+        pl.Items[1].SourceDocumentItemId = soDetailId;
+        pl.Submit();
+
+        var delivered = new List<MyERP.Inventory.DomainServices.DeliveredComponentItem>
+        {
+            new(comp1Id, warehouseId, DeliveredQty: 5m, SourceDocumentItemId: soDetailId),
+            new(comp2Id, warehouseId, DeliveredQty: 10m, SourceDocumentItemId: soDetailId)
+        };
+
+        manager.UpdateDeliveredQuantities(pl, delivered);
+
+        pl.Items[0].DeliveredQty.ShouldBe(5m);
+        pl.Items[1].DeliveredQty.ShouldBe(10m);
+        pl.PerDelivered.ShouldBe(50m); // (5 + 10) / (10 + 20) = 15/30 = 50%
+        pl.IsPartiallyDelivered.ShouldBeTrue();
     }
 }

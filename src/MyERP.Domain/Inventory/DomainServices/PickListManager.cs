@@ -113,6 +113,36 @@ public class PickListManager : DomainService
     {
         return pickList.Items.Any(i => i.PendingQty > 0);
     }
+
+    /// <summary>
+    /// Updates delivered quantities on pick list items matching delivered transaction items / packed components.
+    /// Per ERPNext commit 696f0df811: updates pick list status and delivered_qty for product bundles / standard items.
+    /// </summary>
+    public void UpdateDeliveredQuantities(
+        PickList pickList,
+        IEnumerable<DeliveredComponentItem> deliveredItems)
+    {
+        var deliveredMap = deliveredItems
+            .GroupBy(d => new { d.ItemId, d.WarehouseId, d.SourceDocumentItemId, d.BatchId })
+            .ToDictionary(g => g.Key, g => g.Sum(d => d.DeliveredQty));
+
+        foreach (var item in pickList.Items)
+        {
+            var key = new
+            {
+                item.ItemId,
+                item.WarehouseId,
+                SourceDocumentItemId = item.SourceDocumentItemId,
+                item.BatchId
+            };
+
+            if (deliveredMap.TryGetValue(key, out var deliveredQty))
+            {
+                var qtyToApply = Math.Min(item.Qty, deliveredQty);
+                item.DeliveredQty = qtyToApply;
+            }
+        }
+    }
 }
 
 public class PickAllocationResult
@@ -138,3 +168,11 @@ public class PendingTransfer
     public decimal PendingQty { get; set; }
     public Guid? BatchId { get; set; }
 }
+
+public record DeliveredComponentItem(
+    Guid ItemId,
+    Guid WarehouseId,
+    decimal DeliveredQty,
+    Guid? SourceDocumentItemId = null,
+    Guid? BatchId = null);
+

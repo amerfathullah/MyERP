@@ -70,18 +70,28 @@ public class PickList : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        // Cannot cancel if any item has been transferred
-        if (_items.Any(i => i.TransferredQty > 0))
+        // Cannot cancel if any item has been transferred or delivered
+        if (_items.Any(i => i.TransferredQty > 0 || i.DeliveredQty > 0))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("detail", "Cannot cancel: items already transferred");
+                .WithData("detail", "Cannot cancel: items already transferred or delivered");
         Status = DocumentStatus.Cancelled;
     }
 
     /// <summary>Check if all items are fully transferred.</summary>
-    public bool IsFullyTransferred => _items.All(i => i.TransferredQty >= i.Qty);
+    public bool IsFullyTransferred => _items.Count > 0 && _items.All(i => i.TransferredQty >= i.Qty);
 
     /// <summary>Check if partially transferred.</summary>
     public bool IsPartiallyTransferred => _items.Any(i => i.TransferredQty > 0) && !IsFullyTransferred;
+
+    /// <summary>Delivery percentage across items (for Delivery purpose).</summary>
+    public decimal PerDelivered => _items.Count == 0 ? 0 :
+        Math.Min(100m, Math.Round(_items.Sum(i => Math.Min(i.Qty, i.DeliveredQty)) / _items.Sum(i => i.Qty) * 100m, 2));
+
+    /// <summary>Check if all items are fully delivered.</summary>
+    public bool IsFullyDelivered => _items.Count > 0 && _items.All(i => i.DeliveredQty >= i.Qty);
+
+    /// <summary>Check if partially delivered.</summary>
+    public bool IsPartiallyDelivered => _items.Any(i => i.DeliveredQty > 0) && !IsFullyDelivered;
 }
 
 public class PickListItem : FullAuditedEntity<Guid>
@@ -97,6 +107,9 @@ public class PickListItem : FullAuditedEntity<Guid>
 
     /// <summary>Qty already transferred to Stock Entry (supports partial).</summary>
     public decimal TransferredQty { get; set; }
+
+    /// <summary>Qty already delivered via Delivery Note / Sales Invoice (supports partial & product bundles).</summary>
+    public decimal DeliveredQty { get; set; }
 
     /// <summary>Pending = Qty - TransferredQty (for next SE creation).</summary>
     public decimal PendingQty => Qty - TransferredQty;
@@ -125,5 +138,11 @@ public class PickListItem : FullAuditedEntity<Guid>
             throw new BusinessException(MyERPDomainErrorCodes.InsufficientStock)
                 .WithData("pending", PendingQty).WithData("requested", qty);
         TransferredQty += qty;
+    }
+
+    public void RecordDelivery(decimal qty)
+    {
+        if (qty <= 0) throw new ArgumentException("Qty must be positive.");
+        DeliveredQty += qty;
     }
 }
