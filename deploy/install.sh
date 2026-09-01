@@ -61,9 +61,11 @@ curl -sL "${REPO_URL}/.env.example" -o .env.example
 if [ ! -f .env ]; then
     echo "Generating .env with secure random password..."
     DB_PASS=$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)
+    CERT_PASS=$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)
     cp .env.example .env
     sed -i "s/change_me_to_a_strong_password/${DB_PASS}/" .env
-    echo "✅ .env created with auto-generated database password"
+    sed -i "s/change_me_to_a_strong_passphrase/${CERT_PASS}/" .env
+    echo "✅ .env created with auto-generated database password and certificate passphrase"
 else
     echo "⚠️  .env already exists, skipping (keeping your existing config)"
 fi

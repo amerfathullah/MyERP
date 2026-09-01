@@ -26,7 +26,7 @@ services:
     volumes:
       - myerp_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-myerp}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-myerp} -d ${DB_NAME:-MyERP}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -62,6 +62,8 @@ services:
         condition: service_healthy
     environment:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${DB_NAME:-MyERP};Username=${DB_USER:-myerp};Password=${DB_PASSWORD:-myerp_secret_2026}"
+      OpenIddict__Applications__MyERP_App__RootUrl: ${WEB_URL:-http://localhost}
+      OpenIddict__Applications__MyERP_Swagger__RootUrl: ${APP_URL:-http://localhost:5000}
     networks:
       - myerp-network
     restart: "no"
@@ -82,20 +84,26 @@ services:
         condition: service_completed_successfully
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:5000
+      ASPNETCORE_URLS: http://0.0.0.0:5000
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${DB_NAME:-MyERP};Username=${DB_USER:-myerp};Password=${DB_PASSWORD:-myerp_secret_2026}"
       Redis__Configuration: "redis:6379"
       App__SelfUrl: ${APP_URL:-http://localhost:5000}
       App__CorsOrigins: ${WEB_URL:-http://localhost}
       AuthServer__Authority: ${APP_URL:-http://localhost:5000}
       AuthServer__RequireHttpsMetadata: "${REQUIRE_HTTPS:-false}"
+      AuthServer__CertificatePath: /app/certs/openiddict.pfx
+      AuthServer__CertificatePassPhrase: ${CERT_PASSPHRASE:-change_me_to_a_strong_passphrase}
       App__HealthChecksEnabled: "true"
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:5000/health", "||", "exit", "1"]
+      test: ["CMD", "curl", "-sf", "http://localhost:5000/health-status"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 20s
+    ports:
+      - "${API_PORT:-5000}:5000"
+    volumes:
+      - myerp_certs:/app/certs
     networks:
       - myerp-network
 
@@ -120,6 +128,8 @@ volumes:
   myerp_pgdata:
     driver: local
   myerp_redis:
+    driver: local
+  myerp_certs:
     driver: local
 
 networks:

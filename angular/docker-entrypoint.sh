@@ -15,7 +15,6 @@ cat > /usr/share/nginx/html/dynamic-env.json <<EOF
   },
   "oAuthConfig": {
     "issuer": "${API_URL}/",
-    "redirectUri": "{0}",
     "clientId": "MyERP_App",
     "responseType": "code",
     "scope": "offline_access MyERP",

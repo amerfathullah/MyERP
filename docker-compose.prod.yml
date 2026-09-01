@@ -16,7 +16,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./backups:/backups
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-myerp}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-myerp} -d ${DB_NAME:-MyERP}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -50,6 +50,8 @@ services:
         condition: service_healthy
     environment:
       ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${DB_NAME:-MyERP};Username=${DB_USER:-myerp};Password=${DB_PASSWORD}"
+      OpenIddict__Applications__MyERP_App__RootUrl: ${CORS_ORIGINS:-https://myerp.example.com}
+      OpenIddict__Applications__MyERP_Swagger__RootUrl: ${API_URL:-https://api.myerp.example.com}
     profiles:
       - migration
 
@@ -64,19 +66,23 @@ services:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:5000
+      ASPNETCORE_URLS: http://0.0.0.0:5000
       ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${DB_NAME:-MyERP};Username=${DB_USER:-myerp};Password=${DB_PASSWORD}"
       Redis__Configuration: "redis:6379,password=${REDIS_PASSWORD}"
       App__SelfUrl: ${API_URL:-https://api.myerp.example.com}
       App__CorsOrigins: ${CORS_ORIGINS:-https://myerp.example.com}
       AuthServer__Authority: ${AUTH_AUTHORITY:-https://api.myerp.example.com}
       AuthServer__RequireHttpsMetadata: "true"
+      AuthServer__CertificatePath: /app/certs/openiddict.pfx
+      AuthServer__CertificatePassPhrase: ${CERT_PASSPHRASE}
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5000/health-status"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    volumes:
+      - certs:/app/certs
     deploy:
       resources:
         limits:
@@ -129,3 +135,4 @@ volumes:
   pgdata:
   redisdata:
   letsencrypt:
+  certs:

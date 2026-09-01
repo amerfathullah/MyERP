@@ -11,7 +11,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myerp"]
+      test: ["CMD-SHELL", "pg_isready -U myerp -d MyERP"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -32,7 +32,7 @@ services:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:5000
+      - ASPNETCORE_URLS=http://0.0.0.0:5000
       - ConnectionStrings__Default=Host=postgres;Port=5432;Database=MyERP;Username=myerp;Password=myerp_dev_2026
       - Redis__Configuration=redis:6379
     ports:

@@ -83,7 +83,8 @@ public class MyERPHttpApiHostModule : AbpModule
 
             PreConfigure<OpenIddictServerBuilder>(serverBuilder =>
             {
-                serverBuilder.AddProductionEncryptionAndSigningCertificate("openiddict.pfx", configuration["AuthServer:CertificatePassPhrase"]!);
+                var certificatePath = configuration["AuthServer:CertificatePath"] ?? "openiddict.pfx";
+                serverBuilder.AddProductionEncryptionAndSigningCertificate(certificatePath, configuration["AuthServer:CertificatePassPhrase"]!);
                 serverBuilder.SetIssuer(new Uri(configuration["AuthServer:Authority"]!));
             });
         }
