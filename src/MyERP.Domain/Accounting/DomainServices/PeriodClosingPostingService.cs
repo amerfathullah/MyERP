@@ -77,6 +77,14 @@ public class PeriodClosingPostingService : DomainService
                 .WithData("accountCurrency", closingAccount.Currency)
                 .WithData("companyCurrency", company.CurrencyCode);
         }
+
+        // 3. Accounts must not be frozen for the PCV posting date (PR #b3c2ba5381)
+        if (company.AccountsFrozenTillDate.HasValue && pcv.PostingDate <= company.AccountsFrozenTillDate.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AccountingPeriodClosed)
+                .WithData("frozenTill", company.AccountsFrozenTillDate.Value.ToString("yyyy-MM-dd"))
+                .WithData("postingDate", pcv.PostingDate.ToString("yyyy-MM-dd"));
+        }
     }
 
     /// <summary>

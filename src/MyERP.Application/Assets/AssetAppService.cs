@@ -411,8 +411,8 @@ public class AssetAppService : ApplicationService, IAssetAppService
             if (item == null)
                 throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
 
-            // Per PR #57618 / commit 46e01c2d92: purchase amount sourced from valuation rate / expense amount
-            var amount = item.PurchaseExpenseGlAmount > 0 ? item.PurchaseExpenseGlAmount : item.LineTotal;
+            // Per PR #57618 (commit 46e01c2d92): purchase amount sourced from receipt value including landed costs
+            var amount = item.LineTotal + item.LandedCostVoucherAmount;
             var qty = (int)Math.Max(1, Math.Round(item.Quantity));
 
             return new AssetPurchaseDocValuesDto
