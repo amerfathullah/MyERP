@@ -232,10 +232,13 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
 
-        // Duplicate manufacture entry check against Work Order (PR #58004)
+        // Mandatory manufactured qty (PR #58005) & duplicate manufacture check (PR #58004)
         if (entry.WorkOrderId.HasValue && entry.EntryType == StockEntryType.Manufacture)
         {
             var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var wo = await woRepo.FindAsync(entry.WorkOrderId.Value);
+            seManager.ValidateManufacturedQty(entry, wo);
+
             var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
             var mfgSettings = await mfgSettingsRepo.FindAsync(s => s.CompanyId == entry.CompanyId);
             var overproductionPct = mfgSettings?.OverproductionPercentage ?? 5m;

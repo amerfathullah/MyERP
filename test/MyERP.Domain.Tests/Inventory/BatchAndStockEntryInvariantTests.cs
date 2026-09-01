@@ -270,4 +270,30 @@ public class BatchAndStockEntryInvariantTests
         var deltaCoverage = manager.CalculateIncrementalMaterialCoverage(10m, required, alreadyTransferred, entryTransferred);
         Assert.Equal(5m, deltaCoverage);
     }
+
+    [Fact]
+    public void ValidateManufacturedQty_ZeroQty_ThrowsValidationException()
+    {
+        // Per ERPNext PR #58005 (commit b6ca708d9f):
+        // FgCompletedQty is mandatory (> 0) on Manufacture stock entries linked to Work Order.
+        var manager = new MyERP.Inventory.DomainServices.StockEntryManager(
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>(),
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+            new MyERP.Core.DomainServices.CompanyRestrictionValidationService(
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.CompanyRestrictionEntry, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.Customer, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Accounting.Entities.Account, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>()));
+
+        var entry = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Manufacture, DateTime.UtcNow)
+        {
+            WorkOrderId = Guid.NewGuid(),
+            FgCompletedQty = 0m
+        };
+
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() => manager.ValidateManufacturedQty(entry));
+        Assert.Equal(MyERP.MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+    }
 }

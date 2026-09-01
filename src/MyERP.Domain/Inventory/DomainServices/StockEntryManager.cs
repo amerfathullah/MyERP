@@ -324,6 +324,29 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Validates manufactured quantity is set (> 0) on manufacture stock entries.
+    /// Per ERPNext PR #58005 (commit b6ca708d9f): Without fg_completed_qty, submit
+    /// never updates or validates the work order's produced qty.
+    /// </summary>
+    public void ValidateManufacturedQty(StockEntry entry, Manufacturing.Entities.WorkOrder? wo = null)
+    {
+        if (entry.EntryType != StockEntryType.Manufacture)
+            return;
+
+        if (!entry.WorkOrderId.HasValue)
+            return;
+
+        if (wo != null && wo.TrackSemiFinishedGoods)
+            return;
+
+        if (entry.FgCompletedQty <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "For Quantity (Manufactured Qty) is mandatory for manufacture stock entries.");
+        }
+    }
+
+    /// <summary>
     /// Calculates valuation rate for Repack FG items.
     /// Single FG: rate = total_outgoing_cost / fg_qty
     /// Multiple FGs: each must have rate set manually (validated separately).
