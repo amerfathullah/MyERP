@@ -587,5 +587,71 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
                     .WithData("documentType", documentType);
         }
     }
+
+    /// <summary>
+    /// Creates a reverse Journal Entry with debits and credits swapped.
+    /// Per ERPNext PR #58092 (commit 9dd37d5f32):
+    /// - Disallows reversing an entry that is already a reverse entry (must cancel it instead).
+    /// - Disallows creating duplicate active reverse entries.
+    /// </summary>
+    [Authorize(MyERPPermissions.JournalEntries.Create)]
+    public async Task<JournalEntryDto> CreateReverseJournalEntryAsync(Guid sourceId)
+    {
+        var source = await _repository.GetAsync(sourceId, includeDetails: true);
+
+        // Disallow reversing an entry that is already a reverse journal entry
+        if (source.ReversalOfId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Journal Entry {source.EntryNumber} is already a Reverse Journal Entry. Cancel it instead of reversing it.");
+        }
+
+        // Must not already have an active reverse JE
+        var query = await _repository.GetQueryableAsync();
+        var existingReverse = query.FirstOrDefault(j =>
+            j.ReversalOfId == source.Id && j.Status != Core.DocumentStatus.Cancelled);
+
+        if (existingReverse != null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"A Reverse Journal Entry ({existingReverse.EntryNumber}) already exists for this entry.");
+        }
+
+        // Source must be posted/submitted
+        if (source.Status != Core.DocumentStatus.Posted && source.Status != Core.DocumentStatus.Submitted)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        }
+
+        var entryNumber = await _numberGenerator.GenerateAsync("JournalEntry", source.CompanyId);
+        var reverseEntry = new JournalEntry(
+            GuidGenerator.Create(),
+            source.CompanyId,
+            source.FiscalYearId,
+            DateTime.UtcNow.Date,
+            CurrentTenant.Id)
+        {
+            EntryNumber = entryNumber,
+            VoucherType = source.VoucherType,
+            ReferenceType = source.ReferenceType,
+            ReferenceId = source.ReferenceId,
+            ReferenceNumber = source.ReferenceNumber,
+            ReversalOfId = source.Id,
+            Narration = $"Reversal of Journal Entry {source.EntryNumber}"
+        };
+
+        // Swap Debits and Credits
+        foreach (var line in source.Lines)
+        {
+            reverseEntry.AddLine(
+                line.AccountId,
+                line.Amount,
+                !line.IsDebit,
+                $"Reversal of line: {line.Description}");
+        }
+
+        await _repository.InsertAsync(reverseEntry, autoSave: true);
+        return ObjectMapper.Map<JournalEntry, JournalEntryDto>(reverseEntry);
+    }
 }
 

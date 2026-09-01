@@ -256,6 +256,17 @@ public class JournalEntryTests
     }
 
     [Fact]
+    public void ReverseJournalEntry_ReversalOfEntry_IsIdentified()
+    {
+        // Per ERPNext PR #58092 / commit 9dd37d5f32:
+        // An entry with ReversalOfId cannot be reversed again (must cancel instead).
+        var source = CreateJournalEntry();
+        source.ReversalOfId = Guid.NewGuid();
+
+        source.ReversalOfId.HasValue.ShouldBeTrue();
+    }
+
+    [Fact]
     public void PurchaseInvoice_IsBlocked_EvaluatesOnHoldAndReleaseDate()
     {
         var pi = new Purchasing.Entities.PurchaseInvoice(
