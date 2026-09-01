@@ -214,4 +214,42 @@ public class ProductionRecordingWithProcessLossTests
         coProductOutput.CostAllocationPercentage.ShouldBe(15m);
         coProductOutput.WarehouseId.ShouldBe(bom.TargetWarehouseId);
     }
+
+    [Fact]
+    public void CalculateRawMaterialConsumption_PreservesOriginalItemIdAttribution()
+    {
+        var woRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<WorkOrder, Guid>>();
+        var service = new MyERP.Manufacturing.Services.WorkOrderProductionService(woRepo);
+
+        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-001", Guid.NewGuid(), Guid.NewGuid(), quantity: 10);
+        var originalItemId = Guid.NewGuid();
+        var alternativeItemId = Guid.NewGuid();
+
+        var directItem = new WorkOrderItem(Guid.NewGuid(), wo.Id, Guid.NewGuid(), "Direct Item", 10m)
+        {
+            TransferredQuantity = 10m
+        };
+
+        var alternativeItem = new WorkOrderItem(Guid.NewGuid(), wo.Id, alternativeItemId, "Alternative Item", 20m)
+        {
+            TransferredQuantity = 20m,
+            IsAlternativeItem = true,
+            OriginalItemId = originalItemId
+        };
+
+        wo.RequiredItems.Add(directItem);
+        wo.RequiredItems.Add(alternativeItem);
+
+        var consumptions = service.CalculateRawMaterialConsumption(wo, 5m, "Material Transferred");
+
+        consumptions.Count.ShouldBe(2);
+
+        var directConsumption = consumptions.First(c => c.ItemId == directItem.ItemId);
+        directConsumption.OriginalItemId.ShouldBeNull();
+        directConsumption.Quantity.ShouldBe(5m);
+
+        var altConsumption = consumptions.First(c => c.ItemId == alternativeItemId);
+        altConsumption.OriginalItemId.ShouldBe(originalItemId);
+        altConsumption.Quantity.ShouldBe(10m);
+    }
 }

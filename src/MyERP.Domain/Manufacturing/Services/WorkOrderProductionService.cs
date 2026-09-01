@@ -70,7 +70,8 @@ public class WorkOrderProductionService : DomainService
                     item.ItemId,
                     item.ItemName,
                     Math.Round(consumeQty, 4),
-                    item.SourceWarehouseId));
+                    item.SourceWarehouseId,
+                    item.OriginalItemId));
             }
         }
 
@@ -163,12 +164,13 @@ public class WorkOrderProductionService : DomainService
     }
 }
 
-/// <summary>Material consumption line for production stock entry.</summary>
+/// <summary>Raw material consumption line for production stock entry.</summary>
 public record MaterialConsumptionItem(
     Guid ItemId,
     string ItemName,
     decimal Quantity,
-    Guid? SourceWarehouseId);
+    Guid? SourceWarehouseId,
+    Guid? OriginalItemId = null);
 
 /// <summary>Validated production parameters for stock entry creation.</summary>
 public record ProductionParameters(
