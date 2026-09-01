@@ -99,7 +99,7 @@ public class WarehouseAccountService : DomainService
             return stockAccounts[0];
 
         // Level 6: Error — no unambiguous account found
-        throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+        throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
             .WithData("message", $"No stock account configured for warehouse '{warehouse.Name}' or company defaults. " +
                 $"Please set Account in the Warehouse or Default Inventory Account in Company settings.");
     }
@@ -118,7 +118,7 @@ public class WarehouseAccountService : DomainService
 
         var company = await _companyRepository.GetAsync(companyId);
         return company.StockReceivedButNotBilledAccountId
-            ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+            ?? throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
                 .WithData("message", "No SRBNB account configured.");
     }
 
@@ -136,7 +136,7 @@ public class WarehouseAccountService : DomainService
 
         var company = await _companyRepository.GetAsync(companyId);
         return company.StockDeliveredButNotBilledAccountId
-            ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+            ?? throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
                 .WithData("message", "No SDBNB account configured.");
     }
 
@@ -154,7 +154,7 @@ public class WarehouseAccountService : DomainService
         var company = await _companyRepository.GetAsync(companyId);
         // Stock adjustment fallback: Company.StockAdjustmentAccountId not on entity yet → use expense
         return company.DefaultExpenseAccountId
-            ?? throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+            ?? throw new BusinessException(MyERPDomainErrorCodes.DefaultAccountNotConfigured)
                 .WithData("message", "No stock adjustment account configured.");
     }
 }

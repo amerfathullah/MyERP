@@ -77,4 +77,12 @@ public class WarehouseAccountResolutionTests
         var stockAccountIds = Array.Empty<Guid>();
         Assert.Empty(stockAccountIds);
     }
+
+    [Fact]
+    public void WarehouseAccount_UnresolvedAccount_ErrorCode_IsDefaultAccountNotConfigured()
+    {
+        // Per ERPNext PR #58036 / #58065:
+        // When warehouse stock account cannot be resolved, DefaultAccountNotConfigured is thrown.
+        Assert.Equal("MyERP:02065", MyERP.MyERPDomainErrorCodes.DefaultAccountNotConfigured);
+    }
 }
