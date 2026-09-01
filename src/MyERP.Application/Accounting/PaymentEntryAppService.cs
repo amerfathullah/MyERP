@@ -1404,11 +1404,11 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 if (so.Status is Core.DocumentStatus.Cancelled or Core.DocumentStatus.Closed)
                     throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
-                if (so.PerBilled >= 100)
+                var company = await companyRepo.GetAsync(so.CompanyId);
+                if (so.PerBilled >= (100m + company.OverBillingAllowance))
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", "Can only make payment against unbilled Sales Order.");
 
-                var company = await companyRepo.GetAsync(so.CompanyId);
                 var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
                 var customer = await customerRepo.GetAsync(so.CustomerId);
 
@@ -1456,11 +1456,11 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 if (po.Status is Core.DocumentStatus.Cancelled or Core.DocumentStatus.Closed)
                     throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
-                if (po.PerBilled >= 100)
+                var company = await companyRepo.GetAsync(po.CompanyId);
+                if (po.PerBilled >= (100m + company.OverBillingAllowance))
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", "Can only make payment against unbilled Purchase Order.");
 
-                var company = await companyRepo.GetAsync(po.CompanyId);
                 var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
                 var supplier = await supplierRepo.GetAsync(po.SupplierId);
 

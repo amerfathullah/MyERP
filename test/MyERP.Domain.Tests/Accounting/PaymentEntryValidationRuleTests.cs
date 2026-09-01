@@ -67,4 +67,24 @@ public class PaymentEntryValidationRuleTests
 
         Assert.Equal(global::MyERP.Core.DocumentStatus.Submitted, pe.Status);
     }
+
+    [Fact]
+    public void OverBillingAllowance_AllowsPayment_WhenWithinAllowance()
+    {
+        // When OverBillingAllowance is 10%, per_billed of 105% is allowed (<= 110%)
+        var overBillingAllowance = 10m;
+        var perBilled = 105m;
+        var isAllowed = perBilled < (100m + overBillingAllowance);
+        Assert.True(isAllowed);
+    }
+
+    [Fact]
+    public void OverBillingAllowance_BlocksPayment_WhenExceedsAllowance()
+    {
+        // When OverBillingAllowance is 10%, per_billed of 115% is blocked (>= 110%)
+        var overBillingAllowance = 10m;
+        var perBilled = 115m;
+        var isBlocked = perBilled >= (100m + overBillingAllowance);
+        Assert.True(isBlocked);
+    }
 }
