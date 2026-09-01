@@ -227,4 +227,47 @@ public class BatchAndStockEntryInvariantTests
         var coveredFgQty = manager.CalculateMaterialCoverage(10m, required, transferred);
         Assert.Equal(5m, coveredFgQty);
     }
+
+    [Fact]
+    public void CalculateIncrementalMaterialCoverage_CalculatesDeltaCoverage()
+    {
+        var manager = new MyERP.Inventory.DomainServices.StockEntryManager(
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>(),
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+            new MyERP.Core.DomainServices.CompanyRestrictionValidationService(
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.CompanyRestrictionEntry, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.Customer, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Accounting.Entities.Account, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>()));
+
+        var rm1 = Guid.NewGuid();
+        var rm2 = Guid.NewGuid();
+
+        var required = new System.Collections.Generic.Dictionary<Guid, decimal>
+        {
+            [rm1] = 10m,
+            [rm2] = 20m
+        };
+
+        // First transfer: 10 of rm1, 0 of rm2 -> covered_before = 0
+        var alreadyTransferred = new System.Collections.Generic.Dictionary<Guid, decimal>
+        {
+            [rm1] = 10m,
+            [rm2] = 0m
+        };
+
+        // Second transfer: 0 of rm1, 10 of rm2 (50% of rm2)
+        // total transferred = 10 rm1 (100%), 10 rm2 (50%) -> covered_after = 5
+        // delta = 5 - 0 = 5
+        var entryTransferred = new System.Collections.Generic.Dictionary<Guid, decimal>
+        {
+            [rm1] = 0m,
+            [rm2] = 10m
+        };
+
+        var deltaCoverage = manager.CalculateIncrementalMaterialCoverage(10m, required, alreadyTransferred, entryTransferred);
+        Assert.Equal(5m, deltaCoverage);
+    }
 }

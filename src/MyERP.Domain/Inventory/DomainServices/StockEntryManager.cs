@@ -179,6 +179,31 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Calculates the incremental finished goods completed quantity covered by this transfer entry.
+    /// Per ERPNext PR #58382 (commit 5fa68dd068):
+    /// covered_by_entry = max(0, covered_after - covered_before).
+    /// </summary>
+    public decimal CalculateIncrementalMaterialCoverage(
+        decimal targetFgQty,
+        IReadOnlyDictionary<Guid, decimal> requiredQuantities,
+        IReadOnlyDictionary<Guid, decimal> alreadyTransferredQuantities,
+        IReadOnlyDictionary<Guid, decimal> entryTransferredQuantities)
+    {
+        var beforeCoverage = CalculateMaterialCoverage(targetFgQty, requiredQuantities, alreadyTransferredQuantities);
+
+        var totalTransferred = new Dictionary<Guid, decimal>();
+        foreach (var (id, req) in requiredQuantities)
+        {
+            var already = alreadyTransferredQuantities.TryGetValue(id, out var a) ? a : 0m;
+            var entry = entryTransferredQuantities.TryGetValue(id, out var e) ? e : 0m;
+            totalTransferred[id] = already + entry;
+        }
+
+        var afterCoverage = CalculateMaterialCoverage(targetFgQty, requiredQuantities, totalTransferred);
+        return Math.Max(0, afterCoverage - beforeCoverage);
+    }
+
+    /// <summary>
     /// Validates Repack Stock Entry rules.
     /// Per ERPNext: Repack converts items from one form to another (split/merge/repackage).
     /// 
