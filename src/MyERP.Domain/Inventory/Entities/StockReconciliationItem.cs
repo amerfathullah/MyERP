@@ -12,6 +12,7 @@ public class StockReconciliationItem : FullAuditedEntity<Guid>
     public Guid StockReconciliationId { get; set; }
     public Guid ItemId { get; set; }
     public Guid WarehouseId { get; set; }
+    public string? StockUom { get; set; }
 
     public decimal CurrentQuantity { get; set; }
     public decimal CurrentValuationRate { get; set; }
@@ -29,7 +30,8 @@ public class StockReconciliationItem : FullAuditedEntity<Guid>
     public StockReconciliationItem(Guid id, Guid stockReconciliationId,
         Guid itemId, Guid warehouseId,
         decimal newQuantity, decimal newValuationRate,
-        decimal currentQuantity = 0, decimal currentValuationRate = 0)
+        decimal currentQuantity = 0, decimal currentValuationRate = 0,
+        string? stockUom = null)
         : base(id)
     {
         StockReconciliationId = stockReconciliationId;
@@ -39,5 +41,6 @@ public class StockReconciliationItem : FullAuditedEntity<Guid>
         NewValuationRate = newValuationRate;
         CurrentQuantity = currentQuantity;
         CurrentValuationRate = currentValuationRate;
+        StockUom = stockUom;
     }
 }

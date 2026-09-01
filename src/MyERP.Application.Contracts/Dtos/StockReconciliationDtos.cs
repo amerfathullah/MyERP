@@ -21,6 +21,7 @@ public class StockReconciliationItemDto : EntityDto<Guid>
 {
     public Guid ItemId { get; set; }
     public Guid WarehouseId { get; set; }
+    public string? StockUom { get; set; }
     public decimal CurrentQuantity { get; set; }
     public decimal CurrentValuationRate { get; set; }
     public decimal NewQuantity { get; set; }
@@ -44,6 +45,7 @@ public class CreateStockReconciliationItemDto
 {
     public Guid ItemId { get; set; }
     public Guid WarehouseId { get; set; }
+    public string? StockUom { get; set; }
     public decimal NewQuantity { get; set; }
     public decimal NewValuationRate { get; set; }
     public decimal CurrentQuantity { get; set; }

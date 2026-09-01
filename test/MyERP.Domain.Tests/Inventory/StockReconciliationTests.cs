@@ -71,4 +71,12 @@ public class StockReconciliationTests
         var sr = CreateSR();
         Should.Throw<BusinessException>(() => sr.Cancel());
     }
+
+    [Fact]
+    public void AddItem_PreservesStockUom()
+    {
+        var sr = CreateSR();
+        sr.AddItem(Guid.NewGuid(), Guid.NewGuid(), 15, 5, 10, 5, stockUom: "Box");
+        sr.Items[0].StockUom.ShouldBe("Box");
+    }
 }

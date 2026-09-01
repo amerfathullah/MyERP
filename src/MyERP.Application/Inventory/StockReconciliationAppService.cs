@@ -148,9 +148,21 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
             CostCenterId = input.CostCenterId,
         };
 
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToList();
+        var itemMap = (await itemRepo.GetQueryableAsync())
+            .Where(i => itemIds.Contains(i.Id))
+            .ToDictionary(i => i.Id, i => i.Uom);
+
         foreach (var item in input.Items)
+        {
+            var uom = !string.IsNullOrWhiteSpace(item.StockUom)
+                ? item.StockUom
+                : (itemMap.TryGetValue(item.ItemId, out var defaultUom) ? defaultUom : null);
+
             sr.AddItem(item.ItemId, item.WarehouseId, item.NewQuantity, item.NewValuationRate,
-                item.CurrentQuantity, item.CurrentValuationRate);
+                item.CurrentQuantity, item.CurrentValuationRate, uom);
+        }
 
         await _repository.InsertAsync(sr);
         return ObjectMapper.Map<StockReconciliation, StockReconciliationDto>(sr);
