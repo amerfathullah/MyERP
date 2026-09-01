@@ -211,7 +211,10 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
         var po = new PurchaseOrder(
             GuidGenerator.Create(), mr.CompanyId, supplierId, orderNumber,
-            Clock.Now.Date, mr.TenantId);
+            Clock.Now.Date, mr.TenantId)
+        {
+            ExpectedDeliveryDate = mr.RequiredByDate ?? Clock.Now.Date
+        };
 
         foreach (var mrItem in mr.Items)
         {
@@ -299,7 +302,10 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
             var po = new PurchaseOrder(
                 GuidGenerator.Create(), mr.CompanyId, supplierId, orderNumber,
-                Clock.Now.Date, mr.TenantId);
+                Clock.Now.Date, mr.TenantId)
+            {
+                ExpectedDeliveryDate = mr.RequiredByDate ?? Clock.Now.Date
+            };
 
             foreach (var selItem in group)
             {
