@@ -93,16 +93,19 @@ public class EInvoiceValidationService : ITransientDependency
             if (typeCode is not "02" and not "04")
                 errors.Add("Return Sales Invoice must use Document Type Code '02' (Credit Note) or '04' (Refund Note).");
 
-            if (!invoice.ReturnAgainstId.HasValue)
-                errors.Add("Credit Note / Return Invoice must reference an original invoice (ReturnAgainstId).");
-            else
+            if (!company.AllowCreditNoteWithoutOriginalInvoice)
             {
-                // LHDN requires the BillingReference to carry the original invoice's LHDN-assigned
-                // UUID — submitting a Credit Note before the original has one produces a
-                // non-compliant document LHDN cannot resolve back to the invoice it corrects.
-                var originalInvoice = await _salesInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
-                if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
-                    errors.Add("The original invoice must have a valid LHDN submission (LhdnUuid) before its Credit Note can be submitted.");
+                if (!invoice.ReturnAgainstId.HasValue)
+                    errors.Add("Credit Note / Return Invoice must reference an original invoice (ReturnAgainstId).");
+                else
+                {
+                    // LHDN requires the BillingReference to carry the original invoice's LHDN-assigned
+                    // UUID — submitting a Credit Note before the original has one produces a
+                    // non-compliant document LHDN cannot resolve back to the invoice it corrects.
+                    var originalInvoice = await _salesInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
+                    if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
+                        errors.Add("The original invoice must have a valid LHDN submission (LhdnUuid) before its Credit Note can be submitted.");
+                }
             }
         }
         else if (typeCode is "02" or "04")
@@ -190,13 +193,16 @@ public class EInvoiceValidationService : ITransientDependency
             if (typeCode is not "12" and not "14")
                 errors.Add("Return Purchase Invoice must use Self-Billed Document Type Code '12' (Credit Note) or '14' (Refund Note).");
 
-            if (!invoice.ReturnAgainstId.HasValue)
-                errors.Add("Self-billed Credit Note / Return must reference an original purchase invoice (ReturnAgainstId).");
-            else
+            if (!company.AllowCreditNoteWithoutOriginalInvoice)
             {
-                var originalInvoice = await _purchaseInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
-                if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
-                    errors.Add("The original purchase invoice must have a valid LHDN submission (LhdnUuid) before its Credit Note can be submitted.");
+                if (!invoice.ReturnAgainstId.HasValue)
+                    errors.Add("Self-billed Credit Note / Return must reference an original purchase invoice (ReturnAgainstId).");
+                else
+                {
+                    var originalInvoice = await _purchaseInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
+                    if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
+                        errors.Add("The original purchase invoice must have a valid LHDN submission (LhdnUuid) before its Credit Note can be submitted.");
+                }
             }
         }
         else if (typeCode is "12" or "14")

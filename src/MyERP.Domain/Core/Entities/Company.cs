@@ -187,6 +187,12 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool AllowUomWithConversionRateDefinedInItem { get; set; }
 
+    /// <summary>
+    /// When true, allows LHDN Credit Note / Debit Note submission without an original invoice in the system (e.g. historical invoices).
+    /// Migrated from myinvois custom_allow_creditnote_without_original_invoice_in_the_system.
+    /// </summary>
+    public bool AllowCreditNoteWithoutOriginalInvoice { get; set; }
+
     // --- Warehouse Defaults (moved from Stock Settings to Company per PR #57571) ---
 
     /// <summary>Default warehouse for transactions. Per PR #57571: now per-company, not global.</summary>

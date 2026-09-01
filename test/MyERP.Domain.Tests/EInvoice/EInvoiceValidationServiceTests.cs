@@ -182,4 +182,56 @@ public class EInvoiceValidationServiceTests
         var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
         Assert.Contains(errors, e => e.Contains("Self-Billed Credit Note or Refund Note type code can only be used on return purchase invoices"));
     }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_ReturnWithoutOriginalInvoice_AllowedWhenCompanySettingEnabled()
+    {
+        var companyWithSetting = new Company(_companyId, "Test Corp")
+        {
+            TaxId = "C1234567890",
+            MsicCode = "62010",
+            RegistrationNumber = "202001012345",
+            AllowCreditNoteWithoutOriginalInvoice = true
+        };
+        _companyRepository.GetAsync(_companyId).Returns(companyWithSetting);
+
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "CRN-002", DateTime.UtcNow);
+        invoice.IsReturn = true;
+        invoice.AddItem(_itemId, "Refund item", -1, 50m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.CreditNote;
+        invoice.ReturnAgainstId = null; // No original reference
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.DoesNotContain(errors, e => e.Contains("must reference an original invoice"));
+    }
+
+    [Fact]
+    public async Task ValidatePurchaseInvoice_ReturnWithoutOriginalInvoice_AllowedWhenCompanySettingEnabled()
+    {
+        var companyWithSetting = new Company(_companyId, "Test Corp")
+        {
+            TaxId = "C1234567890",
+            MsicCode = "62010",
+            RegistrationNumber = "202001012345",
+            AllowCreditNoteWithoutOriginalInvoice = true
+        };
+        _companyRepository.GetAsync(_companyId).Returns(companyWithSetting);
+
+        var invoice = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "PINV-CRN-002", DateTime.UtcNow);
+        invoice.IsReturn = true;
+        invoice.AddItem(_itemId, "Return item", -2, 20m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.SupplierTin = "C1122334455";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.SelfBilledCreditNote;
+        invoice.ReturnAgainstId = null;
+
+        var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
+        Assert.DoesNotContain(errors, e => e.Contains("must reference an original purchase invoice"));
+    }
 }
