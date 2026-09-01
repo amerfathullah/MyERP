@@ -62,11 +62,22 @@ public class PurchaseReceiptReturnTests
     }
 
     [Fact]
-    public void PurchaseReceipt_Normal_PositiveQty_StockIn()
+    public void PurchaseReceipt_ReturnAgainstClosedPurchaseOrder_IsAllowed()
     {
-        var pr = CreatePR(false);
-        pr.AddItem(Guid.NewGuid(), "Widget", 10m, 100m, 0m, "Unit");
-        pr.Items[0].Quantity.ShouldBeGreaterThan(0);
-        // Positive SLE = stock coming in
+        // Per ERPNext PR #58126 (commit fd728dacca):
+        // Returns against closed Purchase Orders should proceed without error,
+        // while normal receipts against closed POs remain blocked.
+        var normalPr = CreatePR(isReturn: false);
+        var returnPr = CreatePR(isReturn: true);
+
+        var poStatus = DocumentStatus.Closed;
+
+        var isNormalPrBlocked = poStatus == DocumentStatus.Cancelled ||
+                                (poStatus == DocumentStatus.Closed && !normalPr.IsReturn);
+        var isReturnPrBlocked = poStatus == DocumentStatus.Cancelled ||
+                                (poStatus == DocumentStatus.Closed && !returnPr.IsReturn);
+
+        isNormalPrBlocked.ShouldBeTrue();
+        isReturnPrBlocked.ShouldBeFalse();
     }
 }

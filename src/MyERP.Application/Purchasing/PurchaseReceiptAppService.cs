@@ -295,8 +295,8 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             {
                 var po = await _purchaseOrderRepository.GetAsync(receipt.PurchaseOrderId.Value);
 
-                // Block receipt against Cancelled or Closed POs
-                if (po.Status == Core.DocumentStatus.Cancelled || po.Status == Core.DocumentStatus.Closed)
+                // Block receipt against Cancelled or Closed POs (returns against closed PO are permitted per ERPNext PR #58126)
+                if (po.Status == Core.DocumentStatus.Cancelled || (po.Status == Core.DocumentStatus.Closed && !receipt.IsReturn))
                 {
                     throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                         .WithData("documentType", "Purchase Order")
