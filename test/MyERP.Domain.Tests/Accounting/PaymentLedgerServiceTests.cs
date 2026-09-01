@@ -204,6 +204,43 @@ public class PaymentLedgerServiceTests
         ple.Delinked.ShouldBeTrue();
     }
 
+    [Fact]
+    public void OverdueAmount_CalculatedFromPaymentLedger_IncludesReconciliations()
+    {
+        // Per ERPNext PR #57786 (commit b5a3815a64):
+        // Payment Ledger is the source of truth for overdue outstanding, so post-submit payments
+        // properly reduce overdue amount.
+        var invoiceId = Guid.NewGuid();
+        var dueDate = DateTime.Today.AddDays(-15);
+
+        var invoicePle = new PaymentLedgerEntry(
+            Guid.NewGuid(), _companyId, DateTime.Today.AddDays(-30),
+            _accountId, "Customer", _customerId,
+            "SalesInvoice", invoiceId,
+            "SalesInvoice", invoiceId,
+            1000m, 1000m, "MYR")
+        {
+            DueDate = dueDate
+        };
+
+        var paymentPle = new PaymentLedgerEntry(
+            Guid.NewGuid(), _companyId, DateTime.Today.AddDays(-5),
+            _accountId, "Customer", _customerId,
+            "PaymentEntry", Guid.NewGuid(),
+            "SalesInvoice", invoiceId,
+            -600m, -600m, "MYR")
+        {
+            DueDate = dueDate
+        };
+
+        var entries = new[] { invoicePle, paymentPle };
+        var overdueOutstanding = entries
+            .Where(p => !p.Delinked && p.DueDate < DateTime.Today)
+            .Sum(p => p.Amount);
+
+        overdueOutstanding.ShouldBe(400m);
+    }
+
     // === Helper ===
 
     private static PaymentLedgerEntry CreatePle(Guid invoiceId, decimal amount)

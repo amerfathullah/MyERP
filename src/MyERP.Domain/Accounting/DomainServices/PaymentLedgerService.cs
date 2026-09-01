@@ -87,6 +87,31 @@ public class PaymentLedgerService : DomainService
     }
 
     /// <summary>
+    /// Gets total overdue outstanding amount for a customer/supplier past their due date in company currency.
+    /// Per ERPNext PR #57786 (commit b5a3815a64): reads from Payment Ledger rather than GL tags,
+    /// so post-submit reconciled payments and advances are properly accounted for.
+    /// </summary>
+    public async Task<decimal> GetOverdueAmountAsync(string partyType, Guid partyId, Guid companyId, DateTime asOfDate)
+    {
+        var query = await _pleRepository.GetQueryableAsync();
+        var overdueVouchers = query
+            .Where(p => p.PartyType == partyType
+                && p.PartyId == partyId
+                && p.CompanyId == companyId
+                && !p.Delinked)
+            .GroupBy(p => new { p.AgainstVoucherType, p.AgainstVoucherId, p.DueDate })
+            .Select(g => new
+            {
+                g.Key.DueDate,
+                Outstanding = g.Sum(p => p.Amount)
+            })
+            .Where(v => v.Outstanding > 0 && v.DueDate.HasValue && v.DueDate.Value.Date < asOfDate.Date)
+            .ToList();
+
+        return overdueVouchers.Sum(v => v.Outstanding);
+    }
+
+    /// <summary>
     /// Create a reversal PLE (for cancellation).
     /// </summary>
     public async Task<PaymentLedgerEntry> CreateReversalAsync(PaymentLedgerEntry original, Guid? tenantId = null)

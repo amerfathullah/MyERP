@@ -144,15 +144,27 @@ public class CreditLimitService : DomainService
             return;
 
         // Calculate overdue amount: posted invoices past due date with outstanding > 0
+        // Per ERPNext PR #57786 (commit b5a3815a64): reads from Payment Ledger to reflect post-submit settlements
         var today = DateTime.UtcNow.Date;
-        var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
-        var overdueAmount = invoiceQuery
-            .Where(i => i.CustomerId == customerId
-                && i.CompanyId == companyId
-                && i.Status == Core.DocumentStatus.Posted
-                && i.GrandTotal > i.AmountPaid
-                && i.DueDate < today)
-            .Sum(i => i.GrandTotal - i.AmountPaid);
+        var pleService = LazyServiceProvider.LazyGetService<Accounting.DomainServices.PaymentLedgerService>();
+        decimal overdueAmount = 0m;
+
+        if (pleService != null)
+        {
+            overdueAmount = await pleService.GetOverdueAmountAsync("Customer", customerId, companyId, today);
+        }
+
+        if (overdueAmount == 0)
+        {
+            var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
+            overdueAmount = invoiceQuery
+                .Where(i => i.CustomerId == customerId
+                    && i.CompanyId == companyId
+                    && i.Status == Core.DocumentStatus.Posted
+                    && i.GrandTotal > i.AmountPaid
+                    && i.DueDate < today)
+                .Sum(i => i.GrandTotal - i.AmountPaid);
+        }
 
         if (overdueAmount > threshold)
         {
