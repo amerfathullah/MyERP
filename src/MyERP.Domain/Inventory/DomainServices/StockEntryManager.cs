@@ -149,6 +149,36 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Calculates the effective finished goods completed quantity covered by transferred raw materials.
+    /// Per ERPNext PR #58482 (commit b90e3d4656):
+    /// When transferring materials against a Work Order or Job Card, caps fg_completed_qty
+    /// to the minimum coverage across all required raw material lines.
+    /// </summary>
+    public decimal CalculateMaterialCoverage(
+        decimal targetFgQty,
+        IReadOnlyDictionary<Guid, decimal> requiredQuantities,
+        IReadOnlyDictionary<Guid, decimal> transferredQuantities)
+    {
+        if (targetFgQty <= 0 || requiredQuantities.Count == 0)
+            return 0;
+
+        var coverages = new List<decimal>();
+        foreach (var (itemId, reqQty) in requiredQuantities)
+        {
+            if (reqQty <= 0) continue;
+            var transferred = transferredQuantities.TryGetValue(itemId, out var t) ? t : 0m;
+            var proportion = transferred / reqQty;
+            coverages.Add(proportion * targetFgQty);
+        }
+
+        if (coverages.Count == 0)
+            return targetFgQty;
+
+        var minCoverage = coverages.Min();
+        return Math.Round(Math.Min(targetFgQty, Math.Max(0, minCoverage)), 4);
+    }
+
+    /// <summary>
     /// Validates Repack Stock Entry rules.
     /// Per ERPNext: Repack converts items from one form to another (split/merge/repackage).
     /// 

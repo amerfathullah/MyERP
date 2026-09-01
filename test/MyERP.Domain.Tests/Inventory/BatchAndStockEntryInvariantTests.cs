@@ -192,4 +192,39 @@ public class BatchAndStockEntryInvariantTests
 
         manager.ValidateBatchSplit(se);
     }
+
+    [Fact]
+    public void CalculateMaterialCoverage_CapsToMinimumCoverageAcrossRawMaterials()
+    {
+        var manager = new MyERP.Inventory.DomainServices.StockEntryManager(
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>(),
+            NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+            new MyERP.Core.DomainServices.CompanyRestrictionValidationService(
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.CompanyRestrictionEntry, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.Customer, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Accounting.Entities.Account, Guid>>(),
+                NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Warehouse, Guid>>()));
+
+        var rm1 = Guid.NewGuid();
+        var rm2 = Guid.NewGuid();
+
+        var required = new System.Collections.Generic.Dictionary<Guid, decimal>
+        {
+            [rm1] = 10m,
+            [rm2] = 20m
+        };
+
+        // Half of rm1 transferred (5/10 = 50%), full rm2 transferred (20/20 = 100%)
+        // Target FG qty = 10 -> min coverage = 50% * 10 = 5
+        var transferred = new System.Collections.Generic.Dictionary<Guid, decimal>
+        {
+            [rm1] = 5m,
+            [rm2] = 20m
+        };
+
+        var coveredFgQty = manager.CalculateMaterialCoverage(10m, required, transferred);
+        Assert.Equal(5m, coveredFgQty);
+    }
 }
