@@ -49,4 +49,15 @@ public class ItemLeadTimeTests
         Assert.False(leadTime.Suppliers[0].IsDefault);
         Assert.True(leadTime.Suppliers[1].IsDefault);
     }
+
+    [Fact]
+    public void ItemLeadTime_AddSupplier_DuplicateThrowsException()
+    {
+        var leadTime = new ItemLeadTime(Guid.NewGuid(), Guid.NewGuid());
+        var sup1 = Guid.NewGuid();
+
+        leadTime.AddSupplier(sup1, 10, 2);
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() => leadTime.AddSupplier(sup1, 5, 1));
+        Assert.Equal(MyERPDomainErrorCodes.DuplicateRecord, ex.Code);
+    }
 }

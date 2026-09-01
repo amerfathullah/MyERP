@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
@@ -80,6 +81,12 @@ public class ItemLeadTime : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void AddSupplier(Guid supplierId, int purchaseTimeDays, int bufferTimeDays, bool isDefault = false)
     {
+        if (_suppliers.Any(s => s.SupplierId == supplierId))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
+                .WithData("entity", "Supplier Lead Time");
+        }
+
         if (isDefault)
         {
             foreach (var sup in _suppliers)
