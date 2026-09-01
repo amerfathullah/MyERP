@@ -11,7 +11,7 @@ COPY . /app
 RUN pnpm build:prod
 
 FROM nginx:alpine
-LABEL org.opencontainers.image.source="https://github.com/myerp/myerp"
+LABEL org.opencontainers.image.source="https://github.com/amerfathullah/MyERP"
 LABEL org.opencontainers.image.description="MyERP Web Frontend"
 
 # Copy nginx config

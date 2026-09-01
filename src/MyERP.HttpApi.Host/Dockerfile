@@ -8,7 +8,7 @@ RUN dotnet restore src/MyERP.HttpApi.Host/MyERP.HttpApi.Host.csproj
 RUN dotnet publish src/MyERP.HttpApi.Host/MyERP.HttpApi.Host.csproj -c Release -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
-LABEL org.opencontainers.image.source="https://github.com/myerp/myerp"
+LABEL org.opencontainers.image.source="https://github.com/amerfathullah/MyERP"
 LABEL org.opencontainers.image.description="MyERP API Server"
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*

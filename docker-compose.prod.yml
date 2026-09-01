@@ -1,5 +1,7 @@
 # Production Docker Compose — MyERP
 # Deploy with: docker compose -f docker-compose.prod.yml up -d
+# Images are pulled from Docker Hub by default: amerfathullah/myerp-api, myerp-migrator, myerp-web
+# Override REGISTRY/IMAGE_PREFIX/VERSION in .env to use a different registry or fork.
 
 services:
   postgres:
@@ -41,7 +43,7 @@ services:
           memory: 256M
 
   migrator:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-myerp}/myerp-migrator:${VERSION:-latest}
+    image: ${REGISTRY:-docker.io}/${IMAGE_PREFIX:-amerfathullah}/myerp-migrator:${VERSION:-latest}
     container_name: myerp-migrator
     depends_on:
       postgres:
@@ -52,7 +54,7 @@ services:
       - migration
 
   api:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-myerp}/myerp-api:${VERSION:-latest}
+    image: ${REGISTRY:-docker.io}/${IMAGE_PREFIX:-amerfathullah}/myerp-api:${VERSION:-latest}
     container_name: myerp-api
     restart: unless-stopped
     depends_on:
@@ -85,9 +87,9 @@ services:
       - "traefik.http.routers.api.tls.certresolver=letsencrypt"
       - "traefik.http.services.api.loadbalancer.server.port=5000"
 
-  angular:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-myerp}/myerp-angular:${VERSION:-latest}
-    container_name: myerp-angular
+  web:
+    image: ${REGISTRY:-docker.io}/${IMAGE_PREFIX:-amerfathullah}/myerp-web:${VERSION:-latest}
+    container_name: myerp-web
     restart: unless-stopped
     depends_on:
       - api
@@ -99,9 +101,9 @@ services:
           memory: 128M
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.angular.rule=Host(`${APP_HOST:-myerp.example.com}`)"
-      - "traefik.http.routers.angular.tls.certresolver=letsencrypt"
-      - "traefik.http.services.angular.loadbalancer.server.port=80"
+      - "traefik.http.routers.web.rule=Host(`${APP_HOST:-myerp.example.com}`)"
+      - "traefik.http.routers.web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.web.loadbalancer.server.port=80"
 
   traefik:
     image: traefik:v3

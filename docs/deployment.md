@@ -102,8 +102,8 @@ nano /opt/myerp/.env
 | `APP_HOST` | Angular app domain (e.g., `myerp.com`) |
 | `API_HOST` | API domain (e.g., `api.myerp.com`) |
 | `ACME_EMAIL` | Email for Let's Encrypt certificates |
-| `REGISTRY` | Container registry (e.g., `ghcr.io`) |
-| `IMAGE_PREFIX` | Image prefix (e.g., `your-org/myerp`) |
+| `REGISTRY` | Container registry (default `docker.io`) |
+| `IMAGE_PREFIX` | Docker Hub username/org publishing the images (default `amerfathullah`) |
 
 ### 3. Deploy
 
@@ -137,22 +137,21 @@ docker compose -f docker-compose.prod.yml ps
 
 ## CI/CD Pipeline
 
-The GitHub Actions workflow handles:
+The GitHub Actions workflow (`.github/workflows/deploy.yml`) handles:
 
-1. **On Push to `main`/`develop`**: Build + unit tests + lint
-2. **On Tag `v*`**: Build Docker images → push to GHCR → deploy to staging
-3. **Manual Dispatch**: Deploy to staging or production
+1. **On Tag `v*`**: Build the `myerp-api`, `myerp-migrator`, and `myerp-web` Docker images → push to Docker Hub → deploy to production over SSH
 
 ### Required GitHub Secrets
 
 | Secret | Purpose |
 |--------|---------|
-| `STAGING_HOST` | Staging server IP/hostname |
-| `STAGING_USER` | SSH username for staging |
-| `STAGING_SSH_KEY` | SSH private key for staging |
-| `PROD_HOST` | Production server IP/hostname |
-| `PROD_USER` | SSH username for production |
-| `PROD_SSH_KEY` | SSH private key for production |
+| `DOCKERHUB_USERNAME` | Docker Hub username/org the images are published under |
+| `DOCKERHUB_TOKEN` | Docker Hub access token (Account Settings → Security → Access Tokens) |
+| `DEPLOY_HOST` | Production server IP/hostname |
+| `DEPLOY_USER` | SSH username for the production server |
+| `DEPLOY_KEY` | SSH private key for the production server |
+
+The deploy step also requires a `production` GitHub Environment configured on the repo (Settings → Environments), which the secrets above can be scoped to.
 
 ### Release Process
 
@@ -161,8 +160,7 @@ The GitHub Actions workflow handles:
 git tag v1.0.0
 git push origin v1.0.0
 
-# This triggers: build → test → push images → deploy staging
-# Manual approval required for production deployment
+# This triggers: build → push images to Docker Hub → deploy to production via SSH
 ```
 
 ---
