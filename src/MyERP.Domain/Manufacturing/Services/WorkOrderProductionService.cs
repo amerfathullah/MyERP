@@ -121,6 +121,46 @@ public class WorkOrderProductionService : DomainService
         var wo = await _workOrderRepository.GetAsync(workOrderId);
         return wo.ProducedQuantity;
     }
+
+    /// <summary>
+    /// Calculates secondary item (Co-Products, By-Products, Scrap) outputs for a given production quantity.
+    /// Scaled from BOM secondary items proportional to the FG completed quantity.
+    /// </summary>
+    public List<SecondaryItemOutput> CalculateSecondaryItemOutputs(
+        BillOfMaterials bom,
+        decimal fgCompletedQty,
+        Guid? defaultScrapWarehouseId = null,
+        Guid? fgWarehouseId = null)
+    {
+        var result = new List<SecondaryItemOutput>();
+        if (bom.Quantity <= 0 || fgCompletedQty <= 0 || !bom.SecondaryItems.Any())
+            return result;
+
+        var scaleRatio = fgCompletedQty / bom.Quantity;
+
+        foreach (var secItem in bom.SecondaryItems)
+        {
+            var effectiveQty = secItem.EffectiveQuantity * scaleRatio;
+            if (effectiveQty <= 0) continue;
+
+            var targetWarehouseId = secItem.WarehouseId ??
+                (secItem.SecondaryItemType == SecondaryItemType.Scrap
+                    ? (bom.ScrapWarehouseId ?? defaultScrapWarehouseId)
+                    : (bom.TargetWarehouseId ?? fgWarehouseId));
+
+            result.Add(new SecondaryItemOutput(
+                ItemId: secItem.ItemId,
+                ItemName: secItem.ItemName,
+                SecondaryItemType: secItem.SecondaryItemType,
+                Quantity: Math.Round(effectiveQty, 4),
+                Rate: secItem.Rate,
+                CostAllocationPercentage: secItem.CostAllocationPercentage,
+                WarehouseId: targetWarehouseId
+            ));
+        }
+
+        return result;
+    }
 }
 
 /// <summary>Material consumption line for production stock entry.</summary>
@@ -137,3 +177,14 @@ public record ProductionParameters(
     decimal TotalFgQty,
     Guid? SourceWarehouseId,
     Guid? TargetWarehouseId);
+
+/// <summary>Calculated secondary item output line for production stock entry.</summary>
+public record SecondaryItemOutput(
+    Guid ItemId,
+    string? ItemName,
+    SecondaryItemType SecondaryItemType,
+    decimal Quantity,
+    decimal Rate,
+    decimal CostAllocationPercentage,
+    Guid? WarehouseId);
+

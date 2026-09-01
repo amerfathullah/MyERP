@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MyERP.Manufacturing.Entities;
 using Shouldly;
 using Volo.Abp;
@@ -167,5 +168,50 @@ public class ProductionRecordingWithProcessLossTests
 
         var pending = wo.Quantity - wo.ProducedQuantity;
         pending.ShouldBe(125);
+    }
+
+    [Fact]
+    public void CalculateSecondaryItemOutputs_ProportionallyScalesByFgQty()
+    {
+        var woRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<WorkOrder, Guid>>();
+        var service = new MyERP.Manufacturing.Services.WorkOrderProductionService(woRepo);
+
+        var bom = new BillOfMaterials(Guid.NewGuid(), Guid.NewGuid(), "BOM-001", Guid.NewGuid())
+        {
+            Quantity = 10,
+            ScrapWarehouseId = Guid.NewGuid(),
+            TargetWarehouseId = Guid.NewGuid()
+        };
+
+        var scrapItemId = Guid.NewGuid();
+        var coProductItemId = Guid.NewGuid();
+
+        bom.AddSecondaryItem(new BomSecondaryItem(Guid.NewGuid(), bom.Id, scrapItemId, SecondaryItemType.Scrap, 2m)
+        {
+            ItemName = "Metal Shavings",
+            Rate = 5m
+        });
+
+        bom.AddSecondaryItem(new BomSecondaryItem(Guid.NewGuid(), bom.Id, coProductItemId, SecondaryItemType.CoProduct, 4m)
+        {
+            ItemName = "By-product Oil",
+            Rate = 12m,
+            CostAllocationPercentage = 15m
+        });
+
+        // Produce 5 units (50% of BOM qty 10)
+        var outputs = service.CalculateSecondaryItemOutputs(bom, 5m);
+
+        outputs.Count.ShouldBe(2);
+
+        var scrapOutput = outputs.First(o => o.ItemId == scrapItemId);
+        scrapOutput.Quantity.ShouldBe(1m); // 2 * (5/10) = 1
+        scrapOutput.SecondaryItemType.ShouldBe(SecondaryItemType.Scrap);
+        scrapOutput.WarehouseId.ShouldBe(bom.ScrapWarehouseId);
+
+        var coProductOutput = outputs.First(o => o.ItemId == coProductItemId);
+        coProductOutput.Quantity.ShouldBe(2m); // 4 * (5/10) = 2
+        coProductOutput.CostAllocationPercentage.ShouldBe(15m);
+        coProductOutput.WarehouseId.ShouldBe(bom.TargetWarehouseId);
     }
 }
