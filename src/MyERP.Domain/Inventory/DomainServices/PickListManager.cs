@@ -143,6 +143,56 @@ public class PickListManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Gets detailed stock availability for items in warehouses, considering active pick lists and stock reservations.
+    /// Per ERPNext PR #58243 (commit bf1ec51680):
+    /// free_qty = actual_qty - picked_qty - reserved_qty.
+    /// </summary>
+    public async Task<PickStockAvailability> GetStockAvailabilityAsync(
+        Guid itemId, Guid warehouseId, Guid? excludePickListId = null,
+        IRepository<StockReservationEntry, Guid>? sreRepository = null)
+    {
+        var binQueryable = await _binRepository.GetQueryableAsync();
+        var bin = binQueryable.FirstOrDefault(b => b.ItemId == itemId && b.WarehouseId == warehouseId);
+        var actualQty = bin?.ActualQty ?? 0;
+
+        var pickQueryable = await _pickListRepository.GetQueryableAsync();
+        var pickListQuery = pickQueryable
+            .Where(pl => pl.Status == Core.DocumentStatus.Submitted || pl.Status == Core.DocumentStatus.Draft);
+
+        if (excludePickListId.HasValue)
+        {
+            pickListQuery = pickListQuery.Where(pl => pl.Id != excludePickListId.Value);
+        }
+
+        var pickedQty = pickListQuery
+            .SelectMany(pl => pl.Items)
+            .Where(pi => pi.ItemId == itemId && pi.WarehouseId == warehouseId)
+            .Sum(pi => pi.Qty - pi.TransferredQty);
+
+        decimal reservedQty = 0;
+        if (sreRepository != null)
+        {
+            var sreQuery = await sreRepository.GetQueryableAsync();
+            reservedQty = sreQuery
+                .Where(s => s.ItemId == itemId && s.WarehouseId == warehouseId
+                    && s.Status == Core.DocumentStatus.Submitted
+                    && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
+                .Sum(s => s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty);
+        }
+
+        var freeQty = actualQty - pickedQty - reservedQty;
+
+        return new PickStockAvailability(
+            ItemId: itemId,
+            WarehouseId: warehouseId,
+            ActualQty: actualQty,
+            PickedQty: pickedQty,
+            ReservedQty: reservedQty,
+            FreeQty: freeQty
+        );
+    }
 }
 
 public class PickAllocationResult
@@ -175,4 +225,12 @@ public record DeliveredComponentItem(
     decimal DeliveredQty,
     Guid? SourceDocumentItemId = null,
     Guid? BatchId = null);
+
+public record PickStockAvailability(
+    Guid ItemId,
+    Guid WarehouseId,
+    decimal ActualQty,
+    decimal PickedQty,
+    decimal ReservedQty,
+    decimal FreeQty);
 

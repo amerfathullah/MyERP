@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MyERP.Inventory.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
 using Xunit;
@@ -158,5 +160,41 @@ public class PickListTests
         pl.Items[1].DeliveredQty.ShouldBe(10m);
         pl.PerDelivered.ShouldBe(50m); // (5 + 10) / (10 + 20) = 15/30 = 50%
         pl.IsPartiallyDelivered.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task PickListManager_GetStockAvailabilityAsync_CalculatesFreeQty()
+    {
+        var plRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<PickList, Guid>>();
+        var binRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Bin, Guid>>();
+        var manager = new MyERP.Inventory.DomainServices.PickListManager(plRepo, binRepo);
+
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+
+        var bin = new Bin(Guid.NewGuid(), itemId, warehouseId);
+        bin.ApplyStockMovement(100m, 1000m); // ActualQty = 100
+
+        binRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<Bin> { bin }.AsQueryable()));
+
+        var existingPl = CreatePickList();
+        existingPl.AddItem(itemId, warehouseId, 40m);
+        existingPl.Submit();
+
+        plRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<PickList> { existingPl }.AsQueryable()));
+
+        var availability = await manager.GetStockAvailabilityAsync(itemId, warehouseId);
+
+        availability.ActualQty.ShouldBe(100m);
+        availability.PickedQty.ShouldBe(40m);
+        availability.ReservedQty.ShouldBe(0m);
+        availability.FreeQty.ShouldBe(60m);
+
+        // When excluding the existing pick list (e.g. during edit)
+        var editAvailability = await manager.GetStockAvailabilityAsync(itemId, warehouseId, excludePickListId: existingPl.Id);
+        editAvailability.PickedQty.ShouldBe(0m);
+        editAvailability.FreeQty.ShouldBe(100m);
     }
 }
