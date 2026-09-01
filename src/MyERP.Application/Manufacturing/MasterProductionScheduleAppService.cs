@@ -268,7 +268,7 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
             .Where(b => b.CompanyId == schedule.CompanyId && b.IsActive)
             .ToList();
 
-        foreach (var item in schedule.Items)
+        foreach (var item in schedule.Items.Where(i => Math.Round(i.PlannedQty, 4) > 0))
         {
             var bomId = item.BomId;
             if (!bomId.HasValue || bomId.Value == Guid.Empty)

@@ -274,9 +274,15 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         // Check that WOs haven't already been generated for all items
-        var itemsNeedingWo = plan.PlannedItems.Where(i => !i.WorkOrderId.HasValue).ToList();
+        // Per ERPNext PR #58249 (commit 1fa057b943): skip covered rows (PlannedQty <= 0) when ordering from MRP/plan
+        var itemsNeedingWo = plan.PlannedItems
+            .Where(i => !i.WorkOrderId.HasValue && Math.Round(i.PlannedQty, 4) > 0)
+            .ToList();
         if (!itemsNeedingWo.Any())
             throw new BusinessException(MyERPDomainErrorCodes.ProductionPlanWorkOrdersAlreadyGenerated);
+
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+        var company = await companyRepo.FindAsync(plan.CompanyId);
 
         // Batch load BOMs to prevent N+1 queries during bulk Work Order generation (ERPNext PR #57154)
         var bomIds = itemsNeedingWo.Select(i => i.BomId).Distinct().ToList();
@@ -295,6 +301,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             {
                 SalesOrderId = item.SalesOrderId,
                 FgWarehouseId = item.WarehouseId,
+                WipWarehouseId = company?.DefaultWipWarehouseId,
                 TrackSemiFinishedGoods = bom.TrackSemiFinishedGoods,
             };
             wo.SetPlannedDates(item.PlannedStartDate, null);
@@ -329,8 +336,9 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
         // Get items needing MRs (those with PlannedQty > 0 and no MR yet)
         // Filter out sub-assembly items that need Work Orders (InHouseManufacturing), not Purchase MRs
+        // Per ERPNext PR #58249: skip covered items with PlannedQty <= 0
         var itemsNeedingMr = plan.MaterialRequirements
-            .Where(m => m.PlannedQty > 0 && !m.MaterialRequestId.HasValue
+            .Where(m => Math.Round(m.PlannedQty, 4) > 0 && !m.MaterialRequestId.HasValue
                 && m.ProcurementType != SubAssemblyType.InHouseManufacturing)
             .ToList();
 

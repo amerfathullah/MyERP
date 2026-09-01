@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MyERP.Manufacturing;
 using MyERP.Manufacturing.Entities;
 using Xunit;
@@ -199,5 +200,24 @@ public class ProductionPlanMrQtyFormulaTests
             ProcurementType = SubAssemblyType.MaterialRequest
         };
         Assert.Equal(SubAssemblyType.MaterialRequest, item.ProcurementType);
+    }
+
+    [Fact]
+    public void ProductionPlan_CoveredRowsAreSkipped_WhenGeneratingOrders()
+    {
+        var plan = new ProductionPlan(Guid.NewGuid(), Guid.NewGuid(), "PP-001", DateTime.Today);
+        var coveredItem = new ProductionPlanItem(Guid.NewGuid(), plan.Id, Guid.NewGuid(), "Covered FG", Guid.NewGuid(), plannedQty: 0m);
+        var activeItem = new ProductionPlanItem(Guid.NewGuid(), plan.Id, Guid.NewGuid(), "Active FG", Guid.NewGuid(), plannedQty: 5m);
+
+        plan.AddPlannedItem(coveredItem);
+        plan.AddPlannedItem(activeItem);
+
+        var itemsNeedingWo = plan.PlannedItems
+            .Where(i => !i.WorkOrderId.HasValue && Math.Round(i.PlannedQty, 4) > 0)
+            .ToList();
+
+        Assert.Single(itemsNeedingWo);
+        Assert.Equal(activeItem.Id, itemsNeedingWo[0].Id);
+        Assert.Equal(5m, itemsNeedingWo[0].PlannedQty);
     }
 }
