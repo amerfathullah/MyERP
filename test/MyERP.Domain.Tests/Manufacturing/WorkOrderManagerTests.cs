@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using MyERP.Manufacturing.DomainServices;
 using MyERP.Manufacturing.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
 using Xunit;
@@ -355,6 +356,94 @@ public class WorkOrderManagerTests
     public void ItemHasVariants_ErrorCode_Exists()
     {
         MyERPDomainErrorCodes.ItemHasVariants.ShouldNotBeNullOrEmpty();
+    }
+
+    // ========== Warehouse Hierarchy Fallback (ERPNext PR #58231) ==========
+
+    [Fact]
+    public async System.Threading.Tasks.Task CalculateMaterialRequirementsAsync_FallsBackToItemAndItemGroupWarehouse()
+    {
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var bomRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<ManufacturingSettings, Guid>>();
+        var itemGroupRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.ItemGroup, Guid>>();
+
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        var bom = new BillOfMaterials(BomId, CompanyId, "BOM-001", ItemId);
+        var rm1Id = Guid.NewGuid();
+        var rm2Id = Guid.NewGuid();
+        var rm3Id = Guid.NewGuid();
+
+        var explicitWh = Guid.NewGuid();
+        var itemDefaultWh = Guid.NewGuid();
+        var groupDefaultWh = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+
+        bom.Items.Add(new BomItem(Guid.NewGuid(), BomId, rm1Id, "RM1", 10, 100) { SourceWarehouseId = explicitWh });
+        bom.Items.Add(new BomItem(Guid.NewGuid(), BomId, rm2Id, "RM2", 5, 50));
+        bom.Items.Add(new BomItem(Guid.NewGuid(), BomId, rm3Id, "RM3", 2, 20));
+
+        var rm1 = new MyERP.Inventory.Entities.Item(rm1Id, CompanyId, "RM1", "RM1", MyERP.Inventory.ItemType.Goods);
+        var rm2 = new MyERP.Inventory.Entities.Item(rm2Id, CompanyId, "RM2", "RM2", MyERP.Inventory.ItemType.Goods) { DefaultWarehouseId = itemDefaultWh };
+        var rm3 = new MyERP.Inventory.Entities.Item(rm3Id, CompanyId, "RM3", "RM3", MyERP.Inventory.ItemType.Goods) { ItemGroupId = groupId };
+
+        var itemGroup = new MyERP.Inventory.Entities.ItemGroup(groupId, "Raw Materials") { DefaultWarehouseId = groupDefaultWh };
+
+        bomRepo.GetAsync(BomId).Returns(System.Threading.Tasks.Task.FromResult(bom));
+        itemRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new System.Collections.Generic.List<MyERP.Inventory.Entities.Item> { rm1, rm2, rm3 }.AsQueryable()));
+        itemGroupRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new System.Collections.Generic.List<MyERP.Inventory.Entities.ItemGroup> { itemGroup }.AsQueryable()));
+
+        var reqs = await manager.CalculateMaterialRequirementsAsync(BomId, 1, itemGroupRepo);
+
+        reqs.Length.ShouldBe(3);
+        reqs[0].SourceWarehouseId.ShouldBe(explicitWh);
+        reqs[1].SourceWarehouseId.ShouldBe(itemDefaultWh);
+        reqs[2].SourceWarehouseId.ShouldBe(groupDefaultWh);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ResolveDefaultFgWarehouseAsync_FollowsHierarchy()
+    {
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var bomRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<ManufacturingSettings, Guid>>();
+        var itemGroupRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.ItemGroup, Guid>>();
+
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        var companyWh = Guid.NewGuid();
+        var itemWh = Guid.NewGuid();
+        var groupWh = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+
+        var item = new MyERP.Inventory.Entities.Item(ItemId, CompanyId, "FG", "FG", MyERP.Inventory.ItemType.Goods)
+        {
+            DefaultWarehouseId = itemWh,
+            ItemGroupId = groupId
+        };
+        var itemGroup = new MyERP.Inventory.Entities.ItemGroup(groupId, "Finished Goods")
+        {
+            DefaultWarehouseId = groupWh
+        };
+
+        itemRepo.FindAsync(ItemId).Returns(System.Threading.Tasks.Task.FromResult<MyERP.Inventory.Entities.Item?>(item));
+        itemGroupRepo.FindAsync(groupId).Returns(System.Threading.Tasks.Task.FromResult<MyERP.Inventory.Entities.ItemGroup?>(itemGroup));
+
+        // 1. Company default takes first priority
+        var wh1 = await manager.ResolveDefaultFgWarehouseAsync(ItemId, companyWh, itemGroupRepo);
+        wh1.ShouldBe(companyWh);
+
+        // 2. When company default is null, Item default takes priority
+        var wh2 = await manager.ResolveDefaultFgWarehouseAsync(ItemId, null, itemGroupRepo);
+        wh2.ShouldBe(itemWh);
+
+        // 3. When item default is null, ItemGroup default takes priority
+        item.DefaultWarehouseId = null;
+        var wh3 = await manager.ResolveDefaultFgWarehouseAsync(ItemId, null, itemGroupRepo);
+        wh3.ShouldBe(groupWh);
     }
 
     // ========== Helper ==========

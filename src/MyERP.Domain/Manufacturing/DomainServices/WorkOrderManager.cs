@@ -80,22 +80,76 @@ public class WorkOrderManager : DomainService
     /// <summary>
     /// Calculates proportional raw material quantities for a given production quantity.
     /// bomItem.Quantity × (produceQty / bom.Quantity)
+    /// Per ERPNext PR #58231: falls back to Item default warehouse, then ItemGroup default warehouse.
     /// </summary>
     public async Task<WorkOrderMaterialRequirement[]> CalculateMaterialRequirementsAsync(
-        Guid bomId, decimal produceQty)
+        Guid bomId, decimal produceQty, IRepository<ItemGroup, Guid>? itemGroupRepository = null)
     {
         var bom = await _bomRepository.GetAsync(bomId);
+        var itemIds = bom.Items.Select(i => i.ItemId).Distinct().ToList();
+        var itemQuery = await _itemRepository.GetQueryableAsync();
+        var itemMap = itemQuery
+            .Where(i => itemIds.Contains(i.Id))
+            .ToDictionary(i => i.Id, i => i);
+
+        var itemGroupMap = new System.Collections.Generic.Dictionary<Guid, ItemGroup>();
+        if (itemGroupRepository != null)
+        {
+            var groupIds = itemMap.Values.Where(i => i.ItemGroupId.HasValue).Select(i => i.ItemGroupId!.Value).Distinct().ToList();
+            if (groupIds.Any())
+            {
+                var groupQuery = await itemGroupRepository.GetQueryableAsync();
+                itemGroupMap = groupQuery.Where(g => groupIds.Contains(g.Id)).ToDictionary(g => g.Id, g => g);
+            }
+        }
 
         return bom.Items
             .Where(i => !i.IsPhantom) // phantom items bubble up, don't consume directly
-            .Select(i => new WorkOrderMaterialRequirement
+            .Select(i =>
             {
-                ItemId = i.ItemId,
-                RequiredQty = bom.Quantity > 0 ? i.Quantity * (produceQty / bom.Quantity) : 0,
-                Rate = i.Rate,
-                SourceWarehouseId = i.SourceWarehouseId
+                itemMap.TryGetValue(i.ItemId, out var item);
+                ItemGroup? group = null;
+                if (item?.ItemGroupId != null)
+                    itemGroupMap.TryGetValue(item.ItemGroupId.Value, out group);
+
+                var sourceWarehouseId = i.SourceWarehouseId
+                    ?? item?.DefaultWarehouseId
+                    ?? group?.DefaultWarehouseId;
+
+                return new WorkOrderMaterialRequirement
+                {
+                    ItemId = i.ItemId,
+                    RequiredQty = bom.Quantity > 0 ? i.Quantity * (produceQty / bom.Quantity) : 0,
+                    Rate = i.Rate,
+                    SourceWarehouseId = sourceWarehouseId
+                };
             })
             .ToArray();
+    }
+
+    /// <summary>
+    /// Resolves default Target/FG warehouse for a Work Order item using hierarchy:
+    /// Company DefaultFgWarehouseId -> Item DefaultWarehouseId -> ItemGroup DefaultWarehouseId.
+    /// Per ERPNext PR #58231.
+    /// </summary>
+    public async Task<Guid?> ResolveDefaultFgWarehouseAsync(
+        Guid itemId, Guid? companyDefaultFgWarehouseId, IRepository<ItemGroup, Guid>? itemGroupRepository = null)
+    {
+        if (companyDefaultFgWarehouseId.HasValue)
+            return companyDefaultFgWarehouseId;
+
+        var item = await _itemRepository.FindAsync(itemId);
+        if (item?.DefaultWarehouseId != null)
+            return item.DefaultWarehouseId;
+
+        if (item?.ItemGroupId != null && itemGroupRepository != null)
+        {
+            var itemGroup = await itemGroupRepository.FindAsync(item.ItemGroupId.Value);
+            if (itemGroup?.DefaultWarehouseId != null)
+                return itemGroup.DefaultWarehouseId;
+        }
+
+        return null;
     }
 
     /// <summary>
