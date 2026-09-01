@@ -304,8 +304,17 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
         };
     }
 
-    /// <summary>Returns unbilled billable hours summary for a company/project.</summary>
-    public async Task<List<UnbilledTimesheetSummaryDto>> GetUnbilledSummaryAsync(Guid companyId, Guid? projectId)
+    /// <summary>
+    /// Returns unbilled billable hours summary for a company/project with date range filtering.
+    /// Per ERPNext PR #58355 (commit 7149df398a):
+    /// Date range filters on FromTime >= fromDate and FromTime < toDate.AddDays(1) to include
+    /// midnight-ending shift logs without truncating them.
+    /// </summary>
+    public async Task<List<UnbilledTimesheetSummaryDto>> GetUnbilledSummaryAsync(
+        Guid companyId,
+        Guid? projectId,
+        DateTime? fromDate = null,
+        DateTime? toDate = null)
     {
         var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
         var cancelledInvoiceIds = invoiceQuery
@@ -320,8 +329,12 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
 
         var unbilled = timesheets
             .SelectMany(ts => ts.Details.Where(d =>
-                d.IsBillable && (d.SalesInvoiceId == null || cancelledInvoiceIds.Contains(d.SalesInvoiceId.Value)) && d.BillingAmount > 0
-                && (!projectId.HasValue || d.ProjectId == projectId)))
+                d.IsBillable
+                && (d.SalesInvoiceId == null || cancelledInvoiceIds.Contains(d.SalesInvoiceId.Value))
+                && d.BillingAmount > 0
+                && (!projectId.HasValue || d.ProjectId == projectId)
+                && (!fromDate.HasValue || d.FromTime >= fromDate.Value.Date)
+                && (!toDate.HasValue || d.FromTime < toDate.Value.Date.AddDays(1))))
             .GroupBy(d => d.ActivityType)
             .Select(g => new UnbilledTimesheetSummaryDto
             {

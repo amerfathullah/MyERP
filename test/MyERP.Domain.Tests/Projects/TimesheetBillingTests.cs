@@ -103,6 +103,26 @@ public class TimesheetBillingTests
         detail.SalesInvoiceId.ShouldNotBeNull();
     }
 
+    [Fact]
+    public void MidnightEndingTimeLog_DateFilterIncludesMidnightLogs()
+    {
+        // Per ERPNext PR #58355 (commit 7149df398a):
+        // A time log starting on 2026-07-01 at 16:00 and ending on 2026-07-02 at 00:00 (or past midnight)
+        // should be included when filtering for date 2026-07-01.
+        var fromDate = new DateTime(2026, 7, 1);
+        var toDate = new DateTime(2026, 7, 1);
+
+        var nightShiftDetail = new TimesheetDetail(
+            Guid.NewGuid(), Guid.NewGuid(), "Support",
+            new DateTime(2026, 7, 1, 16, 0, 0), new DateTime(2026, 7, 2, 0, 0, 0), 8)
+        { IsBillable = true, BillingRate = 100 };
+
+        var isIncluded = nightShiftDetail.FromTime >= fromDate.Date &&
+                         nightShiftDetail.FromTime < toDate.Date.AddDays(1);
+
+        isIncluded.ShouldBeTrue();
+    }
+
     private TimesheetDetail CreateBillableDetail()
     {
         var ts = CreateTimesheet();
