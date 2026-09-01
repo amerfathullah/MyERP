@@ -1,6 +1,7 @@
 using System;
 using MyERP.Accounting.Entities;
 using MyERP.Sales.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
 using Xunit;
@@ -65,5 +66,92 @@ public class PeriodClosingVoucherTests
         pcv.AddEntry(Guid.NewGuid(), null, 5000m, true);
         pcv.Submit();
         Should.Throw<BusinessException>(() => pcv.AddEntry(Guid.NewGuid(), null, 1000m, false));
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ValidateForSubmitAsync_ThrowsWhenPostingDateIsOnOrBeforeAccountsFrozenTillDate()
+    {
+        var companyId = Guid.NewGuid();
+        var closingAccountId = Guid.NewGuid();
+        var postingDate = new DateTime(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc);
+        var frozenDate = new DateTime(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc);
+
+        var pcv = new PeriodClosingVoucher(Guid.NewGuid(), companyId, Guid.NewGuid(),
+            postingDate, postingDate, closingAccountId);
+
+        var company = new MyERP.Core.Entities.Company(companyId, "Test Company")
+        {
+            AccountsFrozenTillDate = frozenDate,
+            CurrencyCode = "MYR"
+        };
+        var closingAccount = new Account(closingAccountId, companyId, "Retained Earnings", "3100", AccountType.Equity)
+        {
+            Currency = "MYR"
+        };
+
+        var accountRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Account, Guid>>();
+        accountRepo.GetAsync(closingAccountId).Returns(closingAccount);
+
+        var companyRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.Company, Guid>>();
+        companyRepo.GetAsync(companyId).Returns(company);
+
+        var service = new MyERP.Accounting.DomainServices.PeriodClosingPostingService(
+            Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JournalEntry, Guid>>(),
+            Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JournalEntryLine, Guid>>(),
+            accountRepo,
+            Substitute.For<Volo.Abp.Domain.Repositories.IRepository<FiscalYear, Guid>>(),
+            companyRepo,
+            new MyERP.Accounting.DomainServices.AccountClosingBalanceService(
+                Substitute.For<Volo.Abp.Domain.Repositories.IRepository<AccountClosingBalance, Guid>>(),
+                Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JournalEntry, Guid>>(),
+                Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JournalEntryLine, Guid>>()
+            )
+        );
+
+        var ex = await Should.ThrowAsync<BusinessException>(async () => await service.ValidateForSubmitAsync(pcv));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.AccountingPeriodClosed);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ValidateForSubmitAsync_SucceedsWhenPostingDateIsAfterAccountsFrozenTillDate()
+    {
+        var companyId = Guid.NewGuid();
+        var closingAccountId = Guid.NewGuid();
+        var postingDate = new DateTime(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc);
+        var frozenDate = new DateTime(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc);
+
+        var pcv = new PeriodClosingVoucher(Guid.NewGuid(), companyId, Guid.NewGuid(),
+            postingDate, postingDate, closingAccountId);
+
+        var company = new MyERP.Core.Entities.Company(companyId, "Test Company")
+        {
+            AccountsFrozenTillDate = frozenDate,
+            CurrencyCode = "MYR"
+        };
+        var closingAccount = new Account(closingAccountId, companyId, "Retained Earnings", "3100", AccountType.Equity)
+        {
+            Currency = "MYR"
+        };
+
+        var accountRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Account, Guid>>();
+        accountRepo.GetAsync(closingAccountId).Returns(closingAccount);
+
+        var companyRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.Company, Guid>>();
+        companyRepo.GetAsync(companyId).Returns(company);
+
+        var service = new MyERP.Accounting.DomainServices.PeriodClosingPostingService(
+            Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JournalEntry, Guid>>(),
+            Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JournalEntryLine, Guid>>(),
+            accountRepo,
+            Substitute.For<Volo.Abp.Domain.Repositories.IRepository<FiscalYear, Guid>>(),
+            companyRepo,
+            new MyERP.Accounting.DomainServices.AccountClosingBalanceService(
+                Substitute.For<Volo.Abp.Domain.Repositories.IRepository<AccountClosingBalance, Guid>>(),
+                Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JournalEntry, Guid>>(),
+                Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JournalEntryLine, Guid>>()
+            )
+        );
+
+        await service.ValidateForSubmitAsync(pcv); // Should not throw
     }
 }

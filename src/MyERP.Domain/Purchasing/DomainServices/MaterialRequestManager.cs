@@ -76,4 +76,40 @@ public class MaterialRequestManager : DomainService
     {
         return Math.Max(0, item.Quantity - item.OrderedQuantity);
     }
+
+    /// <summary>
+    /// Validates that Material Request items linked to a Sales Order line match the item and company (gotcha PR #58443).
+    /// </summary>
+    public async Task ValidateWithSalesOrderAsync(MaterialRequest mr, IRepository<Sales.Entities.SalesOrder, Guid> soRepository)
+    {
+        var soItems = mr.Items.Where(i => i.SalesOrderId.HasValue).ToList();
+        if (!soItems.Any()) return;
+
+        var soIds = soItems.Select(i => i.SalesOrderId!.Value).Distinct().ToList();
+        foreach (var soId in soIds)
+        {
+            var so = await soRepository.FindAsync(soId);
+            if (so == null) continue;
+
+            if (so.CompanyId != mr.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Material Request company does not match Sales Order {so.OrderNumber} company.");
+            }
+
+            var soItemRows = soItems.Where(i => i.SalesOrderId == soId).ToList();
+            foreach (var mrItem in soItemRows)
+            {
+                if (mrItem.SalesOrderItemId.HasValue)
+                {
+                    var targetSoItem = so.Items.FirstOrDefault(i => i.Id == mrItem.SalesOrderItemId.Value);
+                    if (targetSoItem != null && targetSoItem.ItemId != mrItem.ItemId)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", "Material Request item does not match linked Sales Order item row.");
+                    }
+                }
+            }
+        }
+    }
 }
