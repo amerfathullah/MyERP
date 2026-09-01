@@ -67,3 +67,13 @@ public class PaymentRequestSummaryDto
     public bool CanResendEmail { get; set; }
     public bool CanCancel { get; set; }
 }
+
+public class PaymentRequestSubscriptionPlanDto
+{
+    public Guid PlanId { get; set; }
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public decimal Qty { get; set; }
+    public decimal Rate { get; set; }
+    public decimal Amount { get; set; }
+}

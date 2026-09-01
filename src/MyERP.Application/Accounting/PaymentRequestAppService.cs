@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
@@ -293,5 +294,56 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
             CanResendEmail = pr.Status == PaymentRequestStatus.Initiated,
             CanCancel = pr.Status is PaymentRequestStatus.Draft or PaymentRequestStatus.Initiated
         };
+    }
+
+    /// <summary>
+    /// Resolves subscription details for a document (SalesInvoice, PurchaseInvoice, Subscription) per PR #58438.
+    /// Requires read permission on the reference document.
+    /// </summary>
+    public async Task<List<PaymentRequestSubscriptionPlanDto>> GetSubscriptionDetailsAsync(string referenceDoctype, Guid referenceId)
+    {
+        Guid? subscriptionId = null;
+
+        if (string.Equals(referenceDoctype, "SalesInvoice", StringComparison.OrdinalIgnoreCase))
+        {
+            await AuthorizationService.CheckAsync(MyERPPermissions.SalesInvoices.Default);
+            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+            var si = await siRepo.FindAsync(referenceId);
+            subscriptionId = si?.SubscriptionId;
+        }
+        else if (string.Equals(referenceDoctype, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase))
+        {
+            await AuthorizationService.CheckAsync(MyERPPermissions.PurchaseInvoices.Default);
+            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var pi = await piRepo.FindAsync(referenceId);
+            subscriptionId = pi?.SubscriptionId;
+        }
+        else if (string.Equals(referenceDoctype, "Subscription", StringComparison.OrdinalIgnoreCase))
+        {
+            await AuthorizationService.CheckAsync(MyERPPermissions.Subscriptions.Default);
+            subscriptionId = referenceId;
+        }
+
+        if (!subscriptionId.HasValue)
+        {
+            return new List<PaymentRequestSubscriptionPlanDto>();
+        }
+
+        var subRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Subscription, Guid>>();
+        var sub = await subRepo.FindAsync(subscriptionId.Value);
+        if (sub == null || !sub.Plans.Any())
+        {
+            return new List<PaymentRequestSubscriptionPlanDto>();
+        }
+
+        return sub.Plans.Select(p => new PaymentRequestSubscriptionPlanDto
+        {
+            PlanId = p.Id,
+            ItemId = p.ItemId,
+            ItemName = p.ItemName,
+            Qty = p.Qty,
+            Rate = p.Rate,
+            Amount = p.Amount
+        }).ToList();
     }
 }

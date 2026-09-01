@@ -106,4 +106,41 @@ public class PaymentRequestWorkflowTests
         Assert.Equal("PurchaseInvoice", pr.ReferenceDoctype);
         Assert.Equal("Supplier", pr.PartyType);
     }
+
+    [Fact]
+    public async Task GetSubscriptionDetailsAsync_ReturnsEmpty_ForDoctypeWithoutSubscription()
+    {
+        var result = await _appService.GetSubscriptionDetailsAsync("SalesOrder", Guid.NewGuid());
+        Assert.NotNull(result);
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetSubscriptionDetailsAsync_ReturnsPlans_ForSubscriptionReference()
+    {
+        var lazyProvider = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        var authService = Substitute.For<Microsoft.AspNetCore.Authorization.IAuthorizationService, Volo.Abp.Authorization.IAbpAuthorizationService>();
+        authService.AuthorizeAsync(Arg.Any<System.Security.Claims.ClaimsPrincipal>(), Arg.Any<object>(), Arg.Any<string>())
+            .Returns(Task.FromResult(Microsoft.AspNetCore.Authorization.AuthorizationResult.Success()));
+        lazyProvider.LazyGetRequiredService<Microsoft.AspNetCore.Authorization.IAuthorizationService>().Returns(authService);
+        _appService.LazyServiceProvider = lazyProvider;
+
+        var subId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var sub = new MyERP.Sales.Entities.Subscription(subId, _companyId, _partyId, "Customer", DateTime.UtcNow, "Monthly");
+        sub.AddPlan(itemId, 2, 50m, "SaaS License");
+
+        var subRepo = Substitute.For<IRepository<MyERP.Sales.Entities.Subscription, Guid>>();
+        subRepo.FindAsync(subId).Returns(Task.FromResult<MyERP.Sales.Entities.Subscription?>(sub));
+        lazyProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.Subscription, Guid>>().Returns(subRepo);
+
+        var result = await _appService.GetSubscriptionDetailsAsync("Subscription", subId);
+
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.Equal(2, result[0].Qty);
+        Assert.Equal(50m, result[0].Rate);
+        Assert.Equal(100m, result[0].Amount);
+        Assert.Equal("SaaS License", result[0].ItemName);
+    }
 }

@@ -23,4 +23,7 @@ public interface IPaymentRequestAppService : IApplicationService
 
     /// <summary>Gets comprehensive summary metrics and capability flags for Payment Request.</summary>
     Task<PaymentRequestSummaryDto> GetSummaryAsync(Guid id);
+
+    /// <summary>Resolves subscription plans linked to reference document per PR #58438.</summary>
+    Task<System.Collections.Generic.List<PaymentRequestSubscriptionPlanDto>> GetSubscriptionDetailsAsync(string referenceDoctype, Guid referenceId);
 }
