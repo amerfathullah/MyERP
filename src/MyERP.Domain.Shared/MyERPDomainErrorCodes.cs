@@ -92,6 +92,10 @@ public static class MyERPDomainErrorCodes
     // Batch/Serial
     public const string BatchExpired = "MyERP:05011";
     public const string BatchDisabled = "MyERP:05012";
+    public const string SerialNoNotFound = "MyERP:05064";
+    public const string SerialNoNotActive = "MyERP:05065";
+    public const string SerialNoWarehouseMismatch = "MyERP:05066";
+    public const string SerialNoDuplicate = "MyERP:05067";
     public const string GroupWarehouseCannotReceiveStock = "MyERP:05014";
     public const string ValuationMethodChangeLocked = "MyERP:05015";
     public const string MissingWarehouse = "MyERP:05016";
