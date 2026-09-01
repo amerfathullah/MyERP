@@ -87,4 +87,39 @@ public class PaymentEntryValidationRuleTests
         var isBlocked = perBilled >= (100m + overBillingAllowance);
         Assert.True(isBlocked);
     }
+
+    [Fact]
+    public void PaymentEntry_InternalTransfer_SplitsBankChargesAndExchangeGainLoss()
+    {
+        // Per ERPNext PR #58071 (commit 8d2aa69e61):
+        // In multi-currency transfer (e.g. Paid 100 USD @ 50 rate = 5000 MYR, Received 4500 MYR @ 1 rate = 4500 MYR)
+        // With a 100 MYR bank charge deduction:
+        // exchange_gain_loss = base_paid (5000) - base_received (4500) - other_deductions (100) = 400 MYR
+        var pe = new PaymentEntry(
+            Guid.NewGuid(),
+            _companyId,
+            PaymentType.InternalTransfer,
+            DateTime.UtcNow,
+            100m,
+            _paidFrom,
+            _paidTo
+        )
+        {
+            SourceExchangeRate = 50m,
+            ReceivedAmount = 4500m,
+            TargetExchangeRate = 1m
+        };
+
+        // Add 100 MYR bank charge deduction
+        pe.AddTax(new PaymentEntryTax(Guid.NewGuid(), pe.Id, Guid.NewGuid())
+        {
+            Description = "Bank Charges",
+            TaxAmount = 100m,
+            AddDeductTax = TaxAddDeduct.Deduct,
+            ChargeType = PaymentTaxChargeType.Actual
+        });
+
+        // ExchangeGainLoss should absorb residual (400 MYR)
+        Assert.Equal(400m, pe.ExchangeGainLoss);
+    }
 }
