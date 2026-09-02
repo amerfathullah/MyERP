@@ -76,6 +76,16 @@ public class StockEntryManager : DomainService
                 throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
                     .WithData("field", "TargetWarehouse");
 
+            // For Manufacture and Repack finished goods: target warehouse is mandatory (ERPNext PR #54866)
+            if (entry.EntryType is StockEntryType.Manufacture or StockEntryType.Repack)
+            {
+                if (item.IsFinishedItem && !item.TargetWarehouseId.HasValue)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                        .WithData("field", "TargetWarehouse");
+                }
+            }
+
             var isIssue = entry.EntryType is StockEntryType.MaterialIssue;
 
             if (isIssue && !item.SourceWarehouseId.HasValue)
