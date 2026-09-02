@@ -424,6 +424,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             var prQuery = await _purchaseReceiptRepository.WithDetailsAsync(pr => pr.Items);
             var receipts = prQuery
                 .Where(pr => pr.CompanyId == input.CompanyId && input.ReceiptIds.Contains(pr.Id))
+                .OrderBy(pr => pr.CreationTime)
                 .ToList();
 
             foreach (var receipt in receipts)
@@ -434,7 +435,8 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                         .WithData("detail", $"Purchase Receipt '{receipt.ReceiptNumber}' must be submitted.");
                 }
 
-                foreach (var item in receipt.Items)
+                // Deterministic item ordering matching receipt row sequence (PR #48372 / commit 32a45cf635)
+                foreach (var item in receipt.Items.OrderBy(i => i.CreationTime))
                 {
                     result.Add(new LandedCostItemDto
                     {
@@ -455,6 +457,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             var piQuery = await _purchaseInvoiceRepository.WithDetailsAsync(pi => pi.Items);
             var invoices = piQuery
                 .Where(pi => pi.CompanyId == input.CompanyId && input.ReceiptIds.Contains(pi.Id))
+                .OrderBy(pi => pi.CreationTime)
                 .ToList();
 
             foreach (var invoice in invoices)
@@ -471,7 +474,8 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                         .WithData("detail", $"Purchase Invoice '{invoice.InvoiceNumber}' must have Update Stock enabled for Landed Cost Voucher.");
                 }
 
-                foreach (var item in invoice.Items)
+                // Deterministic item ordering matching invoice row sequence (PR #48372 / commit 32a45cf635)
+                foreach (var item in invoice.Items.OrderBy(i => i.CreationTime))
                 {
                     result.Add(new LandedCostItemDto
                     {
@@ -493,6 +497,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             var seQuery = await stockEntryRepo.WithDetailsAsync(se => se.Items);
             var stockEntries = seQuery
                 .Where(se => se.CompanyId == input.CompanyId && input.ReceiptIds.Contains(se.Id))
+                .OrderBy(se => se.CreationTime)
                 .ToList();
 
             foreach (var se in stockEntries)
@@ -511,7 +516,8 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                         .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be of entry type Material Receipt, Manufacture, or Repack.");
                 }
 
-                foreach (var item in se.Items)
+                // Deterministic item ordering matching stock entry row sequence (PR #48372 / commit 32a45cf635)
+                foreach (var item in se.Items.OrderBy(i => i.CreationTime))
                 {
                     result.Add(new LandedCostItemDto
                     {
