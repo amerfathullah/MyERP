@@ -16,6 +16,7 @@ public enum ProductionPlanStatus
     InProgress = 2,
     Completed = 3,
     Cancelled = 4,
+    MaterialRequested = 5,
 }
 
 public enum SubAssemblyType

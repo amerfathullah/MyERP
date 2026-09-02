@@ -70,16 +70,22 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
         AddLocalEvent(new MyERP.Manufacturing.Events.ProductionPlanSubmittedEvent(Id, TenantId));
     }
 
+    public void MarkMaterialRequested()
+    {
+        if (Status == ProductionPlanStatus.Submitted)
+            Status = ProductionPlanStatus.MaterialRequested;
+    }
+
     public void MarkInProgress()
     {
-        if (Status != ProductionPlanStatus.Submitted)
+        if (Status is not (ProductionPlanStatus.Submitted or ProductionPlanStatus.MaterialRequested))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = ProductionPlanStatus.InProgress;
     }
 
     public void Complete()
     {
-        if (Status is not (ProductionPlanStatus.Submitted or ProductionPlanStatus.InProgress))
+        if (Status is not (ProductionPlanStatus.Submitted or ProductionPlanStatus.InProgress or ProductionPlanStatus.MaterialRequested))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = ProductionPlanStatus.Completed;
     }

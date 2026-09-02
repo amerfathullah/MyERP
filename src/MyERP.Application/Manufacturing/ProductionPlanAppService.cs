@@ -271,7 +271,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
     {
         var plan = await _planRepository.GetAsync(id, includeDetails: true);
 
-        if (plan.Status is not (ProductionPlanStatus.Submitted or ProductionPlanStatus.InProgress))
+        if (plan.Status is not (ProductionPlanStatus.Submitted or ProductionPlanStatus.MaterialRequested or ProductionPlanStatus.InProgress))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         // Check that WOs haven't already been generated for all items
@@ -321,7 +321,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             item.WorkOrderId = wo.Id;
         }
 
-        if (plan.Status == ProductionPlanStatus.Submitted)
+        if (plan.Status is ProductionPlanStatus.Submitted or ProductionPlanStatus.MaterialRequested)
             plan.MarkInProgress();
 
         await _planRepository.UpdateAsync(plan);
@@ -333,7 +333,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
     {
         var plan = await _planRepository.GetAsync(id, includeDetails: true);
 
-        if (plan.Status is not (ProductionPlanStatus.Submitted or ProductionPlanStatus.InProgress))
+        if (plan.Status is not (ProductionPlanStatus.Submitted or ProductionPlanStatus.MaterialRequested or ProductionPlanStatus.InProgress))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         // Get items needing MRs (those with PlannedQty > 0 and no MR yet)
@@ -400,7 +400,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         }
 
         if (plan.Status == ProductionPlanStatus.Submitted)
-            plan.MarkInProgress();
+            plan.MarkMaterialRequested();
 
         await _planRepository.UpdateAsync(plan);
         return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
