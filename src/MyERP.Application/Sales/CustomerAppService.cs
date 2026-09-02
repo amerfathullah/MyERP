@@ -136,6 +136,17 @@ public class CustomerAppService :
             throw new BusinessException(MyERPDomainErrorCodes.CustomerNameCannotMatchCustomerGroup)
                 .WithData("name", input.Name);
         }
+
+        // Per ERPNext PR #53811: prevent selection of group type customer group in customer master
+        if (input.CustomerGroupId.HasValue)
+        {
+            var customerGroup = query.FirstOrDefault(g => g.Id == input.CustomerGroupId.Value);
+            if (customerGroup != null && customerGroup.IsGroup)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot select a Group type Customer Group. Please select a non-group Customer Group.");
+            }
+        }
     }
 
     protected override Customer MapToEntity(CreateUpdateCustomerDto input)
