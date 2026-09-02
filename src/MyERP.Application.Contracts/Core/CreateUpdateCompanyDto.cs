@@ -97,4 +97,5 @@ public class CreateUpdateCompanyDto
     public System.Guid? DefaultAdvancePaidAccountId { get; set; }
 
     public bool EnableItemWiseInventoryAccount { get; set; }
+    public bool SubmitErrJournals { get; set; }
 }

@@ -177,6 +177,9 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Auto-exchange rate revaluation: enables automated period-end revaluation.</summary>
     public bool AutoExchangeRateRevaluation { get; set; }
 
+    /// <summary>Submit ERR Journals: upon enabling this, Exchange Rate Revaluation JVs are automatically submitted (ERPNext PR #49306 / commit e5affb16c7).</summary>
+    public bool SubmitErrJournals { get; set; }
+
     /// <summary>Over-delivery/receipt allowance percentage (0 = exact match required).</summary>
     public decimal OverDeliveryReceiptAllowance { get; set; }
 

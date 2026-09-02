@@ -67,4 +67,5 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public Guid? DefaultAdvancePaidAccountId { get; set; }
 
     public bool EnableItemWiseInventoryAccount { get; set; }
+    public bool SubmitErrJournals { get; set; }
 }

@@ -163,6 +163,7 @@ public class CompanyAppService :
         entity.DefaultAdvancePaidAccountId = input.DefaultAdvancePaidAccountId;
 
         entity.EnableItemWiseInventoryAccount = input.EnableItemWiseInventoryAccount;
+        entity.SubmitErrJournals = input.SubmitErrJournals;
     }
 
     [Authorize(MyERPPermissions.Companies.Edit)]

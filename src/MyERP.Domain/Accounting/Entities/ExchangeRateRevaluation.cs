@@ -86,6 +86,10 @@ public class ExchangeRateRevaluation : FullAuditedAggregateRoot<Guid>, IMultiTen
         var newBalanceInCompanyCurrency = balanceInAccountCurrency * newExchangeRate;
         var gainLoss = newBalanceInCompanyCurrency - currentBalanceInCompanyCurrency;
 
+        // Skip entry if there is no gain or loss (ERPNext PR #49306 / commit e5affb16c7)
+        if (gainLoss == 0)
+            return;
+
         Entries.Add(new ExchangeRateRevaluationEntry(
             Guid.NewGuid(),
             Id,
@@ -115,6 +119,10 @@ public class ExchangeRateRevaluation : FullAuditedAggregateRoot<Guid>, IMultiTen
 
         var newBalanceInCompanyCurrency = balanceInAccountCurrency * newExchangeRate;
         var gainLoss = newBalanceInCompanyCurrency - currentBalanceInCompanyCurrency;
+
+        // Skip entry if there is no gain or loss (ERPNext PR #49306 / commit e5affb16c7)
+        if (gainLoss == 0)
+            return;
 
         var entry = new ExchangeRateRevaluationEntry(
             Guid.NewGuid(),
