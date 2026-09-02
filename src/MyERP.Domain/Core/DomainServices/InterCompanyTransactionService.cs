@@ -52,6 +52,18 @@ public class InterCompanyTransactionService : DomainService
         var sourceCompany = await _companyRepository.GetAsync(si.CompanyId);
         var targetCompany = await _companyRepository.GetAsync(targetCompanyId);
 
+        // Guard: block duplicate creation if already invoiced (ERPNext PR #55639)
+        if (si.InterCompanyPurchaseInvoiceId.HasValue)
+        {
+            var existingPi = await _purchaseInvoiceRepository.FindAsync(si.InterCompanyPurchaseInvoiceId.Value);
+            if (existingPi != null && existingPi.Status != DocumentStatus.Cancelled)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InterCompanyInvoiceAlreadyCreated)
+                    .WithData("salesInvoiceNumber", si.InvoiceNumber)
+                    .WithData("purchaseInvoiceNumber", existingPi.InvoiceNumber);
+            }
+        }
+
         // Validate: the Customer in source company must represent target company
         var customer = await _customerRepository.GetAsync(si.CustomerId);
         if (customer.RepresentsCompanyId != targetCompanyId)
@@ -112,6 +124,18 @@ public class InterCompanyTransactionService : DomainService
         var pi = await _purchaseInvoiceRepository.GetAsync(purchaseInvoiceId);
         var sourceCompany = await _companyRepository.GetAsync(pi.CompanyId);
         var targetCompany = await _companyRepository.GetAsync(targetCompanyId);
+
+        // Guard: block duplicate creation if already invoiced (ERPNext PR #55639)
+        if (pi.InterCompanyInvoiceId.HasValue)
+        {
+            var existingSi = await _salesInvoiceRepository.FindAsync(pi.InterCompanyInvoiceId.Value);
+            if (existingSi != null && existingSi.Status != DocumentStatus.Cancelled)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InterCompanyInvoiceAlreadyCreated)
+                    .WithData("purchaseInvoiceNumber", pi.InvoiceNumber)
+                    .WithData("salesInvoiceNumber", existingSi.InvoiceNumber);
+            }
+        }
 
         // Validate: the Supplier in source company must represent target company
         var supplier = await _supplierRepository.GetAsync(pi.SupplierId);
