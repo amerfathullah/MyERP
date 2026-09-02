@@ -225,6 +225,65 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Merges lines with identical account, debit/credit direction, party, currency, and dimensions
+    /// when AccountsSettings.MergeSimilarAccountHeads is enabled (per ERPNext PR #51453 / commit 59f5ee7b63).
+    /// </summary>
+    public void MergeSimilarLines()
+    {
+        if (Status != DocumentStatus.Draft || _lines.Count <= 1)
+            return;
+
+        var merged = new List<JournalEntryLine>();
+        foreach (var group in _lines.GroupBy(l => new
+        {
+            l.AccountId,
+            l.IsDebit,
+            l.PartyType,
+            l.PartyId,
+            l.CostCenterId,
+            l.ProjectId,
+            l.AccountCurrency,
+            l.ExchangeRate,
+            l.FinanceBook,
+            l.AgainstVoucherType,
+            l.AgainstVoucherId,
+            l.IsAdvance
+        }))
+        {
+            var first = group.First();
+            if (group.Count() == 1)
+            {
+                merged.Add(first);
+            }
+            else
+            {
+                var totalAmount = group.Sum(x => x.Amount);
+                var totalAmountInAccountCurrency = group.Sum(x => x.AmountInAccountCurrency);
+                var combinedLine = new JournalEntryLine(
+                    first.Id, Id, first.AccountId, totalAmount, first.IsDebit, first.Description)
+                {
+                    PartyType = first.PartyType,
+                    PartyId = first.PartyId,
+                    CostCenterId = first.CostCenterId,
+                    ProjectId = first.ProjectId,
+                    AccountCurrency = first.AccountCurrency,
+                    AmountInAccountCurrency = totalAmountInAccountCurrency,
+                    ExchangeRate = first.ExchangeRate,
+                    FinanceBook = first.FinanceBook,
+                    AgainstVoucherType = first.AgainstVoucherType,
+                    AgainstVoucherId = first.AgainstVoucherId,
+                    IsAdvance = first.IsAdvance
+                };
+                merged.Add(combinedLine);
+            }
+        }
+
+        _lines.Clear();
+        _lines.AddRange(merged);
+        RecalculateTotals();
+    }
+
+    /// <summary>
     /// Validates that Total Debit = Total Credit (double-entry requirement).
     /// </summary>
     public void Validate()
