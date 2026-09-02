@@ -425,7 +425,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                         ItemId = item.ItemId,
                         Description = item.Description,
                         Quantity = item.Quantity,
-                        Amount = item.LineTotal,
+                        Amount = item.LineTotal - item.TaxAmount,
                         ApplicableCharges = 0m
                     });
                 }
@@ -462,7 +462,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                         ItemId = item.ItemId,
                         Description = item.Description,
                         Quantity = item.Quantity,
-                        Amount = item.LineTotal,
+                        Amount = item.LineTotal - item.TaxAmount,
                         ApplicableCharges = 0m
                     });
                 }
