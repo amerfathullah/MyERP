@@ -147,7 +147,7 @@ public class Subscription : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void Reactivate()
     {
-        if (Status is not (SubscriptionStatus.PastDueDate or SubscriptionStatus.Unpaid))
+        if (Status is not (SubscriptionStatus.PastDueDate or SubscriptionStatus.Unpaid or SubscriptionStatus.GracePeriod))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = SubscriptionStatus.Active;
     }
@@ -174,7 +174,8 @@ public enum SubscriptionStatus
     PastDueDate = 1,
     Unpaid = 2,
     Cancelled = 3,
-    Completed = 4
+    Completed = 4,
+    GracePeriod = 5
 }
 
 public class SubscriptionPlan : FullAuditedEntity<Guid>

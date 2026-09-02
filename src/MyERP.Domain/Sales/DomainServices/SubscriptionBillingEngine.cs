@@ -67,7 +67,7 @@ public class SubscriptionBillingEngine : DomainService
         if (!hasOutstandingInvoices && sub.EndDate.HasValue && asOfDate > sub.EndDate.Value)
             return SubscriptionStatus.Completed;
 
-        // 4. Past grace period → Cancelled or Unpaid
+        // 4. Past grace period → Cancelled or Unpaid; during grace period → GracePeriod
         if (hasOutstandingInvoices && sub.CurrentInvoiceEnd.HasValue)
         {
             var gracePeriodEnd = sub.CurrentInvoiceEnd.Value.AddDays(sub.CancelAfterGraceDays);
@@ -76,7 +76,11 @@ public class SubscriptionBillingEngine : DomainService
 
             var dueDate = sub.CurrentInvoiceEnd.Value.AddDays(sub.DaysUntilDue);
             if (asOfDate > dueDate)
+            {
+                if (sub.CancelAfterGraceDays > 0 && asOfDate <= gracePeriodEnd)
+                    return SubscriptionStatus.GracePeriod;
                 return SubscriptionStatus.Unpaid;
+            }
         }
 
         // 5. Active
