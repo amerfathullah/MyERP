@@ -127,16 +127,23 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         foreach (var row in salesTeam)
         {
-            var commissionRate = row.CommissionRate;
-            if (!commissionRate.HasValue)
+            var salesPerson = await spRepo.GetAsync(row.SalesPersonId);
+            if (salesPerson.IsGroup)
             {
-                var salesPerson = await spRepo.FindAsync(row.SalesPersonId);
-                commissionRate = salesPerson?.CommissionRate ?? 0m;
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot assign Group Sales Person '{salesPerson.Name}' to Sales Team.");
             }
+            if (!salesPerson.IsEnabled)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot assign Disabled Sales Person '{salesPerson.Name}' to Sales Team.");
+            }
+
+            var commissionRate = row.CommissionRate ?? salesPerson.CommissionRate;
 
             var entry = new SalesTeamEntry(
                 GuidGenerator.Create(), row.SalesPersonId, "SalesOrder", order.Id,
-                row.AllocatedPercentage, eligibleAmount, commissionRate.Value);
+                row.AllocatedPercentage, eligibleAmount, commissionRate);
             await teamRepo.InsertAsync(entry);
         }
     }
