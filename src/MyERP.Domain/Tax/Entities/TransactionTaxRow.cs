@@ -26,6 +26,9 @@ public class TransactionTaxRow : Entity<Guid>, IMultiTenant
     /// <summary>Tax account to post to.</summary>
     public Guid? AccountId { get; set; }
 
+    /// <summary>Cost Center for tax posting (falls back to document Cost Center if not specified).</summary>
+    public Guid? CostCenterId { get; set; }
+
     /// <summary>Description (e.g., "SST - Service Tax", "Shipping Charges").</summary>
     public string Description { get; set; } = null!;
 

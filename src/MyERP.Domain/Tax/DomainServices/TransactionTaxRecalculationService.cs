@@ -45,6 +45,18 @@ public class TransactionTaxRecalculationService : DomainService
             .OrderBy(t => t.RowIndex)
             .ToList();
 
+        // Fallback cost center on tax rows if not set (ERPNext PR #49718 / commit b75940bf0e)
+        if (input.CostCenterId.HasValue)
+        {
+            foreach (var taxRow in taxRows)
+            {
+                if (!taxRow.CostCenterId.HasValue)
+                {
+                    taxRow.CostCenterId = input.CostCenterId;
+                }
+            }
+        }
+
         if (taxRows.Count == 0 && input.Items.Count > 0)
         {
             // No tax rows — totals are just net amounts
@@ -119,6 +131,7 @@ public class TaxRecalculationInput
 {
     public string DocumentType { get; set; } = null!;
     public Guid DocumentId { get; set; }
+    public Guid? CostCenterId { get; set; }
     public IReadOnlyList<TaxItemInput> Items { get; set; } = Array.Empty<TaxItemInput>();
     public decimal ExchangeRate { get; set; } = 1;
     public decimal DiscountAmount { get; set; }
