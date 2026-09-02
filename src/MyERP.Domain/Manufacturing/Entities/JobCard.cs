@@ -97,6 +97,11 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (toTime <= fromTime)
             throw new ArgumentException("To time must be after from time.");
 
+        // Prevent negative completed quantity (ERPNext commit c30665fda7 / PR #48946)
+        if (completedQty < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(completedQty));
+
         var timeInMins = (decimal)(toTime - fromTime).TotalMinutes;
         _timeLogs.Add(new JobCardTimeLog(Guid.NewGuid(), Id, fromTime, toTime, timeInMins, completedQty));
         TotalTimeInMins = _timeLogs.Sum(t => t.TimeInMins);
@@ -165,6 +170,15 @@ public class JobCardTimeLog : FullAuditedEntity<Guid>
     public JobCardTimeLog(Guid id, Guid jobCardId, DateTime fromTime, DateTime toTime,
         decimal timeInMins, decimal completedQty) : base(id)
     {
+        // Prevent negative values (ERPNext PR #48946 / #48948)
+        if (timeInMins < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(timeInMins));
+
+        if (completedQty < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(completedQty));
+
         JobCardId = jobCardId;
         FromTime = fromTime;
         ToTime = toTime;

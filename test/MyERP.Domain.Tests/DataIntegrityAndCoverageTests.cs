@@ -445,4 +445,31 @@ public class DataIntegrityAndCoverageTests
         Assert.Throws<Volo.Abp.BusinessException>(() =>
             new Sales.Entities.ProductBundleItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), -2m, "Item", "Nos"));
     }
+
+    // === BOM and Job Card Non-Negative Validation ===
+
+    [Fact]
+    public void BomOperation_NegativeTime_ThrowsBusinessException()
+    {
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            new Manufacturing.Entities.BomOperation(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, -10m));
+    }
+
+    [Fact]
+    public void BomItem_NegativeQuantityOrRate_ThrowsBusinessException()
+    {
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            new Manufacturing.Entities.BomItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Item", -5m, 10m));
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            new Manufacturing.Entities.BomItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Item", 5m, -10m));
+    }
+
+    [Fact]
+    public void JobCardTimeLog_NegativeValues_ThrowsBusinessException()
+    {
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            new Manufacturing.Entities.JobCardTimeLog(Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow, DateTime.UtcNow.AddMinutes(10), -5m, 10m));
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            new Manufacturing.Entities.JobCardTimeLog(Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow, DateTime.UtcNow.AddMinutes(10), 10m, -1m));
+    }
 }

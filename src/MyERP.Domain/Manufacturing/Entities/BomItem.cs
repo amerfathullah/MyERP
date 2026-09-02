@@ -45,6 +45,15 @@ public class BomItem : FullAuditedEntity<Guid>
         string? uom = null, decimal conversionFactor = 1m, string stockUom = "Unit")
         : base(id)
     {
+        // Raw material quantity and rate cannot be negative (ERPNext commit 3a80e116e8)
+        if (quantity < 0)
+            throw new Volo.Abp.BusinessException(MyERP.MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(quantity));
+
+        if (rate < 0)
+            throw new Volo.Abp.BusinessException(MyERP.MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(rate));
+
         BomId = bomId;
         ItemId = itemId;
         ItemName = itemName;

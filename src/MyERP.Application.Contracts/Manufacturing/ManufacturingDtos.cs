@@ -131,19 +131,19 @@ public class CreateBomOperationDto
     public Guid? WorkstationTypeId { get; set; }
     [Range(1, int.MaxValue)] public int SequenceId { get; set; }
     [Range(0, double.MaxValue)] public decimal TimeInMins { get; set; }
-    public int BatchSize { get; set; }
-    public decimal FixedTime { get; set; }
+    [Range(0, int.MaxValue)] public int BatchSize { get; set; }
+    [Range(0, double.MaxValue)] public decimal FixedTime { get; set; }
     public string? Description { get; set; }
     public bool IsSubcontracted { get; set; }
     public bool QualityInspectionRequired { get; set; }
-    public decimal WorkstationHourRate { get; set; }
+    [Range(0, double.MaxValue)] public decimal WorkstationHourRate { get; set; }
 }
 
 public class CreateBomItemDto
 {
     [Required] public Guid ItemId { get; set; }
     [Required] public string ItemName { get; set; } = null!;
-    public decimal Quantity { get; set; }
+    [Range(0, double.MaxValue)] public decimal Quantity { get; set; }
     public string? Uom { get; set; }
     [Range(0, double.MaxValue)] public decimal Rate { get; set; }
     public decimal Percentage { get; set; }

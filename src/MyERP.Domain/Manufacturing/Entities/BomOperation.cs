@@ -63,6 +63,11 @@ public class BomOperation : FullAuditedEntity<Guid>, IMultiTenant
         decimal timeInMins, Guid? workstationId = null, Guid? tenantId = null)
         : base(id)
     {
+        // Prevent negative operation time (ERPNext commit 3a80e116e8 / PR #48696)
+        if (timeInMins < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(timeInMins));
+
         BomId = bomId;
         OperationId = operationId;
         SequenceId = sequenceId;
