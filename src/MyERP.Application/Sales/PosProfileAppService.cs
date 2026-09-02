@@ -141,6 +141,18 @@ public class PosProfileAppService : CrudAppService<
             }
         }
 
+        if (!entity.IsDisabled && input.IsDisabled)
+        {
+            var openingRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosOpeningEntry, Guid>>();
+            var openingQuery = await openingRepo.GetQueryableAsync();
+            var hasOpenSession = openingQuery.Any(e => e.PosProfileId == id && e.Status == PosOpeningStatus.Open);
+            if (hasOpenSession)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.PosProfileHasOpenSession)
+                    .WithData("reason", "Cannot disable a POS Profile while an open POS Opening Entry exists for it. Close the shift first.");
+            }
+        }
+
         entity.ProfileName = input.ProfileName;
         entity.WarehouseId = input.WarehouseId;
         entity.PriceListId = input.PriceListId;

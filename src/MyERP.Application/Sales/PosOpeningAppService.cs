@@ -59,6 +59,19 @@ public class PosOpeningAppService : ApplicationService, IPosOpeningAppService
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]
     public async Task<PosOpeningDto> CreateAsync(CreatePosOpeningDto input)
     {
+        var profileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
+        var profile = await profileRepo.GetAsync(input.PosProfileId);
+        if (profile.IsDisabled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"POS Profile '{profile.ProfileName}' is disabled.");
+        }
+        if (profile.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"POS Profile '{profile.ProfileName}' does not belong to company.");
+        }
+
         // Enforce: one open per profile + one open per user
         var query = await _repository.GetQueryableAsync();
 
