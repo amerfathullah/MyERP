@@ -83,6 +83,9 @@ public class BudgetValidationService : DomainService
 
         foreach (var item in items)
         {
+            // Per ERPNext commit fa34ebea94: skip budget validation when cancelling GL entries or reversing spend
+            if (item.Amount <= 0) continue;
+
             foreach (var budget in budgets)
             {
                 var budgetAccount = budget.Accounts
