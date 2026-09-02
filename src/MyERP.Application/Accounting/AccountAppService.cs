@@ -150,4 +150,49 @@ public class AccountAppService :
 
         await base.DeleteAsync(id);
     }
+
+    /// <summary>
+    /// Returns the hierarchical Chart of Accounts tree for a company (ERPNext PR #58520).
+    /// </summary>
+    public async Task<System.Collections.Generic.List<AccountTreeNodeDto>> GetTreeAsync(Guid companyId)
+    {
+        var queryable = await Repository.GetQueryableAsync();
+        var accounts = queryable
+            .Where(a => a.CompanyId == companyId)
+            .OrderBy(a => a.AccountCode)
+            .ToList();
+
+        var nodes = accounts.Select(a => new AccountTreeNodeDto
+        {
+            Id = a.Id,
+            CompanyId = a.CompanyId,
+            AccountCode = a.AccountCode,
+            AccountName = a.AccountName,
+            AccountType = a.AccountType,
+            AccountSubType = a.AccountSubType,
+            ParentAccountId = a.ParentAccountId,
+            IsGroup = a.IsGroup,
+            Currency = a.Currency,
+            IsFrozen = a.IsFrozen,
+            IsActive = a.IsActive,
+            Balance = 0
+        }).ToList();
+
+        var nodeMap = nodes.ToDictionary(n => n.Id);
+        var rootNodes = new System.Collections.Generic.List<AccountTreeNodeDto>();
+
+        foreach (var node in nodes)
+        {
+            if (node.ParentAccountId.HasValue && nodeMap.TryGetValue(node.ParentAccountId.Value, out var parent))
+            {
+                parent.Children.Add(node);
+            }
+            else
+            {
+                rootNodes.Add(node);
+            }
+        }
+
+        return rootNodes;
+    }
 }

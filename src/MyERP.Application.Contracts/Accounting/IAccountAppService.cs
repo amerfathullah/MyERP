@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 
@@ -16,4 +17,5 @@ public interface IAccountAppService :
         GetAccountListDto,
         CreateUpdateAccountDto>
 {
+    Task<System.Collections.Generic.List<AccountTreeNodeDto>> GetTreeAsync(Guid companyId);
 }
