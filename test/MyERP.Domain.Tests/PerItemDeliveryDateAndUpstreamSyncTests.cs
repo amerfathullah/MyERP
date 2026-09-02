@@ -135,6 +135,24 @@ public class PerItemDeliveryDateAndUpstreamSyncTests
         Assert.Equal(new DateTime(2026, 9, 1), so.DeliveryDate);
     }
 
+    [Fact]
+    public void SalesOrder_ValidateDeliveryDates_SetsMissingItemDateWithoutOverwritingExisting()
+    {
+        var so = CreateSalesOrder();
+        so.DeliveryDate = new DateTime(2026, 9, 20);
+        so.AddItem(ItemId1, "Item 1", 5, 100m, 0m, "Unit", new DateTime(2026, 9, 10));
+        so.AddItem(ItemId2, "Item 2", 5, 100m, 0m, "Unit"); // No explicit delivery date
+
+        so.ValidateDeliveryDates();
+
+        // Existing date preserved (commit cf6913891a)
+        Assert.Equal(new DateTime(2026, 9, 10), so.Items[0].DeliveryDate);
+        // Missing date filled from header
+        Assert.Equal(new DateTime(2026, 9, 20), so.Items[1].DeliveryDate);
+        // Header synced to max of all item dates
+        Assert.Equal(new DateTime(2026, 9, 20), so.DeliveryDate);
+    }
+
     [Theory]
     [InlineData("DueDate")]
     [InlineData("Overdue")]

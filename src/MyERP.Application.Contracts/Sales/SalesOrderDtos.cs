@@ -180,6 +180,7 @@ public class CreateSalesOrderItemDto
     public string Uom { get; set; } = "Unit";
 
     public Guid? WarehouseId { get; set; }
+    public DateTime? DeliveryDate { get; set; }
 
     /// <summary>Blanket Order this line draws from — qty deducted from the blanket allocation on submit.</summary>
     public Guid? BlanketOrderId { get; set; }

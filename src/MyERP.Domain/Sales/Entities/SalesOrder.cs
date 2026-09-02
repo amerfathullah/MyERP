@@ -128,14 +128,16 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit")
+    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", DateTime? deliveryDate = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Check.NotDefaultOrNull<Guid>(itemId, nameof(itemId));
         if (quantity <= 0)
             throw new ArgumentException("Quantity must be greater than zero.", nameof(quantity));
-        _items.Add(new SalesOrderItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom));
+        var item = new SalesOrderItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom);
+        item.DeliveryDate = deliveryDate;
+        _items.Add(item);
         RecalculateTotals();
     }
 
@@ -165,9 +167,12 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
 
     public void Submit()
     {
-        if (Status != DocumentStatus.Draft || !_items.Any())
+        if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        if (_items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
 
+        // Per ERPNext validate(): SO delivery date must be >= order date
         ValidateDeliveryDates();
 
         // Auto-correct conversion factor when UOM equals StockUOM (gotcha #6171)
@@ -188,31 +193,28 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     }
 
     /// <summary>
-    /// Validates delivery dates and syncs header delivery date to max of item delivery dates (gotcha #462).
+    /// Validates delivery dates and syncs header delivery date to max of item delivery dates (gotcha #462, PR #48690 / commit cf6913891a).
     /// </summary>
     public void ValidateDeliveryDates()
     {
-        var itemDates = _items.Where(i => i.DeliveryDate.HasValue).Select(i => i.DeliveryDate!.Value).ToList();
-
         foreach (var item in _items)
         {
-            if (item.DeliveryDate.HasValue)
-            {
-                if (item.DeliveryDate.Value.Date < OrderDate.Date)
-                {
-                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", $"Item '{item.Description}' delivery date ({item.DeliveryDate.Value:yyyy-MM-dd}) cannot be earlier than order date ({OrderDate:yyyy-MM-dd}).");
-                }
-            }
-            else if (DeliveryDate.HasValue)
+            if (!item.DeliveryDate.HasValue && DeliveryDate.HasValue)
             {
                 item.DeliveryDate = DeliveryDate;
             }
+
+            if (item.DeliveryDate.HasValue && item.DeliveryDate.Value.Date < OrderDate.Date)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Item '{item.Description}' delivery date ({item.DeliveryDate.Value:yyyy-MM-dd}) cannot be earlier than order date ({OrderDate:yyyy-MM-dd}).");
+            }
         }
 
-        if (itemDates.Count > 0)
+        var allItemDates = _items.Where(i => i.DeliveryDate.HasValue).Select(i => i.DeliveryDate!.Value).ToList();
+        if (allItemDates.Count > 0)
         {
-            DeliveryDate = itemDates.Max();
+            DeliveryDate = allItemDates.Max();
         }
         else if (DeliveryDate.HasValue && DeliveryDate.Value.Date < OrderDate.Date)
         {

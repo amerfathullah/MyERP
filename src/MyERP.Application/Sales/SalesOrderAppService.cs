@@ -317,12 +317,14 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         foreach (var item in input.Items)
         {
-            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.DeliveryDate);
             if (item.WarehouseId.HasValue)
                 order.Items[^1].WarehouseId = item.WarehouseId;
             if (item.BlanketOrderId.HasValue)
                 order.Items[^1].BlanketOrderId = item.BlanketOrderId;
         }
+
+        order.ValidateDeliveryDates();
 
         // Resolve UOM conversion factors for stock qty calculation & service items skip delivery
         var skipDnForService = (await SettingProvider.GetOrNullAsync(MyERPSettings.Selling.SkipDeliveryNoteForServiceItems)) == "true";
@@ -993,7 +995,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var updateItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
         foreach (var item in input.Items)
         {
-            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.DeliveryDate);
             var lastSoItem = order.Items[^1];
             if (item.WarehouseId.HasValue)
                 lastSoItem.WarehouseId = item.WarehouseId;
@@ -1015,6 +1017,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                 }
             }
         }
+
+        order.ValidateDeliveryDates();
 
         await _repository.UpdateAsync(order, autoSave: true);
         var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
