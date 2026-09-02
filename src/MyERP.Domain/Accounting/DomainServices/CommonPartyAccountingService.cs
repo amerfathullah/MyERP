@@ -69,7 +69,8 @@ public class CommonPartyAccountingService : DomainService
         var enabled = await _settingProvider.GetOrNullAsync(MyERPSettings.Accounts.EnableCommonPartyAccounting);
         if (enabled != "true") return null;
 
-        if (ctx.OutstandingAmount <= 0) return null;
+        var absOutstanding = Math.Abs(ctx.OutstandingAmount);
+        if (absOutstanding <= 0) return null;
 
         var linkQuery = await _partyLinkRepository.GetQueryableAsync();
         var link = linkQuery.FirstOrDefault(l =>
@@ -106,7 +107,7 @@ public class CommonPartyAccountingService : DomainService
         var primaryToDefault = 1m;
         var secondaryToPrimary = secondaryToDefault / primaryToDefault;
 
-        var amountInSecondaryCurrency = ctx.OutstandingAmount;
+        var amountInSecondaryCurrency = absOutstanding;
         var amountInDefaultCurrency = Math.Round(amountInSecondaryCurrency * secondaryToDefault, 2);
         var amountInPrimaryCurrency = Math.Round(amountInSecondaryCurrency * secondaryToPrimary, 2);
 
@@ -119,9 +120,10 @@ public class CommonPartyAccountingService : DomainService
             IsMultiCurrency = ctx.CurrencyCode != company.CurrencyCode,
         };
 
-        // SalesInvoice (party=Customer): CR the receivable to reconcile it, DR the primary's account.
-        // PurchaseInvoice (party=Supplier): DR the payable to reconcile it, CR the primary's account.
-        bool secondaryLineIsDebit = ctx.PartyType == "Supplier";
+        // SI normal (Customer): CR receivable, DR primary account.
+        // PI normal (Supplier): DR payable, CR primary account.
+        // Returns reverse the debit/credit direction with positive amounts (ERPNext PR #55034).
+        bool secondaryLineIsDebit = (ctx.PartyType == "Supplier") != ctx.IsReturn;
 
         je.AddReconciliationLine(
             ctx.PartyAccountId, amountInDefaultCurrency, isDebit: secondaryLineIsDebit,
