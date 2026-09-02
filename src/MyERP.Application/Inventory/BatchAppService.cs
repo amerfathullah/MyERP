@@ -68,6 +68,7 @@ public class BatchAppService : ApplicationService, IBatchAppService
             ExpiryDate = input.ExpiryDate,
             ShelfLifeInDays = input.ShelfLifeInDays,
             SupplierBatchNo = input.SupplierBatchNo,
+            AllowNegativeStock = input.AllowNegativeStock,
             Description = input.Description,
         };
 

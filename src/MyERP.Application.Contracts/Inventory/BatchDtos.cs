@@ -15,6 +15,7 @@ public class BatchDto : AuditedEntityDto<Guid>
     public string? SupplierBatchNo { get; set; }
     public bool IsDisabled { get; set; }
     public bool IsExpired { get; set; }
+    public bool AllowNegativeStock { get; set; }
     public string? Description { get; set; }
 }
 
@@ -26,6 +27,7 @@ public class CreateBatchDto
     public DateTime? ExpiryDate { get; set; }
     public int? ShelfLifeInDays { get; set; }
     [StringLength(100)] public string? SupplierBatchNo { get; set; }
+    public bool AllowNegativeStock { get; set; }
     [StringLength(500)] public string? Description { get; set; }
 }
 

@@ -39,6 +39,9 @@ public class Batch : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Whether this batch uses batch-wise valuation (separate cost per batch).</summary>
     public bool UseBatchwiseValuation { get; set; } = true;
 
+    /// <summary>Whether negative stock is allowed for this batch, overriding global stock settings (PR #56079).</summary>
+    public bool AllowNegativeStock { get; set; }
+
     /// <summary>Supplier batch number (for traceability).</summary>
     public string? SupplierBatchNo { get; set; }
 
