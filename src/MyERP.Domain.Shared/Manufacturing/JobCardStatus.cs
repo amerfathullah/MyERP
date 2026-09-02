@@ -7,5 +7,6 @@ public enum JobCardStatus
     MaterialTransferred = 2,
     Completed = 3,
     OnHold = 4,
-    Cancelled = 5
+    Cancelled = 5,
+    PartiallyTransferred = 6
 }

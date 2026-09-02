@@ -83,7 +83,7 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void Start()
     {
-        if (Status != JobCardStatus.Open)
+        if (Status is not (JobCardStatus.Open or JobCardStatus.PartiallyTransferred or JobCardStatus.MaterialTransferred))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = JobCardStatus.WorkInProgress;
         StartedAt ??= DateTime.UtcNow;
@@ -102,16 +102,32 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TotalTimeInMins = _timeLogs.Sum(t => t.TimeInMins);
         CompletedQty = _timeLogs.Sum(t => t.CompletedQty);
 
-        if (Status == JobCardStatus.Open)
+        if (Status is JobCardStatus.Open or JobCardStatus.PartiallyTransferred or JobCardStatus.MaterialTransferred)
             Status = JobCardStatus.WorkInProgress;
     }
 
     public void Complete()
     {
-        if (Status is not (JobCardStatus.WorkInProgress or JobCardStatus.MaterialTransferred))
+        if (Status is not (JobCardStatus.WorkInProgress or JobCardStatus.MaterialTransferred or JobCardStatus.PartiallyTransferred))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = JobCardStatus.Completed;
         CompletedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Updates status based on raw material transfer progress per ERPNext PR #56187.
+    /// </summary>
+    public void UpdateTransferStatus(bool allTransferred, bool anyTransferred)
+    {
+        if (Status is JobCardStatus.Completed or JobCardStatus.Cancelled or JobCardStatus.WorkInProgress or JobCardStatus.OnHold)
+            return;
+
+        if (allTransferred)
+            Status = JobCardStatus.MaterialTransferred;
+        else if (anyTransferred)
+            Status = JobCardStatus.PartiallyTransferred;
+        else
+            Status = JobCardStatus.Open;
     }
 
     public void Hold()
