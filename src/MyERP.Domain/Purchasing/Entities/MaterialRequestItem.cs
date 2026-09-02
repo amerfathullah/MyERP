@@ -15,6 +15,8 @@ public class MaterialRequestItem : Entity<Guid>
     public decimal OrderedQuantity { get; set; }
     public decimal ReceivedQuantity { get; set; }
     public string Uom { get; set; } = "Unit";
+    public decimal ConversionFactor { get; set; } = 1m;
+    public decimal StockQty => Quantity * (ConversionFactor > 0 ? ConversionFactor : 1m);
     public Guid? WarehouseId { get; set; }
 
     /// <summary>Sales Order ID when MR was created from SO→MR conversion.</summary>

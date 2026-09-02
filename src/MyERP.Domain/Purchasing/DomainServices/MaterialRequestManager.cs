@@ -54,6 +54,24 @@ public class MaterialRequestManager : DomainService
     }
 
     /// <summary>
+    /// Validates ordered/transferred quantity against allowed MR quantity.
+    /// Per ERPNext PR #53049 / commit 30c3ff2efe: uses StockQty instead of transaction Qty for allowed threshold calculation.
+    /// </summary>
+    public void ValidateOrderedQty(MaterialRequestItem item, decimal attemptingOrderedQty, decimal mrQtyAllowancePct = 0m)
+    {
+        var stockQty = item.StockQty > 0 ? item.StockQty : item.Quantity;
+        var allowedQty = stockQty + (stockQty * (mrQtyAllowancePct / 100m));
+        if (attemptingOrderedQty > allowedQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.OverTransfer)
+                .WithData("item", item.ItemName)
+                .WithData("maxAllowed", allowedQty)
+                .WithData("attempted", attemptingOrderedQty)
+                .WithData("alreadyTransferred", item.OrderedQuantity);
+        }
+    }
+
+    /// <summary>
     /// Checks if a Material Request is fully fulfilled (all items ordered/transferred or received).
     /// Uses 99.99% threshold for float tolerance (per ERPNext per_ordered/per_received rounding).
     /// Per ERPNext PR #56621: if PerReceived >= 99.99m, it is fulfilled even if PerOrdered is less.
