@@ -69,10 +69,22 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
     [Authorize(MyERPPermissions.MasterProductionSchedules.Create)]
     public async Task<MasterProductionScheduleDto> CreateAsync(CreateMasterProductionScheduleDto input)
     {
+        if (input.SalesForecastId.HasValue)
+        {
+            var forecastRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesForecast, Guid>>();
+            var forecast = await forecastRepo.GetAsync(input.SalesForecastId.Value);
+            if (forecast.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "The Company of Sales Forecast does not match with the Company of Master Production Schedule.");
+            }
+        }
+
         var number = await _numberGenerator.GenerateAsync("MPS", input.CompanyId);
         var schedule = new MasterProductionSchedule(GuidGenerator.Create(), input.CompanyId, number, input.PostingDate, input.FromDate, CurrentTenant.Id)
         {
             ParentWarehouseId = input.ParentWarehouseId,
+            SalesForecastId = input.SalesForecastId,
         };
         await _repository.InsertAsync(schedule);
         return ObjectMapper.Map<MasterProductionSchedule, MasterProductionScheduleDto>(schedule);
@@ -82,9 +94,22 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
     public async Task<MasterProductionScheduleDto> UpdateAsync(Guid id, UpdateMasterProductionScheduleDto input)
     {
         var schedule = await _repository.GetAsync(id, includeDetails: true);
+
+        if (input.SalesForecastId.HasValue)
+        {
+            var forecastRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesForecast, Guid>>();
+            var forecast = await forecastRepo.GetAsync(input.SalesForecastId.Value);
+            if (forecast.CompanyId != schedule.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "The Company of Sales Forecast does not match with the Company of Master Production Schedule.");
+            }
+        }
+
         schedule.PostingDate = input.PostingDate;
         schedule.FromDate = input.FromDate;
         schedule.ParentWarehouseId = input.ParentWarehouseId;
+        schedule.SalesForecastId = input.SalesForecastId;
 
         if (input.Items.Count > 0)
         {

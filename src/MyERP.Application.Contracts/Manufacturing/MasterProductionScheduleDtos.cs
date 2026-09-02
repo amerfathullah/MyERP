@@ -57,6 +57,7 @@ public class CreateMasterProductionScheduleDto
     public DateTime PostingDate { get; set; }
     public DateTime FromDate { get; set; }
     public Guid? ParentWarehouseId { get; set; }
+    public Guid? SalesForecastId { get; set; }
 }
 
 public class UpdateMasterProductionScheduleDto
@@ -64,6 +65,7 @@ public class UpdateMasterProductionScheduleDto
     public DateTime PostingDate { get; set; }
     public DateTime FromDate { get; set; }
     public Guid? ParentWarehouseId { get; set; }
+    public Guid? SalesForecastId { get; set; }
 
     /// <summary>Planned qty edits on already-computed rows (id must match an existing item).</summary>
     public List<MasterProductionScheduleItemDto> Items { get; set; } = new();
