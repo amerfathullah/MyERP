@@ -177,6 +177,12 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             }
         }
 
+        if (IsReturn && !_items.Any(i => i.Quantity < 0))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "At least one item must be entered with negative quantity in a return document.");
+        }
+
         Status = DocumentStatus.Submitted;
     }
 
