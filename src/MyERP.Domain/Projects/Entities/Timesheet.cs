@@ -63,6 +63,26 @@ public class Timesheet : FullAuditedAggregateRoot<Guid>, IMultiTenant
         RecalculateTotals();
     }
 
+    public void ClearDetails()
+    {
+        if (Status != TimesheetStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        _details.Clear();
+        RecalculateTotals();
+    }
+
+    /// <summary>
+    /// Updates details on a submitted timesheet (per ERPNext allow-on-submit time log update, PR #51455 / commit f622996c48).
+    /// </summary>
+    public void UpdateSubmittedDetails(IEnumerable<TimesheetDetail> details)
+    {
+        if (Status != TimesheetStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        _details.Clear();
+        _details.AddRange(details);
+        RecalculateTotals();
+    }
+
     public void Submit()
     {
         if (Status != TimesheetStatus.Draft || !_details.Any())

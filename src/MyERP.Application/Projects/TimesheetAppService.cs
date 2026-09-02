@@ -154,6 +154,124 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
     }
 
     [Authorize(MyERPPermissions.Projects.Edit)]
+    public async Task<TimesheetDto> UpdateAsync(Guid id, CreateTimesheetDto input)
+    {
+        var ts = await _repository.GetAsync(id, includeDetails: true);
+        if (ts.Status == TimesheetStatus.Cancelled)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        }
+
+        if (input.EndDate < input.StartDate)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        if (input.Details == null || input.Details.Count == 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
+        if (input.Details.Any(d => d.ToTime < d.FromTime))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        if (input.Details.Any(d => d.Hours <= 0))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "Hours");
+        }
+
+        // Validate internal time log overlap (gotcha #2801, PR #51455 / commit f622996c48)
+        for (int i = 0; i < input.Details.Count; i++)
+        {
+            for (int j = i + 1; j < input.Details.Count; j++)
+            {
+                var d1 = input.Details[i];
+                var d2 = input.Details[j];
+                if (d1.FromTime < d2.ToTime && d1.ToTime > d2.FromTime)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.TimesheetOverlappingTimeLog)
+                        .WithData("reason", $"Overlapping time logs between {d1.ActivityType} ({d1.FromTime:HH:mm}-{d1.ToTime:HH:mm}) and {d2.ActivityType} ({d2.FromTime:HH:mm}-{d2.ToTime:HH:mm})");
+                }
+            }
+        }
+
+        var wasSubmitted = ts.Status == TimesheetStatus.Submitted;
+        if (wasSubmitted)
+        {
+            // Reverse old rollups before replacing details
+            await RollupToProjectsAsync(ts, reverse: true);
+        }
+
+        ts.StartDate = input.StartDate;
+        ts.EndDate = input.EndDate;
+        ts.EmployeeName = input.EmployeeName;
+        ts.Note = input.Note;
+
+        var newDetails = new List<TimesheetDetail>();
+        foreach (var d in input.Details)
+        {
+            var billingRate = d.BillingRate;
+            var costingRate = d.CostingRate;
+
+            if ((billingRate == 0 || costingRate == 0) && !string.IsNullOrWhiteSpace(d.ActivityType))
+            {
+                try
+                {
+                    var activityCostSvc = LazyServiceProvider.LazyGetRequiredService<MyERP.Projects.DomainServices.ActivityCostResolutionService>();
+                    var activityTypeRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<MyERP.Projects.Entities.ActivityType, Guid>>();
+                    var atQuery = await activityTypeRepo.GetQueryableAsync();
+                    var activityType = atQuery.FirstOrDefault(at => at.Name == d.ActivityType && at.IsEnabled);
+                    if (activityType != null)
+                    {
+                        var (resolvedBilling, resolvedCosting) = await activityCostSvc.ResolveRatesAsync(
+                            input.EmployeeId, activityType.Id);
+                        if (billingRate == 0 && resolvedBilling > 0) billingRate = resolvedBilling;
+                        if (costingRate == 0 && resolvedCosting > 0) costingRate = resolvedCosting;
+                    }
+                }
+                catch (Exception ex) { Logger.LogWarning(ex, "Activity rate resolution failed for {Activity}", d.ActivityType); }
+            }
+
+            var detail = new TimesheetDetail(GuidGenerator.Create(), ts.Id,
+                d.ActivityType, d.FromTime, d.ToTime, d.Hours)
+            {
+                ProjectId = d.ProjectId,
+                TaskId = d.TaskId,
+                IsBillable = d.IsBillable,
+                BillingRate = billingRate,
+                CostingRate = costingRate,
+                Description = d.Description,
+            };
+            newDetails.Add(detail);
+        }
+
+        if (wasSubmitted)
+        {
+            ts.UpdateSubmittedDetails(newDetails);
+        }
+        else
+        {
+            ts.ClearDetails();
+            foreach (var detail in newDetails)
+            {
+                ts.AddDetail(detail);
+            }
+        }
+
+        await _repository.UpdateAsync(ts);
+        if (wasSubmitted)
+        {
+            // Reapply rollups with new details
+            await RollupToProjectsAsync(ts, reverse: false);
+        }
+
+        return ObjectMapper.Map<Timesheet, TimesheetDto>(ts);
+    }
+
+    [Authorize(MyERPPermissions.Projects.Edit)]
     public async Task<TimesheetDto> SubmitAsync(Guid id)
     {
         var ts = await _repository.GetAsync(id, includeDetails: true);
