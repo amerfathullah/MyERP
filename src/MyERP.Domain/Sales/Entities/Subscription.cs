@@ -138,6 +138,13 @@ public class Subscription : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = SubscriptionStatus.PastDueDate;
     }
 
+    public void Complete()
+    {
+        if (Status == SubscriptionStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = SubscriptionStatus.Completed;
+    }
+
     public void Reactivate()
     {
         if (Status is not (SubscriptionStatus.PastDueDate or SubscriptionStatus.Unpaid))

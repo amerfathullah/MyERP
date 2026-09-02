@@ -155,6 +155,7 @@ public class SubscriptionBillingEngine : DomainService
             ItemName = p.ItemName,
             Qty = p.Qty,
             Rate = isInTrial ? 0m : Math.Round(p.Rate * prorationFactor, 2),
+            CostCenterId = p.CostCenterId ?? sub.CostCenterId,
         }).ToList();
     }
 
@@ -270,4 +271,5 @@ public class SubscriptionInvoiceItem
     public string? ItemName { get; set; }
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
+    public Guid? CostCenterId { get; set; }
 }
