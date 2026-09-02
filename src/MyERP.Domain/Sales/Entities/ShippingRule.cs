@@ -107,7 +107,11 @@ public class ShippingRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (CalculationMode == ShippingCalculationMode.Fixed)
         {
-            // Fixed mode clears conditions (they're irrelevant)
+            // Fixed mode clears conditions (they're irrelevant per ERPNext PR #54415)
+            if (Conditions.Any())
+            {
+                Conditions.Clear();
+            }
             return;
         }
 
