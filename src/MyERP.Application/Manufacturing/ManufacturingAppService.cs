@@ -1348,13 +1348,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         await seRepo.InsertAsync(entry);
 
-        // Update WO item transferred quantities (per ERPNext update_transferred_qty)
+        // Update WO item transferred quantities (per ERPNext PR #52856 / commit 8e14249335: use stock_qty)
         foreach (var seItem in entry.Items)
         {
             var woItem = wo.RequiredItems.FirstOrDefault(i => i.ItemId == seItem.ItemId);
             if (woItem != null)
             {
-                woItem.TransferredQuantity += seItem.Quantity;
+                woItem.TransferredQuantity += seItem.StockQty > 0 ? seItem.StockQty : seItem.Quantity;
             }
         }
         await _workOrderRepository.UpdateAsync(wo);
