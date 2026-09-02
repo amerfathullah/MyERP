@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -36,10 +37,12 @@ public class TaskOverdueJob : AsyncBackgroundJob<TaskOverdueJobArgs>, ITransient
             args.CompanyId, asOfDate);
 
         var projectQuery = await _projectRepository.GetQueryableAsync();
-        var companyProjectIds = projectQuery
-            .Where(p => p.CompanyId == args.CompanyId)
-            .Select(p => p.Id)
-            .ToHashSet();
+        var companyProjectIds = args.ProjectId.HasValue
+            ? new HashSet<Guid> { args.ProjectId.Value }
+            : projectQuery
+                .Where(p => p.CompanyId == args.CompanyId)
+                .Select(p => p.Id)
+                .ToHashSet();
 
         if (!companyProjectIds.Any())
             return;
@@ -68,6 +71,7 @@ public class TaskOverdueJob : AsyncBackgroundJob<TaskOverdueJobArgs>, ITransient
 public class TaskOverdueJobArgs
 {
     public Guid CompanyId { get; set; }
+    public Guid? ProjectId { get; set; }
     public Guid? TenantId { get; set; }
     public DateTime? AsOfDate { get; set; }
 }
