@@ -87,6 +87,15 @@ public class BomCreator : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void RecalculateCost()
     {
+        // Per ERPNext PR #54090: divide sub-assembly cost by qty to get per-unit rate
+        foreach (var item in _items.Where(i => i.IsExpandable))
+        {
+            var subCost = _items.Where(sub => sub.FgItemId == item.ItemId).Sum(sub => sub.Amount);
+            if (item.Qty > 0)
+            {
+                item.Rate = (subCost / item.Qty) * item.ConversionFactor;
+            }
+        }
         RawMaterialCost = _items.Where(i => i.FgItemId == FinishedGoodItemId).Sum(i => i.Amount);
     }
 
