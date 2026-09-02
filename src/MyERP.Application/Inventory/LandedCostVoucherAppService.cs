@@ -232,7 +232,11 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             chargeWarehouseTotals[warehouseId.Value] = chargeWarehouseTotals.GetValueOrDefault(warehouseId.Value) + item.ApplicableCharges;
         }
 
-        if (chargeWarehouseTotals.Count > 0 && lcv.Charges.Any())
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+        var company = await companyRepo.FindAsync(lcv.CompanyId);
+        var isPerpetualInventory = company?.EnablePerpetualInventory ?? true;
+
+        if (isPerpetualInventory && chargeWarehouseTotals.Count > 0 && lcv.Charges.Any())
         {
             var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
             var fiscalYear = fyQuery.FirstOrDefault(fy =>
