@@ -102,6 +102,15 @@ public class DeliveryNoteManager : DomainService
 
         var original = await _dnRepository.GetAsync(returnDN.ReturnAgainstId.Value);
 
+        // Validate customer and company match original document (ERPNext PR #48588 / commit e073075834)
+        if (original.CustomerId != returnDN.CustomerId || original.CompanyId != returnDN.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ReturnPartyMismatch)
+                .WithData("documentType", "Delivery Note")
+                .WithData("returnCustomer", returnDN.CustomerId)
+                .WithData("originalCustomer", original.CustomerId);
+        }
+
         // Query prior submitted/posted returns against this same original delivery note
         var dnQuery = await _dnRepository.GetQueryableAsync();
         var priorReturns = dnQuery

@@ -481,4 +481,10 @@ public class DataIntegrityAndCoverageTests
         Assert.Throws<Volo.Abp.BusinessException>(() =>
             repair.Complete(DateTime.UtcNow.Date.AddDays(-2)));
     }
+
+    [Fact]
+    public void ReturnPartyMismatch_Constant_Exists()
+    {
+        Assert.Equal("MyERP:08014", MyERP.MyERPDomainErrorCodes.ReturnPartyMismatch);
+    }
 }

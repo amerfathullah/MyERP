@@ -2181,6 +2181,7 @@
     "MyERP:08011": "Return rate ({returnRate}) for item '{item}' cannot exceed the original sale rate ({originalRate}).",
     "MyERP:08012": "Purchase Invoice {invoiceNumber} is on hold/blocked until {holdUntil}.",
     "MyERP:08013": "Cannot sell item '{itemName}' from sample retention warehouse {warehouseId}.",
+    "MyERP:08014": "Return document party or company mismatch. The customer/supplier or company does not match the original document.",
     "MyERP:05014": "Group warehouse {warehouseName} cannot receive stock. Use a leaf warehouse.",
     "MyERP:05011": "Batch {batchNo} has expired. Expired batches cannot be used in outward transactions.",
     "MyERP:02001": "Journal entry is unbalanced: total debits must equal total credits.",

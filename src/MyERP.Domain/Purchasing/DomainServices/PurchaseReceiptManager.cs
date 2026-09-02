@@ -155,6 +155,15 @@ public class PurchaseReceiptManager : DomainService
 
         var original = await _prRepository.GetAsync(returnReceipt.ReturnAgainstId.Value);
 
+        // Validate supplier and company match original document (ERPNext PR #48588 / commit e073075834)
+        if (original.SupplierId != returnReceipt.SupplierId || original.CompanyId != returnReceipt.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ReturnPartyMismatch)
+                .WithData("documentType", "Purchase Receipt")
+                .WithData("returnSupplier", returnReceipt.SupplierId)
+                .WithData("originalSupplier", original.SupplierId);
+        }
+
         // Query prior submitted/posted returns against this same original purchase receipt
         var prQuery = await _prRepository.GetQueryableAsync();
         var priorReturns = prQuery

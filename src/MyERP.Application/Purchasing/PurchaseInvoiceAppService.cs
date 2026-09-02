@@ -474,6 +474,16 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         if (input.IsReturn && input.ReturnAgainstId.HasValue)
         {
             var originalInvoice = await _repository.GetAsync(input.ReturnAgainstId.Value);
+
+            // Validate supplier and company match original document (ERPNext PR #48588 / commit e073075834)
+            if (originalInvoice.SupplierId != input.SupplierId || originalInvoice.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ReturnPartyMismatch)
+                    .WithData("documentType", "Purchase Invoice")
+                    .WithData("returnSupplier", input.SupplierId)
+                    .WithData("originalSupplier", originalInvoice.SupplierId);
+            }
+
             invoice.CreditToAccountId = originalInvoice.CreditToAccountId;
         }
         else if (companyForAcct.DefaultPayableAccountId.HasValue)

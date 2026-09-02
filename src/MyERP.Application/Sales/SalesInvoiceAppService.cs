@@ -442,6 +442,16 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         if (input.IsReturn && input.ReturnAgainstId.HasValue)
         {
             var originalInvoice = await _repository.GetAsync(input.ReturnAgainstId.Value);
+
+            // Validate customer and company match original document (ERPNext PR #48588 / commit e073075834)
+            if (originalInvoice.CustomerId != input.CustomerId || originalInvoice.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ReturnPartyMismatch)
+                    .WithData("documentType", "Sales Invoice")
+                    .WithData("returnCustomer", input.CustomerId)
+                    .WithData("originalCustomer", originalInvoice.CustomerId);
+            }
+
             invoice.DebitToAccountId = originalInvoice.DebitToAccountId;
         }
         else if (companyForAcct.DefaultReceivableAccountId.HasValue)
