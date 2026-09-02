@@ -203,6 +203,20 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("detail", "Transfer Material Against is mandatory when With Operations is enabled.");
         }
 
+        // Per ERPNext PR #53625 / commit 7f70e62c30:
+        // Operation time should be greater than 0 for operations
+        if (WithOperations && Operations.Any())
+        {
+            foreach (var op in Operations)
+            {
+                if (op.TimeInMins <= 0)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Operation time should be greater than 0 for operation (Sequence #{op.SequenceId}).");
+                }
+            }
+        }
+
         // Per ERPNext PR #57885 / commit 3497a6a6bf:
         // When TrackSemiFinishedGoods is enabled, every operation must specify a FinishedGoodItemId
         // (or defaults to BOM.ItemId if it's the final operation).
