@@ -407,6 +407,11 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.IsOpening = input.IsOpening;
         invoice.UpdateStock = input.UpdateStock;
+        // Skip stock update for items already delivered via Delivery Note to prevent double deduction (PR #55311)
+        if (input.Items.Any(i => i.DeliveryNoteItemId.HasValue))
+        {
+            invoice.UpdateStock = false;
+        }
         invoice.WarehouseId = input.WarehouseId;
         invoice.CostCenterId = input.CostCenterId;
         invoice.ProjectId = input.ProjectId;
@@ -481,9 +486,11 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         foreach (var item in input.Items)
         {
             invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            var added = invoice.Items.Last();
+            added.SalesOrderItemId = item.SalesOrderItemId;
+            added.DeliveryNoteItemId = item.DeliveryNoteItemId;
             if (item.EnableDeferredRevenue)
             {
-                var added = invoice.Items.Last();
                 added.EnableDeferredRevenue = true;
                 added.DeferredRevenueAccountId = item.DeferredRevenueAccountId;
                 added.ServiceStartDate = item.ServiceStartDate;
@@ -1528,6 +1535,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                     UnitPrice = item.UnitPrice,
                     TaxAmount = 0,
                     Uom = item.Uom ?? "Unit",
+                    DeliveryNoteItemId = item.Id,
                 });
                 dnItemLinks.Add((Guid.Empty, item.Id, dn.Id));
             }

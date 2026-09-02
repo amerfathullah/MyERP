@@ -220,6 +220,9 @@ public class CreateSalesInvoiceItemDto
     [StringLength(20)]
     public string Uom { get; set; } = "Unit";
 
+    public Guid? SalesOrderItemId { get; set; }
+    public Guid? DeliveryNoteItemId { get; set; }
+
     public bool EnableDeferredRevenue { get; set; }
     public Guid? DeferredRevenueAccountId { get; set; }
     public DateTime? ServiceStartDate { get; set; }
