@@ -157,12 +157,24 @@ public class AssetRepair : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
     }
 
-    public void Complete()
+    public void Complete(DateTime? completionDate = null)
     {
         if (Status != AssetRepairStatus.Pending)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        if (completionDate.HasValue)
+            CompletionDate = completionDate.Value;
+
+        CompletionDate ??= (FailureDate.HasValue && FailureDate.Value > DateTime.UtcNow)
+            ? FailureDate.Value
+            : DateTime.UtcNow;
+
+        // Completion Date cannot be before Failure Date (ERPNext PR #48649 / commit 766c5bbe2b)
+        if (FailureDate.HasValue && CompletionDate.Value.Date < FailureDate.Value.Date)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange)
+                .WithData("detail", "Completion Date cannot be before Failure Date.");
+
         CalculateTotals();
-        CompletionDate ??= DateTime.UtcNow;
         Status = AssetRepairStatus.Completed;
         SetDowntime();
     }

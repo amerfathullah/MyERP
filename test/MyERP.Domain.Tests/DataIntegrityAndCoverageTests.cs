@@ -472,4 +472,13 @@ public class DataIntegrityAndCoverageTests
         Assert.Throws<Volo.Abp.BusinessException>(() =>
             new Manufacturing.Entities.JobCardTimeLog(Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow, DateTime.UtcNow.AddMinutes(10), 10m, -1m));
     }
+
+    [Fact]
+    public void AssetRepair_Complete_CompletionDateBeforeFailureDate_ThrowsBusinessException()
+    {
+        var repair = new Assets.Entities.AssetRepair(Guid.NewGuid(), "AR-002", Guid.NewGuid(), Guid.NewGuid());
+        repair.FailureDate = DateTime.UtcNow.Date;
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            repair.Complete(DateTime.UtcNow.Date.AddDays(-2)));
+    }
 }
