@@ -71,36 +71,36 @@ public class StockReservationManager : DomainService
             .Where(s => s.ItemId == itemId
                 && s.WarehouseId == warehouseId
                 && (batchId == null || s.BatchId == batchId)
-                && s.Status == DocumentStatus.Submitted)
+                && s.Status == DocumentStatus.Submitted
+                && s.DeliveredQty < s.ReservedQty)
             .Sum(s => s.ReservedQty - s.DeliveredQty);
 
         var available = actualQty - reservedQty;
 
         if (requestedQty > available)
         {
-            throw new BusinessException("MyERP:05031")
+            throw new BusinessException(MyERPDomainErrorCodes.InsufficientStock)
                 .WithData("itemId", itemId)
                 .WithData("warehouseId", warehouseId)
-                .WithData("requested", requestedQty)
-                .WithData("available", available);
+                .WithData("available", available)
+                .WithData("requested", requestedQty);
         }
     }
 
     /// <summary>
     /// Consumes reserved stock when delivery is made (FIFO by creation date).
-    /// Per ERPNext: oldest reservations consumed first.
+    /// Per ERPNext PR #49082 (commit dbaa44688e): filters delivered_qty < reserved_qty.
     /// Returns list of consumed SRE IDs with quantities.
     /// </summary>
     public async Task<ReservationConsumption[]> ConsumeOnDeliveryAsync(
         Guid itemId, Guid warehouseId, decimal deliveredQty, Guid? salesOrderId = null)
     {
         var queryable = await _sreRepository.GetQueryableAsync();
-
-        // FIFO: oldest first, matching item+warehouse
         var activeSres = queryable
             .Where(s => s.ItemId == itemId
                 && s.WarehouseId == warehouseId
                 && s.Status == DocumentStatus.Submitted
+                && s.DeliveredQty < s.ReservedQty
                 && (salesOrderId == null || s.VoucherId == salesOrderId))
             .OrderBy(s => s.CreationTime)
             .ToList();
@@ -176,7 +176,8 @@ public class StockReservationManager : DomainService
         var reservedWarehouseIds = queryable
             .Where(s => s.ItemId == itemId
                 && s.VoucherId == salesOrderId
-                && s.Status == DocumentStatus.Submitted)
+                && s.Status == DocumentStatus.Submitted
+                && s.DeliveredQty < s.ReservedQty)
             .Select(s => s.WarehouseId)
             .Distinct()
             .ToList();
@@ -204,7 +205,8 @@ public class StockReservationManager : DomainService
         return queryable
             .Where(s => s.ItemId == itemId
                 && s.WarehouseId == warehouseId
-                && s.Status == DocumentStatus.Submitted)
+                && s.Status == DocumentStatus.Submitted
+                && s.DeliveredQty < s.ReservedQty)
             .Sum(s => s.ReservedQty - s.DeliveredQty);
     }
 
