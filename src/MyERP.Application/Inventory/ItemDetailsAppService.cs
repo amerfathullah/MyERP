@@ -85,6 +85,16 @@ public class ItemDetailsAppService : ApplicationService, IItemDetailsAppService
                 var supplier = await supplierRepo.FindAsync(input.SupplierId.Value);
                 effectivePriceListId = supplier?.DefaultPriceListId;
             }
+
+            // Fallback to default buying or selling price list if still unset (ERPNext PR #48445 / commit 27c73cf9e9)
+            if (!effectivePriceListId.HasValue)
+            {
+                var priceListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
+                var priceListQuery = await priceListRepo.GetQueryableAsync();
+                effectivePriceListId = txType == TransactionType.Buying
+                    ? priceListQuery.Where(p => p.IsBuying && p.IsDefault && p.IsActive).Select(p => (Guid?)p.Id).FirstOrDefault()
+                    : priceListQuery.Where(p => p.IsSelling && p.IsDefault && p.IsActive).Select(p => (Guid?)p.Id).FirstOrDefault();
+            }
         }
 
         var context = new ItemResolutionContext
