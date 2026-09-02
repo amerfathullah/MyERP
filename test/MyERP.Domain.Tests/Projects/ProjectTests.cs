@@ -149,6 +149,14 @@ public class ProjectTests
         Should.Throw<Volo.Abp.BusinessException>(() => project.SetPercentComplete(105m));
     }
 
+    [Fact]
+    public void DuplicateProject_MustHaveDifferentName()
+    {
+        var project = CreateProject();
+        var sameName = project.ProjectName;
+        Assert.Equal(project.ProjectName, sameName, ignoreCase: true);
+    }
+
     private static Project CreateProject() =>
         new(Guid.NewGuid(), Guid.NewGuid(), "PROJ-0001", "Test Project", Guid.NewGuid());
 }

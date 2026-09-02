@@ -5,6 +5,7 @@ using MyERP.Core.DomainServices;
 using MyERP.Permissions;
 using MyERP.Projects.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -385,6 +386,71 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         var currentTasks = await _taskRepository.GetListAsync(t => t.ProjectId == projectId);
         project.UpdateProgress(currentTasks);
         await _projectRepository.UpdateAsync(project);
+    }
+
+    [Authorize(MyERPPermissions.Projects.Create)]
+    public async Task<ProjectDto> DuplicateProjectAsync(Guid sourceProjectId, string newProjectName)
+    {
+        Check.NotNullOrWhiteSpace(newProjectName, nameof(newProjectName));
+
+        var source = await _projectRepository.GetAsync(sourceProjectId, includeDetails: true);
+        if (string.Equals(source.ProjectName, newProjectName, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "New project name must be different from source project name.");
+        }
+
+        var number = await _numberGenerator.GenerateAsync("Project", source.CompanyId);
+        var newProject = new Project(GuidGenerator.Create(), source.CompanyId, number, newProjectName, CurrentTenant.Id)
+        {
+            Priority = source.Priority,
+            PercentCompleteMethod = source.PercentCompleteMethod,
+            CustomerId = source.CustomerId,
+            ExpectedStartDate = source.ExpectedStartDate,
+            ExpectedEndDate = source.ExpectedEndDate,
+            EstimatedCost = source.EstimatedCost,
+            Notes = source.Notes,
+        };
+
+        await _projectRepository.InsertAsync(newProject, autoSave: true);
+
+        // Duplicate tasks
+        var sourceTasks = await _taskRepository.GetListAsync(t => t.ProjectId == sourceProjectId);
+        var taskIdMap = new System.Collections.Generic.Dictionary<Guid, Guid>();
+
+        foreach (var st in sourceTasks.OrderBy(t => t.CreationTime))
+        {
+            var taskNumber = $"TASK-{Guid.NewGuid().ToString()[..6].ToUpper()}";
+            var newTask = new ProjectTask(GuidGenerator.Create(), newProject.Id, taskNumber, st.Subject)
+            {
+                Priority = st.Priority,
+                IsGroup = st.IsGroup,
+                IsMilestone = st.IsMilestone,
+                TaskWeight = st.TaskWeight,
+                ExpectedStartDate = st.ExpectedStartDate,
+                ExpectedEndDate = st.ExpectedEndDate,
+                ExpectedHours = st.ExpectedHours,
+                AssignedUserId = st.AssignedUserId,
+                Description = st.Description,
+            };
+            taskIdMap[st.Id] = newTask.Id;
+            await _taskRepository.InsertAsync(newTask, autoSave: true);
+        }
+
+        // Map parent task hierarchy
+        foreach (var st in sourceTasks.Where(t => t.ParentTaskId.HasValue))
+        {
+            if (taskIdMap.TryGetValue(st.Id, out var newTaskId) &&
+                taskIdMap.TryGetValue(st.ParentTaskId!.Value, out var newParentId))
+            {
+                var nt = await _taskRepository.GetAsync(newTaskId);
+                nt.ParentTaskId = newParentId;
+                await _taskRepository.UpdateAsync(nt);
+            }
+        }
+
+        await UpdateProjectProgress(newProject.Id);
+        return ObjectMapper.Map<Project, ProjectDto>(newProject);
     }
 }
 

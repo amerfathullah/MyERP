@@ -26,4 +26,5 @@ public interface IProjectAppService : IApplicationService
     Task<ProjectTaskDto> CancelTaskAsync(Guid taskId);
     Task<ProjectTaskDto> AddTaskDependencyAsync(Guid taskId, Guid dependsOnTaskId);
     Task<ProjectTaskDto> RemoveTaskDependencyAsync(Guid taskId, Guid dependencyId);
+    Task<ProjectDto> DuplicateProjectAsync(Guid sourceProjectId, string newProjectName);
 }
