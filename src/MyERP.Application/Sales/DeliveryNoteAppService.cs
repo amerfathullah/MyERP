@@ -388,11 +388,19 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
                 var creditNoteNumber = await numberGen.GenerateAsync("SalesInvoice", dn.CompanyId);
 
+                var originalDn = dn.ReturnAgainstId.HasValue ? await _repository.FindAsync(dn.ReturnAgainstId.Value) : null;
+                Guid? originalInvoiceId = null;
+                if (originalDn != null)
+                {
+                    var origInv = await siRepo.FindAsync(i => i.DeliveryNoteId == originalDn.Id && i.Status != Core.DocumentStatus.Cancelled);
+                    originalInvoiceId = origInv?.Id;
+                }
+
                 var creditNote = new SalesInvoice(
                     GuidGenerator.Create(), dn.CompanyId, dn.CustomerId,
                     creditNoteNumber, dn.PostingDate, dn.TenantId);
                 creditNote.IsReturn = true;
-                creditNote.ReturnAgainstId = dn.ReturnAgainstId;
+                creditNote.ReturnAgainstId = originalInvoiceId;
                 creditNote.DeliveryNoteId = dn.Id;
                 creditNote.Notes = $"Credit Note for Return {dn.DeliveryNumber}";
 
