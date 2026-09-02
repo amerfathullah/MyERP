@@ -278,6 +278,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             pe.AgainstInvoiceType = input.AgainstInvoiceType;
         }
 
+        pe.Remarks = input.Remarks;
         ApplyTaxRows(pe, input.Taxes);
 
         await _repository.InsertAsync(pe, autoSave: true);

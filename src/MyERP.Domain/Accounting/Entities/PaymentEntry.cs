@@ -111,6 +111,7 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public DateTime? ClearanceDate { get; private set; }
 
     public string? Notes { get; set; }
+    public string? Remarks { get; set; }
 
     // Linked invoice (optional — can allocate to multiple invoices in future)
     public Guid? AgainstInvoiceId { get; set; }

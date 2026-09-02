@@ -20,6 +20,7 @@ public class PaymentEntryDto : EntityDto<Guid>
     public string? PartyType { get; set; }
     public Guid? PartyId { get; set; }
     public string? PartyName { get; set; }
+    public string? Remarks { get; set; }
     public List<PaymentEntryTaxDto> Taxes { get; set; } = [];
 }
 
@@ -59,6 +60,7 @@ public class CreatePaymentEntryDto
     public Guid? ProjectId { get; set; }
     [StringLength(PaymentEntryConsts.MaxReferenceNumberLength)] public string? ReferenceNumber { get; set; }
     public string? Notes { get; set; }
+    public string? Remarks { get; set; }
 
     /// <summary>Legacy single-invoice allocation (backwards compatible).</summary>
     public Guid? AgainstInvoiceId { get; set; }
