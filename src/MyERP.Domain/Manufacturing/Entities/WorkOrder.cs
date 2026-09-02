@@ -189,6 +189,13 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         DisassembledQuantity += quantity;
     }
 
+    /// <summary>Reverses disassembly qty on cancellation. Per ERPNext PR #48184 / commit 3e4d160626.</summary>
+    public void ReverseDisassembly(decimal quantity)
+    {
+        if (quantity <= 0) return;
+        DisassembledQuantity = Math.Max(0, DisassembledQuantity - quantity);
+    }
+
     public void Stop()
     {
         if (Status != WorkOrderStatus.InProcess)

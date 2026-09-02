@@ -518,4 +518,22 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal("For project ERP Implementation, update your status", project.Subject);
         Assert.Equal("Please update task status", project.Message);
     }
+
+    [Fact]
+    public void WorkOrder_ReverseDisassembly_DecrementsCorrectly()
+    {
+        var wo = new Manufacturing.Entities.WorkOrder(
+            Guid.NewGuid(), Guid.NewGuid(), "WO-001", Guid.NewGuid(), Guid.NewGuid(), 10m);
+        wo.Submit();
+        wo.Start();
+        wo.RecordProduction(5m);
+        wo.RecordDisassembly(3m);
+        Assert.Equal(3m, wo.DisassembledQuantity);
+
+        wo.ReverseDisassembly(2m);
+        Assert.Equal(1m, wo.DisassembledQuantity);
+
+        wo.ReverseDisassembly(5m); // floor at 0
+        Assert.Equal(0m, wo.DisassembledQuantity);
+    }
 }

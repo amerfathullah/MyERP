@@ -355,6 +355,21 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
 
+        // Update Work Order disassembled qty for disassemble entries (ERPNext PR #48184 / commit 3e4d160626)
+        if (entry.EntryType == StockEntryType.Disassemble && entry.WorkOrderId.HasValue)
+        {
+            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var wo = await woRepo.GetAsync(entry.WorkOrderId.Value);
+            var disQty = entry.FgCompletedQty > 0
+                ? entry.FgCompletedQty
+                : entry.Items.Where(i => i.IsFinishedItem || (i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue)).Sum(i => i.Quantity);
+            if (disQty > 0)
+            {
+                wo.RecordDisassembly(disQty);
+                await woRepo.UpdateAsync(wo, autoSave: true);
+            }
+        }
+
         // Auto-reorder check for stock-out entries (Issue, Transfer source)
         if (entry.EntryType == StockEntryType.MaterialIssue
             || entry.EntryType == StockEntryType.MaterialTransfer
@@ -440,6 +455,21 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             {
                 producingWorkOrder.ProducedQuantity = Math.Max(0, producingWorkOrder.ProducedQuantity - entry.FgCompletedQty);
                 await workOrderRepoForProduction.UpdateAsync(producingWorkOrder);
+            }
+        }
+
+        // Reverse WorkOrder.DisassembledQuantity on Disassemble cancellation (ERPNext PR #48184 / commit 3e4d160626)
+        if (entry.WorkOrderId.HasValue && entry.EntryType == StockEntryType.Disassemble)
+        {
+            var workOrderRepoForDisassembly = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var woForDisassembly = await workOrderRepoForDisassembly.FindAsync(entry.WorkOrderId.Value);
+            if (woForDisassembly != null)
+            {
+                var disQty = entry.FgCompletedQty > 0
+                    ? entry.FgCompletedQty
+                    : entry.Items.Where(i => i.IsFinishedItem || (i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue)).Sum(i => i.Quantity);
+                woForDisassembly.ReverseDisassembly(disQty);
+                await workOrderRepoForDisassembly.UpdateAsync(woForDisassembly);
             }
         }
 
