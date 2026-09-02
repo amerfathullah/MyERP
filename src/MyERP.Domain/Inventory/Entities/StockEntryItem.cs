@@ -47,6 +47,9 @@ public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Expense account for this line item (e.g., Difference Account on repack/manufacture).</summary>
     public Guid? ExpenseAccountId { get; set; }
 
+    /// <summary>Project for this line item (falls back to parent StockEntry.ProjectId, PR #51014 / commit e57d2b4811).</summary>
+    public Guid? ProjectId { get; set; }
+
     /// <summary>Stock UOM from Item master.</summary>
     public string StockUom { get; set; } = "Unit";
 

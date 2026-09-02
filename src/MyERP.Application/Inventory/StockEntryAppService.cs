@@ -161,6 +161,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 entry.Items[^1].CostCenterId = item.CostCenterId ?? input.CostCenterId;
             if (item.ExpenseAccountId.HasValue)
                 entry.Items[^1].ExpenseAccountId = item.ExpenseAccountId;
+            if (item.ProjectId.HasValue || input.ProjectId.HasValue)
+                entry.Items[^1].ProjectId = item.ProjectId ?? input.ProjectId;
         }
 
         // Delegate purpose-specific validation to StockEntryManager (DDD pattern)
@@ -379,6 +381,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
 
+        // Update project costing based on item-level ProjectId (per ERPNext PR #51014 / commit e57d2b4811)
+        await UpdateProjectCostingAsync(entry, sign: 1);
+
         await _repository.UpdateAsync(entry, autoSave: true);
 
         // Audit trail
@@ -456,6 +461,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         await postingOrchestrator.ReversePleForDocumentAsync("StockEntry", entry.Id);
         await postingOrchestrator.ReverseGlForDocumentAsync("StockEntry", entry.Id);
 
+        // Reverse project costing based on item-level ProjectId (per ERPNext PR #51014 / commit e57d2b4811)
+        await UpdateProjectCostingAsync(entry, sign: -1);
+
         await _repository.UpdateAsync(entry, autoSave: true);
 
         // Audit trail
@@ -465,6 +473,37 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             CurrentUser.Id, tenantId: entry.TenantId));
 
         return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
+    }
+
+    /// <summary>
+    /// Updates Project.TotalConsumedMaterialCost for each unique item-level ProjectId.
+    /// Per ERPNext PR #51014 / commit e57d2b4811.
+    /// </summary>
+    private async Task UpdateProjectCostingAsync(StockEntry entry, int sign)
+    {
+        var projectItemGroups = entry.Items
+            .Where(i => i.ProjectId.HasValue)
+            .GroupBy(i => i.ProjectId!.Value);
+
+        if (!projectItemGroups.Any()) return;
+
+        var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Projects.Entities.Project, Guid>>();
+        foreach (var group in projectItemGroups)
+        {
+            var project = await projectRepo.FindAsync(group.Key);
+            if (project == null) continue;
+
+            // Consumed material cost: items outgoing from warehouse (SourceWarehouse set, TargetWarehouse null)
+            var consumedAmount = group
+                .Where(i => i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue)
+                .Sum(i => (i.ValuationRate ?? 0) * i.Quantity);
+
+            if (consumedAmount > 0)
+            {
+                project.TotalConsumedMaterialCost = Math.Max(0, project.TotalConsumedMaterialCost + (sign * consumedAmount));
+                await projectRepo.UpdateAsync(project);
+            }
+        }
     }
 
     /// <summary>

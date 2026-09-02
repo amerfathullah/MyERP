@@ -32,6 +32,7 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public decimal TotalCostingAmount { get; set; }
     public decimal TotalBillingAmount { get; set; }
     public decimal TotalBilledAmount { get; set; }
+    public decimal TotalConsumedMaterialCost { get; set; }
 
     public string? Notes { get; set; }
     public string? CostCenter { get; set; }

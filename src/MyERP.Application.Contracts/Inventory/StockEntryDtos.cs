@@ -41,6 +41,7 @@ public class StockEntryItemDto
     public bool IsFinishedItem { get; set; }
     public Guid? CostCenterId { get; set; }
     public Guid? ExpenseAccountId { get; set; }
+    public Guid? ProjectId { get; set; }
 }
 
 public class CreateStockEntryDto
@@ -97,6 +98,7 @@ public class CreateStockEntryItemDto
 
     public Guid? CostCenterId { get; set; }
     public Guid? ExpenseAccountId { get; set; }
+    public Guid? ProjectId { get; set; }
 }
 
 /// <summary>Pre-populated items for a Manufacture stock entry from Work Order BOM.</summary>
