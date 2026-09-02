@@ -23,7 +23,23 @@ public class SerialNoAppService : ApplicationService, ISerialNoAppService
         if (input.ItemId.HasValue)
             query = query.Where(s => s.ItemId == input.ItemId.Value);
         if (input.WarehouseId.HasValue)
-            query = query.Where(s => s.WarehouseId == input.WarehouseId.Value);
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+            var wh = await whRepo.FindAsync(input.WarehouseId.Value);
+            if (wh?.IsGroup == true)
+            {
+                var whQuery = await whRepo.GetQueryableAsync();
+                var childWarehouseIds = whQuery
+                    .Where(w => w.ParentWarehouseId == input.WarehouseId.Value || w.Id == input.WarehouseId.Value)
+                    .Select(w => w.Id)
+                    .ToList();
+                query = query.Where(s => s.WarehouseId.HasValue && childWarehouseIds.Contains(s.WarehouseId.Value));
+            }
+            else
+            {
+                query = query.Where(s => s.WarehouseId == input.WarehouseId.Value);
+            }
+        }
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
