@@ -101,6 +101,31 @@ public class UnreconcilePaymentAppService : ApplicationService, IUnreconcilePaym
             ple.Delinked = true;
             await _pleRepository.UpdateAsync(ple);
             allocation.Unlinked = true;
+
+            // Update Advance Paid on order if unreconciling an advance payment (ERPNext PR #48782 / commit 99f7eb38d3)
+            if (allocation.AgainstVoucherId != Guid.Empty)
+            {
+                if (string.Equals(allocation.AgainstVoucherType, "SalesOrder", StringComparison.OrdinalIgnoreCase))
+                {
+                    var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+                    var so = await soRepo.FindAsync(allocation.AgainstVoucherId);
+                    if (so != null)
+                    {
+                        so.AdvancePaid = Math.Max(0, so.AdvancePaid - Math.Abs(allocation.Amount));
+                        await soRepo.UpdateAsync(so);
+                    }
+                }
+                else if (string.Equals(allocation.AgainstVoucherType, "PurchaseOrder", StringComparison.OrdinalIgnoreCase))
+                {
+                    var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+                    var po = await poRepo.FindAsync(allocation.AgainstVoucherId);
+                    if (po != null)
+                    {
+                        po.AdvancePaid = Math.Max(0, po.AdvancePaid - Math.Abs(allocation.Amount));
+                        await poRepo.UpdateAsync(po);
+                    }
+                }
+            }
         }
 
         // Cancel any exchange gain/loss JE(s) posted for this voucher during the reconciliation(s)
@@ -128,6 +153,40 @@ public class UnreconcilePaymentAppService : ApplicationService, IUnreconcilePaym
     {
         var entity = (await _repository.WithDetailsAsync()).First(u => u.Id == id);
         entity.Cancel();
+
+        foreach (var allocation in entity.Allocations)
+        {
+            var ple = await _pleRepository.GetAsync(allocation.PaymentLedgerEntryId);
+            ple.Delinked = false;
+            await _pleRepository.UpdateAsync(ple);
+            allocation.Unlinked = false;
+
+            // Restore Advance Paid on order when unreconcile is cancelled
+            if (allocation.AgainstVoucherId != Guid.Empty)
+            {
+                if (string.Equals(allocation.AgainstVoucherType, "SalesOrder", StringComparison.OrdinalIgnoreCase))
+                {
+                    var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+                    var so = await soRepo.FindAsync(allocation.AgainstVoucherId);
+                    if (so != null)
+                    {
+                        so.AdvancePaid += Math.Abs(allocation.Amount);
+                        await soRepo.UpdateAsync(so);
+                    }
+                }
+                else if (string.Equals(allocation.AgainstVoucherType, "PurchaseOrder", StringComparison.OrdinalIgnoreCase))
+                {
+                    var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+                    var po = await poRepo.FindAsync(allocation.AgainstVoucherId);
+                    if (po != null)
+                    {
+                        po.AdvancePaid += Math.Abs(allocation.Amount);
+                        await poRepo.UpdateAsync(po);
+                    }
+                }
+            }
+        }
+
         await _repository.UpdateAsync(entity);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
