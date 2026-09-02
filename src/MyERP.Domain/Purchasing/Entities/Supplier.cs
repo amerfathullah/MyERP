@@ -100,6 +100,6 @@ public class Supplier : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void SetName(string name)
     {
-        Name = Check.NotNullOrWhiteSpace(name, nameof(name), SupplierConsts.MaxNameLength);
+        Name = Check.NotNullOrWhiteSpace(name?.Trim(), nameof(name), SupplierConsts.MaxNameLength);
     }
 }

@@ -101,6 +101,6 @@ public class Customer : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void SetName(string name)
     {
-        Name = Check.NotNullOrWhiteSpace(name, nameof(name), CustomerConsts.MaxNameLength);
+        Name = Check.NotNullOrWhiteSpace(name?.Trim(), nameof(name), CustomerConsts.MaxNameLength);
     }
 }
