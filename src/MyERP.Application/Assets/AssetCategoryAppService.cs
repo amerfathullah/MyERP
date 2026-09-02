@@ -127,6 +127,39 @@ public class AssetCategoryAppService : ApplicationService, IAssetCategoryAppServ
             }
         }
 
+        // Validate depreciation accounts for companies with active depreciable assets (ERPNext PR #52331)
+        var assetRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Asset, Guid>>();
+        var activeAssetsQuery = await assetRepo.GetQueryableAsync();
+        var companyIdsWithActiveAssets = activeAssetsQuery
+            .Where(a => a.AssetCategoryId == id && a.CalculateDepreciation && (a.Status == AssetStatus.Submitted || a.Status == AssetStatus.PartiallyDepreciated))
+            .Select(a => a.CompanyId)
+            .Distinct()
+            .ToList();
+
+        if (companyIdsWithActiveAssets.Any())
+        {
+            var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+            foreach (var companyId in companyIdsWithActiveAssets)
+            {
+                var accRow = category.Accounts.FirstOrDefault(a => a.CompanyId == companyId);
+                var comp = await companyRepo.FindAsync(companyId);
+
+                var hasAccumDep = accRow?.AccumulatedDepreciationAccountId != null
+                    || category.AccumulatedDepreciationAccountId != null
+                    || comp?.AccumulatedDepreciationAccountId != null;
+
+                var hasDepExp = accRow?.DepreciationExpenseAccountId != null
+                    || category.DepreciationAccountId != null
+                    || comp?.DepreciationExpenseAccountId != null;
+
+                if (!hasAccumDep || !hasDepExp)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Since there are active depreciable assets under category '{category.CategoryName}', depreciation accounts (Accumulated Depreciation and Depreciation Expense) are required for company '{comp?.Name ?? companyId.ToString()}'.");
+                }
+            }
+        }
+
         await _repository.UpdateAsync(category);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
