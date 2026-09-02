@@ -125,6 +125,8 @@ public class AssetAppService : ApplicationService, IAssetAppService
             UseTotalDaysForDepreciation = useTotalDays,
         };
 
+        await ValidateDepreciationAccountsAsync(asset);
+
         if (asset.CalculateDepreciation)
             asset.GenerateDepreciationSchedule();
 
@@ -166,11 +168,55 @@ public class AssetAppService : ApplicationService, IAssetAppService
         asset.OpeningAccumulatedDepreciation = input.OpeningAccumulatedDepreciation;
         asset.Notes = input.Notes;
 
+        await ValidateDepreciationAccountsAsync(asset);
+
         if (asset.CalculateDepreciation)
             asset.GenerateDepreciationSchedule();
 
         await _assetRepository.UpdateAsync(asset);
         return _assetMapper.Map(asset);
+    }
+
+    /// <summary>
+    /// Validates depreciation accounts exist for depreciable assets (ERPNext PR #52619 / commit 464e1929db).
+    /// </summary>
+    private async Task ValidateDepreciationAccountsAsync(Asset asset)
+    {
+        if (!asset.CalculateDepreciation) return;
+
+        if (asset.AssetCategoryId.HasValue)
+        {
+            var categoryRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<AssetCategory, Guid>>();
+            var categoryQuery = await categoryRepo.WithDetailsAsync(c => c.Accounts);
+            var category = await AsyncExecuter.FirstOrDefaultAsync(categoryQuery, c => c.Id == asset.AssetCategoryId.Value);
+
+            if (category != null)
+            {
+                if (category.NonDepreciableCategory)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "This asset category is marked as non-depreciable. Please disable depreciation calculation or choose a different category.");
+                }
+
+                var accRow = category.Accounts.FirstOrDefault(a => a.CompanyId == asset.CompanyId);
+                var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+                var comp = await companyRepo.FindAsync(asset.CompanyId);
+
+                var hasAccumDep = accRow?.AccumulatedDepreciationAccountId != null
+                    || category.AccumulatedDepreciationAccountId != null
+                    || comp?.AccumulatedDepreciationAccountId != null;
+
+                var hasDepExp = accRow?.DepreciationExpenseAccountId != null
+                    || category.DepreciationAccountId != null
+                    || comp?.DepreciationExpenseAccountId != null;
+
+                if (!hasAccumDep || !hasDepExp)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Please set Depreciation related Accounts in Asset Category '{category.CategoryName}' or Company '{comp?.Name ?? asset.CompanyId.ToString()}'.");
+                }
+            }
+        }
     }
 
     [Authorize(MyERPPermissions.Assets.Delete)]
