@@ -354,9 +354,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         {
             // Validate return qty does not exceed original receipt qty
             // Per DO-NOT: "Allow return qty to exceed (original qty - already returned qty)"
+            PurchaseReceipt? originalPr = null;
             if (receipt.ReturnAgainstId.HasValue)
             {
-                var originalPr = await _repository.GetAsync(receipt.ReturnAgainstId.Value);
+                originalPr = await _repository.GetAsync(receipt.ReturnAgainstId.Value);
                 foreach (var returnItem in receipt.Items)
                 {
                     var originalItem = originalPr.Items
@@ -387,9 +388,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
                 // Use StockQty for return SLE (stock UOM)
                 var returnStockQty = Math.Abs(item.StockQty);
-                var ratePerStockUnit = item.ConversionFactor != 0
-                    ? item.UnitPrice / item.ConversionFactor
-                    : item.UnitPrice;
+                var originalItem = originalPr?.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                var ratePerStockUnit = originalItem != null
+                    ? (originalItem.ConversionFactor != 0 ? originalItem.UnitPrice / originalItem.ConversionFactor : originalItem.UnitPrice)
+                    : (item.ConversionFactor != 0 ? item.UnitPrice / item.ConversionFactor : item.UnitPrice);
 
                 await _valuationService.CreateLedgerEntryAsync(
                     receipt.CompanyId, item.ItemId, receipt.WarehouseId,
