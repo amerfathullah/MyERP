@@ -10,4 +10,5 @@ public class AccountingPeriodDto : EntityDto<Guid>
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
     public bool IsClosed { get; set; }
+    public bool IsDisabled { get; set; }
 }

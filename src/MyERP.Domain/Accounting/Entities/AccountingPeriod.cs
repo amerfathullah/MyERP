@@ -28,6 +28,9 @@ public class AccountingPeriod : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>If true, this period is closed for document types in ClosedDocumentTypes list.</summary>
     public bool IsClosed { get; set; }
 
+    /// <summary>If true, this accounting period is disabled and no document closure rules apply (ERPNext PR #49911 / commit bd928e0d56).</summary>
+    public bool IsDisabled { get; set; }
+
     /// <summary>Role that can bypass the period closure check.</summary>
     public string? ExemptedRole { get; set; }
 
@@ -64,6 +67,16 @@ public class AccountingPeriod : FullAuditedAggregateRoot<Guid>, IMultiTenant
         IsClosed = false;
     }
 
+    public void Disable()
+    {
+        IsDisabled = true;
+    }
+
+    public void Enable()
+    {
+        IsDisabled = false;
+    }
+
     /// <summary>Add a document type to the closed list.</summary>
     public void CloseDocumentType(string documentType)
     {
@@ -88,7 +101,7 @@ public class AccountingPeriod : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Check if a specific document type is closed in this period.</summary>
     public bool IsClosedForDocumentType(string documentType)
     {
-        if (!IsClosed) return false;
+        if (IsDisabled || !IsClosed) return false;
 
         // Blanket closure: ClosedDocumentTypes is null/empty → ALL types blocked
         if (string.IsNullOrWhiteSpace(ClosedDocumentTypes)) return true;

@@ -368,4 +368,23 @@ public class DataIntegrityAndCoverageTests
         Assert.Throws<Volo.Abp.BusinessException>(() =>
             service.Calculate(items, new System.Collections.Generic.List<Tax.Entities.TransactionTaxRow>(), discountAmount: 150m, applyDiscountOn: "Grand Total"));
     }
+
+    // === Accounting Period Disabled ===
+
+    [Fact]
+    public void AccountingPeriod_WhenDisabled_IsNotClosedForDocumentType()
+    {
+        var ap = new Accounting.Entities.AccountingPeriod(Guid.NewGuid(), Guid.NewGuid(), "FY2026-Q1",
+            new DateTime(2026, 1, 1), new DateTime(2026, 3, 31));
+        ap.Close();
+        ap.CloseDocumentType("SalesInvoice");
+
+        Assert.True(ap.IsClosedForDocumentType("SalesInvoice"));
+
+        ap.Disable();
+        Assert.False(ap.IsClosedForDocumentType("SalesInvoice"));
+
+        ap.Enable();
+        Assert.True(ap.IsClosedForDocumentType("SalesInvoice"));
+    }
 }

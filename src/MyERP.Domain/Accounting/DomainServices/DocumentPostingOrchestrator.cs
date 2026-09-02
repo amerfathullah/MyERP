@@ -806,7 +806,8 @@ public class DocumentPostingOrchestrator : DomainService
         // Check accounting period closure — per document type
         var periodsQuery = await _periodRepository.GetQueryableAsync();
         var closedPeriod = periodsQuery
-            .Where(p => p.IsClosed
+            .Where(p => !p.IsDisabled
+                && p.IsClosed
                 && p.StartDate <= postingDate
                 && p.EndDate >= postingDate
                 && p.CompanyId == companyId)

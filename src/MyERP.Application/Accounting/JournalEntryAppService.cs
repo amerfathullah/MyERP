@@ -164,7 +164,7 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         // Check closed accounting period
         var periodQuery = await _periodRepository.GetQueryableAsync();
         var closedPeriod = periodQuery.FirstOrDefault(p =>
-            p.IsClosed && p.CompanyId == entry.CompanyId
+            !p.IsDisabled && p.IsClosed && p.CompanyId == entry.CompanyId
             && p.StartDate <= entry.PostingDate && p.EndDate >= entry.PostingDate);
         if (closedPeriod != null)
         {
