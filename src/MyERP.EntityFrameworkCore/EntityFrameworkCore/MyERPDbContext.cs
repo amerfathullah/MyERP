@@ -2842,6 +2842,8 @@ public class MyERPDbContext :
             b.Property(x => x.ProjectName).IsRequired().HasMaxLength(ProjectConsts.MaxProjectNameLength);
             b.Property(x => x.Notes).HasMaxLength(ProjectConsts.MaxNoteLength);
             b.Property(x => x.CostCenter).HasMaxLength(ProjectConsts.MaxCostCenterLength);
+            b.Property(x => x.Subject).HasMaxLength(255);
+            b.Property(x => x.Message).HasMaxLength(4000);
             b.Property(x => x.EstimatedCost).HasColumnType("decimal(18,2)");
             b.Property(x => x.TotalCostingAmount).HasColumnType("decimal(18,2)");
             b.Property(x => x.TotalBillingAmount).HasColumnType("decimal(18,2)");

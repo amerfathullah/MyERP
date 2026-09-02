@@ -505,4 +505,17 @@ public class DataIntegrityAndCoverageTests
         Assert.Throws<Volo.Abp.BusinessException>(() =>
             new Manufacturing.Entities.WorkstationTypeCost(Guid.NewGuid(), Guid.NewGuid(), "Electricity", -25m));
     }
+
+    [Fact]
+    public void Project_CollectProgressAndSubject_ProperlyConfigured()
+    {
+        var project = new Projects.Entities.Project(Guid.NewGuid(), Guid.NewGuid(), "PRJ-001", "ERP Implementation");
+        project.CollectProgress = true;
+        project.Subject = $"For project {project.ProjectName}, update your status";
+        project.Message = "Please update task status";
+
+        Assert.True(project.CollectProgress);
+        Assert.Equal("For project ERP Implementation, update your status", project.Subject);
+        Assert.Equal("Please update task status", project.Message);
+    }
 }

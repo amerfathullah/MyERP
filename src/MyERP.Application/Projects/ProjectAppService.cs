@@ -87,6 +87,11 @@ public class ProjectAppService : ApplicationService, IProjectAppService
             ExpectedEndDate = input.ExpectedEndDate,
             EstimatedCost = input.EstimatedCost,
             Notes = input.Notes,
+            CollectProgress = input.CollectProgress,
+            Subject = input.CollectProgress && string.IsNullOrWhiteSpace(input.Subject)
+                ? $"For project {input.ProjectName}, update your status"
+                : input.Subject,
+            Message = input.Message,
         };
 
         await _projectRepository.InsertAsync(project);
@@ -148,6 +153,11 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         project.ExpectedEndDate = input.ExpectedEndDate;
         project.EstimatedCost = input.EstimatedCost;
         project.Notes = input.Notes;
+        project.CollectProgress = input.CollectProgress;
+        project.Subject = input.CollectProgress && string.IsNullOrWhiteSpace(input.Subject)
+            ? $"For project {input.ProjectName}, update your status"
+            : input.Subject;
+        project.Message = input.Message;
 
         await _projectRepository.UpdateAsync(project);
         return ObjectMapper.Map<Project, ProjectDto>(project);

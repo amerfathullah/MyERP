@@ -38,6 +38,15 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string? CostCenter { get; set; }
     public Guid? CostCenterId { get; set; }
 
+    /// <summary>Whether to periodically collect progress updates from team members via email.</summary>
+    public bool CollectProgress { get; set; }
+
+    /// <summary>Email subject for progress collection (defaults to "For project {ProjectName}, update your status"). ERPNext PR #48368 / commit 407fdab487.</summary>
+    public string? Subject { get; set; }
+
+    /// <summary>Email message / instructions for progress collection.</summary>
+    public string? Message { get; set; }
+
     public List<ProjectTask> Tasks { get; private set; } = new();
 
     /// <summary>Team members assigned to this project, with per-member access flags.</summary>

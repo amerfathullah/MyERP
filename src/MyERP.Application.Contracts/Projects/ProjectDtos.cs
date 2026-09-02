@@ -29,6 +29,9 @@ public class ProjectDto : AuditedEntityDto<Guid>
     public decimal GrossMargin { get; set; }
     public string? Notes { get; set; }
     public Guid? CostCenterId { get; set; }
+    public bool CollectProgress { get; set; }
+    public string? Subject { get; set; }
+    public string? Message { get; set; }
     public int TaskCount { get; set; }
     public List<ProjectUserDto> Users { get; set; } = new();
 }
@@ -55,6 +58,12 @@ public class CreateProjectDto
     [StringLength(ProjectConsts.MaxNoteLength)]
     public string? Notes { get; set; }
 
+    public bool CollectProgress { get; set; }
+    [StringLength(255)]
+    public string? Subject { get; set; }
+    [StringLength(4000)]
+    public string? Message { get; set; }
+
     /// <summary>When set, clones the template's tasks (and their dependency edges) onto the new project.</summary>
     public Guid? ProjectTemplateId { get; set; }
 }
@@ -75,6 +84,12 @@ public class UpdateProjectDto
 
     [StringLength(ProjectConsts.MaxNoteLength)]
     public string? Notes { get; set; }
+
+    public bool CollectProgress { get; set; }
+    [StringLength(255)]
+    public string? Subject { get; set; }
+    [StringLength(4000)]
+    public string? Message { get; set; }
 }
 
 public class GetProjectListDto : PagedAndSortedResultRequestDto
