@@ -84,6 +84,16 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         employee.EpfNumber = input.EpfNumber;
         employee.SocsoNumber = input.SocsoNumber;
         employee.TaxNumber = input.TaxNumber;
+
+        if (input.ReportsToEmployeeId.HasValue)
+        {
+            var manager = await _repository.FindAsync(input.ReportsToEmployeeId.Value);
+            if (manager != null && manager.Status != EmploymentStatus.Active)
+            {
+                throw new Volo.Abp.BusinessException("MyERP:HR:007", "Reports To employee must be an Active employee.");
+            }
+        }
+
         employee.ReportsToEmployeeId = input.ReportsToEmployeeId;
         employee.UserId = input.UserId;
 
@@ -105,6 +115,15 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         if (input.ReportsToEmployeeId == id)
         {
             throw new Volo.Abp.BusinessException("MyERP:HR:006", "An employee cannot report to themselves.");
+        }
+
+        if (input.ReportsToEmployeeId.HasValue)
+        {
+            var manager = await _repository.FindAsync(input.ReportsToEmployeeId.Value);
+            if (manager != null && manager.Status != EmploymentStatus.Active)
+            {
+                throw new Volo.Abp.BusinessException("MyERP:HR:007", "Reports To employee must be an Active employee.");
+            }
         }
 
         await ValidateUserNotAlreadyLinkedAsync(input.UserId, currentEmployeeId: id);
