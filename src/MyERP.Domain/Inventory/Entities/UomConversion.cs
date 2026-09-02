@@ -29,6 +29,10 @@ public class UomConversion : AuditedEntity<Guid>, IMultiTenant
     public UomConversion(Guid id, string fromUom, string toUom, decimal conversionFactor, Guid? itemId = null, Guid? tenantId = null)
         : base(id)
     {
+        if (conversionFactor < 0)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Conversion factor cannot be negative.");
+
         FromUom = fromUom;
         ToUom = toUom;
         ConversionFactor = conversionFactor;

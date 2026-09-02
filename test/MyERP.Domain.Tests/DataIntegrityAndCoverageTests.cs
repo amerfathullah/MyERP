@@ -169,6 +169,23 @@ public class DataIntegrityAndCoverageTests
     }
 
     [Fact]
+    public void UomConversion_NegativeFactor_ThrowsBusinessException()
+    {
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            new UomConversion(Guid.NewGuid(), "A", "B", -1m));
+    }
+
+    [Fact]
+    public void BillOfMaterials_NegativeProcessLoss_ThrowsBusinessException()
+    {
+        var bom = new Manufacturing.Entities.BillOfMaterials(Guid.NewGuid(), Guid.NewGuid(), "BOM-001", Guid.NewGuid())
+        {
+            ProcessLossPercentage = -5m
+        };
+        Assert.Throws<Volo.Abp.BusinessException>(() => bom.ValidateProcessLoss());
+    }
+
+    [Fact]
     public void UomConversion_ItemSpecific_HasItemId()
     {
         var itemId = Guid.NewGuid();

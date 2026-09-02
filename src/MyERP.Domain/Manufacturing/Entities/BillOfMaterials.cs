@@ -295,4 +295,16 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
             return 100m - secondaryTotal;
         }
     }
+
+    /// <summary>
+    /// Validates BOM process loss percentage is non-negative (per ERPNext PR #50629 / commit 1ee700fff3).
+    /// </summary>
+    public void ValidateProcessLoss()
+    {
+        if (ProcessLossPercentage < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Process loss percentage cannot be negative.");
+        }
+    }
 }
