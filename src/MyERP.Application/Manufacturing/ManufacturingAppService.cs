@@ -119,14 +119,33 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             var bomOp = new BomOperation(GuidGenerator.Create(), bom.Id, op.OperationId,
                 op.SequenceId, op.TimeInMins, op.WorkstationId, CurrentTenant.Id)
             {
+                WorkstationTypeId = op.WorkstationTypeId,
                 BatchSize = op.BatchSize,
                 FixedTime = op.FixedTime,
                 Description = op.Description,
                 IsSubcontracted = op.IsSubcontracted,
                 QualityInspectionRequired = op.QualityInspectionRequired,
             };
-            if (op.WorkstationHourRate > 0)
-                bomOp.CalculateCost(op.WorkstationHourRate);
+            var hourRate = op.WorkstationHourRate;
+            if (hourRate <= 0)
+            {
+                if (op.WorkstationId.HasValue)
+                {
+                    var wsRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+                    var ws = await wsRepo.FindAsync(op.WorkstationId.Value);
+                    if (ws != null && ws.HourRate > 0)
+                        hourRate = ws.HourRate;
+                }
+                else if (op.WorkstationTypeId.HasValue)
+                {
+                    var wsTypeRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<WorkstationType, Guid>>();
+                    var wsType = await wsTypeRepo.FindAsync(op.WorkstationTypeId.Value);
+                    if (wsType != null && wsType.HourRate > 0)
+                        hourRate = wsType.HourRate;
+                }
+            }
+            if (hourRate > 0)
+                bomOp.CalculateCost(hourRate);
             bom.AddOperation(bomOp);
         }
 
@@ -189,14 +208,33 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             var bomOp = new BomOperation(GuidGenerator.Create(), bom.Id, op.OperationId,
                 op.SequenceId, op.TimeInMins, op.WorkstationId, CurrentTenant.Id)
             {
+                WorkstationTypeId = op.WorkstationTypeId,
                 BatchSize = op.BatchSize,
                 FixedTime = op.FixedTime,
                 Description = op.Description,
                 IsSubcontracted = op.IsSubcontracted,
                 QualityInspectionRequired = op.QualityInspectionRequired,
             };
-            if (op.WorkstationHourRate > 0)
-                bomOp.CalculateCost(op.WorkstationHourRate);
+            var hourRate = op.WorkstationHourRate;
+            if (hourRate <= 0)
+            {
+                if (op.WorkstationId.HasValue)
+                {
+                    var wsRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+                    var ws = await wsRepo.FindAsync(op.WorkstationId.Value);
+                    if (ws != null && ws.HourRate > 0)
+                        hourRate = ws.HourRate;
+                }
+                else if (op.WorkstationTypeId.HasValue)
+                {
+                    var wsTypeRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<WorkstationType, Guid>>();
+                    var wsType = await wsTypeRepo.FindAsync(op.WorkstationTypeId.Value);
+                    if (wsType != null && wsType.HourRate > 0)
+                        hourRate = wsType.HourRate;
+                }
+            }
+            if (hourRate > 0)
+                bomOp.CalculateCost(hourRate);
             bom.AddOperation(bomOp);
         }
 

@@ -24,6 +24,9 @@ public class BomOperation : FullAuditedEntity<Guid>, IMultiTenant
     /// <summary>Workstation where this operation is performed.</summary>
     public Guid? WorkstationId { get; set; }
 
+    /// <summary>Workstation Type for operations performed on a class of workstations.</summary>
+    public Guid? WorkstationTypeId { get; set; }
+
     /// <summary>Sequence in manufacturing process (must be monotonically increasing within BOM).</summary>
     public int SequenceId { get; set; }
 

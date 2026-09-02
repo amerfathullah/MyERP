@@ -51,6 +51,7 @@ public class BomOperationDto
     public Guid Id { get; set; }
     public Guid OperationId { get; set; }
     public Guid? WorkstationId { get; set; }
+    public Guid? WorkstationTypeId { get; set; }
     public int SequenceId { get; set; }
     public decimal TimeInMins { get; set; }
     public decimal OperatingCost { get; set; }
@@ -127,6 +128,7 @@ public class CreateBomOperationDto
 {
     [Required] public Guid OperationId { get; set; }
     public Guid? WorkstationId { get; set; }
+    public Guid? WorkstationTypeId { get; set; }
     [Range(1, int.MaxValue)] public int SequenceId { get; set; }
     [Range(0, double.MaxValue)] public decimal TimeInMins { get; set; }
     public int BatchSize { get; set; }
