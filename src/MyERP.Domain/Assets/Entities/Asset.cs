@@ -373,15 +373,12 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void UpdateLocationAndCustodian(string? location, Guid? custodianEmployeeId, Guid? locationId = null)
     {
-        if (!string.IsNullOrWhiteSpace(location))
+        if (!string.IsNullOrWhiteSpace(location) || locationId.HasValue)
         {
             Location = location;
             LocationId = locationId;
         }
-        if (custodianEmployeeId.HasValue)
-        {
-            CustodianEmployeeId = custodianEmployeeId;
-        }
+        CustodianEmployeeId = custodianEmployeeId;
     }
 
     /// <summary>
