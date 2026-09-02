@@ -1042,6 +1042,23 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<WorkOrderDto> CloseWorkOrderAsync(Guid id)
+    {
+        var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
+        wo.Close();
+        await _workOrderRepository.UpdateAsync(wo);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "WorkOrder", wo.Id,
+            "Closed", wo.CompanyId,
+            wo.WorkOrderNumber, wo.Status.ToString(), "Closed", CurrentUser.Id,
+            $"Work Order {wo.WorkOrderNumber} closed", CurrentTenant.Id));
+
+        return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
+    }
+
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
     public async Task<WorkOrderDto> CancelWorkOrderAsync(Guid id)
     {
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);

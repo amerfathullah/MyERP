@@ -171,7 +171,7 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void RecordMaterialTransfer(decimal quantity)
     {
         MaterialTransferred += quantity;
-        if (Status == WorkOrderStatus.Submitted)
+        if (Status == WorkOrderStatus.Submitted && quantity > 0)
             Status = WorkOrderStatus.NotStarted;
     }
 
@@ -201,10 +201,17 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = WorkOrderStatus.InProcess;
     }
 
+    public void Close()
+    {
+        if (Status is WorkOrderStatus.Draft or WorkOrderStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = WorkOrderStatus.Closed;
+    }
+
     public void Cancel()
     {
         // Per DO-NOT: "Cancel Stopped Work Order directly (must Unstop first, then cancel)"
-        if (Status is WorkOrderStatus.Completed or WorkOrderStatus.Cancelled or WorkOrderStatus.Stopped)
+        if (Status is WorkOrderStatus.Completed or WorkOrderStatus.Cancelled or WorkOrderStatus.Stopped or WorkOrderStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = WorkOrderStatus.Cancelled;
     }

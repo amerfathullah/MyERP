@@ -314,6 +314,7 @@ public interface IManufacturingAppService : IApplicationService
     Task<WorkOrderDto> RecordProductionAsync(Guid id, decimal quantity, decimal processLossQty = 0);
     Task<WorkOrderDto> StopWorkOrderAsync(Guid id);
     Task<WorkOrderDto> UnstopWorkOrderAsync(Guid id);
+    Task<WorkOrderDto> CloseWorkOrderAsync(Guid id);
     Task<WorkOrderDto> CancelWorkOrderAsync(Guid id);
 
     // Material Consumption
