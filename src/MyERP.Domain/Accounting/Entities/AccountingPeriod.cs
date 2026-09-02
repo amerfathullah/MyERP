@@ -43,6 +43,10 @@ public class AccountingPeriod : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public AccountingPeriod(Guid id, Guid companyId, string periodName, DateTime startDate, DateTime endDate, Guid? tenantId = null)
         : base(id)
     {
+        if (startDate > endDate)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Start Date cannot be after End Date.");
+
         CompanyId = companyId;
         PeriodName = Check.NotNullOrWhiteSpace(periodName, nameof(periodName), 100);
         StartDate = startDate;
