@@ -553,6 +553,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             var added = invoice.Items.Last();
             added.PurchaseOrderItemId = item.PurchaseOrderItemId;
             added.PurchaseReceiptItemId = item.PurchaseReceiptItemId;
+            added.DeliveredBySupplier = item.DeliveredBySupplier;
 
             if (item.EnableDeferredExpense)
             {

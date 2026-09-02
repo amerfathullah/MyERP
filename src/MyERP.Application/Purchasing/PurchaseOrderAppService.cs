@@ -181,6 +181,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             po.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
             if (item.WarehouseId.HasValue)
                 po.Items[^1].WarehouseId = item.WarehouseId;
+            po.Items[^1].DeliveredBySupplier = item.DeliveredBySupplier;
         }
 
         // Resolve UOM conversion factors for stock qty calculation

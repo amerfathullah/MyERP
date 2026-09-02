@@ -77,6 +77,7 @@ public class PurchaseInvoiceItemDto
     public decimal LineTotal { get; set; }
     public Guid? PurchaseOrderItemId { get; set; }
     public Guid? PurchaseReceiptItemId { get; set; }
+    public bool DeliveredBySupplier { get; set; }
     public bool EnableDeferredExpense { get; set; }
     public Guid? DeferredExpenseAccountId { get; set; }
     public DateTime? ServiceStartDate { get; set; }
@@ -185,6 +186,7 @@ public class CreatePurchaseInvoiceItemDto
     public DateTime? ServiceStopDate { get; set; }
     public Guid? PurchaseOrderItemId { get; set; }
     public Guid? PurchaseReceiptItemId { get; set; }
+    public bool DeliveredBySupplier { get; set; }
 }
 
 /// <summary>

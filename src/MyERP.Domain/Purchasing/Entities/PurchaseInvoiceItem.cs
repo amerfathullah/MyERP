@@ -46,6 +46,9 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Target warehouse (when UpdateStock=true).</summary>
     public Guid? WarehouseId { get; set; }
 
+    /// <summary>Whether goods are drop-shipped (delivered directly to customer by supplier).</summary>
+    public bool DeliveredBySupplier { get; set; }
+
     // --- Deferred Expense fields (mirrors SI deferred revenue) ---
     private bool _enableDeferredExpense;
     /// <summary>When true, expense is recognized over the service period (not at invoice post).</summary>

@@ -306,6 +306,9 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
     public bool IsClosed { get; set; }
 
+    /// <summary>Whether goods are drop-shipped (delivered directly to customer by supplier).</summary>
+    public bool DeliveredBySupplier { get; set; }
+
     /// <summary>Item's stock UOM. From Item master.</summary>
     public string StockUom { get; set; } = "Unit";
 

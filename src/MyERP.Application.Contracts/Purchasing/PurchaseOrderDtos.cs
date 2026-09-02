@@ -50,6 +50,7 @@ public class PurchaseOrderItemDto
     public DateTime? ExpectedDeliveryDate { get; set; }
     /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
     public bool IsClosed { get; set; }
+    public bool DeliveredBySupplier { get; set; }
 }
 
 public class CreatePurchaseOrderDto
@@ -76,6 +77,7 @@ public class CreatePurchaseOrderItemDto
     [StringLength(20)] public string Uom { get; set; } = "Unit";
     public Guid? WarehouseId { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
+    public bool DeliveredBySupplier { get; set; }
 }
 
 /// <summary>
