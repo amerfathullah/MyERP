@@ -387,4 +387,23 @@ public class DataIntegrityAndCoverageTests
         ap.Enable();
         Assert.True(ap.IsClosedForDocumentType("SalesInvoice"));
     }
+
+    // === Extra Material Transfer Allowance ===
+
+    [Fact]
+    public void StockEntryManager_ValidateTransferQty_WithExtraMaterialPercentage_PassesWithinLimit()
+    {
+        var mgr = new Inventory.DomainServices.StockEntryManager(null!, null!, null!);
+        // Required 100, 10% allowance => 110 allowed. Transferred 50, requested 55 => 50 + 55 = 105 <= 110 => Pass
+        mgr.ValidateTransferQty(requiredQty: 100m, transferredQty: 50m, requestedQty: 55m, extraMaterialPercentage: 10m);
+    }
+
+    [Fact]
+    public void StockEntryManager_ValidateTransferQty_WithExtraMaterialPercentage_ThrowsWhenExceedingLimit()
+    {
+        var mgr = new Inventory.DomainServices.StockEntryManager(null!, null!, null!);
+        // Required 100, 10% allowance => 110 allowed. Transferred 50, requested 65 => 50 + 65 = 115 > 110 => Throws
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            mgr.ValidateTransferQty(requiredQty: 100m, transferredQty: 50m, requestedQty: 65m, extraMaterialPercentage: 10m));
+    }
 }

@@ -176,12 +176,15 @@ public class StockEntryManager : DomainService
     /// Exception: returns and "Material Transferred" backflush mode.
     /// </summary>
     public void ValidateTransferQty(decimal requiredQty, decimal transferredQty, decimal requestedQty,
-        bool isReturn = false, bool isMaterialTransferredMode = false, int qtyPrecision = 6)
+        bool isReturn = false, bool isMaterialTransferredMode = false, decimal extraMaterialPercentage = 0m, int qtyPrecision = 6)
     {
         if (isReturn || isMaterialTransferredMode) return;
 
+        var extraQty = extraMaterialPercentage > 0 ? (requiredQty * extraMaterialPercentage / 100m) : 0m;
+        var maxAllowedTotal = requiredQty + extraQty;
+
         var roundedRequest = Math.Round(requestedQty, qtyPrecision);
-        var roundedPending = Math.Round(requiredQty - transferredQty, qtyPrecision);
+        var roundedPending = Math.Round(maxAllowedTotal - transferredQty, qtyPrecision);
         var allowed = roundedPending < 0 ? 0m : roundedPending;
 
         if (roundedRequest > allowed)
