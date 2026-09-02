@@ -152,10 +152,16 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public decimal TotalIncludedTaxes => Taxes.Where(t => t.IncludedInPaidAmount && !t.IsExchangeGainLoss).Sum(t => t.TaxAmount);
 
     /// <summary>
+    /// Total amount allocated across reference lines (rounded per ERPNext PR #52997).
+    /// </summary>
+    public decimal TotalAllocatedAmount => Math.Round(Math.Abs(References.Sum(r => r.AllocatedAmount)), 2);
+
+    /// <summary>
     /// Amount not allocated to any invoice/order. 
     /// UnallocatedAmount = PaidAmount - sum(References.AllocatedAmount) - (legacy AgainstInvoice allocation).
     /// Positive value means excess payment (advance/on-account).
     /// Per gotcha #437: exchange gain/loss deductions excluded.
+    /// Per PR #52188: rounded to 2 decimal places.
     /// </summary>
     public decimal UnallocatedAmount
     {
@@ -164,7 +170,7 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             var allocated = References.Sum(r => r.AllocatedAmount);
             if (allocated == 0 && AgainstInvoiceId.HasValue)
                 allocated = PaidAmount; // Legacy single-invoice: fully allocated
-            return Math.Max(0, PaidAmount - allocated);
+            return Math.Round(Math.Max(0, PaidAmount - allocated), 2);
         }
     }
 
