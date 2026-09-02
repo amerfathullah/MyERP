@@ -126,6 +126,7 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
 
         var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
         var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        await jobCardManager.ValidateWorkOrderNotClosedAsync(jc, woRepo);
         await jobCardManager.ValidateMaterialTransferAsync(jc, woRepo);
         await jobCardManager.ValidatePreviousOperationManufacturedAsync(jc);
         await jobCardManager.ValidateCapacityAsync(jc);
@@ -144,6 +145,10 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         }
 
         var jc = (await _repository.WithDetailsAsync()).First(j => j.Id == id);
+        var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        await jobCardManager.ValidateWorkOrderNotClosedAsync(jc, woRepo);
+
         jc.AddTimeLog(input.FromTime, input.ToTime, input.CompletedQty);
         await _repository.UpdateAsync(jc);
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);
@@ -156,6 +161,7 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
 
         var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
         var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        await jobCardManager.ValidateWorkOrderNotClosedAsync(jc, woRepo);
         await jobCardManager.ValidateMaterialTransferAsync(jc, woRepo);
 
         var settingsRepoForTimeLogs = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
@@ -316,6 +322,10 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
     public async Task<JobCardDto> HoldAsync(Guid id)
     {
         var jc = await _repository.GetAsync(id);
+        var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        await jobCardManager.ValidateWorkOrderNotClosedAsync(jc, woRepo);
+
         jc.Hold();
         await _repository.UpdateAsync(jc);
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);
@@ -325,6 +335,10 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
     public async Task<JobCardDto> ResumeAsync(Guid id)
     {
         var jc = await _repository.GetAsync(id);
+        var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        await jobCardManager.ValidateWorkOrderNotClosedAsync(jc, woRepo);
+
         jc.Resume();
         await _repository.UpdateAsync(jc);
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);

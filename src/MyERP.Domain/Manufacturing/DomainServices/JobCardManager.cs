@@ -277,4 +277,18 @@ public class JobCardManager : DomainService
                 .WithData("detail", $"Materials need to be transferred to the work in progress warehouse before starting or completing Job Card (sequence {jobCard.SequenceId}).");
         }
     }
+
+    /// <summary>
+    /// Disallows all operations on Job Card if the linked Work Order is Closed, Stopped, or Cancelled.
+    /// Per ERPNext PR #53157 / commit ee19c32c3a.
+    /// </summary>
+    public async Task ValidateWorkOrderNotClosedAsync(JobCard jobCard, IRepository<WorkOrder, Guid> woRepository)
+    {
+        var wo = await woRepository.FindAsync(jobCard.WorkOrderId);
+        if (wo != null && (wo.Status == WorkOrderStatus.Stopped || wo.Status == WorkOrderStatus.Cancelled || wo.Status == WorkOrderStatus.Completed))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", $"Cannot perform action on Job Card when linked Work Order is {wo.Status}.");
+        }
+    }
 }
