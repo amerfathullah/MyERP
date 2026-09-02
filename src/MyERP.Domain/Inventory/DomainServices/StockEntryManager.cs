@@ -104,6 +104,23 @@ public class StockEntryManager : DomainService
                             .WithData("field", "TargetWarehouse");
                 }
             }
+            else if (entry.EntryType is StockEntryType.Disassemble)
+            {
+                if (item.IsFinishedItem)
+                {
+                    if (item.TargetWarehouseId.HasValue) item.TargetWarehouseId = null;
+                    if (!item.SourceWarehouseId.HasValue)
+                        throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                            .WithData("field", "SourceWarehouse");
+                }
+                else
+                {
+                    if (item.SourceWarehouseId.HasValue) item.SourceWarehouseId = null;
+                    if (!item.TargetWarehouseId.HasValue)
+                        throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                            .WithData("field", "TargetWarehouse");
+                }
+            }
 
             var isIssue = entry.EntryType is StockEntryType.MaterialIssue;
 
