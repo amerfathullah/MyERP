@@ -269,6 +269,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
             Description = input.Description,
         };
 
+        task.SetDefaultEndDateIfMissing();
         await _taskRepository.InsertAsync(task);
         await UpdateProjectProgress(input.ProjectId);
         return ObjectMapper.Map<ProjectTask, ProjectTaskDto>(task);
@@ -278,7 +279,6 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     public async Task<ProjectTaskDto> UpdateTaskAsync(Guid taskId, UpdateProjectTaskDto input)
     {
         var task = await _taskRepository.GetAsync(taskId);
-        var endDateChanged = task.ExpectedEndDate != input.ExpectedEndDate;
 
         task.Subject = input.Subject;
         task.Priority = input.Priority;
@@ -292,7 +292,9 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         task.ExpectedHours = input.ExpectedHours;
         task.AssignedUserId = input.AssignedUserId;
         task.Description = input.Description;
+        task.SetDefaultEndDateIfMissing();
 
+        var endDateChanged = task.ExpectedEndDate != input.ExpectedEndDate;
         await _taskRepository.UpdateAsync(task);
 
         // Per ERPNext task.py reschedule_dependent_tasks (Gotcha #1302): pushing this task's end

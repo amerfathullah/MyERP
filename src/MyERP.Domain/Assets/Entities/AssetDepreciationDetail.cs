@@ -67,6 +67,37 @@ public class AssetDepreciationDetail : FullAuditedEntity<Guid>
         FrequencyOfDepreciation = frequencyMonths;
         NetPurchaseAmount = netPurchaseAmount;
         ValueAfterDepreciation = netPurchaseAmount;
+        Validate();
+    }
+
+    /// <summary>
+    /// Validates finance book row values (per ERPNext PR #51262 / commit 16c6b2c39f).
+    /// </summary>
+    public void Validate()
+    {
+        if (ExpectedValueAfterUsefulLife < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Expected Value After Useful Life cannot be negative");
+        }
+
+        if (NetPurchaseAmount > 0 && ExpectedValueAfterUsefulLife >= NetPurchaseAmount)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Expected Value After Useful Life must be less than Net Purchase Amount");
+        }
+
+        if (TotalNumberOfDepreciations <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Total Number of Depreciations must be greater than zero");
+        }
+
+        if (FrequencyOfDepreciation <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Frequency of Depreciation must be greater than zero");
+        }
     }
 
     /// <summary>

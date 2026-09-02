@@ -58,6 +58,17 @@ public class ProjectTask : FullAuditedEntity<Guid>
         Dependencies.Add(new TaskDependency(Guid.NewGuid(), Id, dependsOnTaskId));
     }
 
+    /// <summary>
+    /// Calculates default ExpectedEndDate if missing and ExpectedHours > 0 (per ERPNext PR #51224 / commit 820ccba9a4).
+    /// </summary>
+    public void SetDefaultEndDateIfMissing()
+    {
+        if (ExpectedStartDate.HasValue && ExpectedHours > 0 && !ExpectedEndDate.HasValue)
+        {
+            ExpectedEndDate = ExpectedStartDate.Value.AddHours((double)ExpectedHours);
+        }
+    }
+
     public void Start()
     {
         if (Status is not (ProjectTaskStatus.Open or ProjectTaskStatus.Overdue))
