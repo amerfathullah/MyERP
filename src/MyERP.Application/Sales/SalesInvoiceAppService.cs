@@ -134,9 +134,11 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var itemEntities = await itemRepo.GetListAsync(i => itemIds.Contains(i.Id));
         var itemGrantMap = itemEntities.ToDictionary(i => i.Id, i => i.GrantCommission);
 
-        var eligibleAmount = invoice.Items
+        // Amount eligible for commission is in company default currency (ERPNext PR #48271 / commit 7c7b392789)
+        var exchangeRate = invoice.ExchangeRate > 0 ? invoice.ExchangeRate : 1m;
+        var eligibleAmount = Math.Round(invoice.Items
             .Where(i => !itemGrantMap.TryGetValue(i.ItemId, out var grant) || grant)
-            .Sum(i => i.LineTotal);
+            .Sum(i => i.LineTotal) * exchangeRate, 2);
 
         foreach (var row in salesTeam)
         {
