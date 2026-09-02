@@ -460,6 +460,7 @@ public class CompanyAppService :
                         AccountSubType = Accounting.AccountSubType.CurrentLiability,
                         ParentAccountId = payableAccount.ParentAccountId,
                         IsGroup = false,
+                        Currency = company.CurrencyCode,
                     };
                     await accountRepo.InsertAsync(srbnbAccount, autoSave: true);
                 }

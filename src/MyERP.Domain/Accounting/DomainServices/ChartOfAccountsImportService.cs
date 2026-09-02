@@ -131,7 +131,9 @@ public class ChartOfAccountsImportService : DomainService
             account.IsGroup = row.IsGroup;
             account.AccountSubType = row.AccountSubType;
             account.BalanceMustBe = row.BalanceMustBe;
-            account.Currency = row.Currency;
+            account.Currency = !string.IsNullOrWhiteSpace(row.Currency)
+                ? row.Currency
+                : (company?.CurrencyCode ?? "MYR");
 
             await _accountRepository.InsertAsync(account);
             codeToIdMap[row.AccountCode] = account.Id;

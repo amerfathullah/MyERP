@@ -59,6 +59,20 @@ public class AccountAppService :
             items.Select(ObjectMapper.Map<Account, AccountDto>).ToList());
     }
 
+    public override async Task<AccountDto> CreateAsync(CreateUpdateAccountDto input)
+    {
+        if (string.IsNullOrWhiteSpace(input.Currency))
+        {
+            var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+            var company = await companyRepo.FindAsync(input.CompanyId);
+            if (company != null)
+            {
+                input.Currency = company.CurrencyCode;
+            }
+        }
+        return await base.CreateAsync(input);
+    }
+
     protected override Account MapToEntity(CreateUpdateAccountDto input)
     {
         var entity = new Account(
