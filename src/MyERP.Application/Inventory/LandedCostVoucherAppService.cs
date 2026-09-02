@@ -60,7 +60,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
     /// LandedCostItem.ReceiptId is the source document's ID (a PurchaseReceipt or PurchaseInvoice),
     /// NOT a warehouse ID — both document types carry a single header-level WarehouseId.
     /// </summary>
-    private async Task<Guid?> ResolveWarehouseIdAsync(string receiptType, Guid receiptId)
+    private async Task<Guid?> ResolveWarehouseIdAsync(string receiptType, Guid receiptId, Guid? itemId = null)
     {
         if (receiptType == "PurchaseReceipt")
         {
@@ -71,6 +71,21 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
         {
             var pi = await _purchaseInvoiceRepository.FindAsync(receiptId);
             return pi?.WarehouseId;
+        }
+        if (receiptType == "StockEntry")
+        {
+            var stockEntryRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
+            var seQuery = await stockEntryRepo.WithDetailsAsync(se => se.Items);
+            var se = seQuery.FirstOrDefault(s => s.Id == receiptId);
+            if (se != null)
+            {
+                if (itemId.HasValue)
+                {
+                    var item = se.Items.FirstOrDefault(i => i.ItemId == itemId.Value && i.TargetWarehouseId.HasValue);
+                    if (item != null) return item.TargetWarehouseId;
+                }
+                return se.Items.FirstOrDefault(i => i.TargetWarehouseId.HasValue)?.TargetWarehouseId;
+            }
         }
         return null;
     }
@@ -488,10 +503,12 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                         .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be submitted.");
                 }
 
-                if (se.EntryType != StockEntryType.MaterialReceipt)
+                if (se.EntryType != StockEntryType.MaterialReceipt &&
+                    se.EntryType != StockEntryType.Manufacture &&
+                    se.EntryType != StockEntryType.Repack)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be of entry type Material Receipt.");
+                        .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be of entry type Material Receipt, Manufacture, or Repack.");
                 }
 
                 foreach (var item in se.Items)
