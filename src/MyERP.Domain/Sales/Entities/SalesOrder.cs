@@ -79,14 +79,21 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     /// <summary>Source quotation (if converted from quotation).</summary>
     public Guid? QuotationId { get; set; }
 
+    /// <summary>Order type: Sales, Maintenance, or Shopping Cart (per ERPNext PR #52475 / commit 1a22e3cb61).</summary>
+    public SalesOrderType OrderType { get; set; } = SalesOrderType.Sales;
+
+    /// <summary>When true, order does not require Delivery Notes (e.g. maintenance or service orders).</summary>
+    public bool SkipDeliveryNote { get; set; }
+
     /// <summary>
     /// Percentage of total qty delivered (0-100). Excludes closed rows and service items.
-    /// If all items skip delivery or are closed, returns 100%.
+    /// If all items skip delivery, order skips delivery, or all are closed, returns 100%.
     /// </summary>
     public decimal PerDelivered
     {
         get
         {
+            if (SkipDeliveryNote || OrderType == SalesOrderType.Maintenance) return 100m;
             var deliverable = _items.Where(i => !i.SkipDelivery && !i.IsClosed).ToList();
             if (deliverable.Count == 0) return _items.Count > 0 ? 100m : 0m;
             return Math.Round(deliverable.Min(i => i.Quantity > 0 ? i.DeliveredQty / i.Quantity * 100 : 100m), 2);

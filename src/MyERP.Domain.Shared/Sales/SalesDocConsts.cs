@@ -17,6 +17,13 @@ public static class SalesOrderConsts
     public const int MaxCustomerPoLength = 50;
 }
 
+public enum SalesOrderType
+{
+    Sales = 0,
+    Maintenance = 1,
+    ShoppingCart = 2,
+}
+
 public static class DunningTypeConsts
 {
     public const int MaxDunningTypeNameLength = 100;
