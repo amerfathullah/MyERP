@@ -90,6 +90,15 @@ public class Customer : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Delivery Note required before Sales Invoice can be created for this customer.</summary>
     public bool DnRequired { get; set; }
 
+    /// <summary>Source Lead ID if customer was converted from a Lead (PR #50665 / commit 310099f4cd).</summary>
+    public Guid? LeadId { get; set; }
+
+    /// <summary>Source Opportunity ID if customer was converted from an Opportunity (PR #50665 / commit 310099f4cd).</summary>
+    public Guid? OpportunityId { get; set; }
+
+    /// <summary>Source Prospect ID if customer was converted from a Prospect (PR #50665 / commit 310099f4cd).</summary>
+    public Guid? ProspectId { get; set; }
+
     protected Customer() { }
 
     public Customer(Guid id, Guid companyId, string name, Guid? tenantId = null) : base(id)

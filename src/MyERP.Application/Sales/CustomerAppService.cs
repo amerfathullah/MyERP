@@ -187,6 +187,9 @@ public class CustomerAppService :
         entity.RestrictToCompanies = input.RestrictToCompanies;
         entity.SoRequired = input.SoRequired;
         entity.DnRequired = input.DnRequired;
+        entity.LeadId = input.LeadId;
+        entity.OpportunityId = input.OpportunityId;
+        entity.ProspectId = input.ProspectId;
     }
 }
 

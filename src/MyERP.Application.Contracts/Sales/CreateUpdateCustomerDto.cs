@@ -75,4 +75,7 @@ public class CreateUpdateCustomerDto
     public bool RestrictToCompanies { get; set; }
     public bool SoRequired { get; set; }
     public bool DnRequired { get; set; }
+    public Guid? LeadId { get; set; }
+    public Guid? OpportunityId { get; set; }
+    public Guid? ProspectId { get; set; }
 }
