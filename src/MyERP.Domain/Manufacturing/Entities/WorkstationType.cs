@@ -68,6 +68,10 @@ public class WorkstationTypeCost : FullAuditedEntity<Guid>
     protected WorkstationTypeCost() { }
     public WorkstationTypeCost(Guid id, Guid workstationTypeId, string component, decimal cost) : base(id)
     {
+        if (cost < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(cost));
+
         WorkstationTypeId = workstationTypeId;
         OperatingComponent = component;
         OperatingCost = cost;

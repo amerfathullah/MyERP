@@ -487,4 +487,22 @@ public class DataIntegrityAndCoverageTests
     {
         Assert.Equal("MyERP:08014", MyERP.MyERPDomainErrorCodes.ReturnPartyMismatch);
     }
+
+    // === Workstation and WorkstationType Non-Negative Validation ===
+
+    [Fact]
+    public void Workstation_NegativeCapacityOrCost_ThrowsBusinessException()
+    {
+        var ws = new Manufacturing.Entities.Workstation(Guid.NewGuid(), Guid.NewGuid(), "WS-01");
+        Assert.Throws<Volo.Abp.BusinessException>(() => ws.ProductionCapacity = -1);
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            new Manufacturing.Entities.WorkstationCost(Guid.NewGuid(), ws.Id, "Electricity", -50m));
+    }
+
+    [Fact]
+    public void WorkstationTypeCost_NegativeCost_ThrowsBusinessException()
+    {
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            new Manufacturing.Entities.WorkstationTypeCost(Guid.NewGuid(), Guid.NewGuid(), "Electricity", -25m));
+    }
 }

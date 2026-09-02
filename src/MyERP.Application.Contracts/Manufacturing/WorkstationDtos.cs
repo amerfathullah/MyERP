@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -15,6 +16,7 @@ public class WorkstationDto : EntityDto<Guid>
     public decimal HourRate { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; }
+    public Guid? HolidayListId { get; set; }
     public WorkstationCostDto[] Costs { get; set; } = [];
     public WorkstationWorkingHourDto[] WorkingHours { get; set; } = [];
 }
@@ -25,7 +27,7 @@ public class WorkstationCostDto
     public decimal Amount { get; set; }
 }
 
-public class WorkstationWorkingHourDto
+public class WorkstationWorkingHourDto : EntityDto<Guid>
 {
     public string DayOfWeek { get; set; } = null!;
     public string StartTime { get; set; } = null!;
@@ -38,6 +40,7 @@ public class CreateWorkstationDto
     public string Name { get; set; } = null!;
     public string? WorkstationType { get; set; }
     public Guid? WorkstationTypeId { get; set; }
+    [Range(0, int.MaxValue)]
     public int ProductionCapacity { get; set; } = 1;
     public string? Description { get; set; }
     public CreateWorkstationCostDto[] Costs { get; set; } = [];
@@ -46,6 +49,7 @@ public class CreateWorkstationDto
 public class CreateWorkstationCostDto
 {
     public string Component { get; set; } = null!;
+    [Range(0, double.MaxValue)]
     public decimal OperatingCost { get; set; }
 }
 

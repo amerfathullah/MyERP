@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -29,6 +30,7 @@ public class CreateWorkstationTypeDto
 public class CreateWorkstationTypeCostDto
 {
     public string Component { get; set; } = null!;
+    [Range(0, double.MaxValue)]
     public decimal OperatingCost { get; set; }
 }
 

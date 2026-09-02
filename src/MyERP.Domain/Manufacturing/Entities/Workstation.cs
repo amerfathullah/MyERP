@@ -26,8 +26,20 @@ public class Workstation : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// mirroring ERPNext workstation.py _set_data_based_on_workstation_type).</summary>
     public Guid? WorkstationTypeId { get; set; }
 
-    /// <summary>Concurrent jobs allowed (default 1).</summary>
-    public int ProductionCapacity { get; set; } = 1;
+    private int _productionCapacity = 1;
+
+    /// <summary>Concurrent jobs allowed (default 1). Non-negative (PR #48557 / commit 92a12d7fea).</summary>
+    public int ProductionCapacity
+    {
+        get => _productionCapacity;
+        set
+        {
+            if (value < 0)
+                throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", nameof(ProductionCapacity));
+            _productionCapacity = value;
+        }
+    }
 
     /// <summary>Auto-calculated: SUM of all cost component operating_cost.</summary>
     public decimal HourRate { get; private set; }
@@ -93,6 +105,10 @@ public class WorkstationCost : FullAuditedEntity<Guid>
     protected WorkstationCost() { }
     public WorkstationCost(Guid id, Guid workstationId, string component, decimal cost) : base(id)
     {
+        if (cost < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(cost));
+
         WorkstationId = workstationId;
         OperatingComponent = component;
         OperatingCost = cost;
