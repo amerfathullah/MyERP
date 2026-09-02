@@ -123,6 +123,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 FixedTime = op.FixedTime,
                 Description = op.Description,
                 IsSubcontracted = op.IsSubcontracted,
+                QualityInspectionRequired = op.QualityInspectionRequired,
             };
             if (op.WorkstationHourRate > 0)
                 bomOp.CalculateCost(op.WorkstationHourRate);
@@ -192,6 +193,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 FixedTime = op.FixedTime,
                 Description = op.Description,
                 IsSubcontracted = op.IsSubcontracted,
+                QualityInspectionRequired = op.QualityInspectionRequired,
             };
             if (op.WorkstationHourRate > 0)
                 bomOp.CalculateCost(op.WorkstationHourRate);

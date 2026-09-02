@@ -51,6 +51,9 @@ public class BomOperation : FullAuditedEntity<Guid>, IMultiTenant
     /// <summary>Whether this is the final finished good operation of the BOM.</summary>
     public bool IsFinalFinishedGood { get; set; }
 
+    /// <summary>Whether quality inspection is required for this specific operation (per ERPNext PR #53859).</summary>
+    public bool QualityInspectionRequired { get; set; }
+
     protected BomOperation() { }
 
     public BomOperation(Guid id, Guid bomId, Guid operationId, int sequenceId,

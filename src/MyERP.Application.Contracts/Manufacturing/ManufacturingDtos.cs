@@ -58,6 +58,7 @@ public class BomOperationDto
     public decimal FixedTime { get; set; }
     public string? Description { get; set; }
     public bool IsSubcontracted { get; set; }
+    public bool QualityInspectionRequired { get; set; }
 }
 
 public class BomItemDto
@@ -132,6 +133,7 @@ public class CreateBomOperationDto
     public decimal FixedTime { get; set; }
     public string? Description { get; set; }
     public bool IsSubcontracted { get; set; }
+    public bool QualityInspectionRequired { get; set; }
     public decimal WorkstationHourRate { get; set; }
 }
 
