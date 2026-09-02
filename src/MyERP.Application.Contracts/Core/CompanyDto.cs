@@ -45,6 +45,7 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public Guid? DefaultPayableAccountId { get; set; }
     public Guid? DefaultIncomeAccountId { get; set; }
     public Guid? DefaultExpenseAccountId { get; set; }
+    public Guid? ServiceExpenseAccountId { get; set; }
     public Guid? DefaultTaxPayableAccountId { get; set; }
     public Guid? DefaultBankAccountId { get; set; }
     public Guid? DefaultInventoryAccountId { get; set; }

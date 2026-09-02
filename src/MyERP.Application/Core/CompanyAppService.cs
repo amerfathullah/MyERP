@@ -143,6 +143,7 @@ public class CompanyAppService :
         entity.DefaultPayableAccountId = input.DefaultPayableAccountId;
         entity.DefaultIncomeAccountId = input.DefaultIncomeAccountId;
         entity.DefaultExpenseAccountId = input.DefaultExpenseAccountId;
+        entity.ServiceExpenseAccountId = input.ServiceExpenseAccountId;
         entity.DefaultTaxPayableAccountId = input.DefaultTaxPayableAccountId;
         entity.DefaultBankAccountId = input.DefaultBankAccountId;
         entity.DefaultInventoryAccountId = input.DefaultInventoryAccountId;

@@ -77,6 +77,7 @@ public class CreateUpdateCompanyDto
     public System.Guid? DefaultPayableAccountId { get; set; }
     public System.Guid? DefaultIncomeAccountId { get; set; }
     public System.Guid? DefaultExpenseAccountId { get; set; }
+    public System.Guid? ServiceExpenseAccountId { get; set; }
     public System.Guid? DefaultTaxPayableAccountId { get; set; }
     public System.Guid? DefaultBankAccountId { get; set; }
     public System.Guid? DefaultInventoryAccountId { get; set; }

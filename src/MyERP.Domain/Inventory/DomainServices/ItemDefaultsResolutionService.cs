@@ -41,15 +41,27 @@ public class ItemDefaultsResolutionService : DomainService
 
     /// <summary>
     /// Resolves the expense/COGS account for an item (for purchasing/COGS GL posting).
-    /// Chain: Item.DefaultExpenseAccountId → ItemGroup hierarchy (traverse parents up) → null.
+    /// Chain: Item.DefaultExpenseAccountId → ItemGroup hierarchy (traverse parents up) → Company.ServiceExpenseAccountId (for non-stock/service items) → null.
     /// </summary>
-    public async Task<Guid?> ResolveExpenseAccountAsync(Guid itemId)
+    public async Task<Guid?> ResolveExpenseAccountAsync(Guid itemId, Guid? companyId = null)
     {
         var item = await _itemRepository.GetAsync(itemId);
         if (item.DefaultExpenseAccountId.HasValue)
             return item.DefaultExpenseAccountId;
 
-        return await TraverseGroupHierarchyAsync(item.ItemGroupId, g => g.DefaultExpenseAccountId);
+        var groupAccount = await TraverseGroupHierarchyAsync(item.ItemGroupId, g => g.DefaultExpenseAccountId);
+        if (groupAccount.HasValue)
+            return groupAccount;
+
+        if (!item.MaintainStock && companyId.HasValue)
+        {
+            var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+            var company = await companyRepo.FindAsync(companyId.Value);
+            if (company?.ServiceExpenseAccountId.HasValue == true)
+                return company.ServiceExpenseAccountId;
+        }
+
+        return null;
     }
 
     /// <summary>

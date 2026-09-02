@@ -77,6 +77,8 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? DefaultIncomeAccountId { get; set; }
     /// <summary>Default Expense account (COGS).</summary>
     public Guid? DefaultExpenseAccountId { get; set; }
+    /// <summary>Default expense account for non-stock / service items. Per ERPNext PR #50007 / commit 4605051903.</summary>
+    public Guid? ServiceExpenseAccountId { get; set; }
     /// <summary>Default Tax Payable account (e.g. SST Payable) for output tax collected on sales.</summary>
     public Guid? DefaultTaxPayableAccountId { get; set; }
     /// <summary>Default Bank account.</summary>
