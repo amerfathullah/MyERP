@@ -776,6 +776,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             await scioRepo.UpdateAsync(scio);
         }
 
+        // Release Blanket Order allocation for undelivered quantities (PR #54593)
+        await ReleaseBlanketOrdersOnCloseAsync(order);
+
         await _repository.UpdateAsync(order, autoSave: true);
         var closeDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
         closeDto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
@@ -827,6 +830,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
         }
 
+        // Re-record Blanket Order allocation for pending delivery quantities (PR #54593)
+        await ConsumeBlanketOrdersOnReopenAsync(order);
+
         await _repository.UpdateAsync(order, autoSave: true);
         var reopenDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
         reopenDto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
@@ -852,6 +858,20 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                 item.ItemId, item.WarehouseId.Value, -pendingStockQty, order.TenantId);
         }
 
+        // Release Blanket Order allocation for closed item (PR #54593)
+        if (item.BlanketOrderId.HasValue && pendingQty > 0)
+        {
+            var pendingStockQty = pendingQty * item.ConversionFactor;
+            var boRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+            var bo = await boRepo.FindAsync(item.BlanketOrderId.Value);
+            if (bo != null)
+            {
+                var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                boItem?.UnrecordOrder(pendingStockQty);
+                await boRepo.UpdateAsync(bo);
+            }
+        }
+
         await _repository.UpdateAsync(order, autoSave: true);
         var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
         dto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
@@ -874,6 +894,22 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             var pendingStockQty = item.PendingDeliveryQty * item.ConversionFactor;
             await _binService.UpdateReservedQtyAsync(
                 item.ItemId, item.WarehouseId.Value, pendingStockQty, order.TenantId);
+        }
+
+        // Re-record Blanket Order allocation for reopened item (PR #54593)
+        if (item.BlanketOrderId.HasValue && item.PendingDeliveryQty > 0)
+        {
+            var pendingStockQty = item.PendingDeliveryQty * item.ConversionFactor;
+            var allowancePct = await SettingProvider.GetAsync(
+                MyERP.Settings.MyERPSettings.Selling.BlanketOrderAllowance, 0m);
+            var boRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+            var bo = await boRepo.FindAsync(item.BlanketOrderId.Value);
+            if (bo != null)
+            {
+                var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                boItem?.RecordOrder(pendingStockQty, allowancePct);
+                await boRepo.UpdateAsync(bo);
+            }
         }
 
         await _repository.UpdateAsync(order, autoSave: true);
@@ -980,6 +1016,50 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             {
                 var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
                 boItem?.UnrecordOrder(item.StockQty);
+            }
+            await boRepository.UpdateAsync(bo);
+        }
+    }
+
+    /// <summary>Releases Blanket Order allocation for undelivered quantities when an order is closed (PR #54593).</summary>
+    private async Task ReleaseBlanketOrdersOnCloseAsync(SalesOrder order)
+    {
+        var linkedItems = order.Items.Where(i => i.BlanketOrderId.HasValue && i.PendingDeliveryQty > 0).ToList();
+        if (linkedItems.Count == 0) return;
+
+        var boRepository = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+        foreach (var group in linkedItems.GroupBy(i => i.BlanketOrderId!.Value))
+        {
+            var bo = await boRepository.FindAsync(group.Key);
+            if (bo == null) continue;
+            foreach (var item in group)
+            {
+                var pendingStockQty = item.PendingDeliveryQty * item.ConversionFactor;
+                var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                boItem?.UnrecordOrder(pendingStockQty);
+            }
+            await boRepository.UpdateAsync(bo);
+        }
+    }
+
+    /// <summary>Re-records Blanket Order allocation for pending delivery quantities when an order is reopened (PR #54593).</summary>
+    private async Task ConsumeBlanketOrdersOnReopenAsync(SalesOrder order)
+    {
+        var linkedItems = order.Items.Where(i => i.BlanketOrderId.HasValue && i.PendingDeliveryQty > 0).ToList();
+        if (linkedItems.Count == 0) return;
+
+        var allowancePct = await SettingProvider.GetAsync(
+            MyERP.Settings.MyERPSettings.Selling.BlanketOrderAllowance, 0m);
+        var boRepository = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+        foreach (var group in linkedItems.GroupBy(i => i.BlanketOrderId!.Value))
+        {
+            var bo = await boRepository.FindAsync(group.Key);
+            if (bo == null) continue;
+            foreach (var item in group)
+            {
+                var pendingStockQty = item.PendingDeliveryQty * item.ConversionFactor;
+                var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                boItem?.RecordOrder(pendingStockQty, allowancePct);
             }
             await boRepository.UpdateAsync(bo);
         }
