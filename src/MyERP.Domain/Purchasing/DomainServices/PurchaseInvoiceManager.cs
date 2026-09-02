@@ -281,11 +281,11 @@ public class PurchaseInvoiceManager : DomainService
     /// <summary>
     /// Mandatory PO linkage: every PI item must reference a Purchase Order.
     /// Per ERPNext accounts/doctype/purchase_invoice/purchase_invoice.py → po_required().
-    /// Skipped for return invoices.
+    /// Skipped for return invoices and internal transfer / inter-company invoices (PR #53791).
     /// </summary>
     public static void ValidatePoRequired(PurchaseInvoice invoice, bool poRequired)
     {
-        if (!poRequired || invoice.IsReturn) return;
+        if (!poRequired || invoice.IsReturn || invoice.InterCompanyInvoiceId.HasValue) return;
 
         var unlinkedItem = invoice.Items.FirstOrDefault(i => !i.PurchaseOrderItemId.HasValue);
         if (unlinkedItem != null)
