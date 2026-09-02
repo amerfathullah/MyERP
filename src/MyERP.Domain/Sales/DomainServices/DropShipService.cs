@@ -25,13 +25,19 @@ namespace MyERP.Sales.DomainServices;
 public class DropShipService : DomainService
 {
     private readonly IRepository<PurchaseOrder, Guid> _poRepository;
+    private readonly IRepository<Supplier, Guid> _supplierRepository;
+    private readonly IRepository<MyERP.Core.Entities.Company, Guid> _companyRepository;
     private readonly IGuidGenerator _guidGenerator;
 
     public DropShipService(
         IRepository<PurchaseOrder, Guid> poRepository,
+        IRepository<Supplier, Guid> supplierRepository,
+        IRepository<MyERP.Core.Entities.Company, Guid> companyRepository,
         IGuidGenerator guidGenerator)
     {
         _poRepository = poRepository;
+        _supplierRepository = supplierRepository;
+        _companyRepository = companyRepository;
         _guidGenerator = guidGenerator;
     }
 
@@ -68,6 +74,9 @@ public class DropShipService : DomainService
                 salesOrder.OrderDate,
                 salesOrder.TenantId);
 
+            var supplier = await _supplierRepository.FindAsync(supplierId);
+            var company = await _companyRepository.FindAsync(salesOrder.CompanyId);
+            po.CurrencyCode = supplier?.DefaultCurrency ?? company?.CurrencyCode ?? "MYR";
             po.Notes = $"Drop-ship order for SO {salesOrder.OrderNumber}";
 
             foreach (var soItem in supplierGroup)

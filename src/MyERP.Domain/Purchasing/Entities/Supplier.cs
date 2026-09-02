@@ -48,6 +48,9 @@ public class Supplier : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Default payable account for this supplier.</summary>
     public Guid? DefaultPayableAccountId { get; set; }
 
+    /// <summary>Default currency for purchase orders/invoices from this supplier.</summary>
+    public string? DefaultCurrency { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     /// <summary>
