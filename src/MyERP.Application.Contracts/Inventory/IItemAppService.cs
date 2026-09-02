@@ -20,6 +20,15 @@ public class GetItemListDto : PagedAndSortedResultRequestDto
 
     /// <summary>When set, filters by template status (e.g. HasVariants=true for Variant Of filter).</summary>
     public bool? HasVariants { get; set; }
+
+    /// <summary>When set, filters by batch tracking status (e.g. HasBatchNo=true for Batch Item filter).</summary>
+    public bool? HasBatchNo { get; set; }
+
+    /// <summary>When set, filters by serial number tracking status.</summary>
+    public bool? HasSerialNo { get; set; }
+
+    /// <summary>When set, filters by stock maintenance status (is_stock_item).</summary>
+    public bool? MaintainStock { get; set; }
 }
 
 /// <summary>

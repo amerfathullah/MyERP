@@ -188,6 +188,21 @@ public class ItemAppService :
             queryable = queryable.Where(i => i.HasVariants == input.HasVariants.Value);
         }
 
+        if (input.HasBatchNo.HasValue)
+        {
+            queryable = queryable.Where(i => i.HasBatchNo == input.HasBatchNo.Value);
+        }
+
+        if (input.HasSerialNo.HasValue)
+        {
+            queryable = queryable.Where(i => i.HasSerialNo == input.HasSerialNo.Value);
+        }
+
+        if (input.MaintainStock.HasValue)
+        {
+            queryable = queryable.Where(i => i.MaintainStock == input.MaintainStock.Value);
+        }
+
         if (input.CustomerId.HasValue || input.SupplierId.HasValue)
         {
             var partyFilter = await GetPartySpecificItemFilterAsync(input.CustomerId, input.SupplierId);
