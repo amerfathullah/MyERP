@@ -14,5 +14,6 @@ public enum DocumentStatus
     ToDeliver = 11,
     ToBill = 12,
     Completed = 13,
-    Closed = 14
+    Closed = 14,
+    PartiallyBilled = 15
 }

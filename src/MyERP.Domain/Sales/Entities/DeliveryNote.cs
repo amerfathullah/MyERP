@@ -112,10 +112,26 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// when SI items reference DN items.
     /// Per ERPNext: update_billed_amount_based_on_so updates DN Item billed_amt.
     /// </summary>
+    /// <summary>
+    /// Delivery Note Billing Status indicator per ERPNext status updater (PR #51997 / commit 7767000ccf):
+    /// Draft -> To Bill (0%) -> Partially Billed (0-100%) -> Completed (100%) / Return / Cancelled
+    /// </summary>
+    public string BillingStatus
+    {
+        get
+        {
+            if (Status == DocumentStatus.Draft) return "Draft";
+            if (Status == DocumentStatus.Cancelled) return "Cancelled";
+            if (IsReturn) return "Return";
+            if (PerBilled >= 100m) return "Completed";
+            if (PerBilled > 0m) return "Partially Billed";
+            return "To Bill";
+        }
+    }
+
     public void UpdateBillingStatus()
     {
-        // Status auto-transition not needed on DN (DN stays Submitted until cancelled)
-        // PerBilled is computed from item-level BilledQty
+        // PerBilled is computed dynamically from item-level BilledQty
     }
 
     protected DeliveryNote() { }
@@ -188,7 +204,6 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     {
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-
         Status = DocumentStatus.Cancelled;
     }
 
