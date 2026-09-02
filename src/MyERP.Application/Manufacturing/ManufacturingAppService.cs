@@ -1048,6 +1048,10 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.Close();
         await _workOrderRepository.UpdateAsync(wo);
 
+        // Cancel any active stock reservations for this Work Order (per ERPNext PR #50773 / commit 9b5d215a7a)
+        var sreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+        await sreManager.CancelReservationsForVoucherAsync(wo.Id);
+
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "WorkOrder", wo.Id,
@@ -1116,6 +1120,10 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         wo.Cancel();
         await _workOrderRepository.UpdateAsync(wo);
+
+        // Cancel any active stock reservations for this Work Order (per ERPNext PR #50773 / commit 9b5d215a7a)
+        var cancelSreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+        await cancelSreManager.CancelReservationsForVoucherAsync(wo.Id);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(

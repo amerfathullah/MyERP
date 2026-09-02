@@ -132,13 +132,14 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
-    /// Cancels all active reservations for a Sales Order (used on SO cancel/close).
+    /// Cancels all active reservations for a voucher (used on SO/WO cancel/close).
+    /// Per ERPNext PR #50773 / commit 9b5d215a7a.
     /// </summary>
-    public async Task CancelReservationsForOrderAsync(Guid salesOrderId)
+    public async Task CancelReservationsForVoucherAsync(Guid voucherId)
     {
         var queryable = await _sreRepository.GetQueryableAsync();
         var activeSres = queryable
-            .Where(s => s.VoucherId == salesOrderId
+            .Where(s => s.VoucherId == voucherId
                 && s.Status == DocumentStatus.Submitted)
             .ToList();
 
@@ -148,6 +149,12 @@ public class StockReservationManager : DomainService
             await _sreRepository.UpdateAsync(sre);
         }
     }
+
+    /// <summary>
+    /// Cancels all active reservations for a Sales Order (used on SO cancel/close).
+    /// </summary>
+    public async Task CancelReservationsForOrderAsync(Guid salesOrderId) =>
+        await CancelReservationsForVoucherAsync(salesOrderId);
 
     /// <summary>
     /// Validates a Delivery Note item's warehouse against active reservations for its SO item,
