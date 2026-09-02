@@ -90,9 +90,22 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
             await itemValidation.ValidateItemsForTransactionAsync(input.StockItems.Select(i => i.ItemId).ToArray());
         }
 
+        // Validate non-negative repair cost (ERPNext PR #49190 / commit c140596ab3)
+        if (input.RepairCost < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "RepairCost");
+        }
+
         // Validate duplicate purchase invoice rows (per ERPNext PR #50804 / commit ff9b392024)
         if (input.Invoices != null && input.Invoices.Any())
         {
+            if (input.Invoices.Any(i => i.RepairCost < 0))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", "RepairCost");
+            }
+
             var duplicates = input.Invoices
                 .GroupBy(i => (i.PurchaseInvoiceId, i.ExpenseAccountId))
                 .Where(g => g.Count() > 1)
@@ -203,9 +216,22 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
             await itemValidation.ValidateItemsForTransactionAsync(input.StockItems.Select(i => i.ItemId).ToArray());
         }
 
+        // Validate non-negative repair cost (ERPNext PR #49190 / commit c140596ab3)
+        if (input.RepairCost < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "RepairCost");
+        }
+
         // Validate duplicate purchase invoice rows (per ERPNext PR #50804 / commit ff9b392024)
         if (input.Invoices != null && input.Invoices.Any())
         {
+            if (input.Invoices.Any(i => i.RepairCost < 0))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", "RepairCost");
+            }
+
             var duplicates = input.Invoices
                 .GroupBy(i => (i.PurchaseInvoiceId, i.ExpenseAccountId))
                 .Where(g => g.Count() > 1)

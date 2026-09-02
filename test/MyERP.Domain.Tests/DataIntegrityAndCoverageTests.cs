@@ -406,4 +406,22 @@ public class DataIntegrityAndCoverageTests
         Assert.Throws<Volo.Abp.BusinessException>(() =>
             mgr.ValidateTransferQty(requiredQty: 100m, transferredQty: 50m, requestedQty: 65m, extraMaterialPercentage: 10m));
     }
+
+    // === Asset Repair Non-Negative Repair Cost ===
+
+    [Fact]
+    public void AssetRepairPurchaseInvoice_NegativeRepairCost_ThrowsBusinessException()
+    {
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            new Assets.Entities.AssetRepairPurchaseInvoice(
+                Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), -50m));
+    }
+
+    [Fact]
+    public void AssetRepair_AddInvoice_NegativeRepairCost_ThrowsBusinessException()
+    {
+        var repair = new Assets.Entities.AssetRepair(Guid.NewGuid(), "AR-001", Guid.NewGuid(), Guid.NewGuid());
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            repair.AddInvoice(Guid.NewGuid(), Guid.NewGuid(), -100m));
+    }
 }

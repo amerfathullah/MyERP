@@ -25,6 +25,12 @@ public class AssetRepairPurchaseInvoice : FullAuditedEntity<Guid>, IMultiTenant
         Guid? tenantId = null)
         : base(id)
     {
+        if (repairCost < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "RepairCost");
+        }
+
         AssetRepairId = assetRepairId;
         PurchaseInvoiceId = purchaseInvoiceId;
         RepairCost = repairCost;

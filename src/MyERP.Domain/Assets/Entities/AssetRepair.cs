@@ -100,6 +100,12 @@ public class AssetRepair : FullAuditedAggregateRoot<Guid>, IMultiTenant
         string? purchaseInvoiceNumber = null,
         Guid? expenseAccountId = null)
     {
+        if (repairCost < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "RepairCost");
+        }
+
         var invoice = new AssetRepairPurchaseInvoice(
             id,
             Id,
