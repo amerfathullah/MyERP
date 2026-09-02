@@ -54,12 +54,22 @@ public class MaterialRequestManager : DomainService
     }
 
     /// <summary>
-    /// Checks if a Material Request is fully fulfilled (all items ordered/transferred).
-    /// Uses 99.99% threshold for float tolerance (per ERPNext per_ordered rounding).
+    /// Checks if a Material Request is fully fulfilled (all items ordered/transferred or received).
+    /// Uses 99.99% threshold for float tolerance (per ERPNext per_ordered/per_received rounding).
+    /// Per ERPNext PR #56621: if PerReceived >= 99.99m, it is fulfilled even if PerOrdered is less.
     /// </summary>
     public bool IsFullyFulfilled(MaterialRequest mr)
     {
         if (!mr.Items.Any()) return false;
+
+        var allReceived = mr.Items.All(item =>
+        {
+            if (item.Quantity <= 0) return true;
+            var perReceived = (item.ReceivedQuantity / item.Quantity) * 100;
+            return perReceived >= 99.99m;
+        });
+
+        if (allReceived) return true;
 
         return mr.Items.All(item =>
         {
