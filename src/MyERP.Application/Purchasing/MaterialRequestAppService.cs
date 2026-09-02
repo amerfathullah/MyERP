@@ -168,6 +168,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         entity.Submit();
         await _repository.UpdateAsync(entity);
         await ApplyIndentedQtyAsync(entity, sign: 1);
+        await ApplySalesOrderRequestedQtyAsync(entity, sign: 1);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
         await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
@@ -185,6 +186,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         entity.Cancel();
         await _repository.UpdateAsync(entity);
         await ApplyIndentedQtyAsync(entity, sign: -1);
+        await ApplySalesOrderRequestedQtyAsync(entity, sign: -1);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
         await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
@@ -193,6 +195,33 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             CurrentUser.Id, tenantId: entity.TenantId));
 
         return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
+    }
+
+    /// <summary>
+    /// Updates SalesOrderItem.RequestedQty on MR submit (+1) and cancel (-1) per ERPNext PR #52835, #52825.
+    /// </summary>
+    private async Task ApplySalesOrderRequestedQtyAsync(MaterialRequest entity, int sign)
+    {
+        var soItems = entity.Items.Where(i => i.SalesOrderId.HasValue && i.SalesOrderItemId.HasValue).ToList();
+        if (!soItems.Any()) return;
+
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+        var soGroups = soItems.GroupBy(i => i.SalesOrderId!.Value);
+        foreach (var group in soGroups)
+        {
+            var so = await soRepo.FindAsync(group.Key);
+            if (so == null) continue;
+
+            foreach (var mrItem in group)
+            {
+                var targetSoItem = so.Items.FirstOrDefault(i => i.Id == mrItem.SalesOrderItemId!.Value);
+                if (targetSoItem != null)
+                {
+                    targetSoItem.RequestedQty = Math.Max(0, targetSoItem.RequestedQty + (sign * mrItem.Quantity));
+                }
+            }
+            await soRepo.UpdateAsync(so);
+        }
     }
 
     /// <summary>

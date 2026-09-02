@@ -331,6 +331,12 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Quantity returned via sales returns (Delivery Note return).</summary>
     public decimal ReturnedQty { get; set; }
 
+    /// <summary>Quantity requested via Material Requests created from this Sales Order line.</summary>
+    public decimal RequestedQty { get; set; }
+
+    /// <summary>Quantity ordered via Purchase Orders created from this Sales Order line (e.g. drop-ship).</summary>
+    public decimal OrderedQty { get; set; }
+
     /// <summary>
     /// Billable quantity accounting for deliveries, returns, and re-deliveries.
     /// Per ERPNext PR #114ba42850:
