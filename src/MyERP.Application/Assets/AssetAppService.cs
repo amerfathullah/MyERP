@@ -126,6 +126,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         };
 
         await ValidateDepreciationAccountsAsync(asset);
+        await ValidateLinkedPurchaseDocumentsAsync(asset);
 
         if (asset.CalculateDepreciation)
             asset.GenerateDepreciationSchedule();
@@ -169,12 +170,84 @@ public class AssetAppService : ApplicationService, IAssetAppService
         asset.Notes = input.Notes;
 
         await ValidateDepreciationAccountsAsync(asset);
+        await ValidateLinkedPurchaseDocumentsAsync(asset);
 
         if (asset.CalculateDepreciation)
             asset.GenerateDepreciationSchedule();
 
         await _assetRepository.UpdateAsync(asset);
         return _assetMapper.Map(asset);
+    }
+
+    /// <summary>
+    /// Validates linked Purchase Receipt or Purchase Invoice is submitted and asset qty does not exceed purchased qty.
+    /// Per ERPNext PR #50941 / commit 2db09b3840.
+    /// </summary>
+    private async Task ValidateLinkedPurchaseDocumentsAsync(Asset asset)
+    {
+        if (asset.PurchaseReceiptId.HasValue)
+        {
+            var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseReceipt, Guid>>();
+            var pr = await prRepo.FindAsync(asset.PurchaseReceiptId.Value);
+            if (pr != null)
+            {
+                if (pr.Status != Core.DocumentStatus.Submitted)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Purchase Receipt '{pr.ReceiptNumber}' is not submitted. Please submit it before creating the Asset.");
+                }
+
+                if (asset.ItemId.HasValue)
+                {
+                    var purchasedQty = pr.Items
+                        .Where(i => i.ItemId == asset.ItemId.Value)
+                        .Sum(i => i.Quantity);
+
+                    var assetQuery = await _assetRepository.GetQueryableAsync();
+                    var existingAssetQty = assetQuery
+                        .Where(a => a.PurchaseReceiptId == pr.Id && a.ItemId == asset.ItemId.Value && a.Id != asset.Id && a.Status != AssetStatus.Cancelled)
+                        .Sum(a => (decimal?)a.AssetQuantity) ?? 0m;
+
+                    if ((existingAssetQty + asset.AssetQuantity) > purchasedQty)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"Created asset quantity ({existingAssetQty + asset.AssetQuantity}) exceeds purchased quantity ({purchasedQty}) in Purchase Receipt '{pr.ReceiptNumber}'.");
+                    }
+                }
+            }
+        }
+
+        if (asset.PurchaseInvoiceId.HasValue)
+        {
+            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var pi = await piRepo.FindAsync(asset.PurchaseInvoiceId.Value);
+            if (pi != null)
+            {
+                if (pi.Status != Core.DocumentStatus.Submitted)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Purchase Invoice '{pi.InvoiceNumber}' is not submitted. Please submit it before creating the Asset.");
+                }
+
+                if (asset.ItemId.HasValue)
+                {
+                    var purchasedQty = pi.Items
+                        .Where(i => i.ItemId == asset.ItemId.Value)
+                        .Sum(i => i.Quantity);
+
+                    var assetQuery = await _assetRepository.GetQueryableAsync();
+                    var existingAssetQty = assetQuery
+                        .Where(a => a.PurchaseInvoiceId == pi.Id && a.ItemId == asset.ItemId.Value && a.Id != asset.Id && a.Status != AssetStatus.Cancelled)
+                        .Sum(a => (decimal?)a.AssetQuantity) ?? 0m;
+
+                    if ((existingAssetQty + asset.AssetQuantity) > purchasedQty)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"Created asset quantity ({existingAssetQty + asset.AssetQuantity}) exceeds purchased quantity ({purchasedQty}) in Purchase Invoice '{pi.InvoiceNumber}'.");
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>
