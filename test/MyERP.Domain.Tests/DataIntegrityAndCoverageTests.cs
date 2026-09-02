@@ -340,4 +340,32 @@ public class DataIntegrityAndCoverageTests
         order.AddItem(Guid.NewGuid(), "Item A", 10, 100, 0, "Unit");
         Assert.Null(order.Items.First().WarehouseId);
     }
+
+    // === Taxes & Totals Discount Amount Validation ===
+
+    [Fact]
+    public void TaxesAndTotals_DiscountExceedingNetTotal_ThrowsBusinessException()
+    {
+        var service = new Tax.DomainServices.TaxesAndTotalsService();
+        var items = new System.Collections.Generic.List<Tax.DomainServices.TransactionItem>
+        {
+            new() { ItemId = Guid.NewGuid(), NetAmount = 100m, Qty = 1m }
+        };
+
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            service.Calculate(items, new System.Collections.Generic.List<Tax.Entities.TransactionTaxRow>(), discountAmount: 150m, applyDiscountOn: "Net Total"));
+    }
+
+    [Fact]
+    public void TaxesAndTotals_DiscountExceedingGrandTotal_ThrowsBusinessException()
+    {
+        var service = new Tax.DomainServices.TaxesAndTotalsService();
+        var items = new System.Collections.Generic.List<Tax.DomainServices.TransactionItem>
+        {
+            new() { ItemId = Guid.NewGuid(), NetAmount = 100m, Qty = 1m }
+        };
+
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            service.Calculate(items, new System.Collections.Generic.List<Tax.Entities.TransactionTaxRow>(), discountAmount: 150m, applyDiscountOn: "Grand Total"));
+    }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MyERP.Tax.Entities;
+using Volo.Abp;
 using Volo.Abp.Domain.Services;
 
 namespace MyERP.Tax.DomainServices;
@@ -43,24 +44,33 @@ public class TaxesAndTotalsService : DomainService
         decimal netTotal = items.Sum(i => i.NetAmount);
 
         // Step 2: Apply discount on net total (re-distributes to items)
-        if (discountAmount > 0 && applyDiscountOn == "Net Total" && netTotal > 0)
+        if (discountAmount > 0 && applyDiscountOn == "Net Total")
         {
-            foreach (var item in items)
+            if (netTotal > 0 && discountAmount > netTotal)
             {
-                var proportion = item.NetAmount / netTotal;
-                item.DiscountAmount = Math.Round(discountAmount * proportion, 2);
-                item.NetAmount -= item.DiscountAmount;
-            }
-            // Last item absorbs rounding difference (per ERPNext PR #58047)
-            var totalDistributed = items.Sum(i => i.DiscountAmount);
-            if (totalDistributed != discountAmount && items.Count > 0)
-            {
-                var diff = discountAmount - totalDistributed;
-                items[^1].DiscountAmount += diff;
-                items[^1].NetAmount -= diff;
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Additional Discount Amount ({discountAmount:N2}) cannot exceed the Net Total ({netTotal:N2}).");
             }
 
-            netTotal = items.Sum(i => i.NetAmount);
+            if (netTotal > 0)
+            {
+                foreach (var item in items)
+                {
+                    var proportion = item.NetAmount / netTotal;
+                    item.DiscountAmount = Math.Round(discountAmount * proportion, 2);
+                    item.NetAmount -= item.DiscountAmount;
+                }
+                // Last item absorbs rounding difference (per ERPNext PR #58047)
+                var totalDistributed = items.Sum(i => i.DiscountAmount);
+                if (totalDistributed != discountAmount && items.Count > 0)
+                {
+                    var diff = discountAmount - totalDistributed;
+                    items[^1].DiscountAmount += diff;
+                    items[^1].NetAmount -= diff;
+                }
+
+                netTotal = items.Sum(i => i.NetAmount);
+            }
         }
 
         // Step 3: Tax cascade — process items sequentially, taxes sequentially within each
@@ -162,6 +172,11 @@ public class TaxesAndTotalsService : DomainService
         // Step 5: Apply discount on grand total (post-tax)
         if (discountAmount > 0 && applyDiscountOn == "Grand Total")
         {
+            if (discountAmount > grandTotal)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Additional Discount Amount ({discountAmount:N2}) cannot exceed the Grand Total before discount ({grandTotal:N2}).");
+            }
             grandTotal -= discountAmount;
         }
 
