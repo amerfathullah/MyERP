@@ -20,6 +20,8 @@ public class StockEntryDto : FullAuditedEntityDto<Guid>
     public decimal ProcessLossPercentage { get; set; }
     public bool IsFgConversion { get; set; }
     public decimal WeightPerPiece { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
     public string? Notes { get; set; }
     public string Status { get; set; } = null!;
     public List<StockEntryItemDto> Items { get; set; } = new();
@@ -37,6 +39,8 @@ public class StockEntryItemDto
     public string? TargetWarehouseName { get; set; }
     public decimal? ValuationRate { get; set; }
     public bool IsFinishedItem { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ExpenseAccountId { get; set; }
 }
 
 public class CreateStockEntryDto
@@ -61,6 +65,8 @@ public class CreateStockEntryDto
     public decimal ProcessLossPercentage { get; set; }
     public bool IsFgConversion { get; set; }
     public decimal WeightPerPiece { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
 
     [StringLength(StockEntryConsts.MaxNoteLength)]
     public string? Notes { get; set; }
@@ -88,6 +94,9 @@ public class CreateStockEntryItemDto
     public bool IsFinishedItem { get; set; }
 
     public Guid? BatchId { get; set; }
+
+    public Guid? CostCenterId { get; set; }
+    public Guid? ExpenseAccountId { get; set; }
 }
 
 /// <summary>Pre-populated items for a Manufacture stock entry from Work Order BOM.</summary>

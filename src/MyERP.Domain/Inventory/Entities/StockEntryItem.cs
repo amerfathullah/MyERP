@@ -41,6 +41,12 @@ public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Link to source stock entry detail row (for Disassemble scale factor matching).</summary>
     public Guid? SourceStockEntryDetailId { get; set; }
 
+    /// <summary>Cost center for this line item (falls back to parent StockEntry.CostCenterId).</summary>
+    public Guid? CostCenterId { get; set; }
+
+    /// <summary>Expense account for this line item (e.g., Difference Account on repack/manufacture).</summary>
+    public Guid? ExpenseAccountId { get; set; }
+
     /// <summary>Stock UOM from Item master.</summary>
     public string StockUom { get; set; } = "Unit";
 

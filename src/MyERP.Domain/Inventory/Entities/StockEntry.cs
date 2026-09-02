@@ -78,6 +78,12 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     public string? Notes { get; set; }
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
+    /// <summary>Cost center for this stock entry (per ERPNext PR #53246).</summary>
+    public Guid? CostCenterId { get; set; }
+
+    /// <summary>Project for this stock entry.</summary>
+    public Guid? ProjectId { get; set; }
+
     /// <summary>Total value of incoming (stock-in) items. Computed from items with TargetWarehouseId.</summary>
     public decimal TotalIncomingValue => _items
         .Where(i => i.TargetWarehouseId.HasValue)

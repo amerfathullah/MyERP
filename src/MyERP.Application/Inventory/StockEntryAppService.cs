@@ -150,11 +150,17 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.SyncProcessLoss();
         entry.IsFgConversion = input.IsFgConversion;
         entry.WeightPerPiece = input.WeightPerPiece;
+        entry.CostCenterId = input.CostCenterId;
+        entry.ProjectId = input.ProjectId;
         entry.Notes = input.Notes;
 
         foreach (var item in input.Items)
         {
             entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate, item.IsFinishedItem, item.BatchId);
+            if (item.CostCenterId.HasValue || input.CostCenterId.HasValue)
+                entry.Items[^1].CostCenterId = item.CostCenterId ?? input.CostCenterId;
+            if (item.ExpenseAccountId.HasValue)
+                entry.Items[^1].ExpenseAccountId = item.ExpenseAccountId;
         }
 
         // Delegate purpose-specific validation to StockEntryManager (DDD pattern)
