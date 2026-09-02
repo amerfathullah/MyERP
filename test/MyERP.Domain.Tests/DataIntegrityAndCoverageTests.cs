@@ -424,4 +424,25 @@ public class DataIntegrityAndCoverageTests
         Assert.Throws<Volo.Abp.BusinessException>(() =>
             repair.AddInvoice(Guid.NewGuid(), Guid.NewGuid(), -100m));
     }
+
+    // === Product Bundle Child Item Positive Quantity ===
+
+    [Fact]
+    public void ProductBundle_AddItem_ZeroOrNegativeQty_ThrowsBusinessException()
+    {
+        var bundle = new Sales.Entities.ProductBundle(Guid.NewGuid(), Guid.NewGuid());
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            bundle.AddItem(Guid.NewGuid(), 0m));
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            bundle.AddItem(Guid.NewGuid(), -5m));
+    }
+
+    [Fact]
+    public void ProductBundleItem_ZeroOrNegativeQty_ThrowsBusinessException()
+    {
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            new Sales.Entities.ProductBundleItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 0m, "Item", "Nos"));
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            new Sales.Entities.ProductBundleItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), -2m, "Item", "Nos"));
+    }
 }

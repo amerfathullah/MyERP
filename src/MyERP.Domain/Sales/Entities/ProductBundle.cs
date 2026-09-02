@@ -42,6 +42,14 @@ public class ProductBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void AddItem(Guid componentItemId, decimal qty, string? itemName = null, string? uom = null)
     {
+        // Child item quantity must be positive (ERPNext PR #49163 / commit 711076d02d)
+        if (qty <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "Qty")
+                .WithData("itemId", componentItemId);
+        }
+
         _items.Add(new ProductBundleItem(Guid.NewGuid(), Id, componentItemId, qty, itemName, uom));
     }
 
@@ -89,6 +97,14 @@ public class ProductBundleItem : FullAuditedEntity<Guid>
     public ProductBundleItem(Guid id, Guid bundleId, Guid componentItemId,
         decimal qty, string? itemName, string? uom) : base(id)
     {
+        // Child item quantity must be positive (ERPNext PR #49163 / commit 711076d02d)
+        if (qty <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "Qty")
+                .WithData("itemId", componentItemId);
+        }
+
         ProductBundleId = bundleId;
         ComponentItemId = componentItemId;
         Qty = qty;
