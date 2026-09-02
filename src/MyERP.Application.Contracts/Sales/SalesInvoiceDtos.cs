@@ -126,6 +126,8 @@ public class SalesInvoiceItemDto
     public DateTime? ServiceStartDate { get; set; }
     public DateTime? ServiceEndDate { get; set; }
     public DateTime? ServiceStopDate { get; set; }
+    public bool IsFixedAsset { get; set; }
+    public Guid? AssetId { get; set; }
 }
 
 public class CreateSalesInvoiceDto
@@ -228,6 +230,8 @@ public class CreateSalesInvoiceItemDto
     public DateTime? ServiceStartDate { get; set; }
     public DateTime? ServiceEndDate { get; set; }
     public DateTime? ServiceStopDate { get; set; }
+    public bool IsFixedAsset { get; set; }
+    public Guid? AssetId { get; set; }
 }
 
 /// <summary>

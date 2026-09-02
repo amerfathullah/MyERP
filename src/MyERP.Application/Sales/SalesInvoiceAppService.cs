@@ -489,6 +489,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             var added = invoice.Items.Last();
             added.SalesOrderItemId = item.SalesOrderItemId;
             added.DeliveryNoteItemId = item.DeliveryNoteItemId;
+            added.IsFixedAsset = item.IsFixedAsset;
+            added.AssetId = item.AssetId;
             if (item.EnableDeferredRevenue)
             {
                 added.EnableDeferredRevenue = true;
@@ -691,6 +693,23 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             await _invoiceManager.ValidateReturnAsync(invoice);
             // Block zero-qty items on stock-affecting returns (corrupts FIFO queue)
             SalesInvoiceManager.ValidateReturnWithStockNoZeroQty(invoice);
+        }
+
+        // Fixed asset sales quantity validation: aggregated by AssetId (PR #51363 / commit 23b094f151)
+        var fixedAssetItems = invoice.Items.Where(i => i.IsFixedAsset && i.AssetId.HasValue).ToList();
+        if (fixedAssetItems.Any())
+        {
+            var assetRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Assets.Entities.Asset, Guid>>();
+            foreach (var group in fixedAssetItems.GroupBy(i => i.AssetId!.Value))
+            {
+                var totalSaleQty = group.Sum(i => i.Quantity);
+                var asset = await assetRepo.FindAsync(group.Key);
+                if (asset != null && totalSaleQty > asset.AssetQuantity)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Sell quantity cannot exceed the asset quantity. Asset {asset.AssetName} has only {asset.AssetQuantity} item(s).");
+                }
+            }
         }
 
         // Credit limit validation (enforced at SI submit per ERPNext rules, skip for returns)

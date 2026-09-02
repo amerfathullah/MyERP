@@ -77,6 +77,12 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Link to Delivery Note item (for DN billing status tracking, per ERPNext dn_detail).</summary>
     public Guid? DeliveryNoteItemId { get; set; }
 
+    /// <summary>Whether this line item represents a fixed asset sale.</summary>
+    public bool IsFixedAsset { get; set; }
+
+    /// <summary>Linked fixed asset ID for asset disposal/sale.</summary>
+    public Guid? AssetId { get; set; }
+
     /// <summary>
     /// Clears all deferred revenue fields when the user unchecks EnableDeferredRevenue.
     /// Per PR #57140: prevents orphaned account/date fields when deferred is disabled.
