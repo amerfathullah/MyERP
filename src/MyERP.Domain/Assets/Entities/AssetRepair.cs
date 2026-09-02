@@ -46,6 +46,9 @@ public class AssetRepair : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public AssetRepairStatus Status { get; private set; } = AssetRepairStatus.Pending;
 
+    /// <summary>Linked Stock Entry created for consumed stock items (PR #50793 / commit da7f28a3c3).</summary>
+    public Guid? StockEntryId { get; set; }
+
     public List<AssetRepairConsumedItem> StockItems { get; private set; } = new();
     public List<AssetRepairPurchaseInvoice> Invoices { get; private set; } = new();
 

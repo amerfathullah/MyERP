@@ -319,6 +319,7 @@ public class AssetRepairDto : FullAuditedEntityDto<Guid>
     public bool CapitalizeRepairCost { get; set; }
     public int IncreaseInAssetLife { get; set; }
     public AssetRepairStatus Status { get; set; }
+    public Guid? StockEntryId { get; set; }
     public List<AssetRepairConsumedItemDto> StockItems { get; set; } = new();
     public List<AssetRepairPurchaseInvoiceDto> Invoices { get; set; } = new();
 }
