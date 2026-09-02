@@ -49,7 +49,7 @@ public class ItemAppService :
             await ValidateCanDeactivateAsync(id);
         }
 
-        // If unsetting HasSerialNo, validate no active serial numbers exist (ERPNext PR #56773)
+        // If unsetting HasSerialNo, validate no active serial numbers or bundles exist (ERPNext PR #56773)
         if (existing.HasSerialNo && !input.HasSerialNo)
         {
             var serialRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SerialNo, Guid>>();
@@ -59,6 +59,15 @@ public class ItemAppService :
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Cannot change Item {existing.ItemName} from serialized to non-serialized because active serial numbers exist for it. Please delete or cancel them first.");
+            }
+
+            var bundleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SerialAndBatchBundle, Guid>>();
+            var bundleQuery = await bundleRepo.GetQueryableAsync();
+            var hasBundles = bundleQuery.Any(b => b.ItemId == id && !b.IsCancelled);
+            if (hasBundles)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot change Item {existing.ItemName} from serialized to non-serialized because a Serial and Batch Bundle exists for it. Please delete or cancel the Serial and Batch Bundle first.");
             }
         }
 
