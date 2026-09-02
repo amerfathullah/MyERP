@@ -513,6 +513,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             WipWarehouseId = wipWarehouseId,
             FgWarehouseId = fgWarehouseId,
             TrackSemiFinishedGoods = bom.TrackSemiFinishedGoods,
+            SkipTransfer = input.SkipTransfer,
+            FromWipWarehouse = input.FromWipWarehouse,
             Notes = input.Notes,
         };
         wo.SetPlannedDates(plannedStartDate, plannedEndDate);
@@ -929,7 +931,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         decimal totalRmCost = 0;
         foreach (var rmItem in consumptionItems)
         {
-            var warehouseId = rmItem.SourceWarehouseId ?? productionParams.SourceWarehouseId;
+            var warehouseId = (wo.SkipTransfer && !wo.FromWipWarehouse)
+                ? (rmItem.SourceWarehouseId ?? productionParams.SourceWarehouseId ?? wo.SourceWarehouseId)
+                : (productionParams.SourceWarehouseId ?? rmItem.SourceWarehouseId ?? wo.WipWarehouseId);
             if (warehouseId.HasValue)
             {
                 var rmBalance = await _valuationService.GetCurrentBalanceAsync(rmItem.ItemId, warehouseId.Value);
@@ -1504,7 +1508,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         foreach (var rmItem in consumptionItems)
         {
-            var sourceWh = wipWarehouseId ?? rmItem.SourceWarehouseId;
+            var sourceWh = (wo.SkipTransfer && !wo.FromWipWarehouse)
+                ? (rmItem.SourceWarehouseId ?? wo.SourceWarehouseId ?? wipWarehouseId)
+                : (wipWarehouseId ?? rmItem.SourceWarehouseId);
             if (!sourceWh.HasValue) continue;
 
             var balance = await _valuationService.GetCurrentBalanceAsync(rmItem.ItemId, sourceWh.Value);

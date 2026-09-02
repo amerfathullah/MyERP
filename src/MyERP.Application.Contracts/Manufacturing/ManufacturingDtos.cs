@@ -175,6 +175,8 @@ public class WorkOrderDto : AuditedEntityDto<Guid>
     public DateTime? ActualStartDate { get; set; }
     public DateTime? ActualEndDate { get; set; }
     public string? Notes { get; set; }
+    public bool SkipTransfer { get; set; }
+    public bool FromWipWarehouse { get; set; }
     public List<WorkOrderItemDto> RequiredItems { get; set; } = new();
 }
 
@@ -201,6 +203,8 @@ public class CreateWorkOrderDto
     public Guid? FgWarehouseId { get; set; }
     public DateTime? PlannedStartDate { get; set; }
     public DateTime? PlannedEndDate { get; set; }
+    public bool SkipTransfer { get; set; }
+    public bool FromWipWarehouse { get; set; }
     [StringLength(WorkOrderConsts.MaxNoteLength)] public string? Notes { get; set; }
 }
 

@@ -59,6 +59,8 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string? Notes { get; set; }
     public bool TrackSemiFinishedGoods { get; set; }
     public bool SkipTransfer { get; set; }
+    /// <summary>Backflush from WIP warehouse even when skip_transfer is enabled (ERPNext PR #49280 / commit fe0722c4f1).</summary>
+    public bool FromWipWarehouse { get; set; }
 
     public List<WorkOrderItem> RequiredItems { get; private set; } = new();
 
