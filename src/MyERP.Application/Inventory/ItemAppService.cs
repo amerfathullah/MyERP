@@ -183,6 +183,11 @@ public class ItemAppService :
             queryable = queryable.Where(i => i.ItemType == itemType);
         }
 
+        if (input.HasVariants.HasValue)
+        {
+            queryable = queryable.Where(i => i.HasVariants == input.HasVariants.Value);
+        }
+
         if (input.CustomerId.HasValue || input.SupplierId.HasValue)
         {
             var partyFilter = await GetPartySpecificItemFilterAsync(input.CustomerId, input.SupplierId);

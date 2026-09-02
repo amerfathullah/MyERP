@@ -17,6 +17,9 @@ public class GetItemListDto : PagedAndSortedResultRequestDto
 
     /// <summary>When set, excludes items restricted from this Supplier via PartySpecificItem rules.</summary>
     public Guid? SupplierId { get; set; }
+
+    /// <summary>When set, filters by template status (e.g. HasVariants=true for Variant Of filter).</summary>
+    public bool? HasVariants { get; set; }
 }
 
 /// <summary>
