@@ -304,6 +304,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 SourceWarehouseId = bom.SourceWarehouseId,
                 FgWarehouseId = item.WarehouseId ?? bom.TargetWarehouseId,
                 WipWarehouseId = company?.DefaultWipWarehouseId,
+                ScrapWarehouseId = bom.ScrapWarehouseId ?? company?.DefaultScrapWarehouseId,
                 TrackSemiFinishedGoods = bom.TrackSemiFinishedGoods,
             };
             wo.SetPlannedDates(item.PlannedStartDate, null);
