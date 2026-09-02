@@ -18,6 +18,7 @@ namespace MyERP.Core;
 public class UpdateCompanySettingsDto
 {
     public string? DefaultCurrency { get; set; }
+    public string? DefaultSalesContact { get; set; }
     public int? FiscalYearStartMonth { get; set; }
     public string? StockFrozenUpto { get; set; }
     public string? AccountsFrozenTillDate { get; set; }
@@ -124,6 +125,7 @@ public class CompanyAppService :
         entity.Country = input.Country;
         entity.CurrencyCode = input.CurrencyCode;
         entity.FiscalYearStartMonth = input.FiscalYearStartMonth;
+        entity.DefaultSalesContact = input.DefaultSalesContact;
         entity.IsActive = input.IsActive;
         entity.AllowUomWithConversionRateDefinedInItem = input.AllowUomWithConversionRateDefinedInItem;
 
@@ -170,6 +172,8 @@ public class CompanyAppService :
 
         if (!string.IsNullOrWhiteSpace(input.DefaultCurrency))
             company.CurrencyCode = input.DefaultCurrency;
+        if (input.DefaultSalesContact != null)
+            company.DefaultSalesContact = input.DefaultSalesContact;
         if (input.FiscalYearStartMonth.HasValue)
             company.FiscalYearStartMonth = input.FiscalYearStartMonth.Value;
 

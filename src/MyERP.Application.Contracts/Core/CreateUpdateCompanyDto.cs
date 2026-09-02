@@ -53,6 +53,9 @@ public class CreateUpdateCompanyDto
     [StringLength(CompanyConsts.MaxCurrencyCodeLength)]
     public string CurrencyCode { get; set; } = "MYR";
 
+    [StringLength(CompanyConsts.MaxNameLength)]
+    public string? DefaultSalesContact { get; set; }
+
     [Range(1, 12)]
     public int FiscalYearStartMonth { get; set; } = 1;
 

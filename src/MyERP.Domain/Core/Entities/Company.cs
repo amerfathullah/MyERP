@@ -43,6 +43,12 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Default currency code (ISO 4217), e.g. "MYR".</summary>
     public string CurrencyCode { get; set; } = "MYR";
 
+    /// <summary>
+    /// Default sales contact person for the company (PR #50159 / commit 4d9473f844).
+    /// Auto-fetched into sales transactions (Sales Order, Sales Invoice, Quotation, Delivery Note).
+    /// </summary>
+    public string? DefaultSalesContact { get; set; }
+
     /// <summary>Fiscal year start month (1-12).</summary>
     public int FiscalYearStartMonth { get; set; } = 1;
 
