@@ -167,13 +167,22 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
         OperatingCost = Operations.Sum(o => o.OperatingCost);
 
-        // Distribute cost to secondary items based on their allocation percentage
-        foreach (var si in SecondaryItems.Where(s => s.CostAllocationPercentage > 0))
+        // Valuation Rate and Manual rows carry their own cost, deducted from raw material cost;
+        // The PercentageOfFgCost rows split the remaining allocation basis by their percentage (per ERPNext PR #58431).
+        var ownCost = SecondaryItems
+            .Where(si => si.CostAllocationPercentage == 0 && (si.ValuationType == SecondaryItemValuationType.ValuationRate || si.ValuationType == SecondaryItemValuationType.Manual))
+            .Sum(si => si.Amount);
+
+        var allocationBasis = Math.Max(0, TotalMaterialCost - ownCost);
+
+        foreach (var si in SecondaryItems.Where(s => s.CostAllocationPercentage > 0 || s.ValuationType == SecondaryItemValuationType.PercentageOfFgCost))
         {
-            // Per gotcha #518: item.cost_allocation = raw_material_cost × (pct / 100)
-            var allocatedCost = TotalMaterialCost * (si.CostAllocationPercentage / 100m);
-            if (si.EffectiveQuantity > 0)
-                si.Rate = allocatedCost / si.EffectiveQuantity;
+            if (si.CostAllocationPercentage > 0)
+            {
+                var allocatedCost = allocationBasis * (si.CostAllocationPercentage / 100m);
+                if (si.EffectiveQuantity > 0)
+                    si.Rate = allocatedCost / si.EffectiveQuantity;
+            }
         }
     }
 

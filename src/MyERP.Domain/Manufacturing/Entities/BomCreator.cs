@@ -59,6 +59,19 @@ public class BomCreator : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.BomCreatorRequiresItems);
         if (Status != BomCreatorStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.BomCreatorAlreadyProcessed);
+
+        // Check for duplicate items under the same parent (per ERPNext PR #58614)
+        var seen = new HashSet<(Guid ItemId, Guid FgItemId)>();
+        foreach (var item in _items)
+        {
+            if (!seen.Add((item.ItemId, item.FgItemId)))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("itemId", item.ItemId)
+                    .WithData("fgItemId", item.FgItemId)
+                    .WithData("detail", $"Item '{item.ItemName}' added multiple times under the same parent.");
+            }
+        }
     }
 
     public BomCreatorItem AddItem(Guid itemId, string itemName, Guid fgItemId, decimal qty, decimal rate,

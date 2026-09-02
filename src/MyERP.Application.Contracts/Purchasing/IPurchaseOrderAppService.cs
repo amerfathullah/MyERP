@@ -18,6 +18,8 @@ public interface IPurchaseOrderAppService : IApplicationService
     Task<PurchaseOrderDto> CancelAsync(Guid id);
     Task<PurchaseOrderDto> CloseAsync(Guid id);
     Task<PurchaseOrderDto> ReopenAsync(Guid id);
+    Task<PurchaseOrderDto> CloseItemAsync(Guid id, Guid itemId);
+    Task<PurchaseOrderDto> ReopenItemAsync(Guid id, Guid itemId);
     Task<PurchaseOrderDto> AmendAsync(Guid id);
     Task<PurchaseOrderDto> UpdateAsync(Guid id, CreatePurchaseOrderDto input);
     Task<UpdateOrderItemsResultDto> UpdateItemsAsync(Guid id, UpdateOrderItemsDto input);

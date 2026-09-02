@@ -116,6 +116,52 @@ public class PurchaseOrderManager : DomainService
     }
 
     /// <summary>
+    /// Updates Supplier Quotation items' OrderedQty and status when PO is submitted or cancelled.
+    /// Per ERPNext PR #58572: tracks supplier quotation fulfillment and transitions status.
+    /// </summary>
+    public async Task UpdateSupplierQuotationOrderedQtyAsync(
+        PurchaseOrder order,
+        IRepository<SupplierQuotation, Guid> sqRepository,
+        bool reverse = false)
+    {
+        var sqItemIds = order.Items
+            .Where(i => i.SupplierQuotationItemId.HasValue)
+            .Select(i => i.SupplierQuotationItemId!.Value)
+            .ToList();
+
+        if (!sqItemIds.Any() && !order.SupplierQuotationId.HasValue) return;
+
+        var sqQuery = await sqRepository.GetQueryableAsync();
+        var affectedSQs = sqQuery
+            .Where(sq => (order.SupplierQuotationId.HasValue && sq.Id == order.SupplierQuotationId.Value)
+                      || sq.Items.Any(i => sqItemIds.Contains(i.Id)))
+            .ToList();
+
+        foreach (var sq in affectedSQs)
+        {
+            foreach (var poItem in order.Items)
+            {
+                SupplierQuotationItem? sqItem = null;
+                if (poItem.SupplierQuotationItemId.HasValue)
+                {
+                    sqItem = sq.Items.FirstOrDefault(i => i.Id == poItem.SupplierQuotationItemId.Value);
+                }
+                else if (order.SupplierQuotationId == sq.Id)
+                {
+                    sqItem = sq.Items.FirstOrDefault(i => i.ItemId == poItem.ItemId);
+                }
+
+                if (sqItem != null)
+                {
+                    var delta = reverse ? -poItem.StockQty : poItem.StockQty;
+                    sq.UpdateOrderedQty(sqItem.Id, delta);
+                }
+            }
+            await sqRepository.UpdateAsync(sq);
+        }
+    }
+
+    /// <summary>
     /// Validates a Purchase Receipt item does not exceed the PO's allowed receipt qty including tolerance.
     /// Per ERPNext: max_allowed = ordered_qty × (1 + allowance_pct / 100) - already_received.
     /// The allowance comes from Company.OverDeliveryReceiptAllowance (Stock Settings in ERPNext).

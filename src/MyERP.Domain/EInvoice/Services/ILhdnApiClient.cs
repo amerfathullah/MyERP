@@ -60,4 +60,5 @@ public class LhdnTaxpayerSearchResponse
     public string? Tin { get; set; }
     public string? TaxpayerName { get; set; }
     public string? RawJson { get; set; }
+    public string? ErrorMessage { get; set; }
 }

@@ -31,6 +31,12 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }
 
+    /// <summary>Currency of the agreement (per ERPNext PR #58472).</summary>
+    public string Currency { get; set; } = "MYR";
+
+    /// <summary>Exchange rate: agreement currency -> base company currency.</summary>
+    public decimal ExchangeRate { get; set; } = 1m;
+
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
     private readonly List<BlanketOrderItem> _items = new();
@@ -65,7 +71,8 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         var item = new BlanketOrderItem(Guid.NewGuid(), Id, itemId, qty, rate, itemName)
         {
-            PartyItemCode = partyItemCode
+            PartyItemCode = partyItemCode,
+            BaseRate = Math.Round(rate * ExchangeRate, 4)
         };
         _items.Add(item);
     }
@@ -76,6 +83,9 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         if (!_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        if (ToDate < FromDate)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "To Date cannot be before From Date.");
         Status = DocumentStatus.Submitted;
     }
 
@@ -96,6 +106,9 @@ public class BlanketOrderItem : FullAuditedEntity<Guid>
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
 
+    /// <summary>Rate in company base currency = Rate * ExchangeRate (per ERPNext PR #58472).</summary>
+    public decimal BaseRate { get; set; }
+
     /// <summary>Qty already ordered against this line.</summary>
     public decimal OrderedQty { get; set; }
 
@@ -112,6 +125,7 @@ public class BlanketOrderItem : FullAuditedEntity<Guid>
         Qty = qty;
         Rate = rate;
         ItemName = itemName;
+        BaseRate = rate;
     }
 
     /// <summary>Record an order against this blanket line. Validates allowance.</summary>

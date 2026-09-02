@@ -193,6 +193,59 @@ public class PickListManager : DomainService
             FreeQty: freeQty
         );
     }
+
+    /// <summary>
+    /// Deducts already picked quantities across warehouse/batch locations (per ERPNext PR #58613).
+    /// Properly consumes picked quantity across multiple location rows and preserves serial number ordering.
+    /// </summary>
+    public static List<PickLocationAllocation> FilterLocationsByPickedMaterials(
+        IEnumerable<PickLocationAllocation> locations,
+        IDictionary<(Guid WarehouseId, Guid? BatchId), decimal> pickedQtyMap,
+        IDictionary<Guid, HashSet<string>>? pickedSerialNosMap = null)
+    {
+        var filtered = new List<PickLocationAllocation>();
+
+        foreach (var loc in locations)
+        {
+            var key = (loc.WarehouseId, loc.BatchId);
+            if (!pickedQtyMap.TryGetValue(key, out var pickedQty) || pickedQty <= 0)
+            {
+                filtered.Add(loc);
+                continue;
+            }
+
+            if (pickedQty > loc.Qty)
+            {
+                pickedQtyMap[key] -= loc.Qty;
+                loc.Qty = 0;
+            }
+            else
+            {
+                loc.Qty -= pickedQty;
+                pickedQtyMap[key] = 0;
+
+                if (loc.SerialNumbers != null && loc.SerialNumbers.Count > 0 && pickedSerialNosMap != null && pickedSerialNosMap.TryGetValue(loc.WarehouseId, out var pickedSerials))
+                {
+                    loc.SerialNumbers = loc.SerialNumbers.Where(sn => !pickedSerials.Contains(sn)).ToList();
+                }
+            }
+
+            if (loc.Qty > 0)
+            {
+                filtered.Add(loc);
+            }
+        }
+
+        return filtered;
+    }
+}
+
+public class PickLocationAllocation
+{
+    public Guid WarehouseId { get; set; }
+    public Guid? BatchId { get; set; }
+    public decimal Qty { get; set; }
+    public List<string> SerialNumbers { get; set; } = new();
 }
 
 public class PickAllocationResult

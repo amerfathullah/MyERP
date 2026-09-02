@@ -48,6 +48,8 @@ public class PurchaseOrderItemDto
     public decimal BilledQty { get; set; }
     public Guid? WarehouseId { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
+    /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
+    public bool IsClosed { get; set; }
 }
 
 public class CreatePurchaseOrderDto
@@ -149,6 +151,9 @@ public class UpdateOrderItemDto
 
     /// <summary>Updated warehouse (optional).</summary>
     public Guid? WarehouseId { get; set; }
+
+    /// <summary>Updated conversion factor to stock UOM (optional, per ERPNext PR #58603).</summary>
+    public decimal? ConversionFactor { get; set; }
 }
 
 /// <summary>Result of update items operation with per-item validation details.</summary>

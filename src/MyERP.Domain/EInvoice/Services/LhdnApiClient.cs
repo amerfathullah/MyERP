@@ -158,7 +158,11 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
 
         if (!response.IsSuccessStatusCode)
         {
-            return new LhdnTaxpayerSearchResponse { IsFound = false, StatusCode = (int)response.StatusCode, RawJson = rawJson };
+            var msg = response.StatusCode == System.Net.HttpStatusCode.NotFound
+                ? "Taxpayer not found in LHDN database"
+                : $"LHDN search taxpayer request failed with status code {(int)response.StatusCode}";
+            _logger.LogWarning("LHDN SearchTaxpayer failed: {StatusCode} {Body}", response.StatusCode, rawJson);
+            return new LhdnTaxpayerSearchResponse { IsFound = false, StatusCode = (int)response.StatusCode, RawJson = rawJson, ErrorMessage = msg };
         }
 
         using var doc = JsonDocument.Parse(rawJson);

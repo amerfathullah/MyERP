@@ -25,12 +25,14 @@ public class BomSecondaryItemTests
     private static BomSecondaryItem CreateSecondaryItem(
         Guid bomId, Guid? itemId = null,
         SecondaryItemType type = SecondaryItemType.Scrap,
-        decimal qty = 10, decimal costAllocation = 0, decimal processLoss = 0)
+        decimal qty = 10, decimal costAllocation = 0, decimal processLoss = 0,
+        SecondaryItemValuationType? valuationType = null)
     {
         var item = new BomSecondaryItem(
             Guid.NewGuid(), bomId, itemId ?? Guid.NewGuid(), type, qty);
         item.CostAllocationPercentage = costAllocation;
         item.ProcessLossPercentage = processLoss;
+        item.ValuationType = valuationType ?? (costAllocation > 0 ? SecondaryItemValuationType.PercentageOfFgCost : SecondaryItemValuationType.ValuationRate);
         return item;
     }
 
@@ -270,6 +272,41 @@ public class BomSecondaryItemTests
 
         // Rate should NOT be overwritten when cost_allocation = 0
         si.Rate.ShouldBe(5m);
+    }
+
+    [Fact]
+    public void BOM_RecalculateCost_OwnCostDeducted_Before_PercentageSplit()
+    {
+        // Per ERPNext PR #58431:
+        // Raw materials = 1000
+        // Scrap (Manual/Valuation Rate) = 100
+        // Remainder = 900
+        // Co-Product (% of FG Cost 50%, Qty 10) gets 900 × 50% = 450 (Rate = 45)
+        var bom = CreateBom();
+        bom.Items.Add(new BomItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), "Steel", 20, 50)); // 1000
+
+        var scrap = new BomSecondaryItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), SecondaryItemType.Scrap, 10)
+        {
+            ValuationType = SecondaryItemValuationType.Manual,
+            Rate = 10m // Amount = 100
+        };
+
+        var coProduct = new BomSecondaryItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), SecondaryItemType.CoProduct, 10)
+        {
+            ValuationType = SecondaryItemValuationType.PercentageOfFgCost,
+            CostAllocationPercentage = 50m
+        };
+
+        bom.AddSecondaryItem(scrap);
+        bom.AddSecondaryItem(coProduct);
+
+        bom.RecalculateCost();
+
+        bom.TotalMaterialCost.ShouldBe(1000m);
+        scrap.Amount.ShouldBe(100m);
+        // Allocation basis = 1000 - 100 = 900. CoProduct gets 50% = 450 / 10 qty = 45 rate
+        coProduct.Rate.ShouldBe(45m);
+        coProduct.Amount.ShouldBe(450m);
     }
 
     // === BOM Process Loss ===

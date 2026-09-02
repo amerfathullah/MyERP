@@ -23,11 +23,13 @@ public class BlanketOrderRateService : DomainService
 
     /// <summary>
     /// Finds the best matching blanket order rate for an item+party combination.
+    /// Supports multi-currency rate resolution per ERPNext PR #58472.
     /// Returns null when no active BO covers this item.
     /// </summary>
     public async Task<BlanketOrderRateResult?> GetRateAsync(
         Guid companyId, Guid partyId, Guid itemId,
-        string orderType, DateTime transactionDate)
+        string orderType, DateTime transactionDate,
+        string? targetCurrency = null, decimal targetExchangeRate = 1m)
     {
         var queryable = await _boRepository.GetQueryableAsync();
         var orders = queryable
@@ -46,9 +48,25 @@ public class BlanketOrderRateService : DomainService
 
             if (matchingItem != null)
             {
+                var baseRate = matchingItem.BaseRate > 0 ? matchingItem.BaseRate : Math.Round(matchingItem.Rate * bo.ExchangeRate, 4);
+                decimal resolvedRate;
+
+                if (string.IsNullOrEmpty(targetCurrency) || string.Equals(targetCurrency, bo.Currency, StringComparison.OrdinalIgnoreCase))
+                {
+                    resolvedRate = matchingItem.Rate;
+                }
+                else
+                {
+                    // Convert through base company currency
+                    resolvedRate = targetExchangeRate > 0
+                        ? Math.Round(baseRate / targetExchangeRate, 4)
+                        : matchingItem.Rate;
+                }
+
                 return new BlanketOrderRateResult(
                     bo.Id, bo.OrderNumber,
-                    matchingItem.Rate, matchingItem.RemainingQty);
+                    resolvedRate, matchingItem.RemainingQty,
+                    baseRate, bo.Currency, bo.ExchangeRate);
             }
         }
 
@@ -61,4 +79,7 @@ public record BlanketOrderRateResult(
     Guid BlanketOrderId,
     string BlanketOrderNumber,
     decimal Rate,
-    decimal RemainingQty);
+    decimal RemainingQty,
+    decimal BaseRate = 0m,
+    string Currency = "MYR",
+    decimal ExchangeRate = 1m);

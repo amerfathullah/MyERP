@@ -56,7 +56,11 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
         var bo = new BlanketOrder(GuidGenerator.Create(), input.CompanyId,
             $"BO-{DateTime.UtcNow:yyyyMMdd-HHmmss}", input.OrderType,
             input.PartyId, input.FromDate, input.ToDate, CurrentTenant.Id)
-        { PartyName = input.PartyName };
+        {
+            PartyName = input.PartyName,
+            Currency = string.IsNullOrWhiteSpace(input.Currency) ? "MYR" : input.Currency,
+            ExchangeRate = input.ExchangeRate > 0 ? input.ExchangeRate : 1m
+        };
         foreach (var item in input.Items)
             bo.AddItem(item.ItemId, item.Qty, item.Rate, item.ItemName);
         await _repository.InsertAsync(bo);

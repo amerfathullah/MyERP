@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
@@ -476,6 +477,109 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 }
             }
         }
+    }
+
+    [Authorize(MyERPPermissions.ProductionPlans.Default)]
+    public async Task<ProductionPlanVisualizerDto> GetVisualizerDataAsync(Guid id)
+    {
+        var plan = await _planRepository.GetAsync(id, includeDetails: true);
+
+        var totalPlanned = plan.PlannedItems.Sum(i => i.PlannedQty);
+        var totalProduced = plan.PlannedItems.Sum(i => i.ProducedQty);
+        var completion = totalPlanned > 0 ? Math.Round(totalProduced / totalPlanned * 100m, 1) : 0m;
+
+        // Query linked work orders
+        var woQuery = await _workOrderRepository.GetQueryableAsync();
+        var workOrders = woQuery
+            .Where(w => plan.PlannedItems.Select(p => p.Id).Contains(w.SalesOrderItemId ?? Guid.Empty)
+                     || plan.PlannedItems.Select(p => p.WorkOrderId).Contains(w.Id))
+            .ToList();
+
+        // Query linked material requests
+        var mrQuery = await _materialRequestRepository.GetQueryableAsync();
+        var materialRequests = mrQuery
+            .Where(m => plan.MaterialRequirements.Select(mr => mr.MaterialRequestId).Contains(m.Id)
+                     || plan.PlannedItems.Select(p => p.MaterialRequestId).Contains(m.Id))
+            .ToList();
+
+        var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Bin, Guid>>();
+        var binQuery = await binRepo.GetQueryableAsync();
+        var bins = binQuery
+            .Where(b => plan.MaterialRequirements.Select(mr => mr.ItemId).Contains(b.ItemId))
+            .ToList();
+
+        var finishedGoods = new List<VisualizerFinishedGoodDto>();
+        foreach (var pi in plan.PlannedItems)
+        {
+            var linkedWos = workOrders
+                .Where(w => w.Id == pi.WorkOrderId || w.ItemId == pi.ItemId)
+                .Select(w => new VisualizerLinkedDocDto
+                {
+                    Id = w.Id,
+                    DocumentNumber = w.WorkOrderNumber,
+                    Status = w.Status.ToString(),
+                    Qty = w.Quantity,
+                    CompletedQty = w.ProducedQuantity,
+                })
+                .ToList();
+
+            finishedGoods.Add(new VisualizerFinishedGoodDto
+            {
+                ItemId = pi.ItemId,
+                ItemName = pi.ItemName,
+                PlannedQty = pi.PlannedQty,
+                ProducedQty = pi.ProducedQty,
+                PendingQty = Math.Max(0, pi.PlannedQty - pi.ProducedQty),
+                WarehouseId = pi.WarehouseId,
+                PlannedStartDate = pi.PlannedStartDate,
+                SalesOrderId = pi.SalesOrderId,
+                WorkOrders = linkedWos,
+            });
+        }
+
+        var rawMaterials = new List<VisualizerMaterialDto>();
+        foreach (var mr in plan.MaterialRequirements)
+        {
+            var linkedMrs = materialRequests
+                .Where(m => m.Id == mr.MaterialRequestId || m.Items.Any(i => i.ItemId == mr.ItemId))
+                .Select(m => new VisualizerLinkedDocDto
+                {
+                    Id = m.Id,
+                    DocumentNumber = m.RequestNumber,
+                    Status = m.Status.ToString(),
+                    Qty = m.Items.Where(i => i.ItemId == mr.ItemId).Sum(i => i.Quantity),
+                    CompletedQty = m.Items.Where(i => i.ItemId == mr.ItemId).Sum(i => i.OrderedQuantity),
+                })
+                .ToList();
+
+            var liveActualQty = bins
+                .Where(b => b.ItemId == mr.ItemId && (!mr.WarehouseId.HasValue || b.WarehouseId == mr.WarehouseId.Value))
+                .Sum(b => b.ActualQty);
+
+            rawMaterials.Add(new VisualizerMaterialDto
+            {
+                ItemId = mr.ItemId,
+                ItemName = mr.ItemName,
+                RequiredQty = mr.RequiredQty,
+                AvailableQty = liveActualQty,
+                OrderedQty = mr.OrderedQty,
+                ReceivedQty = mr.AvailableQty,
+                WarehouseId = mr.WarehouseId,
+                MaterialRequests = linkedMrs,
+            });
+        }
+
+        return new ProductionPlanVisualizerDto
+        {
+            PlanId = plan.Id,
+            PlanNumber = plan.PlanNumber,
+            Status = plan.Status,
+            TotalPlannedQty = totalPlanned,
+            TotalProducedQty = totalProduced,
+            CompletionPercentage = completion,
+            FinishedGoods = finishedGoods,
+            RawMaterials = rawMaterials,
+        };
     }
 }
 

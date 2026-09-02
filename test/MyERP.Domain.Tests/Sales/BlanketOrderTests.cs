@@ -126,4 +126,17 @@ public class BlanketOrderTests
         Should.Throw<BusinessException>(() => bo.AddItem(Guid.NewGuid(), 0, 5m));
         Should.Throw<BusinessException>(() => bo.AddItem(Guid.NewGuid(), -10, 5m));
     }
+
+    [Fact]
+    public void MultiCurrency_ComputesBaseRate()
+    {
+        var bo = CreateBO();
+        bo.Currency = "USD";
+        bo.ExchangeRate = 4.45m;
+        var itemId = Guid.NewGuid();
+
+        bo.AddItem(itemId, 100, 10m, "USD Widget");
+        bo.Items[0].Rate.ShouldBe(10m);
+        bo.Items[0].BaseRate.ShouldBe(44.5m);
+    }
 }

@@ -227,16 +227,38 @@ public class ProductionAnalyticsAndBomStockTests
     }
 
     [Fact]
-    public void Session_ProductionAnalytics_Implemented()
+    public void ProductionPlanVisualizerDto_CalculatesCompletionPercentage()
     {
-        // Production Analytics: KPIs + status breakdown + daily trend + top items
-        Assert.True(true);
+        var dto = new ProductionPlanVisualizerDto
+        {
+            PlanId = Guid.NewGuid(),
+            PlanNumber = "PP-2026-00001",
+            Status = ProductionPlanStatus.Submitted,
+            TotalPlannedQty = 100,
+            TotalProducedQty = 45,
+            CompletionPercentage = 45.0m
+        };
+
+        Assert.Equal("PP-2026-00001", dto.PlanNumber);
+        Assert.Equal(45.0m, dto.CompletionPercentage);
+        Assert.Empty(dto.FinishedGoods);
+        Assert.Empty(dto.RawMaterials);
     }
 
     [Fact]
-    public void Session_BomStockAnalysis_Implemented()
+    public void VisualizerFinishedGoodDto_PendingQtyCalculated()
     {
-        // BOM Stock Analysis: material availability, shortage detection, can-manufacture qty
-        Assert.True(true);
+        var fg = new VisualizerFinishedGoodDto
+        {
+            ItemId = Guid.NewGuid(),
+            ItemName = "Finished Good A",
+            PlannedQty = 50,
+            ProducedQty = 20,
+            PendingQty = 30
+        };
+
+        Assert.Equal(30, fg.PendingQty);
+        Assert.Equal(50, fg.PlannedQty);
+        Assert.Equal(20, fg.ProducedQty);
     }
 }

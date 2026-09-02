@@ -112,6 +112,45 @@ public class SalesOrderFulfillmentTests
         so.Status.ShouldBe(Core.DocumentStatus.ToBill);
     }
 
+    [Fact]
+    public void CloseItem_ExcludesFromPendingAndUpdatesStatus()
+    {
+        var so = CreateSalesOrder();
+        var item1Id = Guid.NewGuid();
+        var item2Id = Guid.NewGuid();
+        so.AddItem(item1Id, "Widget 1", 10, 100, 0);
+        so.AddItem(item2Id, "Widget 2", 5, 200, 0);
+
+        so.Submit();
+        so.Status.ShouldBe(Core.DocumentStatus.ToDeliverAndBill);
+
+        // Fulfill item 1 completely
+        so.Items[0].DeliveredQty = 10;
+        so.Items[0].BilledQty = 10;
+        so.UpdateFulfillmentStatus();
+        so.Status.ShouldBe(Core.DocumentStatus.ToDeliverAndBill);
+
+        // Close remaining item 2 (ERPNext PR #57596)
+        var row2 = so.Items[1];
+        so.CloseItem(row2.Id);
+
+        row2.IsClosed.ShouldBeTrue();
+        row2.PendingDeliveryQty.ShouldBe(0m);
+        row2.PendingBillingQty.ShouldBe(0m);
+
+        // SO should now be completed because all active items are 100% fulfilled
+        so.PerDelivered.ShouldBe(100m);
+        so.PerBilled.ShouldBe(100m);
+        so.Status.ShouldBe(Core.DocumentStatus.Completed);
+
+        // Reopen item 2
+        so.ReopenItem(row2.Id);
+        row2.IsClosed.ShouldBeFalse();
+        row2.PendingDeliveryQty.ShouldBe(5m);
+        row2.PendingBillingQty.ShouldBe(5m);
+        so.Status.ShouldBe(Core.DocumentStatus.ToDeliverAndBill);
+    }
+
     private static SalesOrder CreateSalesOrder() =>
         new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SO-001", DateTime.UtcNow);
 }

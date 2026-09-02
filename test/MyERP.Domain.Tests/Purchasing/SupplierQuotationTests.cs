@@ -125,6 +125,58 @@ public class SupplierQuotationTests
         po.SupplierQuotationId.ShouldBe(sqId);
     }
 
+    [Fact]
+    public void OrderStatus_Tracking_And_Fulfillment_Workflow()
+    {
+        var sq = CreateSQ();
+        var itemId1 = Guid.NewGuid();
+        var itemId2 = Guid.NewGuid();
+        sq.AddItem(itemId1, 10, 100m, "Item 1");
+        sq.AddItem(itemId2, 20, 50m, "Item 2");
+
+        sq.OrderStatus.ShouldBe("Draft");
+
+        sq.Submit();
+        sq.Status.ShouldBe(Core.DocumentStatus.Submitted);
+        sq.OrderStatus.ShouldBe("Not Ordered");
+        sq.Items[0].PendingOrderQty.ShouldBe(10m);
+        sq.Items[1].PendingOrderQty.ShouldBe(20m);
+
+        // 1. Partial order on Item 1
+        sq.UpdateOrderedQty(itemId1, 4m);
+        sq.Items[0].OrderedQty.ShouldBe(4m);
+        sq.Items[0].PendingOrderQty.ShouldBe(6m);
+        sq.Status.ShouldBe(Core.DocumentStatus.ToDeliverAndBill); // Partially Ordered
+        sq.OrderStatus.ShouldBe("Partially Ordered");
+
+        // 2. Complete remaining of Item 1 and partial on Item 2
+        sq.UpdateOrderedQty(itemId1, 6m);
+        sq.Items[0].PendingOrderQty.ShouldBe(0m);
+        sq.UpdateOrderedQty(itemId2, 10m);
+        sq.Status.ShouldBe(Core.DocumentStatus.ToDeliverAndBill);
+        sq.OrderStatus.ShouldBe("Partially Ordered");
+
+        // 3. Complete Item 2 -> status becomes Completed (Ordered)
+        sq.UpdateOrderedQty(itemId2, 10m);
+        sq.Items[1].PendingOrderQty.ShouldBe(0m);
+        sq.Status.ShouldBe(Core.DocumentStatus.Completed); // Ordered
+        sq.OrderStatus.ShouldBe("Ordered");
+
+        // 4. Cannot cancel when active ordered qty exists
+        Should.Throw<BusinessException>(() => sq.Cancel());
+
+        // 5. Reversing ordered qty on PO cancel
+        sq.UpdateOrderedQty(itemId2, -20m);
+        sq.UpdateOrderedQty(itemId1, -10m);
+        sq.Status.ShouldBe(Core.DocumentStatus.Submitted);
+        sq.OrderStatus.ShouldBe("Not Ordered");
+
+        // 6. Now cancel succeeds
+        sq.Cancel();
+        sq.Status.ShouldBe(Core.DocumentStatus.Cancelled);
+        sq.OrderStatus.ShouldBe("Cancelled");
+    }
+
     [Theory]
     [InlineData("PurchaseOrderCreated")]
     [InlineData("CreatePurchaseOrder")]

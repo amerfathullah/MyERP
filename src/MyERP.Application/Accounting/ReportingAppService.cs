@@ -58,10 +58,10 @@ public class ReportingAppService : ApplicationService, IReportingAppService
                 AccountType = account.AccountType.ToString(),
                 IsGroup = false,
                 Level = 0,
-                Debit = balance.Debit,
-                Credit = balance.Credit,
-                ClosingDebit = netBalance > 0 ? netBalance : 0,
-                ClosingCredit = netBalance < 0 ? Math.Abs(netBalance) : 0,
+                Debit = Math.Round(balance.Debit, 2),
+                Credit = Math.Round(balance.Credit, 2),
+                ClosingDebit = Math.Round(netBalance > 0 ? netBalance : 0, 2),
+                ClosingCredit = Math.Round(netBalance < 0 ? Math.Abs(netBalance) : 0, 2),
             });
         }
 
@@ -70,8 +70,8 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             AsOfDate = input.AsOfDate,
             CompanyId = input.CompanyId,
             Rows = rows,
-            TotalDebit = rows.Sum(r => r.Debit),
-            TotalCredit = rows.Sum(r => r.Credit),
+            TotalDebit = Math.Round(rows.Sum(r => r.Debit), 2),
+            TotalCredit = Math.Round(rows.Sum(r => r.Credit), 2),
         };
     }
 

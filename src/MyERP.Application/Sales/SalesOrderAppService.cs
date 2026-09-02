@@ -834,6 +834,55 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     }
 
     [Authorize(MyERPPermissions.SalesOrders.Edit)]
+    public async Task<SalesOrderDto> CloseItemAsync(Guid id, Guid itemId)
+    {
+        var order = await _repository.GetAsync(id);
+        var item = order.Items.FirstOrDefault(i => i.Id == itemId);
+        if (item == null)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemNotFound);
+
+        var pendingQty = item.PendingDeliveryQty;
+        order.CloseItem(itemId);
+
+        // Release reserved stock for closed item
+        if (pendingQty > 0 && item.WarehouseId.HasValue && !item.DeliveredBySupplier)
+        {
+            var pendingStockQty = pendingQty * item.ConversionFactor;
+            await _binService.UpdateReservedQtyAsync(
+                item.ItemId, item.WarehouseId.Value, -pendingStockQty, order.TenantId);
+        }
+
+        await _repository.UpdateAsync(order, autoSave: true);
+        var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
+        dto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
+        return dto;
+    }
+
+    [Authorize(MyERPPermissions.SalesOrders.Edit)]
+    public async Task<SalesOrderDto> ReopenItemAsync(Guid id, Guid itemId)
+    {
+        var order = await _repository.GetAsync(id);
+        var item = order.Items.FirstOrDefault(i => i.Id == itemId);
+        if (item == null)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemNotFound);
+
+        order.ReopenItem(itemId);
+
+        // Re-reserve stock for reopened item
+        if (item.PendingDeliveryQty > 0 && item.WarehouseId.HasValue && !item.DeliveredBySupplier)
+        {
+            var pendingStockQty = item.PendingDeliveryQty * item.ConversionFactor;
+            await _binService.UpdateReservedQtyAsync(
+                item.ItemId, item.WarehouseId.Value, pendingStockQty, order.TenantId);
+        }
+
+        await _repository.UpdateAsync(order, autoSave: true);
+        var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
+        dto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
+        return dto;
+    }
+
+    [Authorize(MyERPPermissions.SalesOrders.Edit)]
     public async Task<SalesOrderDto> UpdateAsync(Guid id, CreateSalesOrderDto input)
     {
         var order = await _repository.GetAsync(id);
@@ -1087,12 +1136,21 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                 continue;
             }
 
-            // Guard: cannot reduce qty below already delivered
-            if (update.Quantity < soItem.DeliveredQty)
+            _childItemUpdateService.ValidateSalesOrderItemUpdate(soItem, update.Quantity, update.UnitPrice);
+
+            var newConversionFactor = update.ConversionFactor.HasValue && update.ConversionFactor.Value > 0
+                ? update.ConversionFactor.Value
+                : soItem.ConversionFactor;
+
+            // Guard: cannot reduce qty below already delivered in stock UOM (per ERPNext PR #58603)
+            var newStockQty = update.Quantity * newConversionFactor;
+            var deliveredStockQty = soItem.DeliveredQty * soItem.ConversionFactor;
+            if (newStockQty < deliveredStockQty)
                 throw new BusinessException("MyERP:03024")
                     .WithData("itemId", soItem.ItemId)
                     .WithData("deliveredQty", soItem.DeliveredQty)
-                    .WithData("requestedQty", update.Quantity);
+                    .WithData("requestedQty", update.Quantity)
+                    .WithData("detail", "Cannot set quantity less than delivered quantity");
 
             // Guard: cannot reduce rate below billed amount per unit
             if (soItem.BilledQty > 0 && update.UnitPrice < soItem.UnitPrice)
@@ -1108,6 +1166,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             var oldStockQty = soItem.StockQty;
 
             soItem.Quantity = update.Quantity;
+            soItem.ConversionFactor = newConversionFactor;
             soItem.UnitPrice = update.UnitPrice;
             if (update.DeliveryDate.HasValue)
                 soItem.DeliveryDate = update.DeliveryDate;
@@ -1115,8 +1174,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                 soItem.WarehouseId = update.WarehouseId;
 
             // Adjust Bin.ReservedQty for qty changes (delta in stock UOM)
-            var newStockQty = soItem.StockQty;
-            var qtyDelta = newStockQty - oldStockQty;
+            var qtyDelta = soItem.StockQty - oldStockQty;
             if (qtyDelta != 0 && soItem.WarehouseId.HasValue && !soItem.DeliveredBySupplier)
             {
                 await _binService.UpdateReservedQtyAsync(

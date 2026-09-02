@@ -54,6 +54,64 @@ public class ChildItemUpdateService : DomainService
     }
 
     /// <summary>
+    /// Validates whether a Sales Order child row can be modified.
+    /// Per ERPNext PR #58609: closed rows cannot be modified without reopening first.
+    /// </summary>
+    public void ValidateSalesOrderItemUpdate(SalesOrderItem item, decimal newQty, decimal newRate)
+    {
+        if (item.IsClosed && (item.Quantity != newQty || item.UnitPrice != newRate))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot modify Sales Order item '{item.Description}' because it is closed. Reopen the row first.");
+        }
+    }
+
+    /// <summary>
+    /// Validates whether a Purchase Order child row can be modified.
+    /// Per ERPNext PR #58609: closed rows cannot be modified without reopening first.
+    /// </summary>
+    public void ValidatePurchaseOrderItemUpdate(PurchaseOrderItem item, decimal newQty, decimal newRate)
+    {
+        if (item.IsClosed && (item.Quantity != newQty || item.UnitPrice != newRate))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot modify Purchase Order item '{item.Description}' because it is closed. Reopen the row first.");
+        }
+    }
+
+    /// <summary>
+    /// Validates requested quantity and conversion factor against already delivered quantity in stock UOM (per ERPNext PR #58603).
+    /// </summary>
+    public void ValidateSalesOrderItemStockQty(SalesOrderItem item, decimal newQty, decimal? newConversionFactor = null)
+    {
+        var factor = newConversionFactor.HasValue && newConversionFactor.Value > 0 ? newConversionFactor.Value : item.ConversionFactor;
+        var requestedStockQty = newQty * factor;
+        var deliveredStockQty = item.DeliveredQty * item.ConversionFactor;
+
+        if (requestedStockQty < deliveredStockQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot set quantity less than delivered quantity ({deliveredStockQty} in stock UOM).");
+        }
+    }
+
+    /// <summary>
+    /// Validates requested quantity and conversion factor against already received quantity in stock UOM (per ERPNext PR #58603).
+    /// </summary>
+    public void ValidatePurchaseOrderItemStockQty(PurchaseOrderItem item, decimal newQty, decimal? newConversionFactor = null)
+    {
+        var factor = newConversionFactor.HasValue && newConversionFactor.Value > 0 ? newConversionFactor.Value : item.ConversionFactor;
+        var requestedStockQty = newQty * factor;
+        var receivedStockQty = item.ReceivedQty * item.ConversionFactor;
+
+        if (requestedStockQty < receivedStockQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot set quantity less than received quantity ({receivedStockQty} in stock UOM).");
+        }
+    }
+
+    /// <summary>
     /// Validates whether a Quotation child row can be deleted or removed.
     /// </summary>
     public void ValidateQuotationItemDeletion(QuotationItem item, bool isOrdered)

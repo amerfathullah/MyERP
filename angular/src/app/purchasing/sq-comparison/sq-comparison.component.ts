@@ -18,6 +18,7 @@ interface ComparisonSupplier {
   currency: string;
   validTill: string | null;
   grandTotal: number;
+  orderStatus?: string;
 }
 
 interface ComparisonPrice {
@@ -126,6 +127,9 @@ interface ComparisonResult {
                       }
                       <h6 class="card-title mb-1">{{ supplier.supplierName }}</h6>
                       <p class="text-muted small mb-1">{{ supplier.quotationNumber }}</p>
+                      @if (supplier.orderStatus) {
+                        <span class="badge mb-2" [class.bg-secondary]="supplier.orderStatus === 'Not Ordered'" [class.bg-warning]="supplier.orderStatus === 'Partially Ordered'" [class.bg-success]="supplier.orderStatus === 'Ordered'">{{ supplier.orderStatus }}</span>
+                      }
                       <div class="fs-5 fw-bold">{{ supplier.currency }} {{ supplier.grandTotal | number:'1.2-2' }}</div>
                       @if (supplier.validTill) {
                         <small class="text-muted">Valid till {{ supplier.validTill | date:'dd/MM/yyyy' }}</small>

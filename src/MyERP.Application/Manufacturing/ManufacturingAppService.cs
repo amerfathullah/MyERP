@@ -433,6 +433,38 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var sourceWarehouseId = input.SourceWarehouseId
             ?? bom.SourceWarehouseId;
 
+        var plannedStartDate = input.PlannedStartDate;
+        var plannedEndDate = input.PlannedEndDate;
+
+        if (!plannedEndDate.HasValue && input.SalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var so = await soRepo.FindAsync(input.SalesOrderId.Value);
+            if (so != null)
+            {
+                if (input.SalesOrderItemId.HasValue)
+                {
+                    var soItem = so.Items.FirstOrDefault(i => i.Id == input.SalesOrderItemId.Value);
+                    if (soItem?.DeliveryDate.HasValue == true)
+                    {
+                        plannedEndDate = soItem.DeliveryDate.Value;
+                    }
+                }
+                else
+                {
+                    var matchingSoItem = so.Items.FirstOrDefault(i => i.ItemId == input.ItemId);
+                    if (matchingSoItem?.DeliveryDate.HasValue == true)
+                    {
+                        plannedEndDate = matchingSoItem.DeliveryDate.Value;
+                    }
+                    else if (so.DeliveryDate.HasValue)
+                    {
+                        plannedEndDate = so.DeliveryDate.Value;
+                    }
+                }
+            }
+        }
+
         var wo = new WorkOrder(GuidGenerator.Create(), input.CompanyId, number, input.ItemId, input.BomId, input.Quantity, CurrentTenant.Id)
         {
             SalesOrderId = input.SalesOrderId,
@@ -443,7 +475,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             TrackSemiFinishedGoods = bom.TrackSemiFinishedGoods,
             Notes = input.Notes,
         };
-        wo.SetPlannedDates(input.PlannedStartDate, input.PlannedEndDate);
+        wo.SetPlannedDates(plannedStartDate, plannedEndDate);
 
         // Validate warehouses belong to the WO's company and aren't group warehouses
         var warehouseRepoForValidation = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();

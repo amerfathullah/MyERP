@@ -95,6 +95,52 @@ public class GetProductionPlanListDto : PagedAndSortedResultRequestDto
     public string? Filter { get; set; }
 }
 
+public class ProductionPlanVisualizerDto
+{
+    public Guid PlanId { get; set; }
+    public string PlanNumber { get; set; } = null!;
+    public ProductionPlanStatus Status { get; set; }
+    public decimal TotalPlannedQty { get; set; }
+    public decimal TotalProducedQty { get; set; }
+    public decimal CompletionPercentage { get; set; }
+    public List<VisualizerFinishedGoodDto> FinishedGoods { get; set; } = new();
+    public List<VisualizerMaterialDto> RawMaterials { get; set; } = new();
+}
+
+public class VisualizerFinishedGoodDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemName { get; set; } = null!;
+    public decimal PlannedQty { get; set; }
+    public decimal ProducedQty { get; set; }
+    public decimal PendingQty { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public DateTime? PlannedStartDate { get; set; }
+    public Guid? SalesOrderId { get; set; }
+    public List<VisualizerLinkedDocDto> WorkOrders { get; set; } = new();
+}
+
+public class VisualizerMaterialDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemName { get; set; } = null!;
+    public decimal RequiredQty { get; set; }
+    public decimal AvailableQty { get; set; }
+    public decimal OrderedQty { get; set; }
+    public decimal ReceivedQty { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public List<VisualizerLinkedDocDto> MaterialRequests { get; set; } = new();
+}
+
+public class VisualizerLinkedDocDto
+{
+    public Guid Id { get; set; }
+    public string DocumentNumber { get; set; } = null!;
+    public string Status { get; set; } = null!;
+    public decimal Qty { get; set; }
+    public decimal CompletedQty { get; set; }
+}
+
 // === Interface ===
 
 public interface IProductionPlanAppService : IApplicationService
@@ -114,4 +160,7 @@ public interface IProductionPlanAppService : IApplicationService
 
     /// <summary>Generate Material Requests from material requirements.</summary>
     Task<ProductionPlanDto> GenerateMaterialRequestsAsync(Guid id);
+
+    /// <summary>Fetch unified visualizer data including linked work orders, material requests, and live stock readiness.</summary>
+    Task<ProductionPlanVisualizerDto> GetVisualizerDataAsync(Guid id);
 }

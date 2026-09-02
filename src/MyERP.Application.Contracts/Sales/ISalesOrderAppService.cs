@@ -19,6 +19,8 @@ public interface ISalesOrderAppService : IApplicationService
     Task<SalesOrderDto> CancelAsync(Guid id);
     Task<SalesOrderDto> CloseAsync(Guid id);
     Task<SalesOrderDto> ReopenAsync(Guid id);
+    Task<SalesOrderDto> CloseItemAsync(Guid id, Guid itemId);
+    Task<SalesOrderDto> ReopenItemAsync(Guid id, Guid itemId);
     Task DeleteAsync(Guid id);
     Task<List<DeliveryScheduleEntryDto>> GetDeliveryScheduleAsync(Guid orderId);
 

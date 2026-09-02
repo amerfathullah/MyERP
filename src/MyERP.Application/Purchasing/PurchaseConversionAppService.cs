@@ -404,8 +404,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
     /// <summary>
     /// Converts a Supplier Quotation to a Purchase Order.
-    /// Per ERPNext: copies items with quoted rates from the SQ to a new PO.
-    /// SQ must be Submitted. Creates Draft PO for review before submission.
+    /// Per ERPNext PR #58572: copies items with remaining pending order qty to a new PO.
+    /// SQ must be Submitted or Partially Ordered. Creates Draft PO for review before submission.
     /// This completes the procurement cycle: MR → RFQ → SQ → PO → PR → PI.
     /// </summary>
     [Authorize(MyERPPermissions.PurchaseOrders.Create)]
@@ -413,21 +413,22 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
     {
         var sq = await _sqRepository.GetAsync(supplierQuotationId);
 
-        if (sq.Status != Core.DocumentStatus.Submitted)
+        if (sq.Status != Core.DocumentStatus.Submitted && sq.Status != Core.DocumentStatus.ToDeliverAndBill)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
         if (!sq.Items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.SupplierQuotationHasNoItems)
                 .WithData("reason", "Supplier Quotation has no items to convert");
 
-        // Check for existing PO from this SQ
-        var poQuery = await _purchaseOrderRepository.GetQueryableAsync();
-        var alreadyConverted = poQuery.Any(po =>
-            po.SupplierQuotationId == supplierQuotationId &&
-            po.Status != Core.DocumentStatus.Cancelled);
-        if (alreadyConverted)
+        // Filter items with pending order quantity
+        var pendingItems = sq.Items.Where(i => i.PendingOrderQty > 0 || (i.StockQty == 0 && i.OrderedQty == 0)).ToList();
+        if (!pendingItems.Any())
+        {
             throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
-                .WithData("reason", "Purchase Order already exists for this Supplier Quotation");
+                .WithData("documentType", "SupplierQuotation")
+                .WithData("documentNumber", sq.QuotationNumber ?? "")
+                .WithData("reason", "All items in this Supplier Quotation have already been fully ordered.");
+        }
 
         var orderNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", sq.CompanyId);
 
@@ -443,9 +444,19 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         po.CurrencyCode = sq.Currency;
         po.ExchangeRate = sq.ExchangeRate;
 
-        foreach (var sqItem in sq.Items)
+        foreach (var sqItem in pendingItems)
         {
-            po.AddItem(sqItem.ItemId, sqItem.ItemName ?? "", sqItem.Qty, sqItem.Rate, 0m, sqItem.Uom ?? "Unit");
+            var convertQty = sqItem.ConversionFactor > 0
+                ? sqItem.PendingOrderQty / sqItem.ConversionFactor
+                : sqItem.Qty;
+
+            if (convertQty <= 0 && sqItem.Qty > 0) continue;
+
+            po.AddItem(sqItem.ItemId, sqItem.ItemName ?? "", convertQty > 0 ? convertQty : sqItem.Qty, sqItem.Rate, 0m, sqItem.Uom ?? "Unit");
+            var lastPoItem = po.Items.Last();
+            lastPoItem.SupplierQuotationItemId = sqItem.Id;
+            lastPoItem.StockUom = sqItem.StockUom;
+            lastPoItem.ConversionFactor = sqItem.ConversionFactor;
         }
 
         await _purchaseOrderRepository.InsertAsync(po, autoSave: true);

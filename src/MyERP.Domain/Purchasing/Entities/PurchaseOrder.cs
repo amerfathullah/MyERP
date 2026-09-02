@@ -102,15 +102,23 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
 
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
-    /// <summary>Percentage of total qty received (0-100). Uses min per-item completion with per-item capping (gotcha #370).</summary>
-    public decimal PerReceived => _items.Count > 0
-        ? Math.Round(_items.Min(i => i.Quantity > 0 ? Math.Min(Math.Max(0, i.ReceivedQty), i.Quantity) / i.Quantity * 100 : 100m), 2)
-        : 0;
+    /// <summary>Percentage of total qty received (0-100). Uses min per-item completion with per-item capping (gotcha #370). Excludes closed rows.</summary>
+    public decimal PerReceived => _items.Any(i => !i.IsClosed)
+        ? Math.Round(_items.Where(i => !i.IsClosed).Min(i => i.Quantity > 0 ? Math.Min(Math.Max(0, i.ReceivedQty), i.Quantity) / i.Quantity * 100 : 100m), 2)
+        : (_items.Count > 0 && _items.All(i => i.IsClosed) ? 100m : 0m);
 
-    /// <summary>Percentage of total amount billed (0-100).</summary>
-    public decimal PerBilled => NetTotal > 0
-        ? Math.Round(_items.Sum(i => i.BilledQty * i.UnitPrice) / NetTotal * 100, 2)
-        : 0;
+    /// <summary>Percentage of total amount billed (0-100). Excludes closed rows.</summary>
+    public decimal PerBilled
+    {
+        get
+        {
+            var openItems = _items.Where(i => !i.IsClosed).ToList();
+            var openTotal = openItems.Sum(i => i.LineTotal);
+            return openTotal > 0
+                ? Math.Round(openItems.Sum(i => i.BilledQty * i.UnitPrice) / openTotal * 100, 2)
+                : (_items.Count > 0 && _items.All(i => i.IsClosed) ? 100m : 0m);
+        }
+    }
 
     private readonly List<PurchaseOrderItem> _items = new();
     public IReadOnlyList<PurchaseOrderItem> Items => _items.AsReadOnly();
@@ -263,6 +271,24 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     public decimal PerConfirmed => _items.Count > 0
         ? Math.Round((decimal)_items.Count(i => i.IsSupplierConfirmed) / _items.Count * 100, 0)
         : 0;
+
+    /// <summary>Closes an individual item row (per ERPNext PR #57596).</summary>
+    public void CloseItem(Guid itemRowId)
+    {
+        var item = _items.FirstOrDefault(i => i.Id == itemRowId);
+        if (item == null || item.IsClosed) return;
+        item.IsClosed = true;
+        UpdateFulfillmentStatus();
+    }
+
+    /// <summary>Reopens an individual item row.</summary>
+    public void ReopenItem(Guid itemRowId)
+    {
+        var item = _items.FirstOrDefault(i => i.Id == itemRowId);
+        if (item == null || !item.IsClosed) return;
+        item.IsClosed = false;
+        UpdateFulfillmentStatus();
+    }
 }
 
 public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
@@ -276,6 +302,9 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal => Quantity * UnitPrice;
+
+    /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
+    public bool IsClosed { get; set; }
 
     /// <summary>Item's stock UOM. From Item master.</summary>
     public string StockUom { get; set; } = "Unit";
@@ -306,16 +335,19 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     public decimal BilledQty { get; set; }
 
     /// <summary>Remaining qty to receive.</summary>
-    public decimal PendingReceiptQty => Math.Max(0, Quantity - ReceivedQty);
+    public decimal PendingReceiptQty => IsClosed ? 0 : Math.Max(0, Quantity - ReceivedQty);
 
     /// <summary>Remaining qty to bill.</summary>
-    public decimal PendingBillingQty => Math.Max(0, Quantity - BilledQty);
+    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, Quantity - BilledQty);
 
     /// <summary>Target warehouse for receipt.</summary>
     public Guid? WarehouseId { get; set; }
 
     /// <summary>Link to Material Request item (for MR fulfillment tracking).</summary>
     public Guid? MaterialRequestItemId { get; set; }
+
+    /// <summary>Link to Supplier Quotation item (for SQ fulfillment tracking).</summary>
+    public Guid? SupplierQuotationItemId { get; set; }
 
     /// <summary>Per-item expected delivery date (overrides parent PO ExpectedDeliveryDate).
     /// Per ERPNext: each PO item can have its own expected_delivery_date.</summary>

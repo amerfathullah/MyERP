@@ -310,6 +310,10 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         // Update linked Material Request OrderedQuantity (domain service)
         await _purchaseOrderManager.UpdateMaterialRequestOrderedQtyAsync(po);
 
+        // Update linked Supplier Quotation OrderedQty (ERPNext PR #58572)
+        var sqRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SupplierQuotation, Guid>>();
+        await _purchaseOrderManager.UpdateSupplierQuotationOrderedQtyAsync(po, sqRepo, reverse: false);
+
         // Auto-insert item prices (per ERPNext: auto_insert_price_list_rate_if_missing)
         try
         {
@@ -432,6 +436,13 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             }
         }
 
+        // Reverse MR OrderedQuantity (domain service)
+        await _purchaseOrderManager.UpdateMaterialRequestOrderedQtyAsync(po, reverse: true);
+
+        // Reverse linked Supplier Quotation OrderedQty (ERPNext PR #58572)
+        var sqRepoCancel = LazyServiceProvider.LazyGetRequiredService<IRepository<SupplierQuotation, Guid>>();
+        await _purchaseOrderManager.UpdateSupplierQuotationOrderedQtyAsync(po, sqRepoCancel, reverse: true);
+
         await _repository.UpdateAsync(po, autoSave: true);
 
         // Audit trail
@@ -482,6 +493,51 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                 await _binService.UpdateOrderedQtyAsync(
                     item.ItemId, item.WarehouseId.Value, pendingStockQty, po.TenantId);
             }
+        }
+
+        await _repository.UpdateAsync(po, autoSave: true);
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
+    }
+
+    [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
+    public async Task<PurchaseOrderDto> CloseItemAsync(Guid id, Guid itemId)
+    {
+        var po = await _repository.GetAsync(id);
+        var item = po.Items.FirstOrDefault(i => i.Id == itemId);
+        if (item == null)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemNotFound);
+
+        var pendingQty = item.PendingReceiptQty;
+        po.CloseItem(itemId);
+
+        // Release pending ordered qty from Bin in stock UOM
+        if (pendingQty > 0 && item.WarehouseId.HasValue)
+        {
+            var pendingStockQty = pendingQty * item.ConversionFactor;
+            await _binService.UpdateOrderedQtyAsync(
+                item.ItemId, item.WarehouseId.Value, -pendingStockQty, po.TenantId);
+        }
+
+        await _repository.UpdateAsync(po, autoSave: true);
+        return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
+    }
+
+    [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
+    public async Task<PurchaseOrderDto> ReopenItemAsync(Guid id, Guid itemId)
+    {
+        var po = await _repository.GetAsync(id);
+        var item = po.Items.FirstOrDefault(i => i.Id == itemId);
+        if (item == null)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemNotFound);
+
+        po.ReopenItem(itemId);
+
+        // Re-reserve ordered qty on reopen in stock UOM
+        if (item.PendingReceiptQty > 0 && item.WarehouseId.HasValue)
+        {
+            var pendingStockQty = item.PendingReceiptQty * item.ConversionFactor;
+            await _binService.UpdateOrderedQtyAsync(
+                item.ItemId, item.WarehouseId.Value, pendingStockQty, po.TenantId);
         }
 
         await _repository.UpdateAsync(po, autoSave: true);
@@ -609,12 +665,21 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                 continue;
             }
 
-            // Guard: cannot reduce qty below already received
-            if (update.Quantity < poItem.ReceivedQty)
+            _childItemUpdateService.ValidatePurchaseOrderItemUpdate(poItem, update.Quantity, update.UnitPrice);
+
+            var newConversionFactor = update.ConversionFactor.HasValue && update.ConversionFactor.Value > 0
+                ? update.ConversionFactor.Value
+                : poItem.ConversionFactor;
+
+            // Guard: cannot reduce qty below already received in stock UOM (per ERPNext PR #58603)
+            var newStockQty = update.Quantity * newConversionFactor;
+            var receivedStockQty = poItem.ReceivedQty * poItem.ConversionFactor;
+            if (newStockQty < receivedStockQty)
                 throw new BusinessException("MyERP:04019")
                     .WithData("itemId", poItem.ItemId)
                     .WithData("receivedQty", poItem.ReceivedQty)
-                    .WithData("requestedQty", update.Quantity);
+                    .WithData("requestedQty", update.Quantity)
+                    .WithData("detail", "Cannot set quantity less than received quantity");
 
             // Guard: cannot reduce rate below billed amount per unit
             if (poItem.BilledQty > 0 && update.UnitPrice < poItem.UnitPrice)
@@ -632,13 +697,13 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
 
             // Update fields
             poItem.Quantity = update.Quantity;
+            poItem.ConversionFactor = newConversionFactor;
             poItem.UnitPrice = update.UnitPrice;
             if (update.WarehouseId.HasValue)
                 poItem.WarehouseId = update.WarehouseId;
 
             // Adjust Bin.OrderedQty for qty changes (delta in stock UOM)
-            var newStockQty = poItem.StockQty;
-            var qtyDelta = newStockQty - oldStockQty;
+            var qtyDelta = poItem.StockQty - oldStockQty;
             if (qtyDelta != 0 && poItem.WarehouseId.HasValue)
             {
                 await _binService.UpdateOrderedQtyAsync(

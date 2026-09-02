@@ -83,9 +83,55 @@ public class SupplierQuotation : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void Cancel()
     {
-        if (Status != DocumentStatus.Submitted)
+        if (Status == DocumentStatus.Draft || Status == DocumentStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        if (_items.Any(i => i.OrderedQty > 0))
+            throw new BusinessException(MyERPDomainErrorCodes.CannotCancelWithSubmittedDependents)
+                .WithData("reason", "Cannot cancel Supplier Quotation with active purchase orders. Cancel linked purchase orders first.");
         Status = DocumentStatus.Cancelled;
+    }
+
+    /// <summary>
+    /// Gets human-readable order status matching ERPNext status updater:
+    /// "Not Ordered" (Submitted with 0 ordered), "Partially Ordered", "Ordered".
+    /// </summary>
+    public string OrderStatus
+    {
+        get
+        {
+            if (Status == DocumentStatus.Draft) return "Draft";
+            if (Status == DocumentStatus.Cancelled) return "Cancelled";
+            if (_items.Count > 0 && _items.All(i => i.StockQty <= 0 || i.OrderedQty >= i.StockQty))
+                return "Ordered";
+            if (_items.Any(i => i.OrderedQty > 0))
+                return "Partially Ordered";
+            return "Not Ordered";
+        }
+    }
+
+    /// <summary>Updates ordered quantity for a child item and recalculates quotation order status.</summary>
+    public void UpdateOrderedQty(Guid itemId, decimal deltaQty)
+    {
+        var item = _items.FirstOrDefault(i => i.Id == itemId || i.ItemId == itemId);
+        if (item == null)
+            return;
+
+        item.OrderedQty = Math.Max(0, item.OrderedQty + deltaQty);
+        UpdateOrderStatus();
+    }
+
+    /// <summary>Recalculates status based on item ordered quantities.</summary>
+    public void UpdateOrderStatus()
+    {
+        if (Status == DocumentStatus.Draft || Status == DocumentStatus.Cancelled)
+            return;
+
+        if (_items.Count > 0 && _items.All(i => i.StockQty <= 0 || i.OrderedQty >= i.StockQty))
+            Status = DocumentStatus.Completed; // Ordered
+        else if (_items.Any(i => i.OrderedQty > 0))
+            Status = DocumentStatus.ToDeliverAndBill; // Partially Ordered
+        else
+            Status = DocumentStatus.Submitted;
     }
 
     private void RecalculateTotals()
@@ -114,6 +160,12 @@ public class SupplierQuotationItem : FullAuditedEntity<Guid>
 
     /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
     public decimal StockQty => Qty * ConversionFactor;
+
+    /// <summary>Quantity already ordered via Purchase Orders (in stock UOM).</summary>
+    public decimal OrderedQty { get; set; }
+
+    /// <summary>Remaining quantity to order (in stock UOM).</summary>
+    public decimal PendingOrderQty => Math.Max(0, StockQty - OrderedQty);
 
     /// <summary>Link to Material Request item (if applicable).</summary>
     public Guid? MaterialRequestItemId { get; set; }

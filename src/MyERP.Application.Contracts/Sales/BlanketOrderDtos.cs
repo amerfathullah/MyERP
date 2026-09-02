@@ -13,6 +13,8 @@ public class BlanketOrderDto : EntityDto<Guid>
     public string? PartyName { get; set; }
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }
+    public string Currency { get; set; } = "MYR";
+    public decimal ExchangeRate { get; set; } = 1m;
     public int Status { get; set; }
     public BlanketOrderItemDto[] Items { get; set; } = [];
     public DateTime CreationTime { get; set; }
@@ -25,6 +27,7 @@ public class BlanketOrderItemDto
     public string? ItemName { get; set; }
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
+    public decimal BaseRate { get; set; }
     public decimal OrderedQty { get; set; }
     public decimal RemainingQty { get; set; }
 }
@@ -37,6 +40,8 @@ public class CreateBlanketOrderDto
     public string? PartyName { get; set; }
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }
+    public string Currency { get; set; } = "MYR";
+    public decimal ExchangeRate { get; set; } = 1m;
     public CreateBlanketOrderItemDto[] Items { get; set; } = [];
 }
 

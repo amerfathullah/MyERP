@@ -7,6 +7,6 @@ namespace MyERP.Purchasing;
 
 public interface ISupplierQuotationComparisonAppService : IApplicationService
 {
-    Task<SupplierQuotationComparisonDto> GetComparisonByRfqAsync(Guid rfqId, string? status = null);
+    Task<SupplierQuotationComparisonDto> GetComparisonByRfqAsync(Guid rfqId, string? status = null, string? orderStatus = null);
     Task<SupplierQuotationComparisonDto> GetComparisonByIdsAsync(List<Guid> quotationIds);
 }

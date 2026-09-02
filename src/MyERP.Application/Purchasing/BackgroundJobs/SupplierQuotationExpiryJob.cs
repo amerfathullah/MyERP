@@ -36,6 +36,7 @@ public class SupplierQuotationExpiryJob : AsyncBackgroundJob<SupplierQuotationEx
         var expiredQuotations = query
             .Where(q => q.CompanyId == args.CompanyId &&
                         q.Status == Core.DocumentStatus.Submitted &&
+                        q.Items.All(i => i.OrderedQty == 0) &&
                         q.ValidTill.HasValue &&
                         q.ValidTill.Value < asOfDate)
             .ToList();

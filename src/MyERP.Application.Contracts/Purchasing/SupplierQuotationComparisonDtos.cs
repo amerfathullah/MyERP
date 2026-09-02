@@ -20,6 +20,8 @@ public class ComparisonSupplierDto
     public string? Currency { get; set; }
     public DateTime? ValidTill { get; set; }
     public decimal GrandTotal { get; set; }
+    public string OrderStatus { get; set; } = "Not Ordered";
+    public int Status { get; set; }
 }
 
 public class ComparisonItemDto

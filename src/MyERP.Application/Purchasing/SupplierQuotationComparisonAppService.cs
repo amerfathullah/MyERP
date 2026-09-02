@@ -36,9 +36,9 @@ public class SupplierQuotationComparisonAppService : ApplicationService, ISuppli
 
     /// <summary>
     /// Gets a comparison matrix for all supplier quotations against a specific RFQ.
-    /// Supports status filtering (Draft, Submitted, or all non-cancelled).
+    /// Supports status filtering (Draft, Submitted, or all non-cancelled) and order status filtering ("Not Ordered", "Partially Ordered", "Ordered").
     /// </summary>
-    public async Task<SupplierQuotationComparisonDto> GetComparisonByRfqAsync(Guid rfqId, string? status = null)
+    public async Task<SupplierQuotationComparisonDto> GetComparisonByRfqAsync(Guid rfqId, string? status = null, string? orderStatus = null)
     {
         var sqQueryable = await _sqRepository.GetQueryableAsync();
         var supplierQueryable = await _supplierRepository.GetQueryableAsync();
@@ -48,11 +48,22 @@ public class SupplierQuotationComparisonAppService : ApplicationService, ISuppli
         if (string.Equals(status, "Draft", StringComparison.OrdinalIgnoreCase))
             query = query.Where(sq => sq.Status == DocumentStatus.Draft);
         else if (string.Equals(status, "Submitted", StringComparison.OrdinalIgnoreCase))
-            query = query.Where(sq => sq.Status == DocumentStatus.Submitted);
+            query = query.Where(sq => sq.Status == DocumentStatus.Submitted || sq.Status == DocumentStatus.ToDeliverAndBill || sq.Status == DocumentStatus.Completed);
         else
             query = query.Where(sq => sq.Status != DocumentStatus.Cancelled);
 
         var quotations = query.OrderBy(sq => sq.SupplierName).ToList();
+
+        // Filter by OrderStatus if specified (per ERPNext PR #58572)
+        if (!string.IsNullOrWhiteSpace(orderStatus))
+        {
+            if (string.Equals(orderStatus, "Not Ordered", StringComparison.OrdinalIgnoreCase))
+                quotations = quotations.Where(sq => sq.OrderStatus == "Not Ordered").ToList();
+            else if (string.Equals(orderStatus, "Partially Ordered", StringComparison.OrdinalIgnoreCase))
+                quotations = quotations.Where(sq => sq.OrderStatus == "Partially Ordered").ToList();
+            else if (string.Equals(orderStatus, "Ordered", StringComparison.OrdinalIgnoreCase))
+                quotations = quotations.Where(sq => sq.OrderStatus == "Ordered").ToList();
+        }
 
         if (!quotations.Any())
             return new SupplierQuotationComparisonDto { RfqId = rfqId };
@@ -84,6 +95,8 @@ public class SupplierQuotationComparisonAppService : ApplicationService, ISuppli
                 Currency = sq.Currency,
                 ValidTill = sq.ValidTill,
                 GrandTotal = sq.GrandTotal,
+                OrderStatus = sq.OrderStatus,
+                Status = (int)sq.Status,
             }).ToList(),
             Items = new List<ComparisonItemDto>(),
         };
@@ -184,6 +197,8 @@ public class SupplierQuotationComparisonAppService : ApplicationService, ISuppli
                 Currency = sq.Currency,
                 ValidTill = sq.ValidTill,
                 GrandTotal = sq.GrandTotal,
+                OrderStatus = sq.OrderStatus,
+                Status = (int)sq.Status,
             }).ToList(),
             Items = new List<ComparisonItemDto>(),
         };

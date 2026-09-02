@@ -94,6 +94,13 @@ public class PosProfileAppService : CrudAppService<
 
         if (input.PaymentMethods != null)
         {
+            var dupes = input.PaymentMethods.GroupBy(p => p.ModeOfPaymentId).Where(g => g.Count() > 1).ToList();
+            if (dupes.Any())
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Duplicate Mode of Payment added in Payment Methods table.");
+            }
+
             foreach (var pm in input.PaymentMethods)
             {
                 var method = new PosProfilePaymentMethod(
@@ -121,13 +128,26 @@ public class PosProfileAppService : CrudAppService<
             throw new BusinessException("MyERP:EntityNotFound");
         }
 
+        var newInvoiceType = input.InvoiceType ?? "POS Invoice";
+        if (!string.Equals(entity.InvoiceType, newInvoiceType, StringComparison.OrdinalIgnoreCase))
+        {
+            var openingRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosOpeningEntry, Guid>>();
+            var openingQuery = await openingRepo.GetQueryableAsync();
+            var hasOpenSession = openingQuery.Any(e => e.PosProfileId == id && e.Status == PosOpeningStatus.Open);
+            if (hasOpenSession)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot change Invoice Type while an open POS Opening Entry exists for this POS Profile. Close all open POS shifts first.");
+            }
+        }
+
         entity.ProfileName = input.ProfileName;
         entity.WarehouseId = input.WarehouseId;
         entity.PriceListId = input.PriceListId;
         entity.DefaultCustomerId = input.DefaultCustomerId;
         entity.CurrencyCode = input.CurrencyCode ?? "MYR";
         entity.ValidateStock = input.ValidateStock;
-        entity.InvoiceType = input.InvoiceType ?? "POS Invoice";
+        entity.InvoiceType = newInvoiceType;
         entity.IsDisabled = input.IsDisabled;
         entity.TaxTemplateId = input.TaxTemplateId;
         entity.WriteOffAccountId = input.WriteOffAccountId;
@@ -140,6 +160,13 @@ public class PosProfileAppService : CrudAppService<
         entity.ClearPaymentMethods();
         if (input.PaymentMethods != null)
         {
+            var dupes = input.PaymentMethods.GroupBy(p => p.ModeOfPaymentId).Where(g => g.Count() > 1).ToList();
+            if (dupes.Any())
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Duplicate Mode of Payment added in Payment Methods table.");
+            }
+
             foreach (var pm in input.PaymentMethods)
             {
                 var method = new PosProfilePaymentMethod(

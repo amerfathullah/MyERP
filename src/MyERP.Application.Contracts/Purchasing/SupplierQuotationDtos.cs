@@ -15,6 +15,7 @@ public class SupplierQuotationDto : EntityDto<Guid>
     public decimal NetTotal { get; set; }
     public decimal GrandTotal { get; set; }
     public int Status { get; set; }
+    public string? OrderStatus { get; set; }
     public SupplierQuotationItemDto[] Items { get; set; } = [];
 }
 
@@ -25,6 +26,8 @@ public class SupplierQuotationItemDto : EntityDto<Guid>
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
     public decimal Amount { get; set; }
+    public decimal OrderedQty { get; set; }
+    public decimal PendingOrderQty { get; set; }
 }
 
 public class CreateSupplierQuotationDto

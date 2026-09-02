@@ -79,6 +79,7 @@ public class BomSecondaryItemDto
     public Guid ItemId { get; set; }
     public string? ItemName { get; set; }
     public SecondaryItemType SecondaryItemType { get; set; }
+    public SecondaryItemValuationType ValuationType { get; set; }
     public decimal Quantity { get; set; }
     public decimal EffectiveQuantity { get; set; }
     public string? StockUom { get; set; }
@@ -112,6 +113,7 @@ public class CreateBomSecondaryItemDto
     [Required] public Guid ItemId { get; set; }
     public string? ItemName { get; set; }
     public SecondaryItemType SecondaryItemType { get; set; }
+    public SecondaryItemValuationType ValuationType { get; set; } = SecondaryItemValuationType.ValuationRate;
     [Range(0.01, double.MaxValue)] public decimal Quantity { get; set; }
     public string? StockUom { get; set; }
     [Range(0, double.MaxValue)] public decimal Rate { get; set; }

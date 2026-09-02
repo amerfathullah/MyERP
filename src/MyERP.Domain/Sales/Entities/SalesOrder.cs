@@ -80,24 +80,31 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     public Guid? QuotationId { get; set; }
 
     /// <summary>
-    /// Percentage of total qty delivered (0-100).
-    /// Items with SkipDelivery=true are excluded from delivery fulfillment tracking.
-    /// If all items skip delivery (e.g. pure service SO), returns 100%.
+    /// Percentage of total qty delivered (0-100). Excludes closed rows and service items.
+    /// If all items skip delivery or are closed, returns 100%.
     /// </summary>
     public decimal PerDelivered
     {
         get
         {
-            var deliverable = _items.Where(i => !i.SkipDelivery).ToList();
+            var deliverable = _items.Where(i => !i.SkipDelivery && !i.IsClosed).ToList();
             if (deliverable.Count == 0) return _items.Count > 0 ? 100m : 0m;
             return Math.Round(deliverable.Min(i => i.Quantity > 0 ? i.DeliveredQty / i.Quantity * 100 : 100m), 2);
         }
     }
 
-    /// <summary>Percentage of total amount billed (0-100).</summary>
-    public decimal PerBilled => NetTotal > 0
-        ? Math.Round(_items.Sum(i => i.BilledQty * i.UnitPrice) / NetTotal * 100, 2)
-        : 0;
+    /// <summary>Percentage of total amount billed (0-100). Excludes closed rows.</summary>
+    public decimal PerBilled
+    {
+        get
+        {
+            var openItems = _items.Where(i => !i.IsClosed).ToList();
+            var openTotal = openItems.Sum(i => i.LineTotal);
+            return openTotal > 0
+                ? Math.Round(openItems.Sum(i => i.BilledQty * i.UnitPrice) / openTotal * 100, 2)
+                : (_items.Count > 0 && _items.All(i => i.IsClosed) ? 100m : 0m);
+        }
+    }
 
     private readonly List<SalesOrderItem> _items = new();
     public IReadOnlyList<SalesOrderItem> Items => _items.AsReadOnly();
@@ -268,6 +275,24 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         TaxAmount = _items.Sum(i => i.TaxAmount);
         GrandTotal = NetTotal + TaxAmount;
     }
+
+    /// <summary>Closes an individual item row (per ERPNext PR #57596).</summary>
+    public void CloseItem(Guid itemRowId)
+    {
+        var item = _items.FirstOrDefault(i => i.Id == itemRowId);
+        if (item == null || item.IsClosed) return;
+        item.IsClosed = true;
+        UpdateFulfillmentStatus();
+    }
+
+    /// <summary>Reopens an individual item row.</summary>
+    public void ReopenItem(Guid itemRowId)
+    {
+        var item = _items.FirstOrDefault(i => i.Id == itemRowId);
+        if (item == null || !item.IsClosed) return;
+        item.IsClosed = false;
+        UpdateFulfillmentStatus();
+    }
 }
 
 public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
@@ -281,6 +306,9 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal => Quantity * UnitPrice;
+
+    /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
+    public bool IsClosed { get; set; }
 
     /// <summary>Item's stock UOM (e.g., "Unit"). From Item master.</summary>
     public string StockUom { get; set; } = "Unit";
@@ -314,10 +342,10 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     public bool SkipDelivery { get; set; }
 
     /// <summary>Remaining qty to deliver.</summary>
-    public decimal PendingDeliveryQty => SkipDelivery ? 0 : Math.Max(0, Quantity - DeliveredQty);
+    public decimal PendingDeliveryQty => (SkipDelivery || IsClosed) ? 0 : Math.Max(0, Quantity - DeliveredQty);
 
     /// <summary>Remaining qty to bill accounting for returns and re-deliveries.</summary>
-    public decimal PendingBillingQty => Math.Max(0, BillableQty - BilledQty);
+    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, BillableQty - BilledQty);
 
     /// <summary>Target warehouse for this item (for stock reservation).</summary>
     public Guid? WarehouseId { get; set; }

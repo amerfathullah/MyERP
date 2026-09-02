@@ -94,6 +94,9 @@ public class SalesOrderItemDto
 
     /// <summary>True when ordered qty exceeds available stock (triggers low-stock warning in UI).</summary>
     public bool IsInsufficientStock { get; set; }
+
+    /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
+    public bool IsClosed { get; set; }
 }
 
 public class CreateSalesOrderDto
