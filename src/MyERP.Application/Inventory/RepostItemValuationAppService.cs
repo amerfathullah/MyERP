@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -47,11 +48,26 @@ public class RepostItemValuationAppService : ApplicationService, IRepostItemValu
     }
 
     /// <summary>
-    /// Creates a repost request. Checks for dedup (covered by existing queued/in-progress).
+    /// Creates a repost request. Checks for dedup (covered by existing queued/in-progress)
+    /// and ensures posting date is after the company's latest period closing date (PR #58605).
     /// </summary>
     [Authorize(MyERPPermissions.StockEntries.Create)]
     public async Task<RepostItemValuationDto> CreateAsync(CreateRepostItemValuationDto input)
     {
+        var pcvRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.PeriodClosingVoucher, Guid>>();
+        var pcvQuery = await pcvRepo.GetQueryableAsync();
+        var maxPeriodClosing = pcvQuery
+            .Where(p => p.CompanyId == input.CompanyId && p.Status == Core.DocumentStatus.Submitted)
+            .OrderByDescending(p => p.PostingDate)
+            .Select(p => (DateTime?)p.PostingDate)
+            .FirstOrDefault();
+
+        if (maxPeriodClosing.HasValue && input.PostingDate.Date <= maxPeriodClosing.Value.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Due to period closing, you cannot repost item valuation on or before {maxPeriodClosing.Value:yyyy-MM-dd}.");
+        }
+
         var entity = new RepostItemValuation(GuidGenerator.Create(), input.CompanyId,
             (RepostMethod)input.BasedOn, input.PostingDate, input.ItemId, input.WarehouseId,
             CurrentTenant.Id);
