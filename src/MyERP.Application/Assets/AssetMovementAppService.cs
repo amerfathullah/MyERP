@@ -217,6 +217,19 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
                 throw new BusinessException(MyERPDomainErrorCodes.AssetMovementSameLocationAndCustodian)
                     .WithData("assetName", asset.AssetName);
             }
+
+            // Validate transaction date against prior submitted movements for this asset (ERPNext PR #52340 / commit e98b68c38f)
+            var movementQuery = await _repository.WithDetailsAsync(m => m.Items);
+            var priorMovementDates = movementQuery
+                .Where(m => m.Id != am.Id && m.Status == Core.DocumentStatus.Submitted && m.Items.Any(i => i.AssetId == item.AssetId))
+                .Select(m => m.TransactionDate)
+                .ToList();
+
+            if (priorMovementDates.Any(d => d > am.TransactionDate))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Transaction date cannot be earlier than previous movement date for asset '{asset.AssetName}'.");
+            }
         }
 
         am.Submit();
