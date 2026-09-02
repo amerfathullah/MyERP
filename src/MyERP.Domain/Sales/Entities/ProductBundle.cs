@@ -26,6 +26,9 @@ public class ProductBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Whether this bundle is disabled (cannot be used in transactions, PR #55791).</summary>
+    public bool IsDisabled { get; set; }
+
     private readonly List<ProductBundleItem> _items = new();
     public IReadOnlyList<ProductBundleItem> Items => _items.AsReadOnly();
 
@@ -51,6 +54,16 @@ public class ProductBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void Deactivate()
     {
         IsActive = false;
+    }
+
+    public void Disable()
+    {
+        IsDisabled = true;
+    }
+
+    public void Enable()
+    {
+        IsDisabled = false;
     }
 
     /// <summary>

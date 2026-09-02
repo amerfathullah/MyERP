@@ -35,7 +35,7 @@ public class ProductBundleDecompositionService : DomainService
     public async Task<bool> IsBundleItemAsync(Guid itemId)
     {
         var queryable = await _bundleRepository.GetQueryableAsync();
-        return queryable.Any(b => b.ItemId == itemId && b.IsActive);
+        return queryable.Any(b => b.ItemId == itemId && b.IsActive && !b.IsDisabled);
     }
 
     /// <summary>
@@ -48,7 +48,7 @@ public class ProductBundleDecompositionService : DomainService
 
         var queryable = await _bundleRepository.GetQueryableAsync();
         var bundleItemIds = queryable
-            .Where(b => itemIdList.Contains(b.ItemId) && b.IsActive)
+            .Where(b => itemIdList.Contains(b.ItemId) && b.IsActive && !b.IsDisabled)
             .Select(b => b.ItemId)
             .ToHashSet();
 
@@ -67,7 +67,7 @@ public class ProductBundleDecompositionService : DomainService
     public async Task<List<DecomposedItem>> DecomposeAsync(Guid itemId, decimal transactionQty, decimal parentRate, Guid? warehouseId = null)
     {
         var queryable = await _bundleRepository.GetQueryableAsync();
-        var bundle = queryable.FirstOrDefault(b => b.ItemId == itemId && b.IsActive);
+        var bundle = queryable.FirstOrDefault(b => b.ItemId == itemId && b.IsActive && !b.IsDisabled);
 
         if (bundle == null)
             return new List<DecomposedItem>();
