@@ -69,8 +69,8 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
                 .WithData("assetName", asset.AssetName);
         }
 
-        // Disallow repair on sold/scrapped assets
-        if (asset.Status is AssetStatus.Sold or AssetStatus.Scrapped)
+        // Disallow repair on fully depreciated, sold, scrapped, or cancelled assets (ERPNext PR #51753 / commit 66fe1aa85d)
+        if (asset.Status is AssetStatus.FullyDepreciated or AssetStatus.Sold or AssetStatus.Scrapped or AssetStatus.Cancelled or AssetStatus.Draft)
         {
             throw new BusinessException(MyERPDomainErrorCodes.AssetCannotBeMoved)
                 .WithData("assetName", asset.AssetName)
@@ -169,7 +169,8 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
                 .WithData("assetName", asset.AssetName);
         }
 
-        if (asset.Status is AssetStatus.Sold or AssetStatus.Scrapped)
+        // Disallow repair on fully depreciated, sold, scrapped, or cancelled assets (ERPNext PR #51753 / commit 66fe1aa85d)
+        if (asset.Status is AssetStatus.FullyDepreciated or AssetStatus.Sold or AssetStatus.Scrapped or AssetStatus.Cancelled or AssetStatus.Draft)
         {
             throw new BusinessException(MyERPDomainErrorCodes.AssetCannotBeMoved)
                 .WithData("assetName", asset.AssetName)
