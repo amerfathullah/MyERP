@@ -74,6 +74,7 @@ public class UpdateMasterProductionScheduleDto
 public class FetchSalesOrdersDto
 {
     public Guid? CustomerId { get; set; }
+    public Guid? ItemId { get; set; }
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
 }

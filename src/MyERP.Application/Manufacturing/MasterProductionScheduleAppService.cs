@@ -133,16 +133,18 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
     {
         var schedule = await _repository.GetAsync(id, includeDetails: true);
 
-        var query = await _salesOrderRepository.GetQueryableAsync();
-        query = query.Where(so => so.CompanyId == schedule.CompanyId && OpenSalesOrderStatuses.Contains(so.Status));
+        var query = await _salesOrderRepository.WithDetailsAsync(so => so.Items);
+        var soQuery = query.Where(so => so.CompanyId == schedule.CompanyId && OpenSalesOrderStatuses.Contains(so.Status));
         if (input.CustomerId.HasValue)
-            query = query.Where(so => so.CustomerId == input.CustomerId.Value);
+            soQuery = soQuery.Where(so => so.CustomerId == input.CustomerId.Value);
+        if (input.ItemId.HasValue)
+            soQuery = soQuery.Where(so => so.Items.Any(i => i.ItemId == input.ItemId.Value));
         if (input.FromDate.HasValue)
-            query = query.Where(so => so.OrderDate >= input.FromDate.Value);
+            soQuery = soQuery.Where(so => so.OrderDate >= input.FromDate.Value);
         if (input.ToDate.HasValue)
-            query = query.Where(so => so.OrderDate <= input.ToDate.Value);
+            soQuery = soQuery.Where(so => so.OrderDate <= input.ToDate.Value);
 
-        var orders = query.OrderBy(so => so.DeliveryDate).ToList();
+        var orders = soQuery.OrderBy(so => so.DeliveryDate).ToList();
         schedule.SetSalesOrders(orders.Select(so => new MpsSalesOrderRef(
             GuidGenerator.Create(), schedule.Id, so.Id, so.OrderDate, so.CustomerId, so.GrandTotal, so.Status.ToString())));
 
