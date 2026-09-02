@@ -90,6 +90,21 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
             await itemValidation.ValidateItemsForTransactionAsync(input.StockItems.Select(i => i.ItemId).ToArray());
         }
 
+        // Validate duplicate purchase invoice rows (per ERPNext PR #50804 / commit ff9b392024)
+        if (input.Invoices != null && input.Invoices.Any())
+        {
+            var duplicates = input.Invoices
+                .GroupBy(i => (i.PurchaseInvoiceId, i.ExpenseAccountId))
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            if (duplicates.Any())
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Duplicate Purchase Invoice and Expense Account combination found in Asset Repair invoice rows.");
+            }
+        }
+
         var repairNumber = $"AS-REP-{DateTime.UtcNow:yyyyMMdd}-{GuidGenerator.Create().ToString()[..6].ToUpper()}";
         var repair = new AssetRepair(
             GuidGenerator.Create(),
@@ -186,6 +201,21 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
         {
             var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
             await itemValidation.ValidateItemsForTransactionAsync(input.StockItems.Select(i => i.ItemId).ToArray());
+        }
+
+        // Validate duplicate purchase invoice rows (per ERPNext PR #50804 / commit ff9b392024)
+        if (input.Invoices != null && input.Invoices.Any())
+        {
+            var duplicates = input.Invoices
+                .GroupBy(i => (i.PurchaseInvoiceId, i.ExpenseAccountId))
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            if (duplicates.Any())
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Duplicate Purchase Invoice and Expense Account combination found in Asset Repair invoice rows.");
+            }
         }
 
         repair.AssetId = input.AssetId;
