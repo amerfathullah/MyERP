@@ -50,6 +50,7 @@ public class ItemDto : FullAuditedEntityDto<Guid>
     public bool MaintainStock { get; set; }
     public Guid? DefaultIncomeAccountId { get; set; }
     public Guid? DefaultExpenseAccountId { get; set; }
+    public Guid? DefaultInventoryAccountId { get; set; }
     public bool GrantCommission { get; set; } = true;
     public decimal? MaxDiscount { get; set; }
     public bool IsActive { get; set; }

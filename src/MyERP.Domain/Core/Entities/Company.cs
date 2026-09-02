@@ -199,6 +199,12 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool AllowCreditNoteWithoutOriginalInvoice { get; set; }
 
+    /// <summary>
+    /// When true, allows booking inventory GL entries to item/item-group specific inventory accounts instead of warehouse accounts.
+    /// Per ERPNext PR #50193 / commit 74192547ce.
+    /// </summary>
+    public bool EnableItemWiseInventoryAccount { get; set; }
+
     // --- Warehouse Defaults (moved from Stock Settings to Company per PR #57571) ---
 
     /// <summary>Default warehouse for transactions. Per PR #57571: now per-company, not global.</summary>

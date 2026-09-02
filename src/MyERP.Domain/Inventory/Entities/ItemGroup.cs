@@ -31,6 +31,9 @@ public class ItemGroup : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Default income account for items in this group.</summary>
     public Guid? DefaultIncomeAccountId { get; set; }
 
+    /// <summary>Default inventory/stock asset account for items in this group.</summary>
+    public Guid? DefaultInventoryAccountId { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     protected ItemGroup() { }

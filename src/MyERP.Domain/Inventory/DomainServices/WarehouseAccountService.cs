@@ -48,9 +48,29 @@ public class WarehouseAccountService : DomainService
     /// <summary>
     /// Resolves the stock GL account for a warehouse.
     /// Per ERPNext: used for DR on stock-in (PR/Manufacture/Receipt) and CR on stock-out (DN/Issue).
+    /// If Company.EnableItemWiseInventoryAccount is true and an item is provided, checks item/item-group account first.
     /// </summary>
-    public async Task<Guid> ResolveStockAccountAsync(Guid warehouseId, Guid companyId)
+    public async Task<Guid> ResolveStockAccountAsync(Guid warehouseId, Guid companyId, Guid? itemId = null)
     {
+        var company = await _companyRepository.GetAsync(companyId);
+
+        // Level 0: Item-wise inventory account (if enabled per PR #50193 / commit 74192547ce)
+        if (company.EnableItemWiseInventoryAccount && itemId.HasValue)
+        {
+            var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+            var item = await itemRepo.FindAsync(itemId.Value);
+            if (item?.DefaultInventoryAccountId.HasValue == true)
+                return item.DefaultInventoryAccountId.Value;
+
+            if (item?.ItemGroupId.HasValue == true)
+            {
+                var itemGroupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemGroup, Guid>>();
+                var itemGroup = await itemGroupRepo.FindAsync(item.ItemGroupId.Value);
+                if (itemGroup?.DefaultInventoryAccountId.HasValue == true)
+                    return itemGroup.DefaultInventoryAccountId.Value;
+            }
+        }
+
         // Level 1: Direct warehouse account mapping
         var warehouseAccount = await _warehouseAccountRepository.FindAsync(
             wa => wa.WarehouseId == warehouseId && wa.CompanyId == companyId);
@@ -80,7 +100,6 @@ public class WarehouseAccountService : DomainService
         }
 
         // Level 4: Company default
-        var company = await _companyRepository.GetAsync(companyId);
         if (company.DefaultInventoryAccountId.HasValue)
             return company.DefaultInventoryAccountId.Value;
 

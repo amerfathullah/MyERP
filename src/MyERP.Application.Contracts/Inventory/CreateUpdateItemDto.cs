@@ -100,6 +100,8 @@ public class CreateUpdateItemDto
 
     public Guid? DefaultExpenseAccountId { get; set; }
 
+    public Guid? DefaultInventoryAccountId { get; set; }
+
     public bool GrantCommission { get; set; } = true;
 
     [Range(0, 100)]

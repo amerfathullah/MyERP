@@ -160,6 +160,8 @@ public class CompanyAppService :
         entity.BookAdvancePaymentsInSeparatePartyAccount = input.BookAdvancePaymentsInSeparatePartyAccount;
         entity.DefaultAdvanceReceivedAccountId = input.DefaultAdvanceReceivedAccountId;
         entity.DefaultAdvancePaidAccountId = input.DefaultAdvancePaidAccountId;
+
+        entity.EnableItemWiseInventoryAccount = input.EnableItemWiseInventoryAccount;
     }
 
     [Authorize(MyERPPermissions.Companies.Edit)]

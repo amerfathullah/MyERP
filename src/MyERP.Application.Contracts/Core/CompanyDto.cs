@@ -64,4 +64,6 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public bool BookAdvancePaymentsInSeparatePartyAccount { get; set; }
     public Guid? DefaultAdvanceReceivedAccountId { get; set; }
     public Guid? DefaultAdvancePaidAccountId { get; set; }
+
+    public bool EnableItemWiseInventoryAccount { get; set; }
 }

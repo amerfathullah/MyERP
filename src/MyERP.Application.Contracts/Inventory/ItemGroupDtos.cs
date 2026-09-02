@@ -9,6 +9,7 @@ public class ItemGroupDto : EntityDto<Guid>
     public Guid? ParentId { get; set; }
     public bool IsGroup { get; set; }
     public Guid? DefaultWarehouseId { get; set; }
+    public Guid? DefaultInventoryAccountId { get; set; }
 }
 
 public class CreateItemGroupDto
@@ -17,4 +18,5 @@ public class CreateItemGroupDto
     public Guid? ParentId { get; set; }
     public bool IsGroup { get; set; }
     public Guid? DefaultWarehouseId { get; set; }
+    public Guid? DefaultInventoryAccountId { get; set; }
 }

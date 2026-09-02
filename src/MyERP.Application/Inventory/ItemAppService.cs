@@ -293,6 +293,7 @@ public class ItemAppService :
         entity.AllowNegativeStock = input.AllowNegativeStock;
         entity.DefaultIncomeAccountId = input.DefaultIncomeAccountId;
         entity.DefaultExpenseAccountId = input.DefaultExpenseAccountId;
+        entity.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
         entity.GrantCommission = input.GrantCommission;
         entity.MaxDiscount = input.MaxDiscount;
         entity.IsActive = input.IsActive;
