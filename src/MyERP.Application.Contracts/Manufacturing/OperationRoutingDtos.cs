@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 using Volo.Abp.Application.Dtos;
 
 namespace MyERP.Manufacturing;
@@ -28,6 +29,7 @@ public class SubOperationDto
 
 public class CreateSubOperationDto
 {
+    [Required]
     public Guid OperationId { get; set; }
     public decimal TimeInMins { get; set; }
     public string? Description { get; set; }

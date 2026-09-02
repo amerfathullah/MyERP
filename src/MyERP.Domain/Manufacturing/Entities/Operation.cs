@@ -61,7 +61,10 @@ public class Operation : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         _subOperations.Clear();
         foreach (var row in rows)
+        {
+            Check.NotDefaultOrNull<Guid>(row.OperationId, nameof(row.OperationId));
             _subOperations.Add(new SubOperation(Guid.NewGuid(), Id, row.OperationId, row.TimeInMins, row.Description));
+        }
         TotalOperationTime = _subOperations.Sum(s => s.TimeInMins);
     }
 }
@@ -84,8 +87,8 @@ public class SubOperation : FullAuditedEntity<Guid>
 
     public SubOperation(Guid id, Guid parentOperationId, Guid operationId, decimal timeInMins, string? description) : base(id)
     {
-        ParentOperationId = parentOperationId;
-        OperationId = operationId;
+        ParentOperationId = Check.NotDefaultOrNull<Guid>(parentOperationId, nameof(parentOperationId));
+        OperationId = Check.NotDefaultOrNull<Guid>(operationId, nameof(operationId));
         TimeInMins = timeInMins;
         Description = description;
     }
