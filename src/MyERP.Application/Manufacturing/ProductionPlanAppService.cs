@@ -301,7 +301,8 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 item.ItemId, item.BomId, item.PlannedQty, CurrentTenant.Id)
             {
                 SalesOrderId = item.SalesOrderId,
-                FgWarehouseId = item.WarehouseId,
+                SourceWarehouseId = bom.SourceWarehouseId,
+                FgWarehouseId = item.WarehouseId ?? bom.TargetWarehouseId,
                 WipWarehouseId = company?.DefaultWipWarehouseId,
                 TrackSemiFinishedGoods = bom.TrackSemiFinishedGoods,
             };
