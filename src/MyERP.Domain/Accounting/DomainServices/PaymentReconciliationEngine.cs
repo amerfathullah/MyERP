@@ -217,10 +217,15 @@ public class PaymentReconciliationEngine : DomainService
         if (partyAccountId == Guid.Empty) return;
 
         decimal paymentExchangeRate = 1m;
+        Guid? costCenterId = null;
+        Guid? projectId = null;
+
         if (alloc.PaymentVoucherType == "PaymentEntry")
         {
             var pe = await _paymentEntryRepository.GetAsync(alloc.PaymentVoucherId);
             paymentExchangeRate = pe.ExchangeRate;
+            costCenterId = pe.CostCenterId;
+            projectId = pe.ProjectId;
         }
 
         var gainLoss = CalculateExchangeGainLoss(alloc.AllocatedAmount, paymentExchangeRate, invoiceExchangeRate);
@@ -252,13 +257,13 @@ public class PaymentReconciliationEngine : DomainService
 
         if (isGain)
         {
-            je.AddLine(partyAccountId, absGainLoss, true);
-            je.AddLine(targetAccount, absGainLoss, false);
+            je.AddLineWithDimensions(partyAccountId, absGainLoss, true, costCenterId, projectId, null, "Exchange Gain");
+            je.AddLineWithDimensions(targetAccount, absGainLoss, false, costCenterId, projectId, null, "Exchange Gain");
         }
         else
         {
-            je.AddLine(targetAccount, absGainLoss, true);
-            je.AddLine(partyAccountId, absGainLoss, false);
+            je.AddLineWithDimensions(targetAccount, absGainLoss, true, costCenterId, projectId, null, "Exchange Loss");
+            je.AddLineWithDimensions(partyAccountId, absGainLoss, false, costCenterId, projectId, null, "Exchange Loss");
         }
 
         je.Post();

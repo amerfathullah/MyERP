@@ -639,13 +639,17 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
                     if (isRefGain)
                     {
-                        fxJe.AddLine(partyAccountIdForFx, Math.Abs(refGainLoss), true); // DR party account
-                        fxJe.AddLine(refFxAccountId.Value, Math.Abs(refGainLoss), false); // CR Exchange GL
+                        fxJe.AddLineWithDimensions(partyAccountIdForFx, Math.Abs(refGainLoss), true,
+                            pe.CostCenterId, pe.ProjectId, null, "Exchange Gain"); // DR party account
+                        fxJe.AddLineWithDimensions(refFxAccountId.Value, Math.Abs(refGainLoss), false,
+                            pe.CostCenterId, pe.ProjectId, null, "Exchange Gain"); // CR Exchange GL
                     }
                     else
                     {
-                        fxJe.AddLine(refFxAccountId.Value, Math.Abs(refGainLoss), true); // DR Exchange GL
-                        fxJe.AddLine(partyAccountIdForFx, Math.Abs(refGainLoss), false); // CR party account
+                        fxJe.AddLineWithDimensions(refFxAccountId.Value, Math.Abs(refGainLoss), true,
+                            pe.CostCenterId, pe.ProjectId, null, "Exchange Loss"); // DR Exchange GL
+                        fxJe.AddLineWithDimensions(partyAccountIdForFx, Math.Abs(refGainLoss), false,
+                            pe.CostCenterId, pe.ProjectId, null, "Exchange Loss"); // CR party account
                     }
 
                     fxJe.Post();
