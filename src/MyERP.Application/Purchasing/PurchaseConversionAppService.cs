@@ -191,6 +191,80 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
     }
 
     /// <summary>
+    /// Converts a submitted Purchase Invoice into a Purchase Receipt.
+    /// Per ERPNext PR #50971 / commit 66407d22fc: rejects return invoices and subtracts returned items (Debit Notes).
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseReceipts.Create)]
+    public async Task<PurchaseReceiptDto> ConvertPurchaseInvoiceToReceiptAsync(Guid purchaseInvoiceId)
+    {
+        var pi = await _purchaseInvoiceRepository.GetAsync(purchaseInvoiceId);
+
+        if (pi.Status == Core.DocumentStatus.Draft || pi.Status == Core.DocumentStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        if (pi.IsReturn)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Cannot create a Purchase Receipt for return Purchase Invoices (Debit Notes).");
+
+        var receiptNumber = await _numberGenerator.GenerateAsync("PurchaseReceipt", pi.CompanyId);
+
+        // Find debit notes against this purchase invoice to subtract returned quantities (PR #50971 / commit 66407d22fc)
+        var piQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
+        var debitNotes = piQuery
+            .Where(d => d.IsReturn && d.ReturnAgainstId == pi.Id && d.Status == Core.DocumentStatus.Submitted)
+            .ToList();
+
+        var returnedQtyByItem = debitNotes
+            .SelectMany(dn => dn.Items)
+            .GroupBy(dni => dni.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(dni => Math.Abs(dni.Quantity)));
+
+        var warehouseId = pi.WarehouseId
+            ?? pi.Items.FirstOrDefault(i => i.WarehouseId.HasValue)?.WarehouseId
+            ?? (await _itemRepository.FindAsync(pi.Items.FirstOrDefault()?.ItemId ?? Guid.Empty))?.DefaultWarehouseId
+            ?? throw new BusinessException("MyERP:01007")
+                .WithData("documentType", "Purchase Receipt — no warehouse set on Purchase Invoice items");
+
+        var receipt = new PurchaseReceipt(
+            GuidGenerator.Create(),
+            pi.CompanyId,
+            pi.SupplierId,
+            warehouseId,
+            receiptNumber,
+            Clock.Now.Date,
+            pi.TenantId);
+
+        receipt.CurrencyCode = pi.CurrencyCode;
+
+        foreach (var item in pi.Items)
+        {
+            var returnedQty = returnedQtyByItem.GetValueOrDefault(item.ItemId, 0m);
+            var pendingQty = item.Quantity - returnedQty;
+            if (pendingQty <= 0) continue;
+
+            receipt.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom);
+            var lastItem = receipt.Items[^1];
+            lastItem.StockUom = item.StockUom;
+            lastItem.ConversionFactor = item.ConversionFactor;
+            if (item.WarehouseId.HasValue)
+                lastItem.WarehouseId = item.WarehouseId;
+        }
+
+        if (receipt.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "PurchaseInvoice")
+                .WithData("documentNumber", pi.InvoiceNumber)
+                .WithData("reason", "All items have already been received or returned.");
+
+        await _purchaseReceiptRepository.InsertAsync(receipt, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("PurchaseInvoice", pi.Id, pi.CompanyId,
+            "PurchaseReceipt", receipt.Id, pi.InvoiceNumber, pi.TenantId);
+
+        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
+    }
+
+    /// <summary>
     /// Converts a submitted Material Request (Purchase type) into a Purchase Order.
     /// MR items where OrderedQuantity &lt; Quantity get carried over.
     /// </summary>
