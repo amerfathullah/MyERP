@@ -451,6 +451,21 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 // Reduce ordered qty (stock is no longer "on order" once received)
                 await _binService.UpdateOrderedQtyAsync(
                     item.ItemId, receipt.WarehouseId, -stockQty, receipt.TenantId);
+
+                // If rejected warehouse and rejected qty exist, post rejected stock SLE in stock UOM (PR #51968 / commit 343ee9695b)
+                if (item.RejectedWarehouseId.HasValue && item.RejectedQty > 0)
+                {
+                    var rejectedStockQty = item.RejectedStockQty;
+                    await _valuationService.CreateLedgerEntryAsync(
+                        receipt.CompanyId, item.ItemId, item.RejectedWarehouseId.Value,
+                        receipt.PostingDate, rejectedStockQty, ratePerStockUnit,
+                        voucherType: "PurchaseReceipt", voucherId: receipt.Id,
+                        tenantId: receipt.TenantId);
+
+                    await _binService.ApplyStockMovementAsync(
+                        item.ItemId, item.RejectedWarehouseId.Value,
+                        rejectedStockQty, rejectedStockQty * ratePerStockUnit, receipt.TenantId);
+                }
             }
 
             // GL posting (perpetual inventory): DR Stock, CR SRBNB
@@ -612,6 +627,21 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             // Restore ordered qty in stock UOM
             await _binService.UpdateOrderedQtyAsync(
                 item.ItemId, receipt.WarehouseId, stockQty, receipt.TenantId);
+
+            // If rejected warehouse and rejected qty exist, reverse rejected stock SLE (PR #51968 / commit 343ee9695b)
+            if (item.RejectedWarehouseId.HasValue && item.RejectedQty > 0)
+            {
+                var rejectedStockQty = item.RejectedStockQty;
+                await _valuationService.CreateLedgerEntryAsync(
+                    receipt.CompanyId, item.ItemId, item.RejectedWarehouseId.Value,
+                    receipt.PostingDate, -rejectedStockQty, ratePerStockUnit,
+                    voucherType: "PurchaseReceipt", voucherId: receipt.Id,
+                    tenantId: receipt.TenantId);
+
+                await _binService.ApplyStockMovementAsync(
+                    item.ItemId, item.RejectedWarehouseId.Value,
+                    -rejectedStockQty, -(rejectedStockQty * ratePerStockUnit), receipt.TenantId);
+            }
         }
 
         // Reverse linked Purchase Order fulfillment tracking
