@@ -88,6 +88,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         if (input.Items == null || input.Items.Count == 0)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
 
+        await ValidateNoFixedAssetBomItemsAsync(input.Items.Select(i => i.ItemId));
+
         var number = await _numberGenerator.GenerateAsync("BOM", input.CompanyId);
         var bom = new BillOfMaterials(GuidGenerator.Create(), input.CompanyId, number, input.ItemId, CurrentTenant.Id)
         {
@@ -178,6 +180,11 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
     public async Task<BomDto> UpdateBomAsync(Guid id, CreateBomDto input)
     {
+        if (input.Items == null || input.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        await ValidateNoFixedAssetBomItemsAsync(input.Items.Select(i => i.ItemId));
+
         var bom = await _bomRepository.GetAsync(id, includeDetails: true);
 
         bom.Quantity = input.Quantity;
@@ -2002,5 +2009,26 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         3 => "primary", 4 => "success", 5 => "danger",
         6 => "dark", _ => "secondary"
     };
+
+    /// <summary>
+    /// Validates that fixed asset items are not used in BOMs.
+    /// Per ERPNext PR #49064 / commit 760c373eb2.
+    /// </summary>
+    private async Task ValidateNoFixedAssetBomItemsAsync(IEnumerable<Guid> itemIds)
+    {
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var distinctItemIds = itemIds.Distinct().ToList();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var fixedAssetItems = itemQuery
+            .Where(i => distinctItemIds.Contains(i.Id) && i.ItemType == ItemType.FixedAsset)
+            .Select(i => i.ItemName)
+            .ToList();
+
+        if (fixedAssetItems.Count > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Fixed Asset item(s) '{string.Join(", ", fixedAssetItems)}' cannot be used in BOMs.");
+        }
+    }
 }
 
