@@ -76,6 +76,8 @@ public class PosAppService : ApplicationService, IPosAppService
         // POS always deducts stock
         invoice.UpdateStock = true;
         invoice.WarehouseId = input.WarehouseId;
+        // POS invoice due date defaults to issue date (ERPNext PR #49232 / commit 77478303fe)
+        invoice.DueDate ??= invoice.IssueDate;
 
         foreach (var item in input.Items)
         {

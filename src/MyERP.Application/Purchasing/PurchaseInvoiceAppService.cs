@@ -593,24 +593,37 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         await _repository.InsertAsync(invoice, autoSave: true);
 
-        // Auto-generate payment schedule from Payment Terms Template
-        if (input.PaymentTermsTemplateId.HasValue && !input.DueDate.HasValue && !invoice.IsOpening)
+        // Auto-generate payment schedule from Payment Terms Template or resolve DueDate (ERPNext PR #49232 / commit 77478303fe)
+        var termsTemplateId = input.PaymentTermsTemplateId;
+        if (!termsTemplateId.HasValue && !invoice.DueDate.HasValue)
+        {
+            var supplier = await _supplierRepository.FindAsync(invoice.SupplierId);
+            termsTemplateId = supplier?.DefaultPaymentTermsTemplateId;
+        }
+
+        if (termsTemplateId.HasValue && !input.DueDate.HasValue && !invoice.IsOpening)
         {
             var templateRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.PaymentTermsTemplate, Guid>>();
-            var template = await templateRepo.GetAsync(input.PaymentTermsTemplateId.Value);
-            var schedule = template.GenerateSchedule(invoice.IssueDate, invoice.GrandTotal);
-
-            var scheduleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.PaymentScheduleEntry, Guid>>();
-            foreach (var entry in schedule)
+            var template = await templateRepo.FindAsync(termsTemplateId.Value);
+            if (template != null)
             {
-                await scheduleRepo.InsertAsync(new MyERP.Accounting.Entities.PaymentScheduleEntry(
-                    GuidGenerator.Create(), "PurchaseInvoice", invoice.Id,
-                    entry.DueDate, entry.InvoicePortion, entry.PaymentAmount));
-            }
+                var schedule = template.GenerateSchedule(invoice.IssueDate, invoice.GrandTotal);
 
-            // Set due date to the last scheduled due date
-            invoice.DueDate = schedule.Max(s => s.DueDate);
-            await _repository.UpdateAsync(invoice);
+                var scheduleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.PaymentScheduleEntry, Guid>>();
+                foreach (var entry in schedule)
+                {
+                    await scheduleRepo.InsertAsync(new MyERP.Accounting.Entities.PaymentScheduleEntry(
+                        GuidGenerator.Create(), "PurchaseInvoice", invoice.Id,
+                        entry.DueDate, entry.InvoicePortion, entry.PaymentAmount));
+                }
+
+                // Set due date to the last scheduled due date
+                if (schedule.Any())
+                {
+                    invoice.DueDate = schedule.Max(s => s.DueDate);
+                    await _repository.UpdateAsync(invoice);
+                }
+            }
         }
 
         return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
@@ -635,6 +648,31 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.SupplierInvoiceNumber = input.SupplierInvoiceNumber;
         invoice.Notes = input.Notes;
         invoice.IsSubcontracted = input.IsSubcontracted;
+
+        // Auto-resolve DueDate from Payment Terms Template or supplier default if not explicitly provided (ERPNext PR #49232 / commit 77478303fe)
+        if (!invoice.DueDate.HasValue && !invoice.IsOpening)
+        {
+            var termsTemplateId = input.PaymentTermsTemplateId;
+            if (!termsTemplateId.HasValue)
+            {
+                var supplier = await _supplierRepository.FindAsync(invoice.SupplierId);
+                termsTemplateId = supplier?.DefaultPaymentTermsTemplateId;
+            }
+
+            if (termsTemplateId.HasValue)
+            {
+                var templateRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.PaymentTermsTemplate, Guid>>();
+                var template = await templateRepo.FindAsync(termsTemplateId.Value);
+                if (template != null)
+                {
+                    var schedule = template.GenerateSchedule(invoice.IssueDate, invoice.GrandTotal);
+                    if (schedule.Any())
+                    {
+                        invoice.DueDate = schedule.Max(s => s.DueDate);
+                    }
+                }
+            }
+        }
 
         invoice.ClearItems();
         foreach (var item in input.Items)
