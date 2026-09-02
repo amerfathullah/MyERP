@@ -581,7 +581,9 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 Qty = i.Qty,
                 Rate = i.Rate,
                 Amount = i.Amount,
-                WarehouseId = i.WarehouseId
+                WarehouseId = i.WarehouseId,
+                ExpenseAccountId = i.ExpenseAccountId,
+                ServiceExpenseAccountId = i.ServiceExpenseAccountId,
             }).ToList()
         };
     }
@@ -618,7 +620,9 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 Qty = i.Qty,
                 Rate = i.Rate,
                 Amount = i.Amount,
-                WarehouseId = i.WarehouseId
+                WarehouseId = i.WarehouseId,
+                ExpenseAccountId = i.ExpenseAccountId,
+                ServiceExpenseAccountId = i.ServiceExpenseAccountId,
             }).ToList()
         }).ToList();
     }

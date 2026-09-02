@@ -96,6 +96,8 @@ public class SubcontractingReceiptItemDto : EntityDto<Guid>
     public decimal Rate { get; set; }
     public decimal Amount { get; set; }
     public Guid? WarehouseId { get; set; }
+    public Guid? ExpenseAccountId { get; set; }
+    public Guid? ServiceExpenseAccountId { get; set; }
 }
 
 public class CreateSubcontractingReceiptDto

@@ -90,6 +90,8 @@ public class SubcontractingReceiptItem : Entity<Guid>
     public decimal Rate { get; set; }
     public decimal Amount => Qty * Rate;
     public Guid? WarehouseId { get; set; }
+    public Guid? ExpenseAccountId { get; set; }
+    public Guid? ServiceExpenseAccountId { get; set; }
 
     protected SubcontractingReceiptItem() { }
     public SubcontractingReceiptItem(Guid id, Guid scrId, Guid itemId, string itemName, decimal qty, decimal rate)
