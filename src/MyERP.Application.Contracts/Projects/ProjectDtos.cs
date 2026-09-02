@@ -245,6 +245,8 @@ public class GetTimesheetListDto : PagedAndSortedResultRequestDto
     public Guid? CompanyId { get; set; }
     public Guid? EmployeeId { get; set; }
     public TimesheetStatus? Status { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
     public string? Filter { get; set; }
 }
 

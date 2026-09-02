@@ -47,6 +47,10 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
             query = query.Where(t => t.EmployeeId == input.EmployeeId.Value);
         if (input.Status.HasValue)
             query = query.Where(t => t.Status == input.Status.Value);
+        if (input.FromDate.HasValue)
+            query = query.Where(t => t.StartDate >= input.FromDate.Value.Date);
+        if (input.ToDate.HasValue)
+            query = query.Where(t => t.StartDate < input.ToDate.Value.Date.AddDays(1));
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var f = input.Filter;
