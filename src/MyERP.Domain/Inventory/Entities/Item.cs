@@ -22,6 +22,7 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string? Description { get; set; }
 
     public ItemType ItemType { get; set; }
+    public bool IsFixedAsset => ItemType == ItemType.FixedAsset;
     public string? ItemGroup { get; set; }
 
     /// <summary>Reference to ItemGroup entity (structured hierarchy).</summary>
