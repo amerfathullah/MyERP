@@ -163,9 +163,17 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var orderNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", input.CompanyId);
         var po = new PurchaseOrder(GuidGenerator.Create(), input.CompanyId, input.SupplierId, orderNumber, input.OrderDate);
         po.ExpectedDeliveryDate = input.ExpectedDeliveryDate;
-        po.Notes = input.Notes;
-        po.CostCenterId = input.CostCenterId;
         po.ProjectId = input.ProjectId;
+        if (!input.CostCenterId.HasValue && input.ProjectId.HasValue)
+        {
+            var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Projects.Entities.Project, Guid>>();
+            var project = await projectRepo.FindAsync(input.ProjectId.Value);
+            po.CostCenterId = project?.CostCenterId ?? input.CostCenterId;
+        }
+        else
+        {
+            po.CostCenterId = input.CostCenterId;
+        }
 
         // Per ERPNext: Price List defaults from the supplier's own default when not given explicitly.
         po.PriceListId = input.PriceListId

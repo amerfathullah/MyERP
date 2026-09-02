@@ -36,6 +36,7 @@ public class Project : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Notes { get; set; }
     public string? CostCenter { get; set; }
+    public Guid? CostCenterId { get; set; }
 
     public List<ProjectTask> Tasks { get; private set; } = new();
 

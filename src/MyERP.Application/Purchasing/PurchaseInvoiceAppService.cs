@@ -446,8 +446,17 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.UpdateStock = input.UpdateStock;
         invoice.WarehouseId = input.WarehouseId;
-        invoice.CostCenterId = input.CostCenterId;
         invoice.ProjectId = input.ProjectId;
+        if (!input.CostCenterId.HasValue && input.ProjectId.HasValue)
+        {
+            var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Projects.Entities.Project, Guid>>();
+            var project = await projectRepo.FindAsync(input.ProjectId.Value);
+            invoice.CostCenterId = project?.CostCenterId ?? input.CostCenterId;
+        }
+        else
+        {
+            invoice.CostCenterId = input.CostCenterId;
+        }
 
         // Duplicate supplier invoice detection (early — block before DB insert)
         if (!invoice.IsReturn && !string.IsNullOrWhiteSpace(input.SupplierInvoiceNumber))

@@ -28,6 +28,7 @@ public class ProjectDto : AuditedEntityDto<Guid>
     public decimal TotalBilledAmount { get; set; }
     public decimal GrossMargin { get; set; }
     public string? Notes { get; set; }
+    public Guid? CostCenterId { get; set; }
     public int TaskCount { get; set; }
     public List<ProjectUserDto> Users { get; set; } = new();
 }
@@ -46,6 +47,7 @@ public class CreateProjectDto
 
     public Guid? CustomerId { get; set; }
     public Guid? SalesOrderId { get; set; }
+    public Guid? CostCenterId { get; set; }
     public DateTime? ExpectedStartDate { get; set; }
     public DateTime? ExpectedEndDate { get; set; }
     public decimal EstimatedCost { get; set; }
@@ -66,6 +68,7 @@ public class UpdateProjectDto
     public ProjectPriority Priority { get; set; }
     public PercentCompleteMethod PercentCompleteMethod { get; set; }
     public Guid? CustomerId { get; set; }
+    public Guid? CostCenterId { get; set; }
     public DateTime? ExpectedStartDate { get; set; }
     public DateTime? ExpectedEndDate { get; set; }
     public decimal EstimatedCost { get; set; }

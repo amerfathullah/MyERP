@@ -82,6 +82,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
             PercentCompleteMethod = input.PercentCompleteMethod,
             CustomerId = input.CustomerId,
             SalesOrderId = input.SalesOrderId,
+            CostCenterId = input.CostCenterId,
             ExpectedStartDate = input.ExpectedStartDate,
             ExpectedEndDate = input.ExpectedEndDate,
             EstimatedCost = input.EstimatedCost,
@@ -142,6 +143,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         project.Priority = input.Priority;
         project.PercentCompleteMethod = input.PercentCompleteMethod;
         project.CustomerId = input.CustomerId;
+        project.CostCenterId = input.CostCenterId;
         project.ExpectedStartDate = input.ExpectedStartDate;
         project.ExpectedEndDate = input.ExpectedEndDate;
         project.EstimatedCost = input.EstimatedCost;
