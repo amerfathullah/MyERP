@@ -154,20 +154,24 @@ public class DeliveryNoteManager : DomainService
     }
 
     /// <summary>
-    /// Validates a DN can be cancelled — blocks if submitted Sales Invoices link to this DN.
-    /// Per DO-NOT: must cancel children first.
+    /// Prevents delivering items from sample retention warehouse per ERPNext PR #55613.
     /// </summary>
-    public async Task ValidateCanCancelAsync(
-        DeliveryNote dn,
-        IRepository<SalesInvoice, Guid> siRepository)
+    public async Task ValidateSampleRetentionWarehouseAsync(DeliveryNote dn)
     {
-        var siQuery = await siRepository.GetQueryableAsync();
-        // Check if any submitted SI references this DN (via DN→SI conversion)
-        var hasDependentSI = siQuery.Any(si =>
-            si.Items.Any(i => i.SalesOrderItemId.HasValue)
-            && si.Status != Core.DocumentStatus.Draft
-            && si.Status != Core.DocumentStatus.Cancelled);
-        // Note: The precise check would be via a DeliveryNoteItemId FK, but the current schema
-        // doesn't have that — invoices link to SO items. This is a conservative guard.
+        if (dn.IsReturn) return;
+
+        var company = await _companyRepository.FindAsync(dn.CompanyId);
+        if (company?.SampleRetentionWarehouseId == null) return;
+
+        var sampleWarehouseId = company.SampleRetentionWarehouseId.Value;
+        foreach (var item in dn.Items)
+        {
+            if (item.WarehouseId == sampleWarehouseId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CannotSellFromSampleRetentionWarehouse)
+                    .WithData("itemName", item.Description)
+                    .WithData("warehouseId", sampleWarehouseId);
+            }
+        }
     }
 }
