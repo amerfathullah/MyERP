@@ -103,6 +103,20 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
             }
         }
 
+        // Validate that logged tasks are not group tasks (PR #50319 / commit 5bac896329)
+        var taskIds = input.Details.Where(d => d.TaskId.HasValue).Select(d => d.TaskId!.Value).Distinct().ToList();
+        if (taskIds.Count > 0)
+        {
+            var taskRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<MyERP.Projects.Entities.ProjectTask, Guid>>();
+            var tasks = await taskRepo.GetListAsync(t => taskIds.Contains(t.Id));
+            var groupTask = tasks.FirstOrDefault(t => t.IsGroup);
+            if (groupTask != null)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot log timesheet against Group Task '{groupTask.Subject}'.");
+            }
+        }
+
         var ts = new Timesheet(GuidGenerator.Create(), input.CompanyId, input.EmployeeId,
             input.StartDate, input.EndDate, CurrentTenant.Id)
         { EmployeeName = input.EmployeeName, Note = input.Note };
@@ -195,6 +209,20 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
                     throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.TimesheetOverlappingTimeLog)
                         .WithData("reason", $"Overlapping time logs between {d1.ActivityType} ({d1.FromTime:HH:mm}-{d1.ToTime:HH:mm}) and {d2.ActivityType} ({d2.FromTime:HH:mm}-{d2.ToTime:HH:mm})");
                 }
+            }
+        }
+
+        // Validate that logged tasks are not group tasks (PR #50319 / commit 5bac896329)
+        var taskIds = input.Details.Where(d => d.TaskId.HasValue).Select(d => d.TaskId!.Value).Distinct().ToList();
+        if (taskIds.Count > 0)
+        {
+            var taskRepo = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Domain.Repositories.IRepository<MyERP.Projects.Entities.ProjectTask, Guid>>();
+            var tasks = await taskRepo.GetListAsync(t => taskIds.Contains(t.Id));
+            var groupTask = tasks.FirstOrDefault(t => t.IsGroup);
+            if (groupTask != null)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot log timesheet against Group Task '{groupTask.Subject}'.");
             }
         }
 

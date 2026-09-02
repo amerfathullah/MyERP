@@ -256,6 +256,16 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     [Authorize(MyERPPermissions.Projects.Create)]
     public async Task<ProjectTaskDto> CreateTaskAsync(CreateProjectTaskDto input)
     {
+        if (input.ParentTaskId.HasValue)
+        {
+            var parent = await _taskRepository.GetAsync(input.ParentTaskId.Value);
+            if (!parent.IsGroup)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Parent Task '{parent.Subject}' must be a Group Task.");
+            }
+        }
+
         var taskNumber = $"TASK-{Guid.NewGuid().ToString()[..6].ToUpper()}";
         var task = new ProjectTask(GuidGenerator.Create(), input.ProjectId, taskNumber, input.Subject)
         {
@@ -280,6 +290,22 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     [Authorize(MyERPPermissions.Projects.Edit)]
     public async Task<ProjectTaskDto> UpdateTaskAsync(Guid taskId, UpdateProjectTaskDto input)
     {
+        if (input.ParentTaskId.HasValue)
+        {
+            if (input.ParentTaskId.Value == taskId)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Task cannot be its own parent.");
+            }
+
+            var parent = await _taskRepository.GetAsync(input.ParentTaskId.Value);
+            if (!parent.IsGroup)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Parent Task '{parent.Subject}' must be a Group Task.");
+            }
+        }
+
         var task = await _taskRepository.GetAsync(taskId);
 
         task.Subject = input.Subject;
