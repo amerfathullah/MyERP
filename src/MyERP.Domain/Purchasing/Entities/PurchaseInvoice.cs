@@ -228,6 +228,15 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
                 .WithData("detail", "Cannot enable Update Stock when invoice contains items linked to Purchase Receipts.");
         }
 
+        // Clear stale deferred expense fields on non-deferred items (ERPNext PR #57140)
+        foreach (var item in _items.Where(i => !i.EnableDeferredExpense))
+        {
+            item.ServiceStartDate = null;
+            item.ServiceEndDate = null;
+            item.ServiceStopDate = null;
+            item.DeferredExpenseAccountId = null;
+        }
+
         // Validate deferred expense service dates (per ERPNext accounts/deferred_revenue.py, gotcha #1624)
         foreach (var item in _items.Where(i => i.EnableDeferredExpense))
         {

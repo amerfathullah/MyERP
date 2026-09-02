@@ -262,6 +262,15 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
                 .WithData("detail", "Cannot enable Update Stock when invoice contains items linked to Delivery Notes.");
         }
 
+        // Clear stale deferred revenue fields on non-deferred items (ERPNext PR #57140)
+        foreach (var item in _items.Where(i => !i.EnableDeferredRevenue))
+        {
+            item.ServiceStartDate = null;
+            item.ServiceEndDate = null;
+            item.ServiceStopDate = null;
+            item.DeferredRevenueAccountId = null;
+        }
+
         // Validate deferred revenue service dates (per ERPNext accounts/deferred_revenue.py, gotcha #1624)
         foreach (var item in _items.Where(i => i.EnableDeferredRevenue))
         {
