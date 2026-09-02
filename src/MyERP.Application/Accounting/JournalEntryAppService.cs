@@ -228,6 +228,18 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
                 .WithData("postingDate", entry.PostingDate.ToString("yyyy-MM-dd"));
         }
 
+        // Check if linked to an active submitted Asset Value Adjustment (PR #51666 / commit 73b038084b)
+        if (entry.ReferenceType == "AssetValueAdjustment" && entry.ReferenceId.HasValue)
+        {
+            var adjRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Assets.Entities.AssetValueAdjustment, Guid>>();
+            var adj = await adjRepo.FindAsync(entry.ReferenceId.Value);
+            if (adj != null && adj.Status == Core.DocumentStatus.Submitted)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot cancel this document as it is linked with the submitted Asset Value Adjustment '{adj.AdjustmentNumber}'. Please cancel the Asset Value Adjustment to continue.");
+            }
+        }
+
         entry.Cancel();
         await _repository.UpdateAsync(entry, autoSave: true);
 
