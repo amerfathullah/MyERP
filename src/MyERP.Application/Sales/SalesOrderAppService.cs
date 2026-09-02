@@ -636,6 +636,26 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             Logger.LogWarning(ex, "Inter-company PO creation failed for SO {OrderId}", order.Id);
         }
 
+        // Update linked Quotation status and item ordered quantities (PR #52822)
+        if (order.QuotationId.HasValue)
+        {
+            var quotationRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
+            var quotation = await quotationRepo.FindAsync(order.QuotationId.Value);
+            if (quotation != null)
+            {
+                quotation.ConvertedToSalesOrderId = order.Id;
+                foreach (var soItem in order.Items)
+                {
+                    var qItem = quotation.Items.FirstOrDefault(i => i.ItemId == soItem.ItemId);
+                    if (qItem != null)
+                    {
+                        qItem.OrderedQty += soItem.Quantity;
+                    }
+                }
+                await quotationRepo.UpdateAsync(quotation, autoSave: true);
+            }
+        }
+
         await _repository.UpdateAsync(order, autoSave: true);
         var submitDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
         submitDto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
@@ -711,6 +731,29 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             {
                 await _binService.UpdateReservedQtyAsync(
                     item.ItemId, item.WarehouseId.Value, -item.StockQty, order.TenantId);
+            }
+        }
+
+        // Reverse linked Quotation item ordered quantities (PR #52822)
+        if (order.QuotationId.HasValue)
+        {
+            var quotationRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
+            var quotation = await quotationRepo.FindAsync(order.QuotationId.Value);
+            if (quotation != null)
+            {
+                foreach (var soItem in order.Items)
+                {
+                    var qItem = quotation.Items.FirstOrDefault(i => i.ItemId == soItem.ItemId);
+                    if (qItem != null)
+                    {
+                        qItem.OrderedQty = Math.Max(0, qItem.OrderedQty - soItem.Quantity);
+                    }
+                }
+                if (quotation.Items.All(i => i.OrderedQty <= 0))
+                {
+                    quotation.ConvertedToSalesOrderId = null;
+                }
+                await quotationRepo.UpdateAsync(quotation, autoSave: true);
             }
         }
 
