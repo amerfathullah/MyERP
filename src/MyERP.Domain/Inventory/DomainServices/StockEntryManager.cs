@@ -76,13 +76,32 @@ public class StockEntryManager : DomainService
                 throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
                     .WithData("field", "TargetWarehouse");
 
-            // For Manufacture and Repack finished goods: target warehouse is mandatory (ERPNext PR #54866)
-            if (entry.EntryType is StockEntryType.Manufacture or StockEntryType.Repack)
+            // For Manufacture and Repack entries: finished goods require TargetWarehouse; raw materials require SourceWarehouse (ERPNext PR #54849, PR #54866)
+            if (entry.EntryType is StockEntryType.Manufacture)
             {
-                if (item.IsFinishedItem && !item.TargetWarehouseId.HasValue)
+                if (item.IsFinishedItem)
                 {
-                    throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
-                        .WithData("field", "TargetWarehouse");
+                    if (item.SourceWarehouseId.HasValue) item.SourceWarehouseId = null;
+                    if (!item.TargetWarehouseId.HasValue)
+                        throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                            .WithData("field", "TargetWarehouse");
+                }
+                else
+                {
+                    if (item.TargetWarehouseId.HasValue) item.TargetWarehouseId = null;
+                    if (!item.SourceWarehouseId.HasValue)
+                        throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                            .WithData("field", "SourceWarehouse");
+                }
+            }
+            else if (entry.EntryType is StockEntryType.Repack)
+            {
+                if (item.IsFinishedItem)
+                {
+                    if (item.SourceWarehouseId.HasValue) item.SourceWarehouseId = null;
+                    if (!item.TargetWarehouseId.HasValue)
+                        throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                            .WithData("field", "TargetWarehouse");
                 }
             }
 
