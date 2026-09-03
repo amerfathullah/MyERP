@@ -47,6 +47,7 @@ public class PurchaseOrderItemDto
     public decimal ReceivedQty { get; set; }
     public decimal BilledQty { get; set; }
     public Guid? WarehouseId { get; set; }
+    public Guid? ExpenseAccountId { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
     /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
     public bool IsClosed { get; set; }
@@ -76,6 +77,7 @@ public class CreatePurchaseOrderItemDto
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(20)] public string Uom { get; set; } = "Unit";
     public Guid? WarehouseId { get; set; }
+    public Guid? ExpenseAccountId { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
     public bool DeliveredBySupplier { get; set; }
 }

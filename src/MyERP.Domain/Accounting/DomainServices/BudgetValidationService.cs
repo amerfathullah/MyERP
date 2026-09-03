@@ -140,6 +140,58 @@ public class BudgetValidationService : DomainService
                         }
                     }
                 }
+
+                // 3. Cumulative expense check (Purchase Order + Material Request + Actual Expense)
+                // Per ERPNext commits 45368f983b / 3eb07fba2a
+                if (budget.ApplicableOnCumulativeExpense)
+                {
+                    var cumulativeAnnualAction = budget.ActionIfAnnualExceededOnCumulativeExpense;
+                    var cumulativeMonthlyAction = budget.ActionIfAccumulatedMonthlyExceededOnCumulativeExpense;
+
+                    if (await IsUserBudgetExceptionApproverAsync(companyId))
+                    {
+                        if (cumulativeAnnualAction == BudgetAction.Stop) cumulativeAnnualAction = BudgetAction.Warn;
+                        if (cumulativeMonthlyAction == BudgetAction.Stop) cumulativeMonthlyAction = BudgetAction.Warn;
+                    }
+
+                    if (cumulativeAnnualAction != BudgetAction.Ignore || cumulativeMonthlyAction != BudgetAction.Ignore)
+                    {
+                        var cumulativeSpend = await GetCumulativeSpendAsync(companyId, fiscalYearId, tenantId);
+                        var totalCumulativeAfter = cumulativeSpend.GetValueOrDefault(item.AccountId, 0m) + item.Amount;
+
+                        if (cumulativeAnnualAction != BudgetAction.Ignore && totalCumulativeAfter > budgetAccount.BudgetAmount)
+                        {
+                            if (cumulativeAnnualAction == BudgetAction.Stop)
+                            {
+                                throw new BusinessException(MyERPDomainErrorCodes.BudgetExceeded)
+                                    .WithData("account", budgetAccount.AccountName ?? item.AccountId.ToString())
+                                    .WithData("budget", budgetAccount.BudgetAmount)
+                                    .WithData("spent", cumulativeSpend.GetValueOrDefault(item.AccountId, 0m))
+                                    .WithData("requested", item.Amount)
+                                    .WithData("limitType", "CumulativeAnnual");
+                            }
+                        }
+
+                        if (cumulativeMonthlyAction != BudgetAction.Ignore)
+                        {
+                            var accumulatedMonthlyBudget = await CalculateAccumulatedMonthlyBudgetAsync(
+                                budget, budgetAccount.BudgetAmount, postingDate, fiscalYearId);
+
+                            if (totalCumulativeAfter > accumulatedMonthlyBudget)
+                            {
+                                if (cumulativeMonthlyAction == BudgetAction.Stop)
+                                {
+                                    throw new BusinessException(MyERPDomainErrorCodes.BudgetExceeded)
+                                        .WithData("account", budgetAccount.AccountName ?? item.AccountId.ToString())
+                                        .WithData("budget", accumulatedMonthlyBudget)
+                                        .WithData("spent", cumulativeSpend.GetValueOrDefault(item.AccountId, 0m))
+                                        .WithData("requested", item.Amount)
+                                        .WithData("limitType", "CumulativeMonthly");
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -170,6 +222,61 @@ public class BudgetValidationService : DomainService
                     if (!result.ContainsKey(line.AccountId))
                         result[line.AccountId] = 0;
                     result[line.AccountId] += line.Amount;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<Dictionary<Guid, decimal>> GetCumulativeSpendAsync(
+        Guid companyId, Guid fiscalYearId, Guid? tenantId)
+    {
+        // 1. Actual GL spend
+        var result = await GetActualSpendAsync(companyId, fiscalYearId, tenantId);
+
+        // 2. Ordered spend in POs (submitted and not cancelled, within fiscal year)
+        var poRepo = LazyServiceProvider.LazyGetService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+        var fiscalYear = await _fiscalYearRepository.FindAsync(fiscalYearId);
+        if (poRepo != null && fiscalYear != null)
+        {
+            var companyRepo = LazyServiceProvider.LazyGetService<IRepository<Core.Entities.Company, Guid>>();
+            var itemRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.Item, Guid>>();
+            var company = companyRepo != null ? await companyRepo.FindAsync(companyId) : null;
+
+            var poQuery = await poRepo.GetQueryableAsync();
+            var activePos = poQuery
+                .Where(po => po.CompanyId == companyId
+                          && po.Status == Core.DocumentStatus.Submitted
+                          && po.OrderDate >= fiscalYear.StartDate
+                          && po.OrderDate <= fiscalYear.EndDate)
+                .ToList();
+
+            Dictionary<Guid, Guid?>? itemAccountMap = null;
+            if (activePos.Any() && itemRepo != null)
+            {
+                var itemIds = activePos.SelectMany(p => p.Items).Select(i => i.ItemId).Distinct().ToList();
+                var itemsQuery = await itemRepo.GetQueryableAsync();
+                itemAccountMap = itemsQuery
+                    .Where(i => itemIds.Contains(i.Id))
+                    .ToDictionary(i => i.Id, i => i.DefaultExpenseAccountId);
+            }
+
+            foreach (var po in activePos)
+            {
+                foreach (var item in po.Items)
+                {
+                    var unbilledQty = Math.Max(0, item.Quantity - item.BilledQty);
+                    if (unbilledQty <= 0) continue;
+
+                    var accId = item.ExpenseAccountId
+                                ?? (itemAccountMap != null && itemAccountMap.TryGetValue(item.ItemId, out var defaultAcc) ? defaultAcc : null)
+                                ?? company?.DefaultExpenseAccountId;
+
+                    if (accId.HasValue && accId.Value != Guid.Empty)
+                    {
+                        result[accId.Value] = result.GetValueOrDefault(accId.Value, 0m) + (unbilledQty * item.UnitPrice);
+                    }
                 }
             }
         }

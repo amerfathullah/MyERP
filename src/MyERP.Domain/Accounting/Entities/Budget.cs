@@ -45,6 +45,12 @@ public class Budget : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public BudgetAction ActionIfAnnualBudgetExceededOnMr { get; set; } = BudgetAction.Ignore;
     public BudgetAction ActionIfAccumulatedMonthlyBudgetExceededOnMr { get; set; } = BudgetAction.Ignore;
 
+    // Cumulative Expense Control (Purchase Order + Material Request + Actual Expense)
+    // Per ERPNext commits 45368f983b / 3eb07fba2a
+    public bool ApplicableOnCumulativeExpense { get; set; }
+    public BudgetAction ActionIfAnnualExceededOnCumulativeExpense { get; set; } = BudgetAction.Ignore;
+    public BudgetAction ActionIfAccumulatedMonthlyExceededOnCumulativeExpense { get; set; } = BudgetAction.Ignore;
+
     private readonly List<BudgetAccount> _accounts = new();
     public IReadOnlyList<BudgetAccount> Accounts => _accounts.AsReadOnly();
 

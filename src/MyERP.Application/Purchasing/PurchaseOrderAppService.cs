@@ -186,9 +186,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
 
         foreach (var item in input.Items)
         {
-            po.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
-            if (item.WarehouseId.HasValue)
-                po.Items[^1].WarehouseId = item.WarehouseId;
+            po.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.WarehouseId, item.ExpenseAccountId);
             po.Items[^1].DeliveredBySupplier = item.DeliveredBySupplier;
         }
 
@@ -579,7 +577,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
 
         foreach (var item in original.Items)
         {
-            amended.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            amended.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.WarehouseId, item.ExpenseAccountId);
         }
 
         await _repository.InsertAsync(amended, autoSave: true);
@@ -607,9 +605,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         order.ClearItems();
         foreach (var item in input.Items)
         {
-            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
-            if (item.WarehouseId.HasValue)
-                order.Items[^1].WarehouseId = item.WarehouseId;
+            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.WarehouseId, item.ExpenseAccountId);
         }
 
         await _repository.UpdateAsync(order, autoSave: true);

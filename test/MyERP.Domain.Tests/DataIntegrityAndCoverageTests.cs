@@ -2345,4 +2345,23 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(projectId, mr.Items[0].ProjectId);
         Assert.Equal(soId, mr.Items[0].SalesOrderId);
     }
+
+    [Fact]
+    public void Budget_CumulativeExpense_ControlAction_Properties()
+    {
+        // Per ERPNext commits 45368f983b and 3eb07fba2a:
+        // Budget supports ApplicableOnCumulativeExpense, ActionIfAnnualExceededOnCumulativeExpense,
+        // and ActionIfAccumulatedMonthlyExceededOnCumulativeExpense.
+        var budget = new Accounting.Entities.Budget(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Cost Center", Guid.NewGuid())
+        {
+            ApplicableOnCumulativeExpense = true,
+            ActionIfAnnualExceededOnCumulativeExpense = Accounting.BudgetAction.Stop,
+            ActionIfAccumulatedMonthlyExceededOnCumulativeExpense = Accounting.BudgetAction.Warn
+        };
+
+        Assert.True(budget.ApplicableOnCumulativeExpense);
+        Assert.Equal(Accounting.BudgetAction.Stop, budget.ActionIfAnnualExceededOnCumulativeExpense);
+        Assert.Equal(Accounting.BudgetAction.Warn, budget.ActionIfAccumulatedMonthlyExceededOnCumulativeExpense);
+    }
 }

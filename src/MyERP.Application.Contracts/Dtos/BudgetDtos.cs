@@ -16,6 +16,13 @@ public class BudgetDto : EntityDto<Guid>
     public DocumentStatus Status { get; set; }
     public BudgetAction ActionIfAnnualBudgetExceeded { get; set; }
     public BudgetAction ActionIfAccumulatedMonthlyBudgetExceeded { get; set; }
+    public BudgetAction ActionIfAnnualBudgetExceededOnPo { get; set; }
+    public BudgetAction ActionIfAccumulatedMonthlyBudgetExceededOnPo { get; set; }
+    public BudgetAction ActionIfAnnualBudgetExceededOnMr { get; set; }
+    public BudgetAction ActionIfAccumulatedMonthlyBudgetExceededOnMr { get; set; }
+    public bool ApplicableOnCumulativeExpense { get; set; }
+    public BudgetAction ActionIfAnnualExceededOnCumulativeExpense { get; set; }
+    public BudgetAction ActionIfAccumulatedMonthlyExceededOnCumulativeExpense { get; set; }
     public BudgetAccountDto[] Accounts { get; set; } = [];
     public DateTime CreationTime { get; set; }
 }
@@ -37,6 +44,13 @@ public class CreateBudgetDto
     public Guid? MonthlyDistributionId { get; set; }
     public BudgetAction ActionIfAnnualBudgetExceeded { get; set; } = BudgetAction.Stop;
     public BudgetAction ActionIfAccumulatedMonthlyBudgetExceeded { get; set; } = BudgetAction.Warn;
+    public BudgetAction ActionIfAnnualBudgetExceededOnPo { get; set; } = BudgetAction.Ignore;
+    public BudgetAction ActionIfAccumulatedMonthlyBudgetExceededOnPo { get; set; } = BudgetAction.Ignore;
+    public BudgetAction ActionIfAnnualBudgetExceededOnMr { get; set; } = BudgetAction.Ignore;
+    public BudgetAction ActionIfAccumulatedMonthlyBudgetExceededOnMr { get; set; } = BudgetAction.Ignore;
+    public bool ApplicableOnCumulativeExpense { get; set; }
+    public BudgetAction ActionIfAnnualExceededOnCumulativeExpense { get; set; } = BudgetAction.Ignore;
+    public BudgetAction ActionIfAccumulatedMonthlyExceededOnCumulativeExpense { get; set; } = BudgetAction.Ignore;
     public CreateBudgetAccountDto[] Accounts { get; set; } = [];
 }
 

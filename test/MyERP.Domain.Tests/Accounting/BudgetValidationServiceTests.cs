@@ -105,6 +105,35 @@ public class BudgetValidationServiceTests
         Should.Throw<Volo.Abp.BusinessException>(() => budget.Cancel());
     }
 
+    [Fact]
+    public void Budget_CumulativeExpense_PropertiesDefaultCorrectly()
+    {
+        var budget = CreateBudget(5000, submit: false);
+        budget.ApplicableOnCumulativeExpense.ShouldBeFalse();
+        budget.ActionIfAnnualExceededOnCumulativeExpense.ShouldBe(BudgetAction.Ignore);
+        budget.ActionIfAccumulatedMonthlyExceededOnCumulativeExpense.ShouldBe(BudgetAction.Ignore);
+
+        budget.ApplicableOnCumulativeExpense = true;
+        budget.ActionIfAnnualExceededOnCumulativeExpense = BudgetAction.Stop;
+        budget.ActionIfAccumulatedMonthlyExceededOnCumulativeExpense = BudgetAction.Warn;
+
+        budget.ApplicableOnCumulativeExpense.ShouldBeTrue();
+        budget.ActionIfAnnualExceededOnCumulativeExpense.ShouldBe(BudgetAction.Stop);
+        budget.ActionIfAccumulatedMonthlyExceededOnCumulativeExpense.ShouldBe(BudgetAction.Warn);
+    }
+
+    [Fact]
+    public void PurchaseOrderItem_HasExpenseAccountId()
+    {
+        var po = new Purchasing.Entities.PurchaseOrder(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-0001", DateTime.UtcNow);
+        var expenseAccId = Guid.NewGuid();
+        po.AddItem(Guid.NewGuid(), "Test Item", 10m, 50m, 0m, "Unit", expenseAccountId: expenseAccId);
+
+        po.Items.Count.ShouldBe(1);
+        po.Items[0].ExpenseAccountId.ShouldBe(expenseAccId);
+    }
+
     private static Budget CreateBudget(decimal amount, bool submit = true)
     {
         var budget = new Budget(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "CostCenter", Guid.NewGuid());

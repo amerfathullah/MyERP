@@ -135,14 +135,19 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit")
+    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", Guid? warehouseId = null, Guid? expenseAccountId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Check.NotDefaultOrNull<Guid>(itemId, nameof(itemId));
         if (quantity <= 0)
             throw new ArgumentException("Quantity must be greater than zero.", nameof(quantity));
-        _items.Add(new PurchaseOrderItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom));
+        var item = new PurchaseOrderItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom)
+        {
+            WarehouseId = warehouseId,
+            ExpenseAccountId = expenseAccountId
+        };
+        _items.Add(item);
         RecalculateTotals();
     }
 
@@ -345,6 +350,9 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
 
     /// <summary>Target warehouse for receipt.</summary>
     public Guid? WarehouseId { get; set; }
+
+    /// <summary>Expense or asset account for budgeting and accounting.</summary>
+    public Guid? ExpenseAccountId { get; set; }
 
     /// <summary>Link to Material Request item (for MR fulfillment tracking).</summary>
     public Guid? MaterialRequestItemId { get; set; }

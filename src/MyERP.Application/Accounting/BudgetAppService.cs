@@ -63,6 +63,13 @@ public class BudgetAppService : ApplicationService, IBudgetAppService
             MonthlyDistributionId = input.MonthlyDistributionId,
             ActionIfAnnualBudgetExceeded = input.ActionIfAnnualBudgetExceeded,
             ActionIfAccumulatedMonthlyBudgetExceeded = input.ActionIfAccumulatedMonthlyBudgetExceeded,
+            ActionIfAnnualBudgetExceededOnPo = input.ActionIfAnnualBudgetExceededOnPo,
+            ActionIfAccumulatedMonthlyBudgetExceededOnPo = input.ActionIfAccumulatedMonthlyBudgetExceededOnPo,
+            ActionIfAnnualBudgetExceededOnMr = input.ActionIfAnnualBudgetExceededOnMr,
+            ActionIfAccumulatedMonthlyBudgetExceededOnMr = input.ActionIfAccumulatedMonthlyBudgetExceededOnMr,
+            ApplicableOnCumulativeExpense = input.ApplicableOnCumulativeExpense,
+            ActionIfAnnualExceededOnCumulativeExpense = input.ActionIfAnnualExceededOnCumulativeExpense,
+            ActionIfAccumulatedMonthlyExceededOnCumulativeExpense = input.ActionIfAccumulatedMonthlyExceededOnCumulativeExpense,
         };
 
         foreach (var acc in input.Accounts)
