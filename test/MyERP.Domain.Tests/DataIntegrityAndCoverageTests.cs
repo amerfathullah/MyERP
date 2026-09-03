@@ -744,4 +744,11 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(15m, baseWithRejected);
         Assert.True(prItem.BilledQty <= baseWithRejected);
     }
+
+    [Fact]
+    public void BuyingSettings_SetValuationRateForRejectedMaterials_ProperlyConfigured()
+    {
+        Assert.Equal("MyERP.Buying.SetValuationRateForRejectedMaterials",
+            Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
+    }
 }

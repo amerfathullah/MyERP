@@ -455,16 +455,19 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 // If rejected warehouse and rejected qty exist, post rejected stock SLE in stock UOM (PR #51968 / commit 343ee9695b)
                 if (item.RejectedWarehouseId.HasValue && item.RejectedQty > 0)
                 {
+                    // Per ERPNext PR #47582 / commit ca0e53dd78: rejected materials have 0 valuation rate unless enabled in Buying Settings
+                    var setValuationForRejected = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
+                    var rejectedRate = setValuationForRejected ? ratePerStockUnit : 0.0m;
                     var rejectedStockQty = item.RejectedStockQty;
                     await _valuationService.CreateLedgerEntryAsync(
                         receipt.CompanyId, item.ItemId, item.RejectedWarehouseId.Value,
-                        receipt.PostingDate, rejectedStockQty, ratePerStockUnit,
+                        receipt.PostingDate, rejectedStockQty, rejectedRate,
                         voucherType: "PurchaseReceipt", voucherId: receipt.Id,
                         tenantId: receipt.TenantId);
 
                     await _binService.ApplyStockMovementAsync(
                         item.ItemId, item.RejectedWarehouseId.Value,
-                        rejectedStockQty, rejectedStockQty * ratePerStockUnit, receipt.TenantId);
+                        rejectedStockQty, rejectedStockQty * rejectedRate, receipt.TenantId);
                 }
             }
 
@@ -631,16 +634,18 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             // If rejected warehouse and rejected qty exist, reverse rejected stock SLE (PR #51968 / commit 343ee9695b)
             if (item.RejectedWarehouseId.HasValue && item.RejectedQty > 0)
             {
+                var setValuationForRejected = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
+                var rejectedRate = setValuationForRejected ? ratePerStockUnit : 0.0m;
                 var rejectedStockQty = item.RejectedStockQty;
                 await _valuationService.CreateLedgerEntryAsync(
                     receipt.CompanyId, item.ItemId, item.RejectedWarehouseId.Value,
-                    receipt.PostingDate, -rejectedStockQty, ratePerStockUnit,
+                    receipt.PostingDate, -rejectedStockQty, rejectedRate,
                     voucherType: "PurchaseReceipt", voucherId: receipt.Id,
                     tenantId: receipt.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, item.RejectedWarehouseId.Value,
-                    -rejectedStockQty, -(rejectedStockQty * ratePerStockUnit), receipt.TenantId);
+                    -rejectedStockQty, -(rejectedStockQty * rejectedRate), receipt.TenantId);
             }
         }
 

@@ -125,6 +125,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Buying.OverOrderAllowance,
             MyERPSettings.Buying.BackflushSubcontractBasedOn,
             MyERPSettings.Buying.BillForRejectedQty,
+            MyERPSettings.Buying.SetValuationRateForRejectedMaterials,
             MyERPSettings.Buying.SupplierNamingBy,
             MyERPSettings.Buying.OverTransferAllowance,
             MyERPSettings.Buying.AllowZeroQtyInSupplierQuotation,

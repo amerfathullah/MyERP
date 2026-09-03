@@ -57,6 +57,7 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Buying.OverOrderAllowance, "0"),
             new SettingDefinition(MyERPSettings.Buying.BackflushSubcontractBasedOn, "BOM"),
             new SettingDefinition(MyERPSettings.Buying.BillForRejectedQty, "false"),
+            new SettingDefinition(MyERPSettings.Buying.SetValuationRateForRejectedMaterials, "false"),
             new SettingDefinition(MyERPSettings.Buying.SupplierNamingBy, "Supplier Name"),
             new SettingDefinition(MyERPSettings.Buying.OverTransferAllowance, "0"),
             new SettingDefinition(MyERPSettings.Buying.AllowZeroQtyInSupplierQuotation, "false"),
