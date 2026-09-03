@@ -31,6 +31,8 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     public string? CustomerPoNumber { get; set; }
 
     public string CurrencyCode { get; set; } = "MYR";
+    /// <summary>Exchange rate for multi-currency sales orders (order currency → company currency).</summary>
+    public decimal ExchangeRate { get; set; } = 1m;
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }

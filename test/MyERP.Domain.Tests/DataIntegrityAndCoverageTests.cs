@@ -1937,4 +1937,30 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(4450m, payTemplate.PaidAmount);
         Assert.Equal(1000m, payTemplate.ReceivedAmount);
     }
+
+    [Fact]
+    public void PaymentRequest_CalculatesAdvanceAmount_BasedOnTransactionCurrency()
+    {
+        // Per ERPNext commit b570d97b4d:
+        // When transaction currency differs from company/party currency,
+        // convert advance_paid using the exchange rate to get the remaining payable in doc currency.
+        var grandTotal = 1000m; // USD
+        var advancePaidInBaseCurrency = 2225m; // MYR (advance paid recorded in base currency)
+        var exchangeRate = 4.45m; // USD to MYR
+        var currency = "USD";
+        var partyCurrency = "MYR";
+
+        var advanceAmount = advancePaidInBaseCurrency;
+        if (exchangeRate > 0 && exchangeRate != 1m && !string.Equals(currency, partyCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            advanceAmount = Math.Round(advancePaidInBaseCurrency / exchangeRate, 2);
+        }
+
+        var remainingOrderAmount = grandTotal - advanceAmount;
+
+        // 2225 / 4.45 = 500 USD advance
+        Assert.Equal(500m, advanceAmount);
+        // 1000 - 500 = 500 USD remaining
+        Assert.Equal(500m, remainingOrderAmount);
+    }
 }

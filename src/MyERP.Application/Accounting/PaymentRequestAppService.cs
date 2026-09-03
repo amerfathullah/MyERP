@@ -92,7 +92,13 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
             var so = await soRepo.FindAsync(input.ReferenceId);
             if (so != null)
             {
-                var remainingOrderAmount = so.GrandTotal - so.AdvancePaid;
+                // Per ERPNext commit b570d97b4d: convert advance amount based on transaction currency
+                var advanceAmount = so.AdvancePaid;
+                if (so.ExchangeRate > 0 && so.ExchangeRate != 1m && !string.Equals(so.CurrencyCode, input.Currency, StringComparison.OrdinalIgnoreCase))
+                {
+                    advanceAmount = Math.Round(so.AdvancePaid / so.ExchangeRate, 2);
+                }
+                var remainingOrderAmount = so.GrandTotal - advanceAmount;
                 if (remainingOrderAmount <= 0)
                 {
                     isAlreadyPaid = true;
@@ -106,7 +112,13 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
             var po = await poRepo.FindAsync(input.ReferenceId);
             if (po != null)
             {
-                var remainingOrderAmount = po.GrandTotal - po.AdvancePaid;
+                // Per ERPNext commit b570d97b4d: convert advance amount based on transaction currency
+                var advanceAmount = po.AdvancePaid;
+                if (po.ExchangeRate > 0 && po.ExchangeRate != 1m && !string.Equals(po.CurrencyCode, input.Currency, StringComparison.OrdinalIgnoreCase))
+                {
+                    advanceAmount = Math.Round(po.AdvancePaid / po.ExchangeRate, 2);
+                }
+                var remainingOrderAmount = po.GrandTotal - advanceAmount;
                 if (remainingOrderAmount <= 0)
                 {
                     isAlreadyPaid = true;
