@@ -547,4 +547,81 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
         return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }
+
+    /// <summary>
+    /// Converts a submitted Material Request into a Request for Quotation.
+    /// Per ERPNext PR #58534 (commit c93815b4ae): filters out fully ordered and received items.
+    /// Qty is set to remaining stock qty divided by conversion factor.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseOrders.Create)]
+    public async Task<RfqDto> ConvertMaterialRequestToRfqAsync(Guid materialRequestId)
+    {
+        var mr = await _materialRequestRepository.GetAsync(materialRequestId);
+
+        if (mr.Status == Core.DocumentStatus.Draft || mr.Status == Core.DocumentStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        if (mr.RequestType != MaterialRequestType.Purchase)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("reason", "Only Purchase Material Requests can be converted to Request for Quotation");
+        }
+
+        if (!mr.Items.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        // Per ERPNext commit c93815b4ae: filter out items where ordered_qty or received_qty covers stock_qty
+        var pendingItems = mr.Items
+            .Where(i => Math.Max(i.OrderedQuantity, i.ReceivedQuantity) < i.StockQty)
+            .ToList();
+
+        if (!pendingItems.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "MaterialRequest")
+                .WithData("documentNumber", mr.RequestNumber)
+                .WithData("reason", "All items in this Material Request have already been fully ordered or received.");
+        }
+
+        var rfqNumber = await _numberGenerator.GenerateAsync("RequestForQuotation", mr.CompanyId);
+
+        var rfq = new RequestForQuotation(
+            GuidGenerator.Create(),
+            mr.CompanyId,
+            rfqNumber,
+            Clock.Now.Date,
+            mr.TenantId);
+
+        foreach (var mrItem in pendingItems)
+        {
+            var fulfilledQty = Math.Max(mrItem.OrderedQuantity, mrItem.ReceivedQuantity);
+            var remainingStockQty = mrItem.StockQty - fulfilledQty;
+            var remainingQty = mrItem.ConversionFactor > 0
+                ? remainingStockQty / mrItem.ConversionFactor
+                : remainingStockQty;
+
+            if (remainingQty <= 0) continue;
+
+            rfq.AddItem(
+                mrItem.ItemId,
+                mrItem.ItemName,
+                remainingQty,
+                mrItem.Uom,
+                mrItem.WarehouseId,
+                mrItem.Id);
+        }
+
+        if (!rfq.Items.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems)
+                .WithData("reason", "No valid items remaining to include in Request for Quotation.");
+        }
+
+        await _rfqRepository.InsertAsync(rfq, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("MaterialRequest", mr.Id, mr.CompanyId,
+            "RequestForQuotation", rfq.Id, mr.RequestNumber, mr.TenantId);
+
+        return ObjectMapper.Map<RequestForQuotation, RfqDto>(rfq);
+    }
 }

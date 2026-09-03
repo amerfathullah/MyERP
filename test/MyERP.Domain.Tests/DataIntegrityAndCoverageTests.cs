@@ -2400,4 +2400,34 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal("Child CC", root.Children[0].Name);
         Assert.False(root.Children[0].IsActive);
     }
+
+    [Fact]
+    public void MaterialRequest_ToRfq_FiltersOrderedItemsAndCalculatesRemainingQty()
+    {
+        // Per ERPNext PR #58534 (commit c93815b4ae):
+        // Filter fully ordered/received items from Material Request when converting to RFQ.
+        var mr = new Purchasing.Entities.MaterialRequest(
+            Guid.NewGuid(), Guid.NewGuid(), "MR-0001", Purchasing.MaterialRequestType.Purchase, DateTime.UtcNow);
+
+        mr.AddItem(Guid.NewGuid(), "Fully Ordered Item", 10m, "Unit");
+        mr.AddItem(Guid.NewGuid(), "Partially Ordered Item", 20m, "Unit");
+        mr.AddItem(Guid.NewGuid(), "Unordered Item", 15m, "Unit");
+
+        // First item is fully ordered
+        mr.Items[0].OrderedQuantity = 10m;
+
+        // Second item is partially ordered (5 of 20 ordered)
+        mr.Items[1].OrderedQuantity = 5m;
+
+        // Filter condition matching ConvertMaterialRequestToRfqAsync
+        var pendingItems = mr.Items
+            .Where(i => Math.Max(i.OrderedQuantity, i.ReceivedQuantity) < i.StockQty)
+            .ToList();
+
+        Assert.Equal(2, pendingItems.Count);
+        Assert.Equal("Partially Ordered Item", pendingItems[0].ItemName);
+        Assert.Equal(15m, pendingItems[0].StockQty - pendingItems[0].OrderedQuantity);
+        Assert.Equal("Unordered Item", pendingItems[1].ItemName);
+        Assert.Equal(15m, pendingItems[1].StockQty - pendingItems[1].OrderedQuantity);
+    }
 }

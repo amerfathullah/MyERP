@@ -34,4 +34,10 @@ public interface IPurchaseConversionAppService : IApplicationService
     /// </summary>
     Task<SupplierSelectionResultDto> CreatePurchaseOrdersFromMaterialRequestAsync(
         CreatePurchaseOrdersFromMrDto input);
+
+    /// <summary>
+    /// Convert a submitted Material Request into a Request for Quotation.
+    /// Per ERPNext commit c93815b4ae: filters out fully ordered/received items.
+    /// </summary>
+    Task<RfqDto> ConvertMaterialRequestToRfqAsync(Guid materialRequestId);
 }
