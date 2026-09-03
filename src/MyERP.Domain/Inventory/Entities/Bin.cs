@@ -111,4 +111,29 @@ public class Bin : AuditedEntity<Guid>, IMultiTenant, IHasConcurrencyStamp
             ValuationRate = StockValue / ActualQty;
         }
     }
+
+    /// <summary>
+    /// Recalculates quantities in the Bin.
+    /// Per ERPNext PR #47125 / commit 36081413d8: provision to recalculate the qty in the Bin.
+    /// </summary>
+    public void RecalculateQty(
+        decimal actualQty,
+        decimal stockValue,
+        decimal? plannedQty = null,
+        decimal? indentedQty = null,
+        decimal? orderedQty = null,
+        decimal? reservedQty = null,
+        decimal? reservedQtyForProduction = null,
+        decimal? reservedQtyForSubContract = null,
+        decimal? reservedQtyForProductionPlan = null)
+    {
+        UpdateActualQty(actualQty, stockValue);
+        if (plannedQty.HasValue) PlannedQty = plannedQty.Value;
+        if (indentedQty.HasValue) IndentedQty = indentedQty.Value;
+        if (orderedQty.HasValue) OrderedQty = orderedQty.Value;
+        if (reservedQty.HasValue) ReservedQty = reservedQty.Value;
+        if (reservedQtyForProduction.HasValue) ReservedQtyForProduction = reservedQtyForProduction.Value;
+        if (reservedQtyForSubContract.HasValue) ReservedQtyForSubContract = reservedQtyForSubContract.Value;
+        if (reservedQtyForProductionPlan.HasValue) ReservedQtyForProductionPlan = reservedQtyForProductionPlan.Value;
+    }
 }

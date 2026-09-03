@@ -177,6 +177,29 @@ public class TaxesAndTotalsService : DomainService
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Additional Discount Amount ({discountAmount:N2}) cannot exceed the Grand Total before discount ({grandTotal:N2}).");
             }
+
+            // Per ERPNext PR #47154 / commit 5741458c94:
+            // Calculate unrounded totals before distributing discount across taxes,
+            // updating TaxAmountAfterDiscount on each tax row.
+            if (grandTotal > 0)
+            {
+                var discountRatio = discountAmount / grandTotal;
+                for (int i = 0; i < orderedTaxes.Count; i++)
+                {
+                    var tax = orderedTaxes[i];
+                    var taxDiscount = Math.Round(tax.TaxAmount * discountRatio, 2);
+                    tax.TaxAmountAfterDiscount = Math.Max(0, tax.TaxAmount - taxDiscount);
+                }
+
+                var totalTaxDiscount = orderedTaxes.Sum(t => t.TaxAmount - t.TaxAmountAfterDiscount);
+                var expectedTaxDiscount = Math.Round(discountAmount * (totalTax / grandTotal), 2);
+                var diff = expectedTaxDiscount - totalTaxDiscount;
+                if (diff != 0 && orderedTaxes.Count > 0)
+                {
+                    orderedTaxes[^1].TaxAmountAfterDiscount = Math.Max(0, orderedTaxes[^1].TaxAmountAfterDiscount - diff);
+                }
+            }
+
             grandTotal -= discountAmount;
         }
 

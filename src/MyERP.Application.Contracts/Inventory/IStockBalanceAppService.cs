@@ -12,4 +12,10 @@ public interface IStockBalanceAppService : IApplicationService
     Task<List<StockBalanceDto>> GetItemStockAsync(Guid itemId);
     Task<List<ItemAvailabilityDto>> GetItemsAvailabilityAsync(GetItemsAvailabilityInput input);
     Task<BatchWiseBalanceReportDto> GetBatchWiseBalanceAsync(GetBatchWiseBalanceRequestDto input);
+
+    /// <summary>
+    /// Recalculates the stock quantities in the Bin for the specified item and warehouse from source ledger entries.
+    /// Per ERPNext PR #47125 / commit 36081413d8: provision to recalculate the qty in the Bin.
+    /// </summary>
+    Task RecalculateBinQtyAsync(Guid itemId, Guid warehouseId);
 }

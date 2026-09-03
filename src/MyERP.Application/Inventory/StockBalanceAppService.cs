@@ -19,19 +19,22 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;
     private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
     private readonly IRepository<Batch, Guid> _batchRepository;
+    private readonly DomainServices.BinService _binService;
 
     public StockBalanceAppService(
         IRepository<Bin, Guid> binRepository,
         IRepository<Item, Guid> itemRepository,
         IRepository<Warehouse, Guid> warehouseRepository,
         IRepository<StockLedgerEntry, Guid> sleRepository,
-        IRepository<Batch, Guid> batchRepository)
+        IRepository<Batch, Guid> batchRepository,
+        DomainServices.BinService binService)
     {
         _binRepository = binRepository;
         _itemRepository = itemRepository;
         _warehouseRepository = warehouseRepository;
         _sleRepository = sleRepository;
         _batchRepository = batchRepository;
+        _binService = binService;
     }
 
     /// <summary>
@@ -234,6 +237,15 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
             TotalStockValue = rows.Sum(r => r.StockValue),
             ExpiredBatchCount = rows.Count(r => r.IsExpired),
         };
+    }
+
+    /// <summary>
+    /// Recalculates the stock quantities in the Bin for the specified item and warehouse from source ledger entries.
+    /// Per ERPNext PR #47125 / commit 36081413d8: provision to recalculate the qty in the Bin.
+    /// </summary>
+    public async Task RecalculateBinQtyAsync(Guid itemId, Guid warehouseId)
+    {
+        await _binService.RecalculateFullBinAsync(itemId, warehouseId, _sleRepository);
     }
 }
 

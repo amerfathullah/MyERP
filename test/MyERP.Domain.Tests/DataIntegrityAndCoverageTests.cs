@@ -1809,4 +1809,67 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(updatedName, asset.AssetName);
         Assert.Equal(updatedNotes, asset.Notes);
     }
+
+    [Fact]
+    public void TaxesAndTotals_DistributesDiscountAcrossTaxes_WhenAppliedOnGrandTotal()
+    {
+        // Per ERPNext PR #47154 / commit 5741458c94:
+        // When discount is applied on Grand Total, tax amounts after discount are calculated.
+        var service = new Tax.DomainServices.TaxesAndTotalsService();
+        var items = new System.Collections.Generic.List<Tax.DomainServices.TransactionItem>
+        {
+            new() { ItemId = Guid.NewGuid(), Qty = 1, NetAmount = 1000m }
+        };
+
+        var taxes = new System.Collections.Generic.List<Tax.Entities.TransactionTaxRow>
+        {
+            new(Guid.NewGuid(), "SalesInvoice", Guid.NewGuid(), 1, "VAT", "On Net Total", 10m)
+            {
+                TaxCategory = "Total"
+            }
+        };
+
+        // Grand Total before discount = 1100. Discount = 110 (10% of Grand Total)
+        var totals = service.Calculate(items, taxes, discountAmount: 110m, applyDiscountOn: "Grand Total");
+
+        Assert.Equal(1000m, totals.NetTotal);
+        Assert.Equal(100m, totals.TotalTax);
+        Assert.Equal(990m, totals.GrandTotal);
+
+        // Tax amount after discount should be 90m (100 - 10)
+        Assert.Equal(100m, taxes[0].TaxAmount);
+        Assert.Equal(90m, taxes[0].TaxAmountAfterDiscount);
+    }
+
+    [Fact]
+    public void Bin_RecalculateQty_RefreshesQuantities()
+    {
+        // Per ERPNext PR #47125 / commit 36081413d8:
+        // Bin.RecalculateQty allows setting all calculated quantities from source documents.
+        var bin = new Inventory.Entities.Bin(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        bin.RecalculateQty(
+            actualQty: 100m,
+            stockValue: 5000m,
+            plannedQty: 20m,
+            indentedQty: 15m,
+            orderedQty: 50m,
+            reservedQty: 30m,
+            reservedQtyForProduction: 10m,
+            reservedQtyForSubContract: 5m,
+            reservedQtyForProductionPlan: 8m);
+
+        Assert.Equal(100m, bin.ActualQty);
+        Assert.Equal(5000m, bin.StockValue);
+        Assert.Equal(50m, bin.ValuationRate);
+        Assert.Equal(20m, bin.PlannedQty);
+        Assert.Equal(15m, bin.IndentedQty);
+        Assert.Equal(50m, bin.OrderedQty);
+        Assert.Equal(30m, bin.ReservedQty);
+        Assert.Equal(10m, bin.ReservedQtyForProduction);
+        Assert.Equal(5m, bin.ReservedQtyForSubContract);
+        Assert.Equal(8m, bin.ReservedQtyForProductionPlan);
+
+        // Projected = 100 + 50 + 15 + 20 - 30 - 10 - 5 - 8 = 132
+        Assert.Equal(132m, bin.ProjectedQty);
+    }
 }

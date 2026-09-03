@@ -192,15 +192,36 @@ public class BinService : DomainService
 
     /// <summary>
     /// Full bin recalculation — refreshes all quantity fields from source data.
-    /// Per ERPNext PR #57492: projected_qty depends on all bin fields, so updating just one
-    /// can leave projected_qty stale if other fields drifted. This recalculates everything.
+    /// Per ERPNext PR #47125 / commit 36081413d8: provision to recalculate the qty in the Bin.
+    /// Derives actual_qty and stock_value from the latest active StockLedgerEntry.
     /// </summary>
-    public async Task RecalculateFullBinAsync(Guid itemId, Guid warehouseId, Guid? tenantId = null)
+    public async Task RecalculateFullBinAsync(
+        Guid itemId,
+        Guid warehouseId,
+        IRepository<StockLedgerEntry, Guid>? sleRepository = null,
+        Guid? tenantId = null)
     {
         var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
-        // Force recalculation by saving — ProjectedQty is computed so it auto-recalculates
-        // In production, this would re-derive each field from source documents (SLE, PO, SO, WO, etc.)
-        // For now, ensures the entity is marked dirty and re-persisted with current computed values
+
+        if (sleRepository != null)
+        {
+            var sleQuery = await sleRepository.GetQueryableAsync();
+            var latestSle = sleQuery
+                .Where(s => s.ItemId == itemId && s.WarehouseId == warehouseId && !s.IsCancelled)
+                .OrderByDescending(s => s.PostingDateTime)
+                .ThenByDescending(s => s.CreationTime)
+                .FirstOrDefault();
+
+            if (latestSle != null)
+            {
+                bin.UpdateActualQty(latestSle.BalanceQuantity, latestSle.BalanceValue);
+            }
+            else
+            {
+                bin.UpdateActualQty(0m, 0m);
+            }
+        }
+
         await _binRepository.UpdateAsync(bin);
     }
 
