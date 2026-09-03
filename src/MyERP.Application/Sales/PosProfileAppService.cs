@@ -83,6 +83,7 @@ public class PosProfileAppService : CrudAppService<
             ValidateStock = input.ValidateStock,
             InvoiceType = input.InvoiceType ?? "POS Invoice",
             IsDisabled = input.IsDisabled,
+            HideUnavailableItems = input.HideUnavailableItems,
             TaxTemplateId = input.TaxTemplateId,
             WriteOffAccountId = input.WriteOffAccountId,
             WriteOffCostCenterId = input.WriteOffCostCenterId,
@@ -161,6 +162,7 @@ public class PosProfileAppService : CrudAppService<
         entity.ValidateStock = input.ValidateStock;
         entity.InvoiceType = newInvoiceType;
         entity.IsDisabled = input.IsDisabled;
+        entity.HideUnavailableItems = input.HideUnavailableItems;
         entity.TaxTemplateId = input.TaxTemplateId;
         entity.WriteOffAccountId = input.WriteOffAccountId;
         entity.WriteOffCostCenterId = input.WriteOffCostCenterId;

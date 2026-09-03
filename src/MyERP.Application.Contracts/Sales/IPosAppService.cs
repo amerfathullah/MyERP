@@ -69,6 +69,9 @@ public class PosItemSearchDto
 {
     public string? Search { get; set; }
     public int MaxResultCount { get; set; } = 20;
+    public Guid? WarehouseId { get; set; }
+    public Guid? PosProfileId { get; set; }
+    public bool HideUnavailableItems { get; set; }
 }
 
 public class ScanBarcodeInput

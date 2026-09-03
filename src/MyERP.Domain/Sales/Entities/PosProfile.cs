@@ -45,6 +45,13 @@ public class PosProfile : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Whether this profile is disabled.</summary>
     public bool IsDisabled { get; set; }
 
+    /// <summary>
+    /// Whether to hide out-of-stock items on the POS interface.
+    /// Non-stock items (service/digital) remain visible even when enabled.
+    /// Per ERPNext PR #47493 / commit 57f3489dfa.
+    /// </summary>
+    public bool HideUnavailableItems { get; set; }
+
     /// <summary>Tax template to apply on POS invoices (SST for Malaysia).</summary>
     public Guid? TaxTemplateId { get; set; }
 

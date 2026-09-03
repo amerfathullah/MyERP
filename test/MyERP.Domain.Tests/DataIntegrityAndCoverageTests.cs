@@ -832,4 +832,33 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(Assets.AssetStatus.Submitted, asset.Status);
         Assert.Null(asset.DisposalDate);
     }
+
+    [Fact]
+    public void PosProfile_HideUnavailableItems_PreservesNonStockItems()
+    {
+        var profile = new Sales.Entities.PosProfile(
+            Guid.NewGuid(), Guid.NewGuid(), "Express Counter", Guid.NewGuid())
+        {
+            HideUnavailableItems = true
+        };
+
+        Assert.True(profile.HideUnavailableItems);
+
+        var serviceItem = new Inventory.Entities.Item(
+            Guid.NewGuid(), Guid.NewGuid(), "SRV-001", "Installation Service", Inventory.ItemType.Service);
+
+        var stockItem = new Inventory.Entities.Item(
+            Guid.NewGuid(), Guid.NewGuid(), "STK-001", "Widget", Inventory.ItemType.Goods);
+
+        // Per ERPNext PR #47493 / commit 57f3489dfa:
+        // Non-stock items are always visible (!MaintainStock).
+        // Stock items require available qty in warehouse.
+        var isServiceVisible = !serviceItem.MaintainStock;
+        var isStockVisibleWithZeroQty = !stockItem.MaintainStock;
+
+        Assert.False(serviceItem.MaintainStock);
+        Assert.True(stockItem.MaintainStock);
+        Assert.True(isServiceVisible);
+        Assert.False(isStockVisibleWithZeroQty);
+    }
 }

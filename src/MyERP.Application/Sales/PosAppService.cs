@@ -141,6 +141,34 @@ public class PosAppService : ApplicationService, IPosAppService
     {
         var query = await _itemRepository.GetQueryableAsync();
 
+        var hideUnavailable = input.HideUnavailableItems;
+        Guid? warehouseId = input.WarehouseId;
+
+        if (input.PosProfileId.HasValue)
+        {
+            var posProfileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
+            var profile = await posProfileRepo.FindAsync(input.PosProfileId.Value);
+            if (profile != null)
+            {
+                hideUnavailable = hideUnavailable || profile.HideUnavailableItems;
+                warehouseId ??= profile.WarehouseId;
+            }
+        }
+
+        if (hideUnavailable && warehouseId.HasValue)
+        {
+            // Per ERPNext PR #47493 / commit 57f3489dfa:
+            // Non-stock items (service/digital) are NOT hidden even when HideUnavailableItems is active.
+            // Stock items must have actual_qty > 0 in the specified warehouse.
+            var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Bin, Guid>>();
+            var binQuery = await binRepo.GetQueryableAsync();
+            var availableStockItemIds = binQuery
+                .Where(b => b.WarehouseId == warehouseId.Value && b.ActualQty > 0)
+                .Select(b => b.ItemId);
+
+            query = query.Where(i => !i.MaintainStock || availableStockItemIds.Contains(i.Id));
+        }
+
         if (!string.IsNullOrWhiteSpace(input.Search))
         {
             var search = input.Search;

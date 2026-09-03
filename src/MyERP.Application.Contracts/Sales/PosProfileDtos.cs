@@ -16,6 +16,7 @@ public class PosProfileDto : FullAuditedEntityDto<Guid>
     public bool ValidateStock { get; set; }
     public string InvoiceType { get; set; } = "POS Invoice";
     public bool IsDisabled { get; set; }
+    public bool HideUnavailableItems { get; set; }
     public Guid? TaxTemplateId { get; set; }
     public Guid? WriteOffAccountId { get; set; }
     public Guid? WriteOffCostCenterId { get; set; }
@@ -58,6 +59,7 @@ public class CreateUpdatePosProfileDto
     public string InvoiceType { get; set; } = "POS Invoice";
 
     public bool IsDisabled { get; set; }
+    public bool HideUnavailableItems { get; set; }
     public Guid? TaxTemplateId { get; set; }
     public Guid? WriteOffAccountId { get; set; }
     public Guid? WriteOffCostCenterId { get; set; }
