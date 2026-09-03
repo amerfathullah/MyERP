@@ -60,6 +60,8 @@ public class BomOperationDto
     public string? Description { get; set; }
     public bool IsSubcontracted { get; set; }
     public bool QualityInspectionRequired { get; set; }
+    public bool BatchSplit { get; set; }
+    public decimal? WeightPerPiece { get; set; }
 }
 
 public class BomItemDto
@@ -137,6 +139,8 @@ public class CreateBomOperationDto
     public string? Description { get; set; }
     public bool IsSubcontracted { get; set; }
     public bool QualityInspectionRequired { get; set; }
+    public bool BatchSplit { get; set; }
+    [Range(0, double.MaxValue)] public decimal? WeightPerPiece { get; set; }
     [Range(0, double.MaxValue)] public decimal WorkstationHourRate { get; set; }
 }
 

@@ -57,6 +57,18 @@ public class BomOperation : FullAuditedEntity<Guid>, IMultiTenant
     /// <summary>Whether quality inspection is required for this specific operation (per ERPNext PR #53859).</summary>
     public bool QualityInspectionRequired { get; set; }
 
+    /// <summary>
+    /// On completion of the Job Card, split the consumed batch into one child batch per finished piece.
+    /// Maps to ERPNext manufacturing/doctype/bom_operation/bom_operation.json (batch_split).
+    /// </summary>
+    public bool BatchSplit { get; set; }
+
+    /// <summary>
+    /// Weight per piece when batch splitting is enabled. Non-negative.
+    /// Maps to ERPNext manufacturing/doctype/bom_operation/bom_operation.json (weight_per_piece).
+    /// </summary>
+    public decimal? WeightPerPiece { get; set; }
+
     protected BomOperation() { }
 
     public BomOperation(Guid id, Guid bomId, Guid operationId, int sequenceId,

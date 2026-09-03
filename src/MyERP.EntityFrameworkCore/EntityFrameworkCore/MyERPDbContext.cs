@@ -3126,6 +3126,7 @@ public class MyERPDbContext :
             b.Property(x => x.OperatingCost).HasColumnType("decimal(18,4)");
             b.Property(x => x.FixedTime).HasColumnType("decimal(18,2)");
             b.Property(x => x.Description).HasMaxLength(500);
+            b.Property(x => x.WeightPerPiece).HasColumnType("decimal(18,4)");
             b.HasIndex(x => new { x.BomId, x.SequenceId });
         });
 

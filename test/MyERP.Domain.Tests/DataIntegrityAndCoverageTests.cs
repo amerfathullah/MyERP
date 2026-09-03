@@ -2556,4 +2556,20 @@ public class DataIntegrityAndCoverageTests
 
         Assert.Equal(5m, availableBatches[0].AvailableQuantity);
     }
+
+    [Fact]
+    public void BomOperation_BatchSplit_And_WeightPerPiece_Fields()
+    {
+        // Per ERPNext PR #58683 / commit 09f5e76b77:
+        // BomOperation supports batch splitting per finished piece with weight per piece.
+        var op = new MyERP.Manufacturing.Entities.BomOperation(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, 15m)
+        {
+            BatchSplit = true,
+            WeightPerPiece = 2.5m
+        };
+
+        Assert.True(op.BatchSplit);
+        Assert.Equal(2.5m, op.WeightPerPiece);
+    }
 }
