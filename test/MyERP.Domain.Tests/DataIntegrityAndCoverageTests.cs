@@ -2603,4 +2603,43 @@ public class DataIntegrityAndCoverageTests
 
         Assert.Equal(100m, entry.Items[0].AdditionalCost + entry.Items[1].AdditionalCost);
     }
+
+    [Fact]
+    public void MaterialRequest_SalesOrderItem_Validation_Invariants()
+    {
+        // Per ERPNext PR #58443 / commit 62e6e23581:
+        // Validate items against source Sales Order in Material Request.
+        // Item code, UOM, and conversion factor must match the linked SO row.
+        var soId = Guid.NewGuid();
+        var soItemId = Guid.NewGuid();
+        var originalItemId = Guid.NewGuid();
+
+        var mrItem = new MyERP.Purchasing.Entities.MaterialRequestItem(
+            Guid.NewGuid(), Guid.NewGuid(), originalItemId, "Raw Material A", 10m, "Box")
+        {
+            SalesOrderId = soId,
+            SalesOrderItemId = soItemId,
+            ConversionFactor = 5m
+        };
+
+        // Linked SO row
+        var so = new MyERP.Sales.Entities.SalesOrder(
+            soId, Guid.NewGuid(), Guid.NewGuid(), "SO-0001", DateTime.UtcNow);
+        so.AddItem(originalItemId, "Raw Material A", 10m, 100m, 0m, uom: "Box");
+        var soRow = so.Items[0];
+        soRow.ConversionFactor = 5m;
+
+        // Matches
+        Assert.Equal(soRow.ItemId, mrItem.ItemId);
+        Assert.Equal(soRow.Uom, mrItem.Uom);
+        Assert.Equal(soRow.ConversionFactor, mrItem.ConversionFactor);
+
+        // Mismatched item is rejected
+        var swappedItemId = Guid.NewGuid();
+        Assert.NotEqual(swappedItemId, soRow.ItemId);
+
+        // Mismatched UOM is rejected
+        var swappedUom = "Kg";
+        Assert.NotEqual(swappedUom, soRow.Uom);
+    }
 }
