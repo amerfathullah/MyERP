@@ -711,4 +711,42 @@ public class StockEntryManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Distributes total additional costs across all incoming rows (TargetWarehouseId != null).
+    /// Per ERPNext commit 074c84e880 / PR #58433:
+    /// Additional costs are redistributed across all incoming rows and persisted during stock entry recalculation.
+    /// </summary>
+    public static void DistributeAdditionalCosts(StockEntry entry)
+    {
+        if (entry.TotalAdditionalCosts <= 0) return;
+
+        var incomingRows = entry.Items.Where(i => i.TargetWarehouseId.HasValue).ToList();
+        if (!incomingRows.Any()) return;
+
+        var totalQty = incomingRows.Sum(i => i.Quantity);
+        if (totalQty <= 0) return;
+
+        decimal allocated = 0;
+        for (int i = 0; i < incomingRows.Count; i++)
+        {
+            var row = incomingRows[i];
+            if (i == incomingRows.Count - 1)
+            {
+                row.AdditionalCost = entry.TotalAdditionalCosts - allocated;
+            }
+            else
+            {
+                var portion = Math.Round(entry.TotalAdditionalCosts * (row.Quantity / totalQty), 4);
+                row.AdditionalCost = portion;
+                allocated += portion;
+            }
+
+            if (row.Quantity > 0)
+            {
+                var rateIncrement = row.AdditionalCost / row.Quantity;
+                row.ValuationRate = (row.ValuationRate ?? 0) + rateIncrement;
+            }
+        }
+    }
 }

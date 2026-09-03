@@ -69,6 +69,12 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     /// </summary>
     public bool IsOpening { get; set; }
 
+    /// <summary>
+    /// Total additional costs for this stock entry (per ERPNext commit 074c84e880 / PR #58433).
+    /// Distributed across all incoming rows.
+    /// </summary>
+    public decimal TotalAdditionalCosts { get; set; }
+
     // IAccountableDocument implementation
     string IAccountableDocument.DocumentType => "StockEntry";
     public string CurrencyCode { get; set; } = "MYR";

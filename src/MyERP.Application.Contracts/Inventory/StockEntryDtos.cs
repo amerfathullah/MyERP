@@ -20,6 +20,7 @@ public class StockEntryDto : FullAuditedEntityDto<Guid>
     public decimal ProcessLossPercentage { get; set; }
     public bool IsFgConversion { get; set; }
     public decimal WeightPerPiece { get; set; }
+    public decimal TotalAdditionalCosts { get; set; }
     public Guid? CostCenterId { get; set; }
     public Guid? ProjectId { get; set; }
     public string? Notes { get; set; }
@@ -39,6 +40,7 @@ public class StockEntryItemDto
     public Guid? TargetWarehouseId { get; set; }
     public string? TargetWarehouseName { get; set; }
     public decimal? ValuationRate { get; set; }
+    public decimal AdditionalCost { get; set; }
     public bool IsFinishedItem { get; set; }
     public Guid? CostCenterId { get; set; }
     public Guid? ExpenseAccountId { get; set; }
@@ -67,6 +69,7 @@ public class CreateStockEntryDto
     public decimal ProcessLossPercentage { get; set; }
     public bool IsFgConversion { get; set; }
     public decimal WeightPerPiece { get; set; }
+    [Range(0, double.MaxValue)] public decimal TotalAdditionalCosts { get; set; }
     public Guid? CostCenterId { get; set; }
     public Guid? ProjectId { get; set; }
 
@@ -93,6 +96,9 @@ public class CreateStockEntryItemDto
 
     [Range(0, double.MaxValue)]
     public decimal? ValuationRate { get; set; }
+
+    [Range(0, double.MaxValue)]
+    public decimal AdditionalCost { get; set; }
 
     public bool IsFinishedItem { get; set; }
 

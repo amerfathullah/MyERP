@@ -153,6 +153,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.SyncProcessLoss();
         entry.IsFgConversion = input.IsFgConversion;
         entry.WeightPerPiece = input.WeightPerPiece;
+        entry.TotalAdditionalCosts = input.TotalAdditionalCosts;
         entry.CostCenterId = input.CostCenterId;
         entry.ProjectId = input.ProjectId;
         entry.Notes = input.Notes;
@@ -167,6 +168,13 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 entry.Items[^1].ExpenseAccountId = item.ExpenseAccountId;
             if (item.ProjectId.HasValue || input.ProjectId.HasValue)
                 entry.Items[^1].ProjectId = item.ProjectId ?? input.ProjectId;
+            if (item.AdditionalCost > 0)
+                entry.Items[^1].AdditionalCost = item.AdditionalCost;
+        }
+
+        if (entry.TotalAdditionalCosts > 0)
+        {
+            StockEntryManager.DistributeAdditionalCosts(entry);
         }
 
         // Delegate purpose-specific validation to StockEntryManager (DDD pattern)

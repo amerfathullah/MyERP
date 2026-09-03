@@ -2572,4 +2572,35 @@ public class DataIntegrityAndCoverageTests
         Assert.True(op.BatchSplit);
         Assert.Equal(2.5m, op.WeightPerPiece);
     }
+
+    [Fact]
+    public void StockEntry_DistributeAdditionalCosts_ProratesAcrossIncomingRows()
+    {
+        // Per ERPNext PR #58433 / commit 074c84e880:
+        // Additional costs are redistributed across all incoming rows and persisted.
+        var entry = new MyERP.Inventory.Entities.StockEntry(
+            Guid.NewGuid(), Guid.NewGuid(), StockEntryType.MaterialTransfer, DateTime.UtcNow)
+        {
+            TotalAdditionalCosts = 100m
+        };
+
+        var targetWh = Guid.NewGuid();
+        // Item 1: 30 qty, base rate 10
+        entry.AddItem(Guid.NewGuid(), 30m, null, targetWh, valuationRate: 10m);
+        // Item 2: 70 qty, base rate 20
+        entry.AddItem(Guid.NewGuid(), 70m, null, targetWh, valuationRate: 20m);
+
+        MyERP.Inventory.DomainServices.StockEntryManager.DistributeAdditionalCosts(entry);
+
+        Assert.Equal(2, entry.Items.Count);
+        // Item 1: 30% of 100 = 30; rate becomes 10 + 30/30 = 11
+        Assert.Equal(30m, entry.Items[0].AdditionalCost);
+        Assert.Equal(11m, entry.Items[0].ValuationRate);
+
+        // Item 2: 70% of 100 = 70; rate becomes 20 + 70/70 = 21
+        Assert.Equal(70m, entry.Items[1].AdditionalCost);
+        Assert.Equal(21m, entry.Items[1].ValuationRate);
+
+        Assert.Equal(100m, entry.Items[0].AdditionalCost + entry.Items[1].AdditionalCost);
+    }
 }

@@ -2115,6 +2115,7 @@ public class MyERPDbContext :
             b.Property(x => x.EntryNumber).HasMaxLength(StockEntryConsts.MaxEntryNumberLength);
             b.Property(x => x.ReferenceType).HasMaxLength(StockEntryConsts.MaxReferenceNumberLength);
             b.Property(x => x.Notes).HasMaxLength(StockEntryConsts.MaxNoteLength);
+            b.Property(x => x.TotalAdditionalCosts).HasColumnType("decimal(18,4)");
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.StockEntryId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
@@ -2128,6 +2129,7 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.ValuationRate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.AdditionalCost).HasColumnType("decimal(18,4)");
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
         });
 

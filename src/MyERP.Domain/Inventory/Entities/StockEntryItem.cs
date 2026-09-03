@@ -59,6 +59,9 @@ public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Quantity in stock UOM (per PR #57710: disassembly aggregates in stock UOM).</summary>
     public decimal StockQty => Quantity * ConversionFactor;
 
+    /// <summary>Additional costs distributed onto this incoming item line (per ERPNext commit 074c84e880 / PR #58433).</summary>
+    public decimal AdditionalCost { get; set; }
+
     protected StockEntryItem() { }
 
     public StockEntryItem(Guid id, Guid stockEntryId, Guid itemId, decimal quantity,
