@@ -1742,4 +1742,47 @@ public class DataIntegrityAndCoverageTests
         batch3.EvaluateBatchwiseValuation(Inventory.ValuationMethod.FIFO, doNotUseBatchwiseValuation: true);
         Assert.True(batch3.UseBatchwiseValuation);
     }
+
+    [Fact]
+    public void PaymentEntry_PopulatesMissingAccountTypeAndCurrency()
+    {
+        // Per ERPNext PR #47069 / commit a854beeb40:
+        // Payment Entry sets account type and currency when missing from account details.
+        var paidFromAccount = new Accounting.Entities.Account(
+            Guid.NewGuid(), Guid.NewGuid(), "1110", "Bank Account",
+            Accounting.AccountType.Asset)
+        {
+            Currency = "USD"
+        };
+
+        var paidToAccount = new Accounting.Entities.Account(
+            Guid.NewGuid(), Guid.NewGuid(), "2110", "Accounts Payable",
+            Accounting.AccountType.Liability)
+        {
+            Currency = "MYR"
+        };
+
+        var dto = new Accounting.PaymentEntryDto
+        {
+            PaidFromAccountId = paidFromAccount.Id,
+            PaidToAccountId = paidToAccount.Id
+        };
+
+        // Initially null
+        Assert.Null(dto.PaidFromAccountCurrency);
+        Assert.Null(dto.PaidFromAccountType);
+        Assert.Null(dto.PaidToAccountCurrency);
+        Assert.Null(dto.PaidToAccountType);
+
+        // Simulated resolution
+        dto.PaidFromAccountCurrency ??= paidFromAccount.Currency;
+        dto.PaidFromAccountType ??= paidFromAccount.AccountType.ToString();
+        dto.PaidToAccountCurrency ??= paidToAccount.Currency;
+        dto.PaidToAccountType ??= paidToAccount.AccountType.ToString();
+
+        Assert.Equal("USD", dto.PaidFromAccountCurrency);
+        Assert.Equal("Asset", dto.PaidFromAccountType);
+        Assert.Equal("MYR", dto.PaidToAccountCurrency);
+        Assert.Equal("Liability", dto.PaidToAccountType);
+    }
 }

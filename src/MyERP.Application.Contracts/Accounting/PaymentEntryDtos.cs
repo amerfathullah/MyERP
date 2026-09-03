@@ -17,6 +17,12 @@ public class PaymentEntryDto : EntityDto<Guid>
     public string CurrencyCode { get; set; } = null!;
     public string Status { get; set; } = null!;
     public string? ReferenceNumber { get; set; }
+    public Guid PaidFromAccountId { get; set; }
+    public Guid PaidToAccountId { get; set; }
+    public string? PaidFromAccountCurrency { get; set; }
+    public string? PaidFromAccountType { get; set; }
+    public string? PaidToAccountCurrency { get; set; }
+    public string? PaidToAccountType { get; set; }
     public string? PartyType { get; set; }
     public Guid? PartyId { get; set; }
     public string? PartyName { get; set; }
@@ -51,6 +57,10 @@ public class CreatePaymentEntryDto
     public decimal? ReceivedAmount { get; set; }
     [Required] public Guid PaidFromAccountId { get; set; }
     [Required] public Guid PaidToAccountId { get; set; }
+    public string? PaidFromAccountCurrency { get; set; }
+    public string? PaidFromAccountType { get; set; }
+    public string? PaidToAccountCurrency { get; set; }
+    public string? PaidToAccountType { get; set; }
     [StringLength(PaymentEntryConsts.MaxModeOfPaymentLength)] public string? ModeOfPayment { get; set; }
     public string? PartyType { get; set; }
     public Guid? PartyId { get; set; }

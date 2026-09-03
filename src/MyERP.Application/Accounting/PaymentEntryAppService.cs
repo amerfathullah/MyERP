@@ -81,7 +81,9 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
     public async Task<PaymentEntryDto> GetAsync(Guid id)
     {
         var pe = await _repository.GetAsync(id);
-        return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
+        var dto = ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
+        await PopulateAccountDetailsAsync(dto);
+        return dto;
     }
 
     public async Task<PagedResultDto<PaymentEntryDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -175,6 +177,9 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         await companyRestriction.ValidateTransactionCompanyAsync(
             "PaymentEntry", input.CompanyId,
             accountIds: new[] { input.PaidFromAccountId, input.PaidToAccountId });
+
+        // Per ERPNext PR #47069 / commit a854beeb40: set account type and currency if missing
+        await PopulateAccountDetailsAsync(input);
 
         // Per gotcha #197: Receive type cannot have net negative allocation for Customer
         if (input.PaymentType == PaymentType.Receive && string.Equals(input.PartyType, "Customer", StringComparison.OrdinalIgnoreCase))
@@ -282,7 +287,9 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         ApplyTaxRows(pe, input.Taxes);
 
         await _repository.InsertAsync(pe, autoSave: true);
-        return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
+        var resultDto = ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
+        await PopulateAccountDetailsAsync(resultDto);
+        return resultDto;
     }
 
     [Authorize(MyERPPermissions.PaymentEntries.Submit)]
@@ -1397,6 +1404,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         Check.NotDefaultOrNull<Guid>(documentId, nameof(documentId));
 
         var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+        CreatePaymentEntryDto template;
 
         switch (documentType)
         {
@@ -1425,7 +1433,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
                 var outstanding = Math.Max(0, so.GrandTotal - so.AdvancePaid);
 
-                return new CreatePaymentEntryDto
+                template = new CreatePaymentEntryDto
                 {
                     CompanyId = so.CompanyId,
                     PaymentType = PaymentType.Receive,
@@ -1451,6 +1459,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                         }
                     }
                 };
+                break;
             }
             case "PurchaseOrder":
             {
@@ -1477,7 +1486,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
                 var outstanding = Math.Max(0, po.GrandTotal - po.AdvancePaid);
 
-                return new CreatePaymentEntryDto
+                template = new CreatePaymentEntryDto
                 {
                     CompanyId = po.CompanyId,
                     PaymentType = PaymentType.Pay,
@@ -1503,6 +1512,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                         }
                     }
                 };
+                break;
             }
             case "SalesInvoice":
             {
@@ -1524,7 +1534,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
                 var outstanding = Math.Max(0, si.GrandTotal - si.AmountPaid);
 
-                return new CreatePaymentEntryDto
+                template = new CreatePaymentEntryDto
                 {
                     CompanyId = si.CompanyId,
                     PaymentType = PaymentType.Receive,
@@ -1550,6 +1560,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                         }
                     }
                 };
+                break;
             }
             case "PurchaseInvoice":
             {
@@ -1571,7 +1582,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
                 var outstanding = Math.Max(0, pi.GrandTotal - pi.AmountPaid);
 
-                return new CreatePaymentEntryDto
+                template = new CreatePaymentEntryDto
                 {
                     CompanyId = pi.CompanyId,
                     PaymentType = PaymentType.Pay,
@@ -1597,10 +1608,69 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                         }
                     }
                 };
+                break;
             }
             default:
                 throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                     .WithData("documentType", documentType);
+        }
+
+        // Per ERPNext PR #47069 / commit a854beeb40: set account type and currency if missing
+        await PopulateAccountDetailsAsync(template);
+        return template;
+    }
+
+    /// <summary>
+    /// Sets account currency and account type if missing on PaymentEntryDto.
+    /// Per ERPNext PR #47069 / commit a854beeb40.
+    /// </summary>
+    private async Task PopulateAccountDetailsAsync(PaymentEntryDto dto)
+    {
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        if (dto.PaidFromAccountId != Guid.Empty && (string.IsNullOrEmpty(dto.PaidFromAccountCurrency) || string.IsNullOrEmpty(dto.PaidFromAccountType)))
+        {
+            var acc = await accountRepo.FindAsync(dto.PaidFromAccountId);
+            if (acc != null)
+            {
+                dto.PaidFromAccountCurrency ??= acc.Currency;
+                dto.PaidFromAccountType ??= acc.AccountType.ToString();
+            }
+        }
+        if (dto.PaidToAccountId != Guid.Empty && (string.IsNullOrEmpty(dto.PaidToAccountCurrency) || string.IsNullOrEmpty(dto.PaidToAccountType)))
+        {
+            var acc = await accountRepo.FindAsync(dto.PaidToAccountId);
+            if (acc != null)
+            {
+                dto.PaidToAccountCurrency ??= acc.Currency;
+                dto.PaidToAccountType ??= acc.AccountType.ToString();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sets account currency and account type if missing on CreatePaymentEntryDto.
+    /// Per ERPNext PR #47069 / commit a854beeb40.
+    /// </summary>
+    private async Task PopulateAccountDetailsAsync(CreatePaymentEntryDto dto)
+    {
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        if (dto.PaidFromAccountId != Guid.Empty && (string.IsNullOrEmpty(dto.PaidFromAccountCurrency) || string.IsNullOrEmpty(dto.PaidFromAccountType)))
+        {
+            var acc = await accountRepo.FindAsync(dto.PaidFromAccountId);
+            if (acc != null)
+            {
+                dto.PaidFromAccountCurrency ??= acc.Currency;
+                dto.PaidFromAccountType ??= acc.AccountType.ToString();
+            }
+        }
+        if (dto.PaidToAccountId != Guid.Empty && (string.IsNullOrEmpty(dto.PaidToAccountCurrency) || string.IsNullOrEmpty(dto.PaidToAccountType)))
+        {
+            var acc = await accountRepo.FindAsync(dto.PaidToAccountId);
+            if (acc != null)
+            {
+                dto.PaidToAccountCurrency ??= acc.Currency;
+                dto.PaidToAccountType ??= acc.AccountType.ToString();
+            }
         }
     }
 }

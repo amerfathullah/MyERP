@@ -845,9 +845,17 @@ public partial class PaymentEntryMapper : MapperBase<Accounting.Entities.Payment
 {
     [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PartyName))]
     [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.Taxes))]
+    [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PaidFromAccountCurrency))]
+    [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PaidFromAccountType))]
+    [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PaidToAccountCurrency))]
+    [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PaidToAccountType))]
     public override partial Accounting.PaymentEntryDto Map(Accounting.Entities.PaymentEntry source);
     [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PartyName))]
     [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.Taxes))]
+    [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PaidFromAccountCurrency))]
+    [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PaidFromAccountType))]
+    [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PaidToAccountCurrency))]
+    [MapperIgnoreTarget(nameof(Accounting.PaymentEntryDto.PaidToAccountType))]
     public override partial void Map(Accounting.Entities.PaymentEntry source, Accounting.PaymentEntryDto destination);
 
     public override void AfterMap(Accounting.Entities.PaymentEntry source, Accounting.PaymentEntryDto destination)
