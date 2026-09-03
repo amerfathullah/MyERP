@@ -1407,4 +1407,33 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(10.0000m, roundedAvailable);
         Assert.False(roundedRequested > roundedAvailable);
     }
+
+    [Fact]
+    public void StockReservation_TransferredAndConsumedQty_DeductedFromActiveReservation()
+    {
+        // Per ERPNext PR #47049 / commit 27d674d54a:
+        // Stock already transferred or consumed (e.g. for Work Order) must be deducted from active reservation
+        // so that completed/consumed manufacturing stock does not falsely block stock operations or work order completion.
+        var sre = new Inventory.Entities.StockReservationEntry(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            "Work Order", Guid.NewGuid(), 100m, voucherQty: 100m);
+
+        Assert.Equal(100m, sre.AvailableQty);
+
+        // Transferred 40 for production
+        sre.TransferredQty = 40m;
+        Assert.Equal(60m, sre.AvailableQty);
+
+        // Consumed 30 in production
+        sre.ConsumedQty = 30m;
+        Assert.Equal(30m, sre.AvailableQty);
+
+        // Delivered 20
+        sre.RecordDelivery(20m);
+        Assert.Equal(10m, sre.AvailableQty);
+
+        // Active reservation query logic:
+        var remainingReserved = sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty;
+        Assert.Equal(10m, remainingReserved);
+    }
 }

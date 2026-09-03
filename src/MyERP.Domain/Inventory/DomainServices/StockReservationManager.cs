@@ -69,14 +69,15 @@ public class StockReservationManager : DomainService
         }
 
         // Get already reserved
+        // Per ERPNext PR #47049 / commit 27d674d54a: deduct delivered, transferred, and consumed quantities
         var sreQueryable = await _sreRepository.GetQueryableAsync();
         var reservedQty = sreQueryable
             .Where(s => s.ItemId == itemId
                 && s.WarehouseId == warehouseId
                 && (batchId == null || s.BatchId == batchId)
                 && s.Status == DocumentStatus.Submitted
-                && s.DeliveredQty < s.ReservedQty)
-            .Sum(s => s.ReservedQty - s.DeliveredQty);
+                && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
+            .Sum(s => s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty);
 
         var available = Math.Round(actualQty - reservedQty, 4);
 
@@ -103,7 +104,7 @@ public class StockReservationManager : DomainService
             .Where(s => s.ItemId == itemId
                 && s.WarehouseId == warehouseId
                 && s.Status == DocumentStatus.Submitted
-                && s.DeliveredQty < s.ReservedQty
+                && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0
                 && (salesOrderId == null || s.VoucherId == salesOrderId))
             .OrderBy(s => s.CreationTime)
             .ToList();
@@ -115,7 +116,7 @@ public class StockReservationManager : DomainService
         {
             if (remaining <= 0) break;
 
-            var available = sre.ReservedQty - sre.DeliveredQty;
+            var available = sre.AvailableQty;
             if (available <= 0) continue;
 
             var consume = Math.Min(remaining, available);
@@ -180,7 +181,7 @@ public class StockReservationManager : DomainService
             .Where(s => s.ItemId == itemId
                 && s.VoucherId == salesOrderId
                 && s.Status == DocumentStatus.Submitted
-                && s.DeliveredQty < s.ReservedQty)
+                && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
             .Select(s => s.WarehouseId)
             .Distinct()
             .ToList();
@@ -201,6 +202,7 @@ public class StockReservationManager : DomainService
 
     /// <summary>
     /// Gets total reserved qty for an item+warehouse across all active SREs.
+    /// Per ERPNext PR #47049 / commit 27d674d54a: deduct delivered, transferred, and consumed quantities.
     /// </summary>
     public async Task<decimal> GetReservedQtyAsync(Guid itemId, Guid warehouseId)
     {
@@ -209,8 +211,8 @@ public class StockReservationManager : DomainService
             .Where(s => s.ItemId == itemId
                 && s.WarehouseId == warehouseId
                 && s.Status == DocumentStatus.Submitted
-                && s.DeliveredQty < s.ReservedQty)
-            .Sum(s => s.ReservedQty - s.DeliveredQty);
+                && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
+            .Sum(s => s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty);
     }
 
     /// <summary>
