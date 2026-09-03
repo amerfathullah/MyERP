@@ -55,6 +55,93 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
                 .WithData("field", "GrandTotal");
         }
 
+        decimal maxPayable = decimal.MaxValue;
+        bool isAlreadyPaid = false;
+
+        // Per ERPNext PR #46626 / commit 913c60d77b: correct payment request amount
+        // Outstanding amount / order balance validation
+        if (string.Equals(input.ReferenceDoctype, "SalesInvoice", StringComparison.OrdinalIgnoreCase))
+        {
+            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+            var si = await siRepo.FindAsync(input.ReferenceId);
+            if (si != null)
+            {
+                if (si.OutstandingAmount <= 0)
+                {
+                    isAlreadyPaid = true;
+                }
+                maxPayable = si.OutstandingAmount;
+            }
+        }
+        else if (string.Equals(input.ReferenceDoctype, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase))
+        {
+            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+            var pi = await piRepo.FindAsync(input.ReferenceId);
+            if (pi != null)
+            {
+                if (pi.OutstandingAmount <= 0)
+                {
+                    isAlreadyPaid = true;
+                }
+                maxPayable = pi.OutstandingAmount;
+            }
+        }
+        else if (string.Equals(input.ReferenceDoctype, "SalesOrder", StringComparison.OrdinalIgnoreCase))
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var so = await soRepo.FindAsync(input.ReferenceId);
+            if (so != null)
+            {
+                var remainingOrderAmount = so.GrandTotal - so.AdvancePaid;
+                if (remainingOrderAmount <= 0)
+                {
+                    isAlreadyPaid = true;
+                }
+                maxPayable = Math.Max(0, remainingOrderAmount);
+            }
+        }
+        else if (string.Equals(input.ReferenceDoctype, "PurchaseOrder", StringComparison.OrdinalIgnoreCase))
+        {
+            var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+            var po = await poRepo.FindAsync(input.ReferenceId);
+            if (po != null)
+            {
+                var remainingOrderAmount = po.GrandTotal - po.AdvancePaid;
+                if (remainingOrderAmount <= 0)
+                {
+                    isAlreadyPaid = true;
+                }
+                maxPayable = Math.Max(0, remainingOrderAmount);
+            }
+        }
+
+        if (isAlreadyPaid)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvoiceAlreadySettled);
+        }
+
+        if (maxPayable != decimal.MaxValue)
+        {
+            var existingPrQuery = await _repository.GetQueryableAsync();
+            var existingPrAmount = existingPrQuery
+                .Where(p => p.ReferenceDoctype == input.ReferenceDoctype
+                            && p.ReferenceId == input.ReferenceId
+                            && p.Status != PaymentRequestStatus.Cancelled
+                            && p.Status != PaymentRequestStatus.Paid)
+                .Sum(p => p.OutstandingAmount);
+
+            var remainingAllowed = maxPayable - existingPrAmount;
+            if (remainingAllowed <= 0)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PaymentRequestAlreadyCreated);
+            }
+
+            if (input.GrandTotal > remainingAllowed)
+            {
+                input.GrandTotal = remainingAllowed;
+            }
+        }
+
         var isSubscription = input.IsASubscription;
         var subscriptionId = input.SubscriptionId;
 

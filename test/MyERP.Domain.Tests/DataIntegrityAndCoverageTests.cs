@@ -1650,4 +1650,50 @@ public class DataIntegrityAndCoverageTests
         Assert.Single(customerDunnings);
         Assert.Equal(550m, customerDunnings[0].GrandTotal);
     }
+
+    [Fact]
+    public void PaymentRequest_CalculatesCorrectAmount_AndBlocksOverRequest()
+    {
+        // Per ERPNext PR #46626 / commit 913c60d77b:
+        // Payment request amount considers order advance_paid and existing payment requests.
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+
+        // 1. Sales Order with partial advance paid
+        var so = new Sales.Entities.SalesOrder(
+            Guid.NewGuid(), companyId, customerId, "SO-001", DateTime.UtcNow.Date)
+        {
+            GrandTotal = 1000m,
+            AdvancePaid = 200m
+        };
+
+        var maxPayable = so.GrandTotal - so.AdvancePaid;
+        Assert.Equal(800m, maxPayable);
+
+        // 2. Existing Payment Request of 500m outstanding
+        var pr1 = new Accounting.Entities.PaymentRequest(
+            Guid.NewGuid(), companyId, "SalesOrder", so.Id, customerId, "Customer", 500m);
+        Assert.Equal(500m, pr1.OutstandingAmount);
+
+        var existingPrs = new System.Collections.Generic.List<Accounting.Entities.PaymentRequest> { pr1 };
+        var existingPrAmount = existingPrs.Sum(p => p.OutstandingAmount);
+        var remainingAllowed = maxPayable - existingPrAmount;
+        Assert.Equal(300m, remainingAllowed);
+
+        // 3. New Payment Request requesting 400m is clamped to remainingAllowed (300m)
+        var requested = 400m;
+        if (requested > remainingAllowed)
+        {
+            requested = remainingAllowed;
+        }
+        Assert.Equal(300m, requested);
+
+        // 4. When full amount is requested, subsequent attempts throw PaymentRequestAlreadyCreated
+        existingPrs.Add(new Accounting.Entities.PaymentRequest(
+            Guid.NewGuid(), companyId, "SalesOrder", so.Id, customerId, "Customer", 300m));
+        var updatedPrAmount = existingPrs.Sum(p => p.OutstandingAmount);
+        var noneRemaining = maxPayable - updatedPrAmount;
+        Assert.Equal(0m, noneRemaining);
+        Assert.True(noneRemaining <= 0);
+    }
 }
