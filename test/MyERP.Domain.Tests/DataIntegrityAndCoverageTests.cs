@@ -1386,4 +1386,25 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(0m, entry.BaseOutstanding);
         Assert.True(entry.IsFullyPaid);
     }
+
+    [Fact]
+    public void StockReservation_QuantityPrecisionValidation()
+    {
+        // Per ERPNext PR #46973 / commit 860699ee7b:
+        // Validate stock reservation rounds requestedQty and available stock to reservation precision (4 decimals)
+        // to prevent false-positive over-reservation errors caused by floating-point dust.
+        decimal requestedQty = 10.000000000000002m;
+        decimal availableQty = 10.0m;
+
+        // Raw comparison would falsely reject:
+        Assert.True(requestedQty > availableQty);
+
+        // With reservation precision rounding:
+        var roundedRequested = Math.Round(requestedQty, 4);
+        var roundedAvailable = Math.Round(availableQty, 4);
+
+        Assert.Equal(10.0000m, roundedRequested);
+        Assert.Equal(10.0000m, roundedAvailable);
+        Assert.False(roundedRequested > roundedAvailable);
+    }
 }

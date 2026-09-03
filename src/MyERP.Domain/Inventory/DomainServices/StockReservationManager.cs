@@ -39,6 +39,9 @@ public class StockReservationManager : DomainService
     /// </summary>
     public async Task ValidateAvailabilityAsync(Guid itemId, Guid warehouseId, decimal requestedQty, Guid? batchId = null, DateTime? asOfDate = null)
     {
+        // Round to stock reservation precision to avoid floating-point / sub-unit representation rejections (ERPNext PR #46973 / commit 860699ee7b)
+        requestedQty = Math.Round(requestedQty, 4);
+
         decimal actualQty;
         if (asOfDate.HasValue)
         {
@@ -75,7 +78,7 @@ public class StockReservationManager : DomainService
                 && s.DeliveredQty < s.ReservedQty)
             .Sum(s => s.ReservedQty - s.DeliveredQty);
 
-        var available = actualQty - reservedQty;
+        var available = Math.Round(actualQty - reservedQty, 4);
 
         if (requestedQty > available)
         {
@@ -220,13 +223,16 @@ public class StockReservationManager : DomainService
         decimal qty, string voucherType, Guid voucherId, Guid? batchId = null, Guid? tenantId = null,
         decimal? voucherDemandQty = null, Guid? voucherDetailId = null, DateTime? postingDate = null)
     {
+        qty = Math.Round(qty, 4);
         if (qty <= 0) return;
 
         await ValidateAvailabilityAsync(itemId, warehouseId, qty, batchId, postingDate);
 
+        var demandQty = voucherDemandQty.HasValue ? Math.Round(voucherDemandQty.Value, 4) : qty;
+
         var sre = new StockReservationEntry(
             GuidGenerator.Create(), companyId, itemId, warehouseId,
-            voucherType, voucherId, qty, voucherQty: voucherDemandQty ?? qty, tenantId: tenantId)
+            voucherType, voucherId, qty, voucherQty: demandQty, tenantId: tenantId)
         {
             BatchId = batchId,
             VoucherDetailId = voucherDetailId
