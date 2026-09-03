@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
+using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Dtos;
 using MyERP.Inventory.DomainServices;
@@ -161,7 +162,8 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
                 : (itemMap.TryGetValue(item.ItemId, out var defaultUom) ? defaultUom : null);
 
             sr.AddItem(item.ItemId, item.WarehouseId, item.NewQuantity, item.NewValuationRate,
-                item.CurrentQuantity, item.CurrentValuationRate, uom);
+                item.CurrentQuantity, item.CurrentValuationRate, uom,
+                item.SerialAndBatchBundleId, item.CurrentSerialAndBatchBundleId);
         }
 
         await _repository.InsertAsync(sr);
@@ -246,6 +248,26 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
         if (je != null)
             await _journalEntryRepository.InsertAsync(je);
 
+        // Submit linked Serial and Batch Bundles if draft (ERPNext PR #47457 / commit ad25636afb)
+        var bundleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SerialAndBatchBundle, Guid>>();
+        foreach (var item in sr.Items)
+        {
+            var bundleIds = new[] { item.CurrentSerialAndBatchBundleId, item.SerialAndBatchBundleId }
+                .Where(bId => bId.HasValue)
+                .Select(bId => bId!.Value)
+                .Distinct();
+
+            foreach (var bId in bundleIds)
+            {
+                var bundle = await bundleRepo.FindAsync(bId);
+                if (bundle != null && bundle.Status == DocumentStatus.Draft)
+                {
+                    bundle.Submit(sr.ReconciliationNumber);
+                    await bundleRepo.UpdateAsync(bundle);
+                }
+            }
+        }
+
         await _repository.UpdateAsync(sr);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
@@ -291,6 +313,26 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
         var reversalJe = await BuildReconciliationJournalEntryAsync(sr, isReversal: true);
         if (reversalJe != null)
             await _journalEntryRepository.InsertAsync(reversalJe);
+
+        // Cancel linked Serial and Batch Bundles if submitted
+        var bundleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SerialAndBatchBundle, Guid>>();
+        foreach (var item in sr.Items)
+        {
+            var bundleIds = new[] { item.CurrentSerialAndBatchBundleId, item.SerialAndBatchBundleId }
+                .Where(bId => bId.HasValue)
+                .Select(bId => bId!.Value)
+                .Distinct();
+
+            foreach (var bId in bundleIds)
+            {
+                var bundle = await bundleRepo.FindAsync(bId);
+                if (bundle != null && bundle.Status == DocumentStatus.Submitted)
+                {
+                    bundle.Cancel();
+                    await bundleRepo.UpdateAsync(bundle);
+                }
+            }
+        }
 
         await _repository.UpdateAsync(sr);
 

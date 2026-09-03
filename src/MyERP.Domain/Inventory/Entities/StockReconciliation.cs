@@ -44,13 +44,15 @@ public class StockReconciliation : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     public void AddItem(Guid itemId, Guid warehouseId, decimal newQuantity, decimal newValuationRate,
-        decimal currentQuantity = 0, decimal currentValuationRate = 0, string? stockUom = null)
+        decimal currentQuantity = 0, decimal currentValuationRate = 0, string? stockUom = null,
+        Guid? serialAndBatchBundleId = null, Guid? currentSerialAndBatchBundleId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         var item = new StockReconciliationItem(Guid.NewGuid(), Id, itemId, warehouseId,
-            newQuantity, newValuationRate, currentQuantity, currentValuationRate, stockUom);
+            newQuantity, newValuationRate, currentQuantity, currentValuationRate, stockUom,
+            serialAndBatchBundleId, currentSerialAndBatchBundleId);
         _items.Add(item);
         RecalculateDifference();
     }

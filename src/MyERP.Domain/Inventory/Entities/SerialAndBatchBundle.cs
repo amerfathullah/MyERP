@@ -4,6 +4,7 @@ using System.Linq;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
+using MyERP.Core;
 
 namespace MyERP.Inventory.Entities;
 
@@ -40,6 +41,9 @@ public class SerialAndBatchBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>Specific row in the voucher this bundle belongs to.</summary>
     public Guid? VoucherDetailId { get; set; }
+
+    /// <summary>Voucher document status (Draft, Submitted, Cancelled).</summary>
+    public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
     /// <summary>Whether this bundle has been cancelled (audit trail preservation).</summary>
     public bool IsCancelled { get; set; }
@@ -95,9 +99,20 @@ public class SerialAndBatchBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
         AvgRate = TotalQty != 0 ? TotalAmount / TotalQty : 0;
     }
 
+    /// <summary>
+    /// Submits this bundle, linking voucher number if provided.
+    /// Per ERPNext commit ad25636afb: skips submission if already submitted (e.g. backdated reconciliation).
+    /// </summary>
+    public void Submit(string? voucherNo = null)
+    {
+        if (Status != DocumentStatus.Draft) return;
+        Status = DocumentStatus.Submitted;
+    }
+
     /// <summary>Mark as cancelled (preserves audit trail — never deleted).</summary>
     public void Cancel()
     {
+        Status = DocumentStatus.Cancelled;
         IsCancelled = true;
     }
 

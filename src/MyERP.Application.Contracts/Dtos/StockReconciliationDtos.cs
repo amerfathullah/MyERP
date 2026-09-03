@@ -26,6 +26,8 @@ public class StockReconciliationItemDto : EntityDto<Guid>
     public decimal CurrentValuationRate { get; set; }
     public decimal NewQuantity { get; set; }
     public decimal NewValuationRate { get; set; }
+    public Guid? SerialAndBatchBundleId { get; set; }
+    public Guid? CurrentSerialAndBatchBundleId { get; set; }
     public decimal QuantityDifference { get; set; }
     public decimal DifferenceAmount { get; set; }
 }
@@ -50,6 +52,8 @@ public class CreateStockReconciliationItemDto
     public decimal NewValuationRate { get; set; }
     public decimal CurrentQuantity { get; set; }
     public decimal CurrentValuationRate { get; set; }
+    public Guid? SerialAndBatchBundleId { get; set; }
+    public Guid? CurrentSerialAndBatchBundleId { get; set; }
 }
 
 public class GetStockReconciliationListDto : PagedAndSortedResultRequestDto

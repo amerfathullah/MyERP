@@ -1015,4 +1015,38 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(250000m, asset.ValueAfterDepreciation);
         Assert.Equal(0m, asset.DepreciationRate);
     }
+
+    [Fact]
+    public void StockReconciliation_SerialAndBatchBundle_SubmitsDraftOnly()
+    {
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+
+        var draftBundle = new Inventory.Entities.SerialAndBatchBundle(
+            Guid.NewGuid(), companyId, itemId, warehouseId,
+            Inventory.Entities.BundleTransactionType.Inward, "StockReconciliation", Guid.NewGuid(), DateTime.UtcNow);
+
+        var alreadySubmittedBundle = new Inventory.Entities.SerialAndBatchBundle(
+            Guid.NewGuid(), companyId, itemId, warehouseId,
+            Inventory.Entities.BundleTransactionType.Outward, "StockReconciliation", Guid.NewGuid(), DateTime.UtcNow);
+        alreadySubmittedBundle.Submit("SR-0001");
+
+        // Per ERPNext PR #47457 / commit ad25636afb:
+        // When reconciling stock (e.g. backdated reconciliation), only bundles in Draft status
+        // should be transitioned to Submitted. Submitting an already-submitted bundle is a no-op / protected.
+        Assert.Equal(Core.DocumentStatus.Draft, draftBundle.Status);
+        Assert.Equal(Core.DocumentStatus.Submitted, alreadySubmittedBundle.Status);
+
+        draftBundle.Submit("SR-0002");
+        Assert.Equal(Core.DocumentStatus.Submitted, draftBundle.Status);
+
+        // Safe idempotent call on already-submitted bundle
+        alreadySubmittedBundle.Submit("SR-0002");
+        Assert.Equal(Core.DocumentStatus.Submitted, alreadySubmittedBundle.Status);
+
+        draftBundle.Cancel();
+        Assert.Equal(Core.DocumentStatus.Cancelled, draftBundle.Status);
+        Assert.True(draftBundle.IsCancelled);
+    }
 }

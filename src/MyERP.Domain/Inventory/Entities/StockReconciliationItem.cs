@@ -19,6 +19,12 @@ public class StockReconciliationItem : FullAuditedEntity<Guid>
     public decimal NewQuantity { get; set; }
     public decimal NewValuationRate { get; set; }
 
+    /// <summary>Serial & Batch Bundle for incoming/reconciled stock.</summary>
+    public Guid? SerialAndBatchBundleId { get; set; }
+
+    /// <summary>Serial & Batch Bundle for current/existing stock.</summary>
+    public Guid? CurrentSerialAndBatchBundleId { get; set; }
+
     /// <summary>Qty difference: NewQuantity - CurrentQuantity.</summary>
     public decimal QuantityDifference => NewQuantity - CurrentQuantity;
 
@@ -31,7 +37,9 @@ public class StockReconciliationItem : FullAuditedEntity<Guid>
         Guid itemId, Guid warehouseId,
         decimal newQuantity, decimal newValuationRate,
         decimal currentQuantity = 0, decimal currentValuationRate = 0,
-        string? stockUom = null)
+        string? stockUom = null,
+        Guid? serialAndBatchBundleId = null,
+        Guid? currentSerialAndBatchBundleId = null)
         : base(id)
     {
         StockReconciliationId = stockReconciliationId;
@@ -42,5 +50,7 @@ public class StockReconciliationItem : FullAuditedEntity<Guid>
         CurrentQuantity = currentQuantity;
         CurrentValuationRate = currentValuationRate;
         StockUom = stockUom;
+        SerialAndBatchBundleId = serialAndBatchBundleId;
+        CurrentSerialAndBatchBundleId = currentSerialAndBatchBundleId;
     }
 }
