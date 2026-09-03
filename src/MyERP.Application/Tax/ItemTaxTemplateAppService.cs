@@ -49,6 +49,13 @@ public class ItemTaxTemplateAppService : ApplicationService, IItemTaxTemplateApp
             }
         }
 
+        // Validate tax accounts belong to the template's company (ERPNext PR #47964 / commit f37d5f188e)
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "ItemTaxTemplate",
+            input.CompanyId,
+            accountIds: input.Details.Select(d => d.TaxAccountId).Distinct().ToArray());
+
         var t = new ItemTaxTemplate(GuidGenerator.Create(), input.CompanyId, input.Title, CurrentTenant.Id);
         foreach (var d in input.Details)
             t.AddDetail(d.TaxAccountId, d.TaxRate, d.NotApplicable);
@@ -82,6 +89,14 @@ public class ItemTaxTemplateAppService : ApplicationService, IItemTaxTemplateApp
         }
 
         var t = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
+
+        // Validate tax accounts belong to the template's company (ERPNext PR #47964 / commit f37d5f188e)
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "ItemTaxTemplate",
+            t.CompanyId,
+            accountIds: input.Details.Select(d => d.TaxAccountId).Distinct().ToArray());
+
         t.Rename(input.Title);
         t.SetDisabled(input.IsDisabled);
         t.ClearDetails();
