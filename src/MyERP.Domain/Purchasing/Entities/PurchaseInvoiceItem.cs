@@ -74,6 +74,12 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Service stop date (for early termination of service contracts). Per ERPNext: accounts/deferred_revenue.py.</summary>
     public DateTime? ServiceStopDate { get; set; }
 
+    /// <summary>
+    /// Cumulative landed cost voucher amount allocated to this item.
+    /// Per ERPNext PR #57475 / #58575: prorated landed cost charge deduction from purchase expense.
+    /// </summary>
+    public decimal LandedCostVoucherAmount { get; set; }
+
     protected PurchaseInvoiceItem() { }
 
     public PurchaseInvoiceItem(

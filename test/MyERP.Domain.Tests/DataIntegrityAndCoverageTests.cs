@@ -2430,4 +2430,22 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal("Unordered Item", pendingItems[1].ItemName);
         Assert.Equal(15m, pendingItems[1].StockQty - pendingItems[1].OrderedQuantity);
     }
+
+    [Fact]
+    public void PurchaseInvoiceItem_LandedCostVoucherAmount_Tracking()
+    {
+        // Per ERPNext PR #57475 / #58575:
+        // PurchaseInvoiceItem supports LandedCostVoucherAmount tracking for landed cost allocations.
+        var pi = new Purchasing.Entities.PurchaseInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PI-0001", DateTime.UtcNow);
+
+        pi.AddItem(Guid.NewGuid(), "Raw Materials", 10m, 100m, 0m);
+
+        Assert.Single(pi.Items);
+        Assert.Equal(0m, pi.Items[0].LandedCostVoucherAmount);
+
+        // Allocate LCV amount
+        pi.Items[0].LandedCostVoucherAmount = 50m;
+        Assert.Equal(50m, pi.Items[0].LandedCostVoucherAmount);
+    }
 }

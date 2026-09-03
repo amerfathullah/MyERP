@@ -308,6 +308,24 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             }
         }
 
+        var piItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseInvoiceItem, Guid>>();
+        foreach (var lcvItem in lcv.Items.Where(i => i.ApplicableCharges > 0 && i.ReceiptType == "PurchaseInvoice"))
+        {
+            var piItems = (await piItemRepo.GetQueryableAsync())
+                .Where(pii => pii.PurchaseInvoiceId == lcvItem.ReceiptId && pii.ItemId == lcvItem.ItemId)
+                .ToList();
+
+            if (piItems.Count > 0)
+            {
+                var perItemCharge = lcvItem.ApplicableCharges / piItems.Count;
+                foreach (var piItem in piItems)
+                {
+                    piItem.LandedCostVoucherAmount += perItemCharge;
+                    await piItemRepo.UpdateAsync(piItem);
+                }
+            }
+        }
+
         await _repository.UpdateAsync(lcv);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
@@ -390,6 +408,24 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                 {
                     prItem.LandedCostVoucherAmount = Math.Max(0, prItem.LandedCostVoucherAmount - perItemCharge);
                     await prItemRepo2.UpdateAsync(prItem);
+                }
+            }
+        }
+
+        var piItemRepo2 = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseInvoiceItem, Guid>>();
+        foreach (var lcvItem in lcv.Items.Where(i => i.ApplicableCharges > 0 && i.ReceiptType == "PurchaseInvoice"))
+        {
+            var piItems = (await piItemRepo2.GetQueryableAsync())
+                .Where(pii => pii.PurchaseInvoiceId == lcvItem.ReceiptId && pii.ItemId == lcvItem.ItemId)
+                .ToList();
+
+            if (piItems.Count > 0)
+            {
+                var perItemCharge = lcvItem.ApplicableCharges / piItems.Count;
+                foreach (var piItem in piItems)
+                {
+                    piItem.LandedCostVoucherAmount = Math.Max(0, piItem.LandedCostVoucherAmount - perItemCharge);
+                    await piItemRepo2.UpdateAsync(piItem);
                 }
             }
         }
