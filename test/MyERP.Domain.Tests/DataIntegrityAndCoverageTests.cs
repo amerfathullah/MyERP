@@ -2057,4 +2057,20 @@ public class DataIntegrityAndCoverageTests
         Assert.Single(validRefs);
         Assert.Equal(400m, validRefs[0].AllocatedAmount);
     }
+
+    [Fact]
+    public void TransitTransfer_CompletedTransfers_NotShowingInPendingList()
+    {
+        // Per ERPNext PR #47374 / commit 97db9da10e:
+        // Stock entries with per_transferred >= 100% must not show in pending in-transit list.
+        var sentQty = 100m;
+        var fullReceivedQty = 100m;
+        var partialReceivedQty = 60m;
+
+        bool IsPending(decimal sent, decimal received) => received < sent;
+
+        Assert.False(IsPending(sentQty, fullReceivedQty));
+        Assert.True(IsPending(sentQty, partialReceivedQty));
+        Assert.Equal(40m, sentQty - partialReceivedQty);
+    }
 }

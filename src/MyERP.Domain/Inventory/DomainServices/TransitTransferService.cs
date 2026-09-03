@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
@@ -189,26 +190,38 @@ public class TransitTransferService : DomainService
 
         if (!sentEntries.Any()) return Array.Empty<PendingTransitTransfer>();
 
-        // Find which have been received
+        // Find received entries and sum received quantities per reference
         var sentIds = sentEntries.Select(e => e.Id).ToList();
-        var receivedIds = query
+        var receivedEntries = query
             .Where(e => e.ReferenceType == "StockEntry"
                 && sentIds.Contains(e.ReferenceId!.Value)
                 && e.EntryType == StockEntryType.ReceiveAtWarehouse
                 && e.Status == DocumentStatus.Posted)
-            .Select(e => e.ReferenceId!.Value)
             .ToList();
 
-        // Return those NOT yet received
+        var receivedQtyMap = receivedEntries
+            .GroupBy(e => e.ReferenceId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(e => e.Items.Sum(i => i.Quantity)));
+
+        // Return transfers not yet fully completed (per_transferred < 100% per ERPNext commit 97db9da10e)
         return sentEntries
-            .Where(e => !receivedIds.Contains(e.Id))
-            .Select(e => new PendingTransitTransfer(
-                e.Id,
-                e.EntryNumber ?? e.Id.ToString(),
-                e.PostingDate,
-                e.Items.FirstOrDefault()?.SourceWarehouseId ?? Guid.Empty,
-                e.Items.Sum(i => i.Quantity),
-                e.Items.Count))
+            .Where(e =>
+            {
+                var totalSent = e.Items.Sum(i => i.Quantity);
+                var totalReceived = receivedQtyMap.GetValueOrDefault(e.Id, 0m);
+                return totalReceived < totalSent;
+            })
+            .Select(e =>
+            {
+                var remainingQty = e.Items.Sum(i => i.Quantity) - receivedQtyMap.GetValueOrDefault(e.Id, 0m);
+                return new PendingTransitTransfer(
+                    e.Id,
+                    e.EntryNumber ?? e.Id.ToString(),
+                    e.PostingDate,
+                    e.Items.FirstOrDefault()?.SourceWarehouseId ?? Guid.Empty,
+                    remainingQty,
+                    e.Items.Count);
+            })
             .ToArray();
     }
 
