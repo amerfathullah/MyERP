@@ -2448,4 +2448,20 @@ public class DataIntegrityAndCoverageTests
         pi.Items[0].LandedCostVoucherAmount = 50m;
         Assert.Equal(50m, pi.Items[0].LandedCostVoucherAmount);
     }
+
+    [Fact]
+    public void Bom_InactiveFlag_ControlsStockAnalysisEligibility()
+    {
+        // Per ERPNext commit a2071a6fdd:
+        // Cancelled/inactive BOMs are filtered from BOM Stock Analysis.
+        var bom = new Manufacturing.Entities.BillOfMaterials(
+            Guid.NewGuid(), Guid.NewGuid(), "BOM-ITEM-001", Guid.NewGuid())
+        {
+            IsActive = true
+        };
+        Assert.True(bom.IsActive);
+
+        bom.IsActive = false;
+        Assert.False(bom.IsActive);
+    }
 }

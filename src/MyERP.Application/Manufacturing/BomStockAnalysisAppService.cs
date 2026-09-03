@@ -31,6 +31,13 @@ public class BomStockAnalysisAppService : ApplicationService, IBomStockAnalysisA
     public async Task<BomStockAnalysisDto> GetAnalysisAsync(Guid bomId, decimal requiredQty = 1)
     {
         var bom = await _bomRepository.GetAsync(bomId);
+        // Per ERPNext PR #58647 (commit a2071a6fdd): only active BOMs can be analyzed for stock
+        if (!bom.IsActive)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.BomInactive)
+                .WithData("bomNumber", bom.BomNumber);
+        }
+
         if (bom.Items == null || !bom.Items.Any())
             return new BomStockAnalysisDto { BomId = bomId, BomNumber = bom.BomNumber, CanManufactureQty = 0 };
 
