@@ -190,6 +190,8 @@ public class WorkOrderItemDto
     public decimal RequiredQuantity { get; set; }
     public decimal TransferredQuantity { get; set; }
     public decimal ConsumedQuantity { get; set; }
+    public bool IsAdditionalItem { get; set; }
+    public Guid? VoucherDetailReference { get; set; }
 }
 
 public class CreateWorkOrderDto

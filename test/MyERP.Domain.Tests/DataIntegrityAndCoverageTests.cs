@@ -778,4 +778,22 @@ public class DataIntegrityAndCoverageTests
         Assert.True(bomItem.DoNotExplode);
         Assert.Null(bomItem.SubBomId);
     }
+
+    [Fact]
+    public void WorkOrder_AdditionalItem_TracksVoucherDetailReference()
+    {
+        var woId = Guid.NewGuid();
+        var seItemId = Guid.NewGuid();
+        var addlItem = new Manufacturing.Entities.WorkOrderItem(
+            Guid.NewGuid(), woId, Guid.NewGuid(), "Unplanned Solvent", 5m)
+        {
+            IsAdditionalItem = true,
+            VoucherDetailReference = seItemId,
+            TransferredQuantity = 5m
+        };
+
+        Assert.True(addlItem.IsAdditionalItem);
+        Assert.Equal(seItemId, addlItem.VoucherDetailReference);
+        Assert.Equal(5m, addlItem.TransferredQuantity);
+    }
 }

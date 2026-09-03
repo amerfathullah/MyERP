@@ -318,9 +318,39 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             if (!isCorrective)
             {
                 var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
-                var wo = await woRepo.GetAsync(entry.WorkOrderId.Value);
+                var wo = await woRepo.GetAsync(entry.WorkOrderId.Value, includeDetails: true);
                 var totalTransferredQty = entry.Items.Sum(i => i.Quantity);
                 wo.RecordMaterialTransfer(totalTransferredQty);
+
+                // Per ERPNext PR #47511 / commit 963d1e502e: Track transferred qty and add extra/additional items against work order
+                foreach (var seItem in entry.Items)
+                {
+                    var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
+                    if (existingWoItem != null)
+                    {
+                        existingWoItem.TransferredQuantity += seItem.Quantity;
+                    }
+                    else
+                    {
+                        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+                        var itemObj = await itemRepo.FindAsync(seItem.ItemId);
+                        var itemName = itemObj?.ItemName ?? "Additional Item";
+                        var stockUom = itemObj?.Uom ?? "Unit";
+
+                        var addlItem = new WorkOrderItem(
+                            GuidGenerator.Create(), wo.Id, seItem.ItemId,
+                            itemName, seItem.Quantity)
+                        {
+                            TransferredQuantity = seItem.Quantity,
+                            SourceWarehouseId = seItem.SourceWarehouseId,
+                            StockUom = stockUom,
+                            IsAdditionalItem = true,
+                            VoucherDetailReference = seItem.Id,
+                        };
+                        wo.RequiredItems.Add(addlItem);
+                    }
+                }
+
                 await woRepo.UpdateAsync(wo, autoSave: true);
             }
         }
@@ -470,6 +500,37 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                     : entry.Items.Where(i => i.IsFinishedItem || (i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue)).Sum(i => i.Quantity);
                 woForDisassembly.ReverseDisassembly(disQty);
                 await workOrderRepoForDisassembly.UpdateAsync(woForDisassembly);
+            }
+        }
+
+        // Reverse Material Transfer for Manufacture: reduce TransferredQuantity or remove additional items (ERPNext PR #47511 / commit 963d1e502e)
+        if (entry.WorkOrderId.HasValue && entry.EntryType == StockEntryType.MaterialTransferForManufacture)
+        {
+            var workOrderRepoForTransfer = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var woForTransfer = await workOrderRepoForTransfer.FindAsync(entry.WorkOrderId.Value, includeDetails: true);
+            if (woForTransfer != null)
+            {
+                var totalTransferredQty = entry.Items.Sum(i => i.Quantity);
+                woForTransfer.MaterialTransferred = Math.Max(0, woForTransfer.MaterialTransferred - totalTransferredQty);
+
+                foreach (var seItem in entry.Items)
+                {
+                    var addlItem = woForTransfer.RequiredItems.FirstOrDefault(ri => ri.IsAdditionalItem && ri.VoucherDetailReference == seItem.Id);
+                    if (addlItem != null)
+                    {
+                        woForTransfer.RequiredItems.Remove(addlItem);
+                    }
+                    else
+                    {
+                        var reqItem = woForTransfer.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
+                        if (reqItem != null)
+                        {
+                            reqItem.TransferredQuantity = Math.Max(0, reqItem.TransferredQuantity - seItem.Quantity);
+                        }
+                    }
+                }
+
+                await workOrderRepoForTransfer.UpdateAsync(woForTransfer);
             }
         }
 

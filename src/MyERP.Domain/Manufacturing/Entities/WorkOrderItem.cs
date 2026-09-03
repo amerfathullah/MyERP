@@ -51,6 +51,17 @@ public class WorkOrderItem : Entity<Guid>
     /// <summary>Original item code if this is an alternative substitution.</summary>
     public Guid? OriginalItemId { get; set; }
 
+    /// <summary>
+    /// Indicates whether this item was added as an extra/additional item during Material Transfer.
+    /// Per ERPNext PR #47511 / commit 963d1e502e.
+    /// </summary>
+    public bool IsAdditionalItem { get; set; }
+
+    /// <summary>
+    /// References the Stock Entry Item that added this additional raw material.
+    /// </summary>
+    public Guid? VoucherDetailReference { get; set; }
+
     protected WorkOrderItem() { }
 
     public WorkOrderItem(Guid id, Guid workOrderId, Guid itemId, string itemName, decimal requiredQuantity)
