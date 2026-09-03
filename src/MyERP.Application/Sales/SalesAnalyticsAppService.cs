@@ -40,6 +40,7 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
             .Where(si => si.CompanyId == input.CompanyId
                 && si.Status == DocumentStatus.Posted
                 && !si.IsReturn
+                && !si.IsOpening
                 && si.IssueDate >= input.FromDate
                 && si.IssueDate <= input.ToDate)
             .ToList();

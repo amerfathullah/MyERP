@@ -861,4 +861,49 @@ public class DataIntegrityAndCoverageTests
         Assert.True(isServiceVisible);
         Assert.False(isStockVisibleWithZeroQty);
     }
+
+    [Fact]
+    public void SalesAndPurchaseAnalytics_IgnoreOpeningInvoices()
+    {
+        var siOpening = new Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-OPENING", DateTime.UtcNow)
+        {
+            IsOpening = true
+        };
+
+        var siNormal = new Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SI-NORMAL", DateTime.UtcNow)
+        {
+            IsOpening = false
+        };
+
+        var piOpening = new Purchasing.Entities.PurchaseInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PI-OPENING", DateTime.UtcNow)
+        {
+            IsOpening = true
+        };
+
+        var piNormal = new Purchasing.Entities.PurchaseInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PI-NORMAL", DateTime.UtcNow)
+        {
+            IsOpening = false
+        };
+
+        // Per ERPNext PR #47385 / commit 6d269b4409:
+        // Sales and Purchase Analytics must ignore opening entries
+        Assert.True(siOpening.IsOpening);
+        Assert.False(siNormal.IsOpening);
+        Assert.True(piOpening.IsOpening);
+        Assert.False(piNormal.IsOpening);
+
+        var salesInvoices = new[] { siOpening, siNormal };
+        var analyticsSales = salesInvoices.Where(s => !s.IsOpening).ToList();
+        Assert.Single(analyticsSales);
+        Assert.Equal("SI-NORMAL", analyticsSales[0].InvoiceNumber);
+
+        var purchaseInvoices = new[] { piOpening, piNormal };
+        var analyticsPurchase = purchaseInvoices.Where(p => !p.IsOpening).ToList();
+        Assert.Single(analyticsPurchase);
+        Assert.Equal("PI-NORMAL", analyticsPurchase[0].InvoiceNumber);
+    }
 }

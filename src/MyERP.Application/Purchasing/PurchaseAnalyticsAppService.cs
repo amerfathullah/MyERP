@@ -41,6 +41,7 @@ public class PurchaseAnalyticsAppService : ApplicationService, IPurchaseAnalytic
             .Where(pi => pi.CompanyId == input.CompanyId
                 && pi.Status == DocumentStatus.Posted
                 && !pi.IsReturn
+                && !pi.IsOpening
                 && pi.IssueDate >= input.FromDate
                 && pi.IssueDate <= input.ToDate)
             .ToList();
