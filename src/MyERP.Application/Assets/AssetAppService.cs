@@ -120,6 +120,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
             FrequencyMonths = input.FrequencyMonths > 0 ? input.FrequencyMonths : 12,
             AvailableForUseDate = input.AvailableForUseDate,
             OpeningAccumulatedDepreciation = input.OpeningAccumulatedDepreciation,
+            ExpectedValueAfterUsefulLife = input.ExpectedValueAfterUsefulLife,
             AssetQuantity = input.AssetQuantity > 0 ? input.AssetQuantity : 1,
             Notes = input.Notes,
             IsCompositeAsset = input.IsCompositeAsset,
@@ -186,6 +187,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         asset.FrequencyMonths = input.FrequencyMonths > 0 ? input.FrequencyMonths : 12;
         asset.AvailableForUseDate = input.AvailableForUseDate;
         asset.OpeningAccumulatedDepreciation = input.OpeningAccumulatedDepreciation;
+        asset.ExpectedValueAfterUsefulLife = input.ExpectedValueAfterUsefulLife;
         asset.IsCompositeAsset = input.IsCompositeAsset;
 
         await ValidateDepreciationAccountsAsync(asset);

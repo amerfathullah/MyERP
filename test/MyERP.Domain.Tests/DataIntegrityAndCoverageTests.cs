@@ -2102,4 +2102,34 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(50m, ResolveRate("Price List Rate", item));
         Assert.Equal(40m, ResolveRate("Rate", item));
     }
+
+    [Fact]
+    public void Asset_DepreciationSchedule_HonorsExpectedValueAfterUsefulLife()
+    {
+        // Per ERPNext commit 2a89bac11d:
+        // Asset depreciation must not depreciate below ExpectedValueAfterUsefulLife (salvage value)
+        var asset = new Assets.Entities.Asset(
+            Guid.NewGuid(), Guid.NewGuid(), "AST-001", "Delivery Van",
+            DateTime.UtcNow.Date, 10000m)
+        {
+            CalculateDepreciation = true,
+            DepreciationMethod = Assets.DepreciationMethod.StraightLine,
+            UsefulLifeMonths = 24,
+            FrequencyMonths = 12, // 2 periods
+            ExpectedValueAfterUsefulLife = 2000m
+        };
+
+        asset.GenerateDepreciationSchedule();
+
+        Assert.Equal(2, asset.DepreciationSchedule.Count);
+        // Depreciable base = 10000 - 2000 = 8000 across 2 periods = 4000 per period
+        Assert.Equal(4000m, asset.DepreciationSchedule[0].DepreciationAmount);
+        Assert.Equal(4000m, asset.DepreciationSchedule[0].AccumulatedDepreciation);
+        Assert.Equal(4000m, asset.DepreciationSchedule[1].DepreciationAmount);
+        Assert.Equal(8000m, asset.DepreciationSchedule[1].AccumulatedDepreciation);
+
+        // Ending book value = 10000 - 8000 = 2000 (matches ExpectedValueAfterUsefulLife)
+        var endingBookValue = asset.TotalAssetCost - asset.DepreciationSchedule[1].AccumulatedDepreciation;
+        Assert.Equal(2000m, endingBookValue);
+    }
 }

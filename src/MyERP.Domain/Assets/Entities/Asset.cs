@@ -75,6 +75,8 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public int FrequencyMonths { get; set; } = 12;
     public DateTime? AvailableForUseDate { get; set; }
     public decimal OpeningAccumulatedDepreciation { get; set; }
+    /// <summary>Expected residual/salvage value at end of useful life (ERPNext commit 2a89bac11d).</summary>
+    public decimal ExpectedValueAfterUsefulLife { get; set; }
     public decimal ValueAfterDepreciation { get; set; }
     public bool IsFullyDepreciated { get; set; }
     /// <summary>
@@ -306,9 +308,9 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         DepreciationSchedule.RemoveAll(e => !e.IsBooked);
 
         var startDate = AvailableForUseDate ?? PurchaseDate;
-        var depreciableAmount = TotalAssetCost - OpeningAccumulatedDepreciation;
+        var depreciableAmount = TotalAssetCost - ExpectedValueAfterUsefulLife - OpeningAccumulatedDepreciation;
         var totalPeriods = FrequencyMonths > 0 ? UsefulLifeMonths / FrequencyMonths : 0;
-        if (totalPeriods <= 0) return;
+        if (totalPeriods <= 0 || depreciableAmount <= 0) return;
 
         var bookedCount = bookedEntries.Count;
         var accumulated = bookedCount > 0 ? bookedEntries[^1].AccumulatedDepreciation : OpeningAccumulatedDepreciation;
@@ -319,15 +321,16 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
             var scheduleDate = startDate.AddMonths((i + 1) * FrequencyMonths);
             decimal amount;
 
+            var remainingDepreciable = Math.Max(bookValue - ExpectedValueAfterUsefulLife, 0);
             if (i == totalPeriods - 1)
             {
-                // Final period absorbs rounding difference so book value reaches zero exactly
-                amount = Math.Max(bookValue, 0);
+                // Final period absorbs rounding difference so book value reaches ExpectedValueAfterUsefulLife
+                amount = remainingDepreciable;
             }
             else
             {
-                amount = CalculateDepreciationAmount(depreciableAmount, bookValue, totalPeriods, i, startDate);
-                amount = Math.Min(amount, bookValue); // never exceed remaining book value
+                amount = CalculateDepreciationAmount(depreciableAmount, remainingDepreciable, totalPeriods, i, startDate);
+                amount = Math.Min(amount, remainingDepreciable); // never exceed remaining depreciable value
             }
 
             if (amount <= 0) break;
@@ -360,9 +363,9 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
             return TotalAssetCost - OpeningAccumulatedDepreciation;
 
         var bookedEntries = DepreciationSchedule.Where(e => e.IsBooked).OrderBy(e => e.ScheduleDate).ToList();
-        var depreciableAmount = TotalAssetCost - OpeningAccumulatedDepreciation;
+        var depreciableAmount = TotalAssetCost - ExpectedValueAfterUsefulLife - OpeningAccumulatedDepreciation;
         var totalPeriods = FrequencyMonths > 0 ? UsefulLifeMonths / FrequencyMonths : 0;
-        if (totalPeriods <= 0) return ValueAfterDepreciation;
+        if (totalPeriods <= 0 || depreciableAmount <= 0) return ValueAfterDepreciation;
 
         var bookedCount = bookedEntries.Count;
         var accumulated = bookedCount > 0 ? bookedEntries[^1].AccumulatedDepreciation : OpeningAccumulatedDepreciation;
@@ -372,9 +375,10 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         for (int i = bookedCount; i < totalPeriods; i++)
         {
             var scheduleDate = startDate.AddMonths((i + 1) * FrequencyMonths);
+            var remainingDepreciable = Math.Max(bookValue - ExpectedValueAfterUsefulLife, 0);
             var fullPeriodAmount = i == totalPeriods - 1
-                ? Math.Max(bookValue, 0)
-                : Math.Min(CalculateDepreciationAmount(depreciableAmount, bookValue, totalPeriods, i, startDate), bookValue);
+                ? remainingDepreciable
+                : Math.Min(CalculateDepreciationAmount(depreciableAmount, remainingDepreciable, totalPeriods, i, startDate), remainingDepreciable);
 
             if (fullPeriodAmount <= 0) break;
 
@@ -386,7 +390,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 if (periodDays > 0 && elapsedDays > 0)
                 {
                     var prorated = Math.Round(fullPeriodAmount * (decimal)(elapsedDays / periodDays), 2);
-                    bookValue -= Math.Min(prorated, bookValue);
+                    bookValue -= Math.Min(prorated, remainingDepreciable);
                 }
                 break;
             }
@@ -395,7 +399,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
             periodStart = scheduleDate;
         }
 
-        return Math.Max(bookValue, 0);
+        return Math.Max(bookValue, ExpectedValueAfterUsefulLife);
     }
 
     private decimal CalculateDepreciationAmount(decimal depreciableAmount, decimal bookValue, int totalPeriods, int periodIndex, DateTime startDate)

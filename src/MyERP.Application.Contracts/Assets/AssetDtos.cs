@@ -36,6 +36,7 @@ public class AssetDto : FullAuditedEntityDto<Guid>
     public int FrequencyMonths { get; set; } = 12;
     public DateTime? AvailableForUseDate { get; set; }
     public decimal OpeningAccumulatedDepreciation { get; set; }
+    public decimal ExpectedValueAfterUsefulLife { get; set; }
     public decimal ValueAfterDepreciation { get; set; }
     public bool IsFullyDepreciated { get; set; }
     public bool IsCompositeAsset { get; set; }
@@ -89,6 +90,7 @@ public class CreateAssetDto
     public int FrequencyMonths { get; set; } = 12;
     public DateTime? AvailableForUseDate { get; set; }
     public decimal OpeningAccumulatedDepreciation { get; set; }
+    public decimal ExpectedValueAfterUsefulLife { get; set; }
 
     /// <summary>Number of identical units this single asset record represents (e.g. "10 chairs").
     /// Only a quantity greater than 1 can later be partially disposed via SplitAsync.</summary>
@@ -124,6 +126,7 @@ public class UpdateAssetDto
     public int FrequencyMonths { get; set; } = 12;
     public DateTime? AvailableForUseDate { get; set; }
     public decimal OpeningAccumulatedDepreciation { get; set; }
+    public decimal ExpectedValueAfterUsefulLife { get; set; }
     public bool IsCompositeAsset { get; set; }
 
     [StringLength(AssetConsts.MaxNoteLength)]
