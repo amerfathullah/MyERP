@@ -47,8 +47,8 @@ public class BomValidationService : DomainService
                     .WithData("itemId", itemId);
             }
 
-            // Recursively check sub-assemblies
-            foreach (var item in childBom.Items.Where(i => i.SubBomId.HasValue))
+            // Recursively check sub-assemblies (skip if DoNotExplode)
+            foreach (var item in childBom.Items.Where(i => i.SubBomId.HasValue && !i.DoNotExplode))
             {
                 await DetectCycleRecursiveAsync(item.ItemId, visited);
             }
@@ -74,20 +74,20 @@ public class BomValidationService : DomainService
             var bomOutputQty = bom.Quantity > 0 ? bom.Quantity : 1m;
             var qty = (item.StockQty / bomOutputQty) * multiplier;
 
-            if (item.IsPhantom && item.SubBomId.HasValue)
+            if (!item.DoNotExplode && item.IsPhantom && item.SubBomId.HasValue)
             {
                 // Phantom: explode sub-BOM and bubble up components
                 var subItems = await ExplodeBomAsync(item.SubBomId.Value, qty);
                 result.AddRange(subItems);
             }
-            else if (item.SubBomId.HasValue && !item.IsPhantom)
+            else if (!item.DoNotExplode && item.SubBomId.HasValue && !item.IsPhantom)
             {
                 // Sub-assembly (non-phantom): keep as-is (produced independently)
                 result.Add(new ExplodedBomItem(item.ItemId, item.ItemName, qty, item.Rate, item.Uom, item.SubBomId));
             }
             else
             {
-                // Raw material: add directly
+                // Raw material (or DoNotExplode item): add directly
                 result.Add(new ExplodedBomItem(item.ItemId, item.ItemName, qty, item.Rate, item.Uom, null));
             }
         }

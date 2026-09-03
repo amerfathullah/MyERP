@@ -33,6 +33,12 @@ public class BomItem : FullAuditedEntity<Guid>
     /// </summary>
     public bool IsPhantom { get; set; }
 
+    /// <summary>
+    /// If true, prevents recursive explosion of this item's sub-BOM.
+    /// Per ERPNext PR #47543 / commit 4241bfd4bc: Set to true when Finished Good is used as Raw Material.
+    /// </summary>
+    public bool DoNotExplode { get; set; }
+
     /// <summary>Percentage formulation when BOM.SetQtyBasedOnPercentage is active (ERPNext commit d07f4bb857).</summary>
     public decimal Percentage { get; set; }
 

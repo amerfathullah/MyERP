@@ -73,6 +73,7 @@ public class BomItemDto
     public decimal Amount { get; set; }
     public decimal Percentage { get; set; }
     public bool IsBalanceItem { get; set; }
+    public bool DoNotExplode { get; set; }
 }
 
 public class BomSecondaryItemDto
@@ -148,6 +149,7 @@ public class CreateBomItemDto
     [Range(0, double.MaxValue)] public decimal Rate { get; set; }
     public decimal Percentage { get; set; }
     public bool IsBalanceItem { get; set; }
+    public bool DoNotExplode { get; set; }
 }
 
 // === Work Order DTOs ===

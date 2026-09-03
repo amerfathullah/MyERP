@@ -764,4 +764,18 @@ public class DataIntegrityAndCoverageTests
 
         Assert.Equal("Today Date", report.CalculateAgeingWith);
     }
+
+    [Fact]
+    public void Bom_AllowsFinishedGoodAsRawMaterial_ByDefault()
+    {
+        var fgItemId = Guid.NewGuid();
+        var bom = new Manufacturing.Entities.BillOfMaterials(Guid.NewGuid(), Guid.NewGuid(), "BOM-001", fgItemId);
+        var bomItem = new Manufacturing.Entities.BomItem(
+            Guid.NewGuid(), bom.Id, fgItemId, "Finished Good Component", 1m, 100m);
+
+        bom.AddItem(bomItem);
+
+        Assert.True(bomItem.DoNotExplode);
+        Assert.Null(bomItem.SubBomId);
+    }
 }

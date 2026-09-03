@@ -106,12 +106,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         foreach (var item in input.Items)
         {
-            bom.Items.Add(new BomItem(
+            bom.AddItem(new BomItem(
                 GuidGenerator.Create(), bom.Id, item.ItemId, item.ItemName, item.Quantity, item.Rate)
             {
                 Uom = item.Uom,
                 Percentage = item.Percentage,
                 IsBalanceItem = item.IsBalanceItem,
+                DoNotExplode = item.DoNotExplode,
             });
         }
 
@@ -200,12 +201,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         bom.Items.Clear();
         foreach (var item in input.Items)
         {
-            bom.Items.Add(new BomItem(
+            bom.AddItem(new BomItem(
                 GuidGenerator.Create(), bom.Id, item.ItemId, item.ItemName, item.Quantity, item.Rate)
             {
                 Uom = item.Uom,
                 Percentage = item.Percentage,
                 IsBalanceItem = item.IsBalanceItem,
+                DoNotExplode = item.DoNotExplode,
             });
         }
 

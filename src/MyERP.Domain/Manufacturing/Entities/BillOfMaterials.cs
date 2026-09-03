@@ -241,6 +241,21 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
     }
 
+    /// <summary>
+    /// Adds a raw material / component to this BOM.
+    /// Per ERPNext PR #47543 / commit 4241bfd4bc: Allows FG item to be used as RM by default (sets DoNotExplode = true).
+    /// </summary>
+    public void AddItem(BomItem item)
+    {
+        if (item.ItemId == ItemId)
+        {
+            item.DoNotExplode = true;
+            item.SubBomId = null;
+        }
+
+        Items.Add(item);
+    }
+
     public void AddOperation(BomOperation operation)
     {
         if (Operations.Any() && operation.SequenceId < Operations.Max(o => o.SequenceId))
