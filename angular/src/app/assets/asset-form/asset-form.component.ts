@@ -128,6 +128,16 @@ export class AssetFormComponent implements OnInit {
           openingAccumulatedDepreciation: asset.openingAccumulatedDepreciation ?? 0,
           notes: asset.notes ?? '',
         });
+
+        // Per ERPNext PR #47093 / commit e41720f1a3: allow_on_submit enabled for asset_name field
+        // If asset is submitted/depreciating, lock all controls except allow_on_submit fields (assetName, notes)
+        if (asset.status !== 0) {
+          Object.keys(this.form.controls).forEach((key) => {
+            if (key !== 'assetName' && key !== 'notes') {
+              this.form.get(key)?.disable();
+            }
+          });
+        }
       });
     }
   }

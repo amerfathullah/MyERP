@@ -1785,4 +1785,28 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal("MYR", dto.PaidToAccountCurrency);
         Assert.Equal("Liability", dto.PaidToAccountType);
     }
+
+    [Fact]
+    public void Asset_AllowsNameAndNotesUpdate_WhenSubmitted()
+    {
+        // Per ERPNext PR #47093 / commit e41720f1a3:
+        // AssetName has allow_on_submit enabled, so updating name and notes on submitted assets is permitted.
+        var companyId = Guid.NewGuid();
+        var asset = new Assets.Entities.Asset(
+            Guid.NewGuid(), companyId, "ASS-001", "Laptop A", DateTime.UtcNow.Date, 1500m);
+
+        // Submit the asset
+        asset.Submit();
+        Assert.Equal(Assets.AssetStatus.Submitted, asset.Status);
+
+        // Update name and notes on submitted asset
+        var updatedName = "Laptop A - Renovated";
+        var updatedNotes = "Assigned to Engineering team";
+
+        asset.AssetName = updatedName;
+        asset.Notes = updatedNotes;
+
+        Assert.Equal(updatedName, asset.AssetName);
+        Assert.Equal(updatedNotes, asset.Notes);
+    }
 }

@@ -155,7 +155,24 @@ public class AssetAppService : ApplicationService, IAssetAppService
     public async Task<AssetDto> UpdateAsync(Guid id, UpdateAssetDto input)
     {
         var asset = await _assetRepository.GetAsync(id);
+
+        if (asset.Status is AssetStatus.Cancelled or AssetStatus.Sold or AssetStatus.Scrapped)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("status", asset.Status);
+        }
+
+        // Per ERPNext PR #47093 / commit e41720f1a3: allow_on_submit enabled for asset_name field
         asset.AssetName = input.AssetName;
+        asset.Notes = input.Notes;
+
+        if (asset.Status != AssetStatus.Draft)
+        {
+            // When already submitted, financial/depreciation parameters are locked; only allow_on_submit fields are updated
+            await _assetRepository.UpdateAsync(asset);
+            return _assetMapper.Map(asset);
+        }
+
         asset.AssetCategoryId = input.AssetCategoryId;
         asset.ItemId = input.ItemId;
         asset.Location = await ResolveLocationNameAsync(input.LocationId, input.Location);
@@ -170,7 +187,6 @@ public class AssetAppService : ApplicationService, IAssetAppService
         asset.AvailableForUseDate = input.AvailableForUseDate;
         asset.OpeningAccumulatedDepreciation = input.OpeningAccumulatedDepreciation;
         asset.IsCompositeAsset = input.IsCompositeAsset;
-        asset.Notes = input.Notes;
 
         await ValidateDepreciationAccountsAsync(asset);
         await ValidateLinkedPurchaseDocumentsAsync(asset);
