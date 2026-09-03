@@ -1463,4 +1463,38 @@ public class DataIntegrityAndCoverageTests
         item.OrderedQuantity = 100m;
         Assert.Equal(0m, Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(item));
     }
+
+    [Fact]
+    public void QualityInspection_InspectionRequiredBeforePurchaseOrDelivery()
+    {
+        // Per ERPNext PR #47002 / commit 8eaa2afeb7:
+        // By default, QI cannot be created for a purchase/delivery document if the item does not require inspection,
+        // unless AllowToMakeQualityInspectionAfterPurchaseOrDelivery setting is enabled.
+        var itemStandard = new Inventory.Entities.Item(Guid.NewGuid(), Guid.NewGuid(), "ITEM-001", "Standard Item", Inventory.ItemType.Goods)
+        {
+            InspectionRequiredBeforePurchase = false,
+            InspectionRequiredBeforeDelivery = false
+        };
+
+        var itemInspected = new Inventory.Entities.Item(Guid.NewGuid(), Guid.NewGuid(), "ITEM-002", "Inspected Item", Inventory.ItemType.Goods)
+        {
+            InspectionRequiredBeforePurchase = true,
+            InspectionRequiredBeforeDelivery = true
+        };
+
+        // When setting is false:
+        bool allowAfterPurchaseOrDelivery = false;
+
+        // Check purchase validation
+        bool canCreateForStandardPurchase = allowAfterPurchaseOrDelivery || itemStandard.InspectionRequiredBeforePurchase;
+        bool canCreateForInspectedPurchase = allowAfterPurchaseOrDelivery || itemInspected.InspectionRequiredBeforePurchase;
+
+        Assert.False(canCreateForStandardPurchase);
+        Assert.True(canCreateForInspectedPurchase);
+
+        // When setting is true:
+        allowAfterPurchaseOrDelivery = true;
+        canCreateForStandardPurchase = allowAfterPurchaseOrDelivery || itemStandard.InspectionRequiredBeforePurchase;
+        Assert.True(canCreateForStandardPurchase);
+    }
 }

@@ -64,7 +64,8 @@ public class QualityInspectionAppService : ApplicationService, IQualityInspectio
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(new[] { input.ItemId });
 
-        // Per ERPNext PR #47746 / commit d8cb073eaf: validate if QI can be created after document submission
+        // Per ERPNext PR #47746 / commit d8cb073eaf and PR #47002 / commit 8eaa2afeb7:
+        // validate if QI is required and can be created after document submission
         if (input.ReferenceId.HasValue && !string.IsNullOrWhiteSpace(input.ReferenceType))
         {
             var allowAfterSubmission = await SettingProvider.IsTrueAsync(
@@ -72,6 +73,27 @@ public class QualityInspectionAppService : ApplicationService, IQualityInspectio
 
             if (!allowAfterSubmission)
             {
+                var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+                var item = await itemRepo.FindAsync(input.ItemId);
+                if (item != null)
+                {
+                    if ((input.ReferenceType == "PurchaseReceipt" || input.ReferenceType == "PurchaseInvoice")
+                        && !item.InspectionRequiredBeforePurchase)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionNotRequired)
+                            .WithData("item", item.ItemName)
+                            .WithData("action", "Purchase");
+                    }
+
+                    if ((input.ReferenceType == "DeliveryNote" || input.ReferenceType == "SalesInvoice")
+                        && !item.InspectionRequiredBeforeDelivery)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionNotRequired)
+                            .WithData("item", item.ItemName)
+                            .WithData("action", "Delivery");
+                    }
+                }
+
                 bool isSubmitted = false;
                 string docNumber = string.Empty;
 
