@@ -428,6 +428,7 @@ public static class MyERPDomainErrorCodes
     // CRM — Email Campaign
     public const string EmailCampaignStartDateInPast = "MyERP:17006";
     public const string EmailCampaignDuplicateActive = "MyERP:17007";
+    public const string EmailCampaignRecipientMissingEmail = "MyERP:17008";
 
     // Promotional Scheme
     public const string PromotionalSchemeRequiresSellingOrBuying = "MyERP:03018";

@@ -2464,4 +2464,12 @@ public class DataIntegrityAndCoverageTests
         bom.IsActive = false;
         Assert.False(bom.IsActive);
     }
+
+    [Fact]
+    public void EmailCampaign_RecipientMissingEmail_ErrorCode_Defined()
+    {
+        // Per ERPNext PR #58667 / commit 56a391c522:
+        // Validate contact and lead email before saving email campaign.
+        Assert.Equal("MyERP:17008", MyERPDomainErrorCodes.EmailCampaignRecipientMissingEmail);
+    }
 }

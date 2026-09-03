@@ -16,11 +16,19 @@ public class EmailCampaignAppService : ApplicationService, IEmailCampaignAppServ
 {
     private readonly IRepository<EmailCampaign, Guid> _repository;
     private readonly IRepository<Campaign, Guid> _campaignRepository;
+    private readonly IRepository<Lead, Guid> _leadRepository;
+    private readonly IRepository<MyERP.Core.Entities.Contact, Guid> _contactRepository;
 
-    public EmailCampaignAppService(IRepository<EmailCampaign, Guid> repository, IRepository<Campaign, Guid> campaignRepository)
+    public EmailCampaignAppService(
+        IRepository<EmailCampaign, Guid> repository,
+        IRepository<Campaign, Guid> campaignRepository,
+        IRepository<Lead, Guid> leadRepository,
+        IRepository<MyERP.Core.Entities.Contact, Guid> contactRepository)
     {
         _repository = repository;
         _campaignRepository = campaignRepository;
+        _leadRepository = leadRepository;
+        _contactRepository = contactRepository;
     }
 
     public async Task<EmailCampaignDto> GetAsync(Guid id)
@@ -48,6 +56,8 @@ public class EmailCampaignAppService : ApplicationService, IEmailCampaignAppServ
     public async Task<EmailCampaignDto> CreateAsync(CreateEmailCampaignDto input)
     {
         var campaign = (await _campaignRepository.WithDetailsAsync()).First(c => c.Id == input.CampaignId);
+
+        await ValidateRecipientEmailAsync(input.EmailCampaignFor, input.RecipientId);
 
         var activeQuery = await _repository.GetQueryableAsync();
         var hasActive = activeQuery.Any(e => e.RecipientId == input.RecipientId
@@ -96,6 +106,32 @@ public class EmailCampaignAppService : ApplicationService, IEmailCampaignAppServ
     public async Task DeleteAsync(Guid id)
     {
         await _repository.DeleteAsync(id);
+    }
+
+    private async Task ValidateRecipientEmailAsync(EmailCampaignFor campaignFor, Guid recipientId)
+    {
+        if (campaignFor == EmailCampaignFor.Lead)
+        {
+            var lead = await _leadRepository.FindAsync(recipientId);
+            if (lead == null || string.IsNullOrWhiteSpace(lead.Email))
+            {
+                var name = lead?.GetFullName() ?? recipientId.ToString();
+                throw new BusinessException(MyERPDomainErrorCodes.EmailCampaignRecipientMissingEmail)
+                    .WithData("recipientType", "Lead")
+                    .WithData("recipientName", name);
+            }
+        }
+        else if (campaignFor == EmailCampaignFor.Contact)
+        {
+            var contact = await _contactRepository.FindAsync(recipientId);
+            if (contact == null || string.IsNullOrWhiteSpace(contact.Email))
+            {
+                var name = contact?.FullName ?? recipientId.ToString();
+                throw new BusinessException(MyERPDomainErrorCodes.EmailCampaignRecipientMissingEmail)
+                    .WithData("recipientType", "Contact")
+                    .WithData("recipientName", name);
+            }
+        }
     }
 
     private static EmailCampaignDto MapToDto(EmailCampaign e) => new()

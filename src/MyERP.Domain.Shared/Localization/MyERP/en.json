@@ -2436,6 +2436,7 @@
     "MyERP:17005": "The requested time {scheduledTime} is outside this service's booking window.",
     "MyERP:17006": "Campaign start date {startDate} cannot be in the past.",
     "MyERP:17007": "This recipient already has an active email campaign in progress.",
+    "MyERP:17008": "Please set an email address for {recipientType} '{recipientName}' before creating an email campaign.",
     "MyERP:10017": "The finished good item cannot appear in the secondary items table (circular cost allocation).",
     "MyERP:10018": "Process loss percentage must be less than 100%. Value: {percentage}%.",
     "MyERP:10019": "Cost allocation percentages for FG + secondary items must total exactly 100%.",
