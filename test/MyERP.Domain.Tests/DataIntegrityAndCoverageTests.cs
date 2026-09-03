@@ -2364,4 +2364,40 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(Accounting.BudgetAction.Stop, budget.ActionIfAnnualExceededOnCumulativeExpense);
         Assert.Equal(Accounting.BudgetAction.Warn, budget.ActionIfAccumulatedMonthlyExceededOnCumulativeExpense);
     }
+
+    [Fact]
+    public void CostCenterTreeNodeDto_HierarchyAndProperties()
+    {
+        // Per ERPNext commit a1b402020e: CostCenter tree node has number, group flag, disabled/active flag, and children
+        var root = new Accounting.CostCenterTreeNodeDto
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = Guid.NewGuid(),
+            Name = "Root CC",
+            CostCenterNumber = "CC-001",
+            IsGroup = true,
+            IsActive = true
+        };
+
+        var child = new Accounting.CostCenterTreeNodeDto
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = root.CompanyId,
+            Name = "Child CC",
+            CostCenterNumber = "CC-002",
+            IsGroup = false,
+            ParentId = root.Id,
+            IsActive = false
+        };
+
+        root.Children.Add(child);
+
+        Assert.Equal("Root CC", root.Name);
+        Assert.Equal("CC-001", root.CostCenterNumber);
+        Assert.True(root.IsGroup);
+        Assert.True(root.IsActive);
+        Assert.Single(root.Children);
+        Assert.Equal("Child CC", root.Children[0].Name);
+        Assert.False(root.Children[0].IsActive);
+    }
 }

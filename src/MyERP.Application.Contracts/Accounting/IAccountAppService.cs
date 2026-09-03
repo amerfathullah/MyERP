@@ -17,5 +17,5 @@ public interface IAccountAppService :
         GetAccountListDto,
         CreateUpdateAccountDto>
 {
-    Task<System.Collections.Generic.List<AccountTreeNodeDto>> GetTreeAsync(Guid companyId);
+    Task<System.Collections.Generic.List<AccountTreeNodeDto>> GetTreeAsync(Guid companyId, bool includeDisabled = false);
 }

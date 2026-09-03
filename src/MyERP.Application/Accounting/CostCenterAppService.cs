@@ -85,4 +85,50 @@ public class CostCenterAppService : ApplicationService, ICostCenterAppService
 
         return ObjectMapper.Map<CostCenter, CostCenterDto>(cc);
     }
+
+    /// <summary>
+    /// Returns the hierarchical Cost Center tree for a company (ERPNext PR #58520 / commit a1b402020e).
+    /// </summary>
+    public async Task<System.Collections.Generic.List<CostCenterTreeNodeDto>> GetTreeAsync(Guid companyId, bool includeDisabled = false)
+    {
+        var query = await _repository.GetQueryableAsync();
+        var baseQuery = query.Where(c => c.CompanyId == companyId);
+        if (!includeDisabled)
+        {
+            baseQuery = baseQuery.Where(c => c.IsActive);
+        }
+
+        var costCenters = baseQuery
+            .OrderBy(c => c.CostCenterNumber)
+            .ThenBy(c => c.Name)
+            .ToList();
+
+        var nodes = costCenters.Select(c => new CostCenterTreeNodeDto
+        {
+            Id = c.Id,
+            CompanyId = c.CompanyId,
+            Name = c.Name,
+            CostCenterNumber = c.CostCenterNumber,
+            IsGroup = c.IsGroup,
+            ParentId = c.ParentId,
+            IsActive = c.IsActive
+        }).ToList();
+
+        var nodeMap = nodes.ToDictionary(n => n.Id);
+        var rootNodes = new System.Collections.Generic.List<CostCenterTreeNodeDto>();
+
+        foreach (var node in nodes)
+        {
+            if (node.ParentId.HasValue && nodeMap.TryGetValue(node.ParentId.Value, out var parent))
+            {
+                parent.Children.Add(node);
+            }
+            else
+            {
+                rootNodes.Add(node);
+            }
+        }
+
+        return rootNodes;
+    }
 }

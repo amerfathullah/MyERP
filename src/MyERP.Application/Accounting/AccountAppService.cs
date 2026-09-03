@@ -168,11 +168,16 @@ public class AccountAppService :
     /// <summary>
     /// Returns the hierarchical Chart of Accounts tree for a company (ERPNext PR #58520).
     /// </summary>
-    public async Task<System.Collections.Generic.List<AccountTreeNodeDto>> GetTreeAsync(Guid companyId)
+    public async Task<System.Collections.Generic.List<AccountTreeNodeDto>> GetTreeAsync(Guid companyId, bool includeDisabled = false)
     {
         var queryable = await Repository.GetQueryableAsync();
-        var accounts = queryable
-            .Where(a => a.CompanyId == companyId)
+        var query = queryable.Where(a => a.CompanyId == companyId);
+        if (!includeDisabled)
+        {
+            query = query.Where(a => a.IsActive);
+        }
+
+        var accounts = query
             .OrderBy(a => a.AccountCode)
             .ToList();
 
