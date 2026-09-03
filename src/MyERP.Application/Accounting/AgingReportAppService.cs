@@ -27,15 +27,27 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
 
     public async Task<AgingReportDto> GetReceivablesAgingAsync(AgingReportRequestDto input)
     {
-        var asOfDate = input.AsOfDate ?? DateTime.UtcNow.Date;
-        var report = await _agingService.CalculateReceivablesAgingAsync(input.CompanyId, asOfDate);
+        var calculateAgeingWith = string.Equals(input.CalculateAgeingWith, "Today Date", StringComparison.OrdinalIgnoreCase)
+            ? "Today Date"
+            : "Report Date";
+        var asOfDate = calculateAgeingWith == "Today Date"
+            ? DateTime.UtcNow.Date
+            : (input.AsOfDate ?? DateTime.UtcNow.Date);
+
+        var report = await _agingService.CalculateReceivablesAgingAsync(input.CompanyId, asOfDate, calculateAgeingWith: calculateAgeingWith);
         return MapToDto(report);
     }
 
     public async Task<AgingReportDto> GetPayablesAgingAsync(AgingReportRequestDto input)
     {
-        var asOfDate = input.AsOfDate ?? DateTime.UtcNow.Date;
-        var report = await _agingService.CalculatePayablesAgingAsync(input.CompanyId, asOfDate);
+        var calculateAgeingWith = string.Equals(input.CalculateAgeingWith, "Today Date", StringComparison.OrdinalIgnoreCase)
+            ? "Today Date"
+            : "Report Date";
+        var asOfDate = calculateAgeingWith == "Today Date"
+            ? DateTime.UtcNow.Date
+            : (input.AsOfDate ?? DateTime.UtcNow.Date);
+
+        var report = await _agingService.CalculatePayablesAgingAsync(input.CompanyId, asOfDate, calculateAgeingWith: calculateAgeingWith);
         return MapToDto(report);
     }
 
@@ -54,6 +66,7 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
         {
             ReportType = report.ReportType,
             AsOfDate = report.AsOfDate,
+            CalculateAgeingWith = report.CalculateAgeingWith,
             BucketLabels = bucketLabels,
             BucketTotals = report.BucketTotals,
             TotalOutstanding = report.TotalOutstanding,

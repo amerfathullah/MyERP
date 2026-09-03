@@ -751,4 +751,17 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal("MyERP.Buying.SetValuationRateForRejectedMaterials",
             Settings.MyERPSettings.Buying.SetValuationRateForRejectedMaterials);
     }
+
+    [Fact]
+    public void AgingReport_SupportsCalculateAgeingWith_Option()
+    {
+        var report = new Accounting.DomainServices.AgingReport
+        {
+            ReportType = "Receivable",
+            AsOfDate = DateTime.UtcNow.Date,
+            CalculateAgeingWith = "Today Date"
+        };
+
+        Assert.Equal("Today Date", report.CalculateAgeingWith);
+    }
 }

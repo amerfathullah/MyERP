@@ -39,7 +39,7 @@ public class AgingBucketService : DomainService
     /// Groups outstanding sales invoices into aging buckets.
     /// </summary>
     public async Task<AgingReport> CalculateReceivablesAgingAsync(
-        Guid companyId, DateTime asOfDate, int[] bucketDays = null!)
+        Guid companyId, DateTime asOfDate, int[] bucketDays = null!, string calculateAgeingWith = "Report Date")
     {
         bucketDays ??= new[] { 30, 60, 90, 120 };
 
@@ -68,7 +68,7 @@ public class AgingBucketService : DomainService
             PostingDate = si.IssueDate,
             DueDate = si.DueDate ?? si.IssueDate,
             OutstandingAmount = si.OutstandingAmount,
-        }), asOfDate, bucketDays, "Receivable");
+        }), asOfDate, bucketDays, "Receivable", calculateAgeingWith);
 
         return report;
     }
@@ -77,7 +77,7 @@ public class AgingBucketService : DomainService
     /// Calculates AP aging (payables) for a company as of a given date.
     /// </summary>
     public async Task<AgingReport> CalculatePayablesAgingAsync(
-        Guid companyId, DateTime asOfDate, int[] bucketDays = null!)
+        Guid companyId, DateTime asOfDate, int[] bucketDays = null!, string calculateAgeingWith = "Report Date")
     {
         bucketDays ??= new[] { 30, 60, 90, 120 };
 
@@ -106,16 +106,17 @@ public class AgingBucketService : DomainService
             PostingDate = pi.IssueDate,
             DueDate = pi.DueDate ?? pi.IssueDate,
             OutstandingAmount = pi.OutstandingAmount,
-        }), asOfDate, bucketDays, "Payable");
+        }), asOfDate, bucketDays, "Payable", calculateAgeingWith);
     }
 
     private static AgingReport BuildAgingReport(
-        IEnumerable<AgingItem> items, DateTime asOfDate, int[] bucketDays, string reportType)
+        IEnumerable<AgingItem> items, DateTime asOfDate, int[] bucketDays, string reportType, string calculateAgeingWith = "Report Date")
     {
         var report = new AgingReport
         {
             ReportType = reportType,
             AsOfDate = asOfDate,
+            CalculateAgeingWith = calculateAgeingWith,
             BucketRanges = bucketDays,
         };
 
@@ -175,6 +176,7 @@ public class AgingReport
 {
     public string ReportType { get; set; } = null!;
     public DateTime AsOfDate { get; set; }
+    public string CalculateAgeingWith { get; set; } = "Report Date";
     public int[] BucketRanges { get; set; } = Array.Empty<int>();
     public decimal[] BucketTotals { get; set; } = Array.Empty<decimal>();
     public decimal TotalOutstanding { get; set; }
