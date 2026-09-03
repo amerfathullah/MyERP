@@ -49,7 +49,14 @@ import { ToasterService } from '@abp/ng.theme.shared';
               <input type="number" class="form-control" formControlName="writeOffLimit" step="0.01" />
             </div>
             <div class="col-md-4">
-              <div class="form-check mt-4">
+              <label class="form-label">{{ 'MyERP::Project' | abpLocalization }}</label>
+              <input type="text" class="form-control" formControlName="projectId" [placeholder]="'::Placeholder:ProjectId' | abpLocalization" />
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <div class="form-check mt-2">
                 <input type="checkbox" class="form-check-input" formControlName="validateStock" id="validateStock" />
                 <label class="form-check-label" for="validateStock">{{ 'MyERP::ValidateStock' | abpLocalization }}</label>
               </div>
@@ -129,6 +136,7 @@ export class PosProfileFormComponent implements OnInit {
       validateStock: [true],
       writeOffLimit: [0],
       postChangeGlEntries: [false],
+      projectId: [''],
       paymentMethods: this.fb.array([]),
     });
 
@@ -145,6 +153,7 @@ export class PosProfileFormComponent implements OnInit {
             validateStock: p.validateStock,
             writeOffLimit: p.writeOffLimit,
             postChangeGlEntries: p.postChangeGlEntries,
+            projectId: (p as any).projectId ?? '',
           });
           (p.paymentMethods ?? []).forEach(pm => this.addPaymentMethod(pm));
         },

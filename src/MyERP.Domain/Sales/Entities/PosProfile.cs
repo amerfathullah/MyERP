@@ -73,6 +73,9 @@ public class PosProfile : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Expense account override for this POS profile.</summary>
     public Guid? ExpenseAccountId { get; set; }
 
+    /// <summary>Default project for accounting dimensions on POS sales. Per ERPNext PR #46964 / commit 821d64241a.</summary>
+    public Guid? ProjectId { get; set; }
+
     /// <summary>Accepted payment modes for this POS profile.</summary>
     private readonly List<PosProfilePaymentMethod> _paymentMethods = new();
     public IReadOnlyList<PosProfilePaymentMethod> PaymentMethods => _paymentMethods.AsReadOnly();

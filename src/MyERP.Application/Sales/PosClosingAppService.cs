@@ -121,12 +121,19 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
                 // Use currency from first source invoice (all POS invoices in a shift share the same currency)
                 var currencyCode = firstInvoice?.CurrencyCode ?? "MYR";
 
+                var profileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
+                var profile = await profileRepo.FindAsync(entry.PosProfileId);
+
                 var consolidatedSi = new SalesInvoice(
                     GuidGenerator.Create(), primary.CompanyId, primary.CustomerId,
                     invoiceNumber, primary.PostingDate, CurrentTenant.Id);
                 consolidatedSi.CurrencyCode = currencyCode;
                 consolidatedSi.IsPos = true;
                 consolidatedSi.IsConsolidated = true;
+                if (profile?.ProjectId.HasValue == true)
+                {
+                    consolidatedSi.ProjectId = profile.ProjectId;
+                }
 
                 foreach (var item in primary.Items)
                 {

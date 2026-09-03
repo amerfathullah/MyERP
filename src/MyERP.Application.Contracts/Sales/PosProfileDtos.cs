@@ -24,6 +24,7 @@ public class PosProfileDto : FullAuditedEntityDto<Guid>
     public bool PostChangeGlEntries { get; set; }
     public Guid? IncomeAccountId { get; set; }
     public Guid? ExpenseAccountId { get; set; }
+    public Guid? ProjectId { get; set; }
     public List<PosProfilePaymentMethodDto> PaymentMethods { get; set; } = new();
 }
 
@@ -67,6 +68,7 @@ public class CreateUpdatePosProfileDto
     public bool PostChangeGlEntries { get; set; }
     public Guid? IncomeAccountId { get; set; }
     public Guid? ExpenseAccountId { get; set; }
+    public Guid? ProjectId { get; set; }
     public List<CreateUpdatePosProfilePaymentMethodDto> PaymentMethods { get; set; } = new();
 }
 

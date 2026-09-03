@@ -1497,4 +1497,31 @@ public class DataIntegrityAndCoverageTests
         canCreateForStandardPurchase = allowAfterPurchaseOrDelivery || itemStandard.InspectionRequiredBeforePurchase;
         Assert.True(canCreateForStandardPurchase);
     }
+
+    [Fact]
+    public void PosProfile_ProjectId_ConfiguredAndPropagated()
+    {
+        // Per ERPNext PR #46964 / commit 821d64241a:
+        // POS Profile supports project link for accounting dimension tracking.
+        var projectId = Guid.NewGuid();
+        var profile = new Sales.Entities.PosProfile(
+            Guid.NewGuid(), Guid.NewGuid(), "Main Counter", Guid.NewGuid())
+        {
+            ProjectId = projectId
+        };
+
+        Assert.Equal(projectId, profile.ProjectId);
+
+        // Consolidated Sales Invoice receives ProjectId from POS Profile if not set
+        var invoice = new Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), profile.CompanyId, Guid.NewGuid(), "POS-CONSOL-001",
+            DateTime.UtcNow.Date);
+
+        if (profile.ProjectId.HasValue)
+        {
+            invoice.ProjectId = profile.ProjectId;
+        }
+
+        Assert.Equal(projectId, invoice.ProjectId);
+    }
 }

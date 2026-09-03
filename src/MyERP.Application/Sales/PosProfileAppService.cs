@@ -91,6 +91,7 @@ public class PosProfileAppService : CrudAppService<
             PostChangeGlEntries = input.PostChangeGlEntries,
             IncomeAccountId = input.IncomeAccountId,
             ExpenseAccountId = input.ExpenseAccountId,
+            ProjectId = input.ProjectId,
         };
 
         if (input.PaymentMethods != null)
@@ -170,6 +171,7 @@ public class PosProfileAppService : CrudAppService<
         entity.PostChangeGlEntries = input.PostChangeGlEntries;
         entity.IncomeAccountId = input.IncomeAccountId;
         entity.ExpenseAccountId = input.ExpenseAccountId;
+        entity.ProjectId = input.ProjectId;
 
         entity.ClearPaymentMethods();
         if (input.PaymentMethods != null)
