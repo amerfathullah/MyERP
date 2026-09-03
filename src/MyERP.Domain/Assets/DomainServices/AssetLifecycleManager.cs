@@ -88,7 +88,10 @@ public class AssetLifecycleManager : DomainService
             throw new BusinessException(MyERPDomainErrorCodes.AssetDisposalAccountMissing)
                 .WithData("assetName", asset.AssetName)
                 .WithData("accountField", "AssetCategoryAccount");
-        if (!accounts.AccumulatedDepreciationAccountId.HasValue)
+        var accumulatedDepreciation = asset.PurchaseAmount - preDisposalValueAfterDepreciation;
+        // Per ERPNext PR #47427 / commit 51ea33e743:
+        // Do not mandate depreciation account for assets without depreciation.
+        if (accumulatedDepreciation != 0 && !accounts.AccumulatedDepreciationAccountId.HasValue)
             throw new BusinessException(MyERPDomainErrorCodes.AssetDisposalAccountMissing)
                 .WithData("assetName", asset.AssetName)
                 .WithData("accountField", "AccumulatedDepreciationAccountId");
@@ -107,8 +110,6 @@ public class AssetLifecycleManager : DomainService
         if (fiscalYear == null)
             throw new BusinessException(MyERPDomainErrorCodes.FiscalYearClosed)
                 .WithData("postingDate", (asset.DisposalDate ?? DateTime.UtcNow).ToString("yyyy-MM-dd"));
-
-        var accumulatedDepreciation = asset.PurchaseAmount - preDisposalValueAfterDepreciation;
         var jeNumber = await _numberGenerator.GenerateAsync("JE", asset.CompanyId);
         var je = new JournalEntry(GuidGenerator.Create(), asset.CompanyId, fiscalYear.Id,
             asset.DisposalDate ?? DateTime.UtcNow, asset.TenantId)
@@ -121,7 +122,7 @@ public class AssetLifecycleManager : DomainService
 
         je.AddLine(accounts.FixedAssetAccountId, asset.PurchaseAmount, isDebit: false,
             description: "Asset disposal — remove original cost");
-        if (accumulatedDepreciation != 0)
+        if (accumulatedDepreciation != 0 && accounts.AccumulatedDepreciationAccountId.HasValue)
             je.AddLine(accounts.AccumulatedDepreciationAccountId.Value, accumulatedDepreciation, isDebit: true,
                 description: "Asset disposal — clear accumulated depreciation");
         if (disposalAmount != 0)

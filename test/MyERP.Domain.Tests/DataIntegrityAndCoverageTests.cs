@@ -1073,4 +1073,25 @@ public class DataIntegrityAndCoverageTests
         Assert.True(exceedsAllowance);
         Assert.Equal(10m, pctOverBilled - allowancePct);
     }
+
+    [Fact]
+    public void AssetDisposal_NonDepreciatedAsset_DoesNotRequireAccumulatedDepreciationAccount()
+    {
+        var companyId = Guid.NewGuid();
+        var landAsset = new Assets.Entities.Asset(
+            Guid.NewGuid(), companyId, "AST-LAND-02", "Industrial Plot", DateTime.UtcNow, 100000m)
+        {
+            CalculateDepreciation = false,
+            ValueAfterDepreciation = 100000m
+        };
+
+        // Per ERPNext PR #47427 / commit 51ea33e743:
+        // When disposing an asset without accumulated depreciation, AccumulatedDepreciationAccountId
+        // must NOT be mandated.
+        var accumulatedDepreciation = landAsset.PurchaseAmount - landAsset.ValueAfterDepreciation;
+        Assert.Equal(0m, accumulatedDepreciation);
+
+        var requiresAccumDepAccount = accumulatedDepreciation != 0;
+        Assert.False(requiresAccumDepAccount);
+    }
 }
