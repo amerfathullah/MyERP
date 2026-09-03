@@ -377,6 +377,10 @@ public class SalesInvoiceManager : DomainService
     /// </summary>
     public async Task UpdateLinkedDeliveryNoteBillingAsync(SalesInvoice invoice, bool reverse = false)
     {
+        // Per ERPNext commit 6dc459db58: only invoices with update_stock == 0 contribute to Delivery Note billing.
+        // Invoices with update_stock == 1 perform stock delivery directly and do not bill Delivery Notes.
+        if (invoice.UpdateStock) return;
+
         var dnItemIds = invoice.Items
             .Where(i => i.DeliveryNoteItemId.HasValue)
             .Select(i => i.DeliveryNoteItemId!.Value)
