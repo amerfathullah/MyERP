@@ -129,6 +129,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         await ValidateDepreciationAccountsAsync(asset);
         await ValidateLinkedPurchaseDocumentsAsync(asset);
 
+        asset.SetDepreciationRateAndValueAfterDepreciation();
         if (asset.CalculateDepreciation)
             asset.GenerateDepreciationSchedule();
 
@@ -174,6 +175,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         await ValidateDepreciationAccountsAsync(asset);
         await ValidateLinkedPurchaseDocumentsAsync(asset);
 
+        asset.SetDepreciationRateAndValueAfterDepreciation();
         if (asset.CalculateDepreciation)
             asset.GenerateDepreciationSchedule();
 

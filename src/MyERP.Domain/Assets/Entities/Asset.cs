@@ -256,6 +256,25 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Computes depreciation rate and initial value after depreciation.
+    /// Per ERPNext commit 48311ee5c5: called on asset creation/update before checking CalculateDepreciation.
+    /// </summary>
+    public void SetDepreciationRateAndValueAfterDepreciation()
+    {
+        if (SplitFromAssetId.HasValue) return;
+
+        ValueAfterDepreciation = TotalAssetCost - OpeningAccumulatedDepreciation;
+        if (UsefulLifeMonths > 0 && FrequencyMonths > 0)
+        {
+            var periods = UsefulLifeMonths / FrequencyMonths;
+            if (periods > 0 && DepreciationRate == 0)
+            {
+                DepreciationRate = Math.Round(100m / periods, 4);
+            }
+        }
+    }
+
+    /// <summary>
     /// (Re)generates the depreciation schedule. Preserves already-booked (GL-posted) rows —
     /// only unbooked rows are cleared and rebuilt. Regenerating the whole schedule from
     /// scratch would silently recreate fresh, unbooked duplicates of periods whose Journal

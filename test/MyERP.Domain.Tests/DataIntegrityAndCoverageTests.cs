@@ -994,4 +994,25 @@ public class DataIntegrityAndCoverageTests
         compositeAsset.Submit();
         Assert.Equal(Assets.AssetStatus.Submitted, compositeAsset.Status);
     }
+
+    [Fact]
+    public void Asset_SetDepreciationRateAndValueAfterDepreciation_NonDepreciatedAsset()
+    {
+        var companyId = Guid.NewGuid();
+        var asset = new Assets.Entities.Asset(
+            Guid.NewGuid(), companyId, "AST-LAND-001", "Freehold Land", DateTime.UtcNow, 250000m)
+        {
+            CalculateDepreciation = false,
+            UsefulLifeMonths = 0,
+            FrequencyMonths = 12
+        };
+
+        // Per ERPNext commit 48311ee5c5:
+        // SetDepreciationRateAndValueAfterDepreciation calculates value after depreciation and depr rate
+        // before checking CalculateDepreciation, ensuring non-depreciated assets have valid book value.
+        asset.SetDepreciationRateAndValueAfterDepreciation();
+
+        Assert.Equal(250000m, asset.ValueAfterDepreciation);
+        Assert.Equal(0m, asset.DepreciationRate);
+    }
 }
