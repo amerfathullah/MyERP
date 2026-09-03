@@ -47,7 +47,10 @@ import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conve
         }
 
         @if (rfq.status === 'Submitted' || rfq.status === 1) {
-          <div class="d-flex gap-2 mb-3">
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <button class="btn btn-outline-info btn-sm" (click)="viewSupplierQuotationComparison()">
+              <i class="fa fa-balance-scale me-1"></i>Supplier Quotation Comparison
+            </button>
             @for (s of rfq.suppliers; track s.supplierId) {
               <button class="btn btn-outline-primary btn-sm" (click)="createSupplierQuotation(s.supplierId, s.supplierName)">
                 <i class="fa fa-file-invoice me-1"></i>Create SQ for {{ s.supplierName }}
@@ -116,6 +119,13 @@ export class RfqDetailComponent implements OnInit {
         error: () => { this.isLoading = false; }
       });
     }
+  }
+
+  viewSupplierQuotationComparison() {
+    if (!this.rfq?.id) return;
+    this.router.navigate(['/purchasing/supplier-quotation-comparison'], {
+      queryParams: { rfqId: this.rfq.id }
+    });
   }
 
   createSupplierQuotation(supplierId: string, supplierName: string) {
