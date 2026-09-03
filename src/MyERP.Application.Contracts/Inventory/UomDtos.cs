@@ -17,3 +17,9 @@ public class CreateUomDto
     public bool MustBeWholeNumber { get; set; }
     public string? Category { get; set; }
 }
+
+public class GetUomListDto : PagedAndSortedResultRequestDto
+{
+    public string? Filter { get; set; }
+    public bool? IsEnabled { get; set; }
+}

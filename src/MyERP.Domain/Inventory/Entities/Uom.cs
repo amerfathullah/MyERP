@@ -35,6 +35,9 @@ public class Uom : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public bool IsEnabled { get; set; } = true;
 
+    public void Enable() => IsEnabled = true;
+    public void Disable() => IsEnabled = false;
+
     protected Uom() { }
 
     public Uom(Guid id, string name, Guid? tenantId = null) : base(id)

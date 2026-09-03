@@ -24,9 +24,25 @@ public class UomAppService : ApplicationService, IUomAppService
         _repository = repository;
     }
 
-    public async Task<PagedResultDto<UomDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public async Task<PagedResultDto<UomDto>> GetListAsync(GetUomListDto input)
     {
         var query = await _repository.GetQueryableAsync();
+
+        // Default to enabled UOMs if not explicitly requested otherwise (ERPNext PR #47112 / commit 3745825052)
+        if (input.IsEnabled.HasValue)
+        {
+            query = query.Where(u => u.IsEnabled == input.IsEnabled.Value);
+        }
+        else
+        {
+            query = query.Where(u => u.IsEnabled);
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            query = query.Where(u => u.Name.Contains(input.Filter));
+        }
+
         var totalCount = query.Count();
         var items = query
             .OrderBy(u => u.Name)

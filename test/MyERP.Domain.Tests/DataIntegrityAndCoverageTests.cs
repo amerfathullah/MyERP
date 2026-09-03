@@ -1335,4 +1335,27 @@ public class DataIntegrityAndCoverageTests
         var canCreateReturn = !(inv.IsConsolidated && inv.IsPos);
         Assert.False(canCreateReturn);
     }
+
+    [Fact]
+    public void Uom_FilterEnabledByDefault()
+    {
+        // Per ERPNext PR #47112 / commit 3745825052:
+        // UOM query filters by enabled = 1 to prevent disabled UOMs from appearing in lookup.
+        var uomActive = new Inventory.Entities.Uom(Guid.NewGuid(), "Kg");
+        var uomDisabled = new Inventory.Entities.Uom(Guid.NewGuid(), "Obsolete_UOM");
+        uomDisabled.Disable();
+
+        Assert.True(uomActive.IsEnabled);
+        Assert.False(uomDisabled.IsEnabled);
+
+        uomDisabled.Enable();
+        Assert.True(uomDisabled.IsEnabled);
+        uomDisabled.Disable();
+        Assert.False(uomDisabled.IsEnabled);
+
+        var list = new[] { uomActive, uomDisabled };
+        var enabledOnly = list.Where(u => u.IsEnabled).ToList();
+        Assert.Single(enabledOnly);
+        Assert.Equal("Kg", enabledOnly[0].Name);
+    }
 }
