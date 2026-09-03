@@ -17,6 +17,7 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Stock.StockFrozenUpToDays, "0"),
             new SettingDefinition(MyERPSettings.Stock.ActionIfQualityInspectionNotSubmitted, "Stop"),
             new SettingDefinition(MyERPSettings.Stock.ActionIfQualityInspectionRejected, "Stop"),
+            new SettingDefinition(MyERPSettings.Stock.AllowToMakeQualityInspectionAfterPurchaseOrDelivery, "false"),
             new SettingDefinition(MyERPSettings.Stock.PickSerialAndBatchBasedOn, "FIFO"),
             new SettingDefinition(MyERPSettings.Stock.ItemNamingBy, "Item Code")
         );

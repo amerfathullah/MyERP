@@ -27,6 +27,7 @@ public static class MyERPSettings
         public const string StockAuthRole = G + ".StockAuthRole";
         public const string ActionIfQualityInspectionNotSubmitted = G + ".ActionIfQINotSubmitted";
         public const string ActionIfQualityInspectionRejected = G + ".ActionIfQIRejected";
+        public const string AllowToMakeQualityInspectionAfterPurchaseOrDelivery = G + ".AllowToMakeQualityInspectionAfterPurchaseOrDelivery";
         public const string PickSerialAndBatchBasedOn = G + ".PickSerialBatchBasedOn";
         public const string ItemNamingBy = G + ".ItemNamingBy";
         public const string SampleRetentionWarehouse = G + ".SampleRetentionWarehouse";

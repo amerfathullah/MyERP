@@ -694,4 +694,13 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(costCenterId, suppliedItem.CostCenterId);
         Assert.Equal(expenseAccountId, suppliedItem.ExpenseAccountId);
     }
+
+    [Fact]
+    public void QualityInspection_AllowAfterSubmission_SettingAndErrorCodeProperlyConfigured()
+    {
+        Assert.Equal("MyERP.Stock.AllowToMakeQualityInspectionAfterPurchaseOrDelivery",
+            Settings.MyERPSettings.Stock.AllowToMakeQualityInspectionAfterPurchaseOrDelivery);
+        Assert.Equal("MyERP:05068",
+            MyERPDomainErrorCodes.QualityInspectionNotAllowedAfterSubmission);
+    }
 }

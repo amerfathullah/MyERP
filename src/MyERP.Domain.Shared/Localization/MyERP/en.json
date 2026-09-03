@@ -1545,6 +1545,7 @@
     "InspectionRequiredBeforeDeliveryHelp": "Require a submitted and accepted Quality Inspection before Delivery Note can be submitted.",
     "MyERP:05009": "Quality Inspection required for items: {items} on {referenceType}.",
     "MyERP:05010": "Quality Inspection was rejected for items: {items} on {referenceType}.",
+    "MyERP:05068": "Quality Inspection cannot be created for submitted document {documentType} {documentNumber} unless Allow Quality Inspection After Submission is enabled in Stock Settings.",
     "BudgetExceededMessage": "Budget exceeded for account '{account}': budget {budget}, spent {spent}, requested {requested}.",
     "MyERP:08001": "Return items must have negative quantity. Item '{item}' has positive qty.",
     "MyERP:08002": "Return document must reference the original invoice.",

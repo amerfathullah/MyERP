@@ -5,10 +5,13 @@ using MyERP.Core.DomainServices;
 using MyERP.Dtos;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
+using MyERP.Settings;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Inventory;
 
@@ -60,6 +63,74 @@ public class QualityInspectionAppService : ApplicationService, IQualityInspectio
         // Validate active item
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(new[] { input.ItemId });
+
+        // Per ERPNext PR #47746 / commit d8cb073eaf: validate if QI can be created after document submission
+        if (input.ReferenceId.HasValue && !string.IsNullOrWhiteSpace(input.ReferenceType))
+        {
+            var allowAfterSubmission = await SettingProvider.IsTrueAsync(
+                MyERPSettings.Stock.AllowToMakeQualityInspectionAfterPurchaseOrDelivery);
+
+            if (!allowAfterSubmission)
+            {
+                bool isSubmitted = false;
+                string docNumber = string.Empty;
+
+                switch (input.ReferenceType)
+                {
+                    case "PurchaseReceipt":
+                    {
+                        var repo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseReceipt, Guid>>();
+                        var doc = await repo.FindAsync(input.ReferenceId.Value);
+                        if (doc != null && doc.Status == Core.DocumentStatus.Submitted)
+                        {
+                            isSubmitted = true;
+                            docNumber = doc.ReceiptNumber;
+                        }
+                        break;
+                    }
+                    case "PurchaseInvoice":
+                    {
+                        var repo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+                        var doc = await repo.FindAsync(input.ReferenceId.Value);
+                        if (doc != null && doc.Status == Core.DocumentStatus.Submitted)
+                        {
+                            isSubmitted = true;
+                            docNumber = doc.InvoiceNumber;
+                        }
+                        break;
+                    }
+                    case "DeliveryNote":
+                    {
+                        var repo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.DeliveryNote, Guid>>();
+                        var doc = await repo.FindAsync(input.ReferenceId.Value);
+                        if (doc != null && doc.Status == Core.DocumentStatus.Submitted)
+                        {
+                            isSubmitted = true;
+                            docNumber = doc.DeliveryNumber;
+                        }
+                        break;
+                    }
+                    case "SalesInvoice":
+                    {
+                        var repo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+                        var doc = await repo.FindAsync(input.ReferenceId.Value);
+                        if (doc != null && doc.Status == Core.DocumentStatus.Submitted)
+                        {
+                            isSubmitted = true;
+                            docNumber = doc.InvoiceNumber;
+                        }
+                        break;
+                    }
+                }
+
+                if (isSubmitted)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionNotAllowedAfterSubmission)
+                        .WithData("documentType", input.ReferenceType)
+                        .WithData("documentNumber", docNumber);
+                }
+            }
+        }
 
         var number = await _numberGenerator.GenerateAsync("QI", input.CompanyId);
         var qi = new QualityInspection(GuidGenerator.Create(), input.CompanyId, input.ItemId,

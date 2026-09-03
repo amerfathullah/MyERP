@@ -88,6 +88,7 @@ public static class MyERPDomainErrorCodes
     // Quality Inspection
     public const string QualityInspectionRequired = "MyERP:05009";
     public const string QualityInspectionRejected = "MyERP:05010";
+    public const string QualityInspectionNotAllowedAfterSubmission = "MyERP:05068";
 
     // Batch/Serial
     public const string BatchExpired = "MyERP:05011";
