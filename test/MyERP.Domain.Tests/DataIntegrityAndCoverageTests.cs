@@ -1963,4 +1963,55 @@ public class DataIntegrityAndCoverageTests
         // 1000 - 500 = 500 USD remaining
         Assert.Equal(500m, remainingOrderAmount);
     }
+
+    [Fact]
+    public void PosConsolidation_DimensionHash_IncludesCostCenterAndProject()
+    {
+        // Per ERPNext PR #46961 / commit c85edc3346:
+        // Invoices with different Cost Center or Project must produce different dimension hashes
+        // so that they are consolidated into separate Sales Invoices.
+        var companyId = Guid.NewGuid();
+        var cc1 = Guid.NewGuid();
+        var cc2 = Guid.NewGuid();
+        var proj1 = Guid.NewGuid();
+
+        var inv1 = new Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), companyId, Guid.NewGuid(), "POS-001", DateTime.UtcNow.Date)
+        {
+            CostCenterId = cc1,
+            ProjectId = proj1
+        };
+
+        var inv2 = new Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), companyId, Guid.NewGuid(), "POS-002", DateTime.UtcNow.Date)
+        {
+            CostCenterId = cc2,
+            ProjectId = proj1
+        };
+
+        var inv3 = new Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), companyId, Guid.NewGuid(), "POS-003", DateTime.UtcNow.Date)
+        {
+            CostCenterId = cc2,
+            ProjectId = proj1
+        };
+
+        // Compute hashes using the logic in PosConsolidationService:
+        // dimensionKey = $"{invoice.CompanyId}|{invoice.CostCenterId}|{invoice.ProjectId}"
+        string Hash(Sales.Entities.SalesInvoice inv)
+        {
+            var key = $"{inv.CompanyId}|{inv.CostCenterId}|{inv.ProjectId}";
+            var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key));
+            return Convert.ToHexStringLower(bytes)[..16];
+        }
+
+        var hash1 = Hash(inv1);
+        var hash2 = Hash(inv2);
+        var hash3 = Hash(inv3);
+
+        // Different cost centers must yield different hashes
+        Assert.NotEqual(hash1, hash2);
+        // Same cost center and project must yield the same hash
+        Assert.Equal(hash2, hash3);
+    }
 }

@@ -130,7 +130,16 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
                 consolidatedSi.CurrencyCode = currencyCode;
                 consolidatedSi.IsPos = true;
                 consolidatedSi.IsConsolidated = true;
-                if (profile?.ProjectId.HasValue == true)
+                if (primary.CostCenterId.HasValue)
+                {
+                    consolidatedSi.CostCenterId = primary.CostCenterId;
+                }
+
+                if (primary.ProjectId.HasValue)
+                {
+                    consolidatedSi.ProjectId = primary.ProjectId;
+                }
+                else if (profile?.ProjectId.HasValue == true)
                 {
                     consolidatedSi.ProjectId = profile.ProjectId;
                 }

@@ -86,13 +86,13 @@ public class PosConsolidationService : DomainService
     }
 
     /// <summary>
-    /// Computes dimension hash for grouping. Uses CompanyId + ProjectId.
-    /// Different projects produce separate consolidated invoices.
+    /// Computes dimension hash for grouping. Uses CompanyId + CostCenterId + ProjectId.
+    /// Different cost centers or projects produce separate consolidated invoices (ERPNext PR #46961 / commit c85edc3346).
     /// Empty/null dimensions produce the same hash → grouped together.
     /// </summary>
     private string ComputeDimensionHash(SalesInvoice invoice)
     {
-        var dimensionKey = $"{invoice.CompanyId}|{invoice.ProjectId}";
+        var dimensionKey = $"{invoice.CompanyId}|{invoice.CostCenterId}|{invoice.ProjectId}";
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(dimensionKey));
         return Convert.ToHexStringLower(bytes)[..16]; // 8-byte prefix sufficient for grouping
     }
@@ -167,10 +167,13 @@ public class PosConsolidationService : DomainService
         var netTotal = orderedInvoices.Sum(i => i.NetTotal);
         var taxAmount = orderedInvoices.Sum(i => i.TaxAmount);
 
+        var firstInvoice = orderedInvoices.First();
         return new ConsolidationResult
         {
             CompanyId = companyId,
             CustomerId = customerId,
+            CostCenterId = firstInvoice.CostCenterId,
+            ProjectId = firstInvoice.ProjectId,
             PostingDate = postingDate,
             Items = consolidatedItems,
             GrandTotal = grandTotal,
@@ -189,6 +192,8 @@ public class ConsolidationResult
 {
     public Guid CompanyId { get; set; }
     public Guid CustomerId { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
     public DateTime PostingDate { get; set; }
     public decimal GrandTotal { get; set; }
     public decimal NetTotal { get; set; }
