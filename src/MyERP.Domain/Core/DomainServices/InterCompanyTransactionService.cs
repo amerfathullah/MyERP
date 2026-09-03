@@ -100,6 +100,20 @@ public class InterCompanyTransactionService : DomainService
         pi.CurrencyCode = sourceCompany.CurrencyCode; // Must be source company currency
         pi.InterCompanyInvoiceId = si.Id;
 
+        // Per ERPNext commit 145a6c5e2a: fetch exchange rate while creating inter-company order and invoice
+        if (!string.Equals(pi.CurrencyCode, targetCompany.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+        {
+            var exchangeRateService = LazyServiceProvider.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
+            if (exchangeRateService != null)
+            {
+                var rate = await exchangeRateService.GetExchangeRateAsync(pi.CurrencyCode, targetCompany.CurrencyCode, pi.IssueDate);
+                if (rate > 0)
+                {
+                    pi.ExchangeRate = rate;
+                }
+            }
+        }
+
         // Address link validation (ERPNext PR #47463 / commit aed46ad5b9):
         // Only map address if it is actually linked to the target party
         if (si.BillingAddressId.HasValue && await ValidateAddressLinkAsync(si.BillingAddressId, "Supplier", matchingSupplier.Id))
@@ -179,6 +193,20 @@ public class InterCompanyTransactionService : DomainService
         si.CurrencyCode = sourceCompany.CurrencyCode;
         si.InterCompanyPurchaseInvoiceId = pi.Id;
 
+        // Per ERPNext commit 145a6c5e2a: fetch exchange rate while creating inter-company order and invoice
+        if (!string.Equals(si.CurrencyCode, targetCompany.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+        {
+            var exchangeRateService = LazyServiceProvider.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
+            if (exchangeRateService != null)
+            {
+                var rate = await exchangeRateService.GetExchangeRateAsync(si.CurrencyCode, targetCompany.CurrencyCode, si.IssueDate);
+                if (rate > 0)
+                {
+                    si.ExchangeRate = rate;
+                }
+            }
+        }
+
         // Address link validation (ERPNext PR #47463 / commit aed46ad5b9):
         // Only map address if it is actually linked to the target party
         if (pi.BillingAddressId.HasValue && await ValidateAddressLinkAsync(pi.BillingAddressId, "Customer", matchingCustomer.Id))
@@ -237,6 +265,20 @@ public class InterCompanyTransactionService : DomainService
         po.CurrencyCode = salesOrder.CurrencyCode ?? "MYR";
         po.InterCompanySalesOrderId = salesOrder.Id;
         po.Notes = $"Auto-created from inter-company Sales Order {salesOrder.OrderNumber}";
+
+        // Per ERPNext commit 145a6c5e2a: fetch exchange rate while creating inter-company order and invoice
+        if (!string.Equals(po.CurrencyCode, targetCompany.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+        {
+            var exchangeRateService = LazyServiceProvider.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
+            if (exchangeRateService != null)
+            {
+                var rate = await exchangeRateService.GetExchangeRateAsync(po.CurrencyCode, targetCompany.CurrencyCode, po.OrderDate);
+                if (rate > 0)
+                {
+                    po.ExchangeRate = rate;
+                }
+            }
+        }
 
         // Address link validation (ERPNext PR #47463 / commit aed46ad5b9):
         // Only map address if it is actually linked to the target party

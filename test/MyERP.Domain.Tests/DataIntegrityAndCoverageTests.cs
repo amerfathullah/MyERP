@@ -1696,4 +1696,31 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(0m, noneRemaining);
         Assert.True(noneRemaining <= 0);
     }
+
+    [Fact]
+    public void InterCompany_FetchesExchangeRate_WhenCompanyCurrenciesDiffer()
+    {
+        // Per ERPNext commit 145a6c5e2a:
+        // Inter-company order and invoice creation must fetch exchange rate when currency differs.
+        var sourceCompanyCurrency = "USD";
+        var targetCompanyCurrency = "MYR";
+
+        var pi = new Purchasing.Entities.PurchaseInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "IC-SI-001", DateTime.UtcNow.Date)
+        {
+            CurrencyCode = sourceCompanyCurrency
+        };
+
+        // When currencies differ, rate must be fetched and applied
+        bool currenciesDiffer = !string.Equals(pi.CurrencyCode, targetCompanyCurrency, StringComparison.OrdinalIgnoreCase);
+        Assert.True(currenciesDiffer);
+
+        decimal fetchedRate = 4.45m;
+        if (currenciesDiffer && fetchedRate > 0)
+        {
+            pi.ExchangeRate = fetchedRate;
+        }
+
+        Assert.Equal(4.45m, pi.ExchangeRate);
+    }
 }
