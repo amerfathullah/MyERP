@@ -536,4 +536,25 @@ public class DataIntegrityAndCoverageTests
         wo.ReverseDisassembly(5m); // floor at 0
         Assert.Equal(0m, wo.DisassembledQuantity);
     }
+
+    [Fact]
+    public void Asset_ApplyValueAdjustment_RecalculatesStatusCorrectly()
+    {
+        var asset = new Assets.Entities.Asset(
+            Guid.NewGuid(), Guid.NewGuid(), "AST-001", "Test Asset", DateTime.UtcNow, 10000m);
+        asset.Submit();
+        Assert.Equal(Assets.AssetStatus.Submitted, asset.Status);
+
+        // Adjust value to partial depreciation
+        asset.ApplyValueAdjustment(6000m);
+        Assert.Equal(Assets.AssetStatus.PartiallyDepreciated, asset.Status);
+
+        // Adjust value to 0 -> FullyDepreciated
+        asset.ApplyValueAdjustment(0m);
+        Assert.Equal(Assets.AssetStatus.FullyDepreciated, asset.Status);
+
+        // Revert value back to 10000m -> Submitted
+        asset.ApplyValueAdjustment(10000m);
+        Assert.Equal(Assets.AssetStatus.Submitted, asset.Status);
+    }
 }

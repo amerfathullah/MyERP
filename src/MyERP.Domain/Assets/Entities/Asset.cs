@@ -203,13 +203,8 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         DisposalDate = null;
         DisposalAmount = null;
-
-        if (ValueAfterDepreciation <= 0)
-            Status = AssetStatus.FullyDepreciated;
-        else if (ValueAfterDepreciation < TotalAssetCost)
-            Status = AssetStatus.PartiallyDepreciated;
-        else
-            Status = AssetStatus.Submitted;
+        Status = AssetStatus.Submitted;
+        RecalculateStatus();
     }
 
     /// <summary>
@@ -363,12 +358,31 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
             UsefulLifeMonths += increaseInUsefulLifeMonths;
         }
         GenerateDepreciationSchedule();
+        RecalculateStatus();
     }
 
     public void ApplyValueAdjustment(decimal newValue)
     {
         ValueAfterDepreciation = newValue;
         GenerateDepreciationSchedule();
+        RecalculateStatus();
+    }
+
+    /// <summary>
+    /// Recalculates asset status based on ValueAfterDepreciation and depreciation history.
+    /// Per ERPNext PR #48086 / commit da2663b8dc.
+    /// </summary>
+    public void RecalculateStatus()
+    {
+        if (Status is AssetStatus.Sold or AssetStatus.Scrapped or AssetStatus.Cancelled or AssetStatus.Draft)
+            return;
+
+        if (ValueAfterDepreciation <= 0)
+            Status = AssetStatus.FullyDepreciated;
+        else if (ValueAfterDepreciation < TotalAssetCost)
+            Status = AssetStatus.PartiallyDepreciated;
+        else
+            Status = AssetStatus.Submitted;
     }
 
     public void UpdateLocationAndCustodian(string? location, Guid? custodianEmployeeId, Guid? locationId = null)
