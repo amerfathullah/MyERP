@@ -11,6 +11,7 @@ public enum AssetStatus
     InMaintenance = 6,
     Cancelled = 7,
     Capitalized = 8,
+    WorkInProgress = 9,
 }
 
 public enum DepreciationMethod

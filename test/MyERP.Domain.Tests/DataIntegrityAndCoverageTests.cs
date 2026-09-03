@@ -971,4 +971,27 @@ public class DataIntegrityAndCoverageTests
         Assert.True(ex.Data.Contains("solution"));
         Assert.Contains("Do Not Explode", ex.Data["solution"]?.ToString() ?? "");
     }
+
+    [Fact]
+    public void Asset_CompositeAsset_InitialStatusIsWorkInProgress()
+    {
+        var companyId = Guid.NewGuid();
+        var normalAsset = new Assets.Entities.Asset(
+            Guid.NewGuid(), companyId, "AST-NORM-001", "Standard Laptop", DateTime.UtcNow, 2000m);
+
+        var compositeAsset = new Assets.Entities.Asset(
+            Guid.NewGuid(), companyId, "AST-CWIP-001", "Factory Building Under Construction", DateTime.UtcNow, 500000m)
+        {
+            IsCompositeAsset = true
+        };
+
+        // Per ERPNext commit 3855536ef1:
+        // Composite assets start with status 'WorkInProgress' while unsubmitted,
+        // and can transition to 'Submitted' upon completion.
+        Assert.Equal(Assets.AssetStatus.Draft, normalAsset.Status);
+        Assert.Equal(Assets.AssetStatus.WorkInProgress, compositeAsset.Status);
+
+        compositeAsset.Submit();
+        Assert.Equal(Assets.AssetStatus.Submitted, compositeAsset.Status);
+    }
 }

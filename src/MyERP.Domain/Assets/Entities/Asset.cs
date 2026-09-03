@@ -39,6 +39,28 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Original asset ID if this asset was created by splitting another asset.</summary>
     public Guid? SplitFromAssetId { get; set; }
 
+    /// <summary>
+    /// Indicates this asset is a composite / CWIP (Capital Work in Progress) asset.
+    /// Per ERPNext commit 3855536ef1: unsubmitted composite assets have status 'WorkInProgress'.
+    /// </summary>
+    public bool IsCompositeAsset
+    {
+        get => _isCompositeAsset;
+        set
+        {
+            _isCompositeAsset = value;
+            if (Status == AssetStatus.Draft && _isCompositeAsset)
+            {
+                Status = AssetStatus.WorkInProgress;
+            }
+            else if (Status == AssetStatus.WorkInProgress && !_isCompositeAsset)
+            {
+                Status = AssetStatus.Draft;
+            }
+        }
+    }
+    private bool _isCompositeAsset;
+
     /// <summary>Source Purchase Receipt that created this asset (for return validation).</summary>
     public Guid? PurchaseReceiptId { get; set; }
 
@@ -105,7 +127,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void Submit()
     {
-        if (Status != AssetStatus.Draft)
+        if (Status != AssetStatus.Draft && Status != AssetStatus.WorkInProgress)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = AssetStatus.Submitted;
     }
@@ -400,7 +422,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public void RecalculateStatus()
     {
-        if (Status is AssetStatus.Sold or AssetStatus.Scrapped or AssetStatus.Cancelled or AssetStatus.Draft or AssetStatus.Capitalized)
+        if (Status is AssetStatus.Sold or AssetStatus.Scrapped or AssetStatus.Cancelled or AssetStatus.Draft or AssetStatus.Capitalized or AssetStatus.WorkInProgress)
             return;
 
         if (ValueAfterDepreciation <= 0)
