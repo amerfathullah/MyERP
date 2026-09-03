@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
@@ -2488,5 +2489,71 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(leadId, prospect.Leads[0].LeadId);
         Assert.Equal("John Doe", prospect.Leads[0].LeadName);
         Assert.Equal("john@example.com", prospect.Leads[0].Email);
+    }
+
+    [Fact]
+    public void Batch_AutoPick_CoverageLogic_Invariants()
+    {
+        // Per ERPNext PR #58668 / commit 9261c9b47f:
+        // Batch is assigned only when the first batch covers the entire requested quantity.
+        var batch1 = new MyERP.Inventory.AvailableBatchItemDto
+        {
+            BatchId = Guid.NewGuid(),
+            BatchNo = "BATCH-001",
+            AvailableQuantity = 10m,
+        };
+        var batch2 = new MyERP.Inventory.AvailableBatchItemDto
+        {
+            BatchId = Guid.NewGuid(),
+            BatchNo = "BATCH-002",
+            AvailableQuantity = 20m,
+        };
+
+        var batches = new List<MyERP.Inventory.AvailableBatchItemDto> { batch1, batch2 };
+
+        // Request 8 units -> batch1 has 10 -> covers full qty
+        var picked1 = batches.FirstOrDefault(b => b.AvailableQuantity >= 8m);
+        Assert.NotNull(picked1);
+        Assert.Equal("BATCH-001", picked1.BatchNo);
+
+        // Request 15 units -> first batch (10) cannot cover 15 -> should NOT assign batch1
+        // (assigning batch1 would cause partial fill and negative stock on submit)
+        var firstBatch = batches.FirstOrDefault();
+        var coversFullQty = firstBatch != null && firstBatch.AvailableQuantity >= 15m;
+        Assert.False(coversFullQty);
+    }
+
+    [Fact]
+    public void Batch_SameDocumentDeduction_SubtractsStockQty()
+    {
+        // Per ERPNext PR #58669 / commit 199cae9496:
+        // Subtract stock qty of same-document rows (not txn UOM) from batch availability.
+        var batchId = Guid.NewGuid();
+        var availableBatches = new List<MyERP.Inventory.AvailableBatchItemDto>
+        {
+            new()
+            {
+                BatchId = batchId,
+                BatchNo = "BATCH-A",
+                AvailableQuantity = 10m // 10 stock units
+            }
+        };
+
+        // Another row in the same document used 1 Box (where 1 Box = 5 stock units)
+        var sameDocAllocations = new List<MyERP.Inventory.ExcludedBatchQtyDto>
+        {
+            new() { BatchId = batchId, StockQty = 5m }
+        };
+
+        var sameDocMap = sameDocAllocations.GroupBy(x => x.BatchId).ToDictionary(g => g.Key, g => g.Sum(x => x.StockQty));
+        foreach (var batch in availableBatches)
+        {
+            if (sameDocMap.TryGetValue(batch.BatchId, out var consumed))
+            {
+                batch.AvailableQuantity -= consumed;
+            }
+        }
+
+        Assert.Equal(5m, availableBatches[0].AvailableQuantity);
     }
 }

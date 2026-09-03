@@ -23,4 +23,11 @@ public interface IBatchAppService : IApplicationService
 
     /// <summary>Returns available batch stock filtered by company, item, and warehouse.</summary>
     Task<System.Collections.Generic.List<AvailableBatchItemDto>> GetAvailableBatchesAsync(GetAvailableBatchesDto input);
+
+    /// <summary>
+    /// Returns the first batch in FIFO/expiry order that can cover the full required quantity.
+    /// Returns null if no single batch covers the full quantity (allowing serial/batch bundles to split across batches).
+    /// Per ERPNext commits 199cae9496 and 9261c9b47f.
+    /// </summary>
+    Task<AvailableBatchItemDto?> GetBatchCoveringQuantityAsync(AutoPickBatchDto input);
 }

@@ -512,7 +512,7 @@ public class BatchAppService : ApplicationService, IBatchAppService
             .ToDictionary(i => i.Id, i => i.ItemName);
 
         var today = DateTime.UtcNow.Date;
-        return batchBalances
+        var list = batchBalances
             .Where(b => batches.ContainsKey(b.BatchId!.Value))
             .Select(b =>
             {
@@ -530,10 +530,64 @@ public class BatchAppService : ApplicationService, IBatchAppService
                     IsExpired = batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < today,
                 };
             })
+            .ToList();
+
+        // Per ERPNext commit 199cae9496:
+        // Subtract stock qty of same-document rows from batch availability.
+        if (input.SameDocumentBatchQuantities != null && input.SameDocumentBatchQuantities.Count > 0)
+        {
+            var sameDocGrouped = input.SameDocumentBatchQuantities
+                .GroupBy(x => x.BatchId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.StockQty));
+
+            foreach (var item in list)
+            {
+                if (sameDocGrouped.TryGetValue(item.BatchId, out var consumedQty))
+                {
+                    item.AvailableQuantity -= consumedQty;
+                }
+            }
+
+            list = list.Where(item => item.AvailableQuantity > 0).ToList();
+        }
+
+        return list
             .OrderBy(b => b.ExpiryDate == null)
             .ThenBy(b => b.ExpiryDate)
             .ThenBy(b => b.BatchNo)
             .ToList();
+    }
+
+    /// <summary>
+    /// Returns the first batch in FIFO/expiry order that can cover the full required quantity.
+    /// Per ERPNext PR #58668 / commit 9261c9b47f:
+    /// Assign batch_no only when the first batch covers the full qty. If no single batch covers the qty,
+    /// return null so the system doesn't bind a partial batch that later causes negative stock errors.
+    /// Also per commit 199cae9496: subtract stock qty of same-document rows.
+    /// </summary>
+    public async Task<AvailableBatchItemDto?> GetBatchCoveringQuantityAsync(AutoPickBatchDto input)
+    {
+        if (input.RequiredStockQty <= 0)
+            return null;
+
+        var availableBatches = await GetAvailableBatchesAsync(new GetAvailableBatchesDto
+        {
+            CompanyId = input.CompanyId,
+            ItemId = input.ItemId,
+            WarehouseId = input.WarehouseId,
+            SameDocumentBatchQuantities = input.SameDocumentBatchQuantities,
+        });
+
+        // Exclude expired batches
+        var validBatches = availableBatches.Where(b => !b.IsExpired).ToList();
+
+        var firstBatch = validBatches.FirstOrDefault();
+        if (firstBatch != null && firstBatch.AvailableQuantity >= input.RequiredStockQty)
+        {
+            return firstBatch;
+        }
+
+        return null;
     }
 }
 

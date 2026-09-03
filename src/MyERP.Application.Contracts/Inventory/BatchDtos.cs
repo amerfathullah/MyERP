@@ -150,6 +150,31 @@ public class GetAvailableBatchesDto
     public Guid? CompanyId { get; set; }
     public Guid? ItemId { get; set; }
     public Guid? WarehouseId { get; set; }
+
+    /// <summary>
+    /// Quantities already consumed by other rows in the same document in stock UOM.
+    /// Per ERPNext commit 199cae9496: subtract stock qty of same-document rows from batch availability.
+    /// </summary>
+    public List<ExcludedBatchQtyDto>? SameDocumentBatchQuantities { get; set; }
+}
+
+public class ExcludedBatchQtyDto
+{
+    public Guid BatchId { get; set; }
+    public decimal StockQty { get; set; }
+}
+
+public class AutoPickBatchDto
+{
+    public Guid? CompanyId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public decimal RequiredStockQty { get; set; }
+
+    /// <summary>
+    /// Other rows in the same document already using batches (in stock UOM).
+    /// </summary>
+    public List<ExcludedBatchQtyDto>? SameDocumentBatchQuantities { get; set; }
 }
 
 public class AvailableBatchItemDto
