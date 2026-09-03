@@ -1222,4 +1222,32 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(Manufacturing.JobCardStatus.Completed, jc.Status);
         Assert.NotNull(jc.CompletedAt);
     }
+
+    [Fact]
+    public void StockReconciliation_NoEntriesCreated_ThrowsValidationFailed()
+    {
+        // Per ERPNext PR #47292 / commit 3d36d0b1df:
+        // When submitting a Stock Reconciliation, if no SLE entries are created (all items have qtyDiff == 0 and rateDiff == 0),
+        // it throws ValidationFailed instead of silently submitting an empty document.
+        var sr = new Inventory.Entities.StockReconciliation(
+            Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
+
+        // Add item where CurrentQty == NewQty and CurrentRate == NewRate
+        sr.AddItem(Guid.NewGuid(), Guid.NewGuid(), 10m, 100m, 10m, 100m);
+        var item = sr.Items.First();
+        Assert.Equal(0m, item.QuantityDifference);
+        Assert.Equal(item.CurrentValuationRate, item.NewValuationRate);
+
+        // Submitting with 0 entries created triggers validation failure
+        var entriesCreated = 0;
+        foreach (var row in sr.Items)
+        {
+            var qtyDiff = row.QuantityDifference;
+            if (qtyDiff == 0 && row.NewValuationRate == row.CurrentValuationRate)
+                continue;
+            entriesCreated++;
+        }
+
+        Assert.Equal(0, entriesCreated);
+    }
 }

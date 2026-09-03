@@ -218,11 +218,14 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
 
         // Create SLE entries for each item adjustment (absolute qty set, not delta)
         // Stock Reconciliation uses ABSOLUTE quantity — the SLE entry sets qty to new level
+        var entriesCreated = 0;
         foreach (var item in sr.Items)
         {
             var qtyDiff = item.QuantityDifference; // NewQty - CurrentQty
             if (qtyDiff == 0 && item.NewValuationRate == item.CurrentValuationRate)
                 continue; // No change needed
+
+            entriesCreated++;
 
             // Create SLE with the difference quantity and new rate
             await _valuationService.CreateLedgerEntryAsync(
@@ -239,6 +242,13 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
             await _binService.ApplyStockMovementAsync(
                 item.ItemId, item.WarehouseId,
                 qtyDiff, valueDiff, sr.TenantId);
+        }
+
+        // Validate that at least one SLE was created (ERPNext PR #47292 / commit 3d36d0b1df)
+        if (entriesCreated == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "No stock ledger entries were created. Please set the quantity or valuation rate for the items properly and try again.");
         }
 
         // Post GL: DR/CR the affected warehouses' Stock accounts, balanced against the Difference/
