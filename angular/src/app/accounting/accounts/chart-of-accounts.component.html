@@ -14,24 +14,46 @@
 
       <ng-template #treeNodes let-nodes="nodes" let-level="level">
         @for (node of nodes; track node.id) {
-          <li class="py-1" [style.padding-left.px]="level * 24">
+          <li class="py-1 d-flex align-items-center" [style.padding-left.px]="level * 24">
             @if (hasChild(node)) {
               <button class="btn btn-sm p-0 me-1" style="width:20px;" (click)="toggleNode(node.id)">
                 <i class="fa" [class]="isExpanded(node.id) ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
               </button>
               <i class="fa me-2 text-primary">{{ getTypeIcon(node.accountType) }}</i>
-              <span class="small font-monospace text-muted me-3">{{ node.accountCode }}</span>
-              <span class="small fw-semibold">{{ node.accountName }}</span>
+              <span class="small font-monospace text-muted me-2">{{ node.accountCode }}</span>
+              <span class="small fw-semibold me-2" [class.text-muted]="node.isActive === false">{{ node.accountName }}</span>
+              @if (node.currency) {
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1">{{ node.currency }}</span>
+              }
+              @if (node.isFrozen) {
+                <span class="badge bg-warning text-dark me-1" title="Frozen - entries restricted">
+                  <i class="fa fa-lock me-1"></i>Frozen
+                </span>
+              }
+              @if (node.isActive === false) {
+                <span class="badge bg-secondary text-white me-1">Disabled</span>
+              }
               @if (isExpanded(node.id) && node.children) {
-                <ul class="list-unstyled mb-0">
+                <ul class="list-unstyled mb-0 w-100">
                   <ng-container *ngTemplateOutlet="treeNodes; context: { nodes: node.children, level: level + 1 }"></ng-container>
                 </ul>
               }
             } @else {
               <span style="width:20px; display:inline-block;"></span>
               <i class="fa fa-file-alt text-muted me-2"></i>
-              <span class="small font-monospace text-muted me-3">{{ node.accountCode }}</span>
-              <span class="small">{{ node.accountName }}</span>
+              <span class="small font-monospace text-muted me-2">{{ node.accountCode }}</span>
+              <span class="small me-2" [class.text-muted]="node.isActive === false">{{ node.accountName }}</span>
+              @if (node.currency) {
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1">{{ node.currency }}</span>
+              }
+              @if (node.isFrozen) {
+                <span class="badge bg-warning text-dark me-1" title="Frozen - entries restricted">
+                  <i class="fa fa-lock me-1"></i>Frozen
+                </span>
+              }
+              @if (node.isActive === false) {
+                <span class="badge bg-secondary text-white me-1">Disabled</span>
+              }
               @if (node.balance !== undefined) {
                 <span class="ms-auto font-monospace small text-muted">
                   {{ node.balance | number:'1.2-2' }}

@@ -12,6 +12,9 @@ export interface AccountNode {
   accountName: string;
   accountType: string;
   isGroup: boolean;
+  currency?: string | null;
+  isFrozen?: boolean;
+  isActive?: boolean;
   balance?: number;
   children?: AccountNode[];
 }
@@ -70,6 +73,9 @@ export class ChartOfAccountsComponent implements OnInit {
         accountName: acc.accountName ?? '',
         accountType: acc.accountType as any ?? '',
         isGroup: acc.isGroup ?? false,
+        currency: acc.currency,
+        isFrozen: acc.isFrozen ?? false,
+        isActive: acc.isActive ?? true,
         children: [],
       });
     }

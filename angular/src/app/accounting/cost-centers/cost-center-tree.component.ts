@@ -13,6 +13,7 @@ interface CcNode {
   costCenterNumber?: string | null;
   isGroup: boolean;
   parentId?: string | null;
+  isActive: boolean;
   children: CcNode[];
   level: number;
 }
@@ -81,10 +82,13 @@ interface CcNode {
                 } @else {
                   <i class="bi bi-bullseye text-muted me-2"></i>
                 }
-                <span class="flex-grow-1" [class.fw-medium]="node.isGroup">
-                  {{ node.name }}
+                <span class="flex-grow-1 d-flex align-items-center" [class.fw-medium]="node.isGroup">
+                  <span [class.text-muted]="!node.isActive">{{ node.name }}</span>
                   @if (node.costCenterNumber) {
-                    <span class="text-muted small ms-1">({{ node.costCenterNumber }})</span>
+                    <span class="badge bg-light text-dark border ms-2">{{ node.costCenterNumber }}</span>
+                  }
+                  @if (!node.isActive) {
+                    <span class="badge bg-secondary ms-2">Disabled</span>
                   }
                 </span>
                 @if (node.isGroup) {
@@ -135,7 +139,7 @@ export class CostCenterTreeComponent implements OnInit {
   private buildTree(items: CostCenterDto[]): CcNode[] {
     const map = new Map<string, CcNode>();
     const roots: CcNode[] = [];
-    for (const i of items) map.set(i.id!, { id: i.id!, name: i.name ?? '', costCenterNumber: i.costCenterNumber, isGroup: i.isGroup ?? false, parentId: i.parentId, children: [], level: 0 });
+    for (const i of items) map.set(i.id!, { id: i.id!, name: i.name ?? '', costCenterNumber: i.costCenterNumber, isGroup: i.isGroup ?? false, parentId: i.parentId, isActive: i.isActive ?? true, children: [], level: 0 });
     for (const i of items) { const n = map.get(i.id!)!; if (i.parentId && map.has(i.parentId)) map.get(i.parentId)!.children.push(n); else roots.push(n); }
     const setLvl = (ns: CcNode[], l: number) => { for (const n of ns) { n.level = l; setLvl(n.children, l + 1); } };
     setLvl(roots, 0);
