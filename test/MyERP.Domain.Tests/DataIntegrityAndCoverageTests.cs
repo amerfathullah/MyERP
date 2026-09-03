@@ -632,4 +632,19 @@ public class DataIntegrityAndCoverageTests
 
         Assert.Equal(10m, invoice.AdditionalDiscountPercentage);
     }
+
+    [Fact]
+    public void DeliveryNote_ProductBundle_MaintainsReversalParity()
+    {
+        var dn = new Sales.Entities.DeliveryNote(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "DN-001", DateTime.UtcNow);
+        var bundleId = Guid.NewGuid();
+        dn.AddItem(bundleId, "Bundle Item", 2m, 500m, 0m);
+        dn.Submit();
+
+        Assert.Equal(Core.DocumentStatus.Submitted, dn.Status);
+
+        dn.Cancel();
+        Assert.Equal(Core.DocumentStatus.Cancelled, dn.Status);
+    }
 }

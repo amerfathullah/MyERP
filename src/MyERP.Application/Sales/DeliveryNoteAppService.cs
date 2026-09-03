@@ -713,30 +713,64 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         // warehouse Submit posted at — not the sale price / header warehouse (round-76 fix:
         // reversing at UnitPrice instead of the persisted ValuationRate corrupted the
         // warehouse's moving-average valuation rate on every cancelled DN).
+        var bundleService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
+        var bundleItemIds = await bundleService.GetBundleItemIdsAsync(dn.Items.Select(i => i.ItemId).ToList());
         var cancelItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+
         foreach (var item in dn.Items)
         {
-            // Mirror Submit's skip: a non-stock item never got an SLE/Bin posting to reverse.
-            var itemEntity = await cancelItemRepo.FindAsync(item.ItemId);
-            if (itemEntity != null && !itemEntity.MaintainStock)
-                continue;
+            if (bundleItemIds.Contains(item.ItemId))
+            {
+                // Product Bundle: reverse components that were stock-out on submit
+                var components = await bundleService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice);
+                foreach (var comp in components)
+                {
+                    var compEntity = await cancelItemRepo.FindAsync(comp.ComponentItemId);
+                    if (compEntity != null && !compEntity.MaintainStock)
+                        continue;
 
-            var stockQty = item.StockQty;
-            var itemWarehouseId = item.WarehouseId ?? dn.WarehouseId;
+                    var compBalance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, dn.WarehouseId);
+                    var compValuationRate = compBalance.ValuationRate;
 
-            await _valuationService.CreateLedgerEntryAsync(
-                dn.CompanyId, item.ItemId, itemWarehouseId,
-                dn.PostingDate, stockQty, item.ValuationRate,
-                voucherType: "DeliveryNote", voucherId: dn.Id,
-                tenantId: dn.TenantId, batchId: item.BatchId);
+                    await _valuationService.CreateLedgerEntryAsync(
+                        dn.CompanyId, comp.ComponentItemId, dn.WarehouseId,
+                        dn.PostingDate, comp.Qty, compValuationRate,
+                        voucherType: "DeliveryNote", voucherId: dn.Id,
+                        tenantId: dn.TenantId);
 
-            await _binService.ApplyStockMovementAsync(
-                item.ItemId, itemWarehouseId,
-                stockQty, stockQty * item.ValuationRate, dn.TenantId);
+                    await _binService.ApplyStockMovementAsync(
+                        comp.ComponentItemId, dn.WarehouseId,
+                        comp.Qty, comp.Qty * compValuationRate, dn.TenantId);
 
-            // Re-reserve qty in stock UOM
-            await _binService.UpdateReservedQtyAsync(
-                item.ItemId, itemWarehouseId, stockQty, dn.TenantId);
+                    await _binService.UpdateReservedQtyAsync(
+                        comp.ComponentItemId, dn.WarehouseId, comp.Qty, dn.TenantId);
+                }
+            }
+            else
+            {
+                // Regular item: stock operations on the item itself
+                // Mirror Submit's skip: a non-stock item never got an SLE/Bin posting to reverse.
+                var itemEntity = await cancelItemRepo.FindAsync(item.ItemId);
+                if (itemEntity != null && !itemEntity.MaintainStock)
+                    continue;
+
+                var stockQty = item.StockQty;
+                var itemWarehouseId = item.WarehouseId ?? dn.WarehouseId;
+
+                await _valuationService.CreateLedgerEntryAsync(
+                    dn.CompanyId, item.ItemId, itemWarehouseId,
+                    dn.PostingDate, stockQty, item.ValuationRate,
+                    voucherType: "DeliveryNote", voucherId: dn.Id,
+                    tenantId: dn.TenantId, batchId: item.BatchId);
+
+                await _binService.ApplyStockMovementAsync(
+                    item.ItemId, itemWarehouseId,
+                    stockQty, stockQty * item.ValuationRate, dn.TenantId);
+
+                // Re-reserve qty in stock UOM
+                await _binService.UpdateReservedQtyAsync(
+                    item.ItemId, itemWarehouseId, stockQty, dn.TenantId);
+            }
         }
 
         // Reverse linked Sales Order fulfillment tracking
