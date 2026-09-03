@@ -1250,4 +1250,42 @@ public class DataIntegrityAndCoverageTests
 
         Assert.Equal(0, entriesCreated);
     }
+
+    [Fact]
+    public void AssetRepair_ConsumedItemsCost_IncludedInAssetCapitalization()
+    {
+        // Per ERPNext PR #47233 / commit ed8a8532e1:
+        // Consumed stock cost is always added to asset value after repair;
+        // repair service cost is added if CapitalizeRepairCost is true.
+        var asset = new Assets.Entities.Asset(
+            Guid.NewGuid(), Guid.NewGuid(), "AST-REP-01", "Delivery Van",
+            DateTime.UtcNow.AddYears(-1), 50000m);
+        asset.Submit();
+
+        var repair = new Assets.Entities.AssetRepair(
+            Guid.NewGuid(), "REP-001", asset.CompanyId, asset.Id);
+
+        // Add consumed spare parts (e.g. 2 tires at 500 each = 1000)
+        repair.AddStockItem(Guid.NewGuid(), Guid.NewGuid(), 2m, 500m);
+        // Add service invoice 800
+        repair.AddInvoice(Guid.NewGuid(), Guid.NewGuid(), 800m);
+
+        Assert.Equal(1000m, repair.ConsumedItemsCost);
+        Assert.Equal(800m, repair.RepairCost);
+        Assert.Equal(1800m, repair.TotalRepairCost);
+
+        // Scenario 1: CapitalizeRepairCost = false -> still capitalizes ConsumedItemsCost (1000)
+        repair.CapitalizeRepairCost = false;
+        var capitalizedCostUncapped = repair.ConsumedItemsCost + (repair.CapitalizeRepairCost ? repair.RepairCost : 0m);
+        Assert.Equal(1000m, capitalizedCostUncapped);
+
+        // Scenario 2: CapitalizeRepairCost = true -> capitalizes both (1800)
+        repair.CapitalizeRepairCost = true;
+        var capitalizedCostAll = repair.ConsumedItemsCost + (repair.CapitalizeRepairCost ? repair.RepairCost : 0m);
+        Assert.Equal(1800m, capitalizedCostAll);
+
+        asset.ApplyRepairCapitalization(capitalizedCostAll, 6);
+        Assert.Equal(1800m, asset.AdditionalCost);
+        Assert.Equal(51800m, asset.TotalAssetCost);
+    }
 }

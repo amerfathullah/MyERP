@@ -316,11 +316,12 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
 
         repair.Complete();
 
-        // If capitalizing repair cost, update asset value and schedule
-        if (repair.CapitalizeRepairCost && repair.TotalRepairCost > 0)
+        // Consumed stock cost is always added to asset value; repair cost is added if capitalized (ERPNext PR #47233 / commit ed8a8532e1)
+        var capitalizedCost = repair.ConsumedItemsCost + (repair.CapitalizeRepairCost ? repair.RepairCost : 0m);
+        if (capitalizedCost > 0)
         {
             var asset = await _assetRepository.GetAsync(repair.AssetId);
-            asset.ApplyRepairCapitalization(repair.TotalRepairCost, repair.IncreaseInAssetLife);
+            asset.ApplyRepairCapitalization(capitalizedCost, repair.CapitalizeRepairCost ? repair.IncreaseInAssetLife : 0);
             await _assetRepository.UpdateAsync(asset);
 
             var activity = new AssetActivity(
@@ -329,7 +330,7 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
                 AssetActivityType.Repaired,
                 $"Asset repair #{repair.RepairNumber} capitalized",
                 repair.CompletionDate ?? DateTime.UtcNow,
-                $"Capitalized amount: {repair.TotalRepairCost:N2}, Life extension: {repair.IncreaseInAssetLife} months",
+                $"Capitalized amount: {capitalizedCost:N2}, Life extension: {(repair.CapitalizeRepairCost ? repair.IncreaseInAssetLife : 0)} months",
                 "AssetRepair",
                 repair.Id.ToString(),
                 CurrentTenant.Id);
@@ -352,10 +353,11 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
 
         repair.Cancel();
 
-        if (repair.CapitalizeRepairCost && repair.TotalRepairCost > 0)
+        var capitalizedCost = repair.ConsumedItemsCost + (repair.CapitalizeRepairCost ? repair.RepairCost : 0m);
+        if (capitalizedCost > 0)
         {
             var asset = await _assetRepository.GetAsync(repair.AssetId);
-            asset.ApplyRepairCapitalization(-1 * repair.TotalRepairCost, -1 * repair.IncreaseInAssetLife);
+            asset.ApplyRepairCapitalization(-1 * capitalizedCost, repair.CapitalizeRepairCost ? -1 * repair.IncreaseInAssetLife : 0);
             await _assetRepository.UpdateAsync(asset);
 
             var activity = new AssetActivity(
@@ -364,7 +366,7 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
                 AssetActivityType.Repaired,
                 $"Asset repair #{repair.RepairNumber} cancelled",
                 DateTime.UtcNow,
-                $"Reverted capitalized repair cost of {repair.TotalRepairCost:N2}",
+                $"Reverted capitalized repair cost of {capitalizedCost:N2}",
                 "AssetRepair",
                 repair.Id.ToString(),
                 CurrentTenant.Id);
