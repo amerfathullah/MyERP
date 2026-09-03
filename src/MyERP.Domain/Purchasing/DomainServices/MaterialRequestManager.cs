@@ -99,10 +99,12 @@ public class MaterialRequestManager : DomainService
 
     /// <summary>
     /// Gets the pending (unfulfilled) quantity for an MR item.
+    /// Per ERPNext PR #47012 / commit 5a524854de: based on OrderedQuantity (or ReceivedQuantity if higher).
     /// </summary>
     public static decimal GetPendingQty(MaterialRequestItem item)
     {
-        return Math.Max(0, item.Quantity - item.OrderedQuantity);
+        var orderedOrReceived = item.OrderedQuantity > 0 ? item.OrderedQuantity : item.ReceivedQuantity;
+        return Math.Max(0, item.Quantity - orderedOrReceived);
     }
 
     /// <summary>

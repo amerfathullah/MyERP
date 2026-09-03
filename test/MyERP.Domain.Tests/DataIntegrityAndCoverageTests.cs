@@ -1436,4 +1436,31 @@ public class DataIntegrityAndCoverageTests
         var remainingReserved = sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty;
         Assert.Equal(10m, remainingReserved);
     }
+
+    [Fact]
+    public void MaterialRequest_GetPendingQty_PrefersOrderedOverReceived()
+    {
+        // Per ERPNext PR #47012 / commit 5a524854de:
+        // When determining pending qty to order, consider OrderedQuantity first (or ReceivedQuantity if higher).
+        var item = new Purchasing.Entities.MaterialRequestItem(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Raw Material A",
+            100m, "Kg");
+
+        // Initial pending qty: 100
+        Assert.Equal(100m, Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(item));
+
+        // Placed PO for 60 (ordered_qty = 60, received_qty = 0)
+        item.OrderedQuantity = 60m;
+        item.ReceivedQuantity = 0m;
+        Assert.Equal(40m, Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(item));
+
+        // Received 20 against PO (ordered_qty = 60, received_qty = 20)
+        // Pending qty to order is still 40 (based on ordered_qty = 60, not received_qty = 20)
+        item.ReceivedQuantity = 20m;
+        Assert.Equal(40m, Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(item));
+
+        // Fully ordered 100 (ordered_qty = 100, received_qty = 20)
+        item.OrderedQuantity = 100m;
+        Assert.Equal(0m, Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(item));
+    }
 }

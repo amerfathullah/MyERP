@@ -278,9 +278,9 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         if (mr.Status != Core.DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
-        if (mr.RequestType != MaterialRequestType.Purchase)
+        if (mr.RequestType != MaterialRequestType.Purchase && mr.RequestType != MaterialRequestType.Subcontracting)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("reason", "Only Purchase-type Material Requests can be converted to PO");
+                .WithData("reason", "Only Purchase and Subcontracting Material Requests can be converted to PO");
 
         var orderNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", mr.CompanyId);
 
@@ -288,12 +288,13 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             GuidGenerator.Create(), mr.CompanyId, supplierId, orderNumber,
             Clock.Now.Date, mr.TenantId)
         {
-            ExpectedDeliveryDate = mr.RequiredByDate ?? Clock.Now.Date
+            ExpectedDeliveryDate = mr.RequiredByDate ?? Clock.Now.Date,
+            IsSubcontracted = mr.RequestType == MaterialRequestType.Subcontracting
         };
 
         foreach (var mrItem in mr.Items)
         {
-            var pendingQty = mrItem.Quantity - mrItem.OrderedQuantity;
+            var pendingQty = MyERP.Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(mrItem);
             if (pendingQty <= 0) continue;
 
             // Get item for buying price
@@ -335,9 +336,9 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         if (mr.Status != Core.DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
-        if (mr.RequestType != MaterialRequestType.Purchase)
+        if (mr.RequestType != MaterialRequestType.Purchase && mr.RequestType != MaterialRequestType.Subcontracting)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("reason", "Only Purchase-type Material Requests can be converted to PO");
+                .WithData("reason", "Only Purchase and Subcontracting Material Requests can be converted to PO");
 
         if (!input.Items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
@@ -360,7 +361,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
                 throw new BusinessException(MyERPDomainErrorCodes.MaterialRequestItemNotFound)
                     .WithData("reason", $"Material Request item not found");
 
-            var pendingQty = mrItem.Quantity - mrItem.OrderedQuantity;
+            var pendingQty = MyERP.Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(mrItem);
             if (selItem.Quantity > pendingQty)
                 throw new BusinessException(MyERPDomainErrorCodes.QtyExceedsPendingMaterialRequest)
                     .WithData("reason", $"Requested qty ({selItem.Quantity}) exceeds pending qty ({pendingQty})");
@@ -379,7 +380,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
                 GuidGenerator.Create(), mr.CompanyId, supplierId, orderNumber,
                 Clock.Now.Date, mr.TenantId)
             {
-                ExpectedDeliveryDate = mr.RequiredByDate ?? Clock.Now.Date
+                ExpectedDeliveryDate = mr.RequiredByDate ?? Clock.Now.Date,
+                IsSubcontracted = mr.RequestType == MaterialRequestType.Subcontracting
             };
 
             foreach (var selItem in group)

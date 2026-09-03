@@ -52,7 +52,8 @@ export class MaterialRequestDetailComponent implements OnInit {
       actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (s === 1) { // Submitted
-      if (this.entity.requestType === 0) { // Purchase
+      // Purchase or Subcontracting with remaining un-ordered qty (ERPNext PR #47012 / commit 5a524854de)
+      if ((this.entity.requestType === 0 || this.entity.requestType === 5) && (this.entity.perOrdered ?? 0) < 100) {
         actions.push({ name: 'convertToPO', label: 'Create Purchase Order', icon: 'file-invoice', color: 'success' });
         actions.push({ name: 'splitBySupplier', label: 'Split by Supplier', icon: 'code-branch', color: 'secondary' });
       }
