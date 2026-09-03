@@ -100,6 +100,13 @@ public class InterCompanyTransactionService : DomainService
         pi.CurrencyCode = sourceCompany.CurrencyCode; // Must be source company currency
         pi.InterCompanyInvoiceId = si.Id;
 
+        // Address link validation (ERPNext PR #47463 / commit aed46ad5b9):
+        // Only map address if it is actually linked to the target party
+        if (si.BillingAddressId.HasValue && await ValidateAddressLinkAsync(si.BillingAddressId, "Supplier", matchingSupplier.Id))
+        {
+            pi.BillingAddressId = si.BillingAddressId;
+        }
+
         // Copy items (amounts only — no party-specific fields)
         foreach (var item in si.Items)
         {
@@ -172,6 +179,13 @@ public class InterCompanyTransactionService : DomainService
         si.CurrencyCode = sourceCompany.CurrencyCode;
         si.InterCompanyPurchaseInvoiceId = pi.Id;
 
+        // Address link validation (ERPNext PR #47463 / commit aed46ad5b9):
+        // Only map address if it is actually linked to the target party
+        if (pi.BillingAddressId.HasValue && await ValidateAddressLinkAsync(pi.BillingAddressId, "Customer", matchingCustomer.Id))
+        {
+            si.BillingAddressId = pi.BillingAddressId;
+        }
+
         foreach (var item in pi.Items)
         {
             si.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
@@ -223,6 +237,13 @@ public class InterCompanyTransactionService : DomainService
         po.CurrencyCode = salesOrder.CurrencyCode ?? "MYR";
         po.InterCompanySalesOrderId = salesOrder.Id;
         po.Notes = $"Auto-created from inter-company Sales Order {salesOrder.OrderNumber}";
+
+        // Address link validation (ERPNext PR #47463 / commit aed46ad5b9):
+        // Only map address if it is actually linked to the target party
+        if (salesOrder.BillingAddressId.HasValue && await ValidateAddressLinkAsync(salesOrder.BillingAddressId, "Supplier", matchingSupplier.Id))
+        {
+            po.BillingAddressId = salesOrder.BillingAddressId;
+        }
 
         foreach (var item in salesOrder.Items)
         {
@@ -292,5 +313,17 @@ public class InterCompanyTransactionService : DomainService
             var validationService = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
             validationService.ValidateMaintainSameRate(rateLines, action, canOverride);
         }
+    }
+
+    /// <summary>
+    /// Validates that an address is linked to the specified party.
+    /// Per ERPNext PR #47463 / commit aed46ad5b9: Prevents cross-company address link leakage.
+    /// </summary>
+    private async Task<bool> ValidateAddressLinkAsync(Guid? addressId, string partyType, Guid partyId)
+    {
+        if (!addressId.HasValue) return false;
+        var addressRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Address, Guid>>();
+        var address = await addressRepo.FindAsync(addressId.Value);
+        return address != null && string.Equals(address.PartyType, partyType, StringComparison.OrdinalIgnoreCase) && address.PartyId == partyId;
     }
 }

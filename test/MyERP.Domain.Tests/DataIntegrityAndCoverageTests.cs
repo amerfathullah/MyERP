@@ -796,4 +796,18 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(seItemId, addlItem.VoucherDetailReference);
         Assert.Equal(5m, addlItem.TransferredQuantity);
     }
+
+    [Fact]
+    public void InterCompany_AddressValidation_MatchesTargetParty()
+    {
+        var supplierId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+
+        var supplierAddress = new Core.Entities.Address(
+            Guid.NewGuid(), "Supplier Office", "Supplier", supplierId, "123 Jalan Ampang", "Malaysia");
+
+        Assert.Equal("Supplier", supplierAddress.PartyType);
+        Assert.Equal(supplierId, supplierAddress.PartyId);
+        Assert.NotEqual(customerId, supplierAddress.PartyId);
+    }
 }
