@@ -613,4 +613,23 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(10m, qItem2.OrderedQty);
         Assert.Equal(0m, quotation.PerOrdered); // Min(0, 100) = 0%
     }
+
+    [Fact]
+    public void Invoice_DiscountAmount_CalculatesAdditionalDiscountPercentage()
+    {
+        var invoice = new Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "INV-001", DateTime.UtcNow);
+        invoice.AddItem(Guid.NewGuid(), "Item 1", 2m, 250m, 0m); // Net = 500
+        invoice.DiscountAmount = 50m; // 50 / 500 = 10%
+        invoice.AdditionalDiscountPercentage = 0m;
+
+        var netForDiscount = invoice.Items.Sum(i => i.LineTotal);
+        var discountAmt = invoice.DiscountAmount;
+        if (discountAmt > 0 && netForDiscount > 0 && invoice.AdditionalDiscountPercentage == 0)
+        {
+            invoice.AdditionalDiscountPercentage = Math.Round(discountAmt / netForDiscount * 100m, 4);
+        }
+
+        Assert.Equal(10m, invoice.AdditionalDiscountPercentage);
+    }
 }

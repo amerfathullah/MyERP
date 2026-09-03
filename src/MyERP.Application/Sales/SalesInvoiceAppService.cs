@@ -831,11 +831,17 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         // Server-side tax recalculation (delegated to domain service)
         var taxRecalcService = LazyServiceProvider.LazyGetRequiredService<TransactionTaxRecalculationService>();
+        var netForDiscount = invoice.Items.Sum(i => i.LineTotal);
         var discountAmt = invoice.DiscountAmount;
-        if (invoice.AdditionalDiscountPercentage > 0 && discountAmt == 0)
+        if (discountAmt > 0 && netForDiscount > 0 && invoice.AdditionalDiscountPercentage == 0)
         {
-            var netForDiscount = invoice.Items.Sum(i => i.LineTotal);
+            // Per ERPNext PR #47806: calculate discount percentage if discount amount is specified
+            invoice.AdditionalDiscountPercentage = Math.Round(discountAmt / netForDiscount * 100m, 4);
+        }
+        else if (invoice.AdditionalDiscountPercentage > 0 && discountAmt == 0)
+        {
             discountAmt = Math.Round(netForDiscount * invoice.AdditionalDiscountPercentage / 100m, 2);
+            invoice.DiscountAmount = discountAmt;
         }
         var totals = await taxRecalcService.RecalculateAsync(new TaxRecalculationInput
         {
