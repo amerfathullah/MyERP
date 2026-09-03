@@ -190,6 +190,29 @@ public class AssetCapitalizationAppService : ApplicationService, IAssetCapitaliz
             await _activityRepository.InsertAsync(activity);
         }
 
+        // Mark consumed assets as capitalized (ERPNext commit 2391c859b2 / a121c30b56)
+        foreach (var consumedRow in cap.ConsumedAssets)
+        {
+            var consumedAsset = await _assetRepository.FindAsync(consumedRow.AssetId);
+            if (consumedAsset != null)
+            {
+                consumedAsset.MarkAsCapitalized(cap.PostingDate);
+                await _assetRepository.UpdateAsync(consumedAsset);
+
+                var activity = new AssetActivity(
+                    GuidGenerator.Create(),
+                    consumedAsset.Id,
+                    AssetActivityType.Capitalized,
+                    $"Asset consumed in Capitalization #{cap.CapitalizationNumber}",
+                    cap.PostingDate,
+                    $"Consumed into target asset {targetAsset?.AssetName ?? cap.TargetAssetName}",
+                    "AssetCapitalization",
+                    cap.Id.ToString(),
+                    CurrentTenant.Id);
+                await _activityRepository.InsertAsync(activity);
+            }
+        }
+
         await _repository.UpdateAsync(cap);
         return _mapper.Map(cap);
     }
@@ -218,6 +241,29 @@ public class AssetCapitalizationAppService : ApplicationService, IAssetCapitaliz
                 CurrentTenant.Id);
 
             await _activityRepository.InsertAsync(activity);
+        }
+
+        // Restore consumed assets (ERPNext commit 2391c859b2 / a121c30b56)
+        foreach (var consumedRow in cap.ConsumedAssets)
+        {
+            var consumedAsset = await _assetRepository.FindAsync(consumedRow.AssetId);
+            if (consumedAsset != null)
+            {
+                consumedAsset.RestoreFromCapitalization();
+                await _assetRepository.UpdateAsync(consumedAsset);
+
+                var activity = new AssetActivity(
+                    GuidGenerator.Create(),
+                    consumedAsset.Id,
+                    AssetActivityType.Capitalized,
+                    $"Asset consumption reverted (Capitalization #{cap.CapitalizationNumber} cancelled)",
+                    DateTime.UtcNow,
+                    $"Restored from target asset {targetAsset?.AssetName ?? cap.TargetAssetName}",
+                    "AssetCapitalization",
+                    cap.Id.ToString(),
+                    CurrentTenant.Id);
+                await _activityRepository.InsertAsync(activity);
+            }
         }
 
         await _repository.UpdateAsync(cap);

@@ -208,6 +208,32 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Marks this asset as consumed/capitalized into another asset.
+    /// Per ERPNext commit 2391c859b2 / a121c30b56.
+    /// </summary>
+    public void MarkAsCapitalized(DateTime disposalDate)
+    {
+        Status = AssetStatus.Capitalized;
+        DisposalDate = disposalDate;
+    }
+
+    /// <summary>
+    /// Restores a previously capitalized asset when the capitalization is cancelled.
+    /// Per ERPNext commit 2391c859b2 / a121c30b56.
+    /// </summary>
+    public void RestoreFromCapitalization()
+    {
+        if (Status != AssetStatus.Capitalized) return;
+        DisposalDate = null;
+        Status = AssetStatus.Submitted;
+        RecalculateStatus();
+        if (CalculateDepreciation)
+        {
+            GenerateDepreciationSchedule();
+        }
+    }
+
+    /// <summary>
     /// (Re)generates the depreciation schedule. Preserves already-booked (GL-posted) rows —
     /// only unbooked rows are cleared and rebuilt. Regenerating the whole schedule from
     /// scratch would silently recreate fresh, unbooked duplicates of periods whose Journal
@@ -374,7 +400,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public void RecalculateStatus()
     {
-        if (Status is AssetStatus.Sold or AssetStatus.Scrapped or AssetStatus.Cancelled or AssetStatus.Draft)
+        if (Status is AssetStatus.Sold or AssetStatus.Scrapped or AssetStatus.Cancelled or AssetStatus.Draft or AssetStatus.Capitalized)
             return;
 
         if (ValueAfterDepreciation <= 0)

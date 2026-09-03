@@ -810,4 +810,26 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(supplierId, supplierAddress.PartyId);
         Assert.NotEqual(customerId, supplierAddress.PartyId);
     }
+
+    [Fact]
+    public void Asset_Capitalization_MarkAndRestoreLifecycle()
+    {
+        var asset = new Assets.Entities.Asset(
+            Guid.NewGuid(), Guid.NewGuid(), "AST-001", "Substation Pump",
+            DateTime.UtcNow, 10000m);
+
+        Assert.Equal(Assets.AssetStatus.Draft, asset.Status);
+        asset.Submit();
+        Assert.Equal(Assets.AssetStatus.Submitted, asset.Status);
+
+        var disposalDate = DateTime.UtcNow.Date;
+        asset.MarkAsCapitalized(disposalDate);
+
+        Assert.Equal(Assets.AssetStatus.Capitalized, asset.Status);
+        Assert.Equal(disposalDate, asset.DisposalDate);
+
+        asset.RestoreFromCapitalization();
+        Assert.Equal(Assets.AssetStatus.Submitted, asset.Status);
+        Assert.Null(asset.DisposalDate);
+    }
 }

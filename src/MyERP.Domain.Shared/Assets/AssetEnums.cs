@@ -10,6 +10,7 @@ public enum AssetStatus
     Scrapped = 5,
     InMaintenance = 6,
     Cancelled = 7,
+    Capitalized = 8,
 }
 
 public enum DepreciationMethod
