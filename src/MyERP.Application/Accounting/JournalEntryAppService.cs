@@ -201,6 +201,30 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
             }
         }
 
+        // Validate inter-company accounts and amounts (ERPNext PR #47241 / commit 5fe247557e)
+        if (entry.VoucherType == JournalEntryVoucherType.InterCompanyJournalEntry && entry.InterCompanyJournalEntryId.HasValue)
+        {
+            var linkedJe = await _repository.FindAsync(entry.InterCompanyJournalEntryId.Value);
+            if (linkedJe != null)
+            {
+                var entryCompany = await _companyRepository.GetAsync(entry.CompanyId);
+                var linkedCompany = await _companyRepository.GetAsync(linkedJe.CompanyId);
+                if (string.Equals(entryCompany.CurrencyCode, linkedCompany.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+                {
+                    var entryCredit = Math.Round(entry.TotalCredit, 2);
+                    var entryDebit = Math.Round(entry.TotalDebit, 2);
+                    var linkedCredit = Math.Round(linkedJe.TotalCredit, 2);
+                    var linkedDebit = Math.Round(linkedJe.TotalDebit, 2);
+
+                    if (entryCredit != linkedDebit || entryDebit != linkedCredit)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", "Total Credit/Debit Amount should be same as linked Journal Entry.");
+                    }
+                }
+            }
+        }
+
         entry.Post();
         await _repository.UpdateAsync(entry, autoSave: true);
 

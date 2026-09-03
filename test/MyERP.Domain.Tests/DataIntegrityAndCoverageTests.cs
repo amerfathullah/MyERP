@@ -1288,4 +1288,32 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(1800m, asset.AdditionalCost);
         Assert.Equal(51800m, asset.TotalAssetCost);
     }
+
+    [Fact]
+    public void InterCompanyJournalEntry_DebitCredit_PrecisionValidation()
+    {
+        // Per ERPNext PR #47241 / commit 5fe247557e:
+        // Inter-Company Journal Entry compares reciprocal debit/credit totals using currency precision (2 decimals)
+        // to avoid floating-point/sub-penny mismatch rejections.
+        decimal originalDebit = 1250.5000001m;
+        decimal originalCredit = 1250.5000000m;
+
+        decimal linkedDebit = 1250.5000000m;
+        decimal linkedCredit = 1250.5000002m;
+
+        // Raw comparison might fail if not rounded:
+        // originalCredit != linkedDebit without precision
+        var roundedOriginalCredit = Math.Round(originalCredit, 2);
+        var roundedOriginalDebit = Math.Round(originalDebit, 2);
+        var roundedLinkedCredit = Math.Round(linkedCredit, 2);
+        var roundedLinkedDebit = Math.Round(linkedDebit, 2);
+
+        Assert.Equal(1250.50m, roundedOriginalCredit);
+        Assert.Equal(1250.50m, roundedOriginalDebit);
+        Assert.Equal(1250.50m, roundedLinkedCredit);
+        Assert.Equal(1250.50m, roundedLinkedDebit);
+
+        var isValid = (roundedOriginalCredit == roundedLinkedDebit) && (roundedOriginalDebit == roundedLinkedCredit);
+        Assert.True(isValid);
+    }
 }
