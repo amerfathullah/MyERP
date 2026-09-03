@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Purchasing;
 
@@ -457,8 +458,12 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         sq.RequestForQuotationId = rfq.Id;
         sq.Currency = rfq.CurrencyCode;
 
+        var allowZeroQty = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowZeroQtyInSupplierQuotation);
         foreach (var rfqItem in rfq.Items)
         {
+            if (rfqItem.Qty <= 0 && !allowZeroQty)
+                continue;
+
             // Rate starts at 0 — supplier fills in their quoted rate
             sq.AddItem(rfqItem.ItemId, rfqItem.Qty, 0m, rfqItem.Description,
                 rfqItem.Uom);

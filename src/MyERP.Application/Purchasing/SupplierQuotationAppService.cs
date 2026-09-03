@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
 
 namespace MyERP.Purchasing;
 
@@ -76,6 +77,14 @@ public class SupplierQuotationAppService : ApplicationService, ISupplierQuotatio
         // Validate all items are active
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+
+        // Validate zero qty according to Buying Settings
+        var allowZeroQty = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowZeroQtyInSupplierQuotation);
+        if (!allowZeroQty && input.Items.Any(i => i.Qty <= 0))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Quantity cannot be zero or negative unless 'Allow Zero Qty in Supplier Quotation' is enabled in Buying Settings.");
+        }
 
         // Prevent duplicate supplier quotation against same RFQ (upstream PR #58377)
         if (input.RequestForQuotationId.HasValue)

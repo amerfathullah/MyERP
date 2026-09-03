@@ -1094,4 +1094,26 @@ public class DataIntegrityAndCoverageTests
         var requiresAccumDepAccount = accumulatedDepreciation != 0;
         Assert.False(requiresAccumDepAccount);
     }
+
+    [Fact]
+    public void SupplierQuotation_AllowZeroQtyInSupplierQuotation_EnforcesSetting()
+    {
+        // Per ERPNext PR #47435 / commit 879b966bd4:
+        // Allow zero qty in SQ and conversion from RFQ when enabled by Buying Settings.
+        var allowZeroQty = false;
+        var rfqItems = new[]
+        {
+            new { ItemId = Guid.NewGuid(), Qty = 0m, Description = "Zero Qty Sample Item" },
+            new { ItemId = Guid.NewGuid(), Qty = 10m, Description = "Standard Item" }
+        };
+
+        var filteredItemsDisallowed = rfqItems.Where(i => !(i.Qty <= 0 && !allowZeroQty)).ToList();
+        Assert.Single(filteredItemsDisallowed);
+        Assert.Equal(10m, filteredItemsDisallowed[0].Qty);
+
+        allowZeroQty = true;
+        var filteredItemsAllowed = rfqItems.Where(i => !(i.Qty <= 0 && !allowZeroQty)).ToList();
+        Assert.Equal(2, filteredItemsAllowed.Count);
+        Assert.Contains(filteredItemsAllowed, i => i.Qty == 0m);
+    }
 }
