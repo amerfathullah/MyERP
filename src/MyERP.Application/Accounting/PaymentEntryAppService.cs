@@ -264,6 +264,13 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         {
             foreach (var refDto in input.References)
             {
+                // Per ERPNext PR #47334 / commit b9a02b466b:
+                // Do not allocate amount when reference doctype or reference id are not set
+                if (string.IsNullOrWhiteSpace(refDto.ReferenceType) || refDto.ReferenceId == Guid.Empty)
+                {
+                    continue;
+                }
+
                 var reference = new PaymentEntryReference(
                     GuidGenerator.Create(),
                     pe.Id,
@@ -538,6 +545,11 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
             foreach (var refRow in pe.References)
             {
+                // Per ERPNext PR #47334 / commit b9a02b466b:
+                // Skip allocation if reference doctype or reference id are not set
+                if (string.IsNullOrWhiteSpace(refRow.ReferenceType) || refRow.ReferenceId == Guid.Empty)
+                    continue;
+
                 if (refRow.ReferenceType == "SalesInvoice")
                 {
                     var si = await _salesInvoiceRepository.GetAsync(refRow.ReferenceId);

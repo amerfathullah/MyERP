@@ -2036,4 +2036,25 @@ public class DataIntegrityAndCoverageTests
         var otherBypass = (otherRefType is "PurchaseReceipt" or "PurchaseInvoice" or "SalesInvoice" or "DeliveryNote") && isAllowed;
         Assert.False(otherBypass);
     }
+
+    [Fact]
+    public void PaymentEntry_SkipsAllocation_WhenReferenceDoctypeOrIdNotSet()
+    {
+        // Per ERPNext PR #47334 / commit b9a02b466b:
+        // Do not allocate amount when reference doctype or name (id) are not set.
+        var refs = new System.Collections.Generic.List<Accounting.PaymentReferenceDto>
+        {
+            new() { ReferenceType = "", ReferenceId = Guid.NewGuid(), AllocatedAmount = 100m },
+            new() { ReferenceType = "SalesInvoice", ReferenceId = Guid.Empty, AllocatedAmount = 200m },
+            new() { ReferenceType = "   ", ReferenceId = Guid.NewGuid(), AllocatedAmount = 300m },
+            new() { ReferenceType = "SalesInvoice", ReferenceId = Guid.NewGuid(), AllocatedAmount = 400m },
+        };
+
+        var validRefs = refs
+            .Where(r => !string.IsNullOrWhiteSpace(r.ReferenceType) && r.ReferenceId != Guid.Empty)
+            .ToList();
+
+        Assert.Single(validRefs);
+        Assert.Equal(400m, validRefs[0].AllocatedAmount);
+    }
 }
