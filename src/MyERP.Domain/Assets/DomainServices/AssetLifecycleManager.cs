@@ -273,6 +273,7 @@ public class AssetLifecycleManager : DomainService
             DepreciationRate = existingAsset.DepreciationRate,
             FrequencyMonths = existingAsset.FrequencyMonths,
             AvailableForUseDate = existingAsset.AvailableForUseDate,
+            ExpectedValueAfterUsefulLife = existingAsset.ExpectedValueAfterUsefulLife,
             Notes = $"Split from {existingAsset.AssetNumber}",
             SplitFromAssetId = existingAsset.Id
         };

@@ -2132,4 +2132,37 @@ public class DataIntegrityAndCoverageTests
         var endingBookValue = asset.TotalAssetCost - asset.DepreciationSchedule[1].AccumulatedDepreciation;
         Assert.Equal(2000m, endingBookValue);
     }
+
+    [Fact]
+    public void Asset_ApplyRepairCapitalization_UpdatesDepreciationDetailsAndLife()
+    {
+        // Per ERPNext commit c567a08470:
+        // AssetRepair capitalization must increase useful life and value in DepreciationDetails (finance books)
+        var asset = new Assets.Entities.Asset(
+            Guid.NewGuid(), Guid.NewGuid(), "AST-002", "CNC Machine",
+            DateTime.UtcNow.Date, 20000m)
+        {
+            UsefulLifeMonths = 24,
+            FrequencyMonths = 12,
+            ValueAfterDepreciation = 15000m
+        };
+
+        var detail = new Assets.Entities.AssetDepreciationDetail(
+            Guid.NewGuid(), asset.Id, Assets.DepreciationMethod.StraightLine,
+            2, 12, 20000m)
+        {
+            ValueAfterDepreciation = 15000m
+        };
+        asset.DepreciationDetails.Add(detail);
+
+        asset.ApplyRepairCapitalization(5000m, 12);
+
+        Assert.Equal(25000m, asset.TotalAssetCost);
+        Assert.Equal(20000m, asset.ValueAfterDepreciation);
+        Assert.Equal(36, asset.UsefulLifeMonths);
+
+        Assert.Equal(20000m, detail.ValueAfterDepreciation);
+        Assert.Equal(12, detail.IncreaseInAssetLife);
+        Assert.Equal(3, detail.TotalNumberOfDepreciations);
+    }
 }

@@ -439,10 +439,24 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         AdditionalCost += additionalCost;
         ValueAfterDepreciation += additionalCost;
-        if (increaseInUsefulLifeMonths > 0)
+        if (increaseInUsefulLifeMonths != 0)
         {
             UsefulLifeMonths += increaseInUsefulLifeMonths;
         }
+
+        foreach (var detail in DepreciationDetails)
+        {
+            detail.ValueAfterDepreciation += additionalCost;
+            if (increaseInUsefulLifeMonths != 0)
+            {
+                detail.IncreaseInAssetLife += increaseInUsefulLifeMonths;
+                var additionalPeriods = detail.FrequencyOfDepreciation > 0
+                    ? (int)Math.Round((decimal)increaseInUsefulLifeMonths / detail.FrequencyOfDepreciation)
+                    : 0;
+                detail.TotalNumberOfDepreciations += additionalPeriods;
+            }
+        }
+
         GenerateDepreciationSchedule();
         RecalculateStatus();
     }
@@ -491,6 +505,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         PurchaseAmount = Math.Round(PurchaseAmount * scalingFactor, 2);
         AdditionalCost = Math.Round(AdditionalCost * scalingFactor, 2);
         OpeningAccumulatedDepreciation = Math.Round(OpeningAccumulatedDepreciation * scalingFactor, 2);
+        ExpectedValueAfterUsefulLife = Math.Round(ExpectedValueAfterUsefulLife * scalingFactor, 2);
         ValueAfterDepreciation = Math.Round(ValueAfterDepreciation * scalingFactor, 2);
 
         foreach (var detail in DepreciationDetails)

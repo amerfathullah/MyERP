@@ -31,6 +31,9 @@ public class AssetDepreciationDetail : FullAuditedEntity<Guid>
     /// <summary>Frequency in months between depreciations (1=monthly, 3=quarterly, 12=annually).</summary>
     public int FrequencyOfDepreciation { get; set; } = 12;
 
+    /// <summary>Increase in asset life (in months) via Asset Repair (ERPNext commit c567a08470).</summary>
+    public int IncreaseInAssetLife { get; set; }
+
     /// <summary>Date when depreciation starts for this book.</summary>
     public DateTime? DepreciationStartDate { get; set; }
 
