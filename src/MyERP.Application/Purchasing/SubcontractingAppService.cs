@@ -13,6 +13,7 @@ using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using MyERP.Settings;
 
 namespace MyERP.Purchasing;
 
@@ -375,9 +376,12 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
 
         // RM consumption: calculate and track consumed quantities
         // Per ERPNext subcontracting_controller: RM consumed proportional to received FG qty
+        // Per ERPNext PR #46892 / commit 7479e1ec32: backflush setting is ignored on returns
         var totalReceivedFgQty = scr.Items.Sum(i => i.Qty);
         var sco = await _scoRepository.GetAsync(scr.SubcontractingOrderId);
-        var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty);
+        var backflushSetting = await SettingProvider.GetOrNullAsync(
+            MyERPSettings.Buying.BackflushSubcontractBasedOn) ?? "BOM";
+        var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty, backflushSetting, scr.IsReturn);
 
         foreach (var rm in rmConsumptions)
         {

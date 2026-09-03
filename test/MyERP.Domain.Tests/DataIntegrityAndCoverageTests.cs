@@ -1524,4 +1524,43 @@ public class DataIntegrityAndCoverageTests
 
         Assert.Equal(projectId, invoice.ProjectId);
     }
+
+    [Fact]
+    public void Subcontracting_IgnoreBackflushSettingOnReturn()
+    {
+        // Per ERPNext PR #46892 / commit 7479e1ec32:
+        // On Subcontracting Receipt return, ignore backflush setting (e.g. "Material Transferred for Subcontract")
+        // and always use BOM / RequiredQty.
+        var sco = new Purchasing.Entities.SubcontractingOrder(
+            Guid.NewGuid(), Guid.NewGuid(), "SCO-001", DateTime.UtcNow.Date, Guid.NewGuid(), Guid.NewGuid());
+
+        var fgItemId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+
+        sco.AddItem(new Purchasing.Entities.SubcontractingOrderItem(
+            Guid.NewGuid(), sco.Id, fgItemId, "Finished Good", 10m, 50m));
+
+        // Required 20, Transferred 30 (due to extra materials sent)
+        sco.AddSuppliedItem(new Purchasing.Entities.SubcontractingOrderSuppliedItem(
+            Guid.NewGuid(), sco.Id, rmItemId, "Raw Material", 20m)
+        {
+            TransferredQty = 30m
+        });
+
+        var scManager = new Purchasing.DomainServices.SubcontractingManager(null!, null!);
+
+        // Scenario 1: Normal receipt with "Material Transferred for Subcontract" backflush setting
+        // Received 5 out of 10 FG (50%) -> should consume 50% of TransferredQty (30 * 0.5 = 15)
+        var normalConsumptions = scManager.CalculateRmConsumption(
+            sco, 5m, "Material Transferred for Subcontract", isReturn: false);
+        Assert.Single(normalConsumptions);
+        Assert.Equal(15m, normalConsumptions[0].ConsumedQty);
+
+        // Scenario 2: Return receipt with "Material Transferred for Subcontract" setting
+        // Per PR #46892: on return, backflush setting is IGNORED, falling back to RequiredQty (20 * -0.5 = -10)
+        var returnConsumptions = scManager.CalculateRmConsumption(
+            sco, -5m, "Material Transferred for Subcontract", isReturn: true);
+        Assert.Single(returnConsumptions);
+        Assert.Equal(-10m, returnConsumptions[0].ConsumedQty);
+    }
 }

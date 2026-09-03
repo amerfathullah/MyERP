@@ -102,25 +102,32 @@ public class SubcontractingManager : DomainService
 
     /// <summary>
     /// Calculates consumed RM quantities for a SCR based on proportional ratios.
-    /// consumed_qty = supplied_item.required_qty × (received_fg_qty / total_fg_qty)
-    /// Per ERPNext subcontracting_controller: proportional consumption.
+    /// When backflushBasedOn is "Material Transferred for Subcontract" (and NOT a return),
+    /// consumption is based on TransferredQty.
+    /// Per ERPNext PR #46892 / commit 7479e1ec32: backflush setting is ignored on returns (isReturn = true),
+    /// always falling back to BOM/RequiredQty.
     /// </summary>
     public SubcontractingRmConsumption[] CalculateRmConsumption(
-        SubcontractingOrder sco, decimal receivedFgQty)
+        SubcontractingOrder sco, decimal receivedFgQty, string? backflushBasedOn = "BOM", bool isReturn = false)
     {
         // Total FG qty ordered
         var totalFgQty = sco.Items.Sum(i => i.Qty);
         if (totalFgQty <= 0) return Array.Empty<SubcontractingRmConsumption>();
 
         var ratio = receivedFgQty / totalFgQty;
+        var useTransferred = !isReturn && string.Equals(backflushBasedOn, "Material Transferred for Subcontract", StringComparison.OrdinalIgnoreCase);
 
         return sco.SuppliedItems
-            .Select(si => new SubcontractingRmConsumption
+            .Select(si =>
             {
-                ItemId = si.ItemId,
-                RequiredQty = si.RequiredQty,
-                ConsumedQty = Math.Round(si.RequiredQty * ratio, 4),
-                WarehouseId = si.ReserveWarehouseId
+                var baseQty = useTransferred ? si.TransferredQty : si.RequiredQty;
+                return new SubcontractingRmConsumption
+                {
+                    ItemId = si.ItemId,
+                    RequiredQty = si.RequiredQty,
+                    ConsumedQty = Math.Round(baseQty * ratio, 4),
+                    WarehouseId = si.ReserveWarehouseId
+                };
             })
             .ToArray();
     }
