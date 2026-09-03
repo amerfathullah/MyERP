@@ -418,12 +418,15 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         var mr = new Purchasing.Entities.MaterialRequest(
             GuidGenerator.Create(), salesOrder.CompanyId, mrNumber,
-            Purchasing.MaterialRequestType.Purchase, DateTime.UtcNow, salesOrder.TenantId);
+            Purchasing.MaterialRequestType.Purchase, DateTime.UtcNow, salesOrder.TenantId)
+        {
+            ProjectId = salesOrder.ProjectId,
+        };
 
         foreach (var item in salesOrder.Items.Where(i => i.PendingDeliveryQty > 0))
         {
             mr.AddItem(item.ItemId, item.Description ?? string.Empty, item.PendingDeliveryQty,
-                item.StockUom ?? "Unit");
+                item.StockUom ?? "Unit", projectId: salesOrder.ProjectId);
 
             // Link MR item back to SO
             var mrItem = mr.Items.Last();

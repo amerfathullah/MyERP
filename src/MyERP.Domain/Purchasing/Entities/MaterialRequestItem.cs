@@ -25,6 +25,9 @@ public class MaterialRequestItem : Entity<Guid>
     /// <summary>Sales Order Item ID when MR was created from SO→MR conversion.</summary>
     public Guid? SalesOrderItemId { get; set; }
 
+    /// <summary>Linked project for budgeting and tracking (ERPNext commit 9eab434ae8).</summary>
+    public Guid? ProjectId { get; set; }
+
     protected MaterialRequestItem() { }
 
     public MaterialRequestItem(Guid id, Guid materialRequestId, Guid itemId,

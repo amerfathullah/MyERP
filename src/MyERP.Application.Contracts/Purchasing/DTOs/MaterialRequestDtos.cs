@@ -16,6 +16,7 @@ public class MaterialRequestDto
     public DateTime RequestDate { get; set; }
     public DateTime? RequiredByDate { get; set; }
     public Guid CompanyId { get; set; }
+    public Guid? ProjectId { get; set; }
     public Guid? WorkOrderId { get; set; }
     public Guid? SourceWarehouseId { get; set; }
     public Guid? TargetWarehouseId { get; set; }
@@ -40,6 +41,7 @@ public class MaterialRequestItemDto
     public Guid? WarehouseId { get; set; }
     public Guid? SalesOrderId { get; set; }
     public Guid? SalesOrderItemId { get; set; }
+    public Guid? ProjectId { get; set; }
 }
 
 public class CreateMaterialRequestDto
@@ -54,6 +56,7 @@ public class CreateMaterialRequestDto
     public DateTime RequestDate { get; set; }
 
     public DateTime? RequiredByDate { get; set; }
+    public Guid? ProjectId { get; set; }
     public Guid? WorkOrderId { get; set; }
     public Guid? SourceWarehouseId { get; set; }
     public Guid? TargetWarehouseId { get; set; }
@@ -83,6 +86,7 @@ public class CreateMaterialRequestItemDto
     public Guid? WarehouseId { get; set; }
     public Guid? SalesOrderId { get; set; }
     public Guid? SalesOrderItemId { get; set; }
+    public Guid? ProjectId { get; set; }
 }
 
 public class GetMaterialRequestListDto : PagedAndSortedResultRequestDto

@@ -86,6 +86,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             GuidGenerator.Create(), input.CompanyId, number,
             input.RequestType, input.RequestDate, CurrentTenant.Id)
         {
+            ProjectId = input.ProjectId,
             RequiredByDate = input.RequiredByDate,
             WorkOrderId = input.WorkOrderId,
             SourceWarehouseId = input.SourceWarehouseId,
@@ -103,7 +104,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
 
         foreach (var item in input.Items)
         {
-            entity.AddItem(item.ItemId, item.ItemName, item.Quantity, item.Uom, item.WarehouseId, item.SalesOrderId, item.SalesOrderItemId);
+            entity.AddItem(item.ItemId, item.ItemName, item.Quantity, item.Uom, item.WarehouseId, item.SalesOrderId, item.SalesOrderItemId, item.ProjectId ?? input.ProjectId);
         }
 
         await ValidateItemsAgainstSalesOrderAsync(entity);

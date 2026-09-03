@@ -2323,4 +2323,26 @@ public class DataIntegrityAndCoverageTests
         Assert.True(asset.IsCompositeAsset);
         Assert.False(asset.IsCompositeComponent);
     }
+
+    [Fact]
+    public void MaterialRequest_ProjectId_PreservedFromSalesOrder()
+    {
+        // Per ERPNext commit 9eab434ae8:
+        // Project ID from source Sales Order is mapped to MaterialRequest and its items.
+        var projectId = Guid.NewGuid();
+        var soId = Guid.NewGuid();
+        var mr = new Purchasing.Entities.MaterialRequest(
+            Guid.NewGuid(), Guid.NewGuid(), "MR-0001",
+            Purchasing.MaterialRequestType.Purchase, DateTime.UtcNow)
+        {
+            ProjectId = projectId
+        };
+
+        mr.AddItem(Guid.NewGuid(), "Item A", 10m, "Nos", salesOrderId: soId);
+
+        Assert.Equal(projectId, mr.ProjectId);
+        Assert.Single(mr.Items);
+        Assert.Equal(projectId, mr.Items[0].ProjectId);
+        Assert.Equal(soId, mr.Items[0].SalesOrderId);
+    }
 }

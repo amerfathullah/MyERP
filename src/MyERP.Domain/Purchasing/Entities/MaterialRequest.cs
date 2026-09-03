@@ -27,6 +27,9 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Source work order (if created from manufacturing).</summary>
     public Guid? WorkOrderId { get; set; }
 
+    /// <summary>Linked project for budgeting and tracking (ERPNext commit 9eab434ae8).</summary>
+    public Guid? ProjectId { get; set; }
+
     public Guid? SourceWarehouseId { get; set; }
     public Guid? TargetWarehouseId { get; set; }
 
@@ -69,7 +72,7 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     public void AddItem(Guid itemId, string itemName, decimal quantity, string uom,
-        Guid? warehouseId = null, Guid? salesOrderId = null, Guid? salesOrderItemId = null)
+        Guid? warehouseId = null, Guid? salesOrderId = null, Guid? salesOrderItemId = null, Guid? projectId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -79,6 +82,7 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             SalesOrderId = salesOrderId,
             SalesOrderItemId = salesOrderItemId,
+            ProjectId = projectId ?? ProjectId,
         });
     }
 
