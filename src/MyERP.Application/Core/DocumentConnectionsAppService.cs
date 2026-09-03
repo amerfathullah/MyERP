@@ -383,6 +383,20 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
                 Route = "/inventory/pick-lists/" + pl.Id
             }).ToList();
 
+        // Purchase Orders (internal transactions / drop-ship linked to this SO, per ERPNext commit e3e6503076)
+        var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+        var poQuery = await poRepo.GetQueryableAsync();
+        var pos = poQuery.Where(po => po.InterCompanySalesOrderId == id)
+            .Select(po => new ConnectionDocumentDto
+            {
+                Id = po.Id, DocumentNumber = po.OrderNumber, Status = po.Status.ToString(),
+                Amount = po.GrandTotal, Date = po.OrderDate, Route = "/purchasing/orders/" + po.Id
+            }).ToList();
+
+        var refGroup = new ConnectionGroupDto { Label = "Reference", Items = new() };
+        if (pos.Any())
+            refGroup.Items.Add(new ConnectionItemDto { DocumentType = "Purchase Order", Count = pos.Count, Route = "/purchasing/orders", Documents = pos });
+
         var fulfillGroup = new ConnectionGroupDto { Label = "Fulfillment", Items = new() };
         if (dns.Any())
             fulfillGroup.Items.Add(new ConnectionItemDto { DocumentType = "Delivery Note", Count = dns.Count, Route = "/sales/delivery-notes", Documents = dns });
@@ -401,6 +415,7 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
         if (wos.Any())
             mfgGroup.Items.Add(new ConnectionItemDto { DocumentType = "Work Order", Count = wos.Count, Route = "/manufacturing/work-orders", Documents = wos });
 
+        if (refGroup.Items.Any()) result.Groups.Add(refGroup);
         if (fulfillGroup.Items.Any()) result.Groups.Add(fulfillGroup);
         if (billingGroup.Items.Any()) result.Groups.Add(billingGroup);
         if (paymentGroup.Items.Any()) result.Groups.Add(paymentGroup);
@@ -461,6 +476,20 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
                 });
         }
 
+        // Source Sales Order (inter-company transaction)
+        var soConnections = new List<ConnectionDocumentDto>();
+        if (po.InterCompanySalesOrderId.HasValue)
+        {
+            var soRepoForPo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+            var linkedSo = await soRepoForPo.FindAsync(po.InterCompanySalesOrderId.Value);
+            if (linkedSo != null)
+                soConnections.Add(new ConnectionDocumentDto
+                {
+                    Id = linkedSo.Id, DocumentNumber = linkedSo.OrderNumber, Status = linkedSo.Status.ToString(),
+                    Amount = linkedSo.GrandTotal, Date = linkedSo.OrderDate, Route = "/sales/orders/" + linkedSo.Id
+                });
+        }
+
         var receivingGroup = new ConnectionGroupDto { Label = "Receiving", Items = new() };
         if (receipts.Any())
             receivingGroup.Items.Add(new ConnectionItemDto { DocumentType = "Purchase Receipt", Count = receipts.Count, Route = "/purchasing/receipts", Documents = receipts });
@@ -476,6 +505,8 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
         var refGroup = new ConnectionGroupDto { Label = "Reference", Items = new() };
         if (sqConnections.Any())
             refGroup.Items.Add(new ConnectionItemDto { DocumentType = "Supplier Quotation", Count = sqConnections.Count, Route = "/purchasing/supplier-quotations", Documents = sqConnections });
+        if (soConnections.Any())
+            refGroup.Items.Add(new ConnectionItemDto { DocumentType = "Sales Order", Count = soConnections.Count, Route = "/sales/orders", Documents = soConnections });
 
         if (refGroup.Items.Any()) result.Groups.Add(refGroup);
         if (receivingGroup.Items.Any()) result.Groups.Add(receivingGroup);

@@ -647,4 +647,18 @@ public class DataIntegrityAndCoverageTests
         dn.Cancel();
         Assert.Equal(Core.DocumentStatus.Cancelled, dn.Status);
     }
+
+    [Fact]
+    public void SalesOrder_InterCompanyPurchaseOrder_ConnectionLinkage()
+    {
+        var soId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+
+        var po = new Purchasing.Entities.PurchaseOrder(
+            Guid.NewGuid(), companyId, supplierId, "PO-001", DateTime.UtcNow);
+        po.InterCompanySalesOrderId = soId;
+
+        Assert.Equal(soId, po.InterCompanySalesOrderId);
+    }
 }
