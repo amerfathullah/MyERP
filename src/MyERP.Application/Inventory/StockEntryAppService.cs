@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.Inventory.DomainServices;
@@ -17,6 +19,7 @@ using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Settings;
 using MyERP.Manufacturing;
+using MyERP.Sales.Entities;
 
 namespace MyERP.Inventory;
 
@@ -385,6 +388,51 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             {
                 wo.RecordProduction(fgQty, processLoss: processLoss);
                 await woRepo.UpdateAsync(wo, autoSave: true);
+            }
+
+            // Auto-reserve finished goods for linked Sales Order (ERPNext PR #47382 / commit 5225d4c318)
+            if (wo.SalesOrderId.HasValue && fgQty > 0)
+            {
+                try
+                {
+                    var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+                    var so = (await soRepo.WithDetailsAsync(s => s.Items)).FirstOrDefault(s => s.Id == wo.SalesOrderId.Value);
+                    if (so != null && so.Status == DocumentStatus.Submitted)
+                    {
+                        var soItem = wo.SalesOrderItemId.HasValue
+                            ? so.Items.FirstOrDefault(i => i.Id == wo.SalesOrderItemId.Value)
+                            : so.Items.FirstOrDefault(i => i.ItemId == wo.ItemId);
+
+                        if (soItem != null)
+                        {
+                            var targetWarehouseId = entry.Items
+                                .FirstOrDefault(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)?.TargetWarehouseId
+                                ?? wo.FgWarehouseId;
+
+                            if (targetWarehouseId.HasValue)
+                            {
+                                var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+                                var existingReserved = await sreManager.GetReservedQtyAsync(soItem.ItemId, targetWarehouseId.Value);
+
+                                // Per ERPNext PR #47382 / commit 5225d4c318:
+                                // Pending reservable qty = stock_qty - (stock_reserved_qty + delivered_qty)
+                                var pendingReservableQty = Math.Max(0, (soItem.Quantity - soItem.DeliveredQty) * soItem.ConversionFactor - existingReserved);
+                                var reserveQty = Math.Min(fgQty, pendingReservableQty);
+
+                                if (reserveQty > 0)
+                                {
+                                    await sreManager.ReserveStockAsync(
+                                        soItem.ItemId, targetWarehouseId.Value, entry.CompanyId,
+                                        reserveQty, "SalesOrder", so.Id, null, entry.TenantId);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Auto-reserve finished goods for SO failed after Work Order {WorkOrderId} Manufacture entry {EntryId} — non-blocking", wo.Id, entry.Id);
+                }
             }
         }
 

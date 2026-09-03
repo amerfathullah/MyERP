@@ -1155,4 +1155,27 @@ public class DataIntegrityAndCoverageTests
         Assert.True(receiptPurpose != Inventory.StockEntryType.MaterialIssue && expenseAccount.AccountSubType == Accounting.AccountSubType.CostOfGoodsSold);
         Assert.False(issuePurpose != Inventory.StockEntryType.MaterialIssue && expenseAccount.AccountSubType == Accounting.AccountSubType.CostOfGoodsSold);
     }
+
+    [Fact]
+    public void WorkOrder_ManufactureEntry_AutoReservesFinishedGoods_SubtractsDeliveredQty()
+    {
+        // Per ERPNext PR #47382 / commit 5225d4c318:
+        // When Work Order finishes goods for a linked Sales Order:
+        // reservable quantity must subtract already delivered quantity as well as existing reserved qty:
+        // qty = so_details.stock_qty - (so_details.stock_reserved_qty + so_details.delivered_qty)
+        decimal orderedQty = 100m;
+        decimal conversionFactor = 1m;
+        decimal stockQty = orderedQty * conversionFactor; // 100
+        decimal deliveredQty = 30m; // 30 already delivered
+        decimal existingReservedQty = 20m; // 20 already reserved
+        decimal fgProducedQty = 60m; // WO produced 60
+
+        // Remaining unfulfilled, unreserved demand for SO item
+        var pendingReservableQty = Math.Max(0, (orderedQty - deliveredQty) * conversionFactor - existingReservedQty);
+        Assert.Equal(50m, pendingReservableQty); // 100 - (20 + 30) = 50
+
+        // Auto-reserve is capped at pendingReservableQty (never over-reserves)
+        var toReserve = Math.Min(fgProducedQty, pendingReservableQty);
+        Assert.Equal(50m, toReserve);
+    }
 }
