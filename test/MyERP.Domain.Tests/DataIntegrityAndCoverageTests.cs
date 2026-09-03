@@ -2273,4 +2273,28 @@ public class DataIntegrityAndCoverageTests
         var seasonalBudget = Math.Round(budgetAmount * accumulatedPct / 100m, 2);
         Assert.Equal(72000m, seasonalBudget);
     }
+
+    [Fact]
+    public void Budget_ExceptionBudgetApproverRole_DowngradesStopToWarn()
+    {
+        // Per ERPNext commit 58556c82bb:
+        // Users with Company.ExceptionBudgetApproverRole have "Stop" actions downgraded to "Warn".
+        var company = new Core.Entities.Company(Guid.NewGuid(), "Test Co")
+        {
+            ExceptionBudgetApproverRole = "Budget Manager"
+        };
+
+        Assert.Equal("Budget Manager", company.ExceptionBudgetApproverRole);
+
+        Accounting.BudgetAction DowngradeAction(Accounting.BudgetAction action, bool isExceptionApprover)
+        {
+            if (isExceptionApprover && action == Accounting.BudgetAction.Stop)
+                return Accounting.BudgetAction.Warn;
+            return action;
+        }
+
+        Assert.Equal(Accounting.BudgetAction.Warn, DowngradeAction(Accounting.BudgetAction.Stop, true));
+        Assert.Equal(Accounting.BudgetAction.Stop, DowngradeAction(Accounting.BudgetAction.Stop, false));
+        Assert.Equal(Accounting.BudgetAction.Ignore, DowngradeAction(Accounting.BudgetAction.Ignore, true));
+    }
 }

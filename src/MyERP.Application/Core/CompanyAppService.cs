@@ -56,6 +56,7 @@ public class UpdateCompanySettingsDto
     public Guid? DefaultAdvanceReceivedAccountId { get; set; }
     public Guid? DefaultAdvancePaidAccountId { get; set; }
     public string? ReconciliationTakesEffectOn { get; set; }
+    public string? ExceptionBudgetApproverRole { get; set; }
 }
 
 public class CompanyAppService :
@@ -164,6 +165,7 @@ public class CompanyAppService :
         entity.DefaultAdvancePaidAccountId = input.DefaultAdvancePaidAccountId;
         if (!string.IsNullOrWhiteSpace(input.ReconciliationTakesEffectOn))
             entity.ReconciliationTakesEffectOn = input.ReconciliationTakesEffectOn;
+        entity.ExceptionBudgetApproverRole = input.ExceptionBudgetApproverRole;
 
         entity.EnableItemWiseInventoryAccount = input.EnableItemWiseInventoryAccount;
         entity.SubmitErrJournals = input.SubmitErrJournals;
@@ -220,6 +222,7 @@ public class CompanyAppService :
         company.DefaultAdvancePaidAccountId = input.DefaultAdvancePaidAccountId;
         if (!string.IsNullOrWhiteSpace(input.ReconciliationTakesEffectOn))
             company.ReconciliationTakesEffectOn = input.ReconciliationTakesEffectOn;
+        company.ExceptionBudgetApproverRole = input.ExceptionBudgetApproverRole;
 
         company.DefaultWarehouseId = input.DefaultWarehouseId;
         company.SampleRetentionWarehouseId = input.SampleRetentionWarehouseId;

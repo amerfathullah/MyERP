@@ -96,6 +96,7 @@ public class CreateUpdateCompanyDto
     public System.Guid? DefaultAdvanceReceivedAccountId { get; set; }
     public System.Guid? DefaultAdvancePaidAccountId { get; set; }
     public string? ReconciliationTakesEffectOn { get; set; }
+    public string? ExceptionBudgetApproverRole { get; set; }
 
     public bool EnableItemWiseInventoryAccount { get; set; }
     public bool SubmitErrJournals { get; set; }

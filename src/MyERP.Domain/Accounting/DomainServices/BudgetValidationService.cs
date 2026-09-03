@@ -95,6 +95,14 @@ public class BudgetValidationService : DomainService
 
                 var (annualAction, monthlyAction) = GetActionsForLevel(budget, level);
 
+                // Per ERPNext commit 58556c82bb:
+                // Exception budget approver role downgrades Stop to Warn
+                if (await IsUserBudgetExceptionApproverAsync(companyId))
+                {
+                    if (annualAction == BudgetAction.Stop) annualAction = BudgetAction.Warn;
+                    if (monthlyAction == BudgetAction.Stop) monthlyAction = BudgetAction.Warn;
+                }
+
                 // Calculate total spend: actual + this transaction
                 var currentSpend = actualSpend.GetValueOrDefault(item.AccountId, 0m);
                 var totalAfter = currentSpend + item.Amount;
@@ -213,6 +221,21 @@ public class BudgetValidationService : DomainService
             BudgetLevel.Actual => (budget.ActionIfAnnualBudgetExceeded, budget.ActionIfAccumulatedMonthlyBudgetExceeded),
             _ => (BudgetAction.Ignore, BudgetAction.Ignore)
         };
+    }
+
+    private async Task<bool> IsUserBudgetExceptionApproverAsync(Guid companyId)
+    {
+        var currentUser = LazyServiceProvider.LazyGetService<Volo.Abp.Users.ICurrentUser>();
+        if (currentUser?.IsAuthenticated != true) return false;
+
+        var companyRepo = LazyServiceProvider.LazyGetService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+        if (companyRepo == null) return false;
+
+        var company = await companyRepo.FindAsync(companyId);
+        if (company == null || string.IsNullOrWhiteSpace(company.ExceptionBudgetApproverRole))
+            return false;
+
+        return currentUser.IsInRole(company.ExceptionBudgetApproverRole);
     }
 }
 

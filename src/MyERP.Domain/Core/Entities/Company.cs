@@ -141,6 +141,13 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public string ReconciliationTakesEffectOn { get; set; } = "Oldest Of Invoice Or Advance";
 
+    /// <summary>
+    /// Role that can approve transactions that exceed budget limits.
+    /// When users in this role submit, "Stop" action is downgraded to "Warn".
+    /// Per ERPNext: Company.exception_budget_approver_role (commit 58556c82bb).
+    /// </summary>
+    public string? ExceptionBudgetApproverRole { get; set; }
+
     // --- Additional Settings ---
 
     /// <summary>Enable perpetual inventory (stock movements create GL entries automatically).</summary>

@@ -66,6 +66,7 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public Guid? DefaultAdvanceReceivedAccountId { get; set; }
     public Guid? DefaultAdvancePaidAccountId { get; set; }
     public string ReconciliationTakesEffectOn { get; set; } = "Oldest Of Invoice Or Advance";
+    public string? ExceptionBudgetApproverRole { get; set; }
 
     public bool EnableItemWiseInventoryAccount { get; set; }
     public bool SubmitErrJournals { get; set; }
