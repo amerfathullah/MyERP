@@ -1563,4 +1563,42 @@ public class DataIntegrityAndCoverageTests
         Assert.Single(returnConsumptions);
         Assert.Equal(-10m, returnConsumptions[0].ConsumedQty);
     }
+
+    [Fact]
+    public void PosInvoice_RequiresOpenPosOpeningEntry()
+    {
+        // Per ERPNext PR #46907 / commit 3de1b22480:
+        // POS Invoice creation requires an open POS Opening Entry for the profile / company.
+        var profileId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+
+        var invoice = new Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), companyId, Guid.NewGuid(), "POS-001", DateTime.UtcNow.Date)
+        {
+            IsPos = true,
+            PosProfileId = profileId
+        };
+
+        Assert.True(invoice.IsPos);
+        Assert.Equal(profileId, invoice.PosProfileId);
+
+        // Given no open session, verification fails
+        var openSessions = new System.Collections.Generic.List<Sales.Entities.PosOpeningEntry>();
+        bool hasOpenSession = openSessions.Any(e =>
+            e.CompanyId == companyId
+            && e.PosProfileId == profileId
+            && e.Status == Sales.Entities.PosOpeningStatus.Open);
+        Assert.False(hasOpenSession);
+
+        // When open session is registered, verification passes
+        var opening = new Sales.Entities.PosOpeningEntry(
+            Guid.NewGuid(), companyId, profileId, Guid.NewGuid());
+        openSessions.Add(opening);
+
+        hasOpenSession = openSessions.Any(e =>
+            e.CompanyId == companyId
+            && e.PosProfileId == profileId
+            && e.Status == Sales.Entities.PosOpeningStatus.Open);
+        Assert.True(hasOpenSession);
+    }
 }

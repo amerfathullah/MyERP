@@ -419,6 +419,43 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.IsOpening = input.IsOpening;
         invoice.IsPos = input.IsPos;
         invoice.IsConsolidated = input.IsConsolidated;
+        invoice.PosProfileId = input.PosProfileId;
+
+        // Per ERPNext PR #46907 / commit 3de1b22480: validate if pos is opened before pos invoice creation
+        if (input.IsPos && !input.IsConsolidated)
+        {
+            var posOpeningRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosOpeningEntry, Guid>>();
+            var openingQuery = await posOpeningRepo.GetQueryableAsync();
+
+            bool hasOpenSession;
+            if (input.PosProfileId.HasValue)
+            {
+                hasOpenSession = openingQuery.Any(e =>
+                    e.CompanyId == input.CompanyId
+                    && e.PosProfileId == input.PosProfileId.Value
+                    && e.Status == PosOpeningStatus.Open);
+                if (!hasOpenSession)
+                {
+                    var profileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
+                    var profile = await profileRepo.FindAsync(input.PosProfileId.Value);
+                    var profileName = profile?.ProfileName ?? input.PosProfileId.Value.ToString();
+                    throw new BusinessException(MyERPDomainErrorCodes.NoPosOpeningEntry)
+                        .WithData("posProfile", profileName);
+                }
+            }
+            else
+            {
+                hasOpenSession = openingQuery.Any(e =>
+                    e.CompanyId == input.CompanyId
+                    && e.Status == PosOpeningStatus.Open);
+                if (!hasOpenSession)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.NoPosOpeningEntry)
+                        .WithData("posProfile", "Default");
+                }
+            }
+        }
+
         invoice.UpdateStock = input.UpdateStock;
         // Skip stock update for items already delivered via Delivery Note to prevent double deduction (PR #55311)
         if (input.Items.Any(i => i.DeliveryNoteItemId.HasValue))

@@ -92,6 +92,7 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public Guid? ProjectId { get; set; }
     public bool IsPos { get; set; }
     public bool IsConsolidated { get; set; }
+    public Guid? PosProfileId { get; set; }
 
     /// <summary>Days past due date. 0 when not overdue or no due date.</summary>
     public int DaysOverdue { get; set; }
@@ -182,6 +183,9 @@ public class CreateSalesInvoiceDto
 
     /// <summary>If true, this is a consolidated summary invoice created from POS closing.</summary>
     public bool IsConsolidated { get; set; }
+
+    /// <summary>Linked POS Profile for POS invoices. Per ERPNext PR #46907 / commit 3de1b22480.</summary>
+    public Guid? PosProfileId { get; set; }
 
     /// <summary>Coupon code to apply pricing discount (validated + recorded on creation).</summary>
     public string? CouponCode { get; set; }

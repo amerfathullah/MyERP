@@ -149,6 +149,9 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// </summary>
     public bool IsConsolidated { get; set; }
 
+    /// <summary>Linked POS Profile for POS invoices. Per ERPNext PR #46907 / commit 3de1b22480.</summary>
+    public Guid? PosProfileId { get; set; }
+
     // Loyalty Points Redemption
     /// <summary>Loyalty points redeemed on this invoice (reduces grand total).</summary>
     public int LoyaltyPointsRedeemed { get; set; }

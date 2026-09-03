@@ -75,6 +75,7 @@ public class PosOpeningEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>
     /// Cancels this opening entry. Only allowed when already Closed.
+    /// Per ERPNext PR #46909 / commit 6fae98afda: status is updated to Cancelled on cancel.
     /// Per DO-NOT: "Cancel POS Opening Entry while unconsolidated invoices exist"
     /// </summary>
     public void Cancel()

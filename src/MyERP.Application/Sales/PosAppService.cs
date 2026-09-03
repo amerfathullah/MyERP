@@ -49,16 +49,38 @@ public class PosAppService : ApplicationService, IPosAppService
             .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.ValidatePostingPeriodAsync(input.CompanyId, DateTime.UtcNow, "POS Invoice");
 
-        // Validate an active POS Opening Entry exists for this user
+        // Validate an active POS Opening Entry exists for this POS Profile / company
+        // Per ERPNext PR #46907 / commit 3de1b22480: validate if pos is opened before pos invoice creation
         var posOpeningRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosOpeningEntry, Guid>>();
         var openingQuery = await posOpeningRepo.GetQueryableAsync();
-        var hasActiveSession = openingQuery.Any(
-            e => e.CompanyId == input.CompanyId
-                && e.Status == PosOpeningStatus.Open);
-        if (!hasActiveSession)
+
+        PosProfile? profile = null;
+        if (input.PosProfileId.HasValue)
         {
-            throw new Volo.Abp.BusinessException("MyERP:16003")
-                .WithData("reason", "No active POS session. Please open a POS session first.");
+            var profileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
+            profile = await profileRepo.FindAsync(input.PosProfileId.Value);
+
+            var hasActiveSession = openingQuery.Any(
+                e => e.CompanyId == input.CompanyId
+                    && e.PosProfileId == input.PosProfileId.Value
+                    && e.Status == PosOpeningStatus.Open);
+            if (!hasActiveSession)
+            {
+                var profileName = profile?.ProfileName ?? input.PosProfileId.Value.ToString();
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.NoPosOpeningEntry)
+                    .WithData("posProfile", profileName);
+            }
+        }
+        else
+        {
+            var hasActiveSession = openingQuery.Any(
+                e => e.CompanyId == input.CompanyId
+                    && e.Status == PosOpeningStatus.Open);
+            if (!hasActiveSession)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.NoPosOpeningEntry)
+                    .WithData("posProfile", "Default");
+            }
         }
 
         var invoiceNumber = await _numberGenerator.GenerateAsync("POS", input.CompanyId);
@@ -75,7 +97,14 @@ public class PosAppService : ApplicationService, IPosAppService
 
         // POS always deducts stock
         invoice.UpdateStock = true;
-        invoice.WarehouseId = input.WarehouseId;
+        invoice.WarehouseId = input.WarehouseId ?? profile?.WarehouseId;
+        invoice.IsPos = true;
+        invoice.PosProfileId = input.PosProfileId;
+        if (profile?.ProjectId.HasValue == true)
+        {
+            invoice.ProjectId = profile.ProjectId;
+        }
+
         // POS invoice due date defaults to issue date (ERPNext PR #49232 / commit 77478303fe)
         invoice.DueDate ??= invoice.IssueDate;
 

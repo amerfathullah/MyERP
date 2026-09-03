@@ -21,6 +21,9 @@ public class CreatePosInvoiceDto
 
     public Guid? CustomerId { get; set; }
 
+    /// <summary>POS Profile this sale was made under. Per ERPNext PR #46907 / commit 3de1b22480.</summary>
+    public Guid? PosProfileId { get; set; }
+
     /// <summary>Warehouse from which stock is deducted (required for stock items).</summary>
     public Guid? WarehouseId { get; set; }
 
