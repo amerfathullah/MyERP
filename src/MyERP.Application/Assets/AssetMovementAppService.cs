@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Assets.Entities;
+using MyERP.Core;
 using MyERP.Permissions;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -271,6 +272,26 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
 
         if (am == null)
             throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
+
+        // Prevent cancellation of last asset movement if asset is active (ERPNext PR #47291 / commit 9dee4ac891)
+        var allMovements = await _repository.WithDetailsAsync(m => m.Items);
+        foreach (var item in am.Items)
+        {
+            var asset = await _assetRepository.FindAsync(item.AssetId);
+            if (asset != null && asset.Status == AssetStatus.Submitted)
+            {
+                var otherSubmittedMovementsCount = allMovements
+                    .Count(m => m.Id != am.Id
+                        && m.Status == DocumentStatus.Submitted
+                        && m.Items.Any(i => i.AssetId == item.AssetId));
+
+                if (otherSubmittedMovementsCount == 0)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Asset {asset.AssetName} has only one movement record. Please create another movement before cancelling this one to maintain asset tracking.");
+                }
+            }
+        }
 
         am.Cancel();
 

@@ -1201,4 +1201,25 @@ public class DataIntegrityAndCoverageTests
         Assert.Null(asset.DisposalDate);
         Assert.Null(asset.DisposalAmount);
     }
+
+    [Fact]
+    public void JobCard_Complete_RequiresFromAndToTime()
+    {
+        // Per ERPNext PR #47325 / commit 7499c25a3c:
+        // Submission/completion of Job Card validates that From Time and To Time fields are present on all time logs
+        var jc = new Manufacturing.Entities.JobCard(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            10m, 1);
+        jc.Start();
+
+        // Valid log: FromTime and ToTime present
+        var fromTime = DateTime.UtcNow.AddHours(-2);
+        var toTime = DateTime.UtcNow.AddHours(-1);
+        jc.AddTimeLog(fromTime, toTime, 10m);
+
+        // Completion succeeds with valid time logs
+        jc.Complete();
+        Assert.Equal(Manufacturing.JobCardStatus.Completed, jc.Status);
+        Assert.NotNull(jc.CompletedAt);
+    }
 }

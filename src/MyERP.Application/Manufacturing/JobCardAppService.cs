@@ -171,6 +171,16 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             throw new BusinessException(MyERPDomainErrorCodes.JobCardTimeLogRequired);
         }
 
+        // Validate From Time and To Time are present on all time logs (ERPNext PR #47325 / commit 7499c25a3c)
+        foreach (var row in jc.TimeLogs)
+        {
+            if (row.FromTime == default || row.ToTime == default || row.ToTime <= row.FromTime)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "From Time and To Time fields are required and To Time must be after From Time.");
+            }
+        }
+
         jc.Complete();
         await _repository.UpdateAsync(jc);
 

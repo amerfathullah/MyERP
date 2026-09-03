@@ -115,6 +115,17 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status is not (JobCardStatus.WorkInProgress or JobCardStatus.MaterialTransferred or JobCardStatus.PartiallyTransferred))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Validate From Time and To Time are present on all time logs (ERPNext PR #47325 / commit 7499c25a3c)
+        foreach (var row in _timeLogs)
+        {
+            if (row.FromTime == default || row.ToTime == default || row.ToTime <= row.FromTime)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "From Time and To Time fields are required and To Time must be after From Time.");
+            }
+        }
+
         Status = JobCardStatus.Completed;
         CompletedAt = DateTime.UtcNow;
     }
