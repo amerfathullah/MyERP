@@ -1723,4 +1723,23 @@ public class DataIntegrityAndCoverageTests
 
         Assert.Equal(4.45m, pi.ExchangeRate);
     }
+
+    [Fact]
+    public void Batch_EvaluatesBatchwiseValuation_ForMovingAverageItems()
+    {
+        // Per ERPNext commits 65ba79bb85 & cc171d9706:
+        // Moving average items are allowed to use batchwise valuation unless StockSettings.DoNotUseBatchwiseValuation is enabled.
+        var batch1 = new Inventory.Entities.Batch(Guid.NewGuid(), Guid.NewGuid(), "BATCH-001");
+        batch1.EvaluateBatchwiseValuation(Inventory.ValuationMethod.WeightedAverage, doNotUseBatchwiseValuation: false);
+        Assert.True(batch1.UseBatchwiseValuation);
+
+        var batch2 = new Inventory.Entities.Batch(Guid.NewGuid(), Guid.NewGuid(), "BATCH-002");
+        batch2.EvaluateBatchwiseValuation(Inventory.ValuationMethod.WeightedAverage, doNotUseBatchwiseValuation: true);
+        Assert.False(batch2.UseBatchwiseValuation);
+
+        // FIFO items always use batchwise valuation regardless of the setting
+        var batch3 = new Inventory.Entities.Batch(Guid.NewGuid(), Guid.NewGuid(), "BATCH-003");
+        batch3.EvaluateBatchwiseValuation(Inventory.ValuationMethod.FIFO, doNotUseBatchwiseValuation: true);
+        Assert.True(batch3.UseBatchwiseValuation);
+    }
 }

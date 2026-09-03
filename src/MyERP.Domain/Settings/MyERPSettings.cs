@@ -31,6 +31,7 @@ public static class MyERPSettings
         public const string PickSerialAndBatchBasedOn = G + ".PickSerialBatchBasedOn";
         public const string ItemNamingBy = G + ".ItemNamingBy";
         public const string SampleRetentionWarehouse = G + ".SampleRetentionWarehouse";
+        public const string DoNotUseBatchwiseValuation = G + ".DoNotUseBatchwiseValuation";
     }
 
     // ═══════════════════════════════════════════════════

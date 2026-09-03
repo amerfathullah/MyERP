@@ -89,4 +89,21 @@ public class Batch : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         SetExpiryFromShelfLife();
     }
+
+    /// <summary>
+    /// Evaluates whether this batch should use batch-wise valuation based on item valuation method and stock settings.
+    /// Per ERPNext commits 65ba79bb85 and cc171d9706:
+    /// Batchwise valuation is ALLOWED for Moving Average items, UNLESS StockSettings.DoNotUseBatchwiseValuation is enabled.
+    /// </summary>
+    public void EvaluateBatchwiseValuation(ValuationMethod itemValuationMethod, bool doNotUseBatchwiseValuation)
+    {
+        if (itemValuationMethod == ValuationMethod.WeightedAverage && doNotUseBatchwiseValuation)
+        {
+            UseBatchwiseValuation = false;
+        }
+        else
+        {
+            UseBatchwiseValuation = true;
+        }
+    }
 }
