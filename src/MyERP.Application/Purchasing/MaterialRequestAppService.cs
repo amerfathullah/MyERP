@@ -149,8 +149,8 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
                 {
                     if (!itemData.TryGetValue(mrItem.ItemId, out var item)) continue;
 
-                    // Falls back to Item Group hierarchy when the item has no expense account of its own
-                    var expenseAccountId = await _itemDefaultsResolution.ResolveExpenseAccountAsync(mrItem.ItemId);
+                    // Falls back to Item Default -> Item Group hierarchy when the item has no expense account of its own
+                    var expenseAccountId = await _itemDefaultsResolution.ResolveExpenseAccountAsync(mrItem.ItemId, entity.CompanyId);
                     if (!expenseAccountId.HasValue) continue;
 
                     // MR items don't have price — use item's standard buying price or qty as estimate

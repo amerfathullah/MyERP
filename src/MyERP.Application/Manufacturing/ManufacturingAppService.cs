@@ -538,7 +538,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         {
             var rawWarehouseId = bi.SourceWarehouseId
                 ?? sourceWarehouseId
-                ?? await itemDefaultsService.ResolveWarehouseAsync(bi.ItemId);
+                ?? await itemDefaultsService.ResolveWarehouseAsync(bi.ItemId, wo.CompanyId);
 
             wo.RequiredItems.Add(new WorkOrderItem(
                 GuidGenerator.Create(), wo.Id, bi.ItemId, bi.ItemName, bi.Quantity * multiplier)

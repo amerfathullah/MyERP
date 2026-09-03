@@ -283,8 +283,8 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             var budgetItems = new List<BudgetCheckItem>();
             foreach (var poItem in po.Items)
             {
-                // Falls back to Item Group hierarchy when the item has no expense account of its own
-                var expenseAccountId = await _itemDefaultsResolution.ResolveExpenseAccountAsync(poItem.ItemId);
+                // Falls back to Item Default -> Item Group hierarchy when the item has no expense account of its own
+                var expenseAccountId = await _itemDefaultsResolution.ResolveExpenseAccountAsync(poItem.ItemId, po.CompanyId);
                 if (!expenseAccountId.HasValue) continue;
 
                 budgetItems.Add(new BudgetCheckItem(

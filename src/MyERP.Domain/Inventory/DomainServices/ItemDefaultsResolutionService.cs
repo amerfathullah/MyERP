@@ -16,21 +16,42 @@ public class ItemDefaultsResolutionService : DomainService
 {
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly IRepository<ItemGroup, Guid> _itemGroupRepository;
+    private readonly IRepository<ItemDefault, Guid>? _itemDefaultRepository;
 
     public ItemDefaultsResolutionService(
         IRepository<Item, Guid> itemRepository,
-        IRepository<ItemGroup, Guid> itemGroupRepository)
+        IRepository<ItemGroup, Guid> itemGroupRepository,
+        IRepository<ItemDefault, Guid>? itemDefaultRepository = null)
     {
         _itemRepository = itemRepository;
         _itemGroupRepository = itemGroupRepository;
+        _itemDefaultRepository = itemDefaultRepository;
     }
+
+    private IRepository<ItemDefault, Guid>? GetItemDefaultRepository()
+        => _itemDefaultRepository ?? LazyServiceProvider.LazyGetService<IRepository<ItemDefault, Guid>>();
 
     /// <summary>
     /// Resolves the income account for an item (for sales GL posting).
-    /// Chain: Item.DefaultIncomeAccountId → ItemGroup hierarchy (traverse parents up) → null.
+    /// Chain: ItemDefault (for company) → Item.DefaultIncomeAccountId → ItemGroup hierarchy (traverse parents up) → null.
     /// </summary>
-    public async Task<Guid?> ResolveIncomeAccountAsync(Guid itemId)
+    public async Task<Guid?> ResolveIncomeAccountAsync(Guid itemId, Guid? companyId = null)
     {
+        if (companyId.HasValue)
+        {
+            var defRepo = GetItemDefaultRepository();
+            if (defRepo != null)
+            {
+                var defQ = await defRepo.GetQueryableAsync();
+                var defIncome = defQ
+                    .Where(d => d.ItemId == itemId && d.CompanyId == companyId.Value && d.IncomeAccountId != null)
+                    .Select(d => d.IncomeAccountId)
+                    .FirstOrDefault();
+                if (defIncome.HasValue)
+                    return defIncome;
+            }
+        }
+
         var item = await _itemRepository.GetAsync(itemId);
         if (item.DefaultIncomeAccountId.HasValue)
             return item.DefaultIncomeAccountId;
@@ -41,10 +62,25 @@ public class ItemDefaultsResolutionService : DomainService
 
     /// <summary>
     /// Resolves the expense/COGS account for an item (for purchasing/COGS GL posting).
-    /// Chain: Item.DefaultExpenseAccountId → ItemGroup hierarchy (traverse parents up) → Company.ServiceExpenseAccountId (for non-stock/service items) → null.
+    /// Chain: ItemDefault (for company) → Item.DefaultExpenseAccountId → ItemGroup hierarchy (traverse parents up) → Company.ServiceExpenseAccountId (for non-stock/service items) → null.
     /// </summary>
     public async Task<Guid?> ResolveExpenseAccountAsync(Guid itemId, Guid? companyId = null)
     {
+        if (companyId.HasValue)
+        {
+            var defRepo = GetItemDefaultRepository();
+            if (defRepo != null)
+            {
+                var defQ = await defRepo.GetQueryableAsync();
+                var defExpense = defQ
+                    .Where(d => d.ItemId == itemId && d.CompanyId == companyId.Value && d.ExpenseAccountId != null)
+                    .Select(d => d.ExpenseAccountId)
+                    .FirstOrDefault();
+                if (defExpense.HasValue)
+                    return defExpense;
+            }
+        }
+
         var item = await _itemRepository.GetAsync(itemId);
         if (item.DefaultExpenseAccountId.HasValue)
             return item.DefaultExpenseAccountId;
@@ -66,10 +102,26 @@ public class ItemDefaultsResolutionService : DomainService
 
     /// <summary>
     /// Resolves the default warehouse for an item.
-    /// Chain: Item.DefaultWarehouseId → ItemGroup hierarchy (traverse parents up) → null.
+    /// Chain: ItemDefault (for company) → Item.DefaultWarehouseId → ItemGroup hierarchy (traverse parents up) → null.
+    /// Per ERPNext PR #58663 / get_item_defaults chain.
     /// </summary>
-    public async Task<Guid?> ResolveWarehouseAsync(Guid itemId)
+    public async Task<Guid?> ResolveWarehouseAsync(Guid itemId, Guid? companyId = null)
     {
+        if (companyId.HasValue)
+        {
+            var defRepo = GetItemDefaultRepository();
+            if (defRepo != null)
+            {
+                var defQ = await defRepo.GetQueryableAsync();
+                var defWh = defQ
+                    .Where(d => d.ItemId == itemId && d.CompanyId == companyId.Value && d.DefaultWarehouseId != null)
+                    .Select(d => d.DefaultWarehouseId)
+                    .FirstOrDefault();
+                if (defWh.HasValue)
+                    return defWh;
+            }
+        }
+
         var item = await _itemRepository.GetAsync(itemId);
         if (item.DefaultWarehouseId.HasValue)
             return item.DefaultWarehouseId;

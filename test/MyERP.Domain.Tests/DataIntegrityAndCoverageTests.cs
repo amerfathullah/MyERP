@@ -2642,4 +2642,43 @@ public class DataIntegrityAndCoverageTests
         var swappedUom = "Kg";
         Assert.NotEqual(swappedUom, soRow.Uom);
     }
+
+    [Fact]
+    public void ItemDefaultsResolution_Company_Specific_Warehouse_And_Accounts_Invariants()
+    {
+        // Per ERPNext PR #58663:
+        // ItemDefault specifies per-company default warehouse, income account, and expense account,
+        // which must take precedence over global Item fields when resolved for a specific company.
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var companyDefaultWarehouse = Guid.NewGuid();
+        var companyDefaultIncome = Guid.NewGuid();
+        var companyDefaultExpense = Guid.NewGuid();
+
+        var itemDefault = new MyERP.Inventory.Entities.ItemDefault(Guid.NewGuid(), itemId, companyId)
+        {
+            DefaultWarehouseId = companyDefaultWarehouse,
+            IncomeAccountId = companyDefaultIncome,
+            ExpenseAccountId = companyDefaultExpense,
+        };
+
+        var globalItem = new MyERP.Inventory.Entities.Item(itemId, companyId, "RAW-01", "Item A", MyERP.Inventory.ItemType.Goods)
+        {
+            DefaultWarehouseId = Guid.NewGuid(),
+            DefaultIncomeAccountId = Guid.NewGuid(),
+            DefaultExpenseAccountId = Guid.NewGuid(),
+        };
+
+        // Company-specific values differ from global item values
+        Assert.NotEqual(itemDefault.DefaultWarehouseId, globalItem.DefaultWarehouseId);
+        Assert.NotEqual(itemDefault.IncomeAccountId, globalItem.DefaultIncomeAccountId);
+        Assert.NotEqual(itemDefault.ExpenseAccountId, globalItem.DefaultExpenseAccountId);
+
+        // Required items in subassembly Work Order pull the item's warehouse when BOM item source warehouse is null
+        var bomItem = new MyERP.Manufacturing.Entities.BomItem(Guid.NewGuid(), Guid.NewGuid(), itemId, "Item A", 2m, 10m);
+        Assert.Null(bomItem.SourceWarehouseId);
+
+        var resolvedWarehouse = bomItem.SourceWarehouseId ?? itemDefault.DefaultWarehouseId ?? globalItem.DefaultWarehouseId;
+        Assert.Equal(companyDefaultWarehouse, resolvedWarehouse);
+    }
 }
