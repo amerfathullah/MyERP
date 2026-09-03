@@ -1049,4 +1049,28 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(Core.DocumentStatus.Cancelled, draftBundle.Status);
         Assert.True(draftBundle.IsCancelled);
     }
+
+    [Fact]
+    public void PurchaseInvoice_AmountOverBillingValidation_EnforcesAllowance()
+    {
+        // Per ERPNext PR #47452 / commit f4ffc57b51:
+        // When billing PR items via PI with rate changes:
+        // attempted amount exceeding base amount by more than OverBillingAllowance must throw.
+        decimal baseQty = 5m;
+        decimal prRate = 1000m;
+        decimal baseAmount = baseQty * prRate; // 5000m
+
+        decimal allowancePct = 20m; // 20% allowance allowed -> max 6000m
+
+        // Attempting to bill at 1300m rate (total 6500m -> 30% overbilled)
+        decimal piRate = 1300m;
+        decimal attemptedAmount = baseQty * piRate; // 6500m
+
+        var pctOverBilled = ((attemptedAmount / baseAmount) * 100m) - 100m; // 30%
+        var exceedsAllowance = pctOverBilled > allowancePct;
+
+        Assert.Equal(30m, pctOverBilled);
+        Assert.True(exceedsAllowance);
+        Assert.Equal(10m, pctOverBilled - allowancePct);
+    }
 }

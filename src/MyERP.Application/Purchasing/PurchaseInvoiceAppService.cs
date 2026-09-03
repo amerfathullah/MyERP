@@ -1147,6 +1147,22 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                             .WithData("billed", prItem.BilledQty)
                             .WithData("attempted", piItem.Quantity);
                     }
+
+                    // Per ERPNext commit f4ffc57b51: PR/PI amount overbilling validation
+                    var baseAmount = baseQty * prItem.UnitPrice;
+                    var attemptedAmount = (prItem.BilledQty * prItem.UnitPrice) + prItem.AmountDifferenceWithPurchaseInvoice + (piItem.Quantity * piItem.UnitPrice);
+                    if (baseAmount > 0 && attemptedAmount > baseAmount)
+                    {
+                        var pctOverBilled = ((attemptedAmount / baseAmount) * 100m) - 100m;
+                        if (pctOverBilled > billingAllowancePct)
+                        {
+                            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverBilling)
+                                .WithData("item", piItem.Description ?? piItem.ItemId.ToString())
+                                .WithData("orderedAmount", baseAmount)
+                                .WithData("attemptedAmount", attemptedAmount)
+                                .WithData("overBillingPct", Math.Round(pctOverBilled - billingAllowancePct, 2));
+                        }
+                    }
                 }
             }
         }
