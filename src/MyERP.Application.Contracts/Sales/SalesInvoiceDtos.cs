@@ -88,6 +88,8 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public Guid DebitToAccountId { get; set; }
     public Guid? CostCenterId { get; set; }
     public Guid? ProjectId { get; set; }
+    public bool IsPos { get; set; }
+    public bool IsConsolidated { get; set; }
 
     /// <summary>Days past due date. 0 when not overdue or no due date.</summary>
     public int DaysOverdue { get; set; }
@@ -172,6 +174,12 @@ public class CreateSalesInvoiceDto
 
     /// <summary>Warehouse for stock deduction when UpdateStock=true.</summary>
     public Guid? WarehouseId { get; set; }
+
+    /// <summary>If true, this invoice is created from a POS terminal/session.</summary>
+    public bool IsPos { get; set; }
+
+    /// <summary>If true, this is a consolidated summary invoice created from POS closing.</summary>
+    public bool IsConsolidated { get; set; }
 
     /// <summary>Coupon code to apply pricing discount (validated + recorded on creation).</summary>
     public string? CouponCode { get; set; }

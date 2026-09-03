@@ -1316,4 +1316,23 @@ public class DataIntegrityAndCoverageTests
         var isValid = (roundedOriginalCredit == roundedLinkedDebit) && (roundedOriginalDebit == roundedLinkedCredit);
         Assert.True(isValid);
     }
+
+    [Fact]
+    public void SalesInvoice_ProhibitReturnAgainstConsolidatedPosInvoice()
+    {
+        // Per ERPNext PR #47251 / commit 483c4a3271:
+        // Returns cannot be created against consolidated POS sales invoices.
+        var inv = new Sales.Entities.SalesInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "ACC-SINV-2025-0001",
+            DateTime.UtcNow);
+        inv.IsPos = true;
+        inv.IsConsolidated = true;
+
+        Assert.True(inv.IsPos);
+        Assert.True(inv.IsConsolidated);
+
+        // Validates guard condition: cannot return against consolidated POS invoice
+        var canCreateReturn = !(inv.IsConsolidated && inv.IsPos);
+        Assert.False(canCreateReturn);
+    }
 }

@@ -417,6 +417,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.IsReturn = input.IsReturn;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.IsOpening = input.IsOpening;
+        invoice.IsPos = input.IsPos;
+        invoice.IsConsolidated = input.IsConsolidated;
         invoice.UpdateStock = input.UpdateStock;
         // Skip stock update for items already delivered via Delivery Note to prevent double deduction (PR #55311)
         if (input.Items.Any(i => i.DeliveryNoteItemId.HasValue))
@@ -454,6 +456,13 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                     .WithData("documentType", "Sales Invoice")
                     .WithData("returnCustomer", input.CustomerId)
                     .WithData("originalCustomer", originalInvoice.CustomerId);
+            }
+
+            // Prohibit return for consolidated POS invoices (ERPNext PR #47251 / commit 483c4a3271)
+            if (originalInvoice.IsConsolidated && originalInvoice.IsPos)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot create return for consolidated invoice {originalInvoice.InvoiceNumber}.");
             }
 
             invoice.DebitToAccountId = originalInvoice.DebitToAccountId;

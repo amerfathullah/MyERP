@@ -125,6 +125,8 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
                     GuidGenerator.Create(), primary.CompanyId, primary.CustomerId,
                     invoiceNumber, primary.PostingDate, CurrentTenant.Id);
                 consolidatedSi.CurrencyCode = currencyCode;
+                consolidatedSi.IsPos = true;
+                consolidatedSi.IsConsolidated = true;
 
                 foreach (var item in primary.Items)
                 {
