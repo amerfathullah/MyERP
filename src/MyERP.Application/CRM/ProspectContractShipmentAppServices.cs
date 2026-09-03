@@ -73,9 +73,24 @@ public class ProspectAppService : ApplicationService, IProspectAppService
         return MapToDto(entity);
     }
 
+    [Authorize(MyERPPermissions.Leads.Edit)]
     public async Task<ProspectDto> AddLeadAsync(Guid id, Guid leadId, string? leadName = null, string? email = null)
     {
+        // Per ERPNext commit 02fcdc0337: check read permission on lead in add_lead_to_prospect
+        await AuthorizationService.CheckAsync(MyERPPermissions.Leads.Default);
+
         var entity = await _repository.GetAsync(id);
+        if (leadId != Guid.Empty && (string.IsNullOrWhiteSpace(leadName) || string.IsNullOrWhiteSpace(email)))
+        {
+            var leadRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Lead, Guid>>();
+            var lead = await leadRepo.FindAsync(leadId);
+            if (lead != null)
+            {
+                leadName ??= lead.GetFullName();
+                email ??= lead.Email;
+            }
+        }
+
         entity.AddLead(GuidGenerator.Create(), leadId, leadName, email);
         await _repository.UpdateAsync(entity);
         return MapToDto(entity);

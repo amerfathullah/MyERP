@@ -2472,4 +2472,21 @@ public class DataIntegrityAndCoverageTests
         // Validate contact and lead email before saving email campaign.
         Assert.Equal("MyERP:17008", MyERPDomainErrorCodes.EmailCampaignRecipientMissingEmail);
     }
+
+    [Fact]
+    public void Prospect_AddLead_PopulatesLeadList()
+    {
+        // Per ERPNext commit 02fcdc0337:
+        // Lead is linked to Prospect with lead name and email.
+        var prospect = new MyERP.CRM.Entities.Prospect(
+            Guid.NewGuid(), Guid.NewGuid(), "Acme Prospect");
+        var leadId = Guid.NewGuid();
+
+        prospect.AddLead(Guid.NewGuid(), leadId, "John Doe", "john@example.com");
+
+        Assert.Single(prospect.Leads);
+        Assert.Equal(leadId, prospect.Leads[0].LeadId);
+        Assert.Equal("John Doe", prospect.Leads[0].LeadName);
+        Assert.Equal("john@example.com", prospect.Leads[0].Email);
+    }
 }
