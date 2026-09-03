@@ -2165,4 +2165,29 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(12, detail.IncreaseInAssetLife);
         Assert.Equal(3, detail.TotalNumberOfDepreciations);
     }
+
+    [Fact]
+    public void PaymentReconciliation_ReconcileEffectOn_HonorsCompanySetting()
+    {
+        // Per ERPNext commit 19f1ffbdc2:
+        // ReconcileEffectOn must be derived from Company.ReconciliationTakesEffectOn
+        var peDate = new DateTime(2026, 5, 1);
+        var invoiceDate = new DateTime(2026, 5, 10);
+        var today = DateTime.UtcNow.Date;
+
+        DateTime ResolveReconcileDate(string companySetting, DateTime pePostingDate, DateTime invPostingDate) =>
+            companySetting switch
+            {
+                "Advance Payment Date" => pePostingDate,
+                "Reconciliation Date" => today,
+                _ => invPostingDate < pePostingDate ? pePostingDate : invPostingDate // "Oldest Of Invoice Or Advance"
+            };
+
+        Assert.Equal(peDate, ResolveReconcileDate("Advance Payment Date", peDate, invoiceDate));
+        Assert.Equal(today, ResolveReconcileDate("Reconciliation Date", peDate, invoiceDate));
+        Assert.Equal(invoiceDate, ResolveReconcileDate("Oldest Of Invoice Or Advance", peDate, invoiceDate));
+
+        var olderInvoiceDate = new DateTime(2026, 4, 20);
+        Assert.Equal(peDate, ResolveReconcileDate("Oldest Of Invoice Or Advance", peDate, olderInvoiceDate));
+    }
 }

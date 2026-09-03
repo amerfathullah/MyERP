@@ -55,6 +55,7 @@ public class UpdateCompanySettingsDto
     public bool BookAdvancePaymentsInSeparatePartyAccount { get; set; }
     public Guid? DefaultAdvanceReceivedAccountId { get; set; }
     public Guid? DefaultAdvancePaidAccountId { get; set; }
+    public string? ReconciliationTakesEffectOn { get; set; }
 }
 
 public class CompanyAppService :
@@ -161,6 +162,8 @@ public class CompanyAppService :
         entity.BookAdvancePaymentsInSeparatePartyAccount = input.BookAdvancePaymentsInSeparatePartyAccount;
         entity.DefaultAdvanceReceivedAccountId = input.DefaultAdvanceReceivedAccountId;
         entity.DefaultAdvancePaidAccountId = input.DefaultAdvancePaidAccountId;
+        if (!string.IsNullOrWhiteSpace(input.ReconciliationTakesEffectOn))
+            entity.ReconciliationTakesEffectOn = input.ReconciliationTakesEffectOn;
 
         entity.EnableItemWiseInventoryAccount = input.EnableItemWiseInventoryAccount;
         entity.SubmitErrJournals = input.SubmitErrJournals;
@@ -215,6 +218,8 @@ public class CompanyAppService :
         company.BookAdvancePaymentsInSeparatePartyAccount = input.BookAdvancePaymentsInSeparatePartyAccount;
         company.DefaultAdvanceReceivedAccountId = input.DefaultAdvanceReceivedAccountId;
         company.DefaultAdvancePaidAccountId = input.DefaultAdvancePaidAccountId;
+        if (!string.IsNullOrWhiteSpace(input.ReconciliationTakesEffectOn))
+            company.ReconciliationTakesEffectOn = input.ReconciliationTakesEffectOn;
 
         company.DefaultWarehouseId = input.DefaultWarehouseId;
         company.SampleRetentionWarehouseId = input.SampleRetentionWarehouseId;

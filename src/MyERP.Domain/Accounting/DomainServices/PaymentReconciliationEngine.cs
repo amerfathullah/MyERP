@@ -188,16 +188,62 @@ public class PaymentReconciliationEngine : DomainService
                 await UpdateInvoiceAmountPaidAsync("SalesInvoice", alloc.InvoiceVoucherId, alloc.AllocatedAmount);
                 var si = await _salesInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
                 await CreateExchangeGainLossJeIfNeededAsync(company, alloc, si.ExchangeRate, partyType, partyAccountId);
+                await UpdatePaymentEntryReferenceReconciliationAsync(company, alloc, si.IssueDate);
             }
             else if (alloc.InvoiceVoucherType == "PurchaseInvoice")
             {
                 await UpdateInvoiceAmountPaidAsync("PurchaseInvoice", alloc.InvoiceVoucherId, alloc.AllocatedAmount);
                 var pi = await _purchaseInvoiceRepository.GetAsync(alloc.InvoiceVoucherId);
                 await CreateExchangeGainLossJeIfNeededAsync(company, alloc, pi.ExchangeRate, partyType, partyAccountId);
+                await UpdatePaymentEntryReferenceReconciliationAsync(company, alloc, pi.IssueDate);
             }
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Updates PaymentEntryReference reconcile effect date and allocated amount upon reconciliation.
+    /// Uses company.ReconciliationTakesEffectOn ("Advance Payment Date", "Oldest Of Invoice Or Advance", "Reconciliation Date").
+    /// Per ERPNext commit 19f1ffbdc2.
+    /// </summary>
+    private async Task UpdatePaymentEntryReferenceReconciliationAsync(
+        Company company,
+        ReconciliationAllocation alloc,
+        DateTime invoicePostingDate)
+    {
+        if (alloc.PaymentVoucherType != "PaymentEntry") return;
+
+        var pe = await _paymentEntryRepository.FindAsync(alloc.PaymentVoucherId);
+        if (pe == null) return;
+
+        var refEntry = pe.References.FirstOrDefault(r =>
+            r.ReferenceType == alloc.InvoiceVoucherType && r.ReferenceId == alloc.InvoiceVoucherId);
+
+        DateTime reconcileEffectOn = company.ReconciliationTakesEffectOn switch
+        {
+            "Advance Payment Date" => pe.PostingDate,
+            "Reconciliation Date" => DateTime.UtcNow.Date,
+            _ => invoicePostingDate < pe.PostingDate ? pe.PostingDate : invoicePostingDate // "Oldest Of Invoice Or Advance"
+        };
+
+        if (refEntry != null)
+        {
+            refEntry.AllocatedAmount += alloc.AllocatedAmount;
+            refEntry.ReconcileEffectOn = reconcileEffectOn;
+        }
+        else
+        {
+            var newRef = new PaymentEntryReference(
+                GuidGenerator.Create(), pe.Id, alloc.InvoiceVoucherType, alloc.InvoiceVoucherId,
+                totalAmount: alloc.AllocatedAmount, outstandingAmount: 0, allocatedAmount: alloc.AllocatedAmount)
+            {
+                ReconcileEffectOn = reconcileEffectOn
+            };
+            pe.References.Add(newRef);
+        }
+
+        await _paymentEntryRepository.UpdateAsync(pe);
     }
 
     /// <summary>

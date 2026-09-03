@@ -38,6 +38,9 @@ public class PaymentEntryReference : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Payment term ID for term-based allocation. Required when invoice uses allocate_payment_based_on_payment_terms.</summary>
     public Guid? PaymentTermId { get; set; }
 
+    /// <summary>Date when reconciliation effect is applied (per ERPNext commit 19f1ffbdc2).</summary>
+    public DateTime? ReconcileEffectOn { get; set; }
+
     protected PaymentEntryReference() { }
 
     public PaymentEntryReference(

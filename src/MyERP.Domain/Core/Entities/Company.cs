@@ -134,6 +134,13 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Default Advance Paid account (Supplier advances → Asset).</summary>
     public Guid? DefaultAdvancePaidAccountId { get; set; }
 
+    /// <summary>
+    /// Governs the date on which advance payment reconciliation takes effect.
+    /// Values: "Advance Payment Date", "Oldest Of Invoice Or Advance" (default), "Reconciliation Date".
+    /// Per ERPNext: Company.reconciliation_takes_effect_on (commit 19f1ffbdc2).
+    /// </summary>
+    public string ReconciliationTakesEffectOn { get; set; } = "Oldest Of Invoice Or Advance";
+
     // --- Additional Settings ---
 
     /// <summary>Enable perpetual inventory (stock movements create GL entries automatically).</summary>
