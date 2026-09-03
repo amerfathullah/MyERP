@@ -217,7 +217,7 @@ public class StockValuationService : DomainService
         return (valuationRate, balanceQty, balanceValue, stockQueueJson);
     }
 
-    private static (decimal valuationRate, decimal balanceQty, decimal balanceValue)
+    public static (decimal valuationRate, decimal balanceQty, decimal balanceValue)
         CalculateMovingAverage(StockLedgerEntry? previousSle, decimal quantityChange, decimal incomingRate)
     {
         var existingQty = previousSle?.BalanceQuantity ?? 0;
@@ -253,6 +253,13 @@ public class StockValuationService : DomainService
             valuationRate = existingRate > 0 ? existingRate : incomingRate;
             newBalanceQty = existingQty + quantityChange; // quantityChange is negative
             newBalanceValue = newBalanceQty > 0 ? newBalanceQty * valuationRate : 0;
+
+            // ERPNext PR #47700 / commit 1e8ed22421: recompute valuation_rate using rounded stock_value
+            // to avoid discrepancy in valuation rate on outgoing transactions
+            if (newBalanceQty != 0)
+            {
+                valuationRate = Math.Round(newBalanceValue, 2) / newBalanceQty;
+            }
 
             // Going negative: if was positive and outgoing rate specified, use outgoing rate
             if (existingQty >= 0 && newBalanceQty < 0 && incomingRate > 0)
@@ -311,10 +318,15 @@ public class StockValuationService : DomainService
             else
             {
                 var avgRate = runningQty > 0 ? runningValue / runningQty : entry.ValuationRate;
-                entry.ValuationRate = Math.Round(avgRate, 4);
                 entry.StockValue = entry.QuantityChange * avgRate;
                 runningQty += entry.QuantityChange;
                 runningValue = runningQty > 0 ? runningQty * avgRate : 0;
+                // ERPNext PR #47700 / commit 1e8ed22421: recompute valuation_rate using rounded stock_value
+                if (runningQty != 0)
+                {
+                    avgRate = Math.Round(runningValue, 2) / runningQty;
+                }
+                entry.ValuationRate = Math.Round(avgRate, 4);
             }
 
             entry.BalanceQuantity = Math.Round(runningQty, 4);

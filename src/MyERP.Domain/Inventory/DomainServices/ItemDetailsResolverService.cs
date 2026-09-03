@@ -372,8 +372,9 @@ public class ItemDetailsResolverService : DomainService
             var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
             var sleQuery = await sleRepo.GetQueryableAsync();
 
+            // Per ERPNext PR #47693 / commit c3b17024bd: skip free items (rate = 0)
             var query = sleQuery
-                .Where(e => e.ItemId == itemId && e.QuantityChange > 0); // inward entries only
+                .Where(e => e.ItemId == itemId && e.QuantityChange > 0 && e.IncomingRate > 0); // inward paid entries only
 
             if (companyId.HasValue)
                 query = query.Where(e => e.CompanyId == companyId.Value);

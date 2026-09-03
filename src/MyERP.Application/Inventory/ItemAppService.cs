@@ -570,10 +570,15 @@ public class ItemAppService :
             result.TotalPurchasedQty = recentPoItems.Sum(i => i.Quantity);
             result.TotalPurchasedValue = recentPoItems.Sum(i => i.Quantity * i.UnitPrice);
 
-            if (recentPoItems.Count > 0)
+            // Per ERPNext PR #47693 / commit c3b17024bd: skip free items (rate = 0)
+            var paidPoItems = recentPoItems.Where(i => i.UnitPrice > 0).ToList();
+            if (paidPoItems.Count > 0)
             {
-                var latestPo = recentPos.OrderByDescending(p => p.OrderDate).First();
-                var latestPoItem = recentPoItems.FirstOrDefault(i => i.PurchaseOrderId == latestPo.Id);
+                var latestPo = recentPos
+                    .Where(p => paidPoItems.Any(i => i.PurchaseOrderId == p.Id))
+                    .OrderByDescending(p => p.OrderDate)
+                    .First();
+                var latestPoItem = paidPoItems.FirstOrDefault(i => i.PurchaseOrderId == latestPo.Id);
                 result.LastPurchaseRate = latestPoItem?.UnitPrice;
                 result.LastPurchaseDate = latestPo.OrderDate;
             }

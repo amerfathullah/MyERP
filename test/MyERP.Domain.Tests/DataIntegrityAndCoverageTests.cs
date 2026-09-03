@@ -703,4 +703,22 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal("MyERP:05068",
             MyERPDomainErrorCodes.QualityInspectionNotAllowedAfterSubmission);
     }
+
+    [Fact]
+    public void StockValuation_MovingAverage_AvoidsPrecisionDiscrepancy_OnStockOut()
+    {
+        // Initial stock: 10 qty at 3.3333 = balance 33.3333
+        var previousSle = new Inventory.Entities.StockLedgerEntry(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            DateTime.UtcNow, 10m, 3.3333m, 10m, 33.33m);
+
+        // Consume 3 qty
+        var (rate, balanceQty, balanceValue) = Inventory.DomainServices.StockValuationService.CalculateMovingAverage(
+            previousSle, -3m, 0m);
+
+        Assert.Equal(7m, balanceQty);
+        Assert.True(rate > 0m);
+        // Rate is recomputed from rounded balance value / balanceQty
+        Assert.Equal(Math.Round(balanceValue, 2) / balanceQty, rate);
+    }
 }
