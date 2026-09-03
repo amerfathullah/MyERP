@@ -30,8 +30,11 @@ public class ItemPriceAutoInsertService : DomainService
     }
 
     /// <summary>
-    /// Auto-inserts Item Prices from a transaction's items if they don't already exist.
-    /// Per ERPNext: creates date-segmented price history (valid_from = transaction date).
+    /// Auto-inserts or updates Item Prices from a transaction's items.
+    /// Per ERPNext commit 3ebde4526a:
+    /// - Supports update_price_list_based_on ("Rate" vs "Price List Rate")
+    /// - Supports update_existing_price_list_rate
+    /// - Converts transaction rate to stock UOM rate via conversion factor
     /// </summary>
     public async Task AutoInsertFromTransactionAsync(
         AutoInsertPriceContext context)
@@ -40,25 +43,41 @@ public class ItemPriceAutoInsertService : DomainService
 
         foreach (var item in context.Items)
         {
-            if (item.Rate <= 0 || item.ItemId == Guid.Empty) continue;
+            var updateBasedOnPriceListRate = string.Equals(context.UpdatePriceListBasedOn, "Price List Rate", StringComparison.OrdinalIgnoreCase);
+            var rateToConsider = updateBasedOnPriceListRate
+                ? (item.PriceListRate.HasValue && item.PriceListRate.Value > 0 ? item.PriceListRate.Value : item.Rate)
+                : item.Rate;
+
+            if (rateToConsider <= 0 || item.ItemId == Guid.Empty) continue;
+
+            var conversion = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+            var effectivePriceListRate = Math.Round(rateToConsider / conversion, 4);
 
             // Check if price already exists for this item+priceList+UOM covering the transaction date
             var existingQuery = await _itemPriceRepository.GetQueryableAsync();
-            var exists = existingQuery.Any(p =>
+            var existingPrice = existingQuery.FirstOrDefault(p =>
                 p.ItemId == item.ItemId &&
                 p.PriceListId == context.PriceListId &&
                 p.Uom == (item.Uom ?? "Unit") &&
-                p.CustomerId == context.PartyId &&
+                p.CustomerId == (context.IsSelling ? context.PartyId : null) &&
+                p.SupplierId == (context.IsSelling ? null : context.PartyId) &&
                 (p.ValidFrom == null || p.ValidFrom <= context.TransactionDate) &&
-                (p.ValidUpto == null || p.ValidUpto >= context.TransactionDate) &&
-                Math.Abs(p.PriceListRate - item.Rate) < 0.01m);
+                (p.ValidUpto == null || p.ValidUpto >= context.TransactionDate));
 
-            if (exists) continue;
+            if (existingPrice != null)
+            {
+                if (context.UpdateExistingRate && Math.Abs(existingPrice.PriceListRate - effectivePriceListRate) >= 0.01m)
+                {
+                    existingPrice.PriceListRate = effectivePriceListRate;
+                    await _itemPriceRepository.UpdateAsync(existingPrice, autoSave: true);
+                }
+                continue;
+            }
 
             // Create new Item Price with valid_from = transaction date
             var itemPrice = new ItemPrice(
                 _guidGenerator.Create(), item.ItemId, context.PriceListId,
-                item.Rate, item.Uom ?? "Unit", context.CurrencyCode ?? "MYR", context.TenantId)
+                effectivePriceListRate, item.Uom ?? "Unit", context.CurrencyCode ?? "MYR", context.TenantId)
             {
                 ValidFrom = context.TransactionDate,
                 CustomerId = context.IsSelling ? context.PartyId : null,
@@ -81,6 +100,8 @@ public record AutoInsertPriceContext
     public DateTime TransactionDate { get; init; }
     public string? CurrencyCode { get; init; }
     public Guid? TenantId { get; init; }
+    public bool UpdateExistingRate { get; init; }
+    public string UpdatePriceListBasedOn { get; init; } = "Rate";
     public AutoInsertPriceItem[] Items { get; init; } = [];
 }
 
@@ -89,5 +110,7 @@ public record AutoInsertPriceItem
 {
     public Guid ItemId { get; init; }
     public decimal Rate { get; init; }
+    public decimal? PriceListRate { get; init; }
+    public decimal ConversionFactor { get; init; } = 1m;
     public string? Uom { get; init; }
 }

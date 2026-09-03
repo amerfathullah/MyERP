@@ -19,6 +19,8 @@ public static class MyERPSettings
         public const string DefaultWarehouse = G + ".DefaultWarehouse";
         public const string AllowNegativeStock = G + ".AllowNegativeStock";
         public const string AutoInsertPriceListRate = G + ".AutoInsertPriceListRate";
+        public const string UpdateExistingPriceListRate = G + ".UpdateExistingPriceListRate";
+        public const string UpdatePriceListBasedOn = G + ".UpdatePriceListBasedOn";
         public const string EnableStockReservation = G + ".EnableStockReservation";
         public const string AutoReserveOnPurchase = G + ".AutoReserveOnPurchase";
         public const string OverDeliveryReceiptAllowance = G + ".OverDeliveryReceiptAllowance";

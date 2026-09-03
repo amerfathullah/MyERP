@@ -11,6 +11,8 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Stock.DefaultValuationMethod, "FIFO"),
             new SettingDefinition(MyERPSettings.Stock.AllowNegativeStock, "false"),
             new SettingDefinition(MyERPSettings.Stock.AutoInsertPriceListRate, "false"),
+            new SettingDefinition(MyERPSettings.Stock.UpdateExistingPriceListRate, "false"),
+            new SettingDefinition(MyERPSettings.Stock.UpdatePriceListBasedOn, "Rate"),
             new SettingDefinition(MyERPSettings.Stock.EnableStockReservation, "false"),
             new SettingDefinition(MyERPSettings.Stock.AutoReserveOnPurchase, "false"),
             new SettingDefinition(MyERPSettings.Stock.OverDeliveryReceiptAllowance, "0"),

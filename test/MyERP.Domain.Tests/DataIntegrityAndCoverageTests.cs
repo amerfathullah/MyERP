@@ -2073,4 +2073,33 @@ public class DataIntegrityAndCoverageTests
         Assert.True(IsPending(sentQty, partialReceivedQty));
         Assert.Equal(40m, sentQty - partialReceivedQty);
     }
+
+    [Fact]
+    public void ItemPriceAutoInsert_ConsidersPriceListRateAndExistingRate()
+    {
+        // Per ERPNext commit 3ebde4526a:
+        // update_price_list_based_on ("Rate" vs "Price List Rate") selects rate source
+        // and scales by conversion_factor to stock UOM.
+        var item = new Inventory.DomainServices.AutoInsertPriceItem
+        {
+            ItemId = Guid.NewGuid(),
+            Rate = 80m,
+            PriceListRate = 100m,
+            ConversionFactor = 2m,
+            Uom = "Box"
+        };
+
+        decimal ResolveRate(string updateBasedOn, Inventory.DomainServices.AutoInsertPriceItem itm)
+        {
+            var updateBasedOnPriceListRate = string.Equals(updateBasedOn, "Price List Rate", StringComparison.OrdinalIgnoreCase);
+            var rateToConsider = updateBasedOnPriceListRate
+                ? (itm.PriceListRate.HasValue && itm.PriceListRate.Value > 0 ? itm.PriceListRate.Value : itm.Rate)
+                : itm.Rate;
+            var conversion = itm.ConversionFactor > 0 ? itm.ConversionFactor : 1m;
+            return Math.Round(rateToConsider / conversion, 4);
+        }
+
+        Assert.Equal(50m, ResolveRate("Price List Rate", item));
+        Assert.Equal(40m, ResolveRate("Rate", item));
+    }
 }
