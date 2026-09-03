@@ -253,6 +253,63 @@ public class StockReservationManager : DomainService
             await _binRepository.UpdateAsync(bin);
         }
     }
+
+    /// <summary>
+    /// Transfers reservation entries from a source voucher (e.g. Production Plan) to a target voucher (e.g. Work Order).
+    /// Updates source entries (marks transferred_qty) and creates target reservation entries linked via FromVoucher.
+    /// Per ERPNext commit 0bc3cfe29d: transfer_reservation_entries_to.
+    /// </summary>
+    public async Task TransferReservationEntriesAsync(
+        string fromVoucherType, Guid fromVoucherId,
+        string toVoucherType, Guid toVoucherId,
+        Guid itemId, Guid warehouseId, decimal qty,
+        Guid? toVoucherDetailId = null)
+    {
+        var sreQueryable = await _sreRepository.GetQueryableAsync();
+        var sourceEntries = sreQueryable
+            .Where(s => s.VoucherType == fromVoucherType
+                && s.VoucherId == fromVoucherId
+                && s.ItemId == itemId
+                && s.WarehouseId == warehouseId
+                && s.Status == DocumentStatus.Submitted
+                && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
+            .OrderBy(s => s.CreationTime)
+            .ToList();
+
+        var remaining = qty;
+        foreach (var src in sourceEntries)
+        {
+            if (remaining <= 0) break;
+            var available = src.ReservedQty - src.DeliveredQty - src.TransferredQty - src.ConsumedQty;
+            var transferQty = Math.Min(available, remaining);
+
+            src.TransferredQty += transferQty;
+            await _sreRepository.UpdateAsync(src);
+
+            var newSre = new StockReservationEntry(
+                GuidGenerator.Create(),
+                src.CompanyId,
+                src.ItemId,
+                src.WarehouseId,
+                toVoucherType,
+                toVoucherId,
+                transferQty,
+                transferQty,
+                src.TenantId)
+            {
+                VoucherDetailId = toVoucherDetailId,
+                FromVoucherType = fromVoucherType,
+                FromVoucherId = fromVoucherId,
+                FromVoucherDetailId = src.VoucherDetailId,
+                BatchId = src.BatchId,
+                SerialAndBatchBundleId = src.SerialAndBatchBundleId
+            };
+            newSre.Submit();
+            await _sreRepository.InsertAsync(newSre);
+
+            remaining -= transferQty;
+        }
+    }
 }
 
 public class ReservationConsumption

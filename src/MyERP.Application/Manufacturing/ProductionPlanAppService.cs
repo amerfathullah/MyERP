@@ -320,6 +320,23 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
             await _workOrderRepository.InsertAsync(wo);
             item.WorkOrderId = wo.Id;
+
+            // Transfer stock reservations from Production Plan to Work Order (ERPNext commit 0bc3cfe29d)
+            var sreManager = LazyServiceProvider.LazyGetService<MyERP.Inventory.DomainServices.StockReservationManager>();
+            if (sreManager != null)
+            {
+                foreach (var reqItem in wo.RequiredItems)
+                {
+                    if (reqItem.SourceWarehouseId.HasValue)
+                    {
+                        await sreManager.TransferReservationEntriesAsync(
+                            "ProductionPlan", plan.Id,
+                            "WorkOrder", wo.Id,
+                            reqItem.ItemId, reqItem.SourceWarehouseId.Value,
+                            reqItem.RequiredQuantity, reqItem.Id);
+                    }
+                }
+            }
         }
 
         if (plan.Status is ProductionPlanStatus.Submitted or ProductionPlanStatus.MaterialRequested)

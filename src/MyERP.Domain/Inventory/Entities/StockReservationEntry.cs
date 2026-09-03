@@ -27,6 +27,11 @@ public class StockReservationEntry : FullAuditedAggregateRoot<Guid>, IMultiTenan
     /// <summary>Specific row in the voucher.</summary>
     public Guid? VoucherDetailId { get; set; }
 
+    /// <summary>Source voucher when transferred (e.g. Production Plan → Work Order, per ERPNext commit 0bc3cfe29d).</summary>
+    public string? FromVoucherType { get; set; }
+    public Guid? FromVoucherId { get; set; }
+    public Guid? FromVoucherDetailId { get; set; }
+
     /// <summary>Total demand qty from the voucher line (may exceed reserved qty when partial reservation).</summary>
     public decimal VoucherQty { get; set; }
 

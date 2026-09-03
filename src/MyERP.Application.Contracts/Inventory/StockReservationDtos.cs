@@ -12,6 +12,9 @@ public class StockReservationEntryDto : EntityDto<Guid>
     public string VoucherType { get; set; } = null!;
     public Guid VoucherId { get; set; }
     public Guid? VoucherDetailId { get; set; }
+    public string? FromVoucherType { get; set; }
+    public Guid? FromVoucherId { get; set; }
+    public Guid? FromVoucherDetailId { get; set; }
     public decimal ReservedQty { get; set; }
     public decimal DeliveredQty { get; set; }
     public decimal AvailableQty { get; set; }

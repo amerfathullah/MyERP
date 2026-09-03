@@ -2190,4 +2190,43 @@ public class DataIntegrityAndCoverageTests
         var olderInvoiceDate = new DateTime(2026, 4, 20);
         Assert.Equal(peDate, ResolveReconcileDate("Oldest Of Invoice Or Advance", peDate, olderInvoiceDate));
     }
+
+    [Fact]
+    public void StockReservation_TransferReservationEntries_UpdatesFromVoucher()
+    {
+        // Per ERPNext commit 0bc3cfe29d:
+        // When transferring reservations from Production Plan to Work Order,
+        // target SRE records FromVoucherType, FromVoucherId, and FromVoucherDetailId.
+        var planId = Guid.NewGuid();
+        var woId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+        var planDetailId = Guid.NewGuid();
+        var woDetailId = Guid.NewGuid();
+
+        var sourceSre = new Inventory.Entities.StockReservationEntry(
+            Guid.NewGuid(), companyId, itemId, whId,
+            "ProductionPlan", planId, 50m, 50m)
+        {
+            VoucherDetailId = planDetailId
+        };
+        sourceSre.Submit();
+
+        var targetSre = new Inventory.Entities.StockReservationEntry(
+            Guid.NewGuid(), companyId, itemId, whId,
+            "WorkOrder", woId, 30m, 30m)
+        {
+            VoucherDetailId = woDetailId,
+            FromVoucherType = sourceSre.VoucherType,
+            FromVoucherId = sourceSre.VoucherId,
+            FromVoucherDetailId = sourceSre.VoucherDetailId
+        };
+        targetSre.Submit();
+
+        Assert.Equal("ProductionPlan", targetSre.FromVoucherType);
+        Assert.Equal(planId, targetSre.FromVoucherId);
+        Assert.Equal(planDetailId, targetSre.FromVoucherDetailId);
+        Assert.Equal(30m, targetSre.ReservedQty);
+    }
 }
