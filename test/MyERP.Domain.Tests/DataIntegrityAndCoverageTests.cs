@@ -575,4 +575,42 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal("Accounts Manager", settings.RoleToOverrideStopAction);
         Assert.Equal("MyERP:09003", MyERPDomainErrorCodes.InterCompanyRateMismatch);
     }
+
+    [Fact]
+    public void Quotation_DuplicateItems_TracksOrderedQtyAccuratelyByQuotationItemId()
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var quotation = new Sales.Entities.Quotation(Guid.NewGuid(), companyId, customerId, "QTN-001", DateTime.UtcNow);
+        quotation.AddItem(itemId, "Description 1", quantity: 5m, unitPrice: 100m, taxAmount: 0m);
+        quotation.AddItem(itemId, "Description 2 (duplicate item code)", quantity: 10m, unitPrice: 100m, taxAmount: 0m);
+        quotation.Submit();
+
+        Assert.Equal(2, quotation.Items.Count);
+        var qItem1 = quotation.Items[0];
+        var qItem2 = quotation.Items[1];
+
+        // Create Sales Order targeting the second quotation row specifically
+        var so = new Sales.Entities.SalesOrder(Guid.NewGuid(), companyId, customerId, "SO-001", DateTime.UtcNow);
+        so.AddItem(itemId, "Description 2 (duplicate item code)", quantity: 10m, unitPrice: 100m, taxAmount: 0m, quotationItemId: qItem2.Id);
+
+        // Verify QuotationItemId is stored
+        Assert.Equal(qItem2.Id, so.Items[0].QuotationItemId);
+
+        // Simulate resolution
+        var targetQItem = so.Items[0].QuotationItemId.HasValue
+            ? quotation.Items.FirstOrDefault(i => i.Id == so.Items[0].QuotationItemId!.Value)
+            : quotation.Items.FirstOrDefault(i => i.ItemId == so.Items[0].ItemId);
+
+        Assert.NotNull(targetQItem);
+        Assert.Equal(qItem2.Id, targetQItem.Id);
+        targetQItem.OrderedQty += so.Items[0].Quantity;
+
+        // Row 1 remains un-ordered, Row 2 is fully ordered
+        Assert.Equal(0m, qItem1.OrderedQty);
+        Assert.Equal(10m, qItem2.OrderedQty);
+        Assert.Equal(0m, quotation.PerOrdered); // Min(0, 100) = 0%
+    }
 }

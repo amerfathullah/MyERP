@@ -127,7 +127,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         foreach (var item in quotation.Items)
         {
-            salesOrder.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            salesOrder.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, quotationItemId: item.Id);
         }
 
         quotation.ConvertedToSalesOrderId = salesOrder.Id;

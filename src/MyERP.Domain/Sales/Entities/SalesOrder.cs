@@ -128,7 +128,7 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", DateTime? deliveryDate = null)
+    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", DateTime? deliveryDate = null, Guid? quotationItemId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -137,6 +137,7 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
             throw new ArgumentException("Quantity must be greater than zero.", nameof(quantity));
         var item = new SalesOrderItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom);
         item.DeliveryDate = deliveryDate;
+        item.QuotationItemId = quotationItemId;
         _items.Add(item);
         RecalculateTotals();
     }
@@ -376,6 +377,9 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
 
     /// <summary>Blanket Order this line draws from (deducts qty from the blanket allocation on submit).</summary>
     public Guid? BlanketOrderId { get; set; }
+
+    /// <summary>Link to Quotation item (for Quotation fulfillment tracking and handling duplicate items per ERPNext PR #47775 / commit 39f6d8ffb6).</summary>
+    public Guid? QuotationItemId { get; set; }
 
     protected SalesOrderItem() { }
     public SalesOrderItem(Guid id, Guid salesOrderId, Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom)

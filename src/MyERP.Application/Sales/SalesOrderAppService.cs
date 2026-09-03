@@ -317,7 +317,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         foreach (var item in input.Items)
         {
-            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.DeliveryDate);
+            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.DeliveryDate, item.QuotationItemId);
             if (item.WarehouseId.HasValue)
                 order.Items[^1].WarehouseId = item.WarehouseId;
             if (item.BlanketOrderId.HasValue)
@@ -655,7 +655,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                 quotation.ConvertedToSalesOrderId = order.Id;
                 foreach (var soItem in order.Items)
                 {
-                    var qItem = quotation.Items.FirstOrDefault(i => i.ItemId == soItem.ItemId);
+                    var qItem = soItem.QuotationItemId.HasValue
+                        ? quotation.Items.FirstOrDefault(i => i.Id == soItem.QuotationItemId.Value)
+                        : quotation.Items.FirstOrDefault(i => i.ItemId == soItem.ItemId);
                     if (qItem != null)
                     {
                         qItem.OrderedQty += soItem.Quantity;
@@ -752,7 +754,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             {
                 foreach (var soItem in order.Items)
                 {
-                    var qItem = quotation.Items.FirstOrDefault(i => i.ItemId == soItem.ItemId);
+                    var qItem = soItem.QuotationItemId.HasValue
+                        ? quotation.Items.FirstOrDefault(i => i.Id == soItem.QuotationItemId.Value)
+                        : quotation.Items.FirstOrDefault(i => i.ItemId == soItem.ItemId);
                     if (qItem != null)
                     {
                         qItem.OrderedQty = Math.Max(0, qItem.OrderedQty - soItem.Quantity);
@@ -995,7 +999,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var updateItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
         foreach (var item in input.Items)
         {
-            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.DeliveryDate);
+            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.DeliveryDate, item.QuotationItemId);
             var lastSoItem = order.Items[^1];
             if (item.WarehouseId.HasValue)
                 lastSoItem.WarehouseId = item.WarehouseId;

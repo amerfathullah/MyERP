@@ -89,6 +89,9 @@ public class SalesOrderItemDto
     /// <summary>Blanket Order this line draws from (null if not linked to one).</summary>
     public Guid? BlanketOrderId { get; set; }
 
+    /// <summary>Link to Quotation item (for Quotation fulfillment tracking and handling duplicate items).</summary>
+    public Guid? QuotationItemId { get; set; }
+
     /// <summary>Available stock qty for this item (populated on create/get for warehouse visibility).</summary>
     public decimal AvailableQty { get; set; }
 
@@ -184,6 +187,9 @@ public class CreateSalesOrderItemDto
 
     /// <summary>Blanket Order this line draws from — qty deducted from the blanket allocation on submit.</summary>
     public Guid? BlanketOrderId { get; set; }
+
+    /// <summary>Link to Quotation item (for Quotation fulfillment tracking and handling duplicate items).</summary>
+    public Guid? QuotationItemId { get; set; }
 }
 
 /// <summary>
