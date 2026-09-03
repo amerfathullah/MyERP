@@ -22,6 +22,7 @@ public class QuotationDto : FullAuditedEntityDto<Guid>
     public string? Notes { get; set; }
     public string Status { get; set; } = null!;
     public Guid? ConvertedToSalesOrderId { get; set; }
+    public Guid? OpportunityId { get; set; }
     /// <summary>SO conversion completion %. 0 = not ordered, 100 = fully ordered.</summary>
     public decimal PerOrdered { get; set; }
     public List<QuotationItemDto> Items { get; set; } = new();
@@ -59,6 +60,9 @@ public class CreateQuotationDto
 
     /// <summary>Selling Price List. When omitted, defaults from Customer.DefaultPriceListId.</summary>
     public Guid? PriceListId { get; set; }
+
+    /// <summary>Source Opportunity if created from CRM Opportunity. Per ERPNext commit dc4819e897.</summary>
+    public Guid? OpportunityId { get; set; }
 
     [StringLength(QuotationConsts.MaxTermsLength)]
     public string? Terms { get; set; }

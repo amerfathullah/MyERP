@@ -1547,6 +1547,7 @@
     "MyERP:05010": "Quality Inspection was rejected for items: {items} on {referenceType}.",
     "MyERP:05068": "Quality Inspection cannot be created for submitted document {documentType} {documentNumber} unless Allow Quality Inspection After Submission is enabled in Stock Settings.",
     "MyERP:05069": "Quality Inspection is not required for Item {item} to {action}.",
+    "MyERP:01050": "Customer cannot be changed when Quotation is created from an Opportunity.",
     "BudgetExceededMessage": "Budget exceeded for account '{account}': budget {budget}, spent {spent}, requested {requested}.",
     "MyERP:08001": "Return items must have negative quantity. Item '{item}' has positive qty.",
     "MyERP:08002": "Return document must reference the original invoice.",

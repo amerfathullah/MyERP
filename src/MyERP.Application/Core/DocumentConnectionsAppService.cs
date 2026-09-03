@@ -37,6 +37,7 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
             "StockEntry" => await GetStockEntryConnectionsAsync(documentId),
             "WorkOrder" => await GetWorkOrderConnectionsAsync(documentId),
             "Quotation" => await GetQuotationConnectionsAsync(documentId),
+            "Customer" => await GetCustomerConnectionsAsync(documentId),
             _ => new DocumentConnectionsDto()
         };
     }
@@ -813,6 +814,119 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
             conversionGroup.Items.Add(new ConnectionItemDto { DocumentType = "Sales Order", Count = orders.Count, Route = "/sales/orders", Documents = orders });
 
         if (conversionGroup.Items.Any()) result.Groups.Add(conversionGroup);
+        return result;
+    }
+
+    private async Task<DocumentConnectionsDto> GetCustomerConnectionsAsync(Guid customerId)
+    {
+        var result = new DocumentConnectionsDto();
+
+        // Pre Sales
+        var preSalesGroup = new ConnectionGroupDto { Label = "Pre Sales", Items = new() };
+        var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
+        var oppQuery = await oppRepo.GetQueryableAsync();
+        var opps = oppQuery.Where(o => o.CustomerId == customerId)
+            .Select(o => new ConnectionDocumentDto
+            {
+                Id = o.Id,
+                DocumentNumber = o.OpportunityNumber,
+                Status = o.Status.ToString(),
+                Amount = o.OpportunityAmount,
+                Date = o.CreationTime,
+                Route = "/crm/opportunities/" + o.Id
+            }).ToList();
+        if (opps.Any()) preSalesGroup.Items.Add(new ConnectionItemDto { DocumentType = "Opportunity", Count = opps.Count, Route = "/crm/opportunities", Documents = opps });
+
+        var qRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
+        var qQuery = await qRepo.GetQueryableAsync();
+        var quotes = qQuery.Where(q => q.CustomerId == customerId)
+            .Select(q => new ConnectionDocumentDto
+            {
+                Id = q.Id,
+                DocumentNumber = q.QuotationNumber,
+                Status = q.Status.ToString(),
+                Amount = q.GrandTotal,
+                Date = q.IssueDate,
+                Route = "/sales/quotations/" + q.Id
+            }).ToList();
+        if (quotes.Any()) preSalesGroup.Items.Add(new ConnectionItemDto { DocumentType = "Quotation", Count = quotes.Count, Route = "/sales/quotations", Documents = quotes });
+        if (preSalesGroup.Items.Any()) result.Groups.Add(preSalesGroup);
+
+        // Orders
+        var ordersGroup = new ConnectionGroupDto { Label = "Orders", Items = new() };
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+        var soQuery = await soRepo.GetQueryableAsync();
+        var sos = soQuery.Where(s => s.CustomerId == customerId)
+            .Select(s => new ConnectionDocumentDto
+            {
+                Id = s.Id,
+                DocumentNumber = s.OrderNumber,
+                Status = s.Status.ToString(),
+                Amount = s.GrandTotal,
+                Date = s.OrderDate,
+                Route = "/sales/orders/" + s.Id
+            }).ToList();
+        if (sos.Any()) ordersGroup.Items.Add(new ConnectionItemDto { DocumentType = "SalesOrder", Count = sos.Count, Route = "/sales/orders", Documents = sos });
+
+        var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
+        var dnQuery = await dnRepo.GetQueryableAsync();
+        var dns = dnQuery.Where(d => d.CustomerId == customerId)
+            .Select(d => new ConnectionDocumentDto
+            {
+                Id = d.Id,
+                DocumentNumber = d.DeliveryNumber,
+                Status = d.Status.ToString(),
+                Date = d.PostingDate,
+                Route = "/sales/deliveries/" + d.Id
+            }).ToList();
+        if (dns.Any()) ordersGroup.Items.Add(new ConnectionItemDto { DocumentType = "DeliveryNote", Count = dns.Count, Route = "/sales/deliveries", Documents = dns });
+
+        var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+        var siQuery = await siRepo.GetQueryableAsync();
+        var sis = siQuery.Where(s => s.CustomerId == customerId)
+            .Select(s => new ConnectionDocumentDto
+            {
+                Id = s.Id,
+                DocumentNumber = s.InvoiceNumber,
+                Status = s.Status.ToString(),
+                Amount = s.GrandTotal,
+                Date = s.IssueDate,
+                Route = "/sales/invoices/" + s.Id
+            }).ToList();
+        if (sis.Any()) ordersGroup.Items.Add(new ConnectionItemDto { DocumentType = "SalesInvoice", Count = sis.Count, Route = "/sales/invoices", Documents = sis });
+        if (ordersGroup.Items.Any()) result.Groups.Add(ordersGroup);
+
+        // Payments
+        var paymentsGroup = new ConnectionGroupDto { Label = "Payments", Items = new() };
+        var peRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PaymentEntry, Guid>>();
+        var peQuery = await peRepo.GetQueryableAsync();
+        var pes = peQuery.Where(p => p.PartyType == "Customer" && p.PartyId == customerId)
+            .Select(p => new ConnectionDocumentDto
+            {
+                Id = p.Id,
+                DocumentNumber = p.PaymentNumber,
+                Status = p.Status.ToString(),
+                Amount = p.PaidAmount,
+                Date = p.PostingDate,
+                Route = "/accounting/payments/" + p.Id
+            }).ToList();
+        if (pes.Any()) paymentsGroup.Items.Add(new ConnectionItemDto { DocumentType = "PaymentEntry", Count = pes.Count, Route = "/accounting/payments", Documents = pes });
+
+        // Dunning (Per ERPNext PR #46716 / commit 638d825d8c: add Dunning to customer dashboard)
+        var dunRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Dunning, Guid>>();
+        var dunQuery = await dunRepo.GetQueryableAsync();
+        var duns = dunQuery.Where(d => d.CustomerId == customerId)
+            .Select(d => new ConnectionDocumentDto
+            {
+                Id = d.Id,
+                Status = d.Status.ToString(),
+                Amount = d.GrandTotal,
+                Date = d.PostingDate,
+                Route = "/sales/dunnings/" + d.Id
+            }).ToList();
+        if (duns.Any()) paymentsGroup.Items.Add(new ConnectionItemDto { DocumentType = "Dunning", Count = duns.Count, Route = "/sales/dunnings", Documents = duns });
+        if (paymentsGroup.Items.Any()) result.Groups.Add(paymentsGroup);
+
         return result;
     }
 

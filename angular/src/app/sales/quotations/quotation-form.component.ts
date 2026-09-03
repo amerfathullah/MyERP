@@ -45,6 +45,7 @@ export class QuotationFormComponent implements OnInit {
     customerId: ['', Validators.required],
     customerName: [''],
     priceListId: [''],
+    opportunityId: [''],
     items: this.fb.array([]),
   });
 
@@ -61,6 +62,19 @@ export class QuotationFormComponent implements OnInit {
     );
     this.priceListService.getList({ skipCount: 0, maxResultCount: 100, sorting: 'name asc' })
       .subscribe({ next: res => this.priceLists.set((res.items ?? []).filter((p: any) => p.isSelling && p.isActive)), error: () => {} });
+
+    // Check query params for opportunity conversion
+    // Per ERPNext commit dc4819e897: restrict customer change if creating from opportunity
+    const oppId = this.route.snapshot.queryParamMap.get('opportunityId');
+    const custId = this.route.snapshot.queryParamMap.get('customerId');
+    if (oppId) {
+      this.form.patchValue({ opportunityId: oppId });
+      if (custId) {
+        this.form.patchValue({ customerId: custId });
+      }
+      this.form.get('customerId')?.disable();
+    }
+
     // Detect edit mode from route param
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
@@ -75,7 +89,14 @@ export class QuotationFormComponent implements OnInit {
           customerId: q.customerId,
           customerName: q.customerName,
           priceListId: q.priceListId ?? '',
+          opportunityId: (q as any).opportunityId ?? '',
         });
+
+        // Per ERPNext commit dc4819e897: restrict customer change if creating from opportunity
+        if ((q as any).opportunityId) {
+          this.form.get('customerId')?.disable();
+        }
+
         // Load items into FormArray
         (q.items ?? []).forEach((item: any) => {
           this.items.push(this.fb.group({

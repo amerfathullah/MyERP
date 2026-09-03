@@ -191,6 +191,19 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
             quotationNumber,
             input.IssueDate);
 
+        // Per ERPNext commit dc4819e897: restrict customer change if creating from opportunity
+        if (input.OpportunityId.HasValue)
+        {
+            var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
+            var opp = await oppRepo.FindAsync(input.OpportunityId.Value);
+            if (opp != null && opp.CustomerId.HasValue && opp.CustomerId.Value != input.CustomerId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CannotChangeCustomerForQuotationFromOpportunity)
+                    .WithData("opportunity", opp.OpportunityNumber);
+            }
+            quotation.OpportunityId = input.OpportunityId.Value;
+        }
+
         quotation.ValidUntil = input.ValidUntil;
         quotation.CurrencyCode = input.CurrencyCode;
         quotation.Terms = input.Terms;
@@ -223,6 +236,13 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var quotation = await _repository.GetAsync(id);
         if (quotation.Status != Core.DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Per ERPNext commit dc4819e897: restrict customer change if creating from opportunity
+        if (quotation.OpportunityId.HasValue && input.CustomerId != Guid.Empty && input.CustomerId != quotation.CustomerId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeCustomerForQuotationFromOpportunity)
+                .WithData("reason", "Customer cannot be changed when Quotation is created from an Opportunity.");
+        }
 
         // Per gotcha #2145: ValidUntil cannot precede IssueDate
         if (input.ValidUntil.HasValue && input.ValidUntil.Value.Date < quotation.IssueDate.Date)

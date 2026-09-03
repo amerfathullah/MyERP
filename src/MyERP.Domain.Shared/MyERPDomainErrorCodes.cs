@@ -544,4 +544,5 @@ public static class MyERPDomainErrorCodes
     public const string ItemAccountCannotBePartyAccount = "MyERP:02086";
     public const string PartyAccountCurrencyMismatch = "MyERP:02087";
     public const string StaleExchangeRate = "MyERP:02089"; // was "MyERP:02088" (collided with DuplicateDefaultFinanceBook)
+    public const string CannotChangeCustomerForQuotationFromOpportunity = "MyERP:01050";
 }
