@@ -1110,6 +1110,47 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        // PR Over-billing validation: track which PR items have been billed
+        // Per ERPNext PR #47572 / commit 8d9888b1b6: include rejected qty when BillForRejectedQty is enabled
+        var prItemIds = invoice.Items
+            .Where(i => i.PurchaseReceiptItemId.HasValue)
+            .Select(i => i.PurchaseReceiptItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (prItemIds.Any())
+        {
+            var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+            var prQuery = await prRepo.GetQueryableAsync();
+            var affectedPrs = prQuery
+                .Where(pr => pr.Items.Any(pri => prItemIds.Contains(pri.Id)))
+                .ToList();
+
+            var billingCompany = await _companyRepository.GetAsync(invoice.CompanyId);
+            var billingAllowancePct = billingCompany.OverBillingAllowance;
+            var billForRejectedQty = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.BillForRejectedQty);
+
+            foreach (var pr in affectedPrs)
+            {
+                foreach (var piItem in invoice.Items.Where(i => i.PurchaseReceiptItemId.HasValue))
+                {
+                    var prItem = pr.Items.FirstOrDefault(i => i.Id == piItem.PurchaseReceiptItemId!.Value);
+                    if (prItem == null) continue;
+
+                    var baseQty = billForRejectedQty ? prItem.Quantity + prItem.RejectedQty : prItem.Quantity;
+                    var maxAllowedTotal = baseQty * (1m + billingAllowancePct / 100m);
+                    if (prItem.BilledQty + piItem.Quantity > maxAllowedTotal)
+                    {
+                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverBilling)
+                            .WithData("item", piItem.Description ?? piItem.ItemId.ToString())
+                            .WithData("ordered", baseQty)
+                            .WithData("billed", prItem.BilledQty)
+                            .WithData("attempted", piItem.Quantity);
+                    }
+                }
+            }
+        }
+
         // PR BilledQty update: track which PR items have been billed
         // Per ERPNext: update_billed_amount_in_pr FIFO billing status
         var piMgr = LazyServiceProvider.LazyGetRequiredService<PurchaseInvoiceManager>();

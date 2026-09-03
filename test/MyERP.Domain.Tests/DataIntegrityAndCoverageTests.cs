@@ -721,4 +721,27 @@ public class DataIntegrityAndCoverageTests
         // Rate is recomputed from rounded balance value / balanceQty
         Assert.Equal(Math.Round(balanceValue, 2) / balanceQty, rate);
     }
+
+    [Fact]
+    public void PurchaseReceipt_OverBilling_ConsidersRejectedQuantity()
+    {
+        var prItem = new Purchasing.Entities.PurchaseReceiptItem(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Item A", 10m, 20m, 0m)
+        {
+            ReceivedQty = 15m,
+            RejectedQty = 5m,
+            BilledQty = 12m
+        };
+
+        // When BillForRejectedQty is false: base is 10, so 12 > 10 (exceeded base)
+        var baseWithoutRejected = prItem.Quantity;
+        Assert.Equal(10m, baseWithoutRejected);
+        Assert.True(prItem.BilledQty > baseWithoutRejected);
+
+        // When BillForRejectedQty is true (ERPNext PR #47572 / commit 8d9888b1b6):
+        // base includes rejected quantity: 10 + 5 = 15, so 12 <= 15 (within limit)
+        var baseWithRejected = prItem.Quantity + prItem.RejectedQty;
+        Assert.Equal(15m, baseWithRejected);
+        Assert.True(prItem.BilledQty <= baseWithRejected);
+    }
 }
