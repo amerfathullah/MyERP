@@ -122,8 +122,9 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         {
             if (Status == DocumentStatus.Draft) return "Draft";
             if (Status == DocumentStatus.Cancelled) return "Cancelled";
-            if (IsReturn) return "Return";
+            // Per ERPNext commit 8290a83591: Completed takes precedence over Return Issued when fully billed
             if (PerBilled >= 100m) return "Completed";
+            if (IsReturn) return "Return";
             if (PerBilled > 0m) return "Partially Billed";
             return "To Bill";
         }

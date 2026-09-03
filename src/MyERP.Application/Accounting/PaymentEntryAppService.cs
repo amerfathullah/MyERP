@@ -1617,6 +1617,37 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
         // Per ERPNext PR #47069 / commit a854beeb40: set account type and currency if missing
         await PopulateAccountDetailsAsync(template);
+
+        // Per ERPNext PR #47171 / commit 9612521894:
+        // Set correct paid/receive amount and exchange rate if doc currency differs from party account currency or bank currency
+        if (!string.IsNullOrEmpty(template.PaidFromAccountCurrency) && !string.IsNullOrEmpty(template.PaidToAccountCurrency))
+        {
+            var sourceCurrency = template.PaymentType == PaymentType.Receive
+                ? template.PaidFromAccountCurrency
+                : template.PaidToAccountCurrency;
+            var targetCurrency = template.PaymentType == PaymentType.Receive
+                ? template.PaidToAccountCurrency
+                : template.PaidFromAccountCurrency;
+
+            if (!sourceCurrency.Equals(targetCurrency, StringComparison.OrdinalIgnoreCase))
+            {
+                var exchangeService = LazyServiceProvider.LazyGetRequiredService<CurrencyExchangeService>();
+                var rate = await exchangeService.GetExchangeRateAsync(sourceCurrency, targetCurrency, template.PostingDate);
+                if (rate > 0)
+                {
+                    template.ExchangeRate = rate;
+                    if (template.PaymentType == PaymentType.Receive)
+                    {
+                        template.ReceivedAmount = Math.Round(template.PaidAmount * rate, 2);
+                    }
+                    else
+                    {
+                        template.PaidAmount = Math.Round((template.ReceivedAmount ?? template.PaidAmount) * rate, 2);
+                    }
+                }
+            }
+        }
+
         return template;
     }
 

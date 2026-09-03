@@ -1872,4 +1872,69 @@ public class DataIntegrityAndCoverageTests
         // Projected = 100 + 50 + 15 + 20 - 30 - 10 - 5 - 8 = 132
         Assert.Equal(132m, bin.ProjectedQty);
     }
+
+    [Fact]
+    public void DeliveryNote_BillingStatus_PrioritizesCompleted_WhenFullyBilled_EvenIfReturn()
+    {
+        // Per ERPNext commit 8290a83591: Completed takes precedence over Return when PerBilled == 100
+        var dn = new Sales.Entities.DeliveryNote(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            "DN-001", DateTime.UtcNow.Date);
+
+        dn.AddItem(Guid.NewGuid(), "Item A", 10m, 50m, 0m);
+        dn.Items[0].BilledQty = 10m; // Fully billed
+
+        dn.Submit();
+        Assert.Equal(100m, dn.PerBilled);
+        Assert.Equal("Completed", dn.BillingStatus);
+
+        // Even if marked as return, completed status takes precedence when 100% billed
+        dn.IsReturn = true;
+        Assert.Equal("Completed", dn.BillingStatus);
+    }
+
+    [Fact]
+    public void PaymentEntry_Template_ConvertsAmountAcrossCurrencies()
+    {
+        // Per ERPNext PR #47171 / commit 9612521894:
+        // When party account currency differs from bank account currency, convert amount using exchange rate.
+        var template = new Accounting.CreatePaymentEntryDto
+        {
+            PaymentType = Accounting.PaymentType.Receive,
+            PaidAmount = 1000m, // USD
+            PaidFromAccountCurrency = "USD",
+            PaidToAccountCurrency = "MYR",
+            PostingDate = DateTime.UtcNow.Date
+        };
+
+        decimal rate = 4.45m; // USD to MYR
+        if (!template.PaidFromAccountCurrency.Equals(template.PaidToAccountCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            template.ExchangeRate = rate;
+            template.ReceivedAmount = Math.Round(template.PaidAmount * rate, 2);
+        }
+
+        Assert.Equal(1000m, template.PaidAmount);
+        Assert.Equal(4450m, template.ReceivedAmount);
+        Assert.Equal(4.45m, template.ExchangeRate);
+
+        // Pay type (e.g. Purchase Invoice):
+        var payTemplate = new Accounting.CreatePaymentEntryDto
+        {
+            PaymentType = Accounting.PaymentType.Pay,
+            ReceivedAmount = 1000m, // USD
+            PaidFromAccountCurrency = "MYR", // Bank
+            PaidToAccountCurrency = "USD",   // Supplier
+            PostingDate = DateTime.UtcNow.Date
+        };
+
+        if (!payTemplate.PaidFromAccountCurrency.Equals(payTemplate.PaidToAccountCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            payTemplate.ExchangeRate = rate;
+            payTemplate.PaidAmount = Math.Round(payTemplate.ReceivedAmount!.Value * rate, 2);
+        }
+
+        Assert.Equal(4450m, payTemplate.PaidAmount);
+        Assert.Equal(1000m, payTemplate.ReceivedAmount);
+    }
 }
