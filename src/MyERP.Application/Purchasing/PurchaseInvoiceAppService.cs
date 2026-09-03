@@ -622,9 +622,13 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 var scheduleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.PaymentScheduleEntry, Guid>>();
                 foreach (var entry in schedule)
                 {
+                    var basePaymentAmount = Math.Round(entry.PaymentAmount * invoice.ExchangeRate, 2);
                     await scheduleRepo.InsertAsync(new MyERP.Accounting.Entities.PaymentScheduleEntry(
                         GuidGenerator.Create(), "PurchaseInvoice", invoice.Id,
-                        entry.DueDate, entry.InvoicePortion, entry.PaymentAmount));
+                        entry.DueDate, entry.InvoicePortion, entry.PaymentAmount)
+                    {
+                        BasePaymentAmount = basePaymentAmount,
+                    });
                 }
 
                 // Set due date to the last scheduled due date

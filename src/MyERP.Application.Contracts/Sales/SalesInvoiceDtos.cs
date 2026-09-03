@@ -13,6 +13,8 @@ public class PaymentScheduleDto
     public decimal PaymentAmount { get; set; }
     public decimal PaidAmount { get; set; }
     public decimal Outstanding { get; set; }
+    public decimal BasePaymentAmount { get; set; }
+    public decimal BaseOutstanding { get; set; }
 
     // Early Payment Discount fields (per ERPNext payment_schedule.discount_type)
     public string? DiscountType { get; set; }

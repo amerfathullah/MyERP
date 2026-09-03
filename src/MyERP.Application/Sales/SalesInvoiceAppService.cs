@@ -685,10 +685,14 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             var schedule = template.GenerateSchedule(input.IssueDate, invoice.GrandTotal);
             foreach (var line in schedule)
             {
+                var basePaymentAmount = Math.Round(line.PaymentAmount * invoice.ExchangeRate, 2);
                 var entry = new PaymentScheduleEntry(
                     GuidGenerator.Create(), "SalesInvoice", invoice.Id,
                     line.DueDate, line.InvoicePortion, line.PaymentAmount,
-                    line.Description);
+                    line.Description)
+                {
+                    BasePaymentAmount = basePaymentAmount,
+                };
                 await _paymentScheduleRepository.InsertAsync(entry);
             }
         }

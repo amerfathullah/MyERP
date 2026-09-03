@@ -2029,6 +2029,7 @@ public class MyERPDbContext :
             b.Property(x => x.Description).HasMaxLength(200);
             b.Property(x => x.PaymentAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.PaidAmount).HasColumnType("decimal(18,4)");
+            b.Property(x => x.BasePaymentAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.InvoicePortion).HasColumnType("decimal(18,4)");
             b.HasIndex(x => new { x.ParentType, x.ParentId });
         });

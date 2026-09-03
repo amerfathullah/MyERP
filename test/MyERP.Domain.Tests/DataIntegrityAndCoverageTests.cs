@@ -1358,4 +1358,32 @@ public class DataIntegrityAndCoverageTests
         Assert.Single(enabledOnly);
         Assert.Equal("Kg", enabledOnly[0].Name);
     }
+
+    [Fact]
+    public void PaymentSchedule_BaseOutstandingCalculation()
+    {
+        // Per ERPNext PR #47178 / commit 02356029a8:
+        // BaseOutstanding calculation for payment schedule starts equal to BasePaymentAmount.
+        var entry = new Accounting.Entities.PaymentScheduleEntry(
+            Guid.NewGuid(), "SalesInvoice", Guid.NewGuid(),
+            DateTime.UtcNow.AddDays(30), 50m, 500m)
+        {
+            BasePaymentAmount = 2200m // e.g., 500 USD * 4.4 MYR/USD
+        };
+
+        // Before any payments, BaseOutstanding == BasePaymentAmount
+        Assert.Equal(2200m, entry.BaseOutstanding);
+        Assert.Equal(500m, entry.Outstanding);
+
+        // Record partial payment of 250 (50%)
+        entry.RecordPayment(250m);
+        Assert.Equal(250m, entry.Outstanding);
+        Assert.Equal(1100m, entry.BaseOutstanding);
+
+        // Record remaining payment
+        entry.RecordPayment(250m);
+        Assert.Equal(0m, entry.Outstanding);
+        Assert.Equal(0m, entry.BaseOutstanding);
+        Assert.True(entry.IsFullyPaid);
+    }
 }

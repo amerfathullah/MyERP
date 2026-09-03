@@ -38,6 +38,17 @@ public class PaymentScheduleEntry : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Outstanding for this term: PaymentAmount - PaidAmount.</summary>
     public decimal Outstanding => PaymentAmount - PaidAmount;
 
+    /// <summary>Base (company) currency payment amount for this term.</summary>
+    public decimal BasePaymentAmount { get; set; }
+
+    /// <summary>
+    /// Base outstanding amount = BasePaymentAmount - (PaidAmount * (BasePaymentAmount / PaymentAmount)).
+    /// Guaranteed to equal BasePaymentAmount on schedule creation (ERPNext PR #47178 / commit 02356029a8).
+    /// </summary>
+    public decimal BaseOutstanding => BasePaymentAmount > 0 && PaymentAmount > 0
+        ? Math.Max(0, Math.Round(BasePaymentAmount - (PaidAmount * BasePaymentAmount / PaymentAmount), 2))
+        : 0m;
+
     /// <summary>Whether this term is fully paid.</summary>
     public bool IsFullyPaid => Outstanding <= 0.01m;
 
