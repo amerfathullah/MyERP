@@ -18,7 +18,9 @@ public class BomStockAnalysisDto
 public class BomMaterialAvailabilityDto
 {
     public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
     public string ItemName { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public decimal RequiredQtyPerUnit { get; set; }
     public decimal RequiredQtyForBatch { get; set; }
     public decimal AvailableQty { get; set; }

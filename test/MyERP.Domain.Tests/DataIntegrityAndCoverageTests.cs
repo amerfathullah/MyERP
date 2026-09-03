@@ -906,4 +906,28 @@ public class DataIntegrityAndCoverageTests
         Assert.Single(analyticsPurchase);
         Assert.Equal("PI-NORMAL", analyticsPurchase[0].InvoiceNumber);
     }
+
+    [Fact]
+    public void BomStockReport_IncludesItemNameAndDescription()
+    {
+        var dto = new Manufacturing.BomMaterialAvailabilityDto
+        {
+            ItemId = Guid.NewGuid(),
+            ItemCode = "RM-STEEL-01",
+            ItemName = "Stainless Steel Sheet 2mm",
+            Description = "Grade 304 2mm cold rolled sheet",
+            RequiredQtyPerUnit = 2m,
+            RequiredQtyForBatch = 20m,
+            AvailableQty = 50m,
+            Shortage = 0m,
+            IsSufficient = true
+        };
+
+        // Per ERPNext PR #47116 / commit b6b4ac5b4a:
+        // Item Code, Item Name, and Description are distinct columns in BOM Stock Report
+        Assert.Equal("RM-STEEL-01", dto.ItemCode);
+        Assert.Equal("Stainless Steel Sheet 2mm", dto.ItemName);
+        Assert.Equal("Grade 304 2mm cold rolled sheet", dto.Description);
+        Assert.True(dto.IsSufficient);
+    }
 }

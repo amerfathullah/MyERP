@@ -39,10 +39,13 @@ public class BomStockAnalysisAppService : ApplicationService, IBomStockAnalysisA
 
         var itemIds = bom.Items.Select(i => i.ItemId).Distinct().ToList();
 
-        // Batch-resolve item names
+        // Batch-resolve item code, name, and description (ERPNext PR #47116 / commit b6b4ac5b4a)
         var itemQuery = await _itemRepository.GetQueryableAsync();
-        var items = itemQuery.Where(i => itemIds.Contains(i.Id)).Select(i => new { i.Id, i.ItemCode, i.ItemName }).ToList();
-        var itemNameMap = items.ToDictionary(i => i.Id, i => $"{i.ItemCode} - {i.ItemName}");
+        var items = itemQuery
+            .Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName, i.Description })
+            .ToList();
+        var itemMap = items.ToDictionary(i => i.Id);
 
         // Batch-resolve available stock per item (sum across all warehouses for the company)
         var binQuery = await _binRepository.GetQueryableAsync();
@@ -71,11 +74,14 @@ public class BomStockAnalysisAppService : ApplicationService, IBomStockAnalysisA
             var available = stockMap.GetValueOrDefault(bomItem.ItemId, 0);
             var shortage = Math.Max(0, requiredForBatch - available);
             var canMake = requiredForBatch > 0 ? available / requiredForBatch : decimal.MaxValue;
+            var itemDetails = itemMap.GetValueOrDefault(bomItem.ItemId);
 
             materialLines.Add(new BomMaterialAvailabilityDto
             {
                 ItemId = bomItem.ItemId,
-                ItemName = itemNameMap.GetValueOrDefault(bomItem.ItemId, bomItem.ItemId.ToString().Substring(0, 8)),
+                ItemCode = itemDetails?.ItemCode ?? bomItem.ItemId.ToString().Substring(0, 8),
+                ItemName = itemDetails?.ItemName ?? "Unknown Item",
+                Description = itemDetails?.Description,
                 RequiredQtyPerUnit = bomItem.TotalQuantity / (bom.Quantity > 0 ? bom.Quantity : 1),
                 RequiredQtyForBatch = Math.Round(requiredForBatch, 4),
                 AvailableQty = Math.Round(available, 4),
