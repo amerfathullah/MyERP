@@ -153,6 +153,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.CostCenterId = input.CostCenterId;
         entry.ProjectId = input.ProjectId;
         entry.Notes = input.Notes;
+        entry.IsOpening = input.IsOpening;
 
         foreach (var item in input.Items)
         {
@@ -169,6 +170,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         // Per DO-NOT: same-warehouse transfers blocked, group warehouses blocked
         var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
         await seManager.ValidateWarehousesAsync(entry);
+        await seManager.ValidateDifferenceAccountAsync(entry);
         // ValidateRepackItems/ValidateManufactureItems were domain-service methods with no
         // caller anywhere — a manually-authored Repack or Manufacture Stock Entry (via this
         // generic create path) skipped their purpose-specific rules entirely (Repack's
@@ -213,6 +215,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         }
 
         var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
+        await seManager.ValidateDifferenceAccountAsync(entry);
         seManager.ValidateBatchSplit(entry);
 
         if (entry.IsFgConversion)

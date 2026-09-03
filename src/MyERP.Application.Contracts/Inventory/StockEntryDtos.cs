@@ -23,6 +23,7 @@ public class StockEntryDto : FullAuditedEntityDto<Guid>
     public Guid? CostCenterId { get; set; }
     public Guid? ProjectId { get; set; }
     public string? Notes { get; set; }
+    public bool IsOpening { get; set; }
     public string Status { get; set; } = null!;
     public List<StockEntryItemDto> Items { get; set; } = new();
 }
@@ -71,6 +72,7 @@ public class CreateStockEntryDto
 
     [StringLength(StockEntryConsts.MaxNoteLength)]
     public string? Notes { get; set; }
+    public bool IsOpening { get; set; }
 
     [Required]
     [MinLength(1)]

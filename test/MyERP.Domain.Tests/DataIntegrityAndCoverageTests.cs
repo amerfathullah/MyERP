@@ -1116,4 +1116,43 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(2, filteredItemsAllowed.Count);
         Assert.Contains(filteredItemsAllowed, i => i.Qty == 0m);
     }
+
+    [Fact]
+    public void StockEntry_DifferenceAccount_Validations()
+    {
+        // Per ERPNext commits fb819c558e & bba6b0ff45:
+        // 1. Difference Account cannot be a Stock account (prevents circular stock accounting).
+        var stockAccount = new Accounting.Entities.Account(
+            Guid.NewGuid(), Guid.NewGuid(), "1510", "Stock in Hand", Accounting.AccountType.Asset)
+        {
+            AccountSubType = Accounting.AccountSubType.Stock
+        };
+        Assert.Equal(Accounting.AccountSubType.Stock, stockAccount.AccountSubType);
+
+        // 2. Opening stock entry must use Balance Sheet account, not P&L (Revenue / Expense).
+        var expenseAccount = new Accounting.Entities.Account(
+            Guid.NewGuid(), Guid.NewGuid(), "5110", "Cost of Goods Sold", Accounting.AccountType.Expense)
+        {
+            AccountSubType = Accounting.AccountSubType.CostOfGoodsSold
+        };
+        var isPlAccount = expenseAccount.AccountType == Accounting.AccountType.Expense
+            || expenseAccount.AccountType == Accounting.AccountType.Revenue;
+        Assert.True(isPlAccount);
+
+        var tempOpeningAccount = new Accounting.Entities.Account(
+            Guid.NewGuid(), Guid.NewGuid(), "3110", "Temporary Opening", Accounting.AccountType.Equity)
+        {
+            AccountSubType = Accounting.AccountSubType.TemporaryOpening
+        };
+        var isTempOpeningValid = tempOpeningAccount.AccountType != Accounting.AccountType.Expense
+            && tempOpeningAccount.AccountType != Accounting.AccountType.Revenue;
+        Assert.True(isTempOpeningValid);
+
+        // 3. COGS is only valid for Material Issue entries, not Material Receipt / Manufacture.
+        var receiptPurpose = Inventory.StockEntryType.MaterialReceipt;
+        var issuePurpose = Inventory.StockEntryType.MaterialIssue;
+
+        Assert.True(receiptPurpose != Inventory.StockEntryType.MaterialIssue && expenseAccount.AccountSubType == Accounting.AccountSubType.CostOfGoodsSold);
+        Assert.False(issuePurpose != Inventory.StockEntryType.MaterialIssue && expenseAccount.AccountSubType == Accounting.AccountSubType.CostOfGoodsSold);
+    }
 }

@@ -64,6 +64,11 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     /// </summary>
     public decimal WeightPerPiece { get; set; }
 
+    /// <summary>
+    /// Indicates whether this stock entry represents an opening stock balance entry.
+    /// </summary>
+    public bool IsOpening { get; set; }
+
     // IAccountableDocument implementation
     string IAccountableDocument.DocumentType => "StockEntry";
     public string CurrencyCode { get; set; } = "MYR";

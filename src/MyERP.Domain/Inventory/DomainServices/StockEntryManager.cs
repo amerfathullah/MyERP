@@ -664,4 +664,51 @@ public class StockEntryManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Validates difference / expense accounts on Stock Entry items (ERPNext commit fb819c558e & bba6b0ff45).
+    /// </summary>
+    public async Task ValidateDifferenceAccountAsync(StockEntry entry)
+    {
+        var accountIds = entry.Items
+            .Where(i => i.ExpenseAccountId.HasValue)
+            .Select(i => i.ExpenseAccountId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!accountIds.Any()) return;
+
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
+        var accountMap = (await accountRepo.GetQueryableAsync())
+            .Where(a => accountIds.Contains(a.Id))
+            .ToDictionary(a => a.Id);
+
+        for (int idx = 0; idx < entry.Items.Count; idx++)
+        {
+            var item = entry.Items[idx];
+            if (!item.ExpenseAccountId.HasValue || !accountMap.TryGetValue(item.ExpenseAccountId.Value, out var acc))
+                continue;
+
+            // Difference account must not be Stock account (ERPNext commit fb819c558e)
+            if (acc.AccountSubType == Accounting.AccountSubType.Stock)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx + 1}: The Difference Account '{acc.AccountName}' must not be a Stock type account. Please select a different account.");
+            }
+
+            // Opening stock entry must use Balance Sheet account (e.g. Temporary Opening), not P&L
+            if (entry.IsOpening && (acc.AccountType == Accounting.AccountType.Expense || acc.AccountType == Accounting.AccountType.Revenue))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx + 1}: Difference Account must be an Asset/Liability/Equity account (such as Temporary Opening), since this Stock Entry is an Opening Entry.");
+            }
+
+            // Cost of Goods Sold is only valid for Material Issue entries (ERPNext PR #47452 / commit bba6b0ff45)
+            if (entry.EntryType != StockEntryType.MaterialIssue && acc.AccountSubType == Accounting.AccountSubType.CostOfGoodsSold)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx + 1}: You have selected Difference Account '{acc.AccountName}', which is a Cost of Goods Sold type account. Cost of Goods Sold accounts can only be used with Material Issue purpose.");
+            }
+        }
+    }
 }
