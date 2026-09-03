@@ -60,6 +60,7 @@ public class BudgetAppService : ApplicationService, IBudgetAppService
             input.BudgetAgainst, input.BudgetAgainstId, CurrentTenant.Id)
         {
             BudgetAgainstName = input.BudgetAgainstName,
+            MonthlyDistributionId = input.MonthlyDistributionId,
             ActionIfAnnualBudgetExceeded = input.ActionIfAnnualBudgetExceeded,
             ActionIfAccumulatedMonthlyBudgetExceeded = input.ActionIfAccumulatedMonthlyBudgetExceeded,
         };

@@ -28,6 +28,9 @@ public class Budget : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Display name of the budget target (e.g., "Marketing" cost center).</summary>
     public string? BudgetAgainstName { get; set; }
 
+    /// <summary>Monthly distribution for seasonal / accumulated monthly budget enforcement.</summary>
+    public Guid? MonthlyDistributionId { get; set; }
+
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
     // Level 3: Actual expense (booking) — always enabled

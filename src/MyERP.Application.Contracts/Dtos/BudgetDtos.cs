@@ -12,6 +12,7 @@ public class BudgetDto : EntityDto<Guid>
     public string BudgetAgainst { get; set; } = null!;
     public Guid BudgetAgainstId { get; set; }
     public string? BudgetAgainstName { get; set; }
+    public Guid? MonthlyDistributionId { get; set; }
     public DocumentStatus Status { get; set; }
     public BudgetAction ActionIfAnnualBudgetExceeded { get; set; }
     public BudgetAction ActionIfAccumulatedMonthlyBudgetExceeded { get; set; }
@@ -33,6 +34,7 @@ public class CreateBudgetDto
     public string BudgetAgainst { get; set; } = null!;
     public Guid BudgetAgainstId { get; set; }
     public string? BudgetAgainstName { get; set; }
+    public Guid? MonthlyDistributionId { get; set; }
     public BudgetAction ActionIfAnnualBudgetExceeded { get; set; } = BudgetAction.Stop;
     public BudgetAction ActionIfAccumulatedMonthlyBudgetExceeded { get; set; } = BudgetAction.Warn;
     public CreateBudgetAccountDto[] Accounts { get; set; } = [];

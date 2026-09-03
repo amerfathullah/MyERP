@@ -93,24 +93,44 @@ public class BudgetValidationService : DomainService
 
                 if (budgetAccount == null) continue;
 
-                var action = GetActionForLevel(budget, level);
-                if (action == BudgetAction.Ignore) continue;
+                var (annualAction, monthlyAction) = GetActionsForLevel(budget, level);
 
                 // Calculate total spend: actual + this transaction
                 var currentSpend = actualSpend.GetValueOrDefault(item.AccountId, 0m);
                 var totalAfter = currentSpend + item.Amount;
 
-                if (totalAfter > budgetAccount.BudgetAmount)
+                // 1. Annual budget check
+                if (annualAction != BudgetAction.Ignore && totalAfter > budgetAccount.BudgetAmount)
                 {
-                    if (action == BudgetAction.Stop)
+                    if (annualAction == BudgetAction.Stop)
                     {
                         throw new BusinessException(MyERPDomainErrorCodes.BudgetExceeded)
                             .WithData("account", budgetAccount.AccountName ?? item.AccountId.ToString())
                             .WithData("budget", budgetAccount.BudgetAmount)
                             .WithData("spent", currentSpend)
-                            .WithData("requested", item.Amount);
+                            .WithData("requested", item.Amount)
+                            .WithData("limitType", "Annual");
                     }
-                    // Warn action: logged but not blocking (ABP audit log captures it)
+                }
+
+                // 2. Accumulated monthly budget check (ERPNext commit 388d901668)
+                if (monthlyAction != BudgetAction.Ignore)
+                {
+                    var accumulatedMonthlyBudget = await CalculateAccumulatedMonthlyBudgetAsync(
+                        budget, budgetAccount.BudgetAmount, postingDate, fiscalYearId);
+
+                    if (totalAfter > accumulatedMonthlyBudget)
+                    {
+                        if (monthlyAction == BudgetAction.Stop)
+                        {
+                            throw new BusinessException(MyERPDomainErrorCodes.BudgetExceeded)
+                                .WithData("account", budgetAccount.AccountName ?? item.AccountId.ToString())
+                                .WithData("budget", accumulatedMonthlyBudget)
+                                .WithData("spent", currentSpend)
+                                .WithData("requested", item.Amount)
+                                .WithData("limitType", "AccumulatedMonthly");
+                        }
+                    }
                 }
             }
         }
@@ -149,14 +169,49 @@ public class BudgetValidationService : DomainService
         return result;
     }
 
-    private static BudgetAction GetActionForLevel(Budget budget, BudgetLevel level)
+    private async Task<decimal> CalculateAccumulatedMonthlyBudgetAsync(
+        Budget budget, decimal budgetAmount, DateTime postingDate, Guid fiscalYearId)
+    {
+        var fiscalYear = await _fiscalYearRepository.FindAsync(fiscalYearId);
+        if (fiscalYear == null) return budgetAmount;
+
+        // Determine months elapsed from start of fiscal year to posting date
+        int elapsedMonths = (postingDate.Year - fiscalYear.StartDate.Year) * 12 + postingDate.Month - fiscalYear.StartDate.Month + 1;
+        if (elapsedMonths <= 0) elapsedMonths = 1;
+        if (elapsedMonths > 12) elapsedMonths = 12;
+
+        if (budget.MonthlyDistributionId.HasValue)
+        {
+            var monthlyDistributionRepo = LazyServiceProvider.LazyGetService<IRepository<MonthlyDistribution, Guid>>();
+            if (monthlyDistributionRepo != null)
+            {
+                var distribution = (await monthlyDistributionRepo.WithDetailsAsync(d => d.Percentages))
+                    .FirstOrDefault(d => d.Id == budget.MonthlyDistributionId.Value);
+
+                if (distribution != null && distribution.Percentages.Any())
+                {
+                    decimal accumulatedPercentage = distribution.Percentages
+                        .Where(p => p.Month <= elapsedMonths)
+                        .Sum(p => p.PercentageAllocation);
+
+                    return Math.Round(budgetAmount * accumulatedPercentage / 100m, 2);
+                }
+            }
+        }
+
+        // Default: even distribution across 12 months
+        decimal defaultPercentage = Math.Min(100m, elapsedMonths * (100m / 12m));
+        return Math.Round(budgetAmount * defaultPercentage / 100m, 2);
+    }
+
+    private static (BudgetAction Annual, BudgetAction Monthly) GetActionsForLevel(Budget budget, BudgetLevel level)
     {
         return level switch
         {
-            BudgetLevel.MaterialRequest => budget.ActionIfAnnualBudgetExceededOnMr,
-            BudgetLevel.PurchaseOrder => budget.ActionIfAnnualBudgetExceededOnPo,
-            BudgetLevel.Actual => budget.ActionIfAnnualBudgetExceeded,
-            _ => BudgetAction.Ignore
+            BudgetLevel.MaterialRequest => (budget.ActionIfAnnualBudgetExceededOnMr, budget.ActionIfAccumulatedMonthlyBudgetExceededOnMr),
+            BudgetLevel.PurchaseOrder => (budget.ActionIfAnnualBudgetExceededOnPo, budget.ActionIfAccumulatedMonthlyBudgetExceededOnPo),
+            BudgetLevel.Actual => (budget.ActionIfAnnualBudgetExceeded, budget.ActionIfAccumulatedMonthlyBudgetExceeded),
+            _ => (BudgetAction.Ignore, BudgetAction.Ignore)
         };
     }
 }

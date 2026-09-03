@@ -2248,4 +2248,29 @@ public class DataIntegrityAndCoverageTests
         allowAdditionalItems = !mfgSettings.ValidateComponentsQuantitiesPerBom;
         Assert.True(allowAdditionalItems);
     }
+
+    [Fact]
+    public void Budget_AccumulatedMonthlyLimit_Calculation()
+    {
+        // Per ERPNext commit 388d901668:
+        // When checking accumulated monthly budget limit, calculates accumulated percentage
+        // based on monthly distribution or even split across elapsed months in fiscal year.
+        var budgetAmount = 120000m;
+        var elapsedMonths = 6; // Half-year
+        var defaultMonthlyBudget = Math.Round(budgetAmount * (elapsedMonths * (100m / 12m)) / 100m, 2);
+        Assert.Equal(60000m, defaultMonthlyBudget);
+
+        // With custom monthly distribution
+        var distribution = new Accounting.Entities.MonthlyDistribution(Guid.NewGuid(), "Seasonal");
+        distribution.SetPercentages(new[]
+        {
+            (1, 5m), (2, 5m), (3, 10m), (4, 10m), (5, 10m), (6, 20m),
+            (7, 10m), (8, 10m), (9, 5m), (10, 5m), (11, 5m), (12, 5m)
+        });
+
+        var accumulatedPct = distribution.Percentages.Where(p => p.Month <= elapsedMonths).Sum(p => p.PercentageAllocation);
+        Assert.Equal(60m, accumulatedPct); // 5 + 5 + 10 + 10 + 10 + 20 = 60%
+        var seasonalBudget = Math.Round(budgetAmount * accumulatedPct / 100m, 2);
+        Assert.Equal(72000m, seasonalBudget);
+    }
 }
