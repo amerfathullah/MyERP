@@ -328,7 +328,14 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 var totalTransferredQty = entry.Items.Sum(i => i.Quantity);
                 wo.RecordMaterialTransfer(totalTransferredQty);
 
-                // Per ERPNext PR #47511 / commit 963d1e502e: Track transferred qty and add extra/additional items against work order
+                // Per ERPNext PR #47511 / commit 963d1e502e & PR #47548 / commit fc554ba599:
+                // Track transferred qty and add extra/additional items against work order unless ValidateComponentsQuantitiesPerBom is set
+                var mfgSettingsRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
+                var mfgSettings = mfgSettingsRepo != null
+                    ? (await mfgSettingsRepo.GetQueryableAsync()).FirstOrDefault(s => s.CompanyId == entry.CompanyId)
+                    : null;
+                var disallowAdditionalItems = mfgSettings?.ValidateComponentsQuantitiesPerBom ?? false;
+
                 foreach (var seItem in entry.Items)
                 {
                     var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
@@ -336,7 +343,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                     {
                         existingWoItem.TransferredQuantity += seItem.Quantity;
                     }
-                    else
+                    else if (!disallowAdditionalItems)
                     {
                         var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
                         var itemObj = await itemRepo.FindAsync(seItem.ItemId);

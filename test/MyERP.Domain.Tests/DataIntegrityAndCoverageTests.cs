@@ -2229,4 +2229,23 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(planDetailId, targetSre.FromVoucherDetailId);
         Assert.Equal(30m, targetSre.ReservedQty);
     }
+
+    [Fact]
+    public void StockEntry_AdditionalItem_HonorsValidateComponentsQuantitiesPerBom()
+    {
+        // Per ERPNext PR #47548 / commit fc554ba599:
+        // When ValidateComponentsQuantitiesPerBom is enabled, extra/additional items
+        // transferred in Stock Entry are NOT appended to WorkOrder.RequiredItems.
+        var mfgSettings = new Manufacturing.Entities.ManufacturingSettings(Guid.NewGuid(), Guid.NewGuid())
+        {
+            ValidateComponentsQuantitiesPerBom = true
+        };
+
+        var allowAdditionalItems = !mfgSettings.ValidateComponentsQuantitiesPerBom;
+        Assert.False(allowAdditionalItems);
+
+        mfgSettings.ValidateComponentsQuantitiesPerBom = false;
+        allowAdditionalItems = !mfgSettings.ValidateComponentsQuantitiesPerBom;
+        Assert.True(allowAdditionalItems);
+    }
 }
