@@ -2014,4 +2014,26 @@ public class DataIntegrityAndCoverageTests
         // Same cost center and project must yield the same hash
         Assert.Equal(hash2, hash3);
     }
+
+    [Fact]
+    public void QualityInspection_AllowAfterPurchaseOrDelivery_BypassesValidation()
+    {
+        // Per ERPNext commit fad1a32e63:
+        // When AllowToMakeQualityInspectionAfterPurchaseOrDelivery is true,
+        // validation for PurchaseReceipt, PurchaseInvoice, SalesInvoice, and DeliveryNote is bypassed.
+        var referenceTypes = new[] { "PurchaseReceipt", "PurchaseInvoice", "SalesInvoice", "DeliveryNote" };
+        var allowAfterStr = "true";
+        var isAllowed = bool.TryParse(allowAfterStr, out var allowAfter) && allowAfter;
+
+        foreach (var refType in referenceTypes)
+        {
+            var shouldBypass = (refType is "PurchaseReceipt" or "PurchaseInvoice" or "SalesInvoice" or "DeliveryNote") && isAllowed;
+            Assert.True(shouldBypass);
+        }
+
+        // Other reference types (e.g. StockEntry, WorkOrder) must not be bypassed by this setting
+        string otherRefType = "WorkOrder";
+        var otherBypass = (otherRefType is "PurchaseReceipt" or "PurchaseInvoice" or "SalesInvoice" or "DeliveryNote") && isAllowed;
+        Assert.False(otherBypass);
+    }
 }

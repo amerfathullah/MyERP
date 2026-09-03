@@ -151,6 +151,13 @@ public class QualityInspectionEnforcementService : DomainService
     {
         if (itemIds.Length == 0) return;
 
+        // Per ERPNext commit fad1a32e63: allow making quality inspection after purchase or delivery
+        if (referenceType is "PurchaseReceipt" or "PurchaseInvoice" or "SalesInvoice" or "DeliveryNote")
+        {
+            var allowAfterStr = await _settingProvider.GetOrNullAsync(MyERPSettings.Stock.AllowToMakeQualityInspectionAfterPurchaseOrDelivery);
+            if (bool.TryParse(allowAfterStr, out var allowAfter) && allowAfter) return;
+        }
+
         // Load items to check which require inspection
         var items = await _itemRepository.GetListAsync(i => itemIds.Contains(i.Id));
         var requiresQi = items.Where(requiresInspection).ToList();
