@@ -44,7 +44,9 @@ public class BomValidationService : DomainService
             if (!visited.Add(childBom.Id))
             {
                 throw new BusinessException(MyERPDomainErrorCodes.BomCycleDetected)
-                    .WithData("itemId", itemId);
+                    .WithData("itemId", itemId)
+                    .WithData("bomNumber", childBom.BomNumber)
+                    .WithData("solution", "If you want to use the finished good as a raw material, enable the 'Do Not Explode' checkbox in the Items table against that raw material.");
             }
 
             // Recursively check sub-assemblies (skip if DoNotExplode)

@@ -126,6 +126,9 @@ public class TimesheetDetail : Entity<Guid>
 
     public bool IsBillable { get; set; }
 
+    /// <summary>Billable hours for this specific activity line (per ERPNext commit b04a07fda0).</summary>
+    public decimal BillingHours => IsBillable ? Hours : 0;
+
     /// <summary>Billing rate per hour.</summary>
     public decimal BillingRate { get; set; }
 

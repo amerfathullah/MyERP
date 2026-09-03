@@ -225,6 +225,7 @@ public class TimesheetDetailDto : EntityDto<Guid>
     public Guid? ProjectId { get; set; }
     public Guid? TaskId { get; set; }
     public bool IsBillable { get; set; }
+    public decimal BillingHours { get; set; }
     public decimal BillingRate { get; set; }
     public decimal BillingAmount { get; set; }
     public decimal CostingRate { get; set; }

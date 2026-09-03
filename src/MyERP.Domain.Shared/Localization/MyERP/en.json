@@ -1870,7 +1870,7 @@
     "Create": "Create",
     "Open": "Open",
     "AllStatuses": "All Statuses",
-    "MyERP:10007": "Circular reference detected in BOM: item '{itemId}' creates a cycle.",
+    "MyERP:10007": "Circular reference detected in BOM: item '{itemId}' creates a cycle. Note: If you want to use the finished good as a raw material, enable the 'Do Not Explode' checkbox against that raw material.",
     "MyERP:13001": "Circular dependency detected: task '{taskId}' would create a dependency loop.",
     "MyERP:13002": "Task '{taskId}' cannot be completed because dependencies are incomplete: {incompleteDependencies}",
     "MyERP:13003": "Percent Complete must be between 0 and 100. Got: {value}.",

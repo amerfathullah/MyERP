@@ -930,4 +930,45 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal("Grade 304 2mm cold rolled sheet", dto.Description);
         Assert.True(dto.IsSufficient);
     }
+
+    [Fact]
+    public void TimesheetDetail_TracksBillingHours()
+    {
+        var billableDetail = new Projects.Entities.TimesheetDetail(
+            Guid.NewGuid(), Guid.NewGuid(), "Development", DateTime.UtcNow, DateTime.UtcNow.AddHours(4), 4m)
+        {
+            IsBillable = true,
+            BillingRate = 150m
+        };
+
+        var nonBillableDetail = new Projects.Entities.TimesheetDetail(
+            Guid.NewGuid(), Guid.NewGuid(), "Internal Meeting", DateTime.UtcNow, DateTime.UtcNow.AddHours(2), 2m)
+        {
+            IsBillable = false,
+            BillingRate = 150m
+        };
+
+        // Per ERPNext commit b04a07fda0:
+        // BillingHours accurately reflects billable hours per detail row
+        Assert.Equal(4m, billableDetail.BillingHours);
+        Assert.Equal(600m, billableDetail.BillingAmount);
+
+        Assert.Equal(0m, nonBillableDetail.BillingHours);
+        Assert.Equal(0m, nonBillableDetail.BillingAmount);
+    }
+
+    [Fact]
+    public void Bom_CycleDetected_IncludesSolutionGuidance()
+    {
+        var ex = new Volo.Abp.BusinessException(MyERPDomainErrorCodes.BomCycleDetected)
+            .WithData("itemId", Guid.NewGuid())
+            .WithData("bomNumber", "BOM-001")
+            .WithData("solution", "If you want to use the finished good as a raw material, enable the 'Do Not Explode' checkbox in the Items table against that raw material.");
+
+        // Per ERPNext PR #47472 / commit 7103cdd84a:
+        // Message/error carries actionable guidance pointing to 'Do Not Explode' checkbox
+        Assert.Equal(MyERPDomainErrorCodes.BomCycleDetected, ex.Code);
+        Assert.True(ex.Data.Contains("solution"));
+        Assert.Contains("Do Not Explode", ex.Data["solution"]?.ToString() ?? "");
+    }
 }
