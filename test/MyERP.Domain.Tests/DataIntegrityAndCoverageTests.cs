@@ -1178,4 +1178,27 @@ public class DataIntegrityAndCoverageTests
         var toReserve = Math.Min(fgProducedQty, pendingReservableQty);
         Assert.Equal(50m, toReserve);
     }
+
+    [Fact]
+    public void Asset_SellAtZeroRate_And_UnsellOnCancel()
+    {
+        // Per ERPNext PR #47326 / commit 05afad78fc:
+        // Selling an asset at zero rate (nominal/scrap/donation) is allowed and transitions to Sold.
+        var asset = new Assets.Entities.Asset(
+            Guid.NewGuid(), Guid.NewGuid(), "AST-001", "Desk Asset",
+            DateTime.UtcNow.AddYears(-1), 1000m);
+        asset.Submit();
+        Assert.Equal(Assets.AssetStatus.Submitted, asset.Status);
+
+        // Sell at zero rate
+        asset.Sell(DateTime.UtcNow, 0m);
+        Assert.Equal(Assets.AssetStatus.Sold, asset.Status);
+        Assert.Equal(0m, asset.DisposalAmount);
+
+        // Cancel Sales Invoice -> Unsell
+        asset.Unsell();
+        Assert.Equal(Assets.AssetStatus.Submitted, asset.Status);
+        Assert.Null(asset.DisposalDate);
+        Assert.Null(asset.DisposalAmount);
+    }
 }

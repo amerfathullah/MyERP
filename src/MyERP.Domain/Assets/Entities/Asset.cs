@@ -230,6 +230,21 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Reverses an asset sale when the linked Sales Invoice is cancelled.
+    /// Restores pre-sale status and clears disposal fields.
+    /// </summary>
+    public void Unsell()
+    {
+        if (Status != AssetStatus.Sold)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        DisposalDate = null;
+        DisposalAmount = null;
+        Status = AssetStatus.Submitted;
+        RecalculateStatus();
+    }
+
+    /// <summary>
     /// Marks this asset as consumed/capitalized into another asset.
     /// Per ERPNext commit 2391c859b2 / a121c30b56.
     /// </summary>

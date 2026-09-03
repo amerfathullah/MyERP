@@ -10,7 +10,9 @@ using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.Inventory.DomainServices;
 using MyERP.Permissions;
-using MyERP.Sales.DomainServices;using MyERP.Sales.Entities;
+using MyERP.Assets;
+using MyERP.Sales.DomainServices;
+using MyERP.Sales.Entities;
 using MyERP.Shared;
 using MyERP.Tax.DomainServices;
 using MyERP.Tax.Entities;
@@ -765,7 +767,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             if (invoice.WarehouseId.HasValue
                 && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.ValidateSellingPrice))
             {
+                // Fixed assets can be sold at zero or nominal rates (ERPNext PR #47326 / commit 05afad78fc)
                 var siItemData = invoice.Items
+                    .Where(i => !i.IsFixedAsset)
                     .Select(i => (i.ItemId, i.UnitPrice, i.Description))
                     .ToList().AsReadOnly();
                 await SalesInvoiceManager.ValidateSellingPriceAsync(
@@ -1007,6 +1011,21 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         // DN BilledQty update: track which DN items have been billed
         // Per ERPNext: update_billed_amount_based_on_dn FIFO billing status
         await _invoiceManager.UpdateLinkedDeliveryNoteBillingAsync(invoice);
+
+        // Update linked Fixed Assets: mark asset as Sold (ERPNext PR #47326 / commit 05afad78fc)
+        if (fixedAssetItems.Any())
+        {
+            var assetRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Assets.Entities.Asset, Guid>>();
+            foreach (var item in fixedAssetItems)
+            {
+                var asset = await assetRepo.FindAsync(item.AssetId!.Value);
+                if (asset != null && asset.Status != AssetStatus.Sold)
+                {
+                    asset.Sell(invoice.IssueDate, item.LineTotal);
+                    await assetRepo.UpdateAsync(asset, autoSave: true);
+                }
+            }
+        }
 
         await _repository.UpdateAsync(invoice, autoSave: true);
 
@@ -1263,6 +1282,22 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             if (modified)
             {
                 await tsRepo.UpdateAsync(ts);
+            }
+        }
+
+        // Restore linked Fixed Assets when Sales Invoice is cancelled (ERPNext PR #47326 / commit 05afad78fc)
+        var fixedAssetItemsOnCancel = invoice.Items.Where(i => i.IsFixedAsset && i.AssetId.HasValue).ToList();
+        if (fixedAssetItemsOnCancel.Any())
+        {
+            var assetRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Assets.Entities.Asset, Guid>>();
+            foreach (var item in fixedAssetItemsOnCancel)
+            {
+                var asset = await assetRepo.FindAsync(item.AssetId!.Value);
+                if (asset != null && asset.Status == AssetStatus.Sold)
+                {
+                    asset.Unsell();
+                    await assetRepo.UpdateAsync(asset, autoSave: true);
+                }
             }
         }
 
