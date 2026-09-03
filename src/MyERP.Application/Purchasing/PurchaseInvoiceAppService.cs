@@ -958,6 +958,19 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         await piManager.ValidateExchangeRateWithPurchaseReceiptAsync(
             invoice, prRepoForFx, isPerpetualInventory: true, setLandedCostBasedOnPiRate: setLandedCostOnPiRate);
 
+        // Inter-company rate validation (ERPNext PR #47780 / commit 3a2b863e7f)
+        if (invoice.InterCompanyInvoiceId.HasValue)
+        {
+            var interCompanyService = LazyServiceProvider
+                .LazyGetRequiredService<MyERP.Core.DomainServices.InterCompanyTransactionService>();
+            await interCompanyService.ValidateInterCompanyRatesAsync(
+                invoice.CompanyId,
+                linkedSalesInvoiceId: invoice.InterCompanyInvoiceId,
+                linkedPurchaseInvoiceId: null,
+                invoice.Items.Select(i => (i.ItemId, i.UnitPrice, (string?)i.Description)),
+                CurrentUser.Roles);
+        }
+
         invoice.Submit();
 
         // Inter-Company: create corresponding SI in source company if supplier represents another company.

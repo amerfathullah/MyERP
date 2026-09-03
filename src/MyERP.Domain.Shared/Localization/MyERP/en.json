@@ -2163,6 +2163,8 @@
     "MyERP:02012": "Party is not allowed on this account type. Only Receivable, Payable, and Equity accounts accept party references.",
     "MyERP:05013": "Item {itemName} is inactive and cannot be used in transactions.",
     "MyERP:09001": "Inter-company party mismatch. Customer/Supplier does not represent the target company.",
+    "MyERP:09002": "Inter-company invoice has already been created for this document.",
+    "MyERP:09003": "Item rate mismatch in inter-company transaction. Rate must match linked transaction rate.",
     "MyERP:01018": "Cannot send email: {reason}",
     "MyERP:01019": "Cannot cancel {documentType} — it has draft {dependent} documents. Delete the draft documents first.",
     "MyERP:01020": "Purchase Order Number '{poNumber}' is already used in another Sales Order ({existingOrderNumber}) for this customer.",

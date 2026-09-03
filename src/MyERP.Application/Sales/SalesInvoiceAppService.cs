@@ -877,6 +877,19 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
+        // Inter-company rate validation (ERPNext PR #47780 / commit 3a2b863e7f)
+        if (invoice.InterCompanyPurchaseInvoiceId.HasValue)
+        {
+            var interCompanyService = LazyServiceProvider
+                .LazyGetRequiredService<MyERP.Core.DomainServices.InterCompanyTransactionService>();
+            await interCompanyService.ValidateInterCompanyRatesAsync(
+                invoice.CompanyId,
+                linkedSalesInvoiceId: null,
+                linkedPurchaseInvoiceId: invoice.InterCompanyPurchaseInvoiceId,
+                invoice.Items.Select(i => (i.ItemId, i.UnitPrice, (string?)i.Description)),
+                CurrentUser.Roles);
+        }
+
         invoice.Submit();
 
         // Credit Note: reduce original invoice outstanding (domain service)

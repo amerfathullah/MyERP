@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
@@ -230,5 +231,66 @@ public class InterCompanyTransactionService : DomainService
 
         await _purchaseOrderRepository.InsertAsync(po, autoSave: true);
         return po.Id;
+    }
+
+    /// <summary>
+    /// Validates that line items in an inter-company transaction have rates matching the linked transaction.
+    /// Per ERPNext PR #47780 / commit 3a2b863e7f.
+    /// </summary>
+    public async Task ValidateInterCompanyRatesAsync(
+        Guid companyId,
+        Guid? linkedSalesInvoiceId,
+        Guid? linkedPurchaseInvoiceId,
+        IEnumerable<(Guid ItemId, decimal UnitPrice, string? Description)> items,
+        IEnumerable<string>? userRoles = null)
+    {
+        var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.AccountsSettings, Guid>>();
+        var settings = (await settingsRepo.GetQueryableAsync()).FirstOrDefault();
+        if (settings == null || !settings.MaintainSameInternalTransactionRate)
+            return;
+
+        var action = settings.MaintainSameRateAction ?? "Stop";
+        var overrideRole = settings.RoleToOverrideStopAction;
+        var canOverride = !string.IsNullOrEmpty(overrideRole)
+            && userRoles != null && userRoles.Contains(overrideRole);
+
+        var rateLines = new List<(string ItemDescription, decimal Rate, decimal ReferenceRate, string ReferenceDocType)>();
+
+        if (linkedSalesInvoiceId.HasValue)
+        {
+            var si = await _salesInvoiceRepository.FindAsync(linkedSalesInvoiceId.Value);
+            if (si != null)
+            {
+                var siRates = si.Items.GroupBy(i => i.ItemId).ToDictionary(g => g.Key, g => g.First().UnitPrice);
+                foreach (var item in items)
+                {
+                    if (siRates.TryGetValue(item.ItemId, out var refRate))
+                    {
+                        rateLines.Add((item.Description ?? item.ItemId.ToString(), item.UnitPrice, refRate, $"Sales Invoice {si.InvoiceNumber}"));
+                    }
+                }
+            }
+        }
+        else if (linkedPurchaseInvoiceId.HasValue)
+        {
+            var pi = await _purchaseInvoiceRepository.FindAsync(linkedPurchaseInvoiceId.Value);
+            if (pi != null)
+            {
+                var piRates = pi.Items.GroupBy(i => i.ItemId).ToDictionary(g => g.Key, g => g.First().UnitPrice);
+                foreach (var item in items)
+                {
+                    if (piRates.TryGetValue(item.ItemId, out var refRate))
+                    {
+                        rateLines.Add((item.Description ?? item.ItemId.ToString(), item.UnitPrice, refRate, $"Purchase Invoice {pi.InvoiceNumber}"));
+                    }
+                }
+            }
+        }
+
+        if (rateLines.Count > 0)
+        {
+            var validationService = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
+            validationService.ValidateMaintainSameRate(rateLines, action, canOverride);
+        }
     }
 }

@@ -64,6 +64,9 @@ public class AccountsSettingsAppService : MyERPAppService, IAccountsSettingsAppS
         entity.BookStockExpenseGlEntries = input.BookStockExpenseGlEntries;
         entity.EnableDiscountsAndMargin = input.EnableDiscountsAndMargin;
         entity.EnableAccountingDimensions = input.EnableAccountingDimensions;
+        entity.MaintainSameInternalTransactionRate = input.MaintainSameInternalTransactionRate;
+        entity.MaintainSameRateAction = string.IsNullOrWhiteSpace(input.MaintainSameRateAction) ? "Stop" : input.MaintainSameRateAction.Trim();
+        entity.RoleToOverrideStopAction = input.RoleToOverrideStopAction?.Trim();
         entity.MergeSimilarAccountHeads = input.MergeSimilarAccountHeads;
         entity.BookDeferredEntriesBasedOn = string.IsNullOrWhiteSpace(input.BookDeferredEntriesBasedOn) ? "Days" : input.BookDeferredEntriesBasedOn.Trim();
         entity.AutomaticallyProcessDeferredAccountingEntry = input.AutomaticallyProcessDeferredAccountingEntry;

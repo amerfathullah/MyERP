@@ -20,6 +20,9 @@ public class AccountsSettingsDto : FullAuditedEntityDto<Guid>
     public bool BookStockExpenseGlEntries { get; set; }
     public bool EnableDiscountsAndMargin { get; set; }
     public bool EnableAccountingDimensions { get; set; }
+    public bool MaintainSameInternalTransactionRate { get; set; }
+    public string MaintainSameRateAction { get; set; } = "Stop";
+    public string? RoleToOverrideStopAction { get; set; }
 
     // Journals & Deferred Accounting
     public bool MergeSimilarAccountHeads { get; set; }
@@ -76,6 +79,11 @@ public class UpdateAccountsSettingsDto
     public bool BookStockExpenseGlEntries { get; set; }
     public bool EnableDiscountsAndMargin { get; set; }
     public bool EnableAccountingDimensions { get; set; }
+    public bool MaintainSameInternalTransactionRate { get; set; }
+    [StringLength(AccountsSettingsConsts.MaxOptionLength)]
+    public string MaintainSameRateAction { get; set; } = "Stop";
+    [StringLength(AccountsSettingsConsts.MaxRoleLength)]
+    public string? RoleToOverrideStopAction { get; set; }
 
     public bool MergeSimilarAccountHeads { get; set; }
     [StringLength(AccountsSettingsConsts.MaxOptionLength)]

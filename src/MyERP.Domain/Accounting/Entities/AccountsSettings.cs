@@ -26,6 +26,9 @@ public class AccountsSettings : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public bool BookStockExpenseGlEntries { get; set; }
     public bool EnableDiscountsAndMargin { get; set; }
     public bool EnableAccountingDimensions { get; set; }
+    public bool MaintainSameInternalTransactionRate { get; set; }
+    public string MaintainSameRateAction { get; set; } = "Stop";
+    public string? RoleToOverrideStopAction { get; set; }
 
     // Journals & Deferred Accounting
     public bool MergeSimilarAccountHeads { get; set; }

@@ -557,4 +557,22 @@ public class DataIntegrityAndCoverageTests
         asset.ApplyValueAdjustment(10000m);
         Assert.Equal(Assets.AssetStatus.Submitted, asset.Status);
     }
+
+    [Fact]
+    public void AccountsSettings_InternalTransactionRateSettings_ProperlyConfigured()
+    {
+        var settings = new Accounting.Entities.AccountsSettings(Guid.NewGuid());
+        Assert.False(settings.MaintainSameInternalTransactionRate);
+        Assert.Equal("Stop", settings.MaintainSameRateAction);
+        Assert.Null(settings.RoleToOverrideStopAction);
+
+        settings.MaintainSameInternalTransactionRate = true;
+        settings.MaintainSameRateAction = "Warn";
+        settings.RoleToOverrideStopAction = "Accounts Manager";
+
+        Assert.True(settings.MaintainSameInternalTransactionRate);
+        Assert.Equal("Warn", settings.MaintainSameRateAction);
+        Assert.Equal("Accounts Manager", settings.RoleToOverrideStopAction);
+        Assert.Equal("MyERP:09003", MyERPDomainErrorCodes.InterCompanyRateMismatch);
+    }
 }

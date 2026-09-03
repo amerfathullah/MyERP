@@ -5006,6 +5006,8 @@ public class MyERPDbContext :
             b.Property(x => x.RoleAllowedToBypassOverdueBilling).HasMaxLength(AccountsSettingsConsts.MaxRoleLength);
             b.Property(x => x.DefaultAgeingRange).HasMaxLength(AccountsSettingsConsts.MaxAgeingRangeLength);
             b.Property(x => x.OverBillingAllowance).HasPrecision(6, 2);
+            b.Property(x => x.MaintainSameRateAction).HasMaxLength(AccountsSettingsConsts.MaxOptionLength);
+            b.Property(x => x.RoleToOverrideStopAction).HasMaxLength(AccountsSettingsConsts.MaxRoleLength);
         });
 
         // ═══════════════════════════════════════════════════
