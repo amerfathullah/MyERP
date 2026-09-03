@@ -90,7 +90,29 @@ public class FinancialReportTemplate : FullAuditedAggregateRoot<Guid>, IMultiTen
     public IReadOnlyList<string> ValidateFormulas()
     {
         var errors = new List<string>();
-        var formulaRows = Rows.Where(r => r.DataSource == FinancialReportDataSource.CalculatedAmount && !string.IsNullOrEmpty(r.CalculationFormula)).ToList();
+
+        // Per ERPNext commit 19aa3b20e0: improve validation in financial report template
+        foreach (var row in Rows.Where(r => r.DataSource == FinancialReportDataSource.CalculatedAmount))
+        {
+            if (string.IsNullOrWhiteSpace(row.CalculationFormula))
+            {
+                errors.Add($"Row '{row.Label}' with Calculated Amount data source must specify a calculation formula.");
+            }
+        }
+
+        foreach (var row in Rows.Where(r => r.DataSource == FinancialReportDataSource.CustomApi))
+        {
+            if (string.IsNullOrWhiteSpace(row.CustomApiPath))
+            {
+                errors.Add($"Row '{row.Label}' with Custom API data source must specify an API method path.");
+            }
+            else if (row.CustomApiPath.Contains(' ') || row.CustomApiPath.Any(c => c == ';' || c == '|' || c == '&' || c == '<' || c == '>' || c == '"' || c == '\''))
+            {
+                errors.Add($"Row '{row.Label}' specifies an invalid API method path '{row.CustomApiPath}'.");
+            }
+        }
+
+        var formulaRows = Rows.Where(r => r.DataSource == FinancialReportDataSource.CalculatedAmount && !string.IsNullOrWhiteSpace(r.CalculationFormula)).ToList();
 
         if (!formulaRows.Any()) return errors;
 

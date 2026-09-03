@@ -264,4 +264,30 @@ public class FinancialReportTemplateTests
         // 1000 → 2000 = 100% growth
         Assert.Equal(100m, FinancialReportFormulaEngine.CalculateGrowth(2000m, 1000m));
     }
+
+    [Fact]
+    public void ValidateFormulas_CustomApi_RejectsEmptyOrInvalidPath()
+    {
+        // Per ERPNext commit 19aa3b20e0: improve validation in financial report template
+        var template = new FinancialReportTemplate(Guid.NewGuid(), "API Test", FinancialReportType.Custom);
+        template.AddRow("Custom API 1", FinancialReportDataSource.CustomApi, 10, customApiPath: null);
+        template.AddRow("Custom API 2", FinancialReportDataSource.CustomApi, 20, customApiPath: "invalid api path with spaces");
+
+        var errors = template.ValidateFormulas();
+        Assert.Equal(2, errors.Count);
+        Assert.Contains("must specify an API method path", errors[0]);
+        Assert.Contains("specifies an invalid API method path", errors[1]);
+    }
+
+    [Fact]
+    public void ValidateFormulas_CalculatedAmount_RejectsEmptyFormula()
+    {
+        // Per ERPNext commit 19aa3b20e0:
+        var template = new FinancialReportTemplate(Guid.NewGuid(), "Formula Test", FinancialReportType.Custom);
+        template.AddRow("Calc Row", FinancialReportDataSource.CalculatedAmount, 10, calculationFormula: null);
+
+        var errors = template.ValidateFormulas();
+        Assert.Single(errors);
+        Assert.Contains("must specify a calculation formula", errors[0]);
+    }
 }
