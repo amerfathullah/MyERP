@@ -163,6 +163,8 @@ public class SubcontractingOrderSuppliedItem : Entity<Guid>
     public decimal TransferredQty { get; set; }
     public decimal ConsumedQty { get; set; }
     public Guid? ReserveWarehouseId { get; set; }
+    public Guid? ExpenseAccountId { get; set; }
+    public Guid? CostCenterId { get; set; }
 
     protected SubcontractingOrderSuppliedItem() { }
     public SubcontractingOrderSuppliedItem(Guid id, Guid scoId, Guid itemId, string itemName, decimal requiredQty)

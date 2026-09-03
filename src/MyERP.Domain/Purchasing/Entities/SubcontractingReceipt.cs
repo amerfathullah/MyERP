@@ -92,6 +92,7 @@ public class SubcontractingReceiptItem : Entity<Guid>
     public Guid? WarehouseId { get; set; }
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ServiceExpenseAccountId { get; set; }
+    public Guid? CostCenterId { get; set; }
 
     protected SubcontractingReceiptItem() { }
     public SubcontractingReceiptItem(Guid id, Guid scrId, Guid itemId, string itemName, decimal qty, decimal rate)

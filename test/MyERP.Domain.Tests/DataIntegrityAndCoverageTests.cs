@@ -661,4 +661,37 @@ public class DataIntegrityAndCoverageTests
 
         Assert.Equal(soId, po.InterCompanySalesOrderId);
     }
+
+    [Fact]
+    public void Subcontracting_Items_SupportCostCenterAndExpenseAccount()
+    {
+        var scrId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var costCenterId = Guid.NewGuid();
+        var expenseAccountId = Guid.NewGuid();
+        var serviceExpenseAccountId = Guid.NewGuid();
+
+        var scrItem = new Purchasing.Entities.SubcontractingReceiptItem(
+            Guid.NewGuid(), scrId, itemId, "Manufactured Item", 10m, 50m)
+        {
+            CostCenterId = costCenterId,
+            ExpenseAccountId = expenseAccountId,
+            ServiceExpenseAccountId = serviceExpenseAccountId
+        };
+
+        Assert.Equal(costCenterId, scrItem.CostCenterId);
+        Assert.Equal(expenseAccountId, scrItem.ExpenseAccountId);
+        Assert.Equal(serviceExpenseAccountId, scrItem.ServiceExpenseAccountId);
+
+        var scoId = Guid.NewGuid();
+        var suppliedItem = new Purchasing.Entities.SubcontractingOrderSuppliedItem(
+            Guid.NewGuid(), scoId, itemId, "Raw Material", 20m)
+        {
+            CostCenterId = costCenterId,
+            ExpenseAccountId = expenseAccountId
+        };
+
+        Assert.Equal(costCenterId, suppliedItem.CostCenterId);
+        Assert.Equal(expenseAccountId, suppliedItem.ExpenseAccountId);
+    }
 }

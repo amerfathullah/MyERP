@@ -334,7 +334,12 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         {
             scr.AddItem(new SubcontractingReceiptItem(
                 GuidGenerator.Create(), scr.Id, item.ItemId, item.ItemName, item.Qty, item.Rate)
-            { WarehouseId = item.WarehouseId });
+            {
+                WarehouseId = item.WarehouseId,
+                CostCenterId = item.CostCenterId,
+                ExpenseAccountId = item.ExpenseAccountId,
+                ServiceExpenseAccountId = item.ServiceExpenseAccountId
+            });
         }
 
         await _scrRepository.InsertAsync(scr);
@@ -557,7 +562,10 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 negativeQty,
                 retItem.Rate > 0 ? retItem.Rate : origItem.Rate)
             {
-                WarehouseId = retItem.WarehouseId ?? origItem.WarehouseId ?? original.WarehouseId
+                WarehouseId = retItem.WarehouseId ?? origItem.WarehouseId ?? original.WarehouseId,
+                CostCenterId = origItem.CostCenterId,
+                ExpenseAccountId = origItem.ExpenseAccountId,
+                ServiceExpenseAccountId = origItem.ServiceExpenseAccountId
             });
         }
 
@@ -584,6 +592,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 WarehouseId = i.WarehouseId,
                 ExpenseAccountId = i.ExpenseAccountId,
                 ServiceExpenseAccountId = i.ServiceExpenseAccountId,
+                CostCenterId = i.CostCenterId,
             }).ToList()
         };
     }
@@ -623,6 +632,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 WarehouseId = i.WarehouseId,
                 ExpenseAccountId = i.ExpenseAccountId,
                 ServiceExpenseAccountId = i.ServiceExpenseAccountId,
+                CostCenterId = i.CostCenterId,
             }).ToList()
         }).ToList();
     }
