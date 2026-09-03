@@ -124,6 +124,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
             AssetQuantity = input.AssetQuantity > 0 ? input.AssetQuantity : 1,
             Notes = input.Notes,
             IsCompositeAsset = input.IsCompositeAsset,
+            IsCompositeComponent = input.IsCompositeComponent,
             UseTotalDaysForDepreciation = useTotalDays,
         };
 
@@ -189,6 +190,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         asset.OpeningAccumulatedDepreciation = input.OpeningAccumulatedDepreciation;
         asset.ExpectedValueAfterUsefulLife = input.ExpectedValueAfterUsefulLife;
         asset.IsCompositeAsset = input.IsCompositeAsset;
+        asset.IsCompositeComponent = input.IsCompositeComponent;
 
         await ValidateDepreciationAccountsAsync(asset);
         await ValidateLinkedPurchaseDocumentsAsync(asset);

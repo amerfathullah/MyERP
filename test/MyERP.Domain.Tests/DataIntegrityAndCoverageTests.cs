@@ -2297,4 +2297,30 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(Accounting.BudgetAction.Stop, DowngradeAction(Accounting.BudgetAction.Stop, false));
         Assert.Equal(Accounting.BudgetAction.Ignore, DowngradeAction(Accounting.BudgetAction.Ignore, true));
     }
+
+    [Fact]
+    public void Asset_CompositeComponent_Invariants()
+    {
+        // Per ERPNext commit 0f5be4b245:
+        // Composite component assets cannot calculate depreciation, are mutually exclusive
+        // with IsCompositeAsset, and do not require AvailableForUseDate on submission.
+        var asset = new Assets.Entities.Asset(Guid.NewGuid(), Guid.NewGuid(), "AST-001", "Component A", DateTime.UtcNow, 5000m)
+        {
+            IsCompositeComponent = true,
+            CalculateDepreciation = true // should be suppressed
+        };
+
+        Assert.True(asset.IsCompositeComponent);
+        Assert.False(asset.IsCompositeAsset);
+        Assert.False(asset.CalculateDepreciation);
+
+        var lifecycleManager = new Assets.DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
+        // Validation passes without AvailableForUseDate because IsCompositeComponent = true
+        lifecycleManager.ValidateForSubmission(asset);
+
+        // Setting IsCompositeAsset turns off IsCompositeComponent
+        asset.IsCompositeAsset = true;
+        Assert.True(asset.IsCompositeAsset);
+        Assert.False(asset.IsCompositeComponent);
+    }
 }

@@ -147,6 +147,16 @@ public class AssetLifecycleManager : DomainService
     /// </summary>
     public void ValidateForSubmission(Asset asset)
     {
+        // Per ERPNext commit 0f5be4b245: composite component assets cannot calculate depreciation
+        // and do not require AvailableForUseDate.
+        if (asset.IsCompositeComponent)
+        {
+            if (asset.CalculateDepreciation)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Composite component asset cannot calculate depreciation.");
+            return;
+        }
+
         if (asset.CalculateDepreciation)
         {
             if (asset.UsefulLifeMonths <= 0)

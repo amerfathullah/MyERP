@@ -40,6 +40,7 @@ public class AssetDto : FullAuditedEntityDto<Guid>
     public decimal ValueAfterDepreciation { get; set; }
     public bool IsFullyDepreciated { get; set; }
     public bool IsCompositeAsset { get; set; }
+    public bool IsCompositeComponent { get; set; }
     public DateTime? DisposalDate { get; set; }
     public decimal? DisposalAmount { get; set; }
     public string? Notes { get; set; }
@@ -98,6 +99,7 @@ public class CreateAssetDto
     public int AssetQuantity { get; set; } = 1;
 
     public bool IsCompositeAsset { get; set; }
+    public bool IsCompositeComponent { get; set; }
 
     [StringLength(AssetConsts.MaxNoteLength)]
     public string? Notes { get; set; }
@@ -128,6 +130,7 @@ public class UpdateAssetDto
     public decimal OpeningAccumulatedDepreciation { get; set; }
     public decimal ExpectedValueAfterUsefulLife { get; set; }
     public bool IsCompositeAsset { get; set; }
+    public bool IsCompositeComponent { get; set; }
 
     [StringLength(AssetConsts.MaxNoteLength)]
     public string? Notes { get; set; }

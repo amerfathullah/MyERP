@@ -49,9 +49,13 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         set
         {
             _isCompositeAsset = value;
-            if (Status == AssetStatus.Draft && _isCompositeAsset)
+            if (_isCompositeAsset)
             {
-                Status = AssetStatus.WorkInProgress;
+                _isCompositeComponent = false;
+                if (Status == AssetStatus.Draft)
+                {
+                    Status = AssetStatus.WorkInProgress;
+                }
             }
             else if (Status == AssetStatus.WorkInProgress && !_isCompositeAsset)
             {
@@ -61,6 +65,26 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
     private bool _isCompositeAsset;
 
+    /// <summary>
+    /// Indicates this asset is a composite component asset (waiting to be capitalized into a composite asset).
+    /// Per ERPNext commit 0f5be4b245: component assets do not calculate depreciation, do not require
+    /// AvailableForUseDate, and do not post standalone fixed asset GL entries upon creation.
+    /// </summary>
+    public bool IsCompositeComponent
+    {
+        get => _isCompositeComponent;
+        set
+        {
+            _isCompositeComponent = value;
+            if (_isCompositeComponent)
+            {
+                _isCompositeAsset = false;
+                CalculateDepreciation = false;
+            }
+        }
+    }
+    private bool _isCompositeComponent;
+
     /// <summary>Source Purchase Receipt that created this asset (for return validation).</summary>
     public Guid? PurchaseReceiptId { get; set; }
 
@@ -68,7 +92,12 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? PurchaseInvoiceId { get; set; }
 
     // Depreciation
-    public bool CalculateDepreciation { get; set; }
+    public bool CalculateDepreciation
+    {
+        get => !_isCompositeComponent && _calculateDepreciation;
+        set => _calculateDepreciation = !_isCompositeComponent && value;
+    }
+    private bool _calculateDepreciation;
     public DepreciationMethod DepreciationMethod { get; set; }
     public int UsefulLifeMonths { get; set; }
     public decimal DepreciationRate { get; set; }
