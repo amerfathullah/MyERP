@@ -125,7 +125,11 @@ export class BomStockAnalysisComponent implements OnInit {
 
   ngOnInit() {
     this.mfgService.getBomList({ skipCount: 0, maxResultCount: 200 } as any).subscribe({
-      next: (r) => this.boms.set(r.items ?? []),
+      next: (r) => {
+        // Per ERPNext PR #58647 (commit a2071a6fdd): filter out cancelled/inactive BOMs
+        const activeBoms = (r.items ?? []).filter((b: any) => b.isActive !== false && b.status !== 'Cancelled' && b.status !== 2);
+        this.boms.set(activeBoms);
+      },
       error: () => {}
     });
   }
