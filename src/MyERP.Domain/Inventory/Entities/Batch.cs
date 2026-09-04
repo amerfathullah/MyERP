@@ -63,11 +63,14 @@ public class Batch : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
-    /// <summary>Check if this batch is expired as of the given date.</summary>
+    /// <summary>
+    /// Check if this batch is expired as of the given date.
+    /// Per ERPNext PR #58736 (commit 00f04fc084): show Expired status only after expiry date has passed.
+    /// </summary>
     public bool IsExpired(DateTime? asOfDate = null)
     {
         if (!ExpiryDate.HasValue) return false;
-        return (asOfDate ?? DateTime.UtcNow) > ExpiryDate.Value;
+        return (asOfDate ?? DateTime.UtcNow).Date > ExpiryDate.Value.Date;
     }
 
     /// <summary>Set expiry from manufacturing date + shelf life.</summary>

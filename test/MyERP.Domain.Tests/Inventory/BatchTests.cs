@@ -55,4 +55,23 @@ public class BatchTests
 
         batch.ExpiryDate.ShouldBeNull();
     }
+
+    [Fact]
+    public void IsExpired_OnSameDayAsExpiryDate_ReturnsFalse_OnlyExpiredAfterDayPassed()
+    {
+        // Per ERPNext PR #58736 (commit 00f04fc084):
+        // Show Expired status only AFTER expiry date has passed (< 0 days diff).
+        var today = new DateTime(2026, 9, 4, 15, 30, 0, DateTimeKind.Utc);
+        var batch = new Batch(Guid.NewGuid(), Guid.NewGuid(), "BATCH-TODAY")
+        {
+            ExpiryDate = new DateTime(2026, 9, 4)
+        };
+
+        // Same day (e.g. afternoon of expiry date) -> not yet expired
+        batch.IsExpired(today).ShouldBeFalse();
+
+        // Next day -> expired
+        batch.IsExpired(today.AddDays(1)).ShouldBeTrue();
+    }
 }
+

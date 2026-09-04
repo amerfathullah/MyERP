@@ -36,7 +36,15 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
                   <td class="font-monospace">{{ b.batchNo }}</td>
                   <td>{{ itemNames()[b.itemId ?? ''] || '—' }}</td>
                   <td>{{ b.expiryDate ? (b.expiryDate | date:'dd/MM/yyyy') : '—' }}</td>
-                  <td><span class="badge" [class]="b.isDisabled ? 'bg-danger' : 'bg-success'">{{ b.isDisabled ? 'Disabled' : 'Active' }}</span></td>
+                  <td>
+                    @if (b.isDisabled) {
+                      <span class="badge bg-secondary">Disabled</span>
+                    } @else if (b.isExpired) {
+                      <span class="badge bg-danger">Expired</span>
+                    } @else {
+                      <span class="badge bg-success">Active</span>
+                    }
+                  </td>
                 </tr>
               }
             </tbody>
