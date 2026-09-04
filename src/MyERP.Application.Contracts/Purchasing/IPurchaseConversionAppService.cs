@@ -36,6 +36,12 @@ public interface IPurchaseConversionAppService : IApplicationService
         CreatePurchaseOrdersFromMrDto input);
 
     /// <summary>
+    /// Convert a submitted Material Request into a Purchase Order for a supplier.
+    /// Per ERPNext PR #58617: accounts for draft Purchase Orders to prevent duplicate conversion.
+    /// </summary>
+    Task<PurchaseOrderDto> ConvertMaterialRequestToPurchaseOrderAsync(Guid materialRequestId, Guid supplierId);
+
+    /// <summary>
     /// Convert a submitted Material Request into a Request for Quotation.
     /// Per ERPNext commit c93815b4ae: filters out fully ordered/received items.
     /// </summary>

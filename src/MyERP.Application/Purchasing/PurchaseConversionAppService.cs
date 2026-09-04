@@ -349,9 +349,21 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             IsSubcontracted = mr.RequestType == MaterialRequestType.Subcontracting
         };
 
+        // Account for draft Purchase Orders in the system (per ERPNext PR #58617 / commit d8432d92c8)
+        var poQuery = await _purchaseOrderRepository.GetQueryableAsync();
+        var draftPoItems = poQuery
+            .Where(p => p.CompanyId == mr.CompanyId && p.Status == Core.DocumentStatus.Draft)
+            .SelectMany(p => p.Items)
+            .Where(i => i.MaterialRequestItemId.HasValue)
+            .GroupBy(i => i.MaterialRequestItemId!.Value)
+            .Select(g => new { MrItemId = g.Key, Qty = g.Sum(i => i.Quantity) })
+            .ToList();
+        var draftPoQtyMap = draftPoItems.ToDictionary(x => x.MrItemId, x => x.Qty);
+
         foreach (var mrItem in mr.Items)
         {
-            var pendingQty = MyERP.Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(mrItem);
+            var draftQty = draftPoQtyMap.GetValueOrDefault(mrItem.Id, 0m);
+            var pendingQty = Math.Max(0, MyERP.Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(mrItem) - draftQty);
             if (pendingQty <= 0) continue;
 
             // Get item for buying price
@@ -363,13 +375,15 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             // Link PO item back to MR item
             var poItem = po.Items.Last();
             poItem.MaterialRequestItemId = mrItem.Id;
+            poItem.ConversionFactor = mrItem.ConversionFactor > 0 ? mrItem.ConversionFactor : 1m;
+            poItem.StockUom = mrItem.Uom;
         }
 
         if (!po.Items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
                 .WithData("documentType", "MaterialRequest")
                 .WithData("documentNumber", mr.RequestNumber)
-                .WithData("reason", "All items in this Material Request have been fully ordered. No pending items for Purchase Order.");
+                .WithData("reason", "All items in this Material Request have been fully ordered or have pending draft Purchase Orders.");
 
         await _purchaseOrderRepository.InsertAsync(po, autoSave: true);
 
@@ -451,6 +465,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
                 var poItem = po.Items.Last();
                 poItem.MaterialRequestItemId = mrItem.Id;
+                poItem.ConversionFactor = mrItem.ConversionFactor > 0 ? mrItem.ConversionFactor : 1m;
+                poItem.StockUom = mrItem.Uom;
             }
 
             await _purchaseOrderRepository.InsertAsync(po, autoSave: true);

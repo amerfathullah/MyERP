@@ -148,6 +148,65 @@ public class MaterialRequestTests
         await manager.ValidateWithSalesOrderAsync(mr, soRepo); // Should not throw
     }
 
+    [Fact]
+    public async System.Threading.Tasks.Task ValidateWithSalesOrderAsync_ThrowsWhenUomMismatch()
+    {
+        var companyId = Guid.NewGuid();
+        var mr = new MaterialRequest(Guid.NewGuid(), companyId, "MR-SO-003",
+            MaterialRequestType.Purchase, DateTime.UtcNow);
+
+        var soId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var so = new MyERP.Sales.Entities.SalesOrder(soId, companyId, Guid.NewGuid(), "SO-003", DateTime.UtcNow);
+        so.AddItem(itemId, "Correct Item", 5, 100, 0, "Box");
+        var soItemId = so.Items[0].Id;
+
+        // MR item with mismatched UOM (Unit vs Box)
+        mr.AddItem(itemId, "Correct Item", 5, "Unit", salesOrderId: soId, salesOrderItemId: soItemId);
+
+        var soRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+        soRepo.FindAsync(soId).Returns(so);
+
+        var manager = new MyERP.Purchasing.DomainServices.MaterialRequestManager(
+            Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MaterialRequest, Guid>>()
+        );
+
+        var ex = await Should.ThrowAsync<BusinessException>(async () =>
+            await manager.ValidateWithSalesOrderAsync(mr, soRepo));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ValidateWithSalesOrderAsync_ThrowsWhenConversionFactorMismatch()
+    {
+        var companyId = Guid.NewGuid();
+        var mr = new MaterialRequest(Guid.NewGuid(), companyId, "MR-SO-004",
+            MaterialRequestType.Purchase, DateTime.UtcNow);
+
+        var soId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var so = new MyERP.Sales.Entities.SalesOrder(soId, companyId, Guid.NewGuid(), "SO-004", DateTime.UtcNow);
+        so.AddItem(itemId, "Correct Item", 5, 100, 0, "Box");
+        so.Items[0].ConversionFactor = 12m;
+        var soItemId = so.Items[0].Id;
+
+        // MR item with mismatched conversion factor (6 vs 12)
+        mr.AddItem(itemId, "Correct Item", 5, "Box", salesOrderId: soId, salesOrderItemId: soItemId, conversionFactor: 6m);
+
+        var soRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+        soRepo.FindAsync(soId).Returns(so);
+
+        var manager = new MyERP.Purchasing.DomainServices.MaterialRequestManager(
+            Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MaterialRequest, Guid>>()
+        );
+
+        var ex = await Should.ThrowAsync<BusinessException>(async () =>
+            await manager.ValidateWithSalesOrderAsync(mr, soRepo));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
     private static MaterialRequest CreateMaterialRequest() =>
         new(Guid.NewGuid(), Guid.NewGuid(), "MR-0001",
             MaterialRequestType.Purchase, DateTime.UtcNow, Guid.NewGuid());

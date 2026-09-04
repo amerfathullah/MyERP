@@ -460,12 +460,19 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         foreach (var item in salesOrder.Items.Where(i => i.PendingDeliveryQty > 0))
         {
-            mr.AddItem(item.ItemId, item.Description ?? string.Empty, item.PendingDeliveryQty,
-                item.StockUom ?? "Unit", projectId: salesOrder.ProjectId);
+            var pendingToRequest = Math.Max(0, item.PendingDeliveryQty - item.RequestedQty);
+            if (pendingToRequest <= 0) continue;
 
-            // Link MR item back to SO
-            var mrItem = mr.Items.Last();
-            mrItem.SalesOrderId = salesOrder.Id;
+            mr.AddItem(
+                item.ItemId,
+                item.Description ?? string.Empty,
+                pendingToRequest,
+                item.Uom ?? "Unit",
+                warehouseId: item.WarehouseId,
+                salesOrderId: salesOrder.Id,
+                salesOrderItemId: item.Id,
+                projectId: salesOrder.ProjectId,
+                conversionFactor: item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
         }
 
         if (!mr.Items.Any())
@@ -473,7 +480,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
                 .WithData("documentType", "SalesOrder")
                 .WithData("documentNumber", salesOrder.OrderNumber)
-                .WithData("reason", "All items in this Sales Order have been fully delivered. No pending items for material request.");
+                .WithData("reason", "All items in this Sales Order have been fully requested or delivered. No pending items for material request.");
         }
 
         await mrRepo.InsertAsync(mr, autoSave: true);

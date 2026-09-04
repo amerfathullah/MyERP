@@ -104,7 +104,16 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
 
         foreach (var item in input.Items)
         {
-            entity.AddItem(item.ItemId, item.ItemName, item.Quantity, item.Uom, item.WarehouseId, item.SalesOrderId, item.SalesOrderItemId, item.ProjectId ?? input.ProjectId);
+            entity.AddItem(
+                item.ItemId,
+                item.ItemName,
+                item.Quantity,
+                item.Uom,
+                item.WarehouseId,
+                item.SalesOrderId,
+                item.SalesOrderItemId,
+                item.ProjectId ?? input.ProjectId,
+                item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
         }
 
         await ValidateItemsAgainstSalesOrderAsync(entity);
@@ -283,57 +292,12 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
 
     /// <summary>
     /// Validates Material Request items against linked Sales Order lines (gotcha upstream #58443).
-    /// If an item line links to a Sales Order, verifies item matches and company matches.
+    /// If an item line links to a Sales Order, verifies item matches, UOM matches, and conversion factor matches.
     /// </summary>
     private async Task ValidateItemsAgainstSalesOrderAsync(MaterialRequest mr)
     {
-        var soItems = mr.Items.Where(i => i.SalesOrderId.HasValue).ToList();
-        if (!soItems.Any()) return;
-
         var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
-        var soIds = soItems.Select(i => i.SalesOrderId!.Value).Distinct().ToList();
-
-        foreach (var soId in soIds)
-        {
-            var so = await soRepo.FindAsync(soId);
-            if (so == null) continue;
-
-            if (so.CompanyId != mr.CompanyId)
-            {
-                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Material Request company does not match Sales Order {so.OrderNumber} company.");
-            }
-
-            var soItemRows = soItems.Where(i => i.SalesOrderId == soId).ToList();
-            foreach (var mrItem in soItemRows)
-            {
-                if (mrItem.SalesOrderItemId.HasValue)
-                {
-                    var targetSoItem = so.Items.FirstOrDefault(i => i.Id == mrItem.SalesOrderItemId.Value);
-                    if (targetSoItem != null)
-                    {
-                        if (targetSoItem.ItemId != mrItem.ItemId)
-                        {
-                            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                                .WithData("detail", "Material Request item does not match linked Sales Order item row.");
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(mrItem.Uom) && !string.IsNullOrWhiteSpace(targetSoItem.Uom) &&
-                            !string.Equals(mrItem.Uom, targetSoItem.Uom, StringComparison.OrdinalIgnoreCase))
-                        {
-                            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                                .WithData("detail", $"Material Request item UOM '{mrItem.Uom}' does not match linked Sales Order item UOM '{targetSoItem.Uom}'.");
-                        }
-
-                        if (mrItem.ConversionFactor > 0 && targetSoItem.ConversionFactor > 0 &&
-                            mrItem.ConversionFactor != targetSoItem.ConversionFactor)
-                        {
-                            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                                .WithData("detail", "Material Request conversion factor does not match linked Sales Order item row.");
-                        }
-                    }
-                }
-            }
-        }
+        var mrManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.MaterialRequestManager>();
+        await mrManager.ValidateWithSalesOrderAsync(mr, soRepo);
     }
 }

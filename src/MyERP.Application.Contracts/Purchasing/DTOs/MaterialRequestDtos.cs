@@ -38,6 +38,8 @@ public class MaterialRequestItemDto
     public decimal OrderedQuantity { get; set; }
     public decimal ReceivedQuantity { get; set; }
     public string? Uom { get; set; }
+    public decimal ConversionFactor { get; set; } = 1m;
+    public decimal StockQty { get; set; }
     public Guid? WarehouseId { get; set; }
     public Guid? SalesOrderId { get; set; }
     public Guid? SalesOrderItemId { get; set; }
@@ -82,6 +84,8 @@ public class CreateMaterialRequestItemDto
 
     [StringLength(20)]
     public string Uom { get; set; } = "Unit";
+
+    public decimal ConversionFactor { get; set; } = 1m;
 
     public Guid? WarehouseId { get; set; }
     public Guid? SalesOrderId { get; set; }

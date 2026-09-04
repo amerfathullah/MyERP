@@ -299,4 +299,46 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
         await Assert.ThrowsAsync<Volo.Abp.BusinessException>(
             () => _conversionService.ConvertSalesOrderToSalesInvoiceAsync(salesOrder.Id));
     }
+
+    [Fact]
+    public async Task Should_Convert_SalesOrder_To_MaterialRequest_And_Link_SalesOrderItem()
+    {
+        // Arrange
+        var (companyId, customerId, warehouseId) = await SeedDataAsync();
+        await _seriesRepository.InsertAsync(
+            new DocumentSeries(Guid.NewGuid(), companyId, "MRS", "MR", "MR-"), autoSave: true);
+
+        var salesOrder = await _salesOrderService.CreateAsync(new CreateSalesOrderDto
+        {
+            CompanyId = companyId,
+            CustomerId = customerId,
+            OrderDate = DateTime.Today,
+            Items = new()
+            {
+                new() { ItemId = Guid.NewGuid(), Description = "Widget MR", Quantity = 8, UnitPrice = 120m, WarehouseId = warehouseId }
+            }
+        });
+        await _salesOrderService.SubmitAsync(salesOrder.Id);
+
+        // Act: Convert SO to MR
+        var mrId = await _conversionService.ConvertSalesOrderToMaterialRequestAsync(salesOrder.Id);
+
+        // Assert
+        mrId.ShouldNotBe(Guid.Empty);
+        var mrRepo = GetRequiredService<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+        var mr = await mrRepo.GetAsync(mrId);
+        mr.Items.Count.ShouldBe(1);
+        mr.Items[0].SalesOrderId.ShouldBe(salesOrder.Id);
+        mr.Items[0].SalesOrderItemId.ShouldBe(salesOrder.Items[0].Id);
+        mr.Items[0].Quantity.ShouldBe(8);
+        mr.Items[0].ConversionFactor.ShouldBe(1m);
+
+        // Submit MR to update SalesOrderItem.RequestedQty
+        var mrAppService = GetRequiredService<Purchasing.IMaterialRequestAppService>();
+        await mrAppService.SubmitAsync(mrId);
+
+        // Second conversion should throw because RequestedQty covers PendingDeliveryQty
+        await Assert.ThrowsAsync<Volo.Abp.BusinessException>(
+            () => _conversionService.ConvertSalesOrderToMaterialRequestAsync(salesOrder.Id));
+    }
 }

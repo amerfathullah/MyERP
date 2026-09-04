@@ -72,7 +72,8 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     public void AddItem(Guid itemId, string itemName, decimal quantity, string uom,
-        Guid? warehouseId = null, Guid? salesOrderId = null, Guid? salesOrderItemId = null, Guid? projectId = null)
+        Guid? warehouseId = null, Guid? salesOrderId = null, Guid? salesOrderItemId = null, Guid? projectId = null,
+        decimal conversionFactor = 1m)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -83,6 +84,7 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
             SalesOrderId = salesOrderId,
             SalesOrderItemId = salesOrderItemId,
             ProjectId = projectId ?? ProjectId,
+            ConversionFactor = conversionFactor > 0 ? conversionFactor : 1m,
         });
     }
 

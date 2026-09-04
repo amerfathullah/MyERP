@@ -52,6 +52,11 @@ public class PurchaseOrderItemDto
     /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
     public bool IsClosed { get; set; }
     public bool DeliveredBySupplier { get; set; }
+    public decimal ConversionFactor { get; set; } = 1m;
+    public decimal StockQty { get; set; }
+    public string? StockUom { get; set; }
+    public Guid? MaterialRequestItemId { get; set; }
+    public Guid? SupplierQuotationItemId { get; set; }
 }
 
 public class CreatePurchaseOrderDto

@@ -108,7 +108,7 @@ public class MaterialRequestManager : DomainService
     }
 
     /// <summary>
-    /// Validates that Material Request items linked to a Sales Order line match the item and company (gotcha PR #58443).
+    /// Validates that Material Request items linked to a Sales Order line match the item, company, UOM, and conversion factor (gotcha PR #58443).
     /// </summary>
     public async Task ValidateWithSalesOrderAsync(MaterialRequest mr, IRepository<Sales.Entities.SalesOrder, Guid> soRepository)
     {
@@ -133,10 +133,27 @@ public class MaterialRequestManager : DomainService
                 if (mrItem.SalesOrderItemId.HasValue)
                 {
                     var targetSoItem = so.Items.FirstOrDefault(i => i.Id == mrItem.SalesOrderItemId.Value);
-                    if (targetSoItem != null && targetSoItem.ItemId != mrItem.ItemId)
+                    if (targetSoItem != null)
                     {
-                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                            .WithData("detail", "Material Request item does not match linked Sales Order item row.");
+                        if (targetSoItem.ItemId != mrItem.ItemId)
+                        {
+                            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                                .WithData("detail", "Material Request item does not match linked Sales Order item row.");
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(mrItem.Uom) && !string.IsNullOrWhiteSpace(targetSoItem.Uom) &&
+                            !string.Equals(mrItem.Uom, targetSoItem.Uom, StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                                .WithData("detail", $"Material Request item UOM '{mrItem.Uom}' does not match linked Sales Order item UOM '{targetSoItem.Uom}'.");
+                        }
+
+                        if (mrItem.ConversionFactor > 0 && targetSoItem.ConversionFactor > 0 &&
+                            mrItem.ConversionFactor != targetSoItem.ConversionFactor)
+                        {
+                            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                                .WithData("detail", "Material Request conversion factor does not match linked Sales Order item row.");
+                        }
                     }
                 }
             }
