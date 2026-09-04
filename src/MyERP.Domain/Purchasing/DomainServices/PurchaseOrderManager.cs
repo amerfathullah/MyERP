@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core;
 using MyERP.Inventory.Entities;
 using MyERP.Purchasing.Entities;
 using Volo.Abp;
@@ -139,6 +140,18 @@ public class PurchaseOrderManager : DomainService
 
         foreach (var sq in affectedSQs)
         {
+            if (!reverse && sq.Status == DocumentStatus.Cancelled)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                    .WithData("reason", $"Supplier Quotation {sq.QuotationNumber ?? sq.Id.ToString()} is cancelled.");
+            }
+
+            if (!reverse && sq.Status == DocumentStatus.Draft)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                    .WithData("reason", $"Supplier Quotation {sq.QuotationNumber ?? sq.Id.ToString()} is in Draft status.");
+            }
+
             foreach (var poItem in order.Items)
             {
                 SupplierQuotationItem? sqItem = null;

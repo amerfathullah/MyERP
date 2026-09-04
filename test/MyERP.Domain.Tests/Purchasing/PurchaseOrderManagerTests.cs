@@ -243,6 +243,78 @@ public class PurchaseOrderManagerTests
         Should.Throw<BusinessException>(() => uom.ValidateWholeNumber(2000.5m));
     }
 
+    [Fact]
+    public async Task PO_UpdateSupplierQuotationOrderedQtyAsync_CancelledSQ_Throws()
+    {
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, null!);
+        var sqRepo = Substitute.For<IRepository<SupplierQuotation, Guid>>();
+
+        var sqId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var sq = new SupplierQuotation(sqId, Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
+        sq.AddItem(itemId, 10, 50m);
+        sq.Submit();
+        sq.Cancel();
+
+        sqRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SupplierQuotation> { sq }.AsQueryable()));
+
+        var po = CreatePO();
+        po.SupplierQuotationId = sqId;
+        po.AddItem(itemId, "Item 1", 5m, 50m, 0m);
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            manager.UpdateSupplierQuotationOrderedQtyAsync(po, sqRepo, reverse: false));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
+    }
+
+    [Fact]
+    public async Task PO_UpdateSupplierQuotationOrderedQtyAsync_DraftSQ_Throws()
+    {
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, null!);
+        var sqRepo = Substitute.For<IRepository<SupplierQuotation, Guid>>();
+
+        var sqId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var sq = new SupplierQuotation(sqId, Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
+        sq.AddItem(itemId, 10, 50m);
+
+        sqRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SupplierQuotation> { sq }.AsQueryable()));
+
+        var po = CreatePO();
+        po.SupplierQuotationId = sqId;
+        po.AddItem(itemId, "Item 1", 5m, 50m, 0m);
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            manager.UpdateSupplierQuotationOrderedQtyAsync(po, sqRepo, reverse: false));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
+    }
+
+    [Fact]
+    public async Task PO_UpdateSupplierQuotationOrderedQtyAsync_SubmittedSQ_Succeeds()
+    {
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, null!);
+        var sqRepo = Substitute.For<IRepository<SupplierQuotation, Guid>>();
+
+        var sqId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var sq = new SupplierQuotation(sqId, Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
+        sq.AddItem(itemId, 10, 50m);
+        sq.Submit();
+
+        sqRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SupplierQuotation> { sq }.AsQueryable()));
+
+        var po = CreatePO();
+        po.SupplierQuotationId = sqId;
+        po.AddItem(itemId, "Item 1", 5m, 50m, 0m);
+
+        await manager.UpdateSupplierQuotationOrderedQtyAsync(po, sqRepo, reverse: false);
+
+        sq.Items[0].OrderedQty.ShouldBe(5m);
+        sq.OrderStatus.ShouldBe("Partially Ordered");
+    }
+
     private static PurchaseOrder CreatePO()
     {
         return new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-001", DateTime.UtcNow);
