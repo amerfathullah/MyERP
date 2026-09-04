@@ -56,8 +56,11 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
     /// </summary>
     public decimal BilledQty { get; set; }
 
-    /// <summary>Pending billing quantity = Quantity - BilledQty.</summary>
-    public decimal PendingBillingQty => Math.Max(0, Math.Abs(Quantity) - Math.Abs(BilledQty));
+    /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
+    public bool IsClosed { get; set; }
+
+    /// <summary>Pending billing quantity = Quantity - BilledQty. 0 if closed.</summary>
+    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, Math.Abs(Quantity) - Math.Abs(BilledQty));
 
     /// <summary>
     /// Quantity packed into a submitted Packing Slip so far, updated by

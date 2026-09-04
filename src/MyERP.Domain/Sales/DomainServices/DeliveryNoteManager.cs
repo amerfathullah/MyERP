@@ -62,8 +62,16 @@ public class DeliveryNoteManager : DomainService
 
         foreach (var dnItem in dn.Items)
         {
-            var soItem = so.Items.FirstOrDefault(i => i.ItemId == dnItem.ItemId);
+            var soItem = dnItem.SalesOrderItemId.HasValue
+                ? so.Items.FirstOrDefault(i => i.Id == dnItem.SalesOrderItemId.Value)
+                : so.Items.FirstOrDefault(i => i.ItemId == dnItem.ItemId);
             if (soItem == null) continue;
+
+            if (soItem.IsClosed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Item {dnItem.Description} is closed in Sales Order {so.OrderNumber} and cannot be processed further.");
+            }
 
             var maxAllowedTotal = soItem.Quantity * (1m + allowancePct / 100m);
             var remainingAllowed = maxAllowedTotal - soItem.DeliveredQty;

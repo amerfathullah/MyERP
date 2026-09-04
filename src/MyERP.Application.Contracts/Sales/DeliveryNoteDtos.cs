@@ -28,6 +28,7 @@ public class DeliveryNoteDto : EntityDto<Guid>
     public string Status { get; set; } = null!;
     /// <summary>Billing completion %. 0 = not billed, 100 = fully billed.</summary>
     public decimal PerBilled { get; set; }
+    public string? BillingStatus { get; set; }
     public List<DeliveryNoteItemDto> Items { get; set; } = new();
 }
 
@@ -43,6 +44,7 @@ public class DeliveryNoteItemDto
     public decimal LineTotal { get; set; }
     public decimal BilledQty { get; set; }
     public decimal PackedQty { get; set; }
+    public bool IsClosed { get; set; }
     public Guid? SalesOrderItemId { get; set; }
 }
 

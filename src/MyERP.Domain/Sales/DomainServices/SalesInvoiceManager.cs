@@ -192,6 +192,12 @@ public class SalesInvoiceManager : DomainService
                 var soItem = so.Items.FirstOrDefault(i => i.Id == siItem.SalesOrderItemId!.Value);
                 if (soItem == null) continue;
 
+                if (soItem.IsClosed)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Item {siItem.Description} is closed in Sales Order {so.OrderNumber} and cannot be processed further.");
+                }
+
                 var maxAllowedTotal = soItem.Quantity * (1m + overBillingAllowancePct / 100m);
                 if (soItem.BilledQty + siItem.Quantity > maxAllowedTotal)
                 {
@@ -371,7 +377,42 @@ public class SalesInvoiceManager : DomainService
     }
 
     /// <summary>
-    /// Updates linked Delivery Note item BilledQty after SI submit.
+    /// Validates linked Delivery Notes: blocks submitting against closed DN items (per ERPNext PR #57596).
+    /// </summary>
+    public async Task ValidateLinkedDeliveryNotesAsync(SalesInvoice invoice)
+    {
+        if (invoice.UpdateStock) return;
+
+        var dnItemIds = invoice.Items
+            .Where(i => i.DeliveryNoteItemId.HasValue)
+            .Select(i => i.DeliveryNoteItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!dnItemIds.Any()) return;
+
+        var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
+        var dnQuery = await dnRepo.GetQueryableAsync();
+        var affectedDns = dnQuery
+            .Where(dn => dn.Items.Any(i => dnItemIds.Contains(i.Id)))
+            .ToList();
+
+        foreach (var dn in affectedDns)
+        {
+            foreach (var siItem in invoice.Items.Where(i => i.DeliveryNoteItemId.HasValue))
+            {
+                var dnItem = dn.Items.FirstOrDefault(i => i.Id == siItem.DeliveryNoteItemId!.Value);
+                if (dnItem != null && dnItem.IsClosed)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Item {siItem.Description} is closed in Delivery Note {dn.DeliveryNumber} and cannot be processed further.");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Updates linked Delivery Note BilledQty after Sales Invoice submit/cancel.
     /// Per ERPNext: update_billed_amount_in_dn updates DN Item billed_amt using FIFO.
     /// When reverse=true (cancel), decrements BilledQty.
     /// </summary>

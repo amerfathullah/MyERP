@@ -103,9 +103,16 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
     /// <summary>Percentage of total qty received (0-100). Uses min per-item completion with per-item capping (gotcha #370). Excludes closed rows.</summary>
-    public decimal PerReceived => _items.Any(i => !i.IsClosed)
-        ? Math.Round(_items.Where(i => !i.IsClosed).Min(i => i.Quantity > 0 ? Math.Min(Math.Max(0, i.ReceivedQty), i.Quantity) / i.Quantity * 100 : 100m), 2)
-        : (_items.Count > 0 && _items.All(i => i.IsClosed) ? 100m : 0m);
+    public decimal PerReceived
+    {
+        get
+        {
+            var openItems = _items.Where(i => !i.IsClosed).ToList();
+            var basis = openItems.Count > 0 ? openItems : _items;
+            if (basis.Count == 0) return 0m;
+            return Math.Round(basis.Min(i => i.Quantity > 0 ? Math.Min(Math.Max(0, i.ReceivedQty), i.Quantity) / i.Quantity * 100 : 100m), 2);
+        }
+    }
 
     /// <summary>Percentage of total amount billed (0-100). Excludes closed rows.</summary>
     public decimal PerBilled
@@ -113,10 +120,11 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
         get
         {
             var openItems = _items.Where(i => !i.IsClosed).ToList();
-            var openTotal = openItems.Sum(i => i.LineTotal);
-            return openTotal > 0
-                ? Math.Round(openItems.Sum(i => i.BilledQty * i.UnitPrice) / openTotal * 100, 2)
-                : (_items.Count > 0 && _items.All(i => i.IsClosed) ? 100m : 0m);
+            var basis = openItems.Count > 0 ? openItems : _items;
+            var basisTotal = basis.Sum(i => i.LineTotal);
+            return basisTotal > 0
+                ? Math.Round(basis.Sum(i => i.BilledQty * i.UnitPrice) / basisTotal * 100, 2)
+                : 0m;
         }
     }
 
@@ -222,6 +230,11 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     {
         if (Status != DocumentStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        if (_items.Count > 0 && _items.All(i => i.IsClosed))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Every row of Purchase Order is closed. Reopen the rows you need instead.");
+        }
         UpdateFulfillmentStatus();
     }
 
@@ -282,8 +295,20 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     {
         var item = _items.FirstOrDefault(i => i.Id == itemRowId);
         if (item == null || item.IsClosed) return;
+        if (item.ReceivedQty >= item.Quantity && item.BilledQty >= item.Quantity)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Item {item.Description} is already completed in full, so there is nothing to close.");
+        }
         item.IsClosed = true;
-        UpdateFulfillmentStatus();
+        if (_items.All(i => i.IsClosed))
+        {
+            Status = DocumentStatus.Closed;
+        }
+        else
+        {
+            UpdateFulfillmentStatus();
+        }
     }
 
     /// <summary>Reopens an individual item row.</summary>

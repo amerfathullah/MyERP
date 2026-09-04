@@ -698,6 +698,50 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(amended);
     }
 
+    [Authorize(MyERPPermissions.PurchaseReceipts.Edit)]
+    public async Task<PurchaseReceiptDto> CloseAsync(Guid id)
+    {
+        var receipt = await _repository.GetAsync(id);
+        receipt.Close();
+        await _repository.UpdateAsync(receipt, autoSave: true);
+        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
+    }
+
+    [Authorize(MyERPPermissions.PurchaseReceipts.Edit)]
+    public async Task<PurchaseReceiptDto> ReopenAsync(Guid id)
+    {
+        var receipt = await _repository.GetAsync(id);
+        receipt.Reopen();
+        await _repository.UpdateAsync(receipt, autoSave: true);
+        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
+    }
+
+    [Authorize(MyERPPermissions.PurchaseReceipts.Edit)]
+    public async Task<PurchaseReceiptDto> CloseItemAsync(Guid id, Guid itemId)
+    {
+        var receipt = await _repository.GetAsync(id);
+        var item = receipt.Items.FirstOrDefault(i => i.Id == itemId);
+        if (item == null)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemNotFound);
+
+        receipt.CloseItem(itemId);
+        await _repository.UpdateAsync(receipt, autoSave: true);
+        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
+    }
+
+    [Authorize(MyERPPermissions.PurchaseReceipts.Edit)]
+    public async Task<PurchaseReceiptDto> ReopenItemAsync(Guid id, Guid itemId)
+    {
+        var receipt = await _repository.GetAsync(id);
+        var item = receipt.Items.FirstOrDefault(i => i.Id == itemId);
+        if (item == null)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemNotFound);
+
+        receipt.ReopenItem(itemId);
+        await _repository.UpdateAsync(receipt, autoSave: true);
+        return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
+    }
+
     private async Task UpdatePoFulfillmentWithRetryAsync(
         Guid purchaseOrderId,
         IReadOnlyCollection<PurchaseReceiptItem> prItems,

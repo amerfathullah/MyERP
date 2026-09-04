@@ -83,6 +83,107 @@ public class DeliveryNoteTests
             dn.AddItem(Guid.NewGuid(), "Extra", 1, 50m, 3m));
     }
 
+    [Fact]
+    public void CloseItem_WhenSettled_ShouldThrow()
+    {
+        var dn = CreateDeliveryNote();
+        dn.AddItem(Guid.NewGuid(), "Widget", 10, 100m, 0m);
+        dn.Submit();
+        var item = dn.Items[0];
+        item.BilledQty = 10;
+
+        var ex = Assert.Throws<BusinessException>(() => dn.CloseItem(item.Id));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void CloseItem_PartiallyBilled_ShouldSetClosed_AndAdjustPerBilled()
+    {
+        var dn = CreateDeliveryNote();
+        dn.AddItem(Guid.NewGuid(), "Widget A", 10, 100m, 0m);
+        dn.AddItem(Guid.NewGuid(), "Widget B", 10, 100m, 0m);
+        dn.Submit();
+
+        var itemA = dn.Items[0];
+        var itemB = dn.Items[1];
+
+        itemA.BilledQty = 5; // 50%
+        itemB.BilledQty = 0; // 0%
+        dn.PerBilled.ShouldBe(0m); // Min of 50% and 0% is 0%
+
+        // Close item B (which had 0% billed)
+        dn.CloseItem(itemB.Id);
+        itemB.IsClosed.ShouldBeTrue();
+        itemB.PendingBillingQty.ShouldBe(0m);
+
+        // PerBilled basis should now be open items only (Item A at 50%)
+        dn.PerBilled.ShouldBe(50m);
+        dn.Status.ShouldBe(DocumentStatus.Submitted);
+    }
+
+    [Fact]
+    public void CloseItem_AllItemsClosed_ShouldCloseDocument()
+    {
+        var dn = CreateDeliveryNote();
+        dn.AddItem(Guid.NewGuid(), "Widget", 10, 100m, 0m);
+        dn.Submit();
+
+        var item = dn.Items[0];
+        dn.CloseItem(item.Id);
+
+        item.IsClosed.ShouldBeTrue();
+        dn.Status.ShouldBe(DocumentStatus.Closed);
+        dn.BillingStatus.ShouldBe("Closed");
+
+        // When all items closed, fallback basis is full items: 0% billed
+        dn.PerBilled.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void ReopenItem_WhenDocumentClosed_ShouldReopenDocument()
+    {
+        var dn = CreateDeliveryNote();
+        dn.AddItem(Guid.NewGuid(), "Widget", 10, 100m, 0m);
+        dn.Submit();
+
+        var item = dn.Items[0];
+        dn.CloseItem(item.Id);
+        dn.Status.ShouldBe(DocumentStatus.Closed);
+
+        dn.ReopenItem(item.Id);
+        item.IsClosed.ShouldBeFalse();
+        dn.Status.ShouldBe(DocumentStatus.Submitted);
+    }
+
+    [Fact]
+    public void Reopen_WhenAllItemsClosed_ShouldThrow()
+    {
+        var dn = CreateDeliveryNote();
+        dn.AddItem(Guid.NewGuid(), "Widget", 10, 100m, 0m);
+        dn.Submit();
+
+        var item = dn.Items[0];
+        dn.CloseItem(item.Id);
+        dn.Status.ShouldBe(DocumentStatus.Closed);
+
+        var ex = Assert.Throws<BusinessException>(() => dn.Reopen());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void Close_And_Reopen_DeliveryNote_ShouldWork()
+    {
+        var dn = CreateDeliveryNote();
+        dn.AddItem(Guid.NewGuid(), "Widget", 10, 100m, 0m);
+        dn.Submit();
+
+        dn.Close();
+        dn.Status.ShouldBe(DocumentStatus.Closed);
+
+        dn.Reopen();
+        dn.Status.ShouldBe(DocumentStatus.Submitted);
+    }
+
     private static DeliveryNote CreateDeliveryNote()
     {
         return new DeliveryNote(

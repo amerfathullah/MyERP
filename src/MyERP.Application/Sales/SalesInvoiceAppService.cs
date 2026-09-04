@@ -1102,6 +1102,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         {
             var billingCompany = await _companyRepository.GetAsync(invoice.CompanyId);
             await _invoiceManager.ValidateOverBillingAsync(invoice, billingCompany.OverBillingAllowance);
+            await _invoiceManager.ValidateLinkedDeliveryNotesAsync(invoice);
         }
 
         // Per ERPNext PR #56410: update linked Sales Order BilledQty on both SI and Credit Note submit
@@ -1716,6 +1717,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         {
             foreach (var item in dn.Items)
             {
+                if (item.IsClosed) continue;
                 var pendingQty = item.Quantity - item.BilledQty;
                 if (pendingQty <= 0) continue;
 

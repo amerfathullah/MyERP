@@ -87,8 +87,11 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     /// </summary>
     public decimal LandedCostVoucherAmount { get; set; }
 
-    /// <summary>Pending billing quantity = Quantity - BilledQty.</summary>
-    public decimal PendingBillingQty => Math.Max(0, Math.Abs(Quantity) - Math.Abs(BilledQty));
+    /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
+    public bool IsClosed { get; set; }
+
+    /// <summary>Pending billing quantity = Quantity - BilledQty. 0 if closed.</summary>
+    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, Math.Abs(Quantity) - Math.Abs(BilledQty));
 
     /// <summary>
     /// Cumulative variance between what Purchase Invoices billed this item at and this PR item's

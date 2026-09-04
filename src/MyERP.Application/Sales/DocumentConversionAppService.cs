@@ -380,6 +380,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         var hasConvertibleItems = false;
         foreach (var item in deliveryNote.Items)
         {
+            if (item.IsClosed) continue;
             var returnedQty = returnedQtyMap.GetValueOrDefault(item.Id, 0m);
             var draftQty = draftMappedQtyByItem.GetValueOrDefault(item.Id, 0m);
             var pendingQty = item.Quantity - item.BilledQty - returnedQty - draftQty;
@@ -409,6 +410,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         foreach (var item in deliveryNote.Items)
         {
+            if (item.IsClosed) continue;
             // Per ERPNext: pending = qty - invoiced_qty - returned_qty - draft_qty
             var returnedQty = returnedQtyMap.GetValueOrDefault(item.Id, 0m);
             var draftQty = draftMappedQtyByItem.GetValueOrDefault(item.Id, 0m);

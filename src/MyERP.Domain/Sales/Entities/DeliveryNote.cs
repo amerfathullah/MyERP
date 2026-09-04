@@ -92,29 +92,26 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
 
     /// <summary>
     /// Billing completion percentage. Uses MIN% formula per ERPNext StatusUpdater.
-    /// 0% = not billed, 100% = fully billed.
+    /// Excludes closed rows (settled by close, per ERPNext PR #57596).
     /// </summary>
     public decimal PerBilled
     {
         get
         {
             if (!_items.Any()) return 0;
-            return _items.Min(i =>
+            var openItems = _items.Where(i => !i.IsClosed).ToList();
+            var basis = openItems.Count > 0 ? openItems : _items;
+            return Math.Round(basis.Min(i =>
             {
                 var absQty = Math.Abs(i.Quantity);
                 return absQty == 0 ? 100 : Math.Min(100, Math.Abs(i.BilledQty) / absQty * 100);
-            });
+            }), 2);
         }
     }
 
     /// <summary>
-    /// Update billing status. Called by SalesInvoiceAppService on submit/cancel
-    /// when SI items reference DN items.
-    /// Per ERPNext: update_billed_amount_based_on_so updates DN Item billed_amt.
-    /// </summary>
-    /// <summary>
     /// Delivery Note Billing Status indicator per ERPNext status updater (PR #51997 / commit 7767000ccf):
-    /// Draft -> To Bill (0%) -> Partially Billed (0-100%) -> Completed (100%) / Return / Cancelled
+    /// Draft -> To Bill (0%) -> Partially Billed (0-100%) -> Completed (100%) / Return / Cancelled / Closed
     /// </summary>
     public string BillingStatus
     {
@@ -122,6 +119,7 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         {
             if (Status == DocumentStatus.Draft) return "Draft";
             if (Status == DocumentStatus.Cancelled) return "Cancelled";
+            if (Status == DocumentStatus.Closed) return "Closed";
             // Per ERPNext commit 8290a83591: Completed takes precedence over Return Issued when fully billed
             if (PerBilled >= 100m) return "Completed";
             if (IsReturn) return "Return";
@@ -206,6 +204,56 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
+    }
+
+    /// <summary>Closes an individual item row (per ERPNext PR #57596).</summary>
+    public void CloseItem(Guid itemRowId)
+    {
+        var item = _items.FirstOrDefault(i => i.Id == itemRowId);
+        if (item == null || item.IsClosed) return;
+        if (Math.Abs(item.BilledQty) >= Math.Abs(item.Quantity))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Item {item.Description} is already completed in full, so there is nothing to close.");
+        }
+        item.IsClosed = true;
+        if (_items.All(i => i.IsClosed))
+        {
+            Status = DocumentStatus.Closed;
+        }
+    }
+
+    /// <summary>Reopens an individual item row.</summary>
+    public void ReopenItem(Guid itemRowId)
+    {
+        var item = _items.FirstOrDefault(i => i.Id == itemRowId);
+        if (item == null || !item.IsClosed) return;
+        item.IsClosed = false;
+        if (Status == DocumentStatus.Closed)
+        {
+            Status = DocumentStatus.Submitted;
+        }
+    }
+
+    /// <summary>Closes the Delivery Note.</summary>
+    public void Close()
+    {
+        if (Status != DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = DocumentStatus.Closed;
+    }
+
+    /// <summary>Reopens a closed Delivery Note.</summary>
+    public void Reopen()
+    {
+        if (Status != DocumentStatus.Closed)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        if (_items.Count > 0 && _items.All(i => i.IsClosed))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Every row of Delivery Note is closed. Reopen the rows you need instead.");
+        }
+        Status = DocumentStatus.Submitted;
     }
 
     private void RecalculateTotals()

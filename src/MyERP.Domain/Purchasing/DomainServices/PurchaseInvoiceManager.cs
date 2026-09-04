@@ -93,6 +93,19 @@ public class PurchaseInvoiceManager : DomainService
                     .WithData("status", po.Status.ToString())
                     .WithData("poNumber", po.OrderNumber);
             }
+
+            if (!invoice.IsReturn)
+            {
+                foreach (var piItem in invoice.Items.Where(i => i.PurchaseOrderItemId.HasValue))
+                {
+                    var poItem = po.Items.FirstOrDefault(i => i.Id == piItem.PurchaseOrderItemId!.Value);
+                    if (poItem != null && poItem.IsClosed)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"Item {piItem.Description} is closed in Purchase Order {po.OrderNumber} and cannot be processed further.");
+                    }
+                }
+            }
         }
     }
 
@@ -352,6 +365,39 @@ public class PurchaseInvoiceManager : DomainService
                     .WithData("invoicedQty", item.Quantity)
                     .WithData("receivedQty", receivedQty)
                     .WithData("maxBillableQty", maxBillableQty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates linked Purchase Receipts: blocks submitting against closed PR items (per ERPNext PR #57596).
+    /// </summary>
+    public async Task ValidateLinkedPurchaseReceiptsAsync(PurchaseInvoice invoice)
+    {
+        var prItemIds = invoice.Items
+            .Where(i => i.PurchaseReceiptItemId.HasValue)
+            .Select(i => i.PurchaseReceiptItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!prItemIds.Any()) return;
+
+        var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+        var prQuery = await prRepo.GetQueryableAsync();
+        var affectedPrs = prQuery
+            .Where(pr => pr.Items.Any(i => prItemIds.Contains(i.Id)))
+            .ToList();
+
+        foreach (var pr in affectedPrs)
+        {
+            foreach (var piItem in invoice.Items.Where(i => i.PurchaseReceiptItemId.HasValue))
+            {
+                var prItem = pr.Items.FirstOrDefault(i => i.Id == piItem.PurchaseReceiptItemId!.Value);
+                if (prItem != null && prItem.IsClosed)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Item {piItem.Description} is closed in Purchase Receipt {pr.ReceiptNumber} and cannot be processed further.");
+                }
             }
         }
     }

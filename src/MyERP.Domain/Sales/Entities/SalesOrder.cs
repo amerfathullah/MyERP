@@ -96,9 +96,10 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         get
         {
             if (SkipDeliveryNote || OrderType == SalesOrderType.Maintenance) return 100m;
-            var deliverable = _items.Where(i => !i.SkipDelivery && !i.IsClosed).ToList();
-            if (deliverable.Count == 0) return _items.Count > 0 ? 100m : 0m;
-            return Math.Round(deliverable.Min(i => i.Quantity > 0 ? i.DeliveredQty / i.Quantity * 100 : 100m), 2);
+            var openItems = _items.Where(i => !i.SkipDelivery && !i.IsClosed).ToList();
+            var basis = openItems.Count > 0 ? openItems : _items.Where(i => !i.SkipDelivery).ToList();
+            if (basis.Count == 0) return _items.Count > 0 ? 100m : 0m;
+            return Math.Round(basis.Min(i => i.Quantity > 0 ? i.DeliveredQty / i.Quantity * 100 : 100m), 2);
         }
     }
 
@@ -108,10 +109,11 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         get
         {
             var openItems = _items.Where(i => !i.IsClosed).ToList();
-            var openTotal = openItems.Sum(i => i.LineTotal);
-            return openTotal > 0
-                ? Math.Round(openItems.Sum(i => i.BilledQty * i.UnitPrice) / openTotal * 100, 2)
-                : (_items.Count > 0 && _items.All(i => i.IsClosed) ? 100m : 0m);
+            var basis = openItems.Count > 0 ? openItems : _items;
+            var basisTotal = basis.Sum(i => i.LineTotal);
+            return basisTotal > 0
+                ? Math.Round(basis.Sum(i => i.BilledQty * i.UnitPrice) / basisTotal * 100, 2)
+                : 0m;
         }
     }
 
@@ -256,6 +258,11 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     {
         if (Status != DocumentStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        if (_items.Count > 0 && _items.All(i => i.IsClosed))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Every row of Sales Order is closed. Reopen the rows you need instead.");
+        }
         UpdateFulfillmentStatus(); // recalculate correct status from qty fields
     }
 
@@ -293,8 +300,20 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     {
         var item = _items.FirstOrDefault(i => i.Id == itemRowId);
         if (item == null || item.IsClosed) return;
+        if (item.DeliveredQty >= item.Quantity && item.BilledQty >= item.BillableQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Item {item.Description} is already completed in full, so there is nothing to close.");
+        }
         item.IsClosed = true;
-        UpdateFulfillmentStatus();
+        if (_items.All(i => i.IsClosed))
+        {
+            Status = DocumentStatus.Closed;
+        }
+        else
+        {
+            UpdateFulfillmentStatus();
+        }
     }
 
     /// <summary>Reopens an individual item row.</summary>

@@ -79,14 +79,24 @@ public class PurchaseReceiptManager : DomainService
 
         foreach (var prItem in receipt.Items)
         {
-            var poItem = po.Items.FirstOrDefault(i => i.ItemId == prItem.ItemId);
-            if (poItem != null && prItem.Quantity > poItem.PendingReceiptQty)
+            var poItem = prItem.PurchaseOrderItemId.HasValue
+                ? po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId.Value)
+                : po.Items.FirstOrDefault(i => i.ItemId == prItem.ItemId);
+            if (poItem != null)
             {
-                throw new BusinessException("MyERP:08006")
-                    .WithData("itemName", prItem.Description)
-                    .WithData("orderedQty", poItem.Quantity)
-                    .WithData("receivedQty", poItem.ReceivedQty)
-                    .WithData("attemptedQty", prItem.Quantity);
+                if (poItem.IsClosed)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Item {prItem.Description} is closed in Purchase Order {po.OrderNumber} and cannot be processed further.");
+                }
+                if (prItem.Quantity > poItem.PendingReceiptQty)
+                {
+                    throw new BusinessException("MyERP:08006")
+                        .WithData("itemName", prItem.Description)
+                        .WithData("orderedQty", poItem.Quantity)
+                        .WithData("receivedQty", poItem.ReceivedQty)
+                        .WithData("attemptedQty", prItem.Quantity);
+                }
             }
         }
     }

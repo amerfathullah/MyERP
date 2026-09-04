@@ -25,6 +25,7 @@ public class PurchaseReceiptDto : EntityDto<Guid>
     public string Status { get; set; } = null!;
     /// <summary>Billing completion %. 0 = not billed, 100 = fully billed.</summary>
     public decimal PerBilled { get; set; }
+    public string? BillingStatus { get; set; }
     public List<PurchaseReceiptItemDto> Items { get; set; } = new();
 }
 
@@ -41,6 +42,7 @@ public class PurchaseReceiptItemDto
     public decimal LineTotal { get; set; }
     public decimal BilledQty { get; set; }
     public decimal AmountDifferenceWithPurchaseInvoice { get; set; }
+    public bool IsClosed { get; set; }
     public Guid? PurchaseOrderItemId { get; set; }
 }
 

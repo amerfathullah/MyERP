@@ -821,6 +821,50 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(amended);
     }
 
+    [Authorize(MyERPPermissions.DeliveryNotes.Edit)]
+    public async Task<DeliveryNoteDto> CloseAsync(Guid id)
+    {
+        var dn = await _repository.GetAsync(id);
+        dn.Close();
+        await _repository.UpdateAsync(dn, autoSave: true);
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+    }
+
+    [Authorize(MyERPPermissions.DeliveryNotes.Edit)]
+    public async Task<DeliveryNoteDto> ReopenAsync(Guid id)
+    {
+        var dn = await _repository.GetAsync(id);
+        dn.Reopen();
+        await _repository.UpdateAsync(dn, autoSave: true);
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+    }
+
+    [Authorize(MyERPPermissions.DeliveryNotes.Edit)]
+    public async Task<DeliveryNoteDto> CloseItemAsync(Guid id, Guid itemId)
+    {
+        var dn = await _repository.GetAsync(id);
+        var item = dn.Items.FirstOrDefault(i => i.Id == itemId);
+        if (item == null)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemNotFound);
+
+        dn.CloseItem(itemId);
+        await _repository.UpdateAsync(dn, autoSave: true);
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+    }
+
+    [Authorize(MyERPPermissions.DeliveryNotes.Edit)]
+    public async Task<DeliveryNoteDto> ReopenItemAsync(Guid id, Guid itemId)
+    {
+        var dn = await _repository.GetAsync(id);
+        var item = dn.Items.FirstOrDefault(i => i.Id == itemId);
+        if (item == null)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemNotFound);
+
+        dn.ReopenItem(itemId);
+        await _repository.UpdateAsync(dn, autoSave: true);
+        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+    }
+
     private async Task UpdateSoFulfillmentWithRetryAsync(
         Guid salesOrderId,
         IReadOnlyCollection<DeliveryNoteItem> dnItems,

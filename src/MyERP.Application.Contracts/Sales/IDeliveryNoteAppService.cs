@@ -15,5 +15,9 @@ public interface IDeliveryNoteAppService : IApplicationService
     Task<DeliveryNoteDto> UpdateAsync(Guid id, CreateDeliveryNoteDto input);
     Task<DeliveryNoteDto> SubmitAsync(Guid id);
     Task<DeliveryNoteDto> CancelAsync(Guid id);
+    Task<DeliveryNoteDto> CloseAsync(Guid id);
+    Task<DeliveryNoteDto> ReopenAsync(Guid id);
+    Task<DeliveryNoteDto> CloseItemAsync(Guid id, Guid itemId);
+    Task<DeliveryNoteDto> ReopenItemAsync(Guid id, Guid itemId);
     Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids);
 }

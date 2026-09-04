@@ -161,6 +161,20 @@ public class StockReservationManager : DomainService
         await CancelReservationsForVoucherAsync(salesOrderId);
 
     /// <summary>
+    /// Checks whether an individual item row has active reserved stock (per ERPNext PR #57596 has_reserved_stock).
+    /// Used before closing an item row in Sales Order.
+    /// </summary>
+    public async Task<bool> HasReservedStockForItemAsync(Guid voucherId, Guid voucherDetailId)
+    {
+        var queryable = await _sreRepository.GetQueryableAsync();
+        return queryable.Any(s =>
+            s.VoucherId == voucherId
+            && s.VoucherDetailId == voucherDetailId
+            && s.Status == DocumentStatus.Submitted
+            && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0);
+    }
+
+    /// <summary>
     /// Validates a Delivery Note item's warehouse against active reservations for its SO item,
     /// auto-resolving it when unset. Per ERPNext validate_against_stock_reservation_entries:
     /// no-op when the item has no active reservations at all (nothing to fulfil against);

@@ -221,6 +221,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
         foreach (var item in receipt.Items)
         {
+            if (item.IsClosed) continue;
             var draftQty = draftInvoiceQtyByPrItem.GetValueOrDefault(item.Id, 0m);
             var pendingQty = Math.Max(0, item.Quantity - item.BilledQty - draftQty);
             if (pendingQty <= 0) continue;

@@ -722,8 +722,11 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 invoice.SupplierId, invoice.CompanyId, invoice.SupplierInvoiceNumber, invoice.Id);
         }
 
-        // Linked PO status validation (allows returns against closed PO, blocks cancelled)
+        // Linked PO status validation (allows returns against closed PO, blocks cancelled; blocks closed items)
         await piManager.ValidatePurchaseOrderStatusAsync(invoice);
+
+        // Linked PR status validation (blocks submitting against closed PR items)
+        await piManager.ValidateLinkedPurchaseReceiptsAsync(invoice);
 
         // Temporal ordering: PI date must not precede linked PO dates
         await piManager.ValidatePostingDateWithPOAsync(invoice);
@@ -1501,6 +1504,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         {
             foreach (var item in pr.Items)
             {
+                if (item.IsClosed) continue;
                 var billableQty = billForRejectedQty ? item.Quantity + item.RejectedQty : item.Quantity;
                 var unbilledQty = Math.Max(0, billableQty - item.BilledQty);
                 if (unbilledQty > 0)
@@ -1606,6 +1610,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         {
             foreach (var item in pr.Items)
             {
+                if (item.IsClosed) continue;
                 var billableQty = billForRejectedQty ? item.Quantity + item.RejectedQty : item.Quantity;
                 var unbilledQty = Math.Max(0, billableQty - item.BilledQty);
                 if (unbilledQty > 0)

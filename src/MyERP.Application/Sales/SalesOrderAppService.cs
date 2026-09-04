@@ -905,6 +905,15 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         if (item == null)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemNotFound);
 
+        // Reserved stock must be released deliberately before a row is closed (per ERPNext PR #57596)
+        var sreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+        var hasReserved = await sreManager.HasReservedStockForItemAsync(order.Id, item.Id);
+        if (hasReserved)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Item {item.Description} has reserved stock. Unreserve it before closing the row.");
+        }
+
         var pendingQty = item.PendingDeliveryQty;
         order.CloseItem(itemId);
 
