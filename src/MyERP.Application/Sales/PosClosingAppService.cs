@@ -118,8 +118,9 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
                 var primary = results.First();
                 var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", entry.CompanyId);
 
-                // Use currency from first source invoice (all POS invoices in a shift share the same currency)
-                var currencyCode = firstInvoice?.CurrencyCode ?? "MYR";
+                // Use currency and exchange rate from primary consolidation result (PR #58599)
+                var currencyCode = primary.CurrencyCode;
+                var exchangeRate = primary.ExchangeRate > 0 ? primary.ExchangeRate : 1m;
 
                 var profileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
                 var profile = await profileRepo.FindAsync(entry.PosProfileId);
@@ -128,6 +129,7 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
                     GuidGenerator.Create(), primary.CompanyId, primary.CustomerId,
                     invoiceNumber, primary.PostingDate, CurrentTenant.Id);
                 consolidatedSi.CurrencyCode = currencyCode;
+                consolidatedSi.ExchangeRate = exchangeRate;
                 consolidatedSi.IsPos = true;
                 consolidatedSi.IsConsolidated = true;
                 if (primary.CostCenterId.HasValue)
@@ -233,7 +235,12 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
 
         var postingOrchestrator = LazyServiceProvider
             .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
-        await postingOrchestrator.PostSalesInvoiceAsync(consolidatedSi, receivableAccountId);
+        await postingOrchestrator.PostSalesInvoiceAsync(
+            consolidatedSi,
+            receivableAccountId,
+            dueDate: consolidatedSi.DueDate,
+            accountCurrency: consolidatedSi.CurrencyCode,
+            exchangeRate: consolidatedSi.ExchangeRate);
 
         // Payment JE: one DR/CR pair per payment mode with a positive expected amount.
         var paidModes = entry.Payments.Where(p => p.ExpectedAmount > 0).ToList();
@@ -258,6 +265,7 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
         };
 
         var totalPaid = 0m;
+        var totalPaidBase = 0m;
         foreach (var pay in paidModes)
         {
             var mop = await modeOfPaymentRepo.FindAsync(pay.ModeOfPaymentId);
@@ -269,9 +277,13 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
             var amount = Math.Min(pay.ExpectedAmount, consolidatedSi.GrandTotal - totalPaid);
             if (amount <= 0) continue;
 
-            je.AddLineWithDimensions(accountId, amount, true, null, null, null, $"POS Payment - {pay.ModeName}");
-            je.AddLineWithDimensions(receivableAccountId, amount, false, null, null, null, $"POS Payment - {pay.ModeName}");
+            // Per ERPNext PR #58599 (commit f16f249a38): company base currency amount when netting and posting POS GL entries
+            var baseAmount = Math.Round(amount * consolidatedSi.ExchangeRate, 2);
+
+            je.AddLineWithDimensions(accountId, baseAmount, true, null, null, null, $"POS Payment - {pay.ModeName}");
+            je.AddLineWithDimensions(receivableAccountId, baseAmount, false, null, null, null, $"POS Payment - {pay.ModeName}");
             totalPaid += amount;
+            totalPaidBase += baseAmount;
         }
 
         if (totalPaid <= 0) return;
@@ -286,7 +298,7 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
             "Customer", consolidatedSi.CustomerId,
             "PosClosingEntry", entry.Id,
             "SalesInvoice", consolidatedSi.Id,
-            totalPaid, totalPaid, consolidatedSi.CurrencyCode, consolidatedSi.TenantId);
+            totalPaidBase, totalPaid, consolidatedSi.CurrencyCode, consolidatedSi.TenantId);
 
         consolidatedSi.AmountPaid = totalPaid;
         await _invoiceRepository.UpdateAsync(consolidatedSi);
@@ -303,6 +315,8 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
         var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
         return invoiceQuery
             .Where(si => si.CompanyId == opening.CompanyId
+                      && si.IsPos
+                      && (opening.PosProfileId == Guid.Empty || si.PosProfileId == opening.PosProfileId)
                       && si.IssueDate >= opening.OpeningDate
                       && si.Status != Core.DocumentStatus.Cancelled
                       && si.ConsolidatedSalesInvoiceId == null) // Not yet consolidated = POS invoices
@@ -342,9 +356,10 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
             .FirstOrDefault(o => o.Id == posOpeningEntryId);
         if (opening == null) return [];
 
-        // 2. Find total POS revenue during shift from invoices in the same company/date
+        // 2. Find total POS payments during shift from invoices in the same company/date
+        // Per ERPNext PR #58599 (commit f16f249a38): netted against change returned to customer
         var shiftInvoices = await GetShiftInvoicesAsync(opening);
-        var totalInvoiceAmount = shiftInvoices.Sum(i => i.GrandTotal);
+        var totalInvoicePayments = shiftInvoices.Sum(i => i.AmountPaid);
 
         // 3. For each payment mode, calculate: opening balance + proportional invoice amount
         // In simplified POS (single payment mode), all invoice revenue goes to that mode
@@ -357,7 +372,7 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
             // Default: all POS revenue assumed in first/primary payment mode (Cash)
             // When POS supports multi-MOP per invoice, this should be per-MOP aggregation
             var invoicePortionForMode = openingPay == opening.Payments.First()
-                ? totalInvoiceAmount
+                ? totalInvoicePayments
                 : 0m;
 
             result.Add(new PosExpectedPaymentDto

@@ -105,6 +105,31 @@ public class PosAppService : ApplicationService, IPosAppService
             invoice.ProjectId = profile.ProjectId;
         }
 
+        // Multi-currency handling per ERPNext PR #58599 / commit f16f249a38
+        var currency = !string.IsNullOrWhiteSpace(input.CurrencyCode)
+            ? input.CurrencyCode
+            : profile?.CurrencyCode ?? "MYR";
+        invoice.CurrencyCode = currency;
+
+        if (input.ExchangeRate.HasValue && input.ExchangeRate.Value > 0)
+        {
+            invoice.ExchangeRate = input.ExchangeRate.Value;
+        }
+        else
+        {
+            var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+            var company = await companyRepo.GetAsync(input.CompanyId);
+            if (currency != company.CurrencyCode)
+            {
+                var exchangeService = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.CurrencyExchangeService>();
+                invoice.ExchangeRate = await exchangeService.GetExchangeRateAsync(currency, company.CurrencyCode, invoice.IssueDate);
+            }
+            else
+            {
+                invoice.ExchangeRate = 1m;
+            }
+        }
+
         // POS invoice due date defaults to issue date (ERPNext PR #49232 / commit 77478303fe)
         invoice.DueDate ??= invoice.IssueDate;
 

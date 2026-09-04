@@ -98,6 +98,23 @@ public class PosConsolidationAndFinanceBookTests
         Assert.Contains(id3, result.SourceInvoiceIds);
     }
 
+    [Fact]
+    public void ConsolidationResult_CurrencyAndExchangeRate_TracksMultiCurrency()
+    {
+        // Per ERPNext PR #58599 / commit f16f249a38:
+        // Multi-currency POS invoices preserve currency and exchange rate for GL base netting.
+        var result = new ConsolidationResult
+        {
+            CurrencyCode = "USD",
+            ExchangeRate = 50m,
+            GrandTotal = 100m,
+        };
+
+        Assert.Equal("USD", result.CurrencyCode);
+        Assert.Equal(50m, result.ExchangeRate);
+        Assert.Equal(5000m, result.GrandTotal * result.ExchangeRate);
+    }
+
     // === POS Closing Entry Tests ===
 
     [Fact]

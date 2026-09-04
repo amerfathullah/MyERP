@@ -147,7 +147,11 @@ public class GlRepostService : DomainService
         }
 
         var journal = await _postingOrchestrator.PostSalesInvoiceAsync(
-            invoice, receivableAccountId: receivableAccountId, dueDate: invoice.DueDate);
+            invoice,
+            receivableAccountId: receivableAccountId,
+            dueDate: invoice.DueDate,
+            accountCurrency: invoice.CurrencyCode,
+            exchangeRate: invoice.ExchangeRate);
 
         var reconciliation = await _commonPartyService.ReconcileAsync(new CommonPartyReconciliationContext
         {
@@ -198,7 +202,11 @@ public class GlRepostService : DomainService
         }
 
         var journal = await _postingOrchestrator.PostPurchaseInvoiceAsync(
-            invoice, payableAccountId: payableAccountId, dueDate: invoice.DueDate);
+            invoice,
+            payableAccountId: payableAccountId,
+            dueDate: invoice.DueDate,
+            accountCurrency: invoice.CurrencyCode,
+            exchangeRate: invoice.ExchangeRate);
 
         var reconciliation = await _commonPartyService.ReconcileAsync(new CommonPartyReconciliationContext
         {

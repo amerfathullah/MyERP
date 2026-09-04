@@ -172,6 +172,8 @@ public class PosConsolidationService : DomainService
         {
             CompanyId = companyId,
             CustomerId = customerId,
+            CurrencyCode = firstInvoice.CurrencyCode,
+            ExchangeRate = firstInvoice.ExchangeRate > 0 ? firstInvoice.ExchangeRate : 1m,
             CostCenterId = firstInvoice.CostCenterId,
             ProjectId = firstInvoice.ProjectId,
             PostingDate = postingDate,
@@ -192,6 +194,8 @@ public class ConsolidationResult
 {
     public Guid CompanyId { get; set; }
     public Guid CustomerId { get; set; }
+    public string CurrencyCode { get; set; } = "MYR";
+    public decimal ExchangeRate { get; set; } = 1m;
     public Guid? CostCenterId { get; set; }
     public Guid? ProjectId { get; set; }
     public DateTime PostingDate { get; set; }

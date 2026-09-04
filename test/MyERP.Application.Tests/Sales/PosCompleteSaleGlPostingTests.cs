@@ -117,4 +117,105 @@ public abstract class PosCompleteSaleGlPostingTests<TStartupModule> : MyERPAppli
             revenueLine!.Amount.ShouldBe(100m);
         });
     }
+
+    [Fact]
+    public async Task CompleteSaleAsync_MultiCurrency_ComputesBaseChangeAndMaintainsGlBalance()
+    {
+        // Per ERPNext PR #58599 / commit f16f249a38:
+        // When POS sale is multi-currency, change is netted in company base currency:
+        // BaseChange = Change * ExchangeRate.
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepository = GetRequiredService<IRepository<Customer, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var accountRepository = GetRequiredService<IRepository<Account, Guid>>();
+            var fiscalYearRepository = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var ruleRepository = GetRequiredService<IRepository<AccountingRule, Guid>>();
+            var costCenterRepository = GetRequiredService<IRepository<CostCenter, Guid>>();
+            var posOpeningRepository = GetRequiredService<IRepository<PosOpeningEntry, Guid>>();
+            var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var salesInvoiceRepository = GetRequiredService<IRepository<SalesInvoice, Guid>>();
+            var journalRepository = GetRequiredService<IRepository<JournalEntry, Guid>>();
+            var posAppService = GetRequiredService<IPosAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "POS Multi-Curr Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var customer = await customerRepository.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "POS Multi-Curr Cust"), autoSave: true);
+            var item = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "POSMC-1", "POS Multi-Curr Item", ItemType.Goods), autoSave: true);
+
+            var receivableAccount = await accountRepository.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "1130-POSMC", "Test Receivable MC", AccountType.Asset), autoSave: true);
+            var incomeAccount = await accountRepository.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "4000-POSMC", "Test Revenue MC", AccountType.Revenue), autoSave: true);
+            var costCenter = await costCenterRepository.InsertAsync(
+                new CostCenter(Guid.NewGuid(), company.Id, "Test Cost Center MC"), autoSave: true);
+
+            company.DefaultReceivableAccountId = receivableAccount.Id;
+            company.DefaultIncomeAccountId = incomeAccount.Id;
+            company.DefaultCostCenterId = costCenter.Id;
+            await companyRepository.UpdateAsync(company, autoSave: true);
+
+            await fiscalYearRepository.InsertAsync(
+                new FiscalYear(Guid.NewGuid(), company.Id, "FY Test MC", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)),
+                autoSave: true);
+            await ruleRepository.InsertAsync(
+                new AccountingRule(Guid.NewGuid(), company.Id, "SI DR Receivable MC", "SalesInvoice", true, AccountSource.CustomerReceivable, AmountSource.GrandTotal) { SortOrder = 1 },
+                autoSave: true);
+            await ruleRepository.InsertAsync(
+                new AccountingRule(Guid.NewGuid(), company.Id, "SI CR Revenue MC", "SalesInvoice", false, AccountSource.ItemIncome, AmountSource.NetTotal) { SortOrder = 2 },
+                autoSave: true);
+
+            await posOpeningRepository.InsertAsync(
+                new PosOpeningEntry(Guid.NewGuid(), company.Id, Guid.NewGuid(), Guid.NewGuid()), autoSave: true);
+
+            await seriesRepository.InsertAsync(
+                new DocumentSeries(Guid.NewGuid(), company.Id, "POS Series MC", "POS", "POS-"), autoSave: true);
+
+            // Sale in USD (100 USD total), exchange rate = 50, amount received = 150 USD.
+            // Change = 50 USD, BaseChange = 2500 MYR.
+            var result = await posAppService.CompleteSaleAsync(new CreatePosInvoiceDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                CurrencyCode = "USD",
+                ExchangeRate = 50m,
+                Items =
+                {
+                    new PosLineItemDto { ItemId = item.Id, Description = "POS Multi-Curr Item", Quantity = 2, UnitPrice = 50m, TaxAmount = 0m },
+                },
+                AmountReceived = 150m,
+            });
+
+            result.Status.ShouldBe("Posted");
+            result.AmountReceived.ShouldBe(150m);
+            result.Change.ShouldBe(50m);
+            result.BaseChange.ShouldBe(2500m);
+
+            var invoice = await salesInvoiceRepository.GetAsync(result.Id);
+            invoice.Status.ShouldBe(Core.DocumentStatus.Posted);
+            invoice.CurrencyCode.ShouldBe("USD");
+            invoice.ExchangeRate.ShouldBe(50m);
+            invoice.GrandTotal.ShouldBe(100m);
+            invoice.BaseGrandTotal.ShouldBe(5000m);
+            invoice.AmountPaid.ShouldBe(100m);
+            invoice.OutstandingAmount.ShouldBe(0m);
+
+            var journal = (await journalRepository.GetQueryableAsync())
+                .SingleOrDefault(j => j.ReferenceType == "SalesInvoice" && j.ReferenceId == invoice.Id);
+            journal.ShouldNotBeNull();
+
+            var lines = journal!.Lines.ToList();
+            lines.Sum(l => l.IsDebit ? l.Amount : 0m).ShouldBe(lines.Sum(l => !l.IsDebit ? l.Amount : 0m));
+
+            // In company base currency (MYR), 100 USD * 50 = 5000 MYR
+            var receivableLine = lines.SingleOrDefault(l => l.AccountId == receivableAccount.Id && l.IsDebit);
+            receivableLine.ShouldNotBeNull();
+            receivableLine!.Amount.ShouldBe(5000m);
+
+            var revenueLine = lines.SingleOrDefault(l => l.AccountId == incomeAccount.Id && !l.IsDebit);
+            revenueLine.ShouldNotBeNull();
+            revenueLine!.Amount.ShouldBe(5000m);
+        });
+    }
 }

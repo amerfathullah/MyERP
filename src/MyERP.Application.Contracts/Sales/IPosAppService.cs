@@ -33,6 +33,9 @@ public class CreatePosInvoiceDto
     public string PaymentMethod { get; set; } = "Cash";
 
     public decimal AmountReceived { get; set; }
+    [StringLength(SalesInvoiceConsts.MaxCurrencyCodeLength)]
+    public string? CurrencyCode { get; set; }
+    public decimal? ExchangeRate { get; set; }
 }
 
 public class PosLineItemDto
