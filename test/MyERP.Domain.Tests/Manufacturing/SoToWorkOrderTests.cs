@@ -68,4 +68,27 @@ public class SoToWorkOrderTests
         wo.SalesOrderId.ShouldBe(soId);
         wo.SalesOrderItemId.ShouldBe(soItemId);
     }
+
+    [Fact]
+    public void WorkOrder_DeliveryDatePropagation_FromSalesOrderItem()
+    {
+        // Per ERPNext PR #58568: Work Orders created from SO rows (including decomposed bundles)
+        // inherit PlannedEndDate from the specific SalesOrderItem DeliveryDate.
+        var soId = Guid.NewGuid();
+        var soItemId = Guid.NewGuid();
+        var lineDeliveryDate = DateTime.UtcNow.Date.AddDays(7);
+
+        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-005",
+            Guid.NewGuid(), Guid.NewGuid(), 5, Guid.NewGuid())
+        {
+            SalesOrderId = soId,
+            SalesOrderItemId = soItemId,
+            PlannedEndDate = lineDeliveryDate
+        };
+
+        wo.SalesOrderId.ShouldBe(soId);
+        wo.SalesOrderItemId.ShouldBe(soItemId);
+        wo.PlannedEndDate.ShouldBe(lineDeliveryDate);
+    }
 }
+

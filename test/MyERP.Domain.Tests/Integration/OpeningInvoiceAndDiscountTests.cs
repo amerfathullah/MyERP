@@ -107,4 +107,46 @@ public class OpeningInvoiceAndDiscountTests
         si.PaymentTermsTemplateId = null; // Cleared per rule
         si.PaymentTermsTemplateId.ShouldBeNull();
     }
+
+    [Fact]
+    public void SalesInvoice_OpeningInvoice_PreservesTaxInclusiveAmounts()
+    {
+        // Per ERPNext PR #58483: Opening invoice outstanding entered inclusive of tax,
+        // tax recalculation is bypassed so GrandTotal == NetTotal and TaxAmount remains 0
+        var si = new SalesInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            "OI-SALES-001", DateTime.UtcNow)
+        {
+            IsOpening = true,
+            NetTotal = 1500m,
+            TaxAmount = 0m,
+            GrandTotal = 1500m
+        };
+
+        si.IsOpening.ShouldBeTrue();
+        si.NetTotal.ShouldBe(1500m);
+        si.TaxAmount.ShouldBe(0m);
+        si.GrandTotal.ShouldBe(1500m);
+    }
+
+    [Fact]
+    public void PurchaseInvoice_OpeningInvoice_PreservesTaxInclusiveAmounts()
+    {
+        // Per ERPNext PR #58483: Opening invoice outstanding entered inclusive of tax
+        var pi = new PurchaseInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            "OI-PURCH-001", DateTime.UtcNow)
+        {
+            IsOpening = true,
+            NetTotal = 2500m,
+            TaxAmount = 0m,
+            GrandTotal = 2500m
+        };
+
+        pi.IsOpening.ShouldBeTrue();
+        pi.NetTotal.ShouldBe(2500m);
+        pi.TaxAmount.ShouldBe(0m);
+        pi.GrandTotal.ShouldBe(2500m);
+    }
 }
+

@@ -12,6 +12,7 @@ using MyERP.Permissions;
 using MyERP.Purchasing;
 using MyERP.Purchasing.DTOs;
 using MyERP.Purchasing.Entities;
+using MyERP.Sales.DomainServices;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
@@ -638,6 +639,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var bomQuery = await _bomRepository.GetQueryableAsync();
         var activeBoms = bomQuery.Where(b => b.IsActive && b.CompanyId == companyId).ToList();
 
+        var bundleDecompositionService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
+
         var created = new List<CreatedWorkOrderInfo>();
         var skipped = 0;
 
@@ -645,6 +648,36 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         {
             var pendingQty = item.Quantity - item.DeliveredQty;
             if (pendingQty <= 0) { skipped++; continue; }
+
+            // Per ERPNext PR #58568 (commit db56080285): handle Product Bundle items by decomposing to components
+            // and propagating the parent row's delivery date to each component work order.
+            if (await bundleDecompositionService.IsBundleItemAsync(item.ItemId))
+            {
+                var components = await bundleDecompositionService.DecomposeAsync(item.ItemId, pendingQty, item.UnitPrice, item.WarehouseId);
+                foreach (var comp in components)
+                {
+                    var compBom = activeBoms.FirstOrDefault(b => b.ItemId == comp.ComponentItemId && b.IsDefault)
+                                  ?? activeBoms.FirstOrDefault(b => b.ItemId == comp.ComponentItemId);
+                    if (compBom == null) { skipped++; continue; }
+
+                    try
+                    {
+                        var wo = await CreateWorkOrderFromSalesOrderAsync(salesOrderId, comp.ComponentItemId, comp.Qty, companyId, item.Id);
+                        created.Add(new CreatedWorkOrderInfo
+                        {
+                            WorkOrderId = wo.Id,
+                            WorkOrderNumber = wo.WorkOrderNumber,
+                            ItemName = comp.ComponentItemName ?? comp.ComponentItemId.ToString(),
+                            Quantity = comp.Qty
+                        });
+                    }
+                    catch
+                    {
+                        skipped++;
+                    }
+                }
+                continue;
+            }
 
             var bom = activeBoms.FirstOrDefault(b => b.ItemId == item.ItemId && b.IsDefault)
                       ?? activeBoms.FirstOrDefault(b => b.ItemId == item.ItemId);

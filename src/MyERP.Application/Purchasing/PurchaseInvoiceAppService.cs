@@ -753,36 +753,41 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         }
 
         // Server-side tax recalculation (delegated to domain service)
-        var taxRecalcService = LazyServiceProvider.LazyGetRequiredService<TransactionTaxRecalculationService>();
-        var netForDiscount = invoice.Items.Sum(i => i.LineTotal);
-        var discountAmt = invoice.DiscountAmount;
-        if (discountAmt > 0 && netForDiscount > 0 && invoice.AdditionalDiscountPercentage == 0)
+        // Per ERPNext PR #58483 (commit e08a166281): skip tax addition for opening invoices
+        // as outstanding amount is entered inclusive of tax.
+        if (!invoice.IsOpening)
         {
-            // Per ERPNext PR #47806: calculate discount percentage if discount amount is specified
-            invoice.AdditionalDiscountPercentage = Math.Round(discountAmt / netForDiscount * 100m, 4);
-        }
-        else if (invoice.AdditionalDiscountPercentage > 0 && discountAmt == 0)
-        {
-            discountAmt = Math.Round(netForDiscount * invoice.AdditionalDiscountPercentage / 100m, 2);
-            invoice.DiscountAmount = discountAmt;
-        }
-        var totals = await taxRecalcService.RecalculateAsync(new TaxRecalculationInput
-        {
-            DocumentType = "PurchaseInvoice",
-            DocumentId = invoice.Id,
-            Items = invoice.Items.Select(i => new TaxItemInput
+            var taxRecalcService = LazyServiceProvider.LazyGetRequiredService<TransactionTaxRecalculationService>();
+            var netForDiscount = invoice.Items.Sum(i => i.LineTotal);
+            var discountAmt = invoice.DiscountAmount;
+            if (discountAmt > 0 && netForDiscount > 0 && invoice.AdditionalDiscountPercentage == 0)
             {
-                ItemId = i.ItemId, Quantity = i.Quantity, UnitPrice = i.UnitPrice
-            }).ToList(),
-            ExchangeRate = invoice.ExchangeRate,
-            DiscountAmount = discountAmt,
-        });
-        invoice.NetTotal = totals.NetTotal;
-        invoice.TaxAmount = totals.TaxAmount;
-        invoice.GrandTotal = totals.GrandTotal;
-        invoice.BaseNetTotal = totals.BaseNetTotal;
-        invoice.BaseTaxAmount = totals.BaseTaxAmount;
-        invoice.BaseGrandTotal = totals.BaseGrandTotal;
+                // Per ERPNext PR #47806: calculate discount percentage if discount amount is specified
+                invoice.AdditionalDiscountPercentage = Math.Round(discountAmt / netForDiscount * 100m, 4);
+            }
+            else if (invoice.AdditionalDiscountPercentage > 0 && discountAmt == 0)
+            {
+                discountAmt = Math.Round(netForDiscount * invoice.AdditionalDiscountPercentage / 100m, 2);
+                invoice.DiscountAmount = discountAmt;
+            }
+            var totals = await taxRecalcService.RecalculateAsync(new TaxRecalculationInput
+            {
+                DocumentType = "PurchaseInvoice",
+                DocumentId = invoice.Id,
+                Items = invoice.Items.Select(i => new TaxItemInput
+                {
+                    ItemId = i.ItemId, Quantity = i.Quantity, UnitPrice = i.UnitPrice
+                }).ToList(),
+                ExchangeRate = invoice.ExchangeRate,
+                DiscountAmount = discountAmt,
+            });
+            invoice.NetTotal = totals.NetTotal;
+            invoice.TaxAmount = totals.TaxAmount;
+            invoice.GrandTotal = totals.GrandTotal;
+            invoice.BaseNetTotal = totals.BaseNetTotal;
+            invoice.BaseTaxAmount = totals.BaseTaxAmount;
+            invoice.BaseGrandTotal = totals.BaseGrandTotal;
+        }
 
         // Validate payment schedule integrity before submit
         var scheduleValidator = LazyServiceProvider.LazyGetRequiredService<PaymentScheduleValidationService>();
