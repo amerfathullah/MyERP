@@ -77,6 +77,57 @@ public class FinancialReportTemplateTests
     }
 
     [Fact]
+    public void ValidateFormulas_SelfReference_ReturnsError()
+    {
+        // Per ERPNext commit 1b7da82669: formula cannot reference its own line code
+        var template = new FinancialReportTemplate(Guid.NewGuid(), "Test", FinancialReportType.Custom);
+        template.AddRow("Gross Profit", FinancialReportDataSource.CalculatedAmount, 10, "GP", "GP + 100");
+
+        var errors = template.ValidateFormulas();
+        Assert.NotEmpty(errors);
+        Assert.Contains("cannot reference its own reference code", errors[0]);
+    }
+
+    [Fact]
+    public void ValidateFormulas_SelfReferenceDoesNotMaskAsCircularDependency()
+    {
+        // Per ERPNext commit 1b7da82669: skip self-reference in cycle graph so it doesn't report generic cycle
+        var template = new FinancialReportTemplate(Guid.NewGuid(), "Test", FinancialReportType.Custom);
+        template.AddRow("Gross Profit", FinancialReportDataSource.CalculatedAmount, 10, "GP", "GP * 1.1");
+
+        var errors = template.ValidateFormulas();
+        Assert.Single(errors);
+        Assert.DoesNotContain("Circular dependency", errors[0]);
+        Assert.Contains("cannot reference its own reference code", errors[0]);
+    }
+
+    [Fact]
+    public void ValidateFormulas_UndefinedReference_ReturnsError()
+    {
+        // Per ERPNext commit 1b7da82669: report undefined reference codes
+        var template = new FinancialReportTemplate(Guid.NewGuid(), "Test", FinancialReportType.Custom);
+        template.AddRow("Revenue", FinancialReportDataSource.AccountData, 10, "REV");
+        template.AddRow("Margin", FinancialReportDataSource.CalculatedAmount, 20, "MARGIN", "REV - NONEXISTENT");
+
+        var errors = template.ValidateFormulas();
+        Assert.NotEmpty(errors);
+        Assert.Contains("references undefined code 'NONEXISTENT'", errors[0]);
+    }
+
+    [Fact]
+    public void ValidateFormulas_DuplicateReferenceCode_ReturnsError()
+    {
+        // Per ERPNext commit 19aa3b20e0: duplicate reference codes detected
+        var template = new FinancialReportTemplate(Guid.NewGuid(), "Test", FinancialReportType.Custom);
+        template.AddRow("Revenue 1", FinancialReportDataSource.AccountData, 10, "REV");
+        template.AddRow("Revenue 2", FinancialReportDataSource.AccountData, 20, "REV");
+
+        var errors = template.ValidateFormulas();
+        Assert.NotEmpty(errors);
+        Assert.Contains("Duplicate reference code(s) detected", errors[0]);
+    }
+
+    [Fact]
     public void Enable_Disable_Toggles()
     {
         var template = new FinancialReportTemplate(Guid.NewGuid(), "Test", FinancialReportType.BalanceSheet);

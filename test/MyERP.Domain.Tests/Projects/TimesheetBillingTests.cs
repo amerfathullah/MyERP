@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MyERP.Projects.Entities;
 using Shouldly;
 using Xunit;
@@ -121,6 +122,49 @@ public class TimesheetBillingTests
                          nightShiftDetail.FromTime < toDate.Date.AddDays(1);
 
         isIncluded.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void AllowedProjects_Filtering_ExcludesOtherCustomerProjects()
+    {
+        // Per ERPNext PR #58745 (commit f368a5b64e):
+        // When customer has no allowed projects, only unassigned project timesheets are eligible.
+        // When customer has allowed projects, only unassigned or those projects are eligible.
+        var allowedProjId = Guid.NewGuid();
+        var otherProjId = Guid.NewGuid();
+
+        var detailUnassigned = new TimesheetDetail(Guid.NewGuid(), Guid.NewGuid(), "General",
+            DateTime.Today, DateTime.Today.AddHours(4), 4) { ProjectId = null, IsBillable = true, BillingRate = 100 };
+
+        var detailAllowed = new TimesheetDetail(Guid.NewGuid(), Guid.NewGuid(), "Client Dev",
+            DateTime.Today, DateTime.Today.AddHours(4), 4) { ProjectId = allowedProjId, IsBillable = true, BillingRate = 100 };
+
+        var detailOther = new TimesheetDetail(Guid.NewGuid(), Guid.NewGuid(), "Other Client Dev",
+            DateTime.Today, DateTime.Today.AddHours(4), 4) { ProjectId = otherProjId, IsBillable = true, BillingRate = 100 };
+
+        var allDetails = new[] { detailUnassigned, detailAllowed, detailOther };
+
+        // Scenario 1: Customer has NO projects -> only unassigned project details allowed
+        var emptyAllowedProjects = new System.Collections.Generic.HashSet<Guid>();
+        var filteredNoProjects = allDetails.Where(d =>
+            emptyAllowedProjects.Count > 0
+                ? (d.ProjectId == null || emptyAllowedProjects.Contains(d.ProjectId.Value))
+                : d.ProjectId == null).ToList();
+
+        filteredNoProjects.ShouldHaveSingleItem();
+        filteredNoProjects[0].ProjectId.ShouldBeNull();
+
+        // Scenario 2: Customer has allowedProjId -> unassigned + allowedProjId allowed, other excluded
+        var hasAllowedProjects = new System.Collections.Generic.HashSet<Guid> { allowedProjId };
+        var filteredWithProjects = allDetails.Where(d =>
+            hasAllowedProjects.Count > 0
+                ? (d.ProjectId == null || hasAllowedProjects.Contains(d.ProjectId.Value))
+                : d.ProjectId == null).ToList();
+
+        filteredWithProjects.Count.ShouldBe(2);
+        filteredWithProjects.ShouldContain(detailUnassigned);
+        filteredWithProjects.ShouldContain(detailAllowed);
+        filteredWithProjects.ShouldNotContain(detailOther);
     }
 
     private TimesheetDetail CreateBillableDetail()

@@ -149,8 +149,9 @@ public class FinancialReportFormulaEngine : DomainService
 
         // Build reference code → row ID map
         var refCodeToId = rows
-            .Where(r => !string.IsNullOrEmpty(r.ReferenceCode))
-            .ToDictionary(r => r.ReferenceCode!, r => r.Id, StringComparer.OrdinalIgnoreCase);
+            .Where(r => !string.IsNullOrWhiteSpace(r.ReferenceCode))
+            .GroupBy(r => r.ReferenceCode!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
 
         // Topological sort of formula rows
         var inDegree = formulaRows.ToDictionary(r => r.Id, _ => 0);

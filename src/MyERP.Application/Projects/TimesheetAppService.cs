@@ -386,11 +386,35 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
                 && t.Status == TimesheetStatus.Submitted)
             .ToList();
 
+        var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
+        if (input.ProjectId.HasValue)
+        {
+            var project = await projectRepo.FindAsync(input.ProjectId.Value);
+            if (project != null && project.CustomerId.HasValue && project.CustomerId.Value != input.CustomerId)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Project '{project.ProjectName}' belongs to a different customer.");
+            }
+        }
+
+        var projectQuery = await projectRepo.GetQueryableAsync();
+        var customerProjectIds = projectQuery
+            .Where(p => p.CompanyId == input.CompanyId && p.CustomerId == input.CustomerId)
+            .Select(p => p.Id)
+            .ToHashSet();
+
         // Gather unbilled billable details (ignoring cancelled invoices)
+        // Per ERPNext PR #58745 (commit f368a5b64e):
+        // Filter by specific project if requested, else restrict to projects allowed for customer (or unassigned project).
+        // If customer has no allowed projects, only unassigned project timesheets are eligible.
         var unbilledDetails = timesheets
             .SelectMany(ts => ts.Details.Where(d =>
                 d.IsBillable && (d.SalesInvoiceId == null || cancelledInvoiceIds.Contains(d.SalesInvoiceId.Value)) && d.BillingAmount > 0
-                && (!input.ProjectId.HasValue || d.ProjectId == input.ProjectId)))
+                && (input.ProjectId.HasValue
+                    ? d.ProjectId == input.ProjectId.Value
+                    : (customerProjectIds.Count > 0
+                        ? (d.ProjectId == null || customerProjectIds.Contains(d.ProjectId.Value))
+                        : d.ProjectId == null))))
             .ToList();
 
         if (!unbilledDetails.Any())
@@ -434,7 +458,6 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
         var billedByProject = unbilledDetails.Where(d => d.ProjectId.HasValue).GroupBy(d => d.ProjectId!.Value);
         if (billedByProject.Any())
         {
-            var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
             foreach (var group in billedByProject)
             {
                 var project = await projectRepo.FindAsync(group.Key);

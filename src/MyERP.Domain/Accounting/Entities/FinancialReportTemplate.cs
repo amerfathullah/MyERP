@@ -91,6 +91,18 @@ public class FinancialReportTemplate : FullAuditedAggregateRoot<Guid>, IMultiTen
     {
         var errors = new List<string>();
 
+        // Per ERPNext commit 19aa3b20e0 & 1b7da82669: validate duplicate reference codes
+        var duplicateCodes = Rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.ReferenceCode))
+            .GroupBy(r => r.ReferenceCode!, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+        if (duplicateCodes.Any())
+        {
+            errors.Add($"Duplicate reference code(s) detected: {string.Join(", ", duplicateCodes)}.");
+        }
+
         // Per ERPNext commit 19aa3b20e0: improve validation in financial report template
         foreach (var row in Rows.Where(r => r.DataSource == FinancialReportDataSource.CalculatedAmount))
         {
@@ -117,8 +129,9 @@ public class FinancialReportTemplate : FullAuditedAggregateRoot<Guid>, IMultiTen
         if (!formulaRows.Any()) return errors;
 
         // Build dependency graph from reference codes used in formulas
-        var refCodeToRow = Rows.Where(r => !string.IsNullOrEmpty(r.ReferenceCode))
-            .ToDictionary(r => r.ReferenceCode!, r => r.Id);
+        var refCodeToRow = Rows.Where(r => !string.IsNullOrWhiteSpace(r.ReferenceCode))
+            .GroupBy(r => r.ReferenceCode!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
 
         var inDegree = new Dictionary<Guid, int>();
         var adjacency = new Dictionary<Guid, List<Guid>>();
@@ -129,12 +142,28 @@ public class FinancialReportTemplate : FullAuditedAggregateRoot<Guid>, IMultiTen
             adjacency.TryAdd(row.Id, new List<Guid>());
         }
 
+        var hasSelfReference = false;
         foreach (var row in formulaRows)
         {
-            var deps = ExtractReferenceCodes(row.CalculationFormula!);
+            var deps = ExtractReferenceCodes(row.CalculationFormula!).ToList();
             foreach (var dep in deps)
             {
-                if (refCodeToRow.TryGetValue(dep, out var depRowId) && depRowId != row.Id && inDegree.ContainsKey(depRowId))
+                // Self-reference check (ERPNext PR #58724 / commit 1b7da82669)
+                if (!string.IsNullOrEmpty(row.ReferenceCode) && string.Equals(dep, row.ReferenceCode, StringComparison.OrdinalIgnoreCase))
+                {
+                    errors.Add($"Row '{row.Label}' formula cannot reference its own reference code '{row.ReferenceCode}'.");
+                    hasSelfReference = true;
+                    continue; // Skip self-reference so Kahn's algorithm doesn't report generic cycle
+                }
+
+                // Undefined reference check (ERPNext PR #58724 / commit 1b7da82669)
+                if (!refCodeToRow.TryGetValue(dep, out var depRowId))
+                {
+                    errors.Add($"Row '{row.Label}' formula references undefined code '{dep}'.");
+                    continue;
+                }
+
+                if (depRowId != row.Id && inDegree.ContainsKey(depRowId))
                 {
                     if (!adjacency.ContainsKey(depRowId))
                         adjacency[depRowId] = new List<Guid>();
@@ -162,7 +191,7 @@ public class FinancialReportTemplate : FullAuditedAggregateRoot<Guid>, IMultiTen
             }
         }
 
-        if (processed < formulaRows.Count)
+        if (processed < formulaRows.Count && !hasSelfReference)
         {
             errors.Add("Circular dependency detected in formula references. Check reference codes used in calculated rows.");
         }
