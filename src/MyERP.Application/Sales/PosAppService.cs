@@ -113,7 +113,8 @@ public class PosAppService : ApplicationService, IPosAppService
             invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount);
         }
 
-        // POS invoices go straight to Posted status
+        // POS invoices go straight to Posted status; record customer payment received at counter
+        invoice.AmountPaid = Math.Min(input.AmountReceived, invoice.GrandTotal);
         invoice.Submit();
         await _invoiceRepository.InsertAsync(invoice, autoSave: true);
 
@@ -151,6 +152,8 @@ public class PosAppService : ApplicationService, IPosAppService
         }
 
         var change = input.AmountReceived - invoice.GrandTotal;
+        var actualChange = change > 0 ? change : 0;
+        var baseChange = Math.Round(actualChange * invoice.ExchangeRate, 2);
 
         return new PosInvoiceDto
         {
@@ -161,7 +164,8 @@ public class PosAppService : ApplicationService, IPosAppService
             TaxAmount = invoice.TaxAmount,
             GrandTotal = invoice.GrandTotal,
             AmountReceived = input.AmountReceived,
-            Change = change > 0 ? change : 0,
+            Change = actualChange,
+            BaseChange = baseChange,
             Status = invoice.Status.ToString(),
         };
     }

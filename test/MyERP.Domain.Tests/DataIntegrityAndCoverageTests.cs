@@ -2681,4 +2681,49 @@ public class DataIntegrityAndCoverageTests
         var resolvedWarehouse = bomItem.SourceWarehouseId ?? itemDefault.DefaultWarehouseId ?? globalItem.DefaultWarehouseId;
         Assert.Equal(companyDefaultWarehouse, resolvedWarehouse);
     }
+
+    [Fact]
+    public void PurchaseReceipt_PurchaseExpenseTotal_ProratesLandedCostVoucherInTransactionCurrency()
+    {
+        // Per ERPNext PR #58575 / commit 9cb736a271:
+        // When ExchangeRate is foreign (e.g. USD @ 4.0), LandedCostVoucherAmount (in company currency)
+        // must be prorated into transaction currency before deducting from PurchaseExpenseTotal.
+        var companyId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var receipt = new PurchaseReceipt(Guid.NewGuid(), companyId, supplierId, warehouseId, "PR-001", DateTime.UtcNow)
+        {
+            ExchangeRate = 4.0m
+        };
+
+        receipt.AddItem(Guid.NewGuid(), "Imported Goods", 10m, 100m, 0m); // 10 * 100 = 1000 USD
+        receipt.Items[0].LandedCostVoucherAmount = 200m; // 200 MYR = 50 USD
+
+        // Net total in USD = 1000 USD
+        Assert.Equal(1000m, receipt.NetTotal);
+
+        // Deducted in transaction currency = 1000 - (200 / 4.0) = 950 USD
+        var accountable = (Accounting.DomainServices.IAccountableDocument)receipt;
+        Assert.Equal(950m, accountable.PurchaseExpenseTotal);
+    }
+
+    [Fact]
+    public void PurchaseInvoice_PurchaseExpenseTotal_ProratesLandedCostVoucherInTransactionCurrency()
+    {
+        var companyId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var invoice = new PurchaseInvoice(Guid.NewGuid(), companyId, supplierId, "PINV-001", DateTime.UtcNow)
+        {
+            ExchangeRate = 2.5m
+        };
+
+        invoice.AddItem(Guid.NewGuid(), "Service / Raw Material", 5m, 80m, 0m); // 5 * 80 = 400 USD
+        invoice.Items[0].LandedCostVoucherAmount = 100m; // 100 MYR = 40 USD
+
+        Assert.Equal(400m, invoice.NetTotal);
+
+        // Deducted in transaction currency = 400 - (100 / 2.5) = 360 USD
+        var accountable = (Accounting.DomainServices.IAccountableDocument)invoice;
+        Assert.Equal(360m, accountable.PurchaseExpenseTotal);
+    }
 }

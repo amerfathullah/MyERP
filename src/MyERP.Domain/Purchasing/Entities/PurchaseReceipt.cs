@@ -38,7 +38,7 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>
     /// Total purchase expense after deducting LCV amounts (for SRBNB/Purchase Expense GL entries).
     /// </summary>
-    public decimal PurchaseExpenseTotal => _items.Sum(i => i.PurchaseExpenseGlAmount);
+    public decimal PurchaseExpenseTotal => _items.Sum(i => i.GetPurchaseExpenseGlAmount(ExchangeRate));
 
     public string CurrencyCode { get; set; } = "MYR";
     public decimal NetTotal { get; set; }
@@ -69,6 +69,7 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     string IAccountableDocument.DocumentType => "PurchaseReceipt";
     Guid? IAccountableDocument.CustomerId => null;
     Guid? IAccountableDocument.SupplierId => SupplierId;
+    decimal IAccountableDocument.PurchaseExpenseTotal => PurchaseExpenseTotal;
 
     private readonly List<PurchaseReceiptItem> _items = new();
     public IReadOnlyList<PurchaseReceiptItem> Items => _items.AsReadOnly();

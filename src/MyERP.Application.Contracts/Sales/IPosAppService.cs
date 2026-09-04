@@ -55,6 +55,7 @@ public class PosInvoiceDto : EntityDto<Guid>
     public decimal GrandTotal { get; set; }
     public decimal AmountReceived { get; set; }
     public decimal Change { get; set; }
+    public decimal BaseChange { get; set; }
     public string Status { get; set; } = null!;
 }
 

@@ -80,6 +80,24 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// </summary>
     public decimal LandedCostVoucherAmount { get; set; }
 
+    /// <summary>
+    /// Calculated purchase expense GL amount.
+    /// Per PR #57475: deducts landed cost voucher amount to prevent double-counting.
+    /// </summary>
+    public decimal PurchaseExpenseGlAmount => (Quantity * UnitPrice) - LandedCostVoucherAmount;
+
+    /// <summary>
+    /// Computes purchase expense GL amount after deducting landed cost voucher amount in transaction currency.
+    /// Per ERPNext PR #58575 / commit 9cb736a271: prorate landed cost charge into transaction currency.
+    /// </summary>
+    public decimal GetPurchaseExpenseGlAmount(decimal exchangeRate = 1m)
+    {
+        var lcvInTxnCurrency = exchangeRate > 0
+            ? LandedCostVoucherAmount / exchangeRate
+            : LandedCostVoucherAmount;
+        return (Quantity * UnitPrice) - lcvInTxnCurrency;
+    }
+
     protected PurchaseInvoiceItem() { }
 
     public PurchaseInvoiceItem(

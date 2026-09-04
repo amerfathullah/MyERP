@@ -172,6 +172,7 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     Guid? IAccountableDocument.CustomerId => null;
     Guid? IAccountableDocument.SupplierId => SupplierId;
     DateTime IAccountableDocument.PostingDate => IssueDate;
+    decimal IAccountableDocument.PurchaseExpenseTotal => _items.Sum(i => i.GetPurchaseExpenseGlAmount(ExchangeRate));
 
     protected PurchaseInvoice() { }
 

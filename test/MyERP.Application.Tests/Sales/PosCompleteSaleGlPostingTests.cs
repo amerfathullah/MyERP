@@ -92,9 +92,14 @@ public abstract class PosCompleteSaleGlPostingTests<TStartupModule> : MyERPAppli
             });
 
             result.Status.ShouldBe("Posted");
+            result.AmountReceived.ShouldBe(100m);
+            result.Change.ShouldBe(0m);
+            result.BaseChange.ShouldBe(0m);
 
             var invoice = await salesInvoiceRepository.GetAsync(result.Id);
             invoice.Status.ShouldBe(Core.DocumentStatus.Posted);
+            invoice.AmountPaid.ShouldBe(100m);
+            invoice.OutstandingAmount.ShouldBe(0m);
 
             var journal = (await journalRepository.GetQueryableAsync())
                 .SingleOrDefault(j => j.ReferenceType == "SalesInvoice" && j.ReferenceId == invoice.Id);
