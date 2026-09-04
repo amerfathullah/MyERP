@@ -51,13 +51,13 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     private readonly List<QuotationItem> _items = new();
     public IReadOnlyList<QuotationItem> Items => _items.AsReadOnly();
 
-    /// <summary>SO conversion completion %. MIN% formula per ERPNext StatusUpdater.</summary>
+    /// <summary>SO conversion completion %. MIN% formula per ERPNext StatusUpdater (PR #58603: compares in stock UOM).</summary>
     public decimal PerOrdered
     {
         get
         {
             if (!_items.Any()) return 0;
-            return _items.Min(i => i.Quantity == 0 ? 100 : Math.Min(100, i.OrderedQty / i.Quantity * 100));
+            return _items.Min(i => i.StockQty == 0 ? 100 : Math.Min(100, i.OrderedQty / i.StockQty * 100));
         }
     }
 
@@ -170,8 +170,11 @@ public class QuotationItem : CreationAuditedEntity<Guid>
     /// <summary>Rate per stock UOM = UnitPrice / ConversionFactor (gotcha #198).</summary>
     public decimal StockUomRate => ConversionFactor > 0 ? Math.Round(UnitPrice / ConversionFactor, 4) : UnitPrice;
 
-    /// <summary>Qty converted to Sales Order. Tracked by document conversion.</summary>
+    /// <summary>Qty converted to Sales Order in stock UOM (PR #58603). Tracked by document conversion.</summary>
     public decimal OrderedQty { get; set; }
+
+    /// <summary>Remaining quantity to order in stock UOM (per ERPNext PR #58603).</summary>
+    public decimal PendingOrderQty => Math.Max(0, StockQty - OrderedQty);
 
     protected QuotationItem() { }
     public QuotationItem(Guid id, Guid quotationId, Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom)

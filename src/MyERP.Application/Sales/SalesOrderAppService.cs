@@ -660,7 +660,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                         : quotation.Items.FirstOrDefault(i => i.ItemId == soItem.ItemId);
                     if (qItem != null)
                     {
-                        qItem.OrderedQty += soItem.Quantity;
+                        // Per ERPNext PR #58603 (commit c755e24731): tracks ordered qty in stock UOM
+                        qItem.OrderedQty += soItem.StockQty;
                     }
                 }
                 await quotationRepo.UpdateAsync(quotation, autoSave: true);
@@ -759,7 +760,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                         : quotation.Items.FirstOrDefault(i => i.ItemId == soItem.ItemId);
                     if (qItem != null)
                     {
-                        qItem.OrderedQty = Math.Max(0, qItem.OrderedQty - soItem.Quantity);
+                        // Per ERPNext PR #58603 (commit c755e24731): tracks ordered qty in stock UOM
+                        qItem.OrderedQty = Math.Max(0, qItem.OrderedQty - soItem.StockQty);
                     }
                 }
                 if (quotation.Items.All(i => i.OrderedQty <= 0))

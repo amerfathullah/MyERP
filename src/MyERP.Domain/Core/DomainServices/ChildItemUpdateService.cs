@@ -124,14 +124,87 @@ public class ChildItemUpdateService : DomainService
     }
 
     /// <summary>
+    /// Validates whether a Quotation child row can be modified.
+    /// Per ERPNext commit c755e24731 / PR #58603: rate cannot be changed once ordered.
+    /// </summary>
+    public void ValidateQuotationItemUpdate(QuotationItem item, decimal newQty, decimal newRate)
+    {
+        if (item.OrderedQty > 0 && item.UnitPrice != newRate)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot change rate for item '{item.Description}' as it is already ordered.");
+        }
+    }
+
+    /// <summary>
+    /// Validates requested quantity and conversion factor against already ordered quantity in stock UOM (per ERPNext commit c755e24731 / PR #58603).
+    /// </summary>
+    public void ValidateQuotationItemStockQty(QuotationItem item, decimal newQty, decimal? newConversionFactor = null)
+    {
+        var factor = newConversionFactor.HasValue && newConversionFactor.Value > 0 ? newConversionFactor.Value : item.ConversionFactor;
+        var requestedStockQty = newQty * factor;
+        var orderedStockQty = item.OrderedQty;
+
+        if (requestedStockQty < orderedStockQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot set quantity less than ordered quantity ({orderedStockQty} in stock UOM).");
+        }
+    }
+
+    /// <summary>
     /// Validates whether a Quotation child row can be deleted or removed.
     /// </summary>
     public void ValidateQuotationItemDeletion(QuotationItem item, bool isOrdered)
     {
-        if (isOrdered)
+        if (isOrdered || item.OrderedQty > 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Cannot delete Quotation item '{item.Description}' — quotation has already been converted to an order.");
+        }
+    }
+
+    public void ValidateQuotationItemDeletion(QuotationItem item) => ValidateQuotationItemDeletion(item, item.OrderedQty > 0);
+
+    /// <summary>
+    /// Validates whether a Supplier Quotation child row can be deleted or removed.
+    /// Per ERPNext: cannot delete if already ordered.
+    /// </summary>
+    public void ValidateSupplierQuotationItemDeletion(SupplierQuotationItem item)
+    {
+        if (item.OrderedQty > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot delete Supplier Quotation item '{item.ItemName}' — quotation has already been ordered ({item.OrderedQty} in stock UOM).");
+        }
+    }
+
+    /// <summary>
+    /// Validates whether a Supplier Quotation child row can be modified.
+    /// Per ERPNext commit c755e24731 / PR #58603: rate cannot be changed once ordered.
+    /// </summary>
+    public void ValidateSupplierQuotationItemUpdate(SupplierQuotationItem item, decimal newQty, decimal newRate)
+    {
+        if (item.OrderedQty > 0 && item.Rate != newRate)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot change rate for item '{item.ItemName}' as it is already ordered.");
+        }
+    }
+
+    /// <summary>
+    /// Validates requested quantity and conversion factor against already ordered quantity in stock UOM (per ERPNext commit c755e24731 / PR #58603).
+    /// </summary>
+    public void ValidateSupplierQuotationItemStockQty(SupplierQuotationItem item, decimal newQty, decimal? newConversionFactor = null)
+    {
+        var factor = newConversionFactor.HasValue && newConversionFactor.Value > 0 ? newConversionFactor.Value : item.ConversionFactor;
+        var requestedStockQty = newQty * factor;
+        var orderedStockQty = item.OrderedQty;
+
+        if (requestedStockQty < orderedStockQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot set quantity less than ordered quantity ({orderedStockQty} in stock UOM).");
         }
     }
 }

@@ -98,4 +98,96 @@ public class ChildItemUpdateServiceTests
         var ex = Should.Throw<BusinessException>(() => _service.ValidatePurchaseOrderItemStockQty(item, 4, 2));
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
     }
+
+    [Fact]
+    public void ValidateQuotationItemUpdate_RateChange_BlockedWhenOrdered()
+    {
+        var item = new QuotationItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Item", 10, 100, 0, "Unit")
+        {
+            OrderedQty = 5
+        };
+
+        // Same rate succeeds
+        Should.NotThrow(() => _service.ValidateQuotationItemUpdate(item, 8, 100));
+
+        // Rate change throws
+        var ex = Should.Throw<BusinessException>(() => _service.ValidateQuotationItemUpdate(item, 10, 120));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void ValidateQuotationItemStockQty_WithConversionFactor_ComparesInStockUom()
+    {
+        // 6 boxes with conversion factor 5 = 30 in stock UOM
+        var item = new QuotationItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Item", 6, 10, 0, "Box")
+        {
+            ConversionFactor = 5,
+            OrderedQty = 10 // 10 units ordered in stock UOM
+        };
+
+        // Reducing to 5 boxes with conversion factor 2 = 10 units (equal to ordered 10) -> succeeds
+        Should.NotThrow(() => _service.ValidateQuotationItemStockQty(item, 5, 2));
+
+        // Reducing to 4 boxes with conversion factor 2 = 8 units (< ordered 10) -> throws
+        var ex = Should.Throw<BusinessException>(() => _service.ValidateQuotationItemStockQty(item, 4, 2));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void ValidateQuotationItemDeletion_ThrowsWhenOrdered()
+    {
+        var item = new QuotationItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Item", 10, 100, 0, "Unit")
+        {
+            OrderedQty = 2
+        };
+
+        var ex = Should.Throw<BusinessException>(() => _service.ValidateQuotationItemDeletion(item));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void ValidateSupplierQuotationItemDeletion_ThrowsWhenOrdered()
+    {
+        var item = new SupplierQuotationItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10, 100, "Item", "Unit")
+        {
+            OrderedQty = 3
+        };
+
+        var ex = Should.Throw<BusinessException>(() => _service.ValidateSupplierQuotationItemDeletion(item));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void ValidateSupplierQuotationItemUpdate_RateChange_BlockedWhenOrdered()
+    {
+        var item = new SupplierQuotationItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10, 100, "Item", "Unit")
+        {
+            OrderedQty = 4
+        };
+
+        // Same rate succeeds
+        Should.NotThrow(() => _service.ValidateSupplierQuotationItemUpdate(item, 8, 100));
+
+        // Rate change throws
+        var ex = Should.Throw<BusinessException>(() => _service.ValidateSupplierQuotationItemUpdate(item, 10, 110));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void ValidateSupplierQuotationItemStockQty_WithConversionFactor_ComparesInStockUom()
+    {
+        // 6 boxes with conversion factor 5 = 30 in stock UOM
+        var item = new SupplierQuotationItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 6, 10, "Item", "Box")
+        {
+            ConversionFactor = 5,
+            OrderedQty = 10 // 10 units ordered in stock UOM
+        };
+
+        // Reducing to 5 boxes with conversion factor 2 = 10 units (equal to ordered 10) -> succeeds
+        Should.NotThrow(() => _service.ValidateSupplierQuotationItemStockQty(item, 5, 2));
+
+        // Reducing to 4 boxes with conversion factor 2 = 8 units (< ordered 10) -> throws
+        var ex = Should.Throw<BusinessException>(() => _service.ValidateSupplierQuotationItemStockQty(item, 4, 2));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
 }

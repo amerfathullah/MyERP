@@ -61,6 +61,26 @@ public class QuotationConversionAndListTests
         Assert.Equal(0, q.Items[0].OrderedQty);
     }
 
+    [Fact]
+    public void Quotation_PerOrdered_WithConversionFactor_ComparesInStockUom()
+    {
+        // 2 boxes with conversion factor 5 = 10 units in stock UOM
+        var q = new Quotation(Guid.NewGuid(), CompanyId, CustomerId, "QTN-UOM", DateTime.UtcNow);
+        q.AddItem(ItemId, "A", 2, 100, 0, "Box");
+        q.Items[0].ConversionFactor = 5;
+        q.Submit();
+
+        // 5 units ordered in stock UOM out of 10 stock qty = 50%
+        q.Items[0].OrderedQty = 5;
+        Assert.Equal(50, q.PerOrdered);
+        Assert.Equal(5, q.Items[0].PendingOrderQty);
+
+        // 10 units ordered in stock UOM out of 10 stock qty = 100%
+        q.Items[0].OrderedQty = 10;
+        Assert.Equal(100, q.PerOrdered);
+        Assert.Equal(0, q.Items[0].PendingOrderQty);
+    }
+
     // ── Expiry ──
 
     [Fact]
