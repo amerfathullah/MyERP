@@ -21,6 +21,12 @@ public class ChildItemUpdateService : DomainService
     /// </summary>
     public void ValidateSalesOrderItemDeletion(SalesOrderItem item)
     {
+        if (item.IsClosed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot delete Sales Order item '{item.Description}' because it is closed. Reopen the row first.");
+        }
+
         if (item.DeliveredQty > 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
@@ -36,10 +42,16 @@ public class ChildItemUpdateService : DomainService
 
     /// <summary>
     /// Validates whether a Purchase Order child row can be deleted or removed.
-    /// Throws BusinessException if the item has already been partially received or billed.
+    /// Throws BusinessException if the item has already been partially received or billed, or is closed.
     /// </summary>
     public void ValidatePurchaseOrderItemDeletion(PurchaseOrderItem item)
     {
+        if (item.IsClosed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot delete Purchase Order item '{item.Description}' because it is closed. Reopen the row first.");
+        }
+
         if (item.ReceivedQty > 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)

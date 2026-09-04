@@ -379,13 +379,17 @@ export class PurchaseOrderDetailComponent implements OnInit {
   /** Enter inline item editing mode */
   startEditingItems(): void {
     if (!this.order?.items) return;
-    this.editableItems.set(this.order.items.map(item => ({
-      itemId: item.id,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      description: item.description,
-      receivedQty: item.receivedQty ?? 0,
-    })));
+    this.editableItems.set(
+      this.order.items
+        .filter((item: any) => !item.isClosed && !item.closed)
+        .map(item => ({
+          itemId: item.id,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          description: item.description,
+          receivedQty: item.receivedQty ?? 0,
+        }))
+    );
     this.removedItemIds.set([]);
     this.isEditingItems.set(true);
   }

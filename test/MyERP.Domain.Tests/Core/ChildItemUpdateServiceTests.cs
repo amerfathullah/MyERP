@@ -42,6 +42,28 @@ public class ChildItemUpdateServiceTests
     }
 
     [Fact]
+    public void ValidateSalesOrderItemDeletion_ClosedItem_ThrowsValidationFailed()
+    {
+        var item = new SalesOrderItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Item", 10, 50, 0, "Unit")
+        {
+            IsClosed = true
+        };
+        var ex = Should.Throw<BusinessException>(() => _service.ValidateSalesOrderItemDeletion(item));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void ValidatePurchaseOrderItemDeletion_ClosedItem_ThrowsValidationFailed()
+    {
+        var item = new PurchaseOrderItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Item", 10, 50, 0, "Unit")
+        {
+            IsClosed = true
+        };
+        var ex = Should.Throw<BusinessException>(() => _service.ValidatePurchaseOrderItemDeletion(item));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
     public void ValidateSalesOrderItemStockQty_WithConversionFactor_ComparesInStockUom()
     {
         // 6 boxes with conversion factor 5 = 30 in stock UOM

@@ -565,13 +565,17 @@ export class SalesOrderDetailComponent implements OnInit {
 
   startEditingItems(): void {
     if (!this.order?.items) return;
-    this.editableItems.set(this.order.items.map((item: any) => ({
-      itemId: item.id ?? item.itemId,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      description: item.description,
-      deliveredQty: item.deliveredQty ?? 0,
-    })));
+    this.editableItems.set(
+      this.order.items
+        .filter((item: any) => !item.isClosed && !item.closed)
+        .map((item: any) => ({
+          itemId: item.id ?? item.itemId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          description: item.description,
+          deliveredQty: item.deliveredQty ?? 0,
+        }))
+    );
     this.removedItemIds.set([]);
     this.isEditingItems.set(true);
   }
