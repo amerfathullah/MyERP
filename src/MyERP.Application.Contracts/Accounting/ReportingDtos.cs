@@ -148,6 +148,49 @@ public class MonthlyProfitLossReportDto
     public decimal AnnualNetProfit { get; set; }
 }
 
+// --- Trial Balance for Party ---
+public class PartyTrialBalanceRequestDto
+{
+    [Required] public Guid CompanyId { get; set; }
+    [Required] public DateTime FromDate { get; set; }
+    [Required] public DateTime ToDate { get; set; }
+    public string PartyType { get; set; } = "Customer";
+    public Guid? PartyId { get; set; }
+    public Guid? AccountId { get; set; }
+    public bool ExcludeZeroBalanceParties { get; set; } = false;
+    public bool ShowZeroValues { get; set; } = false;
+}
+
+public class PartyTrialBalanceRowDto
+{
+    public Guid PartyId { get; set; }
+    public string PartyName { get; set; } = null!;
+    public string PartyType { get; set; } = null!;
+    public decimal OpeningDebit { get; set; }
+    public decimal OpeningCredit { get; set; }
+    public decimal Debit { get; set; }
+    public decimal Credit { get; set; }
+    public decimal ClosingDebit { get; set; }
+    public decimal ClosingCredit { get; set; }
+    public string Currency { get; set; } = null!;
+}
+
+public class PartyTrialBalanceReportDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public string PartyType { get; set; } = null!;
+    public string Currency { get; set; } = null!;
+    public List<PartyTrialBalanceRowDto> Rows { get; set; } = new();
+    public decimal TotalOpeningDebit { get; set; }
+    public decimal TotalOpeningCredit { get; set; }
+    public decimal TotalDebit { get; set; }
+    public decimal TotalCredit { get; set; }
+    public decimal TotalClosingDebit { get; set; }
+    public decimal TotalClosingCredit { get; set; }
+}
+
 // --- Service Interface ---
 public interface IReportingAppService : IApplicationService
 {
@@ -155,4 +198,6 @@ public interface IReportingAppService : IApplicationService
     Task<ProfitLossReportDto> GetProfitLossAsync(ProfitLossRequestDto input);
     Task<BalanceSheetReportDto> GetBalanceSheetAsync(BalanceSheetRequestDto input);
     Task<MonthlyProfitLossReportDto> GetMonthlyProfitLossAsync(MonthlyProfitLossRequestDto input);
+    Task<PartyTrialBalanceReportDto> GetTrialBalanceForPartyAsync(PartyTrialBalanceRequestDto input);
 }
+

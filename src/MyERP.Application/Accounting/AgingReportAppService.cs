@@ -33,8 +33,18 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
         var asOfDate = calculateAgeingWith == "Today Date"
             ? DateTime.UtcNow.Date
             : (input.AsOfDate ?? DateTime.UtcNow.Date);
+        var ageingBasedOn = string.Equals(input.AgeingBasedOn, "Posting Date", StringComparison.OrdinalIgnoreCase)
+            ? "Posting Date"
+            : "Due Date";
 
-        var report = await _agingService.CalculateReceivablesAgingAsync(input.CompanyId, asOfDate, calculateAgeingWith: calculateAgeingWith);
+        var report = await _agingService.CalculateReceivablesAgingAsync(
+            input.CompanyId,
+            asOfDate,
+            calculateAgeingWith: calculateAgeingWith,
+            ageingBasedOn: ageingBasedOn,
+            partyId: input.PartyId,
+            fromDate: input.FromDate,
+            toDate: input.ToDate);
         return MapToDto(report);
     }
 
@@ -46,8 +56,18 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
         var asOfDate = calculateAgeingWith == "Today Date"
             ? DateTime.UtcNow.Date
             : (input.AsOfDate ?? DateTime.UtcNow.Date);
+        var ageingBasedOn = string.Equals(input.AgeingBasedOn, "Posting Date", StringComparison.OrdinalIgnoreCase)
+            ? "Posting Date"
+            : "Due Date";
 
-        var report = await _agingService.CalculatePayablesAgingAsync(input.CompanyId, asOfDate, calculateAgeingWith: calculateAgeingWith);
+        var report = await _agingService.CalculatePayablesAgingAsync(
+            input.CompanyId,
+            asOfDate,
+            calculateAgeingWith: calculateAgeingWith,
+            ageingBasedOn: ageingBasedOn,
+            partyId: input.PartyId,
+            fromDate: input.FromDate,
+            toDate: input.ToDate);
         return MapToDto(report);
     }
 
@@ -67,6 +87,7 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
             ReportType = report.ReportType,
             AsOfDate = report.AsOfDate,
             CalculateAgeingWith = report.CalculateAgeingWith,
+            AgeingBasedOn = report.AgeingBasedOn,
             BucketLabels = bucketLabels,
             BucketTotals = report.BucketTotals,
             TotalOutstanding = report.TotalOutstanding,

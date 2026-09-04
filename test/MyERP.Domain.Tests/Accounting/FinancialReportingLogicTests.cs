@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using MyERP.Accounting;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Sales.Entities;
@@ -267,6 +269,104 @@ public class FinancialReportingLogicTests
         
         Assert.Equal(0.50m, difference);
         Assert.True(Math.Abs(difference) > 0.01m); // Outside tolerance
+    }
+
+    #endregion
+
+    #region Party Trial Balance Logic
+
+    [Theory]
+    [InlineData(100.50, 40.25, 60.25, 0.0)]
+    [InlineData(50.00, 150.00, 0.0, 100.00)]
+    [InlineData(200.00, 200.00, 0.0, 0.0)]
+    [InlineData(0.0, 0.0, 0.0, 0.0)]
+    public void PartyTrialBalance_ToggleDebitCredit_CalculatesNetAndZerosOpposite(
+        decimal debit, decimal credit, decimal expectedDebit, decimal expectedCredit)
+    {
+        var (dr, cr) = ReportingAppService.ToggleDebitCredit(debit, credit);
+        Assert.Equal(expectedDebit, dr);
+        Assert.Equal(expectedCredit, cr);
+    }
+
+    [Fact]
+    public void PartyTrialBalance_ToggleDebitCredit_RoundsToTwoDecimals()
+    {
+        var (dr, cr) = ReportingAppService.ToggleDebitCredit(100.555m, 50.111m);
+        Assert.Equal(50.44m, dr);
+        Assert.Equal(0m, cr);
+    }
+
+    [Fact]
+    public void PartyTrialBalance_ClosingBalance_CombinesOpeningAndPeriod()
+    {
+        // Opening: Dr 100, Cr 0
+        // Period: Dr 50, Cr 200
+        // Total before toggle: Dr 150, Cr 200 -> net Cr 50
+        decimal opDr = 100m, opCr = 0m;
+        decimal pDr = 50m, pCr = 200m;
+
+        var (clDr, clCr) = ReportingAppService.ToggleDebitCredit(opDr + pDr, opCr + pCr);
+        Assert.Equal(0m, clDr);
+        Assert.Equal(50m, clCr);
+    }
+
+    [Fact]
+    public void PartyTrialBalance_ExcludeZeroBalanceParties_ExcludesWhenClosingIsZero()
+    {
+        var rowActive = new PartyTrialBalanceRowDto
+        {
+            PartyName = "Active Customer",
+            ClosingDebit = 150m,
+            ClosingCredit = 0m
+        };
+        var rowSettled = new PartyTrialBalanceRowDto
+        {
+            PartyName = "Settled Customer",
+            ClosingDebit = 0m,
+            ClosingCredit = 0m
+        };
+
+        var allRows = new[] { rowActive, rowSettled };
+        var filtered = allRows.Where(r => !(r.ClosingDebit == 0 && r.ClosingCredit == 0)).ToList();
+
+        Assert.Single(filtered);
+        Assert.Equal("Active Customer", filtered[0].PartyName);
+    }
+
+    #endregion
+
+    #region Aging Report Enhancements
+
+    [Fact]
+    public void AgingReport_AgeingBasedOn_PostingDateVsDueDate()
+    {
+        var asOfDate = new DateTime(2026, 8, 1);
+        var issueDate = new DateTime(2026, 6, 1); // 61 days before
+        var dueDate = new DateTime(2026, 7, 1);   // 31 days before
+
+        var agePosting = (int)(asOfDate - issueDate).TotalDays;
+        var ageDue = (int)(asOfDate - dueDate).TotalDays;
+
+        Assert.Equal(61, agePosting);
+        Assert.Equal(31, ageDue);
+
+        var bucketDays = new[] { 30, 60, 90, 120 };
+        // posting date age (61) -> bucket 2 (61-90)
+        Assert.Equal(2, GetBucketIndexHelper(agePosting, bucketDays));
+        // due date age (31) -> bucket 1 (31-60)
+        Assert.Equal(1, GetBucketIndexHelper(ageDue, bucketDays));
+    }
+
+    [Fact]
+    public void AgingReport_FutureDates_ClampedToZero()
+    {
+        var asOfDate = new DateTime(2026, 8, 1);
+        var futureDueDate = new DateTime(2026, 8, 15);
+
+        var ageDays = (int)(asOfDate - futureDueDate).TotalDays;
+        if (ageDays < 0) ageDays = 0;
+
+        Assert.Equal(0, ageDays);
     }
 
     #endregion

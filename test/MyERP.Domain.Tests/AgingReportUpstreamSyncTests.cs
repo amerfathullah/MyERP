@@ -38,6 +38,10 @@ public class AgingReportUpstreamSyncTests
     [InlineData("AgingBucket")]
     [InlineData("Receivables")]
     [InlineData("Payables")]
+    [InlineData("AgeingBasedOn")]
+    [InlineData("TrialBalanceForParty")]
+    [InlineData("ExcludeZeroBalanceParties")]
+    [InlineData("ShowZeroValues")]
     public void LocalizationKey_Exists_ForAgingReportFilters(string key)
     {
         var texts = GetLocalizationTexts();

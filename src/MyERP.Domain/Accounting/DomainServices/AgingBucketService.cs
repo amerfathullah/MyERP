@@ -39,17 +39,37 @@ public class AgingBucketService : DomainService
     /// Groups outstanding sales invoices into aging buckets.
     /// </summary>
     public async Task<AgingReport> CalculateReceivablesAgingAsync(
-        Guid companyId, DateTime asOfDate, int[] bucketDays = null!, string calculateAgeingWith = "Report Date")
+        Guid companyId,
+        DateTime asOfDate,
+        int[] bucketDays = null!,
+        string calculateAgeingWith = "Report Date",
+        string ageingBasedOn = "Due Date",
+        Guid? partyId = null,
+        DateTime? fromDate = null,
+        DateTime? toDate = null)
     {
         bucketDays ??= new[] { 30, 60, 90, 120 };
 
         var query = await _salesInvoiceRepository.GetQueryableAsync();
-        var outstandingInvoices = query
-            .Where(si => si.CompanyId == companyId
+        query = query.Where(si => si.CompanyId == companyId
                       && si.Status == Core.DocumentStatus.Posted
                       && (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0
-                      && !si.IsReturn)
-            .ToList();
+                      && !si.IsReturn);
+
+        if (partyId.HasValue)
+        {
+            query = query.Where(si => si.CustomerId == partyId.Value);
+        }
+        if (fromDate.HasValue)
+        {
+            query = query.Where(si => si.IssueDate >= fromDate.Value);
+        }
+        if (toDate.HasValue)
+        {
+            query = query.Where(si => si.IssueDate <= toDate.Value);
+        }
+
+        var outstandingInvoices = query.ToList();
 
         // Resolve customer names for detailed report
         var customerIds = outstandingInvoices.Select(si => si.CustomerId).Distinct().ToList();
@@ -68,7 +88,7 @@ public class AgingBucketService : DomainService
             PostingDate = si.IssueDate,
             DueDate = si.DueDate ?? si.IssueDate,
             OutstandingAmount = si.OutstandingAmount,
-        }), asOfDate, bucketDays, "Receivable", calculateAgeingWith);
+        }), asOfDate, bucketDays, "Receivable", calculateAgeingWith, ageingBasedOn);
 
         return report;
     }
@@ -77,17 +97,37 @@ public class AgingBucketService : DomainService
     /// Calculates AP aging (payables) for a company as of a given date.
     /// </summary>
     public async Task<AgingReport> CalculatePayablesAgingAsync(
-        Guid companyId, DateTime asOfDate, int[] bucketDays = null!, string calculateAgeingWith = "Report Date")
+        Guid companyId,
+        DateTime asOfDate,
+        int[] bucketDays = null!,
+        string calculateAgeingWith = "Report Date",
+        string ageingBasedOn = "Due Date",
+        Guid? partyId = null,
+        DateTime? fromDate = null,
+        DateTime? toDate = null)
     {
         bucketDays ??= new[] { 30, 60, 90, 120 };
 
         var query = await _purchaseInvoiceRepository.GetQueryableAsync();
-        var outstandingInvoices = query
-            .Where(pi => pi.CompanyId == companyId
+        query = query.Where(pi => pi.CompanyId == companyId
                       && pi.Status == Core.DocumentStatus.Posted
                       && (pi.GrandTotal - pi.AmountPaid - pi.WriteOffAmount - pi.TotalAdvance) > 0
-                      && !pi.IsReturn)
-            .ToList();
+                      && !pi.IsReturn);
+
+        if (partyId.HasValue)
+        {
+            query = query.Where(pi => pi.SupplierId == partyId.Value);
+        }
+        if (fromDate.HasValue)
+        {
+            query = query.Where(pi => pi.IssueDate >= fromDate.Value);
+        }
+        if (toDate.HasValue)
+        {
+            query = query.Where(pi => pi.IssueDate <= toDate.Value);
+        }
+
+        var outstandingInvoices = query.ToList();
 
         // Resolve supplier names for detailed report
         var supplierIds = outstandingInvoices.Select(pi => pi.SupplierId).Distinct().ToList();
@@ -106,17 +146,24 @@ public class AgingBucketService : DomainService
             PostingDate = pi.IssueDate,
             DueDate = pi.DueDate ?? pi.IssueDate,
             OutstandingAmount = pi.OutstandingAmount,
-        }), asOfDate, bucketDays, "Payable", calculateAgeingWith);
+        }), asOfDate, bucketDays, "Payable", calculateAgeingWith, ageingBasedOn);
     }
 
     private static AgingReport BuildAgingReport(
-        IEnumerable<AgingItem> items, DateTime asOfDate, int[] bucketDays, string reportType, string calculateAgeingWith = "Report Date")
+        IEnumerable<AgingItem> items,
+        DateTime asOfDate,
+        int[] bucketDays,
+        string reportType,
+        string calculateAgeingWith = "Report Date",
+        string ageingBasedOn = "Due Date")
     {
+        var isPostingDate = string.Equals(ageingBasedOn, "Posting Date", StringComparison.OrdinalIgnoreCase);
         var report = new AgingReport
         {
             ReportType = reportType,
             AsOfDate = asOfDate,
             CalculateAgeingWith = calculateAgeingWith,
+            AgeingBasedOn = isPostingDate ? "Posting Date" : "Due Date",
             BucketRanges = bucketDays,
         };
 
@@ -126,7 +173,8 @@ public class AgingBucketService : DomainService
 
         foreach (var item in items)
         {
-            var ageDays = (int)(asOfDate - item.DueDate).TotalDays;
+            var baseDate = isPostingDate ? item.PostingDate : item.DueDate;
+            var ageDays = (int)(asOfDate - baseDate).TotalDays;
             if (ageDays < 0) ageDays = 0; // Not yet due
 
             var bucketIndex = GetBucketIndex(ageDays, bucketDays);
@@ -177,6 +225,7 @@ public class AgingReport
     public string ReportType { get; set; } = null!;
     public DateTime AsOfDate { get; set; }
     public string CalculateAgeingWith { get; set; } = "Report Date";
+    public string AgeingBasedOn { get; set; } = "Due Date";
     public int[] BucketRanges { get; set; } = Array.Empty<int>();
     public decimal[] BucketTotals { get; set; } = Array.Empty<decimal>();
     public decimal TotalOutstanding { get; set; }

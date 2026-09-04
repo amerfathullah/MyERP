@@ -5,7 +5,10 @@ using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
+using MyERP.Core.Entities;
 using MyERP.Permissions;
+using MyERP.Purchasing.Entities;
+using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -19,17 +22,26 @@ public class ReportingAppService : ApplicationService, IReportingAppService
     private readonly IRepository<JournalEntryLine, Guid> _journalLineRepository;
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
     private readonly AccountBalanceService _balanceService;
+    private readonly IRepository<Customer, Guid> _customerRepository;
+    private readonly IRepository<Supplier, Guid> _supplierRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
 
     public ReportingAppService(
         IRepository<Account, Guid> accountRepository,
         IRepository<JournalEntryLine, Guid> journalLineRepository,
         IRepository<JournalEntry, Guid> journalEntryRepository,
-        AccountBalanceService balanceService)
+        AccountBalanceService balanceService,
+        IRepository<Customer, Guid> customerRepository,
+        IRepository<Supplier, Guid> supplierRepository,
+        IRepository<Company, Guid> companyRepository)
     {
         _accountRepository = accountRepository;
         _journalLineRepository = journalLineRepository;
         _journalEntryRepository = journalEntryRepository;
         _balanceService = balanceService;
+        _customerRepository = customerRepository;
+        _supplierRepository = supplierRepository;
+        _companyRepository = companyRepository;
     }
 
     public async Task<TrialBalanceReportDto> GetTrialBalanceAsync(TrialBalanceRequestDto input)
@@ -344,4 +356,168 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             AnnualNetProfit = monthlyNetProfit.Sum(),
         };
     }
+
+    public async Task<PartyTrialBalanceReportDto> GetTrialBalanceForPartyAsync(PartyTrialBalanceRequestDto input)
+    {
+        var company = await _companyRepository.FindAsync(input.CompanyId);
+        var currency = company?.CurrencyCode ?? "MYR";
+
+        var partyType = string.Equals(input.PartyType, "Supplier", StringComparison.OrdinalIgnoreCase)
+            ? "Supplier"
+            : "Customer";
+
+        Dictionary<Guid, string> partyNames;
+        if (partyType == "Customer")
+        {
+            var custQuery = await _customerRepository.GetQueryableAsync();
+            var q = custQuery.Where(c => c.CompanyId == input.CompanyId);
+            if (input.PartyId.HasValue)
+            {
+                q = q.Where(c => c.Id == input.PartyId.Value);
+            }
+            partyNames = q.Select(c => new { c.Id, c.Name }).ToDictionary(c => c.Id, c => c.Name);
+        }
+        else
+        {
+            var suppQuery = await _supplierRepository.GetQueryableAsync();
+            var q = suppQuery.Where(s => s.CompanyId == input.CompanyId);
+            if (input.PartyId.HasValue)
+            {
+                q = q.Where(s => s.Id == input.PartyId.Value);
+            }
+            partyNames = q.Select(s => new { s.Id, s.Name }).ToDictionary(s => s.Id, s => s.Name);
+        }
+
+        // Query posted journal entries for the company up to ToDate (or opening entries)
+        var journalEntries = await _journalEntryRepository.GetListAsync(je =>
+            je.CompanyId == input.CompanyId &&
+            je.Status == DocumentStatus.Posted &&
+            (je.PostingDate <= input.ToDate || (je.IsOpening && je.PostingDate <= input.ToDate)));
+
+        // Opening: PostingDate < FromDate || (IsOpening && PostingDate <= ToDate)
+        var openingLines = journalEntries
+            .Where(je => je.PostingDate < input.FromDate || (je.IsOpening && je.PostingDate <= input.ToDate))
+            .SelectMany(je => je.Lines)
+            .Where(l => string.Equals(l.PartyType, partyType, StringComparison.OrdinalIgnoreCase) && l.PartyId.HasValue);
+
+        if (input.PartyId.HasValue)
+        {
+            openingLines = openingLines.Where(l => l.PartyId == input.PartyId.Value);
+        }
+        if (input.AccountId.HasValue)
+        {
+            openingLines = openingLines.Where(l => l.AccountId == input.AccountId.Value);
+        }
+
+        var openingByParty = openingLines
+            .GroupBy(l => l.PartyId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var dr = g.Where(l => l.IsDebit).Sum(l => l.Amount);
+                    var cr = g.Where(l => !l.IsDebit).Sum(l => l.Amount);
+                    return ToggleDebitCredit(dr, cr);
+                });
+
+        // Balances within period: PostingDate >= FromDate && PostingDate <= ToDate && !IsOpening
+        var periodLines = journalEntries
+            .Where(je => je.PostingDate >= input.FromDate && je.PostingDate <= input.ToDate && !je.IsOpening)
+            .SelectMany(je => je.Lines)
+            .Where(l => string.Equals(l.PartyType, partyType, StringComparison.OrdinalIgnoreCase) && l.PartyId.HasValue);
+
+        if (input.PartyId.HasValue)
+        {
+            periodLines = periodLines.Where(l => l.PartyId == input.PartyId.Value);
+        }
+        if (input.AccountId.HasValue)
+        {
+            periodLines = periodLines.Where(l => l.AccountId == input.AccountId.Value);
+        }
+
+        var periodByParty = periodLines
+            .GroupBy(l => l.PartyId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => (
+                    Debit: Math.Round(g.Where(l => l.IsDebit).Sum(l => l.Amount), 2),
+                    Credit: Math.Round(g.Where(l => !l.IsDebit).Sum(l => l.Amount), 2)
+                ));
+
+        // Union parties
+        var allPartyIds = partyNames.Keys
+            .Union(openingByParty.Keys)
+            .Union(periodByParty.Keys)
+            .Distinct()
+            .ToList();
+
+        if (input.PartyId.HasValue)
+        {
+            allPartyIds = allPartyIds.Where(p => p == input.PartyId.Value).ToList();
+        }
+
+        var rows = new List<PartyTrialBalanceRowDto>();
+
+        foreach (var pId in allPartyIds.OrderBy(p => partyNames.GetValueOrDefault(p) ?? p.ToString()))
+        {
+            var partyName = partyNames.GetValueOrDefault(pId) ?? pId.ToString();
+            var (opDr, opCr) = openingByParty.GetValueOrDefault(pId, (0m, 0m));
+            var (pDr, pCr) = periodByParty.GetValueOrDefault(pId, (0m, 0m));
+            var (clDr, clCr) = ToggleDebitCredit(opDr + pDr, opCr + pCr);
+
+            if (input.ExcludeZeroBalanceParties && clDr == 0 && clCr == 0)
+            {
+                continue;
+            }
+
+            var hasValue = opDr != 0 || opCr != 0 || pDr != 0 || pCr != 0 || clDr != 0 || clCr != 0;
+            if (!input.ShowZeroValues && !hasValue)
+            {
+                continue;
+            }
+
+            rows.Add(new PartyTrialBalanceRowDto
+            {
+                PartyId = pId,
+                PartyName = partyName,
+                PartyType = partyType,
+                OpeningDebit = opDr,
+                OpeningCredit = opCr,
+                Debit = pDr,
+                Credit = pCr,
+                ClosingDebit = clDr,
+                ClosingCredit = clCr,
+                Currency = currency,
+            });
+        }
+
+        return new PartyTrialBalanceReportDto
+        {
+            CompanyId = input.CompanyId,
+            FromDate = input.FromDate,
+            ToDate = input.ToDate,
+            PartyType = partyType,
+            Currency = currency,
+            Rows = rows,
+            TotalOpeningDebit = Math.Round(rows.Sum(r => r.OpeningDebit), 2),
+            TotalOpeningCredit = Math.Round(rows.Sum(r => r.OpeningCredit), 2),
+            TotalDebit = Math.Round(rows.Sum(r => r.Debit), 2),
+            TotalCredit = Math.Round(rows.Sum(r => r.Credit), 2),
+            TotalClosingDebit = Math.Round(rows.Sum(r => r.ClosingDebit), 2),
+            TotalClosingCredit = Math.Round(rows.Sum(r => r.ClosingCredit), 2),
+        };
+    }
+
+    public static (decimal Debit, decimal Credit) ToggleDebitCredit(decimal debit, decimal credit)
+    {
+        if (debit > credit)
+        {
+            return (Math.Round(debit - credit, 2), 0m);
+        }
+        else
+        {
+            return (0m, Math.Round(credit - debit, 2));
+        }
+    }
 }
+
