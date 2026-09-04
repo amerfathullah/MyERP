@@ -1,6 +1,17 @@
 <abp-page [title]="invoice?.invoiceNumber ?? 'Invoice Detail'">
   @if (invoice) {
     <app-breadcrumb />
+    @if (invoice.consolidatedSalesInvoiceId) {
+      <div class="alert alert-warning d-flex align-items-center mb-3">
+        <i class="fa fa-exclamation-triangle fs-4 me-2"></i>
+        <div>
+          <strong>{{ '::InvoiceConsolidatedNotice' | abpLocalization }}</strong>
+          <a [routerLink]="['/sales/invoices', invoice.consolidatedSalesInvoiceId]" class="alert-link ms-1">
+            <b>{{ invoice.consolidatedSalesInvoiceNumber || invoice.consolidatedSalesInvoiceId }}</b>
+          </a>.
+        </div>
+      </div>
+    }
     <div class="d-flex justify-content-end gap-2 mb-3">
       @for (action of workflowActions; track action.name) {
         <button class="btn btn-sm" [ngClass]="action.btnClass" (click)="onWorkflowAction(action.name)">

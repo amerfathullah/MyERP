@@ -189,6 +189,9 @@ public class EInvoiceConsolidationService : DomainService
 
             foreach (var inv in invoices)
             {
+                inv.ConsolidatedSalesInvoiceId = consolidatedInvoice.Id;
+                await _salesInvoiceRepository.UpdateAsync(inv);
+
                 // Only link if items from this invoice actually went into the consolidated invoice.
                 // Simplified: link all original invoices to the main consolidated one.
                 await _consolidationRepository.InsertAsync(new EInvoiceConsolidation(

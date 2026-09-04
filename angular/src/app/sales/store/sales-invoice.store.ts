@@ -8,7 +8,7 @@ import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
 import type { SalesInvoiceDto, CreateSalesInvoiceDto } from '../../proxy/sales/models';
 import type { PagedAndSortedResultRequestDto } from '@abp/ng.core';
 
-type InvoiceEntity = SalesInvoiceDto & { id: EntityId };
+type InvoiceEntity = SalesInvoiceDto & { id: EntityId; isConsolidated?: boolean };
 
 export interface SalesInvoiceFilter {
   status?: string;

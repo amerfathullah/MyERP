@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using NSubstitute;
 using MyERP.EInvoice;
 using MyERP.EInvoice.Entities;
 using MyERP.Sales;
@@ -126,5 +128,37 @@ public class EInvoiceConsolidationFlowTests
         const decimal maxConsolidationAmount = 10000.00m;
         var isEligible = amount <= maxConsolidationAmount;
         Assert.Equal(expectedEligible, isEligible);
+    }
+
+    [Fact]
+    public async Task ConsolidateInvoicesAsync_SetsConsolidatedSalesInvoiceIdOnOriginalInvoices()
+    {
+        // Per MyInvois commit 0e3fc83: original invoices merged into consolidated invoice
+        // must have ConsolidatedSalesInvoiceId assigned.
+        var invoiceRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<SalesInvoice, Guid>>();
+        var consolRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<EInvoiceConsolidation, Guid>>();
+        var customerRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Customer, Guid>>();
+        var guidGen = NSubstitute.Substitute.For<Volo.Abp.Guids.IGuidGenerator>();
+        guidGen.Create().Returns(_ => Guid.NewGuid());
+
+        var inv1 = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "SINV-001", DateTime.UtcNow);
+        inv1.AddItem(Guid.NewGuid(), "Item 1", 1, 100m, 0m);
+        var inv2 = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "SINV-002", DateTime.UtcNow);
+        inv2.AddItem(Guid.NewGuid(), "Item 2", 2, 50m, 0m);
+
+        var invoices = new List<SalesInvoice> { inv1, inv2 };
+        invoiceRepo.GetQueryableAsync().Returns(Task.FromResult(invoices.AsQueryable()));
+        customerRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Customer>().AsQueryable()));
+        consolRepo.GetListAsync(NSubstitute.Arg.Any<System.Linq.Expressions.Expression<Func<EInvoiceConsolidation, bool>>>())
+            .Returns(Task.FromResult(new List<EInvoiceConsolidation>()));
+
+        var service = new MyERP.EInvoice.Services.EInvoiceConsolidationService(invoiceRepo, consolRepo, customerRepo, guidGen);
+        var result = await service.ConsolidateInvoicesAsync(new List<Guid> { inv1.Id, inv2.Id }, CompanyId);
+
+        Assert.NotEmpty(result);
+        Assert.NotNull(inv1.ConsolidatedSalesInvoiceId);
+        Assert.NotNull(inv2.ConsolidatedSalesInvoiceId);
+        Assert.Equal(result[0], inv1.ConsolidatedSalesInvoiceId);
+        Assert.Equal(result[0], inv2.ConsolidatedSalesInvoiceId);
     }
 }

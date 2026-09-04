@@ -24,19 +24,22 @@ public class EInvoiceValidationService : ITransientDependency
     private readonly IRepository<Supplier, Guid> _supplierRepository;
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepository;
     private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
+    private readonly IRepository<Entities.EInvoiceConsolidation, Guid>? _consolidationRepository;
 
     public EInvoiceValidationService(
         IRepository<Company, Guid> companyRepository,
         IRepository<Customer, Guid> customerRepository,
         IRepository<Supplier, Guid> supplierRepository,
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
-        IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository)
+        IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
+        IRepository<Entities.EInvoiceConsolidation, Guid>? consolidationRepository = null)
     {
         _companyRepository = companyRepository;
         _customerRepository = customerRepository;
         _supplierRepository = supplierRepository;
         _salesInvoiceRepository = salesInvoiceRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
+        _consolidationRepository = consolidationRepository;
     }
 
     /// <summary>
@@ -61,6 +64,13 @@ public class EInvoiceValidationService : ITransientDependency
         // Invoice status validations
         if (invoice.Status != Core.DocumentStatus.Posted && invoice.Status != Core.DocumentStatus.Submitted)
             errors.Add("Invoice must be in Submitted or Posted status before e-Invoice submission.");
+
+        // Consolidated invoice check (MyInvois commit 0e3fc83: cannot submit individual invoice once merged into consolidated)
+        if (invoice.ConsolidatedSalesInvoiceId.HasValue ||
+            (_consolidationRepository != null && await _consolidationRepository.AnyAsync(c => c.OriginalInvoiceId == invoice.Id)))
+        {
+            errors.Add("This invoice has already been merged into a consolidated invoice and cannot be submitted to LHDN individually.");
+        }
 
         if (invoice.Items.Count == 0)
             errors.Add("Invoice must have at least one line item.");

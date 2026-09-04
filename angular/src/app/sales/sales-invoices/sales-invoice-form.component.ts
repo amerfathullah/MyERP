@@ -4,7 +4,8 @@ import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } 
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TaxChargesTemplateService } from '../../proxy/tax/tax-charges-template.service';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { ToasterService } from '@abp/ng.theme.shared';
 import { InvoiceItemGridComponent } from './components/invoice-item-grid.component';
 import { TaxCalculationService, TaxCalculationResult } from '../../shared/services/tax-calculation.service';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
@@ -57,6 +58,8 @@ export class SalesInvoiceFormComponent implements OnInit {
   private taxRuleService = inject(TaxRuleService);
   private taxTemplateService = inject(TaxChargesTemplateService);
   private priceListService = inject(PriceListService);
+  private toaster = inject(ToasterService);
+  private l = inject(LocalizationService);
 
   isMultiCurrency = signal(false);
   customers = signal<any[]>([]);

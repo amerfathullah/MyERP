@@ -204,6 +204,7 @@
     "NetTotal": "Net Total",
     "GrandTotal": "Grand Total",
     "InvoiceNumber": "Invoice Number",
+    "InvoiceConsolidatedNotice": "This invoice has already been merged into Consolidated Invoice",
     "Tax": "Tax",
     "Items": "Items",
     "Qty": "Qty",

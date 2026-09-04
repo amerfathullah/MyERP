@@ -292,4 +292,20 @@ public class EInvoiceValidationServiceTests
         var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
         Assert.Contains(errors, e => e.Contains("Self-billed Debit Note must reference an original purchase invoice"));
     }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_ConsolidatedInvoice_ReturnsError()
+    {
+        // Per MyInvois commit 0e3fc83: cannot submit individual invoice once merged into consolidated invoice
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "SINV-003", DateTime.UtcNow);
+        invoice.AddItem(_itemId, "Item A", 1, 50m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.ConsolidatedSalesInvoiceId = Guid.NewGuid();
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("already been merged into a consolidated invoice"));
+    }
 }

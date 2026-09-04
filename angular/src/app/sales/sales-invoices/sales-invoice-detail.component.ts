@@ -67,7 +67,11 @@ export class SalesInvoiceDetailComponent implements OnInit {
   private documentEmailService = inject(DocumentEmailService);
   private localization = inject(LocalizationService);
 
-  invoice: SalesInvoiceDto | null = null;
+  invoice: (SalesInvoiceDto & {
+    isConsolidated?: boolean;
+    consolidatedSalesInvoiceId?: string | null;
+    consolidatedSalesInvoiceNumber?: string | null;
+  }) | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
   paymentSchedule = signal<any[]>([]);
   linkedPayments = signal<any[]>([]);
@@ -103,7 +107,8 @@ export class SalesInvoiceDetailComponent implements OnInit {
           actions.push({ name: 'writeOff', label: 'Write Off', icon: 'fa fa-eraser', btnClass: 'btn-outline-secondary' });
         }
         actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', btnClass: 'btn-outline-danger' });
-        if (!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted') {
+        // Per MyInvois commit 0e3fc83: cannot submit to LHDN if already consolidated
+        if ((!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted') && !(this.invoice as any).consolidatedSalesInvoiceId) {
           actions.push({ name: 'submitLhdn', label: 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', btnClass: 'btn-outline-primary' });
         }
         if (this.invoice.eInvoiceStatus === 'Valid') {

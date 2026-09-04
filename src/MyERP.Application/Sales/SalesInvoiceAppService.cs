@@ -110,6 +110,27 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
+        // Per MyInvois commit 0e3fc83: resolve consolidated sales invoice number
+        if (invoice.ConsolidatedSalesInvoiceId.HasValue)
+        {
+            var consolidated = await _repository.FindAsync(invoice.ConsolidatedSalesInvoiceId.Value);
+            if (consolidated != null)
+            {
+                dto.ConsolidatedSalesInvoiceNumber = consolidated.InvoiceNumber;
+            }
+        }
+        else
+        {
+            var consolidationRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<EInvoice.Entities.EInvoiceConsolidation, Guid>>();
+            var link = (await consolidationRepo.GetQueryableAsync()).FirstOrDefault(c => c.OriginalInvoiceId == invoice.Id);
+            if (link != null)
+            {
+                dto.ConsolidatedSalesInvoiceId = link.ConsolidatedInvoiceId;
+                var consolidated = await _repository.FindAsync(link.ConsolidatedInvoiceId);
+                dto.ConsolidatedSalesInvoiceNumber = consolidated?.InvoiceNumber;
+            }
+        }
+
         await AttachSalesTeamAsync(dto);
 
         return dto;
@@ -419,7 +440,29 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.IsOpening = input.IsOpening;
         invoice.IsPos = input.IsPos;
         invoice.IsConsolidated = input.IsConsolidated;
+        invoice.ConsolidatedSalesInvoiceId = input.ConsolidatedSalesInvoiceId;
+        invoice.BuyerTin = input.BuyerTin;
+        invoice.SupplierTin = input.SupplierTin;
         invoice.PosProfileId = input.PosProfileId;
+
+        // Per MyInvois commit 780a4cf: sync buyer TIN with Customer TIN
+        if (!string.IsNullOrWhiteSpace(invoice.BuyerTin))
+        {
+            var customer = await _customerRepository.FindAsync(invoice.CustomerId);
+            if (customer != null && string.IsNullOrWhiteSpace(customer.Tin))
+            {
+                customer.Tin = invoice.BuyerTin;
+                await _customerRepository.UpdateAsync(customer);
+            }
+        }
+        else
+        {
+            var customer = await _customerRepository.FindAsync(invoice.CustomerId);
+            if (customer != null && !string.IsNullOrWhiteSpace(customer.Tin))
+            {
+                invoice.BuyerTin = customer.Tin;
+            }
+        }
 
         // Per ERPNext PR #46907 / commit 3de1b22480: validate if pos is opened before pos invoice creation
         if (input.IsPos && !input.IsConsolidated)

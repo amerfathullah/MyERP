@@ -92,6 +92,10 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public Guid? ProjectId { get; set; }
     public bool IsPos { get; set; }
     public bool IsConsolidated { get; set; }
+    public Guid? ConsolidatedSalesInvoiceId { get; set; }
+    public string? ConsolidatedSalesInvoiceNumber { get; set; }
+    public string? BuyerTin { get; set; }
+    public string? SupplierTin { get; set; }
     public Guid? PosProfileId { get; set; }
 
     /// <summary>Days past due date. 0 when not overdue or no due date.</summary>
@@ -183,6 +187,15 @@ public class CreateSalesInvoiceDto
 
     /// <summary>If true, this is a consolidated summary invoice created from POS closing.</summary>
     public bool IsConsolidated { get; set; }
+
+    /// <summary>If this is an original invoice merged into a consolidated invoice, the target consolidated SI ID.</summary>
+    public Guid? ConsolidatedSalesInvoiceId { get; set; }
+
+    /// <summary>Buyer TIN override for LHDN e-Invoice.</summary>
+    public string? BuyerTin { get; set; }
+
+    /// <summary>Supplier TIN override for LHDN e-Invoice.</summary>
+    public string? SupplierTin { get; set; }
 
     /// <summary>Linked POS Profile for POS invoices. Per ERPNext PR #46907 / commit 3de1b22480.</summary>
     public Guid? PosProfileId { get; set; }
