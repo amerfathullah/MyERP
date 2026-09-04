@@ -241,7 +241,7 @@ export class SalesInvoiceFormComponent implements OnInit {
     }
   }
 
-  addItemRow(item?: SalesInvoiceItemDto): void {
+  addItemRow(item?: any): void {
     this.items.push(this.fb.group({
       itemId: [item?.itemId ?? '', Validators.required],
       description: [item?.description ?? '', Validators.required],
@@ -249,6 +249,8 @@ export class SalesInvoiceFormComponent implements OnInit {
       unitPrice: [item?.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
       taxAmount: [item?.taxAmount ?? 0],
       uom: [item?.uom ?? 'EA'],
+      salesOrderItemId: [item?.salesOrderItemId ?? null],
+      deliveryNoteItemId: [item?.deliveryNoteItemId ?? null],
     }));
   }
 
@@ -423,19 +425,48 @@ export class SalesInvoiceFormComponent implements OnInit {
     this.service.getUnbilledOrderItems(customerId, companyId || undefined).subscribe({
       next: (items: any[]) => {
         this.isLoadingSoItems.set(false);
-        if (!items?.length) return;
-        // Clear existing items and load from SO
-        this.items.clear();
-        items.forEach((item: any) => {
-          this.addItemRow({
-            itemId: item.itemId,
-            description: item.itemName ?? item.description,
-            quantity: item.unbilledQty ?? item.quantity,
-            unitPrice: item.rate ?? item.unitPrice ?? 0,
-            uom: item.uom ?? 'EA',
-          } as any);
+        if (!items?.length) {
+          this.toaster.info(this.l.instant('::NoUnbilledOrderItems'));
+          return;
+        }
+
+        // Compute quantities already mapped into the target form to prevent duplicate rows (ERPNext PR #58617)
+        const mappedQtyBySoItem = new Map<string, number>();
+        this.items.controls.forEach(c => {
+          const soItemId = c.get('salesOrderItemId')?.value;
+          const qty = Number(c.get('quantity')?.value) || 0;
+          if (soItemId) {
+            mappedQtyBySoItem.set(soItemId, (mappedQtyBySoItem.get(soItemId) || 0) + qty);
+          }
         });
-        this.recalculate();
+
+        let loadedCount = 0;
+        items.forEach((item: any) => {
+          const soItemId = item.salesOrderItemId ?? item.id;
+          const alreadyMapped = mappedQtyBySoItem.get(soItemId) || 0;
+          const totalPending = item.unbilledQty ?? item.quantity ?? 0;
+          const remainingQty = totalPending - alreadyMapped;
+
+          if (remainingQty > 0) {
+            this.addItemRow({
+              itemId: item.itemId,
+              description: item.itemName ?? item.description,
+              quantity: remainingQty,
+              unitPrice: item.rate ?? item.unitPrice ?? 0,
+              uom: item.uom ?? 'EA',
+              salesOrderItemId: soItemId,
+            } as any);
+            mappedQtyBySoItem.set(soItemId, alreadyMapped + remainingQty);
+            loadedCount++;
+          }
+        });
+
+        if (loadedCount > 0) {
+          this.recalculate();
+          this.toaster.success(this.l.instant('::ItemsLoadedFromSO', loadedCount.toString()));
+        } else {
+          this.toaster.info(this.l.instant('::AllItemsAlreadyBilled'));
+        }
       },
       error: () => this.isLoadingSoItems.set(false),
     });
@@ -449,19 +480,48 @@ export class SalesInvoiceFormComponent implements OnInit {
     this.service.getUnbilledDeliveryItems(customerId, companyId || undefined).subscribe({
       next: (items: any[]) => {
         this.isLoadingDnItems.set(false);
-        if (!items?.length) return;
-        // Clear existing items and load from DN
-        this.items.clear();
-        items.forEach((item: any) => {
-          this.addItemRow({
-            itemId: item.itemId,
-            description: item.itemName ?? item.description,
-            quantity: item.unbilledQty ?? item.quantity,
-            unitPrice: item.rate ?? item.unitPrice ?? 0,
-            uom: item.uom ?? 'EA',
-          } as any);
+        if (!items?.length) {
+          this.toaster.info(this.l.instant('::NoUnbilledDeliveryItems'));
+          return;
+        }
+
+        // Compute quantities already mapped into the target form to prevent duplicate rows (ERPNext PR #58617)
+        const mappedQtyByDnItem = new Map<string, number>();
+        this.items.controls.forEach(c => {
+          const dnItemId = c.get('deliveryNoteItemId')?.value;
+          const qty = Number(c.get('quantity')?.value) || 0;
+          if (dnItemId) {
+            mappedQtyByDnItem.set(dnItemId, (mappedQtyByDnItem.get(dnItemId) || 0) + qty);
+          }
         });
-        this.recalculate();
+
+        let loadedCount = 0;
+        items.forEach((item: any) => {
+          const dnItemId = item.deliveryNoteItemId ?? item.id;
+          const alreadyMapped = mappedQtyByDnItem.get(dnItemId) || 0;
+          const totalPending = item.unbilledQty ?? item.quantity ?? 0;
+          const remainingQty = totalPending - alreadyMapped;
+
+          if (remainingQty > 0) {
+            this.addItemRow({
+              itemId: item.itemId,
+              description: item.itemName ?? item.description,
+              quantity: remainingQty,
+              unitPrice: item.rate ?? item.unitPrice ?? 0,
+              uom: item.uom ?? 'EA',
+              deliveryNoteItemId: dnItemId,
+            } as any);
+            mappedQtyByDnItem.set(dnItemId, alreadyMapped + remainingQty);
+            loadedCount++;
+          }
+        });
+
+        if (loadedCount > 0) {
+          this.recalculate();
+          this.toaster.success(this.l.instant('::ItemsLoadedFromDN', loadedCount.toString()));
+        } else {
+          this.toaster.info(this.l.instant('::AllItemsAlreadyBilled'));
+        }
       },
       error: () => this.isLoadingDnItems.set(false),
     });
@@ -577,6 +637,8 @@ export class SalesInvoiceFormComponent implements OnInit {
         unitPrice: item.unitPrice ?? item.rate ?? 0,
         taxAmount: item.taxAmount ?? 0,
         uom: item.uom ?? 'Unit',
+        salesOrderItemId: item.salesOrderItemId || undefined,
+        deliveryNoteItemId: item.deliveryNoteItemId || undefined,
       })),
       salesTeam: salesTeamRows.length > 0
         ? salesTeamRows.map((r): SalesTeamAllocationInputDto => ({

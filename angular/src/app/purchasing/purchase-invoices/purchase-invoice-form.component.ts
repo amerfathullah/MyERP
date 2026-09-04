@@ -231,6 +231,8 @@ export class PurchaseInvoiceFormComponent implements OnInit {
       unitPrice: [item?.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
       taxAmount: [item?.taxAmount ?? 0],
       uom: [item?.uom ?? 'EA'],
+      purchaseOrderItemId: [item?.purchaseOrderItemId ?? null],
+      purchaseReceiptItemId: [item?.purchaseReceiptItemId ?? null],
     }));
   }
 
@@ -462,20 +464,44 @@ export class PurchaseInvoiceFormComponent implements OnInit {
           this.toaster.info('::NoUnbilledOrderItems');
           return;
         }
-        // Clear existing items and populate from PO
-        while (this.items.length > 0) this.items.removeAt(0);
-        items.forEach((item: any) => {
-          this.addItemRow({
-            itemId: item.itemId,
-            description: item.itemName || '',
-            quantity: item.unbilledQty ?? item.quantity ?? 1,
-            unitPrice: item.rate ?? item.unitPrice ?? 0,
-            uom: item.uom ?? 'Unit',
-            purchaseOrderItemId: item.purchaseOrderItemId ?? item.id ?? null,
-          });
+
+        // Compute quantities already mapped into the target form to prevent duplicate rows (ERPNext PR #58617)
+        const mappedQtyByPoItem = new Map<string, number>();
+        this.items.controls.forEach(c => {
+          const poItemId = c.get('purchaseOrderItemId')?.value;
+          const qty = Number(c.get('quantity')?.value) || 0;
+          if (poItemId) {
+            mappedQtyByPoItem.set(poItemId, (mappedQtyByPoItem.get(poItemId) || 0) + qty);
+          }
         });
-        this.recalculate();
-        this.toaster.success(this.l.instant('::ItemsLoadedFromPO', items.length.toString()));
+
+        let loadedCount = 0;
+        items.forEach((item: any) => {
+          const poItemId = item.purchaseOrderItemId ?? item.id;
+          const alreadyMapped = mappedQtyByPoItem.get(poItemId) || 0;
+          const totalPending = item.unbilledQty ?? item.quantity ?? 1;
+          const remainingQty = totalPending - alreadyMapped;
+
+          if (remainingQty > 0) {
+            this.addItemRow({
+              itemId: item.itemId,
+              description: item.itemName || '',
+              quantity: remainingQty,
+              unitPrice: item.rate ?? item.unitPrice ?? 0,
+              uom: item.uom ?? 'Unit',
+              purchaseOrderItemId: poItemId,
+            });
+            mappedQtyByPoItem.set(poItemId, alreadyMapped + remainingQty);
+            loadedCount++;
+          }
+        });
+
+        if (loadedCount > 0) {
+          this.recalculate();
+          this.toaster.success(this.l.instant('::ItemsLoadedFromPO', loadedCount.toString()));
+        } else {
+          this.toaster.info(this.l.instant('::AllItemsAlreadyBilled'));
+        }
       },
       error: () => {
         this.isLoadingPOItems.set(false);
@@ -495,21 +521,45 @@ export class PurchaseInvoiceFormComponent implements OnInit {
           this.toaster.info('::NoUnbilledReceiptItems');
           return;
         }
-        // Clear existing items and populate from PR
-        while (this.items.length > 0) this.items.removeAt(0);
-        items.forEach((item: any) => {
-          this.addItemRow({
-            itemId: item.itemId,
-            description: item.itemName || '',
-            quantity: item.quantity ?? 1,
-            unitPrice: item.rate ?? item.unitPrice ?? 0,
-            uom: item.uom ?? 'Unit',
-            purchaseReceiptItemId: item.purchaseReceiptItemId ?? item.id ?? null,
-            purchaseOrderItemId: item.purchaseOrderItemId ?? null,
-          });
+
+        // Compute quantities already mapped into the target form to prevent duplicate rows (ERPNext PR #58617)
+        const mappedQtyByPrItem = new Map<string, number>();
+        this.items.controls.forEach(c => {
+          const prItemId = c.get('purchaseReceiptItemId')?.value;
+          const qty = Number(c.get('quantity')?.value) || 0;
+          if (prItemId) {
+            mappedQtyByPrItem.set(prItemId, (mappedQtyByPrItem.get(prItemId) || 0) + qty);
+          }
         });
-        this.recalculate();
-        this.toaster.success(this.l.instant('::ItemsLoadedFromPR', items.length.toString()));
+
+        let loadedCount = 0;
+        items.forEach((item: any) => {
+          const prItemId = item.purchaseReceiptItemId ?? item.id;
+          const alreadyMapped = mappedQtyByPrItem.get(prItemId) || 0;
+          const totalPending = item.quantity ?? 1;
+          const remainingQty = totalPending - alreadyMapped;
+
+          if (remainingQty > 0) {
+            this.addItemRow({
+              itemId: item.itemId,
+              description: item.itemName || '',
+              quantity: remainingQty,
+              unitPrice: item.rate ?? item.unitPrice ?? 0,
+              uom: item.uom ?? 'Unit',
+              purchaseReceiptItemId: prItemId,
+              purchaseOrderItemId: item.purchaseOrderItemId ?? null,
+            });
+            mappedQtyByPrItem.set(prItemId, alreadyMapped + remainingQty);
+            loadedCount++;
+          }
+        });
+
+        if (loadedCount > 0) {
+          this.recalculate();
+          this.toaster.success(this.l.instant('::ItemsLoadedFromPR', loadedCount.toString()));
+        } else {
+          this.toaster.info(this.l.instant('::AllItemsAlreadyBilled'));
+        }
       },
       error: () => {
         this.isLoadingPRItems.set(false);

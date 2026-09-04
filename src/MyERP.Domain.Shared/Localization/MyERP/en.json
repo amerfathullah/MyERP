@@ -3278,6 +3278,8 @@
     "Placeholder:SelectPurchaseOrder": "— Select Purchase Order (optional) —",
     "Placeholder:SelectSalesOrder": "— Select Sales Order (optional) —",
     "ItemsLoadedFromSO": "{0} items loaded from Sales Order",
+    "ItemsLoadedFromDN": "{0} items loaded from Delivery Notes",
+    "AllItemsAlreadyBilled": "All items from this document have already been billed or mapped",
     "ItemsLoadedFromPickList": "{0} items loaded from Pick List",
     "GetItemsFromPickList": "Get Items from Pick List",
     "AllItemsAlreadyTransferred": "All items have already been transferred",

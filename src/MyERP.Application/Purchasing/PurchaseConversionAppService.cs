@@ -81,10 +81,22 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         receipt.PurchaseOrderId = po.Id;
         receipt.CurrencyCode = po.CurrencyCode;
 
+        // Deduct quantities already mapped in draft Purchase Receipts (per ERPNext PR #58617)
+        var prQuery = await _purchaseReceiptRepository.GetQueryableAsync();
+        var draftReceipts = prQuery
+            .Where(pr => pr.Status == Core.DocumentStatus.Draft)
+            .SelectMany(pr => pr.Items)
+            .Where(i => i.PurchaseOrderItemId.HasValue)
+            .GroupBy(i => i.PurchaseOrderItemId!.Value)
+            .Select(g => new { PoItemId = g.Key, Qty = g.Sum(i => i.Quantity) })
+            .ToList();
+        var draftReceiptQtyByItem = draftReceipts.ToDictionary(x => x.PoItemId, x => x.Qty);
+
         foreach (var item in po.Items)
         {
-            // Only convert pending receipt qty (supports partial receipts)
-            var pendingQty = item.PendingReceiptQty;
+            // Only convert pending receipt qty minus draft mapped qty (supports partial receipts)
+            var draftQty = draftReceiptQtyByItem.GetValueOrDefault(item.Id, 0m);
+            var pendingQty = Math.Max(0, item.PendingReceiptQty - draftQty);
             if (pendingQty > 0)
             {
                 receipt.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom, item.Id);
@@ -97,6 +109,12 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
                     lastItem.WarehouseId = item.WarehouseId;
             }
         }
+
+        if (receipt.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "PurchaseOrder")
+                .WithData("documentNumber", po.OrderNumber)
+                .WithData("reason", "All items in this Purchase Order have been fully received or have pending draft receipts.");
 
         await _purchaseReceiptRepository.InsertAsync(receipt, autoSave: true);
 
@@ -128,10 +146,22 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         invoice.CurrencyCode = po.CurrencyCode;
         invoice.Notes = po.Notes;
 
+        // Deduct quantities already mapped in draft Purchase Invoices (per ERPNext PR #58617)
+        var piQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
+        var draftInvoices = piQuery
+            .Where(pi => pi.Status == Core.DocumentStatus.Draft)
+            .SelectMany(pi => pi.Items)
+            .Where(i => i.PurchaseOrderItemId.HasValue)
+            .GroupBy(i => i.PurchaseOrderItemId!.Value)
+            .Select(g => new { PoItemId = g.Key, Qty = g.Sum(i => i.Quantity) })
+            .ToList();
+        var draftInvoiceQtyByItem = draftInvoices.ToDictionary(x => x.PoItemId, x => x.Qty);
+
         foreach (var item in po.Items)
         {
-            // Only bill pending qty
-            var pendingQty = item.PendingBillingQty;
+            // Only bill pending qty minus draft mapped qty
+            var draftQty = draftInvoiceQtyByItem.GetValueOrDefault(item.Id, 0m);
+            var pendingQty = Math.Max(0, item.PendingBillingQty - draftQty);
             if (pendingQty > 0)
             {
                 invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom);
@@ -141,6 +171,12 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
                 lastItem.ConversionFactor = item.ConversionFactor;
             }
         }
+
+        if (invoice.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "PurchaseOrder")
+                .WithData("documentNumber", po.OrderNumber)
+                .WithData("reason", "All items in this Purchase Order have been fully billed or have pending draft invoices.");
 
         await _purchaseInvoiceRepository.InsertAsync(invoice, autoSave: true);
 
@@ -172,15 +208,36 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         invoice.CurrencyCode = receipt.CurrencyCode;
         invoice.Notes = receipt.Notes;
 
+        // Deduct quantities already mapped in draft Purchase Invoices (per ERPNext PR #58617)
+        var piQuery2 = await _purchaseInvoiceRepository.GetQueryableAsync();
+        var draftInvoices2 = piQuery2
+            .Where(pi => pi.Status == Core.DocumentStatus.Draft)
+            .SelectMany(pi => pi.Items)
+            .Where(i => i.PurchaseReceiptItemId.HasValue)
+            .GroupBy(i => i.PurchaseReceiptItemId!.Value)
+            .Select(g => new { PrItemId = g.Key, Qty = g.Sum(i => i.Quantity) })
+            .ToList();
+        var draftInvoiceQtyByPrItem = draftInvoices2.ToDictionary(x => x.PrItemId, x => x.Qty);
+
         foreach (var item in receipt.Items)
         {
-            invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            var draftQty = draftInvoiceQtyByPrItem.GetValueOrDefault(item.Id, 0m);
+            var pendingQty = Math.Max(0, item.Quantity - item.BilledQty - draftQty);
+            if (pendingQty <= 0) continue;
+
+            invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom);
             var lastItem = invoice.Items.Last();
             lastItem.PurchaseOrderItemId = item.PurchaseOrderItemId;
             lastItem.PurchaseReceiptItemId = item.Id;
             lastItem.StockUom = item.StockUom;
             lastItem.ConversionFactor = item.ConversionFactor;
         }
+
+        if (invoice.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "PurchaseReceipt")
+                .WithData("documentNumber", receipt.ReceiptNumber)
+                .WithData("reason", "All items in this Purchase Receipt have been fully billed or have pending draft invoices.");
 
         await _purchaseInvoiceRepository.InsertAsync(invoice, autoSave: true);
 

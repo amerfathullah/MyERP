@@ -136,6 +136,7 @@ export class DeliveryNoteFormComponent implements OnInit {
       unitPrice: [item?.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
       taxAmount: [item?.taxAmount ?? 0],
       uom: [item?.uom ?? 'Unit'],
+      salesOrderItemId: [item?.salesOrderItemId ?? null],
     }));
   }
 
@@ -196,6 +197,7 @@ export class DeliveryNoteFormComponent implements OnInit {
               unitPrice: item.unitPrice ?? 0,
               uom: item.uom ?? 'Unit',
               warehouseId: item.warehouseId,
+              salesOrderItemId: item.id,
             });
             loadedCount++;
           }
@@ -289,6 +291,10 @@ export class DeliveryNoteFormComponent implements OnInit {
       ...raw,
       salesOrderId: raw.salesOrderId || null,
       returnAgainstId: raw.returnAgainstId || null,
+      items: (raw.items ?? []).map((item: any) => ({
+        ...item,
+        salesOrderItemId: item.salesOrderItemId || undefined,
+      })),
     };
     if (this.isEditMode) {
       this.service.update(this.entityId!, value).subscribe({

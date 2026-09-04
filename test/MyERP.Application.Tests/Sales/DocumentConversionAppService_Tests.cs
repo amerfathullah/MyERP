@@ -238,4 +238,65 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
         deliveryNote.Items[0].Quantity.ShouldBe(10);
         deliveryNote.Status.ShouldBe("Draft");
     }
+
+    [Fact]
+    public async Task Should_Prevent_Over_Delivery_When_Selected_Items_Have_Duplicates()
+    {
+        // Arrange
+        var (companyId, customerId, warehouseId) = await SeedDataAsync();
+
+        var salesOrder = await _salesOrderService.CreateAsync(new CreateSalesOrderDto
+        {
+            CompanyId = companyId,
+            CustomerId = customerId,
+            OrderDate = DateTime.Today,
+            Items = new()
+            {
+                new() { ItemId = Guid.NewGuid(), Description = "Product Y", Quantity = 5, UnitPrice = 50m, WarehouseId = warehouseId }
+            }
+        });
+        await _salesOrderService.SubmitAsync(salesOrder.Id);
+
+        var soItem = salesOrder.Items[0];
+
+        // Act: Pass duplicate selected items each requesting 5 units (total 10 units requested for a 5 unit order)
+        var selected = new System.Collections.Generic.List<PartialDeliveryItemDto>
+        {
+            new() { SalesOrderItemId = soItem.Id, Quantity = 5, WarehouseId = warehouseId },
+            new() { SalesOrderItemId = soItem.Id, Quantity = 5, WarehouseId = warehouseId }
+        };
+
+        var deliveryNote = await _conversionService.ConvertSalesOrderToDeliveryNoteAsync(salesOrder.Id, selected);
+
+        // Assert: only 1 row created, capped at 5 units (cannot map duplicate rows exceeding pending qty)
+        deliveryNote.Items.Count.ShouldBe(1);
+        deliveryNote.Items[0].Quantity.ShouldBe(5);
+    }
+
+    [Fact]
+    public async Task Should_Prevent_Duplicate_Conversion_To_SalesInvoice_When_Draft_Invoice_Covers_Full_Qty()
+    {
+        // Arrange
+        var (companyId, customerId, warehouseId) = await SeedDataAsync();
+
+        var salesOrder = await _salesOrderService.CreateAsync(new CreateSalesOrderDto
+        {
+            CompanyId = companyId,
+            CustomerId = customerId,
+            OrderDate = DateTime.Today,
+            Items = new()
+            {
+                new() { ItemId = Guid.NewGuid(), Description = "Widget Z", Quantity = 10, UnitPrice = 100m, WarehouseId = warehouseId }
+            }
+        });
+        await _salesOrderService.SubmitAsync(salesOrder.Id);
+
+        // First conversion creates a draft invoice covering 10 units
+        var firstInvoice = await _conversionService.ConvertSalesOrderToSalesInvoiceAsync(salesOrder.Id);
+        firstInvoice.Status.ShouldBe("Draft");
+
+        // Act & Assert: second conversion should detect draft invoice and reject duplicate conversion
+        await Assert.ThrowsAsync<Volo.Abp.BusinessException>(
+            () => _conversionService.ConvertSalesOrderToSalesInvoiceAsync(salesOrder.Id));
+    }
 }

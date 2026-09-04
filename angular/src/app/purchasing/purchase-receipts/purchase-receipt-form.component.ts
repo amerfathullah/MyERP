@@ -120,6 +120,7 @@ export class PurchaseReceiptFormComponent implements OnInit {
               quantity: [pendingQty, [Validators.required, Validators.min(0.01)]],
               unitPrice: [item.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
               uom: [item.uom ?? 'EA'],
+              purchaseOrderItemId: [item.id ?? null],
             }));
             loadedCount++;
           }
@@ -225,6 +226,10 @@ export class PurchaseReceiptFormComponent implements OnInit {
       ...raw,
       purchaseOrderId: raw.purchaseOrderId || null,
       returnAgainstId: raw.returnAgainstId || null,
+      items: (raw.items ?? []).map((item: any) => ({
+        ...item,
+        purchaseOrderItemId: item.purchaseOrderItemId || undefined,
+      })),
     } as unknown as CreatePurchaseReceiptDto;
     if (this.isEditMode) {
       this.service.update(this.entityId!, dto).subscribe({

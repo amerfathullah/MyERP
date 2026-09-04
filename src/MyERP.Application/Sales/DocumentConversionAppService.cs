@@ -171,12 +171,16 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         if (selectedItems is { Count: > 0 })
         {
             var soItemMap = salesOrder.Items.ToDictionary(i => i.Id);
+            var mappedQtyByItem = new Dictionary<Guid, decimal>();
             foreach (var sel in selectedItems)
             {
                 if (!soItemMap.TryGetValue(sel.SalesOrderItemId, out var soItem)) continue;
-                var deliverQty = Math.Min(sel.Quantity, soItem.PendingDeliveryQty);
+                var alreadyMapped = mappedQtyByItem.GetValueOrDefault(sel.SalesOrderItemId, 0m);
+                var remainingPending = Math.Max(0, soItem.PendingDeliveryQty - alreadyMapped);
+                var deliverQty = Math.Min(sel.Quantity, remainingPending);
                 if (deliverQty <= 0) continue;
                 deliveryNote.AddItem(soItem.ItemId, soItem.Description, deliverQty, soItem.UnitPrice, soItem.TaxAmount, soItem.Uom, soItem.Id);
+                mappedQtyByItem[sel.SalesOrderItemId] = alreadyMapped + deliverQty;
                 var lastItem = deliveryNote.Items[^1];
                 lastItem.StockUom = soItem.StockUom;
                 lastItem.ConversionFactor = soItem.ConversionFactor;
@@ -306,10 +310,22 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         invoice.CurrencyCode = salesOrder.CurrencyCode;
         invoice.Notes = salesOrder.Notes;
 
+        // Account for draft Sales Invoices in the system (per ERPNext PR #58617)
+        var siQuery = await _salesInvoiceRepository.GetQueryableAsync();
+        var draftInvoices = siQuery
+            .Where(si => si.Status == Core.DocumentStatus.Draft)
+            .SelectMany(si => si.Items)
+            .Where(i => i.SalesOrderItemId.HasValue)
+            .GroupBy(i => i.SalesOrderItemId!.Value)
+            .Select(g => new { SoItemId = g.Key, Qty = g.Sum(i => i.Quantity) })
+            .ToList();
+        var draftMappedQtyByItem = draftInvoices.ToDictionary(x => x.SoItemId, x => x.Qty);
+
         foreach (var item in salesOrder.Items)
         {
-            // Only bill pending qty
-            var pendingQty = item.PendingBillingQty;
+            // Only bill pending qty minus any draft mapped qty (per ERPNext PR #58617)
+            var draftQty = draftMappedQtyByItem.GetValueOrDefault(item.Id, 0m);
+            var pendingQty = Math.Max(0, item.PendingBillingQty - draftQty);
             if (pendingQty > 0)
             {
                 invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom);
@@ -319,6 +335,12 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                 lastItem.ConversionFactor = item.ConversionFactor;
             }
         }
+
+        if (invoice.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "SalesOrder")
+                .WithData("documentNumber", salesOrder.OrderNumber ?? "")
+                .WithData("reason", "All items in this Sales Order have been fully billed or have pending draft invoices.");
 
         await _salesInvoiceRepository.InsertAsync(invoice, autoSave: true);
 
@@ -339,16 +361,28 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         if (deliveryNote.Status != Core.DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
-        // Per ERPNext DN→SI mapper: pending = qty - invoiced_qty - returned_qty
+        // Per ERPNext DN→SI mapper: pending = qty - invoiced_qty - returned_qty - draft_mapped_qty
         // Get returned qty per DN item (from return DNs referencing this DN)
         var returnedQtyMap = await GetReturnedQtyMapAsync(deliveryNoteId);
+
+        // Account for draft Sales Invoices in the system (per ERPNext PR #58617)
+        var siQuery2 = await _salesInvoiceRepository.GetQueryableAsync();
+        var draftInvoices2 = siQuery2
+            .Where(si => si.Status == Core.DocumentStatus.Draft)
+            .SelectMany(si => si.Items)
+            .Where(i => i.DeliveryNoteItemId.HasValue)
+            .GroupBy(i => i.DeliveryNoteItemId!.Value)
+            .Select(g => new { DnItemId = g.Key, Qty = g.Sum(i => i.Quantity) })
+            .ToList();
+        var draftMappedQtyByItem = draftInvoices2.ToDictionary(x => x.DnItemId, x => x.Qty);
 
         // Guard: check pending billing qty per DN item to prevent double-billing
         var hasConvertibleItems = false;
         foreach (var item in deliveryNote.Items)
         {
             var returnedQty = returnedQtyMap.GetValueOrDefault(item.Id, 0m);
-            var pendingQty = item.Quantity - item.BilledQty - returnedQty;
+            var draftQty = draftMappedQtyByItem.GetValueOrDefault(item.Id, 0m);
+            var pendingQty = item.Quantity - item.BilledQty - returnedQty - draftQty;
             if (pendingQty > 0)
             {
                 hasConvertibleItems = true;
@@ -359,7 +393,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
                 .WithData("documentType", "DeliveryNote")
                 .WithData("documentNumber", deliveryNote.DeliveryNumber)
-                .WithData("reason", "All items in this Delivery Note have been fully invoiced or returned. To bill again, create a credit note first.");
+                .WithData("reason", "All items in this Delivery Note have been fully invoiced, returned, or have pending draft invoices.");
 
         var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", deliveryNote.CompanyId);
 
@@ -375,9 +409,10 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         foreach (var item in deliveryNote.Items)
         {
-            // Per ERPNext: pending = qty - invoiced_qty - returned_qty
+            // Per ERPNext: pending = qty - invoiced_qty - returned_qty - draft_qty
             var returnedQty = returnedQtyMap.GetValueOrDefault(item.Id, 0m);
-            var billingQty = item.Quantity - item.BilledQty - returnedQty;
+            var draftQty = draftMappedQtyByItem.GetValueOrDefault(item.Id, 0m);
+            var billingQty = item.Quantity - item.BilledQty - returnedQty - draftQty;
             if (billingQty <= 0) continue;
 
             invoice.AddItem(item.ItemId, item.Description, billingQty, item.UnitPrice, item.TaxAmount, item.Uom);
