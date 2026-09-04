@@ -35,11 +35,18 @@ public class InvoiceDocumentBuilder : ITransientDependency
         invoice.Add(new XElement(Cbc + "DocumentCurrencyCode", data.CurrencyCode));
 
         // Billing Reference (for credit/debit notes referencing original invoice)
-        if (!string.IsNullOrEmpty(data.BillingReferenceNumber))
+        if (!string.IsNullOrEmpty(data.BillingReferenceNumber) || !string.IsNullOrEmpty(data.BillingReferenceUuid))
         {
-            invoice.Add(new XElement(Cac + "BillingReference",
-                new XElement(Cac + "InvoiceDocumentReference",
-                    new XElement(Cbc + "ID", data.BillingReferenceNumber))));
+            var invoiceDocRef = new XElement(Cac + "InvoiceDocumentReference");
+            if (!string.IsNullOrEmpty(data.BillingReferenceNumber))
+            {
+                invoiceDocRef.Add(new XElement(Cbc + "ID", data.BillingReferenceNumber));
+            }
+            if (!string.IsNullOrEmpty(data.BillingReferenceUuid))
+            {
+                invoiceDocRef.Add(new XElement(Cbc + "UUID", data.BillingReferenceUuid));
+            }
+            invoice.Add(new XElement(Cac + "BillingReference", invoiceDocRef));
         }
 
         // Supplier (AccountingSupplierParty)
@@ -354,6 +361,7 @@ public class EInvoiceDocumentData
     public EInvoiceDeliveryData? Delivery { get; set; }
     public EInvoicePaymentData? Payment { get; set; }
     public string? BillingReferenceNumber { get; set; }
+    public string? BillingReferenceUuid { get; set; }
     public decimal DiscountAmount { get; set; }
     public string? DiscountReason { get; set; }
     public decimal NetTotal { get; set; }

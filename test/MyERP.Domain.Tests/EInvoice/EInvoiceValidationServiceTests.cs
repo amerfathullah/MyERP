@@ -234,4 +234,62 @@ public class EInvoiceValidationServiceTests
         var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
         Assert.DoesNotContain(errors, e => e.Contains("must reference an original purchase invoice"));
     }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_DebitNoteWithoutOriginalInvoice_ReturnsErrorWhenSettingDisabled()
+    {
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "DBN-001", DateTime.UtcNow);
+        invoice.IsReturn = false;
+        invoice.AddItem(_itemId, "Underbilled price correction", 1, 30m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.DebitNote; // Type 03
+        invoice.ReturnAgainstId = null;
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("Debit Note must reference an original invoice"));
+    }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_DebitNoteWithOriginalInvoiceWithoutLhdnUuid_ReturnsError()
+    {
+        var originalId = Guid.NewGuid();
+        var origInvoice = new SalesInvoice(originalId, _companyId, _customerId, "SINV-000", DateTime.UtcNow)
+        {
+            LhdnUuid = null // Not yet submitted to LHDN
+        };
+        _salesInvoiceRepository.FindAsync(originalId).Returns(origInvoice);
+
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "DBN-002", DateTime.UtcNow);
+        invoice.IsReturn = false;
+        invoice.AddItem(_itemId, "Price increase", 1, 25m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.DebitNote;
+        invoice.ReturnAgainstId = originalId;
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("must have a valid LHDN submission (LhdnUuid) before its Debit Note can be submitted"));
+    }
+
+    [Fact]
+    public async Task ValidatePurchaseInvoice_SelfBilledDebitNoteWithoutOriginalInvoice_ReturnsErrorWhenSettingDisabled()
+    {
+        var invoice = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "PINV-DBN-001", DateTime.UtcNow);
+        invoice.IsReturn = false;
+        invoice.AddItem(_itemId, "Supplier surcharge", 1, 40m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.SupplierTin = "C1122334455";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.SelfBilledDebitNote; // Type 13
+        invoice.ReturnAgainstId = null;
+
+        var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("Self-billed Debit Note must reference an original purchase invoice"));
+    }
 }

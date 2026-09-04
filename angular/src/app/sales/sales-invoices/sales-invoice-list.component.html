@@ -204,7 +204,7 @@
                     }
                   </td>
                   <td><app-status-badge [status]="inv.status ?? ''" /></td>
-                  <td><app-lhdn-status-badge [status]="inv.eInvoiceStatus ?? ''" /></td>
+                  <td><app-lhdn-status-badge [status]="inv.eInvoiceStatus ?? ''" [isConsolidated]="inv.isConsolidated" /></td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
                     <button class="btn btn-outline-primary" [routerLink]="[inv.id]"

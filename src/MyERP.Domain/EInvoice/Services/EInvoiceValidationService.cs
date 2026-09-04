@@ -112,6 +112,20 @@ public class EInvoiceValidationService : ITransientDependency
         {
             errors.Add("Credit Note or Refund Note type code can only be used on return invoices.");
         }
+        else if (typeCode is "03")
+        {
+            if (!company.AllowCreditNoteWithoutOriginalInvoice)
+            {
+                if (!invoice.ReturnAgainstId.HasValue)
+                    errors.Add("Debit Note must reference an original invoice (ReturnAgainstId).");
+                else
+                {
+                    var originalInvoice = await _salesInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
+                    if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
+                        errors.Add("The original invoice must have a valid LHDN submission (LhdnUuid) before its Debit Note can be submitted.");
+                }
+            }
+        }
 
         // All-or-nothing tax template rule (per LHDN regulation & original.py line 857)
         var anyItemHasTax = invoice.Items.Any(i => i.TaxCategoryId.HasValue);
@@ -208,6 +222,20 @@ public class EInvoiceValidationService : ITransientDependency
         else if (typeCode is "12" or "14")
         {
             errors.Add("Self-Billed Credit Note or Refund Note type code can only be used on return purchase invoices.");
+        }
+        else if (typeCode is "13")
+        {
+            if (!company.AllowCreditNoteWithoutOriginalInvoice)
+            {
+                if (!invoice.ReturnAgainstId.HasValue)
+                    errors.Add("Self-billed Debit Note must reference an original purchase invoice (ReturnAgainstId).");
+                else
+                {
+                    var originalInvoice = await _purchaseInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
+                    if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
+                        errors.Add("The original purchase invoice must have a valid LHDN submission (LhdnUuid) before its Debit Note can be submitted.");
+                }
+            }
         }
 
         // All-or-nothing tax template rule

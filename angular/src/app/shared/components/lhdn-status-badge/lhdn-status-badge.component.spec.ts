@@ -48,8 +48,15 @@ describe('LhdnStatusBadgeComponent', () => {
     expect(comp.config.badgeClass).toBe('bg-secondary');
   });
 
+  it('should return Consolidated config when isConsolidated is true regardless of status', () => {
+    const comp = createComponent('Valid');
+    comp.isConsolidated = true;
+    expect(comp.config.label).toBe('Consolidated');
+    expect(comp.config.icon).toContain('layer-group');
+  });
+
   it('should handle all LHDN statuses', () => {
-    const statuses = ['Valid', 'Invalid', 'Submitted', 'Cancelled', 'Failed', 'NotSubmitted'];
+    const statuses = ['Valid', 'Invalid', 'Submitted', 'Cancelled', 'Failed', 'NotSubmitted', 'Consolidated'];
     for (const status of statuses) {
       const comp = createComponent(status);
       expect(comp.config).toBeDefined();

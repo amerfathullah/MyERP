@@ -87,10 +87,27 @@ public class EInvoiceXmlBuilderEnhancementTests
     }
 
     [Fact]
+    public void Build_IncludesBillingReferenceWithUuid_WhenUuidProvided()
+    {
+        var data = CreateBasicData();
+        data.DocumentTypeCode = "02";
+        data.BillingReferenceNumber = "INV-ORIG-001";
+        data.BillingReferenceUuid = "12345678-abcd-ef01-2345-6789abcdef01";
+
+        var xml = _builder.Build(data);
+
+        Assert.Contains("BillingReference", xml);
+        Assert.Contains("INV-ORIG-001", xml);
+        Assert.Contains("12345678-abcd-ef01-2345-6789abcdef01", xml);
+        Assert.Contains("<cbc:UUID>12345678-abcd-ef01-2345-6789abcdef01</cbc:UUID>", xml);
+    }
+
+    [Fact]
     public void Build_ExcludesBillingReference_WhenNull()
     {
         var data = CreateBasicData();
         data.BillingReferenceNumber = null;
+        data.BillingReferenceUuid = null;
 
         var xml = _builder.Build(data);
 

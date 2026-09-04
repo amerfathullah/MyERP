@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-export type LhdnStatus = 'Valid' | 'Invalid' | 'Submitted' | 'Cancelled' | 'Failed' | 'NotSubmitted';
+export type LhdnStatus = 'Valid' | 'Invalid' | 'Submitted' | 'Cancelled' | 'Failed' | 'NotSubmitted' | 'Consolidated';
 
 interface LhdnStatusConfig {
   icon: string;
@@ -10,6 +10,7 @@ interface LhdnStatusConfig {
 }
 
 const LHDN_STATUS_MAP: Record<LhdnStatus, LhdnStatusConfig> = {
+  Consolidated: { icon: 'fa fa-layer-group', badgeClass: 'bg-primary-subtle text-primary border border-primary-subtle', label: 'Consolidated' },
   Valid: { icon: 'fa fa-check-circle', badgeClass: 'bg-success', label: 'Valid' },
   Invalid: { icon: 'fa fa-times-circle', badgeClass: 'bg-danger', label: 'Invalid' },
   Submitted: { icon: 'fa fa-clock', badgeClass: 'bg-info', label: 'Submitted' },
@@ -27,8 +28,12 @@ const LHDN_STATUS_MAP: Record<LhdnStatus, LhdnStatusConfig> = {
 })
 export class LhdnStatusBadgeComponent {
   @Input({ required: true }) status!: string;
+  @Input() isConsolidated?: boolean;
 
   get config(): LhdnStatusConfig {
+    if (this.isConsolidated) {
+      return LHDN_STATUS_MAP['Consolidated'];
+    }
     return LHDN_STATUS_MAP[this.status as LhdnStatus] ?? LHDN_STATUS_MAP['NotSubmitted'];
   }
 }
