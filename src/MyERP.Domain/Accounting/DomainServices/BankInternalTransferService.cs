@@ -48,8 +48,9 @@ public class BankInternalTransferService : DomainService
         var query = await _transactionRepository.GetQueryableAsync();
         var tx = query.First(t => t.Id == transactionId);
 
-        var minDate = tx.TransactionDate.AddDays(-transferMatchDays);
-        var maxDate = tx.TransactionDate.AddDays(transferMatchDays);
+        var txDate = tx.TransactionDate.Date;
+        var minDate = txDate.AddDays(-transferMatchDays);
+        var maxDate = txDate.AddDays(transferMatchDays).AddDays(1).AddTicks(-1);
 
         // Search for opposite-sign transaction in a different bank account
         var mirrorCandidates = query
@@ -61,11 +62,18 @@ public class BankInternalTransferService : DomainService
                      && t.Id != tx.Id)
             .ToList();
 
-        // Match opposite direction: withdrawal ↔ deposit
+        decimal txWithdrawal = tx.Withdrawal > 0 ? tx.Withdrawal : (tx.Amount < 0 ? Math.Abs(tx.Amount) : 0);
+        decimal txDeposit = tx.Deposit > 0 ? tx.Deposit : (tx.Amount > 0 ? tx.Amount : 0);
+
+        // Match opposite direction: withdrawal ↔ deposit (per ERPNext PR #58766)
         var matches = mirrorCandidates
             .Where(m =>
-                (tx.Withdrawal > 0 && Math.Abs(m.Deposit - tx.Withdrawal) < 0.01m) ||
-                (tx.Deposit > 0 && Math.Abs(m.Withdrawal - tx.Deposit) < 0.01m))
+            {
+                decimal mWithdrawal = m.Withdrawal > 0 ? m.Withdrawal : (m.Amount < 0 ? Math.Abs(m.Amount) : 0);
+                decimal mDeposit = m.Deposit > 0 ? m.Deposit : (m.Amount > 0 ? m.Amount : 0);
+                return (txWithdrawal > 0 && Math.Abs(mDeposit - txWithdrawal) < 0.01m) ||
+                       (txDeposit > 0 && Math.Abs(mWithdrawal - txDeposit) < 0.01m);
+            })
             .ToList();
 
         // Per ERPNext: return only if exactly 1 match (ambiguity → null)

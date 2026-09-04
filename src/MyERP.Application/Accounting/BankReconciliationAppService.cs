@@ -192,11 +192,17 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
 
     /// <summary>
     /// Searches for a mirror bank transaction (opposite-sign in different bank account).
-    /// Per ERPNext search_for_transfer_transaction: ±3 days, exactly 1 match required.
+    /// Per ERPNext search_for_transfer_transaction: respects AccountsSettings.transfer_match_days (default 3).
     /// </summary>
     public async Task<MirrorTransactionDto?> SearchForMirrorTransactionAsync(Guid transactionId)
     {
-        var result = await _internalTransferService.SearchForMirrorTransactionAsync(transactionId);
+        var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<AccountsSettings, Guid>>();
+        var settings = (await settingsRepo.GetQueryableAsync()).FirstOrDefault();
+        var matchDays = settings != null && settings.TransferMatchDays >= 0
+            ? settings.TransferMatchDays
+            : BankInternalTransferService.DefaultTransferMatchDays;
+
+        var result = await _internalTransferService.SearchForMirrorTransactionAsync(transactionId, matchDays);
         if (result == null) return null;
 
         return new MirrorTransactionDto
@@ -406,8 +412,9 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         foreach (var pe in unclearedPEs)
         {
             // Determine direction: money INTO bank (deposit) or OUT of bank (payment)
+            // Per ERPNext PR #57740: match bank-side amount (ReceivedAmountAfterTax on deposit, PaidAmountAfterTax on withdrawal)
             var isDeposit = pe.PaidToAccountId == input.BankAccountId;
-            var amount = pe.PaidAmount;
+            var amount = pe.GetBankSideAmount(isDeposit);
 
             if (isDeposit)
                 outstandingDeposits += amount;

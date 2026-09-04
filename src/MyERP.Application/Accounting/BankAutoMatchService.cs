@@ -170,7 +170,7 @@ public class BankAutoMatchService : ApplicationService
                 VoucherType = "PaymentEntry",
                 PaymentEntryId = p.Id,
                 PaymentNumber = p.PaymentNumber,
-                Amount = p.PaidAmount,
+                Amount = GetPeBankAmount(tx, p),
                 PostingDate = p.PostingDate,
                 ReferenceNumber = p.ReferenceNumber,
                 Rank = CalculateRank(tx, p.ReferenceNumber, p.PostingDate, ExactAmountMatch(tx, p)),
@@ -283,17 +283,31 @@ public class BankAutoMatchService : ApplicationService
         return rank;
     }
 
+    /// <summary>
+    /// Gets the amount that hits the bank account in that account's currency:
+    /// - For deposits (money into bank): ReceivedAmountAfterTax
+    /// - For withdrawals (money out of bank): PaidAmountAfterTax
+    /// Per ERPNext PR #57740 (commit 154c6fb943).
+    /// </summary>
+    private static decimal GetPeBankAmount(BankTransaction tx, PaymentEntry pe)
+    {
+        bool isDeposit = tx.Deposit > 0 || tx.Amount > 0;
+        return pe.GetBankSideAmount(isDeposit);
+    }
+
     private static bool AmountsMatch(BankTransaction tx, PaymentEntry pe)
     {
         decimal txAmount = tx.Deposit > 0 ? tx.Deposit : tx.Withdrawal;
         if (txAmount == 0) txAmount = Math.Abs(tx.Amount);
 
+        decimal peAmount = GetPeBankAmount(tx, pe);
+
         if (tx.Deposit > 0 || tx.Amount > 0)
             return pe.PaymentType is PaymentType.Receive or PaymentType.InternalTransfer
-                && Math.Abs(txAmount - pe.PaidAmount) < 0.01m;
+                && Math.Abs(txAmount - peAmount) < 0.01m;
         if (tx.Withdrawal > 0 || tx.Amount < 0)
             return pe.PaymentType is PaymentType.Pay or PaymentType.InternalTransfer
-                && Math.Abs(txAmount - pe.PaidAmount) < 0.01m;
+                && Math.Abs(txAmount - peAmount) < 0.01m;
         return false;
     }
 
@@ -301,7 +315,8 @@ public class BankAutoMatchService : ApplicationService
     {
         decimal txAmount = tx.Deposit > 0 ? tx.Deposit : tx.Withdrawal;
         if (txAmount == 0) txAmount = Math.Abs(tx.Amount);
-        return Math.Abs(txAmount - pe.PaidAmount) < 0.01m;
+        decimal peAmount = GetPeBankAmount(tx, pe);
+        return Math.Abs(txAmount - peAmount) < 0.01m;
     }
 
     /// <summary>Deposit (money in) means the bank account line is a net Debit; withdrawal

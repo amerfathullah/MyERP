@@ -84,6 +84,55 @@ public class BankAutoReconcileAndTransferTests
     }
 
     [Fact]
+    public void StrictMatch_Deposit_MatchesOnReceivedAmountWithDeductions()
+    {
+        // Per ERPNext PR #57740: deposit matches on received_amount_after_tax, not paid_amount
+        var tx = CreateTransaction(deposit: 3460.52m, reference: "TRF-001");
+        var pe = CreatePaymentEntry(amount: 3537.64m, type: PaymentType.InternalTransfer, reference: "TRF-001");
+        pe.ReceivedAmount = 3460.52m;
+
+        var result = TestStrictMatch(tx, pe);
+        result.ShouldNotBeNull();
+        result.Id.ShouldBe(pe.Id);
+    }
+
+    [Fact]
+    public void StrictMatch_Withdrawal_MatchesOnPaidAmountWithCharges()
+    {
+        // Per ERPNext PR #57740: withdrawal matches on paid_amount_after_tax
+        var tx = CreateTransaction(withdrawal: 1300m, reference: "PAY-100");
+        var pe = CreatePaymentEntry(amount: 1250m, type: PaymentType.Pay, reference: "PAY-100");
+        pe.Taxes.Add(new PaymentEntryTax(Guid.NewGuid(), pe.Id, Guid.NewGuid())
+        {
+            TaxAmount = 50m,
+            AddDeductTax = TaxAddDeduct.Add,
+            IncludedInPaidAmount = false
+        });
+
+        var result = TestStrictMatch(tx, pe);
+        result.ShouldNotBeNull();
+        result.Id.ShouldBe(pe.Id);
+    }
+
+    [Fact]
+    public void PaymentEntry_GetBankSideAmount_ReturnsReceivedAmountForDeposit()
+    {
+        var pe = CreatePaymentEntry(amount: 5000m, type: PaymentType.Receive, reference: "REC-1");
+        pe.ReceivedAmount = 4800m;
+        pe.Taxes.Add(new PaymentEntryTax(Guid.NewGuid(), pe.Id, Guid.NewGuid())
+        {
+            TaxAmount = 20m,
+            AddDeductTax = TaxAddDeduct.Deduct,
+            IncludedInPaidAmount = false
+        });
+
+        // ApplicableTaxes = -20. ReceivedAmountAfterTax = 4800 - 20 = 4780.
+        pe.GetBankSideAmount(isDeposit: true).ShouldBe(4780m);
+        // PaidAmountAfterTax = 5000 - 20 = 4980.
+        pe.GetBankSideAmount(isDeposit: false).ShouldBe(4980m);
+    }
+
+    [Fact]
     public void BackgroundJobThreshold_Is10()
     {
         BankAutoMatchService.BackgroundJobThreshold.ShouldBe(10);
@@ -164,6 +213,21 @@ public class BankAutoReconcileAndTransferTests
     public void MirrorSearch_DefaultMatchDays_Is3()
     {
         BankInternalTransferService.DefaultTransferMatchDays.ShouldBe(3);
+    }
+
+    [Fact]
+    public void MirrorSearch_SupportsSameDay_WhenTransferMatchDaysZero()
+    {
+        // Per ERPNext PR #58766: transfer_match_days = 0 allows matching opposite transfers on same calendar day
+        var todayMorning = DateTime.Today.AddHours(9);
+        var todayAfternoon = DateTime.Today.AddHours(16);
+
+        var transferMatchDays = 0;
+        var txDate = todayMorning.Date;
+        var minDate = txDate.AddDays(-transferMatchDays);
+        var maxDate = txDate.AddDays(transferMatchDays).AddDays(1).AddTicks(-1);
+
+        (todayAfternoon >= minDate && todayAfternoon <= maxDate).ShouldBeTrue();
     }
 
     // ── Internal Transfer: BuildInternalTransfer Spec ──
@@ -338,17 +402,19 @@ public class BankAutoReconcileAndTransferTests
 
         if (!refMatch) return null;
 
-        // Amount matching: deposit→Receive/IT, withdrawal→Pay/IT
         decimal txAmount = tx.Deposit > 0 ? tx.Deposit : tx.Withdrawal;
         if (txAmount == 0) txAmount = Math.Abs(tx.Amount);
 
+        bool isDeposit = tx.Deposit > 0 || tx.Amount > 0;
+        decimal peAmount = pe.GetBankSideAmount(isDeposit);
+
         bool amountMatch = false;
-        if (tx.Deposit > 0 || tx.Amount > 0)
+        if (isDeposit)
             amountMatch = pe.PaymentType is PaymentType.Receive or PaymentType.InternalTransfer
-                && Math.Abs(txAmount - pe.PaidAmount) < 0.01m;
-        else if (tx.Withdrawal > 0 || tx.Amount < 0)
+                && Math.Abs(txAmount - peAmount) < 0.01m;
+        else
             amountMatch = pe.PaymentType is PaymentType.Pay or PaymentType.InternalTransfer
-                && Math.Abs(txAmount - pe.PaidAmount) < 0.01m;
+                && Math.Abs(txAmount - peAmount) < 0.01m;
 
         return amountMatch ? pe : null;
     }
@@ -367,7 +433,10 @@ public class BankAutoReconcileAndTransferTests
 
         decimal txAmount = tx.Deposit > 0 ? tx.Deposit : tx.Withdrawal;
         if (txAmount == 0) txAmount = Math.Abs(tx.Amount);
-        if (Math.Abs(txAmount - pe.PaidAmount) < 0.01m)
+        bool isDeposit = tx.Deposit > 0 || tx.Amount > 0;
+        decimal peAmount = pe.GetBankSideAmount(isDeposit);
+
+        if (Math.Abs(txAmount - peAmount) < 0.01m)
             rank++;
 
         if (Math.Abs((tx.TransactionDate - pe.PostingDate).TotalDays) <= 3)

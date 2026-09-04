@@ -281,13 +281,24 @@ export class BatchDetailComponent implements OnInit {
     });
   }
 
+  private stockRequestId = 0;
+
   private loadStockData(batchId: string): void {
+    const requestId = ++this.stockRequestId;
     this.batchService.getStockBalance(batchId).subscribe({
-      next: (data) => this.stockBalance.set(data),
+      next: (data) => {
+        if (requestId === this.stockRequestId) {
+          this.stockBalance.set(data);
+        }
+      },
       error: () => {},
     });
     this.batchService.getMovementHistory(batchId, 50).subscribe({
-      next: (data) => this.movementHistory.set(data),
+      next: (data) => {
+        if (requestId === this.stockRequestId) {
+          this.movementHistory.set(data);
+        }
+      },
       error: () => {},
     });
   }

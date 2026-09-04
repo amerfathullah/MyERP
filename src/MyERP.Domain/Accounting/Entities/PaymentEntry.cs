@@ -160,6 +160,36 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         .Sum(t => t.TaxAmount);
 
     /// <summary>
+    /// Net non-included taxes/charges applicable on top of paid/received amount.
+    /// Per ERPNext set_amounts_after_tax: taxes where !included_in_paid_amount and !is_exchange_gain_loss.
+    /// Deduct taxes reduce amount, Add taxes increase amount.
+    /// </summary>
+    public decimal ApplicableTaxes => Taxes
+        .Where(t => !t.IncludedInPaidAmount && !t.IsExchangeGainLoss)
+        .Sum(t => t.AddDeductTax == TaxAddDeduct.Deduct ? -t.TaxAmount : t.TaxAmount);
+
+    /// <summary>
+    /// Paid amount after non-included taxes and charges.
+    /// Per ERPNext set_amounts_after_tax: paid_amount + applicable_tax.
+    /// </summary>
+    public decimal PaidAmountAfterTax => Math.Round(PaidAmount + ApplicableTaxes, 2);
+
+    /// <summary>
+    /// Received amount after non-included taxes and charges.
+    /// Per ERPNext set_amounts_after_tax: received_amount + applicable_tax.
+    /// </summary>
+    public decimal ReceivedAmountAfterTax => Math.Round(
+        (ReceivedAmount != 0 ? ReceivedAmount : PaidAmount) + ApplicableTaxes, 2);
+
+    /// <summary>
+    /// Returns the effective amount that reaches the bank account in that bank's currency.
+    /// For deposits (money received): ReceivedAmountAfterTax.
+    /// For withdrawals (money paid): PaidAmountAfterTax.
+    /// Per ERPNext PR #57740.
+    /// </summary>
+    public decimal GetBankSideAmount(bool isDeposit) => isDeposit ? ReceivedAmountAfterTax : PaidAmountAfterTax;
+
+    /// <summary>
     /// Total settled base amount including non-exchange deductions.
     /// Per ERPNext PR #58437 / commit dbe153a15e: includes payment deductions in ledger settlement balance.
     /// </summary>
