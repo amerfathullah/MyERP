@@ -152,6 +152,28 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public decimal TotalIncludedTaxes => Taxes.Where(t => t.IncludedInPaidAmount && !t.IsExchangeGainLoss).Sum(t => t.TaxAmount);
 
     /// <summary>
+    /// Total non-exchange deductions (e.g. bank charges, withholding, discounts).
+    /// Per ERPNext PR #58437 / commit dbe153a15e.
+    /// </summary>
+    public decimal TotalDeductions => Taxes
+        .Where(t => !t.IsExchangeGainLoss && t.AddDeductTax == TaxAddDeduct.Deduct)
+        .Sum(t => t.TaxAmount);
+
+    /// <summary>
+    /// Total settled base amount including non-exchange deductions.
+    /// Per ERPNext PR #58437 / commit dbe153a15e: includes payment deductions in ledger settlement balance.
+    /// </summary>
+    public decimal TotalSettledBaseAmount
+    {
+        get
+        {
+            var effectiveRate = PaymentType == PaymentType.Receive ? SourceExchangeRate : TargetExchangeRate;
+            if (effectiveRate <= 0) effectiveRate = ExchangeRate > 0 ? ExchangeRate : 1m;
+            return BaseAmount + (TotalDeductions / effectiveRate);
+        }
+    }
+
+    /// <summary>
     /// Total amount allocated across reference lines (rounded per ERPNext PR #52997).
     /// </summary>
     public decimal TotalAllocatedAmount => Math.Round(Math.Abs(References.Sum(r => r.AllocatedAmount)), 2);

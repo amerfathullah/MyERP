@@ -2726,4 +2726,39 @@ public class DataIntegrityAndCoverageTests
         var accountable = (Accounting.DomainServices.IAccountableDocument)invoice;
         Assert.Equal(360m, accountable.PurchaseExpenseTotal);
     }
+
+    [Fact]
+    public void PaymentEntry_TotalSettledBaseAmount_IncludesNonExchangeDeductions()
+    {
+        // Per ERPNext PR #58437 / commit dbe153a15e:
+        // Settlement base amount includes non-exchange deductions divided by effective rate.
+        var pe = new PaymentEntry(
+            Guid.NewGuid(), Guid.NewGuid(), PaymentType.Receive, DateTime.UtcNow,
+            90m, Guid.NewGuid(), Guid.NewGuid())
+        {
+            ExchangeRate = 4.0m, // 1 USD = 4 MYR
+            SourceExchangeRate = 4.0m,
+        };
+
+        // Add 40 MYR bank charge deduction (= 10 USD)
+        pe.Taxes.Add(new PaymentEntryTax(Guid.NewGuid(), pe.Id, Guid.NewGuid())
+        {
+            TaxAmount = 40m,
+            AddDeductTax = TaxAddDeduct.Deduct,
+            IsExchangeGainLoss = false
+        });
+
+        // Add 20 MYR exchange loss (must be ignored)
+        pe.Taxes.Add(new PaymentEntryTax(Guid.NewGuid(), pe.Id, Guid.NewGuid())
+        {
+            TaxAmount = 20m,
+            AddDeductTax = TaxAddDeduct.Deduct,
+            IsExchangeGainLoss = true
+        });
+
+        Assert.Equal(40m, pe.TotalDeductions);
+        // BaseAmount = 90 * 4 = 360 MYR.
+        // TotalSettledBaseAmount = 360 + (40 / 4.0) = 370.
+        Assert.Equal(370m, pe.TotalSettledBaseAmount);
+    }
 }
