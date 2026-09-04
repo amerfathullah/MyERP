@@ -9,6 +9,9 @@ public class BatchDto : AuditedEntityDto<Guid>
 {
     public string BatchNo { get; set; } = null!;
     public Guid ItemId { get; set; }
+    public Guid? ParentBatchId { get; set; }
+    public string? ReferenceDocType { get; set; }
+    public Guid? ReferenceDocId { get; set; }
     public DateTime? ManufacturingDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public int? ShelfLifeInDays { get; set; }
@@ -188,5 +191,29 @@ public class AvailableBatchItemDto
     public decimal AvailableQuantity { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public bool IsExpired { get; set; }
+}
+
+public class GetBatchSplitTreeDto
+{
+    public Guid? BatchId { get; set; }
+    public Guid? ItemId { get; set; }
+}
+
+public class BatchSplitTreeNodeDto
+{
+    public Guid BatchId { get; set; }
+    public string BatchNo { get; set; } = null!;
+    public Guid? ParentBatchId { get; set; }
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = null!;
+    public string? ItemName { get; set; }
+    public decimal BatchQty { get; set; }
+    public string? StockUom { get; set; }
+    public string? ReferenceDocType { get; set; }
+    public Guid? ReferenceDocId { get; set; }
+    public string? ReferenceName { get; set; }
+    public DateTime? ManufacturingDate { get; set; }
+    public int Indent { get; set; }
+    public List<BatchSplitTreeNodeDto> Children { get; set; } = new();
 }
 

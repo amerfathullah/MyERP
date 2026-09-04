@@ -589,5 +589,181 @@ public class BatchAppService : ApplicationService, IBatchAppService
 
         return null;
     }
+
+    /// <summary>
+    /// Returns the hierarchical tree of batches split from parent batches.
+    /// Per ERPNext PR #58530 / commit 0223223385 (Batch Split Tree report).
+    /// </summary>
+    public async Task<List<BatchSplitTreeNodeDto>> GetBatchSplitTreeAsync(GetBatchSplitTreeDto input)
+    {
+        var batchQuery = await _repository.GetQueryableAsync();
+
+        List<Batch> rootBatches;
+        if (input.BatchId.HasValue)
+        {
+            var singleBatch = await _repository.FindAsync(input.BatchId.Value);
+            if (singleBatch == null) return new List<BatchSplitTreeNodeDto>();
+            rootBatches = new List<Batch> { singleBatch };
+        }
+        else
+        {
+            // Roots are batches with no ParentBatchId that have children
+            var parentBatchIdsWithChildren = batchQuery
+                .Where(b => b.ParentBatchId.HasValue)
+                .Select(b => b.ParentBatchId!.Value)
+                .Distinct()
+                .ToList();
+
+            var rootsQuery = batchQuery.Where(b => !b.ParentBatchId.HasValue && parentBatchIdsWithChildren.Contains(b.Id));
+            if (input.ItemId.HasValue)
+            {
+                rootsQuery = rootsQuery.Where(b => b.ItemId == input.ItemId.Value);
+            }
+
+            rootBatches = rootsQuery.OrderBy(b => b.BatchNo).ToList();
+        }
+
+        if (!rootBatches.Any()) return new List<BatchSplitTreeNodeDto>();
+
+        // Load all descendants recursively
+        var allBatches = new Dictionary<Guid, Batch>();
+        foreach (var root in rootBatches)
+        {
+            allBatches[root.Id] = root;
+        }
+
+        var currentParentIds = rootBatches.Select(b => b.Id).ToList();
+        while (currentParentIds.Count > 0)
+        {
+            var children = batchQuery
+                .Where(b => b.ParentBatchId.HasValue && currentParentIds.Contains(b.ParentBatchId.Value))
+                .ToList();
+
+            currentParentIds.Clear();
+            foreach (var child in children)
+            {
+                if (allBatches.TryAdd(child.Id, child))
+                {
+                    currentParentIds.Add(child.Id);
+                }
+            }
+        }
+
+        var batchIds = allBatches.Keys.ToList();
+
+        // Load item details (ItemCode, ItemName, StockUom)
+        var itemIds = allBatches.Values.Select(b => b.ItemId).Distinct().ToList();
+        var items = new Dictionary<Guid, (string ItemCode, string? ItemName, string? Uom)>();
+        var itemRepo = LazyServiceProvider?.LazyGetService<IRepository<Item, Guid>>();
+        if (itemRepo != null)
+        {
+            var itemQuery = await itemRepo.GetQueryableAsync();
+            items = itemQuery
+                .Where(i => itemIds.Contains(i.Id))
+                .Select(i => new { i.Id, i.ItemCode, i.ItemName, i.Uom })
+                .ToDictionary(i => i.Id, i => (i.ItemCode, (string?)i.ItemName, (string?)i.Uom));
+        }
+
+        // Load SLE stock balances
+        var sleQuery = await _sleRepository.GetQueryableAsync();
+        var balances = sleQuery
+            .Where(s => s.BatchId.HasValue && batchIds.Contains(s.BatchId.Value) && !s.IsCancelled)
+            .GroupBy(s => s.BatchId!.Value)
+            .Select(g => new { BatchId = g.Key, Qty = g.Sum(s => s.QuantityChange) })
+            .ToDictionary(x => x.BatchId, x => x.Qty);
+
+        // Load reference document names (StockEntry, JobCard)
+        var stockEntryIds = allBatches.Values
+            .Where(b => b.ReferenceDocType == "StockEntry" && b.ReferenceDocId.HasValue)
+            .Select(b => b.ReferenceDocId!.Value)
+            .Distinct()
+            .ToList();
+
+        var stockEntryNames = new Dictionary<Guid, string?>();
+        if (stockEntryIds.Count > 0)
+        {
+            var seRepo = LazyServiceProvider?.LazyGetService<IRepository<StockEntry, Guid>>();
+            if (seRepo != null)
+            {
+                var seQuery = await seRepo.GetQueryableAsync();
+                stockEntryNames = seQuery
+                    .Where(se => stockEntryIds.Contains(se.Id))
+                    .Select(se => new { se.Id, se.EntryNumber })
+                    .ToDictionary(se => se.Id, se => (string?)se.EntryNumber);
+            }
+        }
+
+        var jobCardIds = allBatches.Values
+            .Where(b => b.ReferenceDocType == "JobCard" && b.ReferenceDocId.HasValue)
+            .Select(b => b.ReferenceDocId!.Value)
+            .Distinct()
+            .ToList();
+
+        var jobCardNames = new Dictionary<Guid, string?>();
+        if (jobCardIds.Count > 0)
+        {
+            var jcRepo = LazyServiceProvider?.LazyGetService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
+            if (jcRepo != null)
+            {
+                var jcQuery = await jcRepo.GetQueryableAsync();
+                jobCardNames = jcQuery
+                    .Where(jc => jobCardIds.Contains(jc.Id))
+                    .Select(jc => new { jc.Id, CardNumber = jc.Id.ToString() })
+                    .ToDictionary(jc => jc.Id, jc => (string?)jc.CardNumber);
+            }
+        }
+
+        // Group children by ParentBatchId
+        var childrenByParent = allBatches.Values
+            .Where(b => b.ParentBatchId.HasValue)
+            .GroupBy(b => b.ParentBatchId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderBy(b => b.CreationTime).ToList());
+
+        BatchSplitTreeNodeDto BuildNode(Batch batch, int indent)
+        {
+            items.TryGetValue(batch.ItemId, out var itemInfo);
+            var refName = batch.ReferenceDocType switch
+            {
+                "StockEntry" when batch.ReferenceDocId.HasValue => stockEntryNames.GetValueOrDefault(batch.ReferenceDocId.Value),
+                "JobCard" when batch.ReferenceDocId.HasValue => jobCardNames.GetValueOrDefault(batch.ReferenceDocId.Value),
+                _ => null
+            };
+
+            var node = new BatchSplitTreeNodeDto
+            {
+                BatchId = batch.Id,
+                BatchNo = batch.BatchNo,
+                ParentBatchId = batch.ParentBatchId,
+                ItemId = batch.ItemId,
+                ItemCode = !string.IsNullOrEmpty(itemInfo.ItemCode) ? itemInfo.ItemCode : "Unknown",
+                ItemName = itemInfo.ItemName,
+                StockUom = itemInfo.Uom,
+                BatchQty = balances.GetValueOrDefault(batch.Id, 0m),
+                ReferenceDocType = batch.ReferenceDocType,
+                ReferenceDocId = batch.ReferenceDocId,
+                ReferenceName = refName,
+                ManufacturingDate = batch.ManufacturingDate,
+                Indent = indent,
+            };
+
+            if (childrenByParent.TryGetValue(batch.Id, out var childBatches))
+            {
+                foreach (var child in childBatches)
+                {
+                    node.Children.Add(BuildNode(child, indent + 1));
+                }
+            }
+
+            return node;
+        }
+
+        var result = new List<BatchSplitTreeNodeDto>();
+        foreach (var root in rootBatches)
+        {
+            result.Add(BuildNode(root, 0));
+        }
+
+        return result;
+    }
 }
 

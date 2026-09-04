@@ -30,4 +30,10 @@ public interface IBatchAppService : IApplicationService
     /// Per ERPNext commits 199cae9496 and 9261c9b47f.
     /// </summary>
     Task<AvailableBatchItemDto?> GetBatchCoveringQuantityAsync(AutoPickBatchDto input);
+
+    /// <summary>
+    /// Returns the hierarchical tree of batches split from parent batches.
+    /// Per ERPNext PR #58530 (Batch Split Tree report).
+    /// </summary>
+    Task<System.Collections.Generic.List<BatchSplitTreeNodeDto>> GetBatchSplitTreeAsync(GetBatchSplitTreeDto input);
 }

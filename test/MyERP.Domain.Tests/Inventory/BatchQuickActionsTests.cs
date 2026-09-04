@@ -230,4 +230,39 @@ public class BatchQuickActionsTests
         var ex = await Assert.ThrowsAsync<BusinessException>(() => _appService.MoveBatchAsync(input));
         Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
     }
+
+    [Fact]
+    public async Task GetBatchSplitTreeAsync_ReturnsHierarchicalTree()
+    {
+        var parentBatchId = Guid.NewGuid();
+        var childBatchId1 = Guid.NewGuid();
+        var childBatchId2 = Guid.NewGuid();
+        var grandChildBatchId = Guid.NewGuid();
+
+        var parentBatch = new Batch(parentBatchId, _itemId, "PARENT-BATCH", null);
+        var child1 = new Batch(childBatchId1, _itemId, "CHILD-1", null) { ParentBatchId = parentBatchId, ReferenceDocType = "StockEntry" };
+        var child2 = new Batch(childBatchId2, _itemId, "CHILD-2", null) { ParentBatchId = parentBatchId, ReferenceDocType = "JobCard" };
+        var grandChild = new Batch(grandChildBatchId, _itemId, "GRANDCHILD-1", null) { ParentBatchId = childBatchId1 };
+
+        var allBatches = new List<Batch> { parentBatch, child1, child2, grandChild }.AsQueryable();
+
+        _batchRepository.GetQueryableAsync().Returns(Task.FromResult(allBatches));
+        _sleRepository.GetQueryableAsync().Returns(Task.FromResult(new List<StockLedgerEntry>().AsQueryable()));
+
+        var result = await _appService.GetBatchSplitTreeAsync(new GetBatchSplitTreeDto());
+
+        Assert.NotNull(result);
+        Assert.Single(result);
+        var root = result[0];
+        Assert.Equal("PARENT-BATCH", root.BatchNo);
+        Assert.Equal(0, root.Indent);
+        Assert.Equal(2, root.Children.Count);
+
+        var firstChild = root.Children.FirstOrDefault(c => c.BatchNo == "CHILD-1");
+        Assert.NotNull(firstChild);
+        Assert.Equal(1, firstChild.Indent);
+        Assert.Single(firstChild.Children);
+        Assert.Equal("GRANDCHILD-1", firstChild.Children[0].BatchNo);
+        Assert.Equal(2, firstChild.Children[0].Indent);
+    }
 }
