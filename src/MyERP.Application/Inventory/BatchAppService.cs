@@ -295,10 +295,10 @@ public class BatchAppService : ApplicationService, IBatchAppService
         }
 
         var sourceBatch = await _repository.GetAsync(input.SourceBatchId);
-        if (sourceBatch.IsDisabled)
+        if (sourceBatch.IsDisabled || sourceBatch.IsCancelled)
         {
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", $"Source batch {sourceBatch.BatchNo} is disabled.");
+                .WithData("detail", $"Source batch {sourceBatch.BatchNo} is {(sourceBatch.IsCancelled ? "cancelled" : "disabled")}.");
         }
 
         var warehouse = await _warehouseRepository.GetAsync(input.WarehouseId);
@@ -396,10 +396,10 @@ public class BatchAppService : ApplicationService, IBatchAppService
         }
 
         var batch = await _repository.GetAsync(input.BatchId);
-        if (batch.IsDisabled)
+        if (batch.IsDisabled || batch.IsCancelled)
         {
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", $"Batch {batch.BatchNo} is disabled.");
+                .WithData("detail", $"Batch {batch.BatchNo} is {(batch.IsCancelled ? "cancelled" : "disabled")}.");
         }
 
         var sourceWarehouse = await _warehouseRepository.GetAsync(input.SourceWarehouseId);
@@ -495,8 +495,8 @@ public class BatchAppService : ApplicationService, IBatchAppService
 
         var batchIds = batchBalances.Select(b => b.BatchId!.Value).Distinct().ToList();
         var batches = batchQuery.Where(b => batchIds.Contains(b.Id))
-            .Select(b => new { b.Id, b.BatchNo, b.ExpiryDate, b.IsDisabled })
-            .Where(b => !b.IsDisabled)
+            .Select(b => new { b.Id, b.BatchNo, b.ExpiryDate, b.IsDisabled, b.IsCancelled })
+            .Where(b => !b.IsDisabled && !b.IsCancelled)
             .ToDictionary(b => b.Id);
 
         var warehouseIds = batchBalances.Select(b => b.WarehouseId).Distinct().ToList();

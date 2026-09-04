@@ -51,6 +51,15 @@ public class BatchExpiryValidationService : DomainService
                     .WithData("item", item.ItemName ?? item.ItemId.ToString());
             }
 
+            // Per ERPNext PR #58659 (commit a9b857bdfe): cancelled batches are blocked from consumption
+            if (batch.IsCancelled)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                    .WithData("reason", $"Batch {batch.BatchNo} is cancelled and cannot be used in stock transactions.")
+                    .WithData("batchNo", batch.BatchNo)
+                    .WithData("item", item.ItemName ?? item.ItemId.ToString());
+            }
+
             if (batch.IsExpired(transactionDate))
             {
                 throw new BusinessException(MyERPDomainErrorCodes.BatchExpired)

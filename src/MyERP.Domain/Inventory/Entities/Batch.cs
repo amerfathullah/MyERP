@@ -51,6 +51,15 @@ public class Batch : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Whether this batch was cancelled (auto-created batch reversal).</summary>
     public bool IsCancelled { get; set; }
 
+    /// <summary>
+    /// Cancels this batch.
+    /// Per ERPNext PR #58659 (commit a9b857bdfe): cancelled batches are ignored in valuation and blocked from consumption.
+    /// </summary>
+    public void Cancel()
+    {
+        IsCancelled = true;
+    }
+
     public string? Description { get; set; }
 
     protected Batch() { }

@@ -415,8 +415,8 @@ public class ReportingAppService : ApplicationService, IReportingAppService
                 g => g.Key,
                 g =>
                 {
-                    var dr = g.Where(l => l.IsDebit).Sum(l => l.Amount);
-                    var cr = g.Where(l => !l.IsDebit).Sum(l => l.Amount);
+                    var dr = Math.Round(g.Where(l => l.IsDebit).Sum(l => l.Amount), 2);
+                    var cr = Math.Round(g.Where(l => !l.IsDebit).Sum(l => l.Amount), 2);
                     return ToggleDebitCredit(dr, cr);
                 });
 
@@ -461,8 +461,15 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         foreach (var pId in allPartyIds.OrderBy(p => partyNames.GetValueOrDefault(p) ?? p.ToString()))
         {
             var partyName = partyNames.GetValueOrDefault(pId) ?? pId.ToString();
-            var (opDr, opCr) = openingByParty.GetValueOrDefault(pId, (0m, 0m));
-            var (pDr, pCr) = periodByParty.GetValueOrDefault(pId, (0m, 0m));
+            var (opDrRaw, opCrRaw) = openingByParty.GetValueOrDefault(pId, (0m, 0m));
+            var (pDrRaw, pCrRaw) = periodByParty.GetValueOrDefault(pId, (0m, 0m));
+
+            // Per ERPNext PR #58607 / commit b1c7657dfa:
+            // Round party balances to currency precision so sub-cent remainders do not bypass zero balance exclusion
+            var opDr = Math.Round(opDrRaw, 2);
+            var opCr = Math.Round(opCrRaw, 2);
+            var pDr = Math.Round(pDrRaw, 2);
+            var pCr = Math.Round(pCrRaw, 2);
             var (clDr, clCr) = ToggleDebitCredit(opDr + pDr, opCr + pCr);
 
             if (input.ExcludeZeroBalanceParties && clDr == 0 && clCr == 0)

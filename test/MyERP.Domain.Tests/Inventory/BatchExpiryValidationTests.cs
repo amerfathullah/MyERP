@@ -1,8 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
+using System.Threading.Tasks;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using NSubstitute;
 using Shouldly;
+using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Tests.Inventory;
@@ -102,5 +107,36 @@ public class BatchExpiryValidationTests
         sle.SerialNoId = Guid.NewGuid();
         sle.BatchId.ShouldNotBeNull();
         sle.SerialNoId.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void Batch_Cancel_SetsIsCancelled()
+    {
+        var batch = new Batch(Guid.NewGuid(), Guid.NewGuid(), "B002");
+        batch.IsCancelled.ShouldBeFalse();
+        batch.Cancel();
+        batch.IsCancelled.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task BatchExpiryValidation_CancelledBatch_ThrowsInvalidStatusTransition()
+    {
+        var batchRepo = Substitute.For<IRepository<Batch, Guid>>();
+        var batchId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var cancelledBatch = new Batch(batchId, itemId, "B-CANCELLED");
+        cancelledBatch.Cancel();
+
+        batchRepo.GetListAsync(Arg.Any<Expression<Func<Batch, bool>>>())
+            .Returns(Task.FromResult(new List<Batch> { cancelledBatch }));
+
+        var service = new BatchExpiryValidationService(batchRepo);
+        var items = new List<BatchValidationItem> { new(itemId, batchId, "Widget") };
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() =>
+            service.ValidateForStockOutAsync(items, DateTime.UtcNow));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
+        ex.Data["batchNo"].ShouldBe("B-CANCELLED");
     }
 }

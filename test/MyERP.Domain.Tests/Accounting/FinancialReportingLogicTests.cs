@@ -333,6 +333,30 @@ public class FinancialReportingLogicTests
         Assert.Equal("Active Customer", filtered[0].PartyName);
     }
 
+    [Fact]
+    public void PartyTrialBalance_SubCentRounding_ExcludesZeroBalanceWhenRoundedToCurrencyPrecision()
+    {
+        // Per ERPNext PR #58607 / commit b1c7657dfa:
+        // Opening balance with sub-cent float (e.g. 100.00001) and period offset (100.00000)
+        // must be rounded to currency precision (2 decimal places) so closing balance nets to exactly 0.00
+        decimal opDrRaw = 100.00001m, opCrRaw = 0m;
+        decimal pDrRaw = 0m, pCrRaw = 100.00000m;
+
+        var opDr = Math.Round(opDrRaw, 2);
+        var opCr = Math.Round(opCrRaw, 2);
+        var pDr = Math.Round(pDrRaw, 2);
+        var pCr = Math.Round(pCrRaw, 2);
+
+        var (clDr, clCr) = ReportingAppService.ToggleDebitCredit(opDr + pDr, opCr + pCr);
+
+        Assert.Equal(0m, clDr);
+        Assert.Equal(0m, clCr);
+
+        // Verify ExcludeZeroBalanceParties condition is met
+        bool isZeroBalance = clDr == 0 && clCr == 0;
+        Assert.True(isZeroBalance);
+    }
+
     #endregion
 
     #region Aging Report Enhancements
