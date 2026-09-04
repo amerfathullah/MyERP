@@ -109,6 +109,7 @@ export class SalesInvoiceFormComponent implements OnInit {
     exchangeRate: [1],
     notes: [''],
     isReturn: [false],
+    eInvoiceDocType: [null as number | null],
     returnAgainstId: [null as string | null],
     updateStock: [false],
     warehouseId: [''],
@@ -140,6 +141,20 @@ export class SalesInvoiceFormComponent implements OnInit {
       const companyId = this.companyContext.currentCompanyId();
       if (companyId) this.form.patchValue({ companyId });
     }
+
+    // Auto-sync e-Invoice doc type based on isReturn (01/03 vs 02/04)
+    this.form.get('isReturn')?.valueChanges.subscribe((isRet) => {
+      const current = this.form.get('eInvoiceDocType')?.value;
+      if (isRet) {
+        if (current !== 2 && current !== 4) {
+          this.form.patchValue({ eInvoiceDocType: 2 });
+        }
+      } else {
+        if (current !== 1 && current !== 3) {
+          this.form.patchValue({ eInvoiceDocType: 1 });
+        }
+      }
+    });
 
     // Load customer list for dropdown
     this.customerService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
@@ -627,6 +642,7 @@ export class SalesInvoiceFormComponent implements OnInit {
     // Map item fields: handles both grid-added (qty/rate/itemName) and pre-loaded (quantity/unitPrice/description)
     const dto: CreateSalesInvoiceDto = {
       ...raw,
+      eInvoiceDocType: raw.eInvoiceDocType ? Number(raw.eInvoiceDocType) : undefined,
       paymentTermsTemplateId: raw.paymentTermsTemplateId || undefined,
       dueDate: raw.dueDate || undefined,
       warehouseId: raw.warehouseId || undefined,

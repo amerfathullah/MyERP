@@ -78,6 +78,7 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public decimal BaseGrandTotal { get; set; }
     public decimal BaseOutstandingAmount { get; set; }
     public string Status { get; set; } = null!;
+    public EInvoiceDocumentType? EInvoiceDocType { get; set; }
     public string? EInvoiceStatus { get; set; }
     public string? LhdnUuid { get; set; }
     public string? LhdnLongId { get; set; }
@@ -196,6 +197,9 @@ public class CreateSalesInvoiceDto
 
     /// <summary>Supplier TIN override for LHDN e-Invoice.</summary>
     public string? SupplierTin { get; set; }
+
+    /// <summary>LHDN e-Invoice document type (Invoice=1, CreditNote=2, DebitNote=3, RefundNote=4). When omitted, auto-derived from IsReturn.</summary>
+    public EInvoiceDocumentType? EInvoiceDocType { get; set; }
 
     /// <summary>Linked POS Profile for POS invoices. Per ERPNext PR #46907 / commit 3de1b22480.</summary>
     public Guid? PosProfileId { get; set; }

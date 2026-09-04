@@ -494,6 +494,11 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                             // Gain: DR party account (clears the residual the main JE left), CR Exchange Gain
                             je.AddLineWithDimensions(fxPartyAccountId, gainLossAmount, true,
                                 pe.CostCenterId, pe.ProjectId, null, "Exchange Gain");
+                            if (!string.IsNullOrEmpty(pe.AgainstInvoiceType) && pe.AgainstInvoiceId.HasValue)
+                            {
+                                je.Lines[^1].AgainstVoucherType = pe.AgainstInvoiceType;
+                                je.Lines[^1].AgainstVoucherId = pe.AgainstInvoiceId;
+                            }
                             je.AddLineWithDimensions(fxAccountId.Value, gainLossAmount, false,
                                 pe.CostCenterId, pe.ProjectId, null, "Exchange Gain");
                         }
@@ -504,6 +509,11 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                                 pe.CostCenterId, pe.ProjectId, null, "Exchange Loss");
                             je.AddLineWithDimensions(fxPartyAccountId, gainLossAmount, false,
                                 pe.CostCenterId, pe.ProjectId, null, "Exchange Loss");
+                            if (!string.IsNullOrEmpty(pe.AgainstInvoiceType) && pe.AgainstInvoiceId.HasValue)
+                            {
+                                je.Lines[^1].AgainstVoucherType = pe.AgainstInvoiceType;
+                                je.Lines[^1].AgainstVoucherId = pe.AgainstInvoiceId;
+                            }
                         }
 
                         je.Validate();
@@ -660,6 +670,8 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     {
                         fxJe.AddLineWithDimensions(partyAccountIdForFx, Math.Abs(refGainLoss), true,
                             pe.CostCenterId, pe.ProjectId, null, "Exchange Gain"); // DR party account
+                        fxJe.Lines[^1].AgainstVoucherType = refRow.ReferenceType;
+                        fxJe.Lines[^1].AgainstVoucherId = refRow.ReferenceId;
                         fxJe.AddLineWithDimensions(refFxAccountId.Value, Math.Abs(refGainLoss), false,
                             pe.CostCenterId, pe.ProjectId, null, "Exchange Gain"); // CR Exchange GL
                     }
@@ -669,6 +681,8 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                             pe.CostCenterId, pe.ProjectId, null, "Exchange Loss"); // DR Exchange GL
                         fxJe.AddLineWithDimensions(partyAccountIdForFx, Math.Abs(refGainLoss), false,
                             pe.CostCenterId, pe.ProjectId, null, "Exchange Loss"); // CR party account
+                        fxJe.Lines[^1].AgainstVoucherType = refRow.ReferenceType;
+                        fxJe.Lines[^1].AgainstVoucherId = refRow.ReferenceId;
                     }
 
                     fxJe.Post();

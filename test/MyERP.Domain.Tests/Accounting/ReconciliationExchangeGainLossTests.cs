@@ -1,10 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
+using NSubstitute;
 using Shouldly;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Accounting;
@@ -267,6 +271,128 @@ public class ReconciliationExchangeGainLossTests
 
         // 100 × 0.00001 = 0.001 → rounds to 0.00 → immaterial
         Math.Abs(result).ShouldBeLessThan(0.01m);
+    }
+
+    [Fact]
+    public async Task ReverseExchangeGainLoss_DirectInvoiceReference_CreatesContraReversal()
+    {
+        var invoiceId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var fyId = Guid.NewGuid();
+        var acc1 = Guid.NewGuid();
+        var acc2 = Guid.NewGuid();
+
+        var je = new JournalEntry(Guid.NewGuid(), companyId, fyId, DateTime.UtcNow)
+        {
+            VoucherType = JournalEntryVoucherType.ExchangeGainOrLoss,
+            ReferenceType = "SalesInvoice",
+            ReferenceId = invoiceId,
+        };
+        je.AddLine(acc1, 200m, true);
+        je.AddLine(acc2, 200m, false);
+        je.Post();
+
+        var jeList = new List<JournalEntry> { je };
+        var jeRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
+        jeRepo.GetQueryableAsync().Returns(Task.FromResult(jeList.AsQueryable()));
+        jeRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<JournalEntry, object>>[]>())
+            .Returns(Task.FromResult(jeList.AsQueryable()));
+
+        var guidGen = Substitute.For<Volo.Abp.Guids.IGuidGenerator>();
+        guidGen.Create().Returns(ci => Guid.NewGuid());
+
+        var orchestrator = new DocumentPostingOrchestrator(
+            null!, null!, null!, null!, null!,
+            jeRepo, null!, null!, null!, null!, null!, null!, null!, guidGen);
+
+        await orchestrator.ReverseExchangeGainLossJournalEntriesAsync("SalesInvoice", invoiceId);
+
+        await jeRepo.Received(1).InsertAsync(Arg.Is<JournalEntry>(r =>
+            r.VoucherType == JournalEntryVoucherType.Reversal
+            && r.ReversalOfId == je.Id
+            && r.ReferenceType == "SalesInvoice"
+            && r.ReferenceId == invoiceId
+            && r.Status == DocumentStatus.Posted
+            && r.TotalDebit == 200m
+            && r.TotalCredit == 200m));
+    }
+
+    [Fact]
+    public async Task ReverseExchangeGainLoss_LineReferencingInvoice_CreatesContraReversal()
+    {
+        var invoiceId = Guid.NewGuid();
+        var paymentId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var fyId = Guid.NewGuid();
+        var acc1 = Guid.NewGuid();
+        var acc2 = Guid.NewGuid();
+
+        var je = new JournalEntry(Guid.NewGuid(), companyId, fyId, DateTime.UtcNow)
+        {
+            VoucherType = JournalEntryVoucherType.ExchangeGainOrLoss,
+            ReferenceType = "PaymentEntry",
+            ReferenceId = paymentId,
+        };
+        je.AddLine(acc1, 150m, true);
+        je.Lines[^1].AgainstVoucherType = "SalesInvoice";
+        je.Lines[^1].AgainstVoucherId = invoiceId;
+        je.AddLine(acc2, 150m, false);
+        je.Post();
+
+        var jeList = new List<JournalEntry> { je };
+        var jeRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
+        jeRepo.GetQueryableAsync().Returns(Task.FromResult(jeList.AsQueryable()));
+        jeRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<JournalEntry, object>>[]>())
+            .Returns(Task.FromResult(jeList.AsQueryable()));
+
+        var guidGen = Substitute.For<Volo.Abp.Guids.IGuidGenerator>();
+        guidGen.Create().Returns(ci => Guid.NewGuid());
+
+        var orchestrator = new DocumentPostingOrchestrator(
+            null!, null!, null!, null!, null!,
+            jeRepo, null!, null!, null!, null!, null!, null!, null!, guidGen);
+
+        await orchestrator.ReverseExchangeGainLossJournalEntriesAsync("SalesInvoice", invoiceId);
+
+        await jeRepo.Received(1).InsertAsync(Arg.Is<JournalEntry>(r =>
+            r.VoucherType == JournalEntryVoucherType.Reversal
+            && r.ReversalOfId == je.Id
+            && r.Status == DocumentStatus.Posted
+            && r.TotalDebit == 150m
+            && r.TotalCredit == 150m));
+    }
+
+    [Fact]
+    public async Task ReverseExchangeGainLoss_UnrelatedInvoice_DoesNotReverse()
+    {
+        var invoiceId = Guid.NewGuid();
+        var otherInvoiceId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var fyId = Guid.NewGuid();
+
+        var je = new JournalEntry(Guid.NewGuid(), companyId, fyId, DateTime.UtcNow)
+        {
+            VoucherType = JournalEntryVoucherType.ExchangeGainOrLoss,
+            ReferenceType = "SalesInvoice",
+            ReferenceId = otherInvoiceId,
+        };
+        je.AddLine(Guid.NewGuid(), 100m, true);
+        je.AddLine(Guid.NewGuid(), 100m, false);
+        je.Post();
+
+        var jeList = new List<JournalEntry> { je };
+        var jeRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
+        jeRepo.GetQueryableAsync().Returns(Task.FromResult(jeList.AsQueryable()));
+        jeRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<JournalEntry, object>>[]>())
+            .Returns(Task.FromResult(jeList.AsQueryable()));
+
+        var orchestrator = new DocumentPostingOrchestrator(
+            null!, null!, null!, null!, null!,
+            jeRepo, null!, null!, null!, null!, null!, null!, null!);
+
+        await orchestrator.ReverseExchangeGainLossJournalEntriesAsync("SalesInvoice", invoiceId);
+
+        await jeRepo.DidNotReceive().InsertAsync(Arg.Any<JournalEntry>());
     }
 
     #endregion

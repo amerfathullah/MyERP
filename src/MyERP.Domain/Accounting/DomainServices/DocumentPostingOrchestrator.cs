@@ -12,6 +12,7 @@ using MyERP.Inventory.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
+using Volo.Abp.Guids;
 
 namespace MyERP.Accounting.DomainServices;
 
@@ -40,6 +41,7 @@ public class DocumentPostingOrchestrator : DomainService
     private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
     private readonly IRepository<StockEntry, Guid> _stockEntryRepository;
     private readonly WarehouseAccountService _warehouseAccountService;
+    private readonly IGuidGenerator? _guidGenerator;
 
     public DocumentPostingOrchestrator(
         AccountingRuleEngine ruleEngine,
@@ -54,7 +56,8 @@ public class DocumentPostingOrchestrator : DomainService
         IRepository<Company, Guid> companyRepository,
         IRepository<StockLedgerEntry, Guid> sleRepository,
         IRepository<StockEntry, Guid> stockEntryRepository,
-        WarehouseAccountService warehouseAccountService)
+        WarehouseAccountService warehouseAccountService,
+        IGuidGenerator? guidGenerator = null)
     {
         _ruleEngine = ruleEngine;
         _pleService = pleService;
@@ -69,7 +72,10 @@ public class DocumentPostingOrchestrator : DomainService
         _stockEntryRepository = stockEntryRepository;
         _warehouseAccountService = warehouseAccountService;
         _companyRepository = companyRepository;
+        _guidGenerator = guidGenerator;
     }
+
+    private Guid CreateGuid() => _guidGenerator?.Create() ?? (LazyServiceProvider != null ? GuidGenerator.Create() : Guid.NewGuid());
 
     /// <summary>
     /// Post a Sales Invoice: creates GL entries + PLE (DR outstanding).
@@ -202,7 +208,7 @@ public class DocumentPostingOrchestrator : DomainService
                 .WithData("date", payment.PostingDate);
         }
 
-        var journal = new JournalEntry(GuidGenerator.Create(), payment.CompanyId, fiscalYear.Id, payment.PostingDate)
+        var journal = new JournalEntry(CreateGuid(), payment.CompanyId, fiscalYear.Id, payment.PostingDate)
         {
             ReferenceType = payment.DocumentType,
             ReferenceId = payment.Id,
@@ -380,7 +386,7 @@ public class DocumentPostingOrchestrator : DomainService
         var sles = await _sleRepository.GetListAsync(s =>
             s.VoucherType == "StockEntry" && s.VoucherId == stockEntry.Id);
 
-        var journal = new JournalEntry(GuidGenerator.Create(), stockEntry.CompanyId, fiscalYear.Id, stockEntry.PostingDate)
+        var journal = new JournalEntry(CreateGuid(), stockEntry.CompanyId, fiscalYear.Id, stockEntry.PostingDate)
         {
             ReferenceType = ((IAccountableDocument)stockEntry).DocumentType,
             ReferenceId = stockEntry.Id,
@@ -631,7 +637,7 @@ public class DocumentPostingOrchestrator : DomainService
     /// </summary>
     public async Task ReverseGlForDocumentAsync(string voucherType, Guid voucherId)
     {
-        var query = await _journalRepository.GetQueryableAsync();
+        var query = await GetJournalQueryWithLinesAsync();
         // Excludes ExchangeGainOrLoss and PaymentTax: a Payment Entry can have its main GL JE plus
         // one or more per-reference exchange gain/loss JEs AND a separate tax JE, all sharing the
         // same (ReferenceType, ReferenceId) — those are reversed separately via
@@ -651,17 +657,18 @@ public class DocumentPostingOrchestrator : DomainService
 
     /// <summary>
     /// Reverses every posted exchange gain/loss Journal Entry linked to a document — e.g. the
-    /// per-reference FX JEs a multi-currency Payment Entry posts alongside its main GL. Reverses
-    /// ALL matches (not just the first), unlike <see cref="ReverseGlForDocumentAsync"/>, since a
-    /// single Payment Entry can post one FX JE per allocated reference. No-op if none are posted.
+    /// per-reference FX JEs a multi-currency Payment Entry posts alongside its main GL, or an invoice
+    /// settled via reconciliation. Matches directly on ReferenceType/ReferenceId OR on lines with
+    /// matching AgainstVoucherType/AgainstVoucherId. Reverses ALL matches. No-op if none are posted.
     /// </summary>
     public async Task ReverseExchangeGainLossJournalEntriesAsync(string voucherType, Guid voucherId)
     {
-        var query = await _journalRepository.GetQueryableAsync();
+        var query = await GetJournalQueryWithLinesAsync();
         var entries = query.Where(j =>
-            j.ReferenceType == voucherType && j.ReferenceId == voucherId
-            && j.Status == DocumentStatus.Posted
-            && j.VoucherType == JournalEntryVoucherType.ExchangeGainOrLoss).ToList();
+            j.Status == DocumentStatus.Posted
+            && j.VoucherType == JournalEntryVoucherType.ExchangeGainOrLoss
+            && ((j.ReferenceType == voucherType && j.ReferenceId == voucherId)
+                || j.Lines.Any(l => l.AgainstVoucherType == voucherType && l.AgainstVoucherId == voucherId))).ToList();
 
         foreach (var entry in entries)
             await ReverseJournalEntryAsync(entry);
@@ -676,7 +683,7 @@ public class DocumentPostingOrchestrator : DomainService
     /// </summary>
     public async Task ReversePaymentTaxJournalEntriesAsync(string voucherType, Guid voucherId)
     {
-        var query = await _journalRepository.GetQueryableAsync();
+        var query = await GetJournalQueryWithLinesAsync();
         var entries = query.Where(j =>
             j.ReferenceType == voucherType && j.ReferenceId == voucherId
             && j.Status == DocumentStatus.Posted
@@ -684,6 +691,21 @@ public class DocumentPostingOrchestrator : DomainService
 
         foreach (var entry in entries)
             await ReverseJournalEntryAsync(entry);
+    }
+
+    private async Task<IQueryable<JournalEntry>> GetJournalQueryWithLinesAsync()
+    {
+        try
+        {
+            var withDetails = await _journalRepository.WithDetailsAsync(j => j.Lines);
+            if (withDetails != null) return withDetails;
+        }
+        catch
+        {
+            // Fallback if WithDetailsAsync is not configured or unsupported in mock/provider
+        }
+
+        return await _journalRepository.GetQueryableAsync();
     }
 
     /// <summary>
@@ -709,7 +731,7 @@ public class DocumentPostingOrchestrator : DomainService
     private async Task ReverseJournalEntryAsync(JournalEntry original)
     {
         var reversal = new JournalEntry(
-            GuidGenerator.Create(), original.CompanyId, original.FiscalYearId, original.PostingDate, original.TenantId)
+            CreateGuid(), original.CompanyId, original.FiscalYearId, original.PostingDate, original.TenantId)
         {
             ReferenceType = original.ReferenceType,
             ReferenceId = original.ReferenceId,

@@ -444,6 +444,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.BuyerTin = input.BuyerTin;
         invoice.SupplierTin = input.SupplierTin;
         invoice.PosProfileId = input.PosProfileId;
+        invoice.EInvoiceDocType = input.EInvoiceDocType;
 
         // Per MyInvois commit 780a4cf: sync buyer TIN with Customer TIN
         if (!string.IsNullOrWhiteSpace(invoice.BuyerTin))
@@ -1330,6 +1331,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         // Reverse PLE entries + reverse the posted GL Journal Entry
         await _postingOrchestrator.ReversePleForDocumentAsync("SalesInvoice", invoice.Id);
         await _postingOrchestrator.ReverseGlForDocumentAsync("SalesInvoice", invoice.Id);
+        await _postingOrchestrator.ReverseExchangeGainLossJournalEntriesAsync("SalesInvoice", invoice.Id);
 
         // Reverse stock if UpdateStock was used (in stock UOM)
         if (invoice.UpdateStock && invoice.WarehouseId.HasValue)

@@ -444,6 +444,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.IsReturn = input.IsReturn;
         invoice.IsSubcontracted = input.IsSubcontracted;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
+        invoice.EInvoiceDocType = input.EInvoiceDocType;
         invoice.UpdateStock = input.UpdateStock;
         invoice.WarehouseId = input.WarehouseId;
         invoice.ProjectId = input.ProjectId;
@@ -1285,6 +1286,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         // Reverse PLE entries
         await _postingOrchestrator.ReversePleForDocumentAsync("PurchaseInvoice", invoice.Id);
         await _postingOrchestrator.ReverseGlForDocumentAsync("PurchaseInvoice", invoice.Id);
+        await _postingOrchestrator.ReverseExchangeGainLossJournalEntriesAsync("PurchaseInvoice", invoice.Id);
 
         // Reverse stock if UpdateStock was used (in stock UOM)
         if (invoice.UpdateStock && invoice.WarehouseId.HasValue)

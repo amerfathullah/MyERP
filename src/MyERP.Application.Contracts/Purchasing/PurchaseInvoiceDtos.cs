@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using MyERP.Sales;
 using Volo.Abp.Application.Dtos;
 
 namespace MyERP.Purchasing;
@@ -28,6 +29,7 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public decimal BaseGrandTotal { get; set; }
     public decimal BaseOutstandingAmount { get; set; }
     public string Status { get; set; } = null!;
+    public EInvoiceDocumentType? EInvoiceDocType { get; set; }
     public string EInvoiceStatus { get; set; } = null!;
     public string? LhdnUuid { get; set; }
     public bool IsReturn { get; set; }
@@ -160,6 +162,9 @@ public class CreatePurchaseInvoiceDto
 
     /// <summary>Original invoice this return is against.</summary>
     public Guid? ReturnAgainstId { get; set; }
+
+    /// <summary>LHDN self-billed e-Invoice document type (SelfBilledInvoice=11, SelfBilledCreditNote=12, SelfBilledDebitNote=13, SelfBilledRefundNote=14). When omitted, auto-derived from IsReturn.</summary>
+    public EInvoiceDocumentType? EInvoiceDocType { get; set; }
 
     /// <summary>When true, stock is received on invoice submit (direct purchase without PR).</summary>
     public bool UpdateStock { get; set; }

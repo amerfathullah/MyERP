@@ -304,12 +304,16 @@ public class PaymentReconciliationEngine : DomainService
         if (isGain)
         {
             je.AddLineWithDimensions(partyAccountId, absGainLoss, true, costCenterId, projectId, null, "Exchange Gain");
+            je.Lines[^1].AgainstVoucherType = alloc.InvoiceVoucherType;
+            je.Lines[^1].AgainstVoucherId = alloc.InvoiceVoucherId;
             je.AddLineWithDimensions(targetAccount, absGainLoss, false, costCenterId, projectId, null, "Exchange Gain");
         }
         else
         {
             je.AddLineWithDimensions(targetAccount, absGainLoss, true, costCenterId, projectId, null, "Exchange Loss");
             je.AddLineWithDimensions(partyAccountId, absGainLoss, false, costCenterId, projectId, null, "Exchange Loss");
+            je.Lines[^1].AgainstVoucherType = alloc.InvoiceVoucherType;
+            je.Lines[^1].AgainstVoucherId = alloc.InvoiceVoucherId;
         }
 
         je.Post();

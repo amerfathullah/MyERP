@@ -71,6 +71,18 @@
             <label class="form-label">{{ '::BuyerTin' | abpLocalization }}</label>
             <input type="text" class="form-control" formControlName="buyerTin" [class.is-invalid]="form.get('buyerTin')?.invalid && form.get('buyerTin')?.touched" />
           </div>
+          <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::EInvoiceDocType' | abpLocalization }}</label>
+            <select class="form-select" formControlName="eInvoiceDocType">
+              @if (form.get('isReturn')?.value) {
+                <option [ngValue]="2">{{ '::EInvoiceTypeCreditNote' | abpLocalization }} (02)</option>
+                <option [ngValue]="4">{{ '::EInvoiceTypeRefundNote' | abpLocalization }} (04)</option>
+              } @else {
+                <option [ngValue]="1">{{ '::EInvoiceTypeInvoice' | abpLocalization }} (01)</option>
+                <option [ngValue]="3">{{ '::EInvoiceTypeDebitNote' | abpLocalization }} (03)</option>
+              }
+            </select>
+          </div>
         </div>
       </div>
     </div>

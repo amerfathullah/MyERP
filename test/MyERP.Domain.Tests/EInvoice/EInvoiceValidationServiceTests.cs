@@ -308,4 +308,100 @@ public class EInvoiceValidationServiceTests
         var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
         Assert.Contains(errors, e => e.Contains("already been merged into a consolidated invoice"));
     }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_RefundNoteOnReturn_ReturnsNoErrors()
+    {
+        var originalId = Guid.NewGuid();
+        var origInvoice = new SalesInvoice(originalId, _companyId, _customerId, "SINV-ORIG-01", DateTime.UtcNow)
+        {
+            LhdnUuid = Guid.NewGuid().ToString()
+        };
+        _salesInvoiceRepository.FindAsync(originalId).Returns(origInvoice);
+
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "REF-001", DateTime.UtcNow);
+        invoice.IsReturn = true;
+        invoice.AddItem(_itemId, "Returned Service", -1, 100m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.RefundNote; // Type 04
+        invoice.ReturnAgainstId = originalId;
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_RefundNoteOnNonReturn_ReturnsError()
+    {
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "REF-002", DateTime.UtcNow);
+        invoice.IsReturn = false;
+        invoice.AddItem(_itemId, "Service", 1, 100m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.RefundNote; // Type 04 on non-return
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("Credit Note or Refund Note type code can only be used on return invoices"));
+    }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_InvalidDocTypeOnReturn_ReturnsError()
+    {
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "RET-001", DateTime.UtcNow);
+        invoice.IsReturn = true;
+        invoice.AddItem(_itemId, "Item", -1, 50m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.DebitNote; // Type 03 on return -> not allowed
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("Return Sales Invoice must use Document Type Code '02' (Credit Note) or '04' (Refund Note)"));
+    }
+
+    [Fact]
+    public async Task ValidatePurchaseInvoice_SelfBilledRefundNoteOnReturn_ReturnsNoErrors()
+    {
+        var originalId = Guid.NewGuid();
+        var origInvoice = new PurchaseInvoice(originalId, _companyId, _supplierId, "PINV-ORIG-01", DateTime.UtcNow)
+        {
+            LhdnUuid = Guid.NewGuid().ToString()
+        };
+        _purchaseInvoiceRepository.FindAsync(originalId).Returns(origInvoice);
+
+        var invoice = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "PREF-001", DateTime.UtcNow);
+        invoice.IsReturn = true;
+        invoice.AddItem(_itemId, "Returned Good", -2, 30m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.SupplierTin = "C1122334455";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.SelfBilledRefundNote; // Type 14
+        invoice.ReturnAgainstId = originalId;
+
+        var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public async Task ValidatePurchaseInvoice_SelfBilledRefundNoteOnNonReturn_ReturnsError()
+    {
+        var invoice = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "PREF-002", DateTime.UtcNow);
+        invoice.IsReturn = false;
+        invoice.AddItem(_itemId, "Good", 1, 30m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.SupplierTin = "C1122334455";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.SelfBilledRefundNote; // Type 14 on non-return
+
+        var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("Self-Billed Credit Note or Refund Note type code can only be used on return purchase invoices"));
+    }
 }
