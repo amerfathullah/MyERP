@@ -295,14 +295,23 @@ export class BatchDetailComponent implements OnInit {
   isExpired(): boolean {
     const b = this.batch();
     if (!b?.expiryDate) return false;
-    return new Date(b.expiryDate) < new Date();
+    // Per ERPNext PR #58736 (commit 00f04fc084): show Expired status only after expiry date has passed
+    const exp = new Date(b.expiryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    exp.setHours(0, 0, 0, 0);
+    return exp.getTime() < today.getTime();
   }
 
   daysUntilExpiry(): number | null {
     const b = this.batch();
     if (!b?.expiryDate) return null;
-    const diff = new Date(b.expiryDate).getTime() - new Date().getTime();
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    const exp = new Date(b.expiryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    exp.setHours(0, 0, 0, 0);
+    const diff = exp.getTime() - today.getTime();
+    return Math.round(diff / (1000 * 60 * 60 * 24));
   }
 
   disable(): void {

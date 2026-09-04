@@ -500,17 +500,40 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                         plannedEndDate = soItem.DeliveryDate.Value;
                     }
                 }
-                else
+
+                if (!plannedEndDate.HasValue)
                 {
                     var matchingSoItem = so.Items.FirstOrDefault(i => i.ItemId == input.ItemId);
                     if (matchingSoItem?.DeliveryDate.HasValue == true)
                     {
                         plannedEndDate = matchingSoItem.DeliveryDate.Value;
                     }
-                    else if (so.DeliveryDate.HasValue)
+                    else
                     {
-                        plannedEndDate = so.DeliveryDate.Value;
+                        // Per ERPNext PR #58568 (commit db56080285): use packed row delivery date
+                        // When production item is part of a Product Bundle, resolve delivery date from parent bundle row
+                        var bundleDecompositionService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
+                        foreach (var item in so.Items)
+                        {
+                            if (await bundleDecompositionService.IsBundleItemAsync(item.ItemId))
+                            {
+                                var components = await bundleDecompositionService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice, item.WarehouseId);
+                                if (components.Any(c => c.ComponentItemId == input.ItemId))
+                                {
+                                    if (item.DeliveryDate.HasValue)
+                                    {
+                                        plannedEndDate = item.DeliveryDate.Value;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
                     }
+                }
+
+                if (!plannedEndDate.HasValue && so.DeliveryDate.HasValue)
+                {
+                    plannedEndDate = so.DeliveryDate.Value;
                 }
             }
         }
@@ -598,12 +621,39 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 if (salesOrderItemId.HasValue)
                 {
                     var soItem = so.Items.FirstOrDefault(i => i.Id == salesOrderItemId.Value);
-                    plannedEndDate = soItem?.DeliveryDate ?? so.DeliveryDate;
+                    plannedEndDate = soItem?.DeliveryDate;
                 }
-                else
+
+                if (!plannedEndDate.HasValue)
                 {
-                    plannedEndDate = so.DeliveryDate;
+                    var matchingSoItem = so.Items.FirstOrDefault(i => i.ItemId == itemId);
+                    if (matchingSoItem?.DeliveryDate.HasValue == true)
+                    {
+                        plannedEndDate = matchingSoItem.DeliveryDate.Value;
+                    }
+                    else
+                    {
+                        // Per ERPNext PR #58568 (commit db56080285): use packed row delivery date from parent bundle
+                        var bundleDecompositionService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
+                        foreach (var item in so.Items)
+                        {
+                            if (await bundleDecompositionService.IsBundleItemAsync(item.ItemId))
+                            {
+                                var components = await bundleDecompositionService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice, item.WarehouseId);
+                                if (components.Any(c => c.ComponentItemId == itemId))
+                                {
+                                    if (item.DeliveryDate.HasValue)
+                                    {
+                                        plannedEndDate = item.DeliveryDate.Value;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+
+                plannedEndDate ??= so.DeliveryDate;
             }
         }
 

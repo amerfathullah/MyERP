@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MyERP.Manufacturing.Entities;
 using Shouldly;
 using Xunit;
@@ -70,25 +71,53 @@ public class SoToWorkOrderTests
     }
 
     [Fact]
-    public void WorkOrder_DeliveryDatePropagation_FromSalesOrderItem()
+    public void WorkOrder_PackedRowDeliveryDate_PropagationFromParentBundle()
     {
-        // Per ERPNext PR #58568: Work Orders created from SO rows (including decomposed bundles)
-        // inherit PlannedEndDate from the specific SalesOrderItem DeliveryDate.
+        // Per ERPNext PR #58568 (commit db56080285): Work Order created for a product bundle component
+        // inherits the planned end date from the parent bundle item row in the Sales Order.
         var soId = Guid.NewGuid();
-        var soItemId = Guid.NewGuid();
-        var lineDeliveryDate = DateTime.UtcNow.Date.AddDays(7);
+        var bundleItemId = Guid.NewGuid();
+        var componentItemId = Guid.NewGuid();
+        var bundleDeliveryDate = DateTime.UtcNow.Date.AddDays(10);
 
-        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-005",
-            Guid.NewGuid(), Guid.NewGuid(), 5, Guid.NewGuid())
+        var so = new MyERP.Sales.Entities.SalesOrder(soId, Guid.NewGuid(), Guid.NewGuid(), "SO-100", DateTime.UtcNow);
+        so.AddItem(bundleItemId, "Test Bundle", 1, 500, 0, "Unit", bundleDeliveryDate);
+
+        var matchingBundleItem = so.Items.FirstOrDefault(i => i.ItemId == bundleItemId);
+        matchingBundleItem.ShouldNotBeNull();
+        matchingBundleItem.DeliveryDate.ShouldBe(bundleDeliveryDate);
+
+        var wo = new WorkOrder(Guid.NewGuid(), so.CompanyId, "WO-006",
+            componentItemId, Guid.NewGuid(), 2, Guid.NewGuid())
         {
             SalesOrderId = soId,
-            SalesOrderItemId = soItemId,
-            PlannedEndDate = lineDeliveryDate
+            SalesOrderItemId = matchingBundleItem.Id,
+            PlannedEndDate = matchingBundleItem.DeliveryDate
         };
 
         wo.SalesOrderId.ShouldBe(soId);
-        wo.SalesOrderItemId.ShouldBe(soItemId);
-        wo.PlannedEndDate.ShouldBe(lineDeliveryDate);
+        wo.SalesOrderItemId.ShouldBe(matchingBundleItem.Id);
+        wo.PlannedEndDate.ShouldBe(bundleDeliveryDate);
+    }
+
+    [Fact]
+    public void Batch_ExpiryDateBoundary_NotExpiredOnExpiryDay()
+    {
+        // Per ERPNext PR #58736 (commit 00f04fc084): show Expired status only after expiry date has passed.
+        // On the day of expiry, the batch remains valid for transactions until that day concludes.
+        var batch = new MyERP.Inventory.Entities.Batch(Guid.NewGuid(), Guid.NewGuid(), "BATCH-EXP-001")
+        {
+            ExpiryDate = new DateTime(2026, 9, 4, 0, 0, 0, DateTimeKind.Utc)
+        };
+
+        // Same date: not expired
+        batch.IsExpired(new DateTime(2026, 9, 4, 15, 30, 0, DateTimeKind.Utc)).ShouldBeFalse();
+
+        // Day after: expired
+        batch.IsExpired(new DateTime(2026, 9, 5, 0, 0, 1, DateTimeKind.Utc)).ShouldBeTrue();
+
+        // Day before: not expired
+        batch.IsExpired(new DateTime(2026, 9, 3, 23, 59, 59, DateTimeKind.Utc)).ShouldBeFalse();
     }
 }
 
