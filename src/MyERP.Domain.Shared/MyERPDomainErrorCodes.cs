@@ -195,6 +195,7 @@ public static class MyERPDomainErrorCodes
     public const string CannotCancelWithDraftDependents = "MyERP:01019";
     public const string DuplicateCustomerPoNumber = "MyERP:01020";
     public const string PartyCannotRepresentOwnCompany = "MyERP:03005";
+    public const string InternalPartyAlreadyExists = "MyERP:03006";
 
     // Timesheet Billing
     public const string NoUnbilledTimesheetEntries = "MyERP:15001";

@@ -101,15 +101,39 @@ public class SupplierAppService :
 
     public override async Task<SupplierDto> UpdateAsync(Guid id, CreateUpdateSupplierDto input)
     {
-        await ValidateSupplierAsync(input);
+        await ValidateSupplierAsync(input, id);
         return await base.UpdateAsync(id, input);
     }
 
-    private async Task ValidateSupplierAsync(CreateUpdateSupplierDto input)
+    private async Task ValidateSupplierAsync(CreateUpdateSupplierDto input, Guid? currentId = null)
     {
-        if (input.RepresentsCompanyId.HasValue && input.RepresentsCompanyId.Value == input.CompanyId)
+        if (input.RepresentsCompanyId.HasValue)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
+            if (input.RepresentsCompanyId.Value == input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
+            }
+
+            if (input.IsActive)
+            {
+                var suppQuery = await Repository.GetQueryableAsync();
+                var existing = suppQuery.FirstOrDefault(s =>
+                    s.RepresentsCompanyId == input.RepresentsCompanyId.Value
+                    && s.IsActive
+                    && (!currentId.HasValue || s.Id != currentId.Value));
+
+                if (existing != null)
+                {
+                    var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+                    var company = await companyRepo.FindAsync(input.RepresentsCompanyId.Value);
+                    var companyName = company?.Name ?? input.RepresentsCompanyId.Value.ToString();
+
+                    throw new BusinessException(MyERPDomainErrorCodes.InternalPartyAlreadyExists)
+                        .WithData("partyType", "Supplier")
+                        .WithData("partyName", existing.Name)
+                        .WithData("companyName", companyName);
+                }
+            }
         }
 
         var groupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.SupplierGroup, Guid>>();

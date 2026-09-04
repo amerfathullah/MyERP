@@ -4310,6 +4310,7 @@
     "HoldInvoices": "Hold (Invoices)",
     "HoldPayments": "Hold (Payments)",
     "MyERP:03005": "A party cannot represent the company it belongs to.",
+    "MyERP:03006": "Internal {partyType} '{partyName}' already exists for {companyName}. Disable it to make this {partyType} internal.",
     "SalesOrderRequired": "Sales Order Required",
     "DeliveryNoteRequired": "Delivery Note Required",
     "MyERP:01011": "Valid Till date cannot be before Transaction Date.",

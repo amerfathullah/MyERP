@@ -101,7 +101,7 @@ public class CustomerAppService :
 
     public override async Task<CustomerDto> UpdateAsync(Guid id, CreateUpdateCustomerDto input)
     {
-        await ValidateCustomerAsync(input);
+        await ValidateCustomerAsync(input, id);
 
         // Per gotcha #1286: validate credit limit reduction against existing outstanding
         if (input.CreditLimit > 0)
@@ -120,11 +120,35 @@ public class CustomerAppService :
         return await base.UpdateAsync(id, input);
     }
 
-    private async Task ValidateCustomerAsync(CreateUpdateCustomerDto input)
+    private async Task ValidateCustomerAsync(CreateUpdateCustomerDto input, Guid? currentId = null)
     {
-        if (input.RepresentsCompanyId.HasValue && input.RepresentsCompanyId.Value == input.CompanyId)
+        if (input.RepresentsCompanyId.HasValue)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
+            if (input.RepresentsCompanyId.Value == input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
+            }
+
+            if (input.IsActive)
+            {
+                var custQuery = await Repository.GetQueryableAsync();
+                var existing = custQuery.FirstOrDefault(c =>
+                    c.RepresentsCompanyId == input.RepresentsCompanyId.Value
+                    && c.IsActive
+                    && (!currentId.HasValue || c.Id != currentId.Value));
+
+                if (existing != null)
+                {
+                    var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+                    var company = await companyRepo.FindAsync(input.RepresentsCompanyId.Value);
+                    var companyName = company?.Name ?? input.RepresentsCompanyId.Value.ToString();
+
+                    throw new BusinessException(MyERPDomainErrorCodes.InternalPartyAlreadyExists)
+                        .WithData("partyType", "Customer")
+                        .WithData("partyName", existing.Name)
+                        .WithData("companyName", companyName);
+                }
+            }
         }
 
         var groupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.CustomerGroup, Guid>>();

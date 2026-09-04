@@ -78,7 +78,8 @@ public class InterCompanyTransactionService : DomainService
         var supplierQuery = await _supplierRepository.GetQueryableAsync();
         var matchingSupplier = supplierQuery
             .FirstOrDefault(s => s.CompanyId == targetCompanyId
-                              && s.RepresentsCompanyId == si.CompanyId);
+                              && s.RepresentsCompanyId == si.CompanyId
+                              && s.IsActive);
 
         if (matchingSupplier == null)
         {
@@ -172,7 +173,8 @@ public class InterCompanyTransactionService : DomainService
         var customerQuery = await _customerRepository.GetQueryableAsync();
         var matchingCustomer = customerQuery
             .FirstOrDefault(c => c.CompanyId == targetCompanyId
-                              && c.RepresentsCompanyId == pi.CompanyId);
+                              && c.RepresentsCompanyId == pi.CompanyId
+                              && c.IsActive);
 
         if (matchingCustomer == null)
         {
@@ -246,7 +248,8 @@ public class InterCompanyTransactionService : DomainService
         var supplierQuery = await _supplierRepository.GetQueryableAsync();
         var matchingSupplier = supplierQuery
             .FirstOrDefault(s => s.CompanyId == targetCompanyId
-                              && s.RepresentsCompanyId == salesOrder.CompanyId);
+                              && s.RepresentsCompanyId == salesOrder.CompanyId
+                              && s.IsActive);
 
         if (matchingSupplier == null)
             return null; // No bidirectional link configured — skip silently
