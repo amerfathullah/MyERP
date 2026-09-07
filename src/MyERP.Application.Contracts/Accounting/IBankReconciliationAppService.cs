@@ -19,6 +19,7 @@ public interface IBankReconciliationAppService : IApplicationService
     Task<MirrorTransactionDto?> SearchForMirrorTransactionAsync(Guid transactionId);
     Task<InternalTransferResultDto> CreateInternalTransferAsync(CreateInternalTransferDto input);
     Task<VoucherCreatedResultDto> CreatePaymentEntryFromTransactionAsync(CreatePEFromTransactionDto input);
+    Task<JournalEntryCreatedResultDto> CreateJournalEntryFromTransactionAsync(CreateJEFromTransactionDto input);
     Task<BankReconciliationStatementDto> GetReconciliationStatementAsync(GetBankReconciliationStatementInput input);
 }
 
@@ -227,6 +228,49 @@ public class VoucherCreatedResultDto
     public string PaymentNumber { get; set; } = null!;
     public decimal Amount { get; set; }
     public string PaymentType { get; set; } = null!;
+    public Guid BankTransactionId { get; set; }
+    public bool IsReconciled { get; set; }
+}
+
+/// <summary>
+/// Creates a Journal Entry directly from a bank transaction (bank charges, interest income, tax, contra, etc.)
+/// and auto-reconciles it with the bank transaction.
+/// Per ERPNext: create_journal_entry_bts() in bank_reconciliation_tool.py.
+/// </summary>
+public class CreateJEFromTransactionDto
+{
+    [Required]
+    public Guid BankTransactionId { get; set; }
+
+    [Required]
+    public Guid CompanyId { get; set; }
+
+    /// <summary>The balancing GL account (e.g. Bank Charges expense, Interest income, etc.)</summary>
+    [Required]
+    public Guid SecondAccountId { get; set; }
+
+    /// <summary>Voucher type (BankEntry, ContraEntry, JournalEntry, etc.). Defaults to BankEntry.</summary>
+    public JournalEntryVoucherType VoucherType { get; set; } = JournalEntryVoucherType.BankEntry;
+
+    /// <summary>Optional party type (Customer / Supplier / Employee) if second account is Receivable/Payable.</summary>
+    public string? PartyType { get; set; }
+
+    /// <summary>Optional party ID if second account is Receivable/Payable.</summary>
+    public Guid? PartyId { get; set; }
+
+    /// <summary>Optional cost center.</summary>
+    public Guid? CostCenterId { get; set; }
+
+    /// <summary>Optional user narration override.</summary>
+    public string? Narration { get; set; }
+}
+
+public class JournalEntryCreatedResultDto
+{
+    public Guid JournalEntryId { get; set; }
+    public string EntryNumber { get; set; } = null!;
+    public decimal Amount { get; set; }
+    public string VoucherType { get; set; } = null!;
     public Guid BankTransactionId { get; set; }
     public bool IsReconciled { get; set; }
 }

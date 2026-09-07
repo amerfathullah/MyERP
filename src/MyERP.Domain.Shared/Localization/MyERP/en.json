@@ -4795,6 +4795,11 @@
     "HoldingPickLists": "Stock Held by Other Pick Lists",
     "DeliveryStatus": "Delivery Status",
     "NotDelivered": "Not Delivered",
-    "PartlyDelivered": "Partly Delivered"
+    "PartlyDelivered": "Partly Delivered",
+    "CreateJournalEntry": "Create Journal Entry",
+    "SecondAccount": "Second Account",
+    "BankEntry": "Bank Entry",
+    "ContraEntry": "Contra Entry",
+    "FailedToCreateJournalEntry": "Failed to create journal entry"
   }
 }

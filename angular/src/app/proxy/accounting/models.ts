@@ -946,6 +946,17 @@ export interface CreateInvoiceDiscountingInvoiceDto {
   outstandingAmount?: number;
 }
 
+export interface CreateJEFromTransactionDto {
+  bankTransactionId: string;
+  companyId: string;
+  secondAccountId: string;
+  voucherType?: JournalEntryVoucherType;
+  partyType?: string | null;
+  partyId?: string | null;
+  costCenterId?: string | null;
+  narration?: string | null;
+}
+
 export interface CreateJournalEntryDto {
   companyId: string;
   fiscalYearId: string;
@@ -1674,6 +1685,15 @@ export interface InvoiceForDiscountingDto {
   customerName?: string;
   issueDate?: string;
   outstandingAmount?: number;
+}
+
+export interface JournalEntryCreatedResultDto {
+  journalEntryId?: string;
+  entryNumber?: string;
+  amount?: number;
+  voucherType?: string;
+  bankTransactionId?: string;
+  isReconciled?: boolean;
 }
 
 export interface JournalEntryDto extends EntityDto<string> {

@@ -6,6 +6,7 @@ using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -357,6 +358,129 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
             PaymentNumber = peNumber,
             Amount = amount,
             PaymentType = paymentType.ToString(),
+            BankTransactionId = tx.Id,
+            IsReconciled = true,
+        };
+    }
+
+    /// <summary>
+    /// Creates a Journal Entry directly from a bank transaction and auto-reconciles it.
+    /// Per ERPNext: create_journal_entry_bts() in bank_reconciliation_tool.py.
+    /// Used for booking bank charges, interest income, tax payments, contra entries, etc.
+    /// Deposit: Debit Bank GL account, Credit Second account.
+    /// Withdrawal: Debit Second account, Credit Bank GL account.
+    /// </summary>
+    [Authorize(MyERPPermissions.JournalEntries.Create)]
+    public async Task<JournalEntryCreatedResultDto> CreateJournalEntryFromTransactionAsync(CreateJEFromTransactionDto input)
+    {
+        var tx = await _repository.GetAsync(input.BankTransactionId);
+        if (tx.IsReconciled)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:02048")
+                .WithData("transactionId", tx.Id);
+        }
+
+        var sourceBankAccount = await _bankAccountRepository.GetAsync(tx.BankAccountId);
+        var bankGlAccountId = sourceBankAccount.AccountId;
+
+        var isDeposit = tx.Deposit > 0 || tx.Amount > 0;
+        var amount = tx.Deposit > 0 ? tx.Deposit : (tx.Withdrawal > 0 ? tx.Withdrawal : Math.Abs(tx.Amount));
+
+        if (amount <= 0)
+        {
+            throw new Volo.Abp.BusinessException("MyERP:02001")
+                .WithData("reason", "Amount must be greater than zero.");
+        }
+
+        // Validate party if second account is Receivable or Payable
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var secondAccount = await accountRepo.FindAsync(input.SecondAccountId);
+        if (secondAccount != null && (secondAccount.AccountSubType == AccountSubType.AccountsReceivable || secondAccount.AccountSubType == AccountSubType.AccountsPayable))
+        {
+            if (string.IsNullOrWhiteSpace(input.PartyType) || !input.PartyId.HasValue)
+            {
+                throw new Volo.Abp.UserFriendlyException($"Party Type and Party are required for Receivable / Payable account {secondAccount.AccountName}");
+            }
+        }
+
+        // Resolve active Fiscal Year
+        var fyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<FiscalYear, Guid>>();
+        var fyQuery = await fyRepo.GetQueryableAsync();
+        var fy = fyQuery.FirstOrDefault(f => f.CompanyId == input.CompanyId
+            && f.StartDate <= tx.TransactionDate && f.EndDate >= tx.TransactionDate);
+        var fiscalYearId = fy?.Id ?? input.CompanyId;
+
+        // Generate Journal Entry Number
+        string entryNumber;
+        try
+        {
+            var numberGenerator = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.IDocumentNumberGenerator>();
+            entryNumber = await numberGenerator.GenerateAsync("JournalEntry", input.CompanyId, tx.TransactionDate);
+        }
+        catch (BusinessException ex) when (ex.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+        {
+            try
+            {
+                var numberGenerator = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.IDocumentNumberGenerator>();
+                entryNumber = await numberGenerator.GenerateAsync("JE", input.CompanyId, tx.TransactionDate);
+            }
+            catch (BusinessException innerEx) when (innerEx.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+            {
+                entryNumber = $"JE-{tx.TransactionDate:yyyyMMdd}-{GuidGenerator.Create().ToString("N")[..6].ToUpperInvariant()}";
+            }
+        }
+
+        var je = new JournalEntry(GuidGenerator.Create(), input.CompanyId, fiscalYearId, tx.TransactionDate, CurrentTenant.Id)
+        {
+            EntryNumber = entryNumber,
+            VoucherType = input.VoucherType,
+            ReferenceType = "BankTransaction",
+            ReferenceId = tx.Id,
+            ReferenceNumber = tx.ReferenceNumber,
+            Narration = input.Narration ?? tx.Description,
+        };
+
+        // Bank GL account line: Debit on deposit, Credit on withdrawal
+        je.AddFullLine(
+            accountId: bankGlAccountId,
+            amount: amount,
+            isDebit: isDeposit,
+            description: tx.Description,
+            costCenterId: input.CostCenterId);
+
+        // Second account line: Credit on deposit, Debit on withdrawal
+        je.AddFullLine(
+            accountId: input.SecondAccountId,
+            amount: amount,
+            isDebit: !isDeposit,
+            description: input.Narration ?? tx.Description,
+            partyId: input.PartyId,
+            partyType: input.PartyType,
+            costCenterId: input.CostCenterId);
+
+        // Submit + Post atomically (bank reconciliation creates posted entries)
+        je.Post();
+        je.SetClearanceDate(tx.TransactionDate);
+        await _journalEntryRepository.InsertAsync(je);
+
+        // Auto-reconcile: link bank transaction to the newly created JE
+        tx.ReconcileWithJournalEntry(je.Id, je.EntryNumber);
+        await _repository.UpdateAsync(tx);
+
+        // Audit log
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "JournalEntry", je.Id, "Posted",
+            input.CompanyId, entryNumber, "Draft", "Posted",
+            CurrentUser.Id, details: $"Created from bank transaction: {tx.Description}",
+            tenantId: CurrentTenant.Id));
+
+        return new JournalEntryCreatedResultDto
+        {
+            JournalEntryId = je.Id,
+            EntryNumber = entryNumber,
+            Amount = amount,
+            VoucherType = input.VoucherType.ToString(),
             BankTransactionId = tx.Id,
             IsReconciled = true,
         };

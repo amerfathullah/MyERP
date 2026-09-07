@@ -124,6 +124,32 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Adds a line with optional party and dimension references.
+    /// Used for programmatic JE generation (e.g. Bank Reconciliation create_journal_entry_bts).
+    /// </summary>
+    public void AddFullLine(Guid accountId, decimal amount, bool isDebit,
+        string? description = null, Guid? partyId = null, string? partyType = null,
+        Guid? costCenterId = null, Guid? projectId = null)
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        if (amount <= 0)
+            throw new ArgumentException("Amount must be positive.", nameof(amount));
+
+        var line = new JournalEntryLine(Guid.NewGuid(), Id, accountId, amount, isDebit, description)
+        {
+            PartyId = partyId,
+            PartyType = partyType,
+            CostCenterId = costCenterId,
+            ProjectId = projectId,
+        };
+        _lines.Add(line);
+
+        RecalculateTotals();
+    }
+
+    /// <summary>
     /// Adds a line with party reference. Validates account type compatibility.
     /// Per DO-NOT: "Allow party on non-Receivable/Payable/Equity accounts in GL entries"
     /// </summary>

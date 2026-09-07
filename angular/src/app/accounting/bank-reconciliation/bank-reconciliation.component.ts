@@ -12,6 +12,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { AccountService } from '../../proxy/accounting/account.service';
+import { JournalEntryVoucherType, journalEntryVoucherTypeOptions } from '../../proxy/accounting/journal-entry-voucher-type.enum';
 
 @Component({
   selector: 'app-bank-reconciliation',
@@ -46,6 +47,8 @@ export class BankReconciliationComponent implements OnInit {
   // Bank account selector
   bankAccounts = signal<any[]>([]);
   partyAccounts = signal<any[]>([]);
+  allPostingAccounts = signal<any[]>([]);
+  voucherTypeOptions = journalEntryVoucherTypeOptions;
   bankAccountId = '';
 
   // Date range filter
@@ -80,10 +83,13 @@ export class BankReconciliationComponent implements OnInit {
   loadPartyAccounts(): void {
     this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (res) => {
-        const partyAccts = (res.items ?? []).filter((a: any) =>
+        const items = res.items ?? [];
+        const partyAccts = items.filter((a: any) =>
           a.accountSubType === 1 /* Receivable */ || a.accountSubType === 2 /* Payable */
         );
         this.partyAccounts.set(partyAccts);
+        const postingAccts = items.filter((a: any) => !a.isGroup);
+        this.allPostingAccounts.set(postingAccts);
       },
       error: () => {},
     });
@@ -327,6 +333,68 @@ export class BankReconciliationComponent implements OnInit {
   closeCreatePePanel(): void {
     this.showCreatePePanel.set(false);
     this.createPeTransaction.set(null);
+  }
+
+  // --- Create Journal Entry from Transaction ---
+  showCreateJePanel = signal(false);
+  createJeTransaction = signal<BankTransactionDto | null>(null);
+  jeSecondAccountId = signal<string>('');
+  jeVoucherType = signal<JournalEntryVoucherType>(JournalEntryVoucherType.BankEntry);
+  jeCostCenterId = signal<string>('');
+  jeNarration = signal<string>('');
+  isCreatingJe = signal(false);
+
+  /** Open the Create JE panel for an unreconciled transaction */
+  openCreateJournal(tx: BankTransactionDto): void {
+    this.createJeTransaction.set(tx);
+    this.jeSecondAccountId.set('');
+    this.jeVoucherType.set(JournalEntryVoucherType.BankEntry);
+    this.jeCostCenterId.set('');
+    this.jeNarration.set(tx.description || '');
+    this.showCreatePePanel.set(false);
+    this.showTransferPanel.set(false);
+    this.showMatchPanel.set(false);
+    this.showCreateJePanel.set(true);
+  }
+
+  /** Execute the Create JE from Transaction API call */
+  confirmCreateJournal(): void {
+    const tx = this.createJeTransaction();
+    const companyId = this.companyContext.currentCompanyId();
+    if (!tx || !companyId || !this.jeSecondAccountId()) {
+      this.toaster.warn('::PleaseFillAllRequiredFields');
+      return;
+    }
+
+    this.isCreatingJe.set(true);
+    this.bankReconciliationService.createJournalEntryFromTransaction({
+      bankTransactionId: tx.id,
+      companyId,
+      secondAccountId: this.jeSecondAccountId(),
+      voucherType: this.jeVoucherType(),
+      costCenterId: this.jeCostCenterId() || undefined,
+      narration: this.jeNarration()?.trim() || undefined,
+    }).subscribe({
+      next: (result) => {
+        this.isCreatingJe.set(false);
+        this.showCreateJePanel.set(false);
+        this.toaster.success(
+          `Journal Entry ${result.entryNumber} created (${result.voucherType}, ${result.amount.toFixed(2)}). Auto-reconciled.`
+        );
+        this.loadTransactions(0, 20);
+        this.loadSummary();
+      },
+      error: (err) => {
+        this.isCreatingJe.set(false);
+        const msg = err?.error?.error?.message || '::FailedToCreateJournalEntry';
+        this.toaster.error(msg);
+      },
+    });
+  }
+
+  closeCreateJePanel(): void {
+    this.showCreateJePanel.set(false);
+    this.createJeTransaction.set(null);
   }
 
   // --- Manually import a single bank transaction ---

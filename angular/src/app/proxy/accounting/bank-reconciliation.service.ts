@@ -1,4 +1,4 @@
-import type { AutoMatchResultDto, BankReconciliationStatementDto, BankReconciliationSummaryDto, BankTransactionDto, CreateInternalTransferDto, CreatePEFromTransactionDto, GetBankReconciliationStatementInput, GetBankTransactionsDto, ImportBankTransactionDto, InternalTransferResultDto, MatchCandidateDto, MirrorTransactionDto, ReconcileBankTransactionDto, VoucherCreatedResultDto } from './models';
+import type { AutoMatchResultDto, BankReconciliationStatementDto, BankReconciliationSummaryDto, BankTransactionDto, CreateInternalTransferDto, CreateJEFromTransactionDto, CreatePEFromTransactionDto, GetBankReconciliationStatementInput, GetBankTransactionsDto, ImportBankTransactionDto, InternalTransferResultDto, JournalEntryCreatedResultDto, MatchCandidateDto, MirrorTransactionDto, ReconcileBankTransactionDto, VoucherCreatedResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -24,6 +24,15 @@ export class BankReconciliationService {
     this.restService.request<any, InternalTransferResultDto>({
       method: 'POST',
       url: '/api/app/bank-reconciliation/internal-transfer',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  createJournalEntryFromTransaction = (input: CreateJEFromTransactionDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, JournalEntryCreatedResultDto>({
+      method: 'POST',
+      url: '/api/app/bank-reconciliation/journal-entry-from-transaction',
       body: input,
     },
     { apiName: this.apiName,...config });
