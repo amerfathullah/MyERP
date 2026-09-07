@@ -15,8 +15,34 @@ public class PickListDto : EntityDto<Guid>
     public int Status { get; set; }
     public bool IsFullyTransferred { get; set; }
     public bool IsPartiallyTransferred { get; set; }
+    public string? DeliveryStatus { get; set; }
+    public decimal PerDelivered { get; set; }
+    public bool IsFullyDelivered { get; set; }
+    public bool IsPartiallyDelivered { get; set; }
     public PickListItemDto[] Items { get; set; } = [];
     public DateTime CreationTime { get; set; }
+}
+
+public class StockAvailabilityInsightDto
+{
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public Guid WarehouseId { get; set; }
+    public string? WarehouseName { get; set; }
+    public decimal ActualQty { get; set; }
+    public decimal PickedQty { get; set; }
+    public decimal ReservedQty { get; set; }
+    public decimal FreeQty { get; set; }
+    public List<HoldingPickListDto> HoldingPickLists { get; set; } = new();
+}
+
+public class HoldingPickListDto
+{
+    public Guid PickListId { get; set; }
+    public string? PickListNumber { get; set; }
+    public string Status { get; set; } = null!;
+    public Guid WarehouseId { get; set; }
+    public decimal HoldingQty { get; set; }
 }
 
 public class PickListItemDto

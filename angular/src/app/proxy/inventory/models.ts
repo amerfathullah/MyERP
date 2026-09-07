@@ -913,6 +913,14 @@ export interface GetWarehouseListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }
 
+export interface HoldingPickListDto {
+  pickListId?: string;
+  pickListNumber?: string | null;
+  status?: string;
+  warehouseId?: string;
+  holdingQty?: number;
+}
+
 export interface InventoryAgingBucketDto {
   label?: string;
   itemCount?: number;
@@ -1394,6 +1402,10 @@ export interface PickListDto extends EntityDto<string> {
   status?: number;
   isFullyTransferred?: boolean;
   isPartiallyTransferred?: boolean;
+  deliveryStatus?: string | null;
+  perDelivered?: number;
+  isFullyDelivered?: boolean;
+  isPartiallyDelivered?: boolean;
   items?: PickListItemDto[];
   creationTime?: string;
 }
@@ -1693,6 +1705,18 @@ export interface SplitBatchResultDto {
   newBatchNo?: string;
   stockEntryId?: string;
   stockEntryNumber?: string | null;
+}
+
+export interface StockAvailabilityInsightDto {
+  itemId?: string;
+  itemName?: string | null;
+  warehouseId?: string;
+  warehouseName?: string | null;
+  actualQty?: number;
+  pickedQty?: number;
+  reservedQty?: number;
+  freeQty?: number;
+  holdingPickLists?: HoldingPickListDto[];
 }
 
 export interface StockBalanceDto extends EntityDto<string> {

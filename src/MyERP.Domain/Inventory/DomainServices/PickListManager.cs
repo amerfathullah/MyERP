@@ -19,13 +19,22 @@ public class PickListManager : DomainService
 {
     private readonly IRepository<PickList, Guid> _pickListRepository;
     private readonly IRepository<Bin, Guid> _binRepository;
+    private readonly IRepository<StockReservationEntry, Guid>? _sreRepository;
+    private readonly IRepository<Item, Guid>? _itemRepository;
+    private readonly IRepository<Warehouse, Guid>? _warehouseRepository;
 
     public PickListManager(
         IRepository<PickList, Guid> pickListRepository,
-        IRepository<Bin, Guid> binRepository)
+        IRepository<Bin, Guid> binRepository,
+        IRepository<StockReservationEntry, Guid>? sreRepository = null,
+        IRepository<Item, Guid>? itemRepository = null,
+        IRepository<Warehouse, Guid>? warehouseRepository = null)
     {
         _pickListRepository = pickListRepository;
         _binRepository = binRepository;
+        _sreRepository = sreRepository;
+        _itemRepository = itemRepository;
+        _warehouseRepository = warehouseRepository;
     }
 
     /// <summary>
@@ -195,6 +204,106 @@ public class PickListManager : DomainService
     }
 
     /// <summary>
+    /// Gets detailed stock availability and holding pick lists for all items in the pick list.
+    /// Maps to ERPNext get_stock_availability / get_pick_list_holders logic.
+    /// </summary>
+    public async Task<List<StockAvailabilityInsightResult>> GetStockAvailabilityInsightAsync(
+        PickList pickList,
+        IRepository<StockReservationEntry, Guid>? sreRepository = null)
+    {
+        var activeSreRepo = sreRepository ?? _sreRepository;
+        var results = new List<StockAvailabilityInsightResult>();
+
+        var distinctPairs = pickList.Items
+            .GroupBy(i => new { i.ItemId, i.WarehouseId })
+            .Select(g => new { g.Key.ItemId, g.Key.WarehouseId, ItemName = g.FirstOrDefault(x => !string.IsNullOrEmpty(x.ItemName))?.ItemName })
+            .ToList();
+
+        var binQueryable = await _binRepository.GetQueryableAsync();
+        var pickQueryable = (await _pickListRepository.WithDetailsAsync()).AsQueryable();
+
+        var otherPickLists = pickQueryable
+            .Where(pl => pl.Id != pickList.Id &&
+                         (pl.Status == Core.DocumentStatus.Submitted || pl.Status == Core.DocumentStatus.Draft))
+            .ToList();
+
+        IQueryable<StockReservationEntry>? sreQuery = null;
+        if (activeSreRepo != null)
+        {
+            sreQuery = await activeSreRepo.GetQueryableAsync();
+        }
+
+        foreach (var pair in distinctPairs)
+        {
+            var bin = binQueryable.FirstOrDefault(b => b.ItemId == pair.ItemId && b.WarehouseId == pair.WarehouseId);
+            var actualQty = bin?.ActualQty ?? 0;
+
+            var holders = new List<HoldingPickListInfo>();
+            foreach (var otherPl in otherPickLists)
+            {
+                var matchingItems = otherPl.Items
+                    .Where(pi => pi.ItemId == pair.ItemId && pi.WarehouseId == pair.WarehouseId);
+
+                foreach (var pi in matchingItems)
+                {
+                    var holdingQty = Math.Max(0m, pi.Qty - Math.Max(pi.TransferredQty, pi.DeliveredQty));
+                    if (holdingQty > 0)
+                    {
+                        holders.Add(new HoldingPickListInfo(
+                            otherPl.Id,
+                            otherPl.PickListNumber ?? otherPl.Id.ToString()[..8],
+                            otherPl.Status.ToString(),
+                            pi.WarehouseId,
+                            holdingQty));
+                    }
+                }
+            }
+
+            var pickedQty = holders.Sum(h => h.HoldingQty);
+
+            decimal reservedQty = 0;
+            if (sreQuery != null)
+            {
+                reservedQty = sreQuery
+                    .Where(s => s.ItemId == pair.ItemId && s.WarehouseId == pair.WarehouseId
+                        && s.Status == Core.DocumentStatus.Submitted
+                        && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
+                    .Sum(s => s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty);
+            }
+
+            var freeQty = actualQty - pickedQty - reservedQty;
+
+            string? itemName = pair.ItemName;
+            if (string.IsNullOrEmpty(itemName) && _itemRepository != null)
+            {
+                var itemObj = await _itemRepository.FindAsync(pair.ItemId);
+                itemName = itemObj?.ItemName;
+            }
+
+            string? warehouseName = null;
+            if (_warehouseRepository != null)
+            {
+                var whObj = await _warehouseRepository.FindAsync(pair.WarehouseId);
+                warehouseName = whObj?.Name ?? whObj?.WarehouseCode;
+            }
+
+            results.Add(new StockAvailabilityInsightResult(
+                pair.ItemId,
+                itemName,
+                pair.WarehouseId,
+                warehouseName,
+                actualQty,
+                pickedQty,
+                reservedQty,
+                freeQty,
+                holders
+            ));
+        }
+
+        return results;
+    }
+
+    /// <summary>
     /// Deducts already picked quantities across warehouse/batch locations (per ERPNext PR #58613).
     /// Properly consumes picked quantity across multiple location rows and preserves serial number ordering.
     /// </summary>
@@ -279,11 +388,30 @@ public record DeliveredComponentItem(
     Guid? SourceDocumentItemId = null,
     Guid? BatchId = null);
 
+public record HoldingPickListInfo(
+    Guid PickListId,
+    string? PickListNumber,
+    string Status,
+    Guid WarehouseId,
+    decimal HoldingQty);
+
+public record StockAvailabilityInsightResult(
+    Guid ItemId,
+    string? ItemName,
+    Guid WarehouseId,
+    string? WarehouseName,
+    decimal ActualQty,
+    decimal PickedQty,
+    decimal ReservedQty,
+    decimal FreeQty,
+    IReadOnlyList<HoldingPickListInfo> HoldingPickLists);
+
 public record PickStockAvailability(
     Guid ItemId,
     Guid WarehouseId,
     decimal ActualQty,
     decimal PickedQty,
     decimal ReservedQty,
-    decimal FreeQty);
+    decimal FreeQty,
+    IReadOnlyList<HoldingPickListInfo>? HoldingPickLists = null);
 

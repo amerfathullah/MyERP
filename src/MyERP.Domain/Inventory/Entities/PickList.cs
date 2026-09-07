@@ -92,6 +92,9 @@ public class PickList : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>Check if partially delivered.</summary>
     public bool IsPartiallyDelivered => _items.Any(i => i.DeliveredQty > 0) && !IsFullyDelivered;
+
+    /// <summary>Delivery status: Not Delivered, Partly Delivered, Fully Delivered (for Delivery purpose).</summary>
+    public string DeliveryStatus => IsFullyDelivered ? "Fully Delivered" : (IsPartiallyDelivered ? "Partly Delivered" : "Not Delivered");
 }
 
 public class PickListItem : FullAuditedEntity<Guid>

@@ -4790,6 +4790,11 @@
     "BisectLeft": "Bisect Left (Earlier Half)",
     "BisectRight": "Bisect Right (Later Half)",
     "MoveUp": "Move Up (Parent Period)",
-    "BuildTree": "Build Tree & Analyze"
+    "BuildTree": "Build Tree & Analyze",
+    "StockAvailabilityInsight": "Stock Availability Insight",
+    "HoldingPickLists": "Stock Held by Other Pick Lists",
+    "DeliveryStatus": "Delivery Status",
+    "NotDelivered": "Not Delivered",
+    "PartlyDelivered": "Partly Delivered"
   }
 }

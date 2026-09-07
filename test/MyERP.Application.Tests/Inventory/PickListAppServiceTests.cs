@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using MyERP.Inventory;
@@ -53,5 +54,49 @@ public abstract class PickListAppService_Tests<TStartupModule> : MyERPApplicatio
             // If it throws because of warehouse missing or ID document number generator, it bypassed the Customer check!
             ex.ShouldBeOfType<Volo.Abp.BusinessException>();
         }
+    }
+
+    [Fact]
+    public async Task GetStockAvailabilityInsightAsync_Should_Return_Insight_And_DeliveryStatus()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyId = Guid.NewGuid();
+            var itemId = Guid.NewGuid();
+            var warehouseId = Guid.NewGuid();
+
+            var binRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Bin, Guid>>();
+            var bin = new MyERP.Inventory.Entities.Bin(Guid.NewGuid(), itemId, warehouseId);
+            bin.ApplyStockMovement(150m, 1500m);
+            await binRepo.InsertAsync(bin, autoSave: true);
+
+            var pl1 = new MyERP.Inventory.Entities.PickList(Guid.NewGuid(), companyId, "Delivery", null)
+            {
+                PickListNumber = "PL-001"
+            };
+            pl1.AddItem(itemId, warehouseId, 50, 50, "Test Item 1");
+            pl1.Submit();
+            await _pickListRepository.InsertAsync(pl1, autoSave: true);
+
+            var pl2 = new MyERP.Inventory.Entities.PickList(Guid.NewGuid(), companyId, "Delivery", null)
+            {
+                PickListNumber = "PL-002"
+            };
+            pl2.AddItem(itemId, warehouseId, 40, 40, "Test Item 1");
+            await _pickListRepository.InsertAsync(pl2, autoSave: true);
+
+            // Act
+            var insights = await _pickListAppService.GetStockAvailabilityInsightAsync(pl2.Id);
+            var plDto = await _pickListAppService.GetAsync(pl1.Id);
+
+            // Assert
+            plDto.DeliveryStatus.ShouldBe("Not Delivered");
+            insights.ShouldNotBeEmpty();
+            var insight = insights.First(i => i.ItemId == itemId && i.WarehouseId == warehouseId);
+            insight.ActualQty.ShouldBe(150m);
+            insight.PickedQty.ShouldBe(50m);
+            insight.FreeQty.ShouldBe(100m);
+            insight.HoldingPickLists.ShouldContain(h => h.PickListId == pl1.Id && h.HoldingQty == 50m);
+        });
     }
 }

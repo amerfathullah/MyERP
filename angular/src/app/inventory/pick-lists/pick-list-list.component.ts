@@ -57,7 +57,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <th>{{ '::Purpose' | abpLocalization }}</th>
                   <th>{{ '::Status' | abpLocalization }}</th>
                   <th class="text-end">{{ '::Items' | abpLocalization }}</th>
-                  <th>{{ '::TransferStatus' | abpLocalization }}</th>
+                  <th>{{ '::DeliveryStatus' | abpLocalization }} / {{ '::TransferStatus' | abpLocalization }}</th>
                   <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
                 </tr>
               </thead>
@@ -69,12 +69,22 @@ import { ToasterService } from '@abp/ng.theme.shared';
                     <td><app-status-badge [status]="item.status || 'Draft'" /></td>
                     <td class="text-end">{{ item.items?.length || 0 }}</td>
                     <td>
-                      @if (item.isFullyTransferred) {
-                        <span class="badge bg-success">{{ '::FullyTransferred' | abpLocalization }}</span>
-                      } @else if (item.isPartiallyTransferred) {
-                        <span class="badge bg-warning">{{ '::PartiallyTransferred' | abpLocalization }}</span>
+                      @if (item.purpose === 'Delivery') {
+                        @if (item.deliveryStatus === 'Fully Delivered' || item.isFullyDelivered) {
+                          <span class="badge bg-success">{{ '::FullyDelivered' | abpLocalization }}</span>
+                        } @else if (item.deliveryStatus === 'Partly Delivered' || item.isPartiallyDelivered) {
+                          <span class="badge bg-warning">{{ '::PartlyDelivered' | abpLocalization }}</span>
+                        } @else {
+                          <span class="badge bg-light text-dark">{{ '::NotDelivered' | abpLocalization }}</span>
+                        }
                       } @else {
-                        <span class="badge bg-light text-dark">{{ '::NotTransferred' | abpLocalization }}</span>
+                        @if (item.isFullyTransferred) {
+                          <span class="badge bg-success">{{ '::FullyTransferred' | abpLocalization }}</span>
+                        } @else if (item.isPartiallyTransferred) {
+                          <span class="badge bg-warning">{{ '::PartiallyTransferred' | abpLocalization }}</span>
+                        } @else {
+                          <span class="badge bg-light text-dark">{{ '::NotTransferred' | abpLocalization }}</span>
+                        }
                       }
                     </td>
                     <td class="text-end">

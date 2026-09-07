@@ -1954,3 +1954,17 @@ public partial class PartyTypeMapper : MapperBase<Core.Entities.PartyType, Core.
     public override partial void Map(Core.Entities.PartyType source, Core.PartyTypeDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class PickListToPickListDtoMapper : MapperBase<Inventory.Entities.PickList, Inventory.PickListDto>
+{
+    public override partial Inventory.PickListDto Map(Inventory.Entities.PickList source);
+    public override partial void Map(Inventory.Entities.PickList source, Inventory.PickListDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class PickListItemToPickListItemDtoMapper : MapperBase<Inventory.Entities.PickListItem, Inventory.PickListItemDto>
+{
+    public override partial Inventory.PickListItemDto Map(Inventory.Entities.PickListItem source);
+    public override partial void Map(Inventory.Entities.PickListItem source, Inventory.PickListItemDto destination);
+}
+

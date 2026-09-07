@@ -131,6 +131,40 @@ public class PickListAppService : ApplicationService, IPickListAppService
     }
 
     /// <summary>
+    /// Gets detailed stock availability insights including breakdown of stock held by other pick lists.
+    /// Maps to ERPNext get_stock_availability / get_pick_list_holders logic.
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Default)]
+    [Volo.Abp.Uow.UnitOfWork]
+    public async Task<List<StockAvailabilityInsightDto>> GetStockAvailabilityInsightAsync(Guid id)
+    {
+        var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
+        var pickListManager = LazyServiceProvider.LazyGetRequiredService<PickListManager>();
+        var sreRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockReservationEntry, Guid>>();
+        var insights = await pickListManager.GetStockAvailabilityInsightAsync(pl, sreRepo);
+
+        return insights.Select(i => new StockAvailabilityInsightDto
+        {
+            ItemId = i.ItemId,
+            ItemName = i.ItemName,
+            WarehouseId = i.WarehouseId,
+            WarehouseName = i.WarehouseName,
+            ActualQty = i.ActualQty,
+            PickedQty = i.PickedQty,
+            ReservedQty = i.ReservedQty,
+            FreeQty = i.FreeQty,
+            HoldingPickLists = i.HoldingPickLists.Select(h => new HoldingPickListDto
+            {
+                PickListId = h.PickListId,
+                PickListNumber = h.PickListNumber,
+                Status = h.Status,
+                WarehouseId = h.WarehouseId,
+                HoldingQty = h.HoldingQty
+            }).ToList()
+        }).ToList();
+    }
+
+    /// <summary>
     /// Gets pending transfer quantities for creating Stock Entries from this Pick List.
     /// Per DO-NOT: partial transfers are supported — map only pending qty per row.
     /// </summary>

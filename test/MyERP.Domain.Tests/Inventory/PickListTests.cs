@@ -197,4 +197,62 @@ public class PickListTests
         editAvailability.PickedQty.ShouldBe(0m);
         editAvailability.FreeQty.ShouldBe(100m);
     }
+
+    [Fact]
+    public void DeliveryStatus_Reflects_Fulfillment_State()
+    {
+        var pl = CreatePickList();
+        pl.AddItem(Guid.NewGuid(), Guid.NewGuid(), 100m);
+        pl.Submit();
+
+        pl.DeliveryStatus.ShouldBe("Not Delivered");
+
+        pl.Items[0].RecordDelivery(30m);
+        pl.DeliveryStatus.ShouldBe("Partly Delivered");
+
+        pl.Items[0].RecordDelivery(70m);
+        pl.DeliveryStatus.ShouldBe("Fully Delivered");
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task PickListManager_GetStockAvailabilityInsightAsync_Returns_Holding_Pick_Lists()
+    {
+        var plRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<PickList, Guid>>();
+        var binRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Bin, Guid>>();
+        var manager = new MyERP.Inventory.DomainServices.PickListManager(plRepo, binRepo);
+
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+
+        var bin = new Bin(Guid.NewGuid(), itemId, warehouseId);
+        bin.ApplyStockMovement(80m, 800m);
+
+        binRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<Bin> { bin }.AsQueryable()));
+
+        var holdingPl = CreatePickList();
+        holdingPl.PickListNumber = "PL-00099";
+        holdingPl.AddItem(itemId, warehouseId, 30m, itemName: "Gadget A");
+        holdingPl.Submit();
+
+        var targetPl = CreatePickList();
+        targetPl.PickListNumber = "PL-00100";
+        targetPl.AddItem(itemId, warehouseId, 50m, itemName: "Gadget A");
+
+        plRepo.WithDetailsAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            (IQueryable<PickList>)new List<PickList> { holdingPl, targetPl }.AsQueryable()));
+
+        var insights = await manager.GetStockAvailabilityInsightAsync(targetPl);
+
+        insights.Count.ShouldBe(1);
+        var insight = insights[0];
+        insight.ItemId.ShouldBe(itemId);
+        insight.WarehouseId.ShouldBe(warehouseId);
+        insight.ActualQty.ShouldBe(80m);
+        insight.PickedQty.ShouldBe(30m);
+        insight.FreeQty.ShouldBe(50m);
+        insight.HoldingPickLists.Count.ShouldBe(1);
+        insight.HoldingPickLists[0].PickListNumber.ShouldBe("PL-00099");
+        insight.HoldingPickLists[0].HoldingQty.ShouldBe(30m);
+    }
 }

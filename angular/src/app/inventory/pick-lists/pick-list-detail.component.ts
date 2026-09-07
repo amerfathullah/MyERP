@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { Confirmation, ToasterService, ConfirmationService } from '@abp/ng.theme.shared';
 import { PickListService } from '../../proxy/inventory/pick-list.service';
-import type { PickAllocationResultDto, PickListDto } from '../../proxy/inventory/models';
+import type { PickAllocationResultDto, PickListDto, StockAvailabilityInsightDto } from '../../proxy/inventory/models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -75,25 +75,38 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           </div>
           <div class="col-md-3">
             <div class="card border-0 shadow-sm text-center py-3">
-              <div class="text-muted small">{{ '::TransferStatus' | abpLocalization }}</div>
-              <div class="mt-1">
-                @if (pickList()!.isFullyTransferred) {
-                  <span class="badge bg-success fs-6">{{ '::FullyTransferred' | abpLocalization }}</span>
-                } @else if (pickList()!.isPartiallyTransferred) {
-                  <span class="badge bg-warning fs-6">{{ '::PartiallyTransferred' | abpLocalization }}</span>
-                } @else {
-                  <span class="badge bg-light text-dark fs-6">{{ '::Pending' | abpLocalization }}</span>
-                }
-              </div>
+              @if (pickList()!.purpose === 'Delivery') {
+                <div class="text-muted small">{{ '::DeliveryStatus' | abpLocalization }}</div>
+                <div class="mt-1">
+                  @if (pickList()!.deliveryStatus === 'Fully Delivered' || pickList()!.isFullyDelivered) {
+                    <span class="badge bg-success fs-6">{{ '::FullyDelivered' | abpLocalization }}</span>
+                  } @else if (pickList()!.deliveryStatus === 'Partly Delivered' || pickList()!.isPartiallyDelivered) {
+                    <span class="badge bg-warning fs-6">{{ '::PartlyDelivered' | abpLocalization }}</span>
+                  } @else {
+                    <span class="badge bg-light text-dark fs-6">{{ '::NotDelivered' | abpLocalization }}</span>
+                  }
+                </div>
+              } @else {
+                <div class="text-muted small">{{ '::TransferStatus' | abpLocalization }}</div>
+                <div class="mt-1">
+                  @if (pickList()!.isFullyTransferred) {
+                    <span class="badge bg-success fs-6">{{ '::FullyTransferred' | abpLocalization }}</span>
+                  } @else if (pickList()!.isPartiallyTransferred) {
+                    <span class="badge bg-warning fs-6">{{ '::PartiallyTransferred' | abpLocalization }}</span>
+                  } @else {
+                    <span class="badge bg-light text-dark fs-6">{{ '::Pending' | abpLocalization }}</span>
+                  }
+                </div>
+              }
             </div>
           </div>
         </div>
 
-        <!-- Stock Availability Check Results -->
+        <!-- Stock Availability Check Results & Insight -->
         @if (allocationResult(); as ar) {
           <div class="card shadow-sm mb-3" [class.border-warning]="ar.hasShortage" [class.border-success]="!ar.hasShortage">
             <div class="card-header d-flex justify-content-between align-items-center">
-              <span class="fw-bold">{{ '::CheckAvailability' | abpLocalization }}</span>
+              <span class="fw-bold"><i class="fa fa-boxes-stacked me-2"></i>{{ '::StockAvailabilityInsight' | abpLocalization }}</span>
               @if (ar.hasShortage) {
                 <span class="badge bg-warning text-dark"><i class="fa fa-triangle-exclamation me-1"></i>{{ '::StockShortage' | abpLocalization }}</span>
               } @else {
@@ -101,26 +114,84 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
               }
             </div>
             <div class="card-body p-0">
-              <table class="table table-sm mb-0">
-                <thead>
-                  <tr>
-                    <th>{{ '::Item' | abpLocalization }}</th>
-                    <th class="text-end">{{ '::RequestedQty' | abpLocalization }}</th>
-                    <th class="text-end">{{ '::AllocatedQty' | abpLocalization }}</th>
-                    <th class="text-end">{{ '::ShortageQty' | abpLocalization }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (a of ar.allocations || []; track $index) {
-                    <tr [class.table-warning]="(a.shortageQty ?? 0) > 0">
-                      <td>{{ itemLabel(a.itemId) }}</td>
-                      <td class="text-end">{{ a.requestedQty | number:'1.2-2' }}</td>
-                      <td class="text-end">{{ a.allocatedQty | number:'1.2-2' }}</td>
-                      <td class="text-end" [class.text-danger]="(a.shortageQty ?? 0) > 0">{{ a.shortageQty | number:'1.2-2' }}</td>
+              @if (availabilityInsights().length > 0) {
+                <table class="table table-sm mb-0">
+                  <thead>
+                    <tr>
+                      <th>{{ '::Item' | abpLocalization }}</th>
+                      <th>{{ '::Warehouse' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::ActualQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::PickedQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::ReservedQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::FreeQty' | abpLocalization }}</th>
                     </tr>
-                  }
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    @for (ins of availabilityInsights(); track $index) {
+                      <tr [class.table-warning]="(ins.freeQty ?? 0) <= 0">
+                        <td>{{ ins.itemName || itemLabel(ins.itemId) }}</td>
+                        <td>{{ ins.warehouseName || ins.warehouseId }}</td>
+                        <td class="text-end">{{ ins.actualQty | number:'1.2-2' }}</td>
+                        <td class="text-end">{{ ins.pickedQty | number:'1.2-2' }}</td>
+                        <td class="text-end">{{ ins.reservedQty | number:'1.2-2' }}</td>
+                        <td class="text-end fw-bold" [class.text-danger]="(ins.freeQty ?? 0) <= 0">{{ ins.freeQty | number:'1.2-2' }}</td>
+                      </tr>
+                      @if (ins.holdingPickLists && ins.holdingPickLists.length > 0) {
+                        <tr>
+                          <td colspan="6" class="p-2 bg-light">
+                            <div class="small fw-bold text-muted mb-1">
+                              <i class="fa fa-info-circle me-1"></i>{{ '::HoldingPickLists' | abpLocalization }}:
+                            </div>
+                            <table class="table table-sm table-bordered bg-white mb-0">
+                              <thead>
+                                <tr class="table-light">
+                                  <th>{{ '::PickList' | abpLocalization }}</th>
+                                  <th>{{ '::Status' | abpLocalization }}</th>
+                                  <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                @for (h of ins.holdingPickLists; track h.pickListId) {
+                                  <tr>
+                                    <td>
+                                      <a [routerLink]="['/inventory/pick-lists', h.pickListId]">
+                                        {{ h.pickListNumber || h.pickListId }}
+                                      </a>
+                                    </td>
+                                    <td><span class="badge bg-secondary">{{ h.status }}</span></td>
+                                    <td class="text-end">{{ h.holdingQty | number:'1.2-2' }}</td>
+                                  </tr>
+                                }
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                </table>
+              } @else {
+                <table class="table table-sm mb-0">
+                  <thead>
+                    <tr>
+                      <th>{{ '::Item' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::RequestedQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::AllocatedQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::ShortageQty' | abpLocalization }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (a of ar.allocations || []; track $index) {
+                      <tr [class.table-warning]="(a.shortageQty ?? 0) > 0">
+                        <td>{{ itemLabel(a.itemId) }}</td>
+                        <td class="text-end">{{ a.requestedQty | number:'1.2-2' }}</td>
+                        <td class="text-end">{{ a.allocatedQty | number:'1.2-2' }}</td>
+                        <td class="text-end" [class.text-danger]="(a.shortageQty ?? 0) > 0">{{ a.shortageQty | number:'1.2-2' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
             </div>
           </div>
         }
@@ -232,6 +303,7 @@ export class PickListDetailComponent implements OnInit {
   scanMode = signal(false);
   scannedItems = signal<Set<string>>(new Set());
   allocationResult = signal<PickAllocationResultDto | null>(null);
+  availabilityInsights = signal<StockAvailabilityInsightDto[]>([]);
   checkingAvailability = signal(false);
 
   pickedProgress = computed(() => {
@@ -269,9 +341,15 @@ export class PickListDetailComponent implements OnInit {
     this.service.allocateStock(this.pickListId).subscribe({
       next: (result) => {
         this.allocationResult.set(result);
-        this.checkingAvailability.set(false);
         if (result.hasShortage) this.toaster.warn(this.l('::StockShortage'));
         else this.toaster.success(this.l('::FullyAvailable'));
+      },
+      error: () => this.checkingAvailability.set(false),
+    });
+    this.service.getStockAvailabilityInsight(this.pickListId).subscribe({
+      next: (insights) => {
+        this.availabilityInsights.set(insights || []);
+        this.checkingAvailability.set(false);
       },
       error: () => this.checkingAvailability.set(false),
     });
