@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
@@ -13,4 +14,6 @@ public interface IRequestForQuotationAppService : IApplicationService
     Task<RfqDto> CreateAsync(CreateRfqDto input);
     Task<RfqDto> SubmitAsync(Guid id);
     Task<RfqDto> CancelAsync(Guid id);
+    Task<List<PendingMaterialRequestItemDto>> GetPendingMaterialRequestItemsAsync(Guid? companyId = null);
 }
+

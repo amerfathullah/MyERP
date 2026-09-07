@@ -72,7 +72,7 @@ public class RequestForQuotationAppService : ApplicationService, IRequestForQuot
         await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
 
         foreach (var item in input.Items)
-            rfq.AddItem(item.ItemId, item.Description, item.Qty, item.Uom);
+            rfq.AddItem(item.ItemId, item.Description, item.Qty, item.Uom, item.WarehouseId, item.MaterialRequestItemId);
 
         // Validate no duplicate suppliers
         if (input.Suppliers.Select(s => s.SupplierId).Distinct().Count() != input.Suppliers.Count)
@@ -127,4 +127,75 @@ public class RequestForQuotationAppService : ApplicationService, IRequestForQuot
         await _repository.UpdateAsync(rfq, autoSave: true);
         return ObjectMapper.Map<RequestForQuotation, RfqDto>(rfq);
     }
+
+    /// <summary>
+    /// Gets pending Material Request items (Purchase type) that have not been fully ordered or received.
+    /// Deducts draft RFQ items (per ERPNext PR #58617 / commit d8432d92c8) and filters fully ordered items (PR #58534 / commit c93815b4ae).
+    /// Used by RFQ form "Get Items from Material Request" button.
+    /// </summary>
+    public async Task<List<PendingMaterialRequestItemDto>> GetPendingMaterialRequestItemsAsync(Guid? companyId = null)
+    {
+        var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MaterialRequest, Guid>>();
+        var mrQuery = await mrRepo.GetQueryableAsync();
+
+        var query = mrQuery.Where(mr =>
+            (mr.RequestType == MaterialRequestType.Purchase || mr.RequestType == MaterialRequestType.Subcontracting) &&
+            mr.Status == Core.DocumentStatus.Submitted);
+
+        if (companyId.HasValue)
+            query = query.Where(mr => mr.CompanyId == companyId.Value);
+
+        var requests = query.ToList();
+        if (!requests.Any()) return new List<PendingMaterialRequestItemDto>();
+
+        // Deduct quantities already mapped in draft RFQs (PR #58617 parity)
+        var rfqQuery = await _repository.GetQueryableAsync();
+        var draftRfqs = rfqQuery
+            .Where(r => r.Status == Core.DocumentStatus.Draft)
+            .SelectMany(r => r.Items)
+            .Where(i => i.MaterialRequestItemId.HasValue)
+            .GroupBy(i => i.MaterialRequestItemId!.Value)
+            .Select(g => new { MrItemId = g.Key, Qty = g.Sum(i => i.Qty) })
+            .ToList();
+        var draftRfqQtyByItem = draftRfqs.ToDictionary(x => x.MrItemId, x => x.Qty);
+
+        var allItemIds = requests.SelectMany(mr => mr.Items).Select(i => i.ItemId).Distinct().ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var itemNames = itemQuery
+            .Where(i => allItemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName })
+            .ToList()
+            .ToDictionary(i => i.Id, i => $"{i.ItemCode} - {i.ItemName}");
+
+        var result = new List<PendingMaterialRequestItemDto>();
+        foreach (var mr in requests)
+        {
+            foreach (var item in mr.Items)
+            {
+                var fulfilledQty = Math.Max(item.OrderedQuantity, item.ReceivedQuantity);
+                var draftQty = draftRfqQtyByItem.GetValueOrDefault(item.Id, 0m);
+                var pendingQty = item.Quantity - fulfilledQty - draftQty;
+                if (pendingQty > 0)
+                {
+                    result.Add(new PendingMaterialRequestItemDto
+                    {
+                        MaterialRequestId = mr.Id,
+                        MaterialRequestNumber = mr.RequestNumber,
+                        RequestDate = mr.RequestDate,
+                        RequiredByDate = mr.RequiredByDate,
+                        MaterialRequestItemId = item.Id,
+                        ItemId = item.ItemId,
+                        ItemName = itemNames.GetValueOrDefault(item.ItemId) ?? item.ItemName,
+                        PendingQty = pendingQty,
+                        Uom = item.Uom,
+                        WarehouseId = item.WarehouseId,
+                    });
+                }
+            }
+        }
+
+        return result.OrderBy(r => r.RequestDate).ThenBy(r => r.ItemName).ToList();
+    }
 }
+

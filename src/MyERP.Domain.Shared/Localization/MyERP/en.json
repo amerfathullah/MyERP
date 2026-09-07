@@ -1319,6 +1319,8 @@
     "Menu:SupplierScorecards": "Supplier Scorecards",
     "RequestForQuotations": "Request for Quotations",
     "NewRFQ": "New RFQ",
+    "CreateRFQ": "Create Request for Quotation",
+    "SuccessfullyCreatedRFQ": "Request for Quotation successfully created",
     "MessageForSupplier": "Message for Supplier",
     "POSClosing": "POS Closing",
     "LoyaltyPrograms": "Loyalty Programs",

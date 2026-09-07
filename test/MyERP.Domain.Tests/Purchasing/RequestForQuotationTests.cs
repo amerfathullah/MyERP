@@ -115,6 +115,21 @@ public class RequestForQuotationTests
             rfq.AddItem(Guid.NewGuid(), "Widget", -5, "Unit"));
     }
 
+    [Fact]
+    public void AddItem_WithWarehouseAndMaterialRequestItem_Succeeds()
+    {
+        var rfq = CreateRfq();
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var mrItemId = Guid.NewGuid();
+
+        rfq.AddItem(itemId, "Widget", 10, "Unit", warehouseId, mrItemId);
+
+        rfq.Items.Count.ShouldBe(1);
+        rfq.Items[0].WarehouseId.ShouldBe(warehouseId);
+        rfq.Items[0].MaterialRequestItemId.ShouldBe(mrItemId);
+    }
+
     private static RequestForQuotation CreateRfq()
     {
         return new RequestForQuotation(Guid.NewGuid(), Guid.NewGuid(), "RFQ-001", DateTime.UtcNow);

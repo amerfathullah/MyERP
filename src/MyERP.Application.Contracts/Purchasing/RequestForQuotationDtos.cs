@@ -22,6 +22,8 @@ public class RfqItemDto : EntityDto<Guid>
     public string Description { get; set; } = null!;
     public decimal Qty { get; set; }
     public string Uom { get; set; } = null!;
+    public Guid? WarehouseId { get; set; }
+    public Guid? MaterialRequestItemId { get; set; }
 }
 
 public class RfqSupplierDto : EntityDto<Guid>
@@ -49,6 +51,8 @@ public class CreateRfqItemDto
     public string Description { get; set; } = null!;
     public decimal Qty { get; set; }
     public string Uom { get; set; } = "Unit";
+    public Guid? WarehouseId { get; set; }
+    public Guid? MaterialRequestItemId { get; set; }
 }
 
 public class CreateRfqSupplierDto

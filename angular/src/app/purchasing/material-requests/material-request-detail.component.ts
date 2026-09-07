@@ -55,6 +55,7 @@ export class MaterialRequestDetailComponent implements OnInit {
       // Purchase or Subcontracting with remaining un-ordered qty (ERPNext PR #47012 / commit 5a524854de)
       if ((this.entity.requestType === 0 || (this.entity.requestType as number) === 5) && (this.entity.perOrdered ?? 0) < 100) {
         actions.push({ name: 'convertToPO', label: 'Create Purchase Order', icon: 'file-invoice', color: 'success' });
+        actions.push({ name: 'createRFQ', label: 'Create RFQ', icon: 'file-lines', color: 'primary' });
         actions.push({ name: 'splitBySupplier', label: 'Split by Supplier', icon: 'code-branch', color: 'secondary' });
       }
       if (this.entity.requestType === 1 || this.entity.requestType === 2) { // Transfer/Issue
@@ -99,10 +100,27 @@ export class MaterialRequestDetailComponent implements OnInit {
     switch (action) {
       case 'submit': this.submit(); break;
       case 'convertToPO': this.convertToPO(); break;
+      case 'createRFQ': this.createRFQ(); break;
       case 'splitBySupplier': this.openSplitPanel(); break;
       case 'createSE': this.createStockEntry(); break;
       case 'cancel': this.cancelMR(); break;
     }
+  }
+
+  createRFQ(): void {
+    if (!this.entity?.id) return;
+    this.actionLoading.set(true);
+    this.purchaseConversionService.convertMaterialRequestToRfq(this.entity.id).subscribe({
+      next: (rfq) => {
+        this.actionLoading.set(false);
+        this.toaster.success('::SuccessfullyCreatedRFQ');
+        this.router.navigate(['/purchasing/rfq']);
+      },
+      error: (err: any) => {
+        this.actionLoading.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      }
+    });
   }
 
   private submit(): void {

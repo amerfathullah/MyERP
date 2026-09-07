@@ -58,4 +58,49 @@ public abstract class PurchaseConversionAppServiceTests<TStartupModule> : MyERPA
             ex.Code.ShouldBe(MyERPDomainErrorCodes.DocumentAlreadyConverted);
         });
     }
+
+    [Fact]
+    public async Task ConvertMaterialRequestToRfq_Filters_Fully_Ordered_Items_And_Maps_Pending_Qty()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var mrRepo = GetRequiredService<IRepository<MaterialRequest, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var conversionService = GetRequiredService<IPurchaseConversionAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "RFQ Conversion Test Co"), autoSave: true);
+            var item1 = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "ITEM-RFQ-1", "Fully Ordered Item", ItemType.Goods), autoSave: true);
+            var item2 = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "ITEM-RFQ-2", "Pending Item", ItemType.Goods), autoSave: true);
+
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "RFQ", "RFQ", "RFQ-"), autoSave: true);
+
+            var mr = new MaterialRequest(Guid.NewGuid(), company.Id, "MR-RFQ-001", MaterialRequestType.Purchase, DateTime.UtcNow.Date, company.TenantId);
+            mr.AddItem(item1.Id, "Fully Ordered Item", quantity: 10m, uom: "Unit");
+            mr.AddItem(item2.Id, "Pending Item", quantity: 10m, uom: "Unit");
+            mr.Submit();
+
+            // Simulate item 1 fully ordered, item 2 partially ordered (ERPNext PR #58534 / commit c93815b4ae)
+            mr.Items[0].OrderedQuantity = 10m;
+            mr.Items[1].OrderedQuantity = 4m;
+
+            await mrRepo.InsertAsync(mr, autoSave: true);
+
+            // Act 1: Convert MR to RFQ
+            var rfqDto = await conversionService.ConvertMaterialRequestToRfqAsync(mr.Id);
+
+            rfqDto.ShouldNotBeNull();
+            // Fully ordered item 1 must be excluded
+            rfqDto.Items.Count.ShouldBe(1);
+            rfqDto.Items[0].ItemId.ShouldBe(item2.Id);
+            rfqDto.Items[0].Qty.ShouldBe(6m); // 10 - 4 = 6
+            rfqDto.Items[0].MaterialRequestItemId.ShouldBe(mr.Items[1].Id);
+
+            // Act 2: Second conversion attempt must fail because the draft RFQ covers the remaining 6 units
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(async () =>
+                await conversionService.ConvertMaterialRequestToRfqAsync(mr.Id));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.DocumentAlreadyConverted);
+        });
+    }
 }

@@ -635,14 +635,25 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         if (mr.Status == Core.DocumentStatus.Draft || mr.Status == Core.DocumentStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
-        if (mr.RequestType != MaterialRequestType.Purchase)
+        if (mr.RequestType != MaterialRequestType.Purchase && mr.RequestType != MaterialRequestType.Subcontracting)
         {
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("reason", "Only Purchase Material Requests can be converted to Request for Quotation");
+                .WithData("reason", "Only Purchase and Subcontracting Material Requests can be converted to Request for Quotation");
         }
 
         if (!mr.Items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        // Account for draft RFQs in the system to prevent double conversion (per ERPNext PR #58617 / commit d8432d92c8)
+        var rfqQuery = await _rfqRepository.GetQueryableAsync();
+        var draftRfqItems = rfqQuery
+            .Where(r => r.CompanyId == mr.CompanyId && r.Status == Core.DocumentStatus.Draft)
+            .SelectMany(r => r.Items)
+            .Where(i => i.MaterialRequestItemId.HasValue)
+            .GroupBy(i => i.MaterialRequestItemId!.Value)
+            .Select(g => new { MrItemId = g.Key, Qty = g.Sum(i => i.Qty) })
+            .ToList();
+        var draftRfqQtyMap = draftRfqItems.ToDictionary(x => x.MrItemId, x => x.Qty);
 
         // Per ERPNext commit c93815b4ae: filter out items where ordered_qty or received_qty covers stock_qty
         var pendingItems = mr.Items
@@ -657,7 +668,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
                 .WithData("reason", "All items in this Material Request have already been fully ordered or received.");
         }
 
-        var rfqNumber = await _numberGenerator.GenerateAsync("RequestForQuotation", mr.CompanyId);
+        var rfqNumber = await _numberGenerator.GenerateAsync("RFQ", mr.CompanyId);
 
         var rfq = new RequestForQuotation(
             GuidGenerator.Create(),
@@ -674,12 +685,15 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
                 ? remainingStockQty / mrItem.ConversionFactor
                 : remainingStockQty;
 
-            if (remainingQty <= 0) continue;
+            var draftQty = draftRfqQtyMap.GetValueOrDefault(mrItem.Id, 0m);
+            var finalQty = remainingQty - draftQty;
+
+            if (finalQty <= 0) continue;
 
             rfq.AddItem(
                 mrItem.ItemId,
                 mrItem.ItemName,
-                remainingQty,
+                finalQty,
                 mrItem.Uom,
                 mrItem.WarehouseId,
                 mrItem.Id);
@@ -687,8 +701,29 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
         if (!rfq.Items.Any())
         {
-            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems)
-                .WithData("reason", "No valid items remaining to include in Request for Quotation.");
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "MaterialRequest")
+                .WithData("documentNumber", mr.RequestNumber)
+                .WithData("reason", "All items in this Material Request have already been converted or have pending draft RFQs.");
+        }
+
+        // Pre-populate default suppliers from ItemDefault (per ERPNext get_default_supplier_for_item)
+        var candidateItemIds = rfq.Items.Select(i => i.ItemId).Distinct().ToList();
+        var itemDefaultRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemDefault, Guid>>();
+        var itemDefaultQuery = await itemDefaultRepo.GetQueryableAsync();
+        var defaultSuppliers = itemDefaultQuery
+            .Where(d => candidateItemIds.Contains(d.ItemId) && d.DefaultSupplierId.HasValue && d.CompanyId == mr.CompanyId)
+            .Select(d => d.DefaultSupplierId!.Value)
+            .Distinct()
+            .ToList();
+
+        foreach (var supplierId in defaultSuppliers)
+        {
+            var supplier = await _supplierRepository.FindAsync(supplierId);
+            if (supplier != null && supplier.IsActive && !supplier.IsOnHold && !supplier.PreventRfqs)
+            {
+                rfq.AddSupplier(supplier.Id, supplier.Name, supplier.Email);
+            }
         }
 
         await _rfqRepository.InsertAsync(rfq, autoSave: true);
