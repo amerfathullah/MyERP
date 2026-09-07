@@ -77,6 +77,8 @@ public class ProcessStatementOfAccountsTests
         pe1.Post();
         var payments = new List<PaymentEntry> { pe1 };
         _peRepo.GetQueryableAsync().Returns(Task.FromResult(payments.AsQueryable()));
+        _peRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<PaymentEntry, object>>[]>())
+            .Returns(Task.FromResult(payments.AsQueryable()));
 
         var input = new BatchStatementOfAccountsInput
         {

@@ -4802,6 +4802,7 @@
     "SecondAccount": "Second Account",
     "BankEntry": "Bank Entry",
     "ContraEntry": "Contra Entry",
-    "FailedToCreateJournalEntry": "Failed to create journal entry"
+    "FailedToCreateJournalEntry": "Failed to create journal entry",
+    "IncludePayments": "Include Payments"
   }
 }

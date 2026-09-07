@@ -37,6 +37,8 @@ public class SupplierStatementDto
     public decimal ClosingBalance { get; set; }
     public decimal TotalInvoiced { get; set; }
     public decimal TotalPaid { get; set; }
+    public decimal TotalDebit { get; set; }
+    public decimal TotalCredit { get; set; }
     public List<StatementEntryDto> Entries { get; set; } = new();
 }
 

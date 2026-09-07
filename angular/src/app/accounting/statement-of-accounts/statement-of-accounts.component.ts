@@ -114,13 +114,13 @@ import type { StatementOfAccountsDto, SupplierStatementDto } from '../../proxy/a
         <div class="col-md-3">
           <div class="border rounded p-2 text-center">
             <small class="text-muted">{{ '::TotalDebit' | abpLocalization }}</small>
-            <div class="fw-bold text-primary">{{ r.totalDebit | number:'1.2-2' }}</div>
+            <div class="fw-bold text-primary">{{ (r.totalDebit ?? r.totalPaid) | number:'1.2-2' }}</div>
           </div>
         </div>
         <div class="col-md-3">
           <div class="border rounded p-2 text-center">
             <small class="text-muted">{{ '::TotalCredit' | abpLocalization }}</small>
-            <div class="fw-bold text-success">{{ r.totalCredit | number:'1.2-2' }}</div>
+            <div class="fw-bold text-success">{{ (r.totalCredit ?? r.totalInvoiced) | number:'1.2-2' }}</div>
           </div>
         </div>
         <div class="col-md-3">
@@ -181,8 +181,8 @@ import type { StatementOfAccountsDto, SupplierStatementDto } from '../../proxy/a
             }
             <tr class="table-dark">
               <td colspan="3"><strong>{{ '::ClosingBalance' | abpLocalization }}</strong></td>
-              <td class="text-end"><strong>{{ r.totalDebit | number:'1.2-2' }}</strong></td>
-              <td class="text-end"><strong>{{ r.totalCredit | number:'1.2-2' }}</strong></td>
+              <td class="text-end"><strong>{{ ((r.totalDebit ?? r.totalPaid) ?? 0) | number:'1.2-2' }}</strong></td>
+              <td class="text-end"><strong>{{ ((r.totalCredit ?? r.totalInvoiced) ?? 0) | number:'1.2-2' }}</strong></td>
               <td class="text-end"><strong>{{ r.closingBalance | number:'1.2-2' }}</strong></td>
             </tr>
           </tbody>

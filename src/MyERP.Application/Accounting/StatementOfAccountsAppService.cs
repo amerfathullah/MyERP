@@ -40,15 +40,31 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
         _supplierRepository = supplierRepository;
     }
 
+    private async Task<IQueryable<PaymentEntry>> GetPaymentQueryableWithTaxesAsync()
+    {
+        try
+        {
+            var withDetails = await _peRepository.WithDetailsAsync(p => p.Taxes);
+            if (withDetails != null) return withDetails;
+        }
+        catch
+        {
+            // Fallback if WithDetailsAsync is not configured or unsupported in mock/provider
+        }
+        return await _peRepository.GetQueryableAsync();
+    }
+
     /// <summary>
     /// Generates a Statement of Accounts for a customer within a date range.
     /// Shows all invoices, payments, credit notes with running balance.
+    /// Deductions on payments (withholding, bank charges) are fully factored into settlement.
+    /// Per ERPNext PR #58437 / commit dbe153a15e.
     /// </summary>
     public async Task<StatementOfAccountsDto> GetCustomerStatementAsync(
         Guid customerId, Guid companyId, DateTime fromDate, DateTime toDate)
     {
         var siQuery = await _siRepository.GetQueryableAsync();
-        var peQuery = await _peRepository.GetQueryableAsync();
+        var peQuery = await GetPaymentQueryableWithTaxesAsync();
 
         // Get all posted invoices for this customer in the date range
         var invoices = siQuery
@@ -68,17 +84,29 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
                 && pe.Status == Core.DocumentStatus.Posted
                 && pe.PostingDate >= fromDate && pe.PostingDate <= toDate)
             .OrderBy(pe => pe.PostingDate)
-            .Select(pe => new { pe.Id, pe.PaymentNumber, pe.PostingDate, pe.PaidAmount })
             .ToList();
 
-        // Calculate opening balance (outstanding before fromDate)
+        // Calculate opening balance (net ledger balance before fromDate: prior invoices debits/credits minus prior payments credits/debits)
         var priorInvoices = siQuery
             .Where(si => si.CustomerId == customerId
                 && si.CompanyId == companyId
                 && si.Status == Core.DocumentStatus.Posted
                 && si.IssueDate < fromDate)
             .ToList();
-        decimal openingBalance = priorInvoices.Sum(si => si.GrandTotal - si.AmountPaid);
+
+        var priorPayments = peQuery
+            .Where(pe => pe.PartyType == "Customer"
+                && pe.PartyId == customerId
+                && pe.CompanyId == companyId
+                && pe.Status == Core.DocumentStatus.Posted
+                && pe.PostingDate < fromDate)
+            .ToList();
+
+        decimal priorDebits = priorInvoices.Sum(si => si.IsReturn ? 0 : si.GrandTotal)
+            + priorPayments.Where(pe => pe.PaymentType == PaymentType.Pay).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
+        decimal priorCredits = priorInvoices.Sum(si => si.IsReturn ? si.GrandTotal : 0)
+            + priorPayments.Where(pe => pe.PaymentType != PaymentType.Pay).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
+        decimal openingBalance = priorDebits - priorCredits;
 
         // Build statement entries (chronological)
         var entries = new List<StatementEntryDto>();
@@ -101,18 +129,22 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
             });
         }
 
-        // Add payments
+        // Add payments (including deductions per ERPNext PR #58437 / commit dbe153a15e)
         foreach (var pmt in payments)
         {
-            runningBalance -= pmt.PaidAmount;
+            decimal settledAmount = pmt.TotalSettledBaseAmount > 0 ? pmt.TotalSettledBaseAmount : pmt.PaidAmount;
+            bool isRefund = pmt.PaymentType == PaymentType.Pay;
+            decimal debit = isRefund ? settledAmount : 0;
+            decimal credit = isRefund ? 0 : settledAmount;
+            runningBalance += (debit - credit);
             entries.Add(new StatementEntryDto
             {
                 Date = pmt.PostingDate,
-                DocumentType = "Payment",
+                DocumentType = isRefund ? "Refund" : "Payment",
                 DocumentNumber = pmt.PaymentNumber ?? "PE",
                 DocumentId = pmt.Id,
-                DebitAmount = 0,
-                CreditAmount = pmt.PaidAmount,
+                DebitAmount = debit,
+                CreditAmount = credit,
                 RunningBalance = runningBalance
             });
         }
@@ -145,12 +177,14 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
     /// <summary>
     /// Generates a Statement of Accounts for a supplier (payables ledger).
     /// Shows purchase invoices, payments made, debit notes with running balance.
+    /// Deductions on payments (withholding, bank charges) are fully factored into settlement.
+    /// Per ERPNext PR #58437 / commit dbe153a15e.
     /// </summary>
     public async Task<SupplierStatementDto> GetSupplierStatementAsync(
         Guid supplierId, Guid companyId, DateTime fromDate, DateTime toDate)
     {
         var piQuery = await _piRepository.GetQueryableAsync();
-        var peQuery = await _peRepository.GetQueryableAsync();
+        var peQuery = await GetPaymentQueryableWithTaxesAsync();
 
         // Invoices in period
         var invoices = piQuery
@@ -170,24 +204,35 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
                 && pe.Status == Core.DocumentStatus.Posted
                 && pe.PostingDate >= fromDate && pe.PostingDate <= toDate)
             .OrderBy(pe => pe.PostingDate)
-            .Select(pe => new { pe.Id, pe.PaymentNumber, pe.PostingDate, pe.PaidAmount })
             .ToList();
 
-        // Opening balance
+        // Opening balance for supplier (payables ledger: credits increase liability, debits decrease liability)
         var priorInvoices = piQuery
             .Where(pi => pi.SupplierId == supplierId
                 && pi.CompanyId == companyId
                 && pi.Status == Core.DocumentStatus.Posted
                 && pi.IssueDate < fromDate)
             .ToList();
-        decimal openingBalance = priorInvoices.Sum(pi => pi.GrandTotal - pi.AmountPaid);
+
+        var priorPayments = peQuery
+            .Where(pe => pe.PartyType == "Supplier"
+                && pe.PartyId == supplierId
+                && pe.CompanyId == companyId
+                && pe.Status == Core.DocumentStatus.Posted
+                && pe.PostingDate < fromDate)
+            .ToList();
+
+        decimal priorCredits = priorInvoices.Sum(pi => pi.IsReturn ? 0 : pi.GrandTotal)
+            + priorPayments.Where(pe => pe.PaymentType == PaymentType.Receive).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
+        decimal priorDebits = priorInvoices.Sum(pi => pi.IsReturn ? pi.GrandTotal : 0)
+            + priorPayments.Where(pe => pe.PaymentType != PaymentType.Receive).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
+        decimal openingBalance = priorCredits - priorDebits;
 
         var entries = new List<StatementEntryDto>();
         decimal runningBalance = openingBalance;
 
         foreach (var inv in invoices)
         {
-            decimal amount = inv.IsReturn ? -inv.GrandTotal : inv.GrandTotal;
             entries.Add(new StatementEntryDto
             {
                 Date = inv.IssueDate,
@@ -202,14 +247,18 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
 
         foreach (var pmt in payments)
         {
+            decimal settledAmount = pmt.TotalSettledBaseAmount > 0 ? pmt.TotalSettledBaseAmount : pmt.PaidAmount;
+            bool isRefund = pmt.PaymentType == PaymentType.Receive;
+            decimal debit = isRefund ? 0 : settledAmount;
+            decimal credit = isRefund ? settledAmount : 0;
             entries.Add(new StatementEntryDto
             {
                 Date = pmt.PostingDate,
-                DocumentType = "Payment",
+                DocumentType = isRefund ? "Refund" : "Payment",
                 DocumentNumber = pmt.PaymentNumber ?? "PE",
                 DocumentId = pmt.Id,
-                DebitAmount = pmt.PaidAmount,
-                CreditAmount = 0,
+                DebitAmount = debit,
+                CreditAmount = credit,
                 RunningBalance = 0
             });
         }
@@ -234,6 +283,8 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
             ClosingBalance = runningBalance,
             TotalInvoiced = entries.Sum(e => e.CreditAmount),
             TotalPaid = entries.Sum(e => e.DebitAmount),
+            TotalDebit = entries.Sum(e => e.DebitAmount),
+            TotalCredit = entries.Sum(e => e.CreditAmount),
             Entries = entries
         };
     }
@@ -267,7 +318,7 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
             var supplierList = suppliers.ToList();
 
             var piQuery = await _piRepository.GetQueryableAsync();
-            var peQuery = await _peRepository.GetQueryableAsync();
+            var peQuery = await GetPaymentQueryableWithTaxesAsync();
 
             var allInvoices = piQuery
                 .Where(pi => pi.CompanyId == input.CompanyId && pi.Status == Core.DocumentStatus.Posted)
@@ -281,13 +332,14 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
             {
                 var priorInvoices = allInvoices.Where(i => i.SupplierId == sup.Id && i.IssueDate < input.FromDate).ToList();
                 var priorPayments = allPayments.Where(p => p.PartyId == sup.Id && p.PostingDate < input.FromDate).ToList();
-                var openingBalance = priorInvoices.Sum(i => i.IsReturn ? -i.GrandTotal : i.GrandTotal) - priorPayments.Sum(p => p.PaidAmount);
+                var openingBalance = priorInvoices.Sum(i => i.IsReturn ? -i.GrandTotal : i.GrandTotal)
+                    - priorPayments.Sum(p => p.TotalSettledBaseAmount > 0 ? p.TotalSettledBaseAmount : p.PaidAmount);
 
                 var periodInvoices = allInvoices.Where(i => i.SupplierId == sup.Id && i.IssueDate >= input.FromDate && i.IssueDate <= input.ToDate).ToList();
                 var periodPayments = allPayments.Where(p => p.PartyId == sup.Id && p.PostingDate >= input.FromDate && p.PostingDate <= input.ToDate).ToList();
 
                 var invoicedAmount = periodInvoices.Sum(i => i.IsReturn ? -i.GrandTotal : i.GrandTotal);
-                var paidAmount = periodPayments.Sum(p => p.PaidAmount);
+                var paidAmount = periodPayments.Sum(p => p.TotalSettledBaseAmount > 0 ? p.TotalSettledBaseAmount : p.PaidAmount);
                 var closingBalance = openingBalance + invoicedAmount - paidAmount;
 
                 if (!input.IncludeZeroBalance && openingBalance == 0 && invoicedAmount == 0 && paidAmount == 0 && closingBalance == 0)
@@ -325,7 +377,7 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
             var customerList = customers.ToList();
 
             var siQuery = await _siRepository.GetQueryableAsync();
-            var peQuery = await _peRepository.GetQueryableAsync();
+            var peQuery = await GetPaymentQueryableWithTaxesAsync();
 
             var allInvoices = siQuery
                 .Where(si => si.CompanyId == input.CompanyId && si.Status == Core.DocumentStatus.Posted)
@@ -339,13 +391,14 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
             {
                 var priorInvoices = allInvoices.Where(i => i.CustomerId == cust.Id && i.IssueDate < input.FromDate).ToList();
                 var priorPayments = allPayments.Where(p => p.PartyId == cust.Id && p.PostingDate < input.FromDate).ToList();
-                var openingBalance = priorInvoices.Sum(i => i.IsReturn ? -i.GrandTotal : i.GrandTotal) - priorPayments.Sum(p => p.PaidAmount);
+                var openingBalance = priorInvoices.Sum(i => i.IsReturn ? -i.GrandTotal : i.GrandTotal)
+                    - priorPayments.Sum(p => p.TotalSettledBaseAmount > 0 ? p.TotalSettledBaseAmount : p.PaidAmount);
 
                 var periodInvoices = allInvoices.Where(i => i.CustomerId == cust.Id && i.IssueDate >= input.FromDate && i.IssueDate <= input.ToDate).ToList();
                 var periodPayments = allPayments.Where(p => p.PartyId == cust.Id && p.PostingDate >= input.FromDate && p.PostingDate <= input.ToDate).ToList();
 
                 var invoicedAmount = periodInvoices.Sum(i => i.IsReturn ? -i.GrandTotal : i.GrandTotal);
-                var paidAmount = periodPayments.Sum(p => p.PaidAmount);
+                var paidAmount = periodPayments.Sum(p => p.TotalSettledBaseAmount > 0 ? p.TotalSettledBaseAmount : p.PaidAmount);
                 var closingBalance = openingBalance + invoicedAmount - paidAmount;
 
                 if (!input.IncludeZeroBalance && openingBalance == 0 && invoicedAmount == 0 && paidAmount == 0 && closingBalance == 0)

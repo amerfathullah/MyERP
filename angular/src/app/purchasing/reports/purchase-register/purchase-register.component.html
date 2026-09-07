@@ -10,15 +10,26 @@
           </select>
         </div>
         <div class="col-md-3">
+          <label class="form-label">{{ 'Supplier' | abpLocalization }}</label>
+          <select class="form-select" formControlName="supplierId">
+            <option value="">-- {{ 'All' | abpLocalization }} --</option>
+            @for (s of suppliers(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+          </select>
+        </div>
+        <div class="col-md-2">
           <label class="form-label">{{ 'FromDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="fromDate" />
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label">{{ 'ToDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="toDate" />
         </div>
-        <div class="col-md-3">
-          <button type="submit" class="btn btn-primary" [disabled]="isLoading()">
+        <div class="col-md-2">
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="includePayments" formControlName="includePayments" />
+            <label class="form-check-label small" for="includePayments">{{ 'IncludePayments' | abpLocalization }}</label>
+          </div>
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
             <i class="fa fa-table me-1"></i>{{ 'Generate' | abpLocalization }}
           </button>
         </div>
@@ -30,45 +41,76 @@
 
   @if (report(); as r) {
     <div class="card">
-      <div class="card-header"><span class="fw-bold">{{ r.count }} {{ 'Invoices' | abpLocalization }}</span></div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">{{ r.count }} {{ 'Entries' | abpLocalization }}</span>
+        <button class="btn btn-sm btn-outline-success" (click)="exportCsv()"><i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}</button>
+      </div>
       <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table table-hover table-sm mb-0">
             <thead>
-              <tr>
-                <th class="ps-3">{{ 'InvoiceNumber' | abpLocalization }}</th>
-                <th>{{ 'Date' | abpLocalization }}</th>
-                <th class="text-end">{{ 'NetTotal' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Tax' | abpLocalization }}</th>
-                <th class="text-end">{{ 'GrandTotal' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Paid' | abpLocalization }}</th>
-                <th class="text-end pe-3">{{ 'Outstanding' | abpLocalization }}</th>
-              </tr>
+              @if (filters.get('includePayments')?.value) {
+                <tr>
+                  <th class="ps-3">{{ 'VoucherType' | abpLocalization }}</th>
+                  <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
+                  <th>{{ 'Date' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'Debit' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'Credit' | abpLocalization }}</th>
+                  <th class="text-end pe-3">{{ 'Balance' | abpLocalization }}</th>
+                </tr>
+              } @else {
+                <tr>
+                  <th class="ps-3">{{ 'InvoiceNumber' | abpLocalization }}</th>
+                  <th>{{ 'Date' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'NetTotal' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'Tax' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'GrandTotal' | abpLocalization }}</th>
+                  <th class="text-end">{{ 'Paid' | abpLocalization }}</th>
+                  <th class="text-end pe-3">{{ 'Outstanding' | abpLocalization }}</th>
+                </tr>
+              }
             </thead>
             <tbody>
               @for (item of r.items ?? []; track $index) {
-                <tr [class.text-danger]="item.isReturn">
-                  <td class="ps-3">
-                    {{ item.invoiceNumber }}
-                    @if (item.isReturn) { <span class="badge bg-info ms-1">{{ '::DebitNote' | abpLocalization }}</span> }
-                  </td>
-                  <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
-                  <td class="text-end font-monospace">{{ item.netTotal | number:'1.2-2' }}</td>
-                  <td class="text-end font-monospace">{{ item.taxAmount | number:'1.2-2' }}</td>
-                  <td class="text-end font-monospace fw-bold">{{ item.grandTotal | number:'1.2-2' }}</td>
-                  <td class="text-end font-monospace">{{ item.amountPaid | number:'1.2-2' }}</td>
-                  <td class="text-end pe-3 font-monospace" [class.text-danger]="(item.outstanding ?? 0) > 0">{{ item.outstanding | number:'1.2-2' }}</td>
-                </tr>
+                @if (filters.get('includePayments')?.value) {
+                  <tr [class.table-secondary]="item.voucherType === 'Opening'" [class.text-danger]="item.isReturn">
+                    <td class="ps-3">
+                      <span class="badge" [class.bg-secondary]="item.voucherType === 'Opening'" [class.bg-primary]="item.voucherType === 'Purchase Invoice'" [class.bg-success]="item.voucherType === 'Payment Entry'" [class.bg-warning]="item.voucherType === 'Debit Note' || item.voucherType === 'Refund'">
+                        {{ item.voucherType }}
+                      </span>
+                    </td>
+                    <td>{{ item.invoiceNumber }}</td>
+                    <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
+                    <td class="text-end font-monospace text-success">{{ (item.debit ?? 0) ? (item.debit | number:'1.2-2') : '' }}</td>
+                    <td class="text-end font-monospace">{{ (item.credit ?? 0) ? (item.credit | number:'1.2-2') : '' }}</td>
+                    <td class="text-end pe-3 font-monospace fw-bold" [class.text-danger]="(item.balance ?? 0) > 0">{{ item.balance | number:'1.2-2' }}</td>
+                  </tr>
+                } @else {
+                  <tr [class.text-danger]="item.isReturn">
+                    <td class="ps-3">
+                      {{ item.invoiceNumber }}
+                      @if (item.isReturn) { <span class="badge bg-info ms-1">{{ '::DebitNote' | abpLocalization }}</span> }
+                    </td>
+                    <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
+                    <td class="text-end font-monospace">{{ item.netTotal | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace">{{ item.taxAmount | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace fw-bold">{{ item.grandTotal | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace">{{ item.amountPaid | number:'1.2-2' }}</td>
+                    <td class="text-end pe-3 font-monospace" [class.text-danger]="(item.outstanding ?? 0) > 0">{{ item.outstanding | number:'1.2-2' }}</td>
+                  </tr>
+                }
               }
             </tbody>
             <tfoot>
-              <tr class="fw-bold table-light">
-                <td class="ps-3" colspan="2">{{ 'Total' | abpLocalization }}</td>
-                <td class="text-end font-monospace">{{ r.totalNet | number:'1.2-2' }}</td>
-                <td class="text-end font-monospace">{{ r.totalTax | number:'1.2-2' }}</td>
-                <td class="text-end font-monospace">{{ r.totalGrand | number:'1.2-2' }}</td>
-                <td></td><td></td>
-              </tr>
+              @if (!filters.get('includePayments')?.value) {
+                <tr class="fw-bold table-light">
+                  <td class="ps-3" colspan="2">{{ 'Total' | abpLocalization }}</td>
+                  <td class="text-end font-monospace">{{ r.totalNet | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ r.totalTax | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace">{{ r.totalGrand | number:'1.2-2' }}</td>
+                  <td></td><td></td>
+                </tr>
+              }
             </tfoot>
           </table>
         </div>

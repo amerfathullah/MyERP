@@ -17,4 +17,7 @@ public class RegisterFilterDto
     public Guid CompanyId { get; set; }
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
+    public Guid? CustomerId { get; set; }
+    public Guid? SupplierId { get; set; }
+    public bool IncludePayments { get; set; }
 }
