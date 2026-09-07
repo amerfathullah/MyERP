@@ -136,6 +136,48 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
+    /// Restores reserved stock when a delivery document (DN or update_stock SI) is cancelled (reverses FIFO consumption).
+    /// Per ERPNext PR #58613 / commit 7ecfa6b356: restores DeliveredQty on active SREs in LIFO order so reserved stock becomes available again.
+    /// </summary>
+    public async Task<ReservationConsumption[]> RestoreOnCancelDeliveryAsync(
+        Guid itemId, Guid warehouseId, decimal deliveredQty, Guid? voucherId = null)
+    {
+        if (deliveredQty <= 0) return Array.Empty<ReservationConsumption>();
+
+        var queryable = await _sreRepository.GetQueryableAsync();
+        var deliveredSres = queryable
+            .Where(s => s.ItemId == itemId
+                && s.WarehouseId == warehouseId
+                && s.Status == DocumentStatus.Submitted
+                && s.DeliveredQty > 0
+                && (voucherId == null || s.VoucherId == voucherId))
+            .OrderByDescending(s => s.CreationTime)
+            .ToList();
+
+        var restored = new System.Collections.Generic.List<ReservationConsumption>();
+        var remaining = deliveredQty;
+
+        foreach (var sre in deliveredSres)
+        {
+            if (remaining <= 0) break;
+
+            var canRestore = Math.Min(remaining, sre.DeliveredQty);
+            sre.RevertDelivery(canRestore);
+            await _sreRepository.UpdateAsync(sre);
+
+            restored.Add(new ReservationConsumption
+            {
+                StockReservationEntryId = sre.Id,
+                ConsumedQty = canRestore
+            });
+
+            remaining -= canRestore;
+        }
+
+        return restored.ToArray();
+    }
+
+    /// <summary>
     /// Cancels all active reservations for a voucher (used on SO/WO cancel/close).
     /// Per ERPNext PR #50773 / commit 9b5d215a7a.
     /// </summary>

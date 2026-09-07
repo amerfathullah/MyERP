@@ -744,6 +744,11 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
                     await _binService.UpdateReservedQtyAsync(
                         comp.ComponentItemId, dn.WarehouseId, comp.Qty, dn.TenantId);
+
+                    var sreManager = LazyServiceProvider
+                        .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+                    await sreManager.RestoreOnCancelDeliveryAsync(
+                        comp.ComponentItemId, dn.WarehouseId, comp.Qty, dn.SalesOrderId);
                 }
             }
             else
@@ -770,6 +775,12 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 // Re-reserve qty in stock UOM
                 await _binService.UpdateReservedQtyAsync(
                     item.ItemId, itemWarehouseId, stockQty, dn.TenantId);
+
+                // Restore StockReservationEntry DeliveredQty (per ERPNext PR #58613 / commit 7ecfa6b356)
+                var sreManager = LazyServiceProvider
+                    .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+                await sreManager.RestoreOnCancelDeliveryAsync(
+                    item.ItemId, itemWarehouseId, stockQty, dn.SalesOrderId);
             }
         }
 

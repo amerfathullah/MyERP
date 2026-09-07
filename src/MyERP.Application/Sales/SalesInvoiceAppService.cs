@@ -1375,6 +1375,12 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, invoice.WarehouseId.Value,
                     stockQty, stockQty * ratePerStockUnit, invoice.TenantId);
+
+                // Restore StockReservationEntry DeliveredQty (per ERPNext PR #58613 / commit 7ecfa6b356)
+                var sreManager = LazyServiceProvider
+                    .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+                await sreManager.RestoreOnCancelDeliveryAsync(
+                    item.ItemId, invoice.WarehouseId.Value, stockQty);
             }
         }
 

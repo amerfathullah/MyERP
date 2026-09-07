@@ -95,6 +95,16 @@ public class StockReservationEntry : FullAuditedAggregateRoot<Guid>, IMultiTenan
         DeliveredQty += qty;
     }
 
+    /// <summary>
+    /// Reverts a recorded delivery when a delivery document (DN or update_stock SI) is cancelled.
+    /// Per ERPNext commit 7ecfa6b356: update_serial_batch_delivered_qty with is_cancelled=True.
+    /// </summary>
+    public void RevertDelivery(decimal qty)
+    {
+        if (qty <= 0) throw new ArgumentException("Qty must be positive.", nameof(qty));
+        DeliveredQty = Math.Max(0, DeliveredQty - qty);
+    }
+
     public void Cancel()
     {
         if (Status != DocumentStatus.Submitted)
