@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using MyERP.Core.DomainServices;
 using MyERP.Inventory;
+using MyERP.Inventory.Entities;
 using MyERP.Inventory.DomainServices;
 using MyERP.Manufacturing.Entities;
 using MyERP.Manufacturing.Services;
@@ -1657,6 +1658,138 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             EntryType = StockEntryType.Manufacture.ToString(),
             ItemCount = entry.Items.Count,
             TotalValue = totalRmCost,
+        };
+    }
+
+    /// <summary>
+    /// Gets alternative finished goods details and available convertible qty for a Work Order (upstream PR #58479).
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Default)]
+    public async Task<AlternativeFinishedGoodsDetailsDto> GetFgConversionDetailsAsync(Guid workOrderId)
+    {
+        var wo = await _workOrderRepository.GetAsync(workOrderId);
+        var productionItem = wo.ItemId;
+
+        var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+
+        var altQuery = await altRepo.GetQueryableAsync();
+        var directAlts = altQuery.Where(a => a.ItemId == productionItem).Select(a => a.AlternativeItemId).ToList();
+        var twoWayAlts = altQuery.Where(a => a.AlternativeItemId == productionItem && a.TwoWay).Select(a => a.ItemId).ToList();
+        var allowedAltIds = directAlts.Concat(twoWayAlts).Distinct().ToList();
+
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var altItems = itemQuery
+            .Where(i => allowedAltIds.Contains(i.Id))
+            .Select(i => new AlternativeFinishedGoodItemDto
+            {
+                ItemId = i.Id,
+                ItemCode = i.ItemCode,
+                ItemName = i.ItemName
+            })
+            .ToList();
+
+        var seQuery = await seRepo.GetQueryableAsync();
+        var alreadyConvertedQty = seQuery
+            .Where(s => s.WorkOrderId == wo.Id && s.IsFgConversion && s.Status != Core.DocumentStatus.Cancelled)
+            .SelectMany(s => s.Items)
+            .Where(i => i.ItemId == productionItem && i.SourceWarehouseId.HasValue)
+            .Sum(i => (decimal?)i.Quantity) ?? 0m;
+
+        var availableQty = Math.Max(0m, wo.ProducedQuantity - alreadyConvertedQty);
+
+        return new AlternativeFinishedGoodsDetailsDto
+        {
+            AlternativeItems = altItems,
+            AvailableQty = availableQty
+        };
+    }
+
+    /// <summary>
+    /// Creates a Repack Stock Entry converting produced Work Order finished goods to alternative finished goods
+    /// (upstream PR #58479 / commit 1f7f8cd9d3).
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<StockEntryResultDto> CreateFgConversionEntryAsync(CreateFgConversionEntryDto input)
+    {
+        if (input.Quantity <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "The qty to convert must be greater than zero.");
+        }
+
+        var wo = await _workOrderRepository.GetAsync(input.WorkOrderId);
+
+        // Validate manufacturing setting allow_alternative_finished_goods
+        var settings = await GetManufacturingSettingsAsync(wo.CompanyId);
+        if (!(settings?.AllowAlternativeFinishedGoods ?? false))
+        {
+            var abpSettingVal = await SettingProvider.GetOrNullAsync(MyERP.Settings.MyERPSettings.Manufacturing.AllowAlternativeFinishedGoods);
+            if (string.IsNullOrEmpty(abpSettingVal) || !bool.TryParse(abpSettingVal, out var parsed) || !parsed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Enable 'Allow Alternative Finished Goods' in Manufacturing Settings to make a finished good conversion entry.");
+            }
+        }
+
+        var fgWarehouseId = wo.FgWarehouseId ?? wo.WipWarehouseId;
+        if (!fgWarehouseId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                .WithData("field", "Finished Goods Warehouse");
+        }
+
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+        var entry = new Inventory.Entities.StockEntry(
+            GuidGenerator.Create(),
+            wo.CompanyId,
+            StockEntryType.Repack,
+            DateTime.UtcNow.Date,
+            CurrentTenant.Id)
+        {
+            WorkOrderId = wo.Id,
+            IsFgConversion = true,
+            EntryNumber = await _numberGenerator.GenerateAsync("SE", wo.CompanyId),
+            Notes = $"Finished Good Conversion — WO {wo.WorkOrderNumber}",
+        };
+
+        // Source item (consumed production item from FG warehouse)
+        var balance = await _valuationService.GetCurrentBalanceAsync(wo.ItemId, fgWarehouseId.Value);
+        var sourceValuationRate = balance.ValuationRate;
+
+        entry.AddItem(
+            itemId: wo.ItemId,
+            quantity: input.Quantity,
+            sourceWarehouseId: fgWarehouseId.Value,
+            targetWarehouseId: null,
+            valuationRate: sourceValuationRate,
+            isFinishedItem: false);
+
+        // Target item (produced alternative item to FG warehouse)
+        entry.AddItem(
+            itemId: input.AlternativeItemId,
+            quantity: input.Quantity,
+            sourceWarehouseId: null,
+            targetWarehouseId: fgWarehouseId.Value,
+            valuationRate: sourceValuationRate,
+            isFinishedItem: true);
+
+        // Validate via StockEntryManager
+        var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
+        var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
+        var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+        await seManager.ValidateFgConversionAsync(entry, _workOrderRepository, altRepo, seRepo, mfgSettingsRepo);
+
+        await seRepo.InsertAsync(entry);
+
+        return new StockEntryResultDto
+        {
+            StockEntryId = entry.Id,
+            EntryNumber = entry.EntryNumber,
+            EntryType = StockEntryType.Repack.ToString(),
+            ItemCount = entry.Items.Count,
+            TotalValue = input.Quantity * sourceValuationRate,
         };
     }
 

@@ -21,6 +21,7 @@ public class ManufacturingSettingsDto : EntityDto<Guid>
     public bool EnforceTimeLogs { get; set; }
     public bool AddCorrectiveOpCostInFGValuation { get; set; }
     public bool ValidateComponentsQuantitiesPerBom { get; set; }
+    public bool AllowAlternativeFinishedGoods { get; set; }
 }
 
 public class SaveManufacturingSettingsDto
@@ -41,4 +42,5 @@ public class SaveManufacturingSettingsDto
     public bool EnforceTimeLogs { get; set; }
     public bool AddCorrectiveOpCostInFGValuation { get; set; }
     public bool ValidateComponentsQuantitiesPerBom { get; set; } = true;
+    public bool AllowAlternativeFinishedGoods { get; set; }
 }

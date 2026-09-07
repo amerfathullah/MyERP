@@ -67,6 +67,68 @@ public class ProductionPlanDetailEnhancementTests
         Assert.Throws<Volo.Abp.BusinessException>(() => pp.Cancel());
     }
 
+    [Fact]
+    public void ProductionPlan_Close_FromSubmitted()
+    {
+        var pp = CreatePPWithItem();
+        pp.Submit();
+        pp.Close();
+        Assert.Equal(ProductionPlanStatus.Closed, pp.Status);
+    }
+
+    [Fact]
+    public void ProductionPlan_CannotCancel_WhenClosed()
+    {
+        var pp = CreatePPWithItem();
+        pp.Submit();
+        pp.Close();
+        Assert.Throws<Volo.Abp.BusinessException>(() => pp.Cancel());
+    }
+
+    [Fact]
+    public void ProductionPlan_CannotClose_WhenDraftOrCancelled()
+    {
+        var pp1 = CreatePPWithItem();
+        Assert.Throws<Volo.Abp.BusinessException>(() => pp1.Close());
+
+        var pp2 = CreatePPWithItem();
+        pp2.Submit();
+        pp2.Cancel();
+        Assert.Throws<Volo.Abp.BusinessException>(() => pp2.Close());
+    }
+
+    [Fact]
+    public void ProductionPlan_Reopen_FromClosed()
+    {
+        var pp = CreatePPWithItem();
+        pp.Submit();
+        pp.Close();
+        Assert.Equal(ProductionPlanStatus.Closed, pp.Status);
+
+        pp.Reopen();
+        Assert.Equal(ProductionPlanStatus.Submitted, pp.Status);
+    }
+
+    [Fact]
+    public void ProductionPlan_Reopen_WithMaterialRequirements_SetsMaterialRequested()
+    {
+        var pp = CreatePPWithItem();
+        pp.AddMaterialRequirement(new ProductionPlanMrItem(Guid.NewGuid(), pp.Id, ItemId, "Material A", 10m));
+        pp.Submit();
+        pp.Close();
+
+        pp.Reopen();
+        Assert.Equal(ProductionPlanStatus.MaterialRequested, pp.Status);
+    }
+
+    [Fact]
+    public void ProductionPlan_CannotReopen_WhenNotClosed()
+    {
+        var pp = CreatePPWithItem();
+        pp.Submit();
+        Assert.Throws<Volo.Abp.BusinessException>(() => pp.Reopen());
+    }
+
     // ── Localization ──
 
     [Theory]

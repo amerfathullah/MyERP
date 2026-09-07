@@ -304,6 +304,33 @@ public class CreateManufactureStockEntryDto
     public decimal ProcessLossQty { get; set; }
 }
 
+/// <summary>Details of available alternative finished goods for a Work Order (upstream PR #58479).</summary>
+public class AlternativeFinishedGoodsDetailsDto
+{
+    public List<AlternativeFinishedGoodItemDto> AlternativeItems { get; set; } = new();
+    public decimal AvailableQty { get; set; }
+}
+
+public class AlternativeFinishedGoodItemDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+}
+
+/// <summary>Input for converting produced Work Order finished goods to alternative finished goods.</summary>
+public class CreateFgConversionEntryDto
+{
+    [Required]
+    public Guid WorkOrderId { get; set; }
+
+    [Required]
+    public Guid AlternativeItemId { get; set; }
+
+    [Range(0.0001, double.MaxValue)]
+    public decimal Quantity { get; set; }
+}
+
 // === Interface ===
 
 public interface IManufacturingAppService : IApplicationService
@@ -337,6 +364,10 @@ public interface IManufacturingAppService : IApplicationService
     // Material Transfer & Manufacture Stock Entry from Work Order
     Task<StockEntryResultDto> CreateMaterialTransferForManufactureAsync(Guid workOrderId);
     Task<StockEntryResultDto> CreateManufactureStockEntryAsync(CreateManufactureStockEntryDto input);
+
+    // Finished Good Conversion to Alternative FG (upstream PR #58479)
+    Task<AlternativeFinishedGoodsDetailsDto> GetFgConversionDetailsAsync(Guid workOrderId);
+    Task<StockEntryResultDto> CreateFgConversionEntryAsync(CreateFgConversionEntryDto input);
 
     // Job Cards for Work Order
     Task<PagedResultDto<WorkOrderJobCardDto>> GetWorkOrderJobCardsAsync(Guid workOrderId);

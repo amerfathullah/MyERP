@@ -181,4 +181,12 @@ public class ManufacturingController : MyERPController
     [HttpGet("batch-material-readiness")]
     public Task<List<WorkOrderMaterialReadinessDto>> GetBatchMaterialReadinessAsync([FromQuery] Guid? companyId)
         => _service.GetBatchMaterialReadinessAsync(companyId);
+
+    [HttpGet("work-order/{workOrderId}/fg-conversion-details")]
+    public Task<AlternativeFinishedGoodsDetailsDto> GetFgConversionDetailsAsync(Guid workOrderId)
+        => _service.GetFgConversionDetailsAsync(workOrderId);
+
+    [HttpPost("work-order/fg-conversion")]
+    public Task<StockEntryResultDto> CreateFgConversionEntryAsync([FromBody] CreateFgConversionEntryDto input)
+        => _service.CreateFgConversionEntryAsync(input);
 }

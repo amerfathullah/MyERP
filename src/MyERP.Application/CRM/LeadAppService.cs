@@ -276,6 +276,63 @@ public class LeadAppService : ApplicationService, ILeadAppService
         return customer.Id;
     }
 
+    /// <summary>
+    /// Creates a Contact and/or Prospect linked to this Lead (upstream ERPNext commit 646c7d042d / PR #58689).
+    /// Requires write permission (Leads.Edit).
+    /// </summary>
+    [Authorize(MyERPPermissions.Leads.Edit)]
+    public async Task<CreateProspectAndContactResultDto> CreateProspectAndContactAsync(Guid id, CreateProspectAndContactDto input)
+    {
+        var lead = await _leadRepository.GetAsync(id);
+        var result = new CreateProspectAndContactResultDto();
+
+        if (input.CreateContact)
+        {
+            var contactRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Contact, Guid>>();
+            var contact = new Core.Entities.Contact(
+                GuidGenerator.Create(),
+                lead.FirstName,
+                "Lead",
+                lead.Id,
+                CurrentTenant.Id)
+            {
+                LastName = lead.LastName,
+                Email = lead.Email,
+                Phone = lead.Phone,
+                MobileNo = lead.MobileNo,
+                Designation = lead.JobTitle,
+                IsPrimaryContact = true
+            };
+            await contactRepo.InsertAsync(contact);
+            result.ContactId = contact.Id;
+        }
+
+        if (input.CreateProspect)
+        {
+            var prospectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Prospect, Guid>>();
+            var prospectName = !string.IsNullOrWhiteSpace(input.ProspectName)
+                ? input.ProspectName
+                : !string.IsNullOrWhiteSpace(lead.CompanyName)
+                    ? lead.CompanyName
+                    : lead.GetFullName();
+
+            var prospect = new Prospect(GuidGenerator.Create(), lead.CompanyId, prospectName, CurrentTenant.Id)
+            {
+                CompanyName = lead.CompanyName,
+                Industry = lead.Industry,
+                Website = lead.Website,
+                Territory = lead.State,
+                AnnualRevenue = lead.AnnualRevenue,
+                Notes = lead.Notes
+            };
+            prospect.AddLead(GuidGenerator.Create(), lead.Id, lead.GetFullName(), lead.Email);
+            await prospectRepo.InsertAsync(prospect);
+            result.ProspectId = prospect.Id;
+        }
+
+        return result;
+    }
+
     public async Task<List<CrmNoteDto>> GetNotesAsync(Guid id)
     {
         var query = await _noteRepository.GetQueryableAsync();

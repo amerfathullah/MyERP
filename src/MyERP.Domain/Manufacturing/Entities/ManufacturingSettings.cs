@@ -59,6 +59,9 @@ public class ManufacturingSettings : FullAuditedAggregateRoot<Guid>, IMultiTenan
     /// <summary>Validate component quantities against BOM (auto-disabled when backflush != BOM).</summary>
     public bool ValidateComponentsQuantitiesPerBom { get; set; } = true;
 
+    /// <summary>Allow alternative finished goods conversion from Work Order (upstream PR #58479).</summary>
+    public bool AllowAlternativeFinishedGoods { get; set; }
+
     protected ManufacturingSettings() { }
 
     public ManufacturingSettings(Guid id, Guid companyId, Guid? tenantId = null)

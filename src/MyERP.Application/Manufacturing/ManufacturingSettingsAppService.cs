@@ -65,6 +65,7 @@ public class ManufacturingSettingsAppService : ApplicationService, IManufacturin
         existing.EnforceTimeLogs = input.EnforceTimeLogs;
         existing.AddCorrectiveOpCostInFGValuation = input.AddCorrectiveOpCostInFGValuation;
         existing.ValidateComponentsQuantitiesPerBom = input.ValidateComponentsQuantitiesPerBom;
+        existing.AllowAlternativeFinishedGoods = input.AllowAlternativeFinishedGoods;
 
         // Auto-enforce: if backflush != "BOM", validate_components forced off
         existing.EnforceMutualExclusions();

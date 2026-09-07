@@ -143,6 +143,20 @@ public class GetLeadListDto : PagedAndSortedResultRequestDto
     public Guid? CompanyId { get; set; }
 }
 
+public class CreateProspectAndContactDto
+{
+    public bool CreateContact { get; set; } = true;
+    public bool CreateProspect { get; set; } = true;
+    [StringLength(200)]
+    public string? ProspectName { get; set; }
+}
+
+public class CreateProspectAndContactResultDto
+{
+    public Guid? ContactId { get; set; }
+    public Guid? ProspectId { get; set; }
+}
+
 // === Opportunity DTOs ===
 
 public class OpportunityDto : AuditedEntityDto<Guid>

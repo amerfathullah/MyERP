@@ -206,6 +206,42 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
     }
 
     [Authorize(MyERPPermissions.ProductionPlans.Edit)]
+    public async Task<ProductionPlanDto> CloseAsync(Guid id)
+    {
+        var plan = await _planRepository.GetAsync(id, includeDetails: true);
+        var oldStatus = plan.Status;
+        plan.Close();
+        await _planRepository.UpdateAsync(plan);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ProductionPlan", plan.Id,
+            "Closed", plan.CompanyId,
+            plan.PlanNumber, oldStatus.ToString(), "Closed", CurrentUser.Id,
+            $"Production Plan {plan.PlanNumber} closed", CurrentTenant.Id));
+
+        return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
+    }
+
+    [Authorize(MyERPPermissions.ProductionPlans.Edit)]
+    public async Task<ProductionPlanDto> ReopenAsync(Guid id)
+    {
+        var plan = await _planRepository.GetAsync(id, includeDetails: true);
+        var oldStatus = plan.Status;
+        plan.Reopen();
+        await _planRepository.UpdateAsync(plan);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ProductionPlan", plan.Id,
+            "Reopened", plan.CompanyId,
+            plan.PlanNumber, oldStatus.ToString(), plan.Status.ToString(), CurrentUser.Id,
+            $"Production Plan {plan.PlanNumber} reopened", CurrentTenant.Id));
+
+        return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
+    }
+
+    [Authorize(MyERPPermissions.ProductionPlans.Edit)]
     public async Task<ProductionPlanDto> CalculateMaterialRequirementsAsync(Guid id)
     {
         var plan = await _planRepository.GetAsync(id, includeDetails: true);

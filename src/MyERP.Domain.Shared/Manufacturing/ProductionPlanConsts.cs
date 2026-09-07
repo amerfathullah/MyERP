@@ -17,6 +17,7 @@ public enum ProductionPlanStatus
     Completed = 3,
     Cancelled = 4,
     MaterialRequested = 5,
+    Closed = 6,
 }
 
 public enum SubAssemblyType

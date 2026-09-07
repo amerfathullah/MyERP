@@ -151,6 +151,8 @@ public interface IProductionPlanAppService : IApplicationService
     Task DeleteAsync(Guid id);
     Task<ProductionPlanDto> SubmitAsync(Guid id);
     Task<ProductionPlanDto> CancelAsync(Guid id);
+    Task<ProductionPlanDto> CloseAsync(Guid id);
+    Task<ProductionPlanDto> ReopenAsync(Guid id);
 
     /// <summary>Explode BOMs and calculate material requirements for the plan.</summary>
     Task<ProductionPlanDto> CalculateMaterialRequirementsAsync(Guid id);

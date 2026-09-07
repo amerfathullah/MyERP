@@ -109,6 +109,7 @@ public static class MyERPSettings
         public const string JobCardExcessTransfer = G + ".JobCardExcessTransfer";
         public const string EnforceTimeLogs = G + ".EnforceTimeLogs";
         public const string AddCorrectiveOpCostInFGValuation = G + ".CorrectiveOpCostInFG";
+        public const string AllowAlternativeFinishedGoods = G + ".AllowAlternativeFinishedGoods";
     }
 
     // ═══════════════════════════════════════════════════

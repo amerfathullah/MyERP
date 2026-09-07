@@ -193,9 +193,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
         var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
-        await seManager.ValidateFgConversionAsync(entry, woRepo, altRepo, _repository);
-
         var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
+        await seManager.ValidateFgConversionAsync(entry, woRepo, altRepo, _repository, mfgSettingsRepo);
+
         var mfgSettings = await mfgSettingsRepo.FindAsync(s => s.CompanyId == entry.CompanyId);
         var overproductionPct = mfgSettings?.OverproductionPercentage ?? 5m;
         await seManager.ValidateDuplicateManufactureEntryAsync(entry, woRepo, _repository, overproductionPct);
@@ -239,7 +239,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         {
             var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
             var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
-            await seManager.ValidateFgConversionAsync(entry, woRepo, altRepo, _repository);
+            var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
+            await seManager.ValidateFgConversionAsync(entry, woRepo, altRepo, _repository, mfgSettingsRepo);
         }
 
         // Operations completion check (per ERPNext PR #58000 / commit 401eb30963)

@@ -229,4 +229,70 @@ public class StockEntryFgConversionValidationTests
 
         await manager.ValidateFgConversionAsync(entry, _woRepo, _altRepo, _seRepo);
     }
+
+    [Fact]
+    public async Task ValidateFgConversionAsync_Throws_WhenAllowAlternativeFinishedGoodsDisabled()
+    {
+        var manager = CreateManager();
+        var companyId = Guid.NewGuid();
+        var woId = Guid.NewGuid();
+        var mfgSettingsRepo = Substitute.For<IRepository<ManufacturingSettings, Guid>>();
+        var settings = new ManufacturingSettings(Guid.NewGuid(), companyId)
+        {
+            AllowAlternativeFinishedGoods = false
+        };
+        mfgSettingsRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<ManufacturingSettings, bool>>>())
+            .Returns(settings);
+
+        var entry = new StockEntry(Guid.NewGuid(), companyId, StockEntryType.Repack, DateTime.UtcNow)
+        {
+            IsFgConversion = true,
+            WorkOrderId = woId
+        };
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            manager.ValidateFgConversionAsync(entry, _woRepo, _altRepo, _seRepo, mfgSettingsRepo));
+        ex.Data["detail"]!.ToString()!.ShouldContain("Allow Alternative Finished Goods");
+    }
+
+    [Fact]
+    public async Task ValidateFgConversionAsync_Succeeds_WhenAllowAlternativeFinishedGoodsEnabled()
+    {
+        var manager = CreateManager();
+        var companyId = Guid.NewGuid();
+        var prodItemId = Guid.NewGuid();
+        var validAltId = Guid.NewGuid();
+        var woId = Guid.NewGuid();
+
+        var wo = new WorkOrder(woId, companyId, "WO-001", prodItemId, Guid.NewGuid(), 10m)
+        {
+            ProducedQuantity = 10m
+        };
+        _woRepo.FindAsync(woId).Returns(wo);
+
+        var alternatives = new List<ItemAlternative>
+        {
+            new(Guid.NewGuid(), companyId, prodItemId, validAltId)
+        };
+        _altRepo.GetQueryableAsync().Returns(Task.FromResult(alternatives.AsQueryable()));
+        _seRepo.GetQueryableAsync().Returns(Task.FromResult(new List<StockEntry>().AsQueryable()));
+
+        var mfgSettingsRepo = Substitute.For<IRepository<ManufacturingSettings, Guid>>();
+        var settings = new ManufacturingSettings(Guid.NewGuid(), companyId)
+        {
+            AllowAlternativeFinishedGoods = true
+        };
+        mfgSettingsRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<ManufacturingSettings, bool>>>())
+            .Returns(settings);
+
+        var entry = new StockEntry(Guid.NewGuid(), companyId, StockEntryType.Repack, DateTime.UtcNow)
+        {
+            IsFgConversion = true,
+            WorkOrderId = woId
+        };
+        entry.AddItem(prodItemId, 5m, Guid.NewGuid(), null);
+        entry.AddItem(validAltId, 5m, null, Guid.NewGuid(), isFinishedItem: true);
+
+        await manager.ValidateFgConversionAsync(entry, _woRepo, _altRepo, _seRepo, mfgSettingsRepo);
+    }
 }

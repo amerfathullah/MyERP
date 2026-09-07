@@ -81,7 +81,8 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Manufacturing.DisableCapacityPlanning, "false"),
             new SettingDefinition(MyERPSettings.Manufacturing.JobCardExcessTransfer, "false"),
             new SettingDefinition(MyERPSettings.Manufacturing.EnforceTimeLogs, "false"),
-            new SettingDefinition(MyERPSettings.Manufacturing.AddCorrectiveOpCostInFGValuation, "false")
+            new SettingDefinition(MyERPSettings.Manufacturing.AddCorrectiveOpCostInFGValuation, "false"),
+            new SettingDefinition(MyERPSettings.Manufacturing.AllowAlternativeFinishedGoods, "false")
         );
 
         // ═══════════ Accounts Settings ═══════════

@@ -90,9 +90,23 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = ProductionPlanStatus.Completed;
     }
 
+    public void Close()
+    {
+        if (Status is ProductionPlanStatus.Draft or ProductionPlanStatus.Cancelled or ProductionPlanStatus.Closed)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = ProductionPlanStatus.Closed;
+    }
+
+    public void Reopen()
+    {
+        if (Status != ProductionPlanStatus.Closed)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = MaterialRequirements.Count > 0 ? ProductionPlanStatus.MaterialRequested : ProductionPlanStatus.Submitted;
+    }
+
     public void Cancel()
     {
-        if (Status is ProductionPlanStatus.Cancelled or ProductionPlanStatus.Completed)
+        if (Status is ProductionPlanStatus.Cancelled or ProductionPlanStatus.Completed or ProductionPlanStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = ProductionPlanStatus.Cancelled;
         MaterialRequirements.Clear();

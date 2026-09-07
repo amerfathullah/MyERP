@@ -529,7 +529,8 @@ public class StockEntryManager : DomainService
         StockEntry entry,
         IRepository<MyERP.Manufacturing.Entities.WorkOrder, Guid> woRepo,
         IRepository<ItemAlternative, Guid> altRepo,
-        IRepository<StockEntry, Guid> seRepo)
+        IRepository<StockEntry, Guid> seRepo,
+        IRepository<MyERP.Manufacturing.Entities.ManufacturingSettings, Guid>? mfgSettingsRepo = null)
     {
         if (!entry.IsFgConversion) return;
 
@@ -543,6 +544,39 @@ public class StockEntryManager : DomainService
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Work Order is mandatory for a finished good conversion entry.");
+        }
+
+        var settingsRepo = mfgSettingsRepo ?? LazyServiceProvider?.LazyGetService<IRepository<MyERP.Manufacturing.Entities.ManufacturingSettings, Guid>>();
+        bool isAllowed = false;
+        bool hasSettingSource = false;
+        if (settingsRepo != null)
+        {
+            hasSettingSource = true;
+            var settings = await settingsRepo.FindAsync(s => s.CompanyId == entry.CompanyId);
+            if (settings != null)
+            {
+                isAllowed = settings.AllowAlternativeFinishedGoods;
+            }
+        }
+
+        if (!isAllowed && LazyServiceProvider != null)
+        {
+            var settingProvider = LazyServiceProvider.LazyGetService<Volo.Abp.Settings.ISettingProvider>();
+            if (settingProvider != null)
+            {
+                hasSettingSource = true;
+                var abpSettingVal = await settingProvider.GetOrNullAsync(MyERP.Settings.MyERPSettings.Manufacturing.AllowAlternativeFinishedGoods);
+                if (!string.IsNullOrEmpty(abpSettingVal) && bool.TryParse(abpSettingVal, out var parsed))
+                {
+                    isAllowed = parsed;
+                }
+            }
+        }
+
+        if (hasSettingSource && !isAllowed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Enable 'Allow Alternative Finished Goods' in Manufacturing Settings to make a finished good conversion entry.");
         }
 
         var wo = await woRepo.FindAsync(entry.WorkOrderId.Value);
