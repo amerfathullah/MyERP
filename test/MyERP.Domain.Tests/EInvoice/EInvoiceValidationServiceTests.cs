@@ -404,4 +404,210 @@ public class EInvoiceValidationServiceTests
         var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
         Assert.Contains(errors, e => e.Contains("Self-Billed Credit Note or Refund Note type code can only be used on return purchase invoices"));
     }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_DebitNote_ValidSubmission_ReturnsNoErrors()
+    {
+        var originalId = Guid.NewGuid();
+        var origInvoice = new SalesInvoice(originalId, _companyId, _customerId, "SINV-ORIG-01", DateTime.UtcNow)
+        {
+            LhdnUuid = Guid.NewGuid().ToString()
+        };
+        _salesInvoiceRepository.FindAsync(originalId).Returns(origInvoice);
+
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "DN-001", DateTime.UtcNow);
+        invoice.IsDebitNote = true;
+        invoice.AddItem(_itemId, "Additional freight charge", 1, 150m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.DebitNote; // Type 03
+        invoice.ReturnAgainstId = originalId;
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_DebitNote_WithoutDebitNoteType_ReturnsRegulationError()
+    {
+        var originalId = Guid.NewGuid();
+        var origInvoice = new SalesInvoice(originalId, _companyId, _customerId, "SINV-ORIG-01", DateTime.UtcNow)
+        {
+            LhdnUuid = Guid.NewGuid().ToString()
+        };
+        _salesInvoiceRepository.FindAsync(originalId).Returns(origInvoice);
+
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "DN-002", DateTime.UtcNow);
+        invoice.IsDebitNote = true;
+        invoice.AddItem(_itemId, "Additional freight charge", 1, 150m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.Invoice; // Wrong type code
+        invoice.ReturnAgainstId = originalId;
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("As per LHDN Regulation, choose the invoice type code as '03 : Debit Note'."));
+    }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_ReturnRefund_WithoutRefundType_ReturnsRegulationError()
+    {
+        var originalId = Guid.NewGuid();
+        var origInvoice = new SalesInvoice(originalId, _companyId, _customerId, "SINV-ORIG-01", DateTime.UtcNow)
+        {
+            LhdnUuid = Guid.NewGuid().ToString()
+        };
+        _salesInvoiceRepository.FindAsync(originalId).Returns(origInvoice);
+
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "RET-002", DateTime.UtcNow);
+        invoice.IsReturn = true;
+        invoice.IsReturnRefund = true;
+        invoice.AddItem(_itemId, "Returned item", -1, 50m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.CreditNote; // Wrong type code (should be 04 RefundNote)
+        invoice.ReturnAgainstId = originalId;
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("As per LHDN Regulation, choose the invoice type code as '04 : Refund Note'."));
+    }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_Return_WithoutCreditNoteType_ReturnsRegulationError()
+    {
+        var originalId = Guid.NewGuid();
+        var origInvoice = new SalesInvoice(originalId, _companyId, _customerId, "SINV-ORIG-01", DateTime.UtcNow)
+        {
+            LhdnUuid = Guid.NewGuid().ToString()
+        };
+        _salesInvoiceRepository.FindAsync(originalId).Returns(origInvoice);
+
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "RET-003", DateTime.UtcNow);
+        invoice.IsReturn = true;
+        invoice.IsReturnRefund = false;
+        invoice.AddItem(_itemId, "Returned item", -1, 50m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.Invoice; // Wrong type code (should be 02 CreditNote)
+        invoice.ReturnAgainstId = originalId;
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("As per LHDN Regulation, choose the invoice type code as '02 : Credit Note'."));
+    }
+
+    [Fact]
+    public async Task ValidatePurchaseInvoice_DebitNote_ValidSubmission_ReturnsNoErrors()
+    {
+        var originalId = Guid.NewGuid();
+        var origInvoice = new PurchaseInvoice(originalId, _companyId, _supplierId, "PINV-ORIG-01", DateTime.UtcNow)
+        {
+            LhdnUuid = Guid.NewGuid().ToString()
+        };
+        _purchaseInvoiceRepository.FindAsync(originalId).Returns(origInvoice);
+
+        var invoice = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "SBDN-001", DateTime.UtcNow);
+        invoice.IsDebitNote = true;
+        invoice.AddItem(_itemId, "Price adjustment", 1, 80m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.SupplierTin = "C1122334455";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.SelfBilledDebitNote; // Type 13
+        invoice.ReturnAgainstId = originalId;
+
+        var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public async Task ValidatePurchaseInvoice_DebitNote_WithoutDebitNoteType_ReturnsRegulationError()
+    {
+        var originalId = Guid.NewGuid();
+        var origInvoice = new PurchaseInvoice(originalId, _companyId, _supplierId, "PINV-ORIG-01", DateTime.UtcNow)
+        {
+            LhdnUuid = Guid.NewGuid().ToString()
+        };
+        _purchaseInvoiceRepository.FindAsync(originalId).Returns(origInvoice);
+
+        var invoice = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "SBDN-002", DateTime.UtcNow);
+        invoice.IsDebitNote = true;
+        invoice.AddItem(_itemId, "Price adjustment", 1, 80m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.SupplierTin = "C1122334455";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.SelfBilledInvoice; // Wrong type code (should be 13)
+        invoice.ReturnAgainstId = originalId;
+
+        var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("As per LHDN Regulation, choose the invoice type code as '13 : Self-billed Debit Note'."));
+    }
+
+    [Fact]
+    public async Task ValidatePurchaseInvoice_ReturnRefund_WithoutRefundType_ReturnsRegulationError()
+    {
+        var originalId = Guid.NewGuid();
+        var origInvoice = new PurchaseInvoice(originalId, _companyId, _supplierId, "PINV-ORIG-01", DateTime.UtcNow)
+        {
+            LhdnUuid = Guid.NewGuid().ToString()
+        };
+        _purchaseInvoiceRepository.FindAsync(originalId).Returns(origInvoice);
+
+        var invoice = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "SBRF-001", DateTime.UtcNow);
+        invoice.IsReturn = true;
+        invoice.IsReturnRefund = true;
+        invoice.AddItem(_itemId, "Returned good", -1, 40m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.SupplierTin = "C1122334455";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.SelfBilledCreditNote; // Wrong type code (should be 14)
+        invoice.ReturnAgainstId = originalId;
+
+        var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("As per LHDN Regulation, choose the invoice type code as '14 : Self-billed Refund Note'."));
+    }
+
+    [Fact]
+    public void SalesInvoice_DebitNote_UpdateStockThrows()
+    {
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "DN-STOCK", DateTime.UtcNow);
+        invoice.IsDebitNote = true;
+        invoice.UpdateStock = true;
+        invoice.AddItem(_itemId, "Debit note item", 1, 100m, 0m);
+
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() => invoice.ValidateDebitNote());
+        Assert.Contains("You cannot update stock for a Debit Note", ex.Message);
+    }
+
+    [Fact]
+    public void PurchaseInvoice_DebitNote_UpdateStockThrows()
+    {
+        var invoice = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "SBDN-STOCK", DateTime.UtcNow);
+        invoice.IsDebitNote = true;
+        invoice.UpdateStock = true;
+        invoice.AddItem(_itemId, "Debit note item", 1, 100m, 0m);
+
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() => invoice.ValidateDebitNote());
+        Assert.Contains("You cannot update stock for a Debit Note", ex.Message);
+    }
+
+    [Fact]
+    public void SalesInvoice_DebitNote_IsReturnThrows()
+    {
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "DN-RET", DateTime.UtcNow);
+        invoice.IsDebitNote = true;
+        invoice.IsReturn = true;
+
+        var ex = Assert.Throws<Volo.Abp.BusinessException>(() => invoice.ValidateDebitNote());
+        Assert.Contains("A document cannot be both a Return and a Debit Note", ex.Message);
+    }
 }

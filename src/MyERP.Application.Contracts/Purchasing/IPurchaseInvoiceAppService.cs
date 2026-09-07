@@ -19,6 +19,7 @@ public interface IPurchaseInvoiceAppService : IApplicationService
     Task<PurchaseInvoiceDto> CancelAsync(Guid id);
     Task<PurchaseInvoiceDto> WriteOffAsync(Guid id);
     Task<PurchaseInvoiceDto> AmendAsync(Guid id);
+    Task<PurchaseInvoiceDto> CreateDebitNoteAsync(Guid purchaseInvoiceId);
     Task<PurchaseInvoiceDto> BlockAsync(Guid id, string? holdComment, DateTime? releaseDate);
     Task<PurchaseInvoiceDto> UnblockAsync(Guid id);
     Task DeleteAsync(Guid id);

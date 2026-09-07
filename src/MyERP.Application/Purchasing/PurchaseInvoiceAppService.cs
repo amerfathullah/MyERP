@@ -442,9 +442,24 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.Notes = input.Notes;
         invoice.IsOpening = input.IsOpening;
         invoice.IsReturn = input.IsReturn;
+        invoice.IsDebitNote = input.IsDebitNote;
+        invoice.IsReturnRefund = input.IsReturnRefund;
         invoice.IsSubcontracted = input.IsSubcontracted;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.EInvoiceDocType = input.EInvoiceDocType;
+
+        invoice.ValidateDebitNote();
+
+        if (!invoice.EInvoiceDocType.HasValue)
+        {
+            invoice.EInvoiceDocType = invoice.IsDebitNote
+                ? EInvoiceDocumentType.SelfBilledDebitNote
+                : (invoice.IsReturn && invoice.IsReturnRefund)
+                    ? EInvoiceDocumentType.SelfBilledRefundNote
+                    : invoice.IsReturn
+                        ? EInvoiceDocumentType.SelfBilledCreditNote
+                        : EInvoiceDocumentType.SelfBilledInvoice;
+        }
         invoice.UpdateStock = input.UpdateStock;
         invoice.WarehouseId = input.WarehouseId;
         invoice.ProjectId = input.ProjectId;
@@ -469,10 +484,10 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         }
 
         // Set party account (credit_to):
-        // Returns: inherit from original invoice (ensures account match validation works)
+        // Returns & Debit Notes: inherit from original invoice (ensures account match validation works)
         // Normal: company default payable account
         var companyForAcct = await _companyRepository.GetAsync(input.CompanyId);
-        if (input.IsReturn && input.ReturnAgainstId.HasValue)
+        if ((input.IsReturn || input.IsDebitNote) && input.ReturnAgainstId.HasValue)
         {
             var originalInvoice = await _repository.GetAsync(input.ReturnAgainstId.Value);
 
@@ -480,7 +495,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             if (originalInvoice.SupplierId != input.SupplierId || originalInvoice.CompanyId != input.CompanyId)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ReturnPartyMismatch)
-                    .WithData("documentType", "Purchase Invoice")
+                    .WithData("documentType", input.IsDebitNote ? "Debit Note" : "Purchase Invoice")
                     .WithData("returnSupplier", input.SupplierId)
                     .WithData("originalSupplier", originalInvoice.SupplierId);
             }
@@ -663,6 +678,10 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.SupplierInvoiceNumber = input.SupplierInvoiceNumber;
         invoice.Notes = input.Notes;
         invoice.IsSubcontracted = input.IsSubcontracted;
+        invoice.IsReturn = input.IsReturn;
+        invoice.IsDebitNote = input.IsDebitNote;
+        invoice.IsReturnRefund = input.IsReturnRefund;
+        invoice.ValidateDebitNote();
 
         // Auto-resolve DueDate from Payment Terms Template or supplier default if not explicitly provided (ERPNext PR #49232 / commit 77478303fe)
         if (!invoice.DueDate.HasValue && !invoice.IsOpening)
@@ -1460,6 +1479,44 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         await _repository.InsertAsync(amended, autoSave: true);
         return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(amended);
+    }
+
+    [Authorize(MyERPPermissions.PurchaseInvoices.Create)]
+    public async Task<PurchaseInvoiceDto> CreateDebitNoteAsync(Guid purchaseInvoiceId)
+    {
+        var original = await _repository.GetAsync(purchaseInvoiceId);
+        if (original.Status != Core.DocumentStatus.Posted && original.Status != Core.DocumentStatus.Submitted)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Cannot create debit note against draft or cancelled invoice");
+        }
+
+        var newNumber = await _numberGenerator.GenerateAsync("PurchaseInvoice", original.CompanyId);
+        var debitNote = new PurchaseInvoice(
+            GuidGenerator.Create(),
+            original.CompanyId,
+            original.SupplierId,
+            newNumber,
+            DateTime.UtcNow.Date);
+
+        debitNote.IsDebitNote = true;
+        debitNote.ReturnAgainstId = original.Id;
+        debitNote.CreditToAccountId = original.CreditToAccountId;
+        debitNote.CurrencyCode = original.CurrencyCode;
+        debitNote.ExchangeRate = original.ExchangeRate;
+        debitNote.PriceListId = original.PriceListId;
+        debitNote.CostCenterId = original.CostCenterId;
+        debitNote.ProjectId = original.ProjectId;
+        debitNote.UpdateStock = false;
+        debitNote.EInvoiceDocType = EInvoiceDocumentType.SelfBilledDebitNote;
+
+        foreach (var item in original.Items)
+        {
+            debitNote.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+        }
+
+        await _repository.InsertAsync(debitNote, autoSave: true);
+        return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(debitNote);
     }
 
     [Authorize(MyERPPermissions.PurchaseInvoices.Delete)]

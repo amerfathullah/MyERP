@@ -93,16 +93,66 @@ public class EInvoiceValidationService : ITransientDependency
 
         // Document type code validation
         var validTypeCodes = new[] { "01", "02", "03", "04", "11", "12", "13", "14" };
-        var typeCode = invoice.EInvoiceDocType.HasValue ? ((int)invoice.EInvoiceDocType.Value).ToString("D2") : (invoice.IsReturn ? "02" : "01");
+        var typeCode = invoice.EInvoiceDocType.HasValue
+            ? ((int)invoice.EInvoiceDocType.Value).ToString("D2")
+            : (invoice.IsDebitNote
+                ? "03"
+                : (invoice.IsReturn
+                    ? (invoice.IsReturnRefund ? "04" : "02")
+                    : "01"));
+
         if (!Array.Exists(validTypeCodes, c => c == typeCode))
             errors.Add($"Invalid document type code: {typeCode}. Must be one of: 01, 02, 03, 04, 11-14.");
 
-        // Return / Credit Note / Debit Note validations (rules from myinvois original.py validate_before_submit)
+        var isDebitNoteDoc = invoice.IsDebitNote || typeCode == "03";
+
+        // LHDN specific regulation checks (myinvois PR #37d716d, original.py line 911)
+        if (invoice.IsDebitNote && typeCode != "03")
+        {
+            errors.Add("As per LHDN Regulation, choose the invoice type code as '03 : Debit Note'.");
+        }
+
+        if (invoice.IsReturn && invoice.IsReturnRefund && typeCode != "04")
+        {
+            errors.Add("As per LHDN Regulation, choose the invoice type code as '04 : Refund Note'.");
+        }
+
+        if (invoice.IsReturn && !invoice.IsReturnRefund && typeCode != "02" && typeCode != "04")
+        {
+            errors.Add("As per LHDN Regulation, choose the invoice type code as '02 : Credit Note'.");
+        }
+
+        // Cross-validation: return vs non-return document types
         if (invoice.IsReturn)
         {
-            if (typeCode is not "02" and not "04")
+            if (typeCode is not ("02" or "04"))
+            {
                 errors.Add("Return Sales Invoice must use Document Type Code '02' (Credit Note) or '04' (Refund Note).");
+            }
+        }
+        else if (!isDebitNoteDoc && typeCode is "02" or "04")
+        {
+            errors.Add("Credit Note or Refund Note type code can only be used on return invoices.");
+        }
 
+        // Original invoice reference validation for Debit Notes
+        if (isDebitNoteDoc)
+        {
+            if (!company.AllowCreditNoteWithoutOriginalInvoice)
+            {
+                if (!invoice.ReturnAgainstId.HasValue)
+                    errors.Add("Debit Note must reference an original invoice (ReturnAgainstId).");
+                else
+                {
+                    var originalInvoice = await _salesInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
+                    if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
+                        errors.Add("The original invoice must have a valid LHDN submission (LhdnUuid) before its Debit Note can be submitted.");
+                }
+            }
+        }
+        // Original invoice reference validation for Credit Notes / Returns
+        else if (invoice.IsReturn || typeCode is "02" or "04")
+        {
             if (!company.AllowCreditNoteWithoutOriginalInvoice)
             {
                 if (!invoice.ReturnAgainstId.HasValue)
@@ -115,24 +165,6 @@ public class EInvoiceValidationService : ITransientDependency
                     var originalInvoice = await _salesInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
                     if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
                         errors.Add("The original invoice must have a valid LHDN submission (LhdnUuid) before its Credit Note can be submitted.");
-                }
-            }
-        }
-        else if (typeCode is "02" or "04")
-        {
-            errors.Add("Credit Note or Refund Note type code can only be used on return invoices.");
-        }
-        else if (typeCode is "03")
-        {
-            if (!company.AllowCreditNoteWithoutOriginalInvoice)
-            {
-                if (!invoice.ReturnAgainstId.HasValue)
-                    errors.Add("Debit Note must reference an original invoice (ReturnAgainstId).");
-                else
-                {
-                    var originalInvoice = await _salesInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
-                    if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
-                        errors.Add("The original invoice must have a valid LHDN submission (LhdnUuid) before its Debit Note can be submitted.");
                 }
             }
         }
@@ -207,33 +239,48 @@ public class EInvoiceValidationService : ITransientDependency
         var validSelfBilledCodes = new[] { "11", "12", "13", "14" };
         var typeCode = invoice.EInvoiceDocType.HasValue 
             ? ((int)invoice.EInvoiceDocType.Value).ToString("D2") 
-            : (invoice.IsReturn ? "12" : "11");
+            : (invoice.IsDebitNote
+                ? "13"
+                : (invoice.IsReturn
+                    ? (invoice.IsReturnRefund ? "14" : "12")
+                    : "11"));
 
         if (!Array.Exists(validSelfBilledCodes, c => c == typeCode))
             errors.Add($"Invalid document type code for Self-Billed Purchase Invoice: {typeCode}. Must be one of: 11, 12, 13, 14.");
 
+        var isDebitNoteDoc = invoice.IsDebitNote || typeCode == "13";
+
+        // LHDN specific regulation checks (submit_purchase.py and PR #37d716d)
+        if (invoice.IsDebitNote && typeCode != "13")
+        {
+            errors.Add("As per LHDN Regulation, choose the invoice type code as '13 : Self-billed Debit Note'.");
+        }
+
+        if (invoice.IsReturn && invoice.IsReturnRefund && typeCode != "14")
+        {
+            errors.Add("As per LHDN Regulation, choose the invoice type code as '14 : Self-billed Refund Note'.");
+        }
+
+        if (invoice.IsReturn && !invoice.IsReturnRefund && typeCode is not ("12" or "13" or "14"))
+        {
+            errors.Add("As per LHDN Regulation, choose the invoice type code as Self-billed Credit Note ('12') or Self-billed Debit Note ('13').");
+        }
+
+        // Cross-validation: return vs non-return document types
         if (invoice.IsReturn)
         {
-            if (typeCode is not "12" and not "14")
-                errors.Add("Return Purchase Invoice must use Self-Billed Document Type Code '12' (Credit Note) or '14' (Refund Note).");
-
-            if (!company.AllowCreditNoteWithoutOriginalInvoice)
+            if (typeCode is not ("12" or "13" or "14"))
             {
-                if (!invoice.ReturnAgainstId.HasValue)
-                    errors.Add("Self-billed Credit Note / Return must reference an original purchase invoice (ReturnAgainstId).");
-                else
-                {
-                    var originalInvoice = await _purchaseInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
-                    if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
-                        errors.Add("The original purchase invoice must have a valid LHDN submission (LhdnUuid) before its Credit Note can be submitted.");
-                }
+                errors.Add("Return purchase invoice must use Document Type Code '12' (Self-billed Credit Note), '13' (Self-billed Debit Note), or '14' (Self-billed Refund Note).");
             }
         }
-        else if (typeCode is "12" or "14")
+        else if (!isDebitNoteDoc && typeCode is "12" or "14")
         {
             errors.Add("Self-Billed Credit Note or Refund Note type code can only be used on return purchase invoices.");
         }
-        else if (typeCode is "13")
+
+        // Original invoice reference validation for Debit Notes
+        if (isDebitNoteDoc)
         {
             if (!company.AllowCreditNoteWithoutOriginalInvoice)
             {
@@ -244,6 +291,21 @@ public class EInvoiceValidationService : ITransientDependency
                     var originalInvoice = await _purchaseInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
                     if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
                         errors.Add("The original purchase invoice must have a valid LHDN submission (LhdnUuid) before its Debit Note can be submitted.");
+                }
+            }
+        }
+        // Original invoice reference validation for Credit Notes / Returns
+        else if (invoice.IsReturn || typeCode is "12" or "14")
+        {
+            if (!company.AllowCreditNoteWithoutOriginalInvoice)
+            {
+                if (!invoice.ReturnAgainstId.HasValue)
+                    errors.Add("Self-billed Credit Note / Return must reference an original purchase invoice (ReturnAgainstId).");
+                else
+                {
+                    var originalInvoice = await _purchaseInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
+                    if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
+                        errors.Add("The original purchase invoice must have a valid LHDN submission (LhdnUuid) before its Credit Note can be submitted.");
                 }
             }
         }

@@ -172,7 +172,9 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
 
         var docTypeCode = invoice.EInvoiceDocType.HasValue
             ? ((int)invoice.EInvoiceDocType.Value).ToString("D2")
-            : (invoice.IsReturn ? "02" : "01");
+            : (invoice.IsDebitNote ? "03"
+                : (invoice.IsReturn && invoice.IsReturnRefund) ? "04"
+                : invoice.IsReturn ? "02" : "01");
 
         // Per LHDN schema, a Credit/Debit Note's BillingReference carries the original invoice number (cbc:ID)
         // and original LHDN-assigned UUID (cbc:UUID).
@@ -230,7 +232,9 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
 
         var docTypeCode = invoice.EInvoiceDocType.HasValue
             ? ((int)invoice.EInvoiceDocType.Value).ToString("D2")
-            : (invoice.IsReturn ? "12" : "11");
+            : (invoice.IsDebitNote ? "13"
+                : (invoice.IsReturn && invoice.IsReturnRefund) ? "14"
+                : invoice.IsReturn ? "12" : "11");
 
         string? billingReferenceNumber = null;
         string? billingReferenceUuid = null;

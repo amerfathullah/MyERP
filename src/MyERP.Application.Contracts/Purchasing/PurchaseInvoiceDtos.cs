@@ -33,6 +33,8 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public string EInvoiceStatus { get; set; } = null!;
     public string? LhdnUuid { get; set; }
     public bool IsReturn { get; set; }
+    public bool IsDebitNote { get; set; }
+    public bool IsReturnRefund { get; set; }
     public bool IsSubcontracted { get; set; }
     public Guid? ReturnAgainstId { get; set; }
     public Guid? AmendedFromId { get; set; }
@@ -154,8 +156,14 @@ public class CreatePurchaseInvoiceDto
     /// <summary>Mark as opening balance invoice (data migration). Blocks update_stock, clears payment terms.</summary>
     public bool IsOpening { get; set; }
 
-    /// <summary>Mark as return (debit note). Items must have negative quantities.</summary>
+    /// <summary>Mark as return (credit note). Items must have negative quantities.</summary>
     public bool IsReturn { get; set; }
+
+    /// <summary>Mark as debit note (additional charges to supplier).</summary>
+    public bool IsDebitNote { get; set; }
+
+    /// <summary>Mark as refund note (return with refund).</summary>
+    public bool IsReturnRefund { get; set; }
 
     /// <summary>Mark as subcontracted purchase invoice.</summary>
     public bool IsSubcontracted { get; set; }

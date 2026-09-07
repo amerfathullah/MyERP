@@ -78,6 +78,18 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>If true, this is a return (debit note).</summary>
     public bool IsReturn { get; set; }
 
+    /// <summary>
+    /// If true, this is a debit note / supplementary charge.
+    /// Per ERPNext: cannot update stock (financial-only), mutually exclusive with IsReturn.
+    /// </summary>
+    public bool IsDebitNote { get; set; }
+
+    /// <summary>
+    /// If true and IsReturn=true, this is a return refund (LHDN Document Type Code 14 : Self-billed Refund Note).
+    /// Per MyInvois PR #37d716d / submit_purchase.py.
+    /// </summary>
+    public bool IsReturnRefund { get; set; }
+
     /// <summary>If true, this invoice is for subcontracted service.</summary>
     public bool IsSubcontracted { get; set; }
 
@@ -300,8 +312,32 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
                 .WithData("detail", "At least one item must be entered with negative quantity in a return document.");
         }
 
+        ValidateDebitNote();
+
         Status = DocumentStatus.Submitted;
         AddLocalEvent(new PurchaseInvoiceSubmittedEvent(this));
+    }
+
+    /// <summary>
+    /// Validates Debit Note constraints per ERPNext and MyInvois rules:
+    /// - Cannot update stock (debit note is financial only)
+    /// - Mutually exclusive with IsReturn
+    /// </summary>
+    public void ValidateDebitNote()
+    {
+        if (IsDebitNote && IsReturn)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed,
+                "A document cannot be both a Return and a Debit Note.")
+                .WithData("detail", "Purchase Invoice cannot be both a Return and a Debit Note.");
+        }
+
+        if (IsDebitNote && UpdateStock)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed,
+                "You cannot update stock for a Debit Note. A Debit Note is a financial document that should not affect inventory. Please disable 'Update Stock'.")
+                .WithData("detail", "You cannot update stock for a Debit Note. A Debit Note is a financial document that should not affect inventory. Please disable 'Update Stock'.");
+        }
     }
 
     public void Post()

@@ -436,6 +436,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.PriceListId = input.PriceListId
             ?? (await _customerRepository.FindAsync(input.CustomerId))?.DefaultPriceListId;
         invoice.IsReturn = input.IsReturn;
+        invoice.IsDebitNote = input.IsDebitNote;
+        invoice.IsReturnRefund = input.IsReturnRefund;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         invoice.IsOpening = input.IsOpening;
         invoice.IsPos = input.IsPos;
@@ -445,6 +447,19 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.SupplierTin = input.SupplierTin;
         invoice.PosProfileId = input.PosProfileId;
         invoice.EInvoiceDocType = input.EInvoiceDocType;
+
+        invoice.ValidateDebitNote();
+
+        if (!invoice.EInvoiceDocType.HasValue)
+        {
+            invoice.EInvoiceDocType = invoice.IsDebitNote
+                ? EInvoiceDocumentType.DebitNote
+                : (invoice.IsReturn && invoice.IsReturnRefund)
+                    ? EInvoiceDocumentType.RefundNote
+                    : invoice.IsReturn
+                        ? EInvoiceDocumentType.CreditNote
+                        : EInvoiceDocumentType.Invoice;
+        }
 
         // Per MyInvois commit 780a4cf: sync buyer TIN with Customer TIN
         if (!string.IsNullOrWhiteSpace(invoice.BuyerTin))
@@ -523,10 +538,10 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         }
 
         // Set party account (debit_to):
-        // Returns: inherit from original invoice (ensures account match validation works)
+        // Returns & Debit Notes: inherit from original invoice (ensures account match validation works)
         // Normal: company default receivable account
         var companyForAcct = await _companyRepository.GetAsync(input.CompanyId);
-        if (input.IsReturn && input.ReturnAgainstId.HasValue)
+        if ((input.IsReturn || input.IsDebitNote) && input.ReturnAgainstId.HasValue)
         {
             var originalInvoice = await _repository.GetAsync(input.ReturnAgainstId.Value);
 
@@ -534,16 +549,16 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             if (originalInvoice.CustomerId != input.CustomerId || originalInvoice.CompanyId != input.CompanyId)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ReturnPartyMismatch)
-                    .WithData("documentType", "Sales Invoice")
+                    .WithData("documentType", input.IsDebitNote ? "Debit Note" : "Sales Invoice")
                     .WithData("returnCustomer", input.CustomerId)
                     .WithData("originalCustomer", originalInvoice.CustomerId);
             }
 
-            // Prohibit return for consolidated POS invoices (ERPNext PR #47251 / commit 483c4a3271)
+            // Prohibit return or debit note for consolidated POS invoices (ERPNext PR #47251 / commit 483c4a3271)
             if (originalInvoice.IsConsolidated && originalInvoice.IsPos)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Cannot create return for consolidated invoice {originalInvoice.InvoiceNumber}.");
+                    .WithData("detail", $"Cannot create return or debit note for consolidated invoice {originalInvoice.InvoiceNumber}.");
             }
 
             invoice.DebitToAccountId = originalInvoice.DebitToAccountId;
@@ -1518,6 +1533,52 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         await _repository.InsertAsync(amended, autoSave: true);
         return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(amended);
+    }
+
+    [Authorize(MyERPPermissions.SalesInvoices.Create)]
+    public async Task<SalesInvoiceDto> CreateDebitNoteAsync(Guid salesInvoiceId)
+    {
+        var original = await _repository.GetAsync(salesInvoiceId);
+        if (original.Status != DocumentStatus.Posted && original.Status != DocumentStatus.Submitted)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Cannot create debit note against draft or cancelled invoice");
+        }
+
+        if (original.IsConsolidated && original.IsPos)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot create debit note for consolidated invoice {original.InvoiceNumber}.");
+        }
+
+        var newNumber = await _numberGenerator.GenerateAsync("SalesInvoice", original.CompanyId);
+        var debitNote = new SalesInvoice(
+            GuidGenerator.Create(),
+            original.CompanyId,
+            original.CustomerId,
+            newNumber,
+            DateTime.UtcNow.Date);
+
+        debitNote.IsDebitNote = true;
+        debitNote.ReturnAgainstId = original.Id;
+        debitNote.DebitToAccountId = original.DebitToAccountId;
+        debitNote.CurrencyCode = original.CurrencyCode;
+        debitNote.ExchangeRate = original.ExchangeRate;
+        debitNote.PriceListId = original.PriceListId;
+        debitNote.CostCenterId = original.CostCenterId;
+        debitNote.ProjectId = original.ProjectId;
+        debitNote.BuyerTin = original.BuyerTin;
+        debitNote.SupplierTin = original.SupplierTin;
+        debitNote.UpdateStock = false;
+        debitNote.EInvoiceDocType = EInvoiceDocumentType.DebitNote;
+
+        foreach (var item in original.Items)
+        {
+            debitNote.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+        }
+
+        await _repository.InsertAsync(debitNote, autoSave: true);
+        return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(debitNote);
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Delete)]

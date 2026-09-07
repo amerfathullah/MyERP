@@ -19,6 +19,7 @@ public interface ISalesInvoiceAppService : IApplicationService
     Task<SalesInvoiceDto> CancelAsync(Guid id);
     Task<SalesInvoiceDto> WriteOffAsync(Guid id);
     Task<SalesInvoiceDto> AmendAsync(Guid id);
+    Task<SalesInvoiceDto> CreateDebitNoteAsync(Guid salesInvoiceId);
     Task DeleteAsync(Guid id);
     Task<List<PaymentScheduleDto>> GetPaymentScheduleAsync(Guid invoiceId);
     Task<List<InvoicePaymentHistoryDto>> GetPaymentHistoryAsync(Guid invoiceId);

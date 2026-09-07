@@ -68,6 +68,16 @@ public class SalesInvoiceManager : DomainService
     }
 
     /// <summary>
+    /// Validates Debit Note constraints per ERPNext:
+    /// - Mutually exclusive with IsReturn
+    /// - Cannot update stock (financial-only)
+    /// </summary>
+    public static void ValidateDebitNote(SalesInvoice invoice)
+    {
+        invoice.ValidateDebitNote();
+    }
+
+    /// <summary>
     /// Validates return invoice (credit note) business rules.
     /// Per DO-NOT: negative qty required, must reference original, exchange rate must match,
     /// return qty cannot exceed original.
