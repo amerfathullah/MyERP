@@ -13,7 +13,7 @@
           <label class="form-label">{{ 'Customer' | abpLocalization }}</label>
           <select class="form-select" formControlName="customerId">
             <option value="">-- {{ 'All' | abpLocalization }} --</option>
-            @for (c of customers(); track c.id) { <option [value]="c.id">{{ c.customerName }}</option> }
+            @for (c of customers(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
           </select>
         </div>
         <div class="col-md-2">

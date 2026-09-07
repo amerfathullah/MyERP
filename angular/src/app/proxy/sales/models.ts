@@ -1598,7 +1598,9 @@ export interface SalesPersonDto extends EntityDto<string> {
 }
 
 export interface SalesRegisterLineDto {
+  voucherType?: string;
   invoiceId?: string;
+  paymentEntryId?: string;
   invoiceNumber?: string;
   postingDate?: string;
   customerId?: string;
@@ -1609,6 +1611,9 @@ export interface SalesRegisterLineDto {
   amountPaid?: number;
   outstanding?: number;
   isReturn?: boolean;
+  debit?: number;
+  credit?: number;
+  balance?: number;
 }
 
 export interface SalesTargetDto {

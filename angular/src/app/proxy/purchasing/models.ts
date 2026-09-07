@@ -603,7 +603,9 @@ export interface PurchaseReceiptItemDto {
 }
 
 export interface PurchaseRegisterLineDto {
+  voucherType?: string;
   invoiceId?: string;
+  paymentEntryId?: string;
   invoiceNumber?: string;
   postingDate?: string;
   supplierId?: string;
@@ -614,6 +616,9 @@ export interface PurchaseRegisterLineDto {
   amountPaid?: number;
   outstanding?: number;
   isReturn?: boolean;
+  debit?: number;
+  credit?: number;
+  balance?: number;
 }
 
 export interface PutawayAllocationResultDto {
