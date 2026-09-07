@@ -596,13 +596,13 @@ public class BatchAppService : ApplicationService, IBatchAppService
     /// </summary>
     public async Task<List<BatchSplitTreeNodeDto>> GetBatchSplitTreeAsync(GetBatchSplitTreeDto input)
     {
-        var batchQuery = await _repository.GetQueryableAsync();
+        var batchQuery = (await _repository.GetQueryableAsync()).Where(b => !b.IsCancelled);
 
         List<Batch> rootBatches;
         if (input.BatchId.HasValue)
         {
             var singleBatch = await _repository.FindAsync(input.BatchId.Value);
-            if (singleBatch == null) return new List<BatchSplitTreeNodeDto>();
+            if (singleBatch == null || singleBatch.IsCancelled) return new List<BatchSplitTreeNodeDto>();
             rootBatches = new List<Batch> { singleBatch };
         }
         else

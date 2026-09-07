@@ -110,15 +110,50 @@ public class StockPostingService : DomainService
             if (item.TargetWarehouseId.HasValue)
             {
                 var rate = item.ValuationRate ?? 0;
-                var sle = await _valuationService.CreateLedgerEntryAsync(
-                    stockEntry.CompanyId, item.ItemId, item.TargetWarehouseId.Value,
-                    stockEntry.PostingDate, item.Quantity, rate,
-                    voucherType: "StockEntry", voucherId: stockEntry.Id,
-                    tenantId: stockEntry.TenantId, batchId: item.BatchId);
+                var bundleRepo = LazyServiceProvider.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
+                SerialAndBatchBundle? bundle = null;
+                if (bundleRepo != null)
+                {
+                    bundle = await bundleRepo.FirstOrDefaultAsync(b =>
+                        b.VoucherType == "StockEntry" &&
+                        b.VoucherId == stockEntry.Id &&
+                        b.VoucherDetailId == item.Id &&
+                        !b.IsCancelled);
+                }
 
-                await _binService.ApplyStockMovementAsync(
-                    item.ItemId, item.TargetWarehouseId.Value,
-                    item.Quantity, sle.StockValue, stockEntry.TenantId);
+                if (bundle != null && bundle.Entries.Any())
+                {
+                    decimal totalStockValue = 0m;
+                    foreach (var entry in bundle.Entries)
+                    {
+                        var entryRate = entry.IncomingRate > 0 ? entry.IncomingRate : rate;
+                        var sle = await _valuationService.CreateLedgerEntryAsync(
+                            stockEntry.CompanyId, item.ItemId, item.TargetWarehouseId.Value,
+                            stockEntry.PostingDate, entry.Qty, entryRate,
+                            voucherType: "StockEntry", voucherId: stockEntry.Id,
+                            tenantId: stockEntry.TenantId, batchId: entry.BatchId);
+                        sle.SerialAndBatchBundleId = bundle.Id;
+                        sle.VoucherDetailNo = item.Id;
+                        await _sleRepository.UpdateAsync(sle);
+                        totalStockValue += sle.StockValue;
+                    }
+
+                    await _binService.ApplyStockMovementAsync(
+                        item.ItemId, item.TargetWarehouseId.Value,
+                        item.Quantity, totalStockValue, stockEntry.TenantId);
+                }
+                else
+                {
+                    var sle = await _valuationService.CreateLedgerEntryAsync(
+                        stockEntry.CompanyId, item.ItemId, item.TargetWarehouseId.Value,
+                        stockEntry.PostingDate, item.Quantity, rate,
+                        voucherType: "StockEntry", voucherId: stockEntry.Id,
+                        tenantId: stockEntry.TenantId, batchId: item.BatchId);
+
+                    await _binService.ApplyStockMovementAsync(
+                        item.ItemId, item.TargetWarehouseId.Value,
+                        item.Quantity, sle.StockValue, stockEntry.TenantId);
+                }
             }
         }
     }

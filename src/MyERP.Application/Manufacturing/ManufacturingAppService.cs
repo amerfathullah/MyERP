@@ -795,33 +795,44 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             .WithData("documentType", "WorkOrder").WithData("status", "Draft");
 
         var bom = await _bomRepository.GetAsync(wo.BomId, includeDetails: true);
-        if (bom.RoutingId == null)
-            throw new BusinessException(MyERPDomainErrorCodes.BomHasNoRouting).WithData("reason", "BOM has no routing configured");
-
-        var routingRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Routing, Guid>>();
-        var routing = await routingRepo.GetAsync(bom.RoutingId.Value, includeDetails: true);
+        if (bom.RoutingId == null && !bom.Operations.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.BomHasNoRouting).WithData("reason", "BOM has no routing or operations configured");
 
         var jobCardManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.JobCardManager>();
-        var jobCards = await jobCardManager.CreateJobCardsFromWorkOrderAsync(wo, routing, CurrentTenant.Id);
+        JobCard[] jobCards;
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "WorkOrder", wo.Id,
-            "JobCardsCreated", wo.CompanyId,
-            wo.WorkOrderNumber, null, null, CurrentUser.Id,
-            $"{jobCards.Length} job cards created", CurrentTenant.Id));
-
-        return jobCards.Select(jc => new WorkOrderJobCardDto
+        if (bom.RoutingId != null)
         {
-            Id = jc.Id,
-            SequenceId = jc.SequenceId,
-            OperationName = routing.Operations.FirstOrDefault(o => o.Id == jc.BomOperationId)?.Description,
-            ForQuantity = jc.ForQuantity,
-            CompletedQty = 0,
-            TotalTimeInMins = 0,
-            Status = 0,
-            PlannedTimeInMins = jc.PlannedTimeInMins
-        }).ToList();
+            var routingRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Routing, Guid>>();
+            var routing = await routingRepo.GetAsync(bom.RoutingId.Value, includeDetails: true);
+            jobCards = await jobCardManager.CreateJobCardsFromWorkOrderAsync(wo, routing, CurrentTenant.Id);
+            return jobCards.Select(jc => new WorkOrderJobCardDto
+            {
+                Id = jc.Id,
+                SequenceId = jc.SequenceId,
+                OperationName = routing.Operations.FirstOrDefault(o => o.Id == jc.BomOperationId)?.Description,
+                ForQuantity = jc.ForQuantity,
+                CompletedQty = 0,
+                TotalTimeInMins = 0,
+                Status = 0,
+                PlannedTimeInMins = jc.PlannedTimeInMins
+            }).ToList();
+        }
+        else
+        {
+            jobCards = await jobCardManager.CreateJobCardsFromBomOperationsAsync(wo, bom.Operations, CurrentTenant.Id);
+            return jobCards.Select(jc => new WorkOrderJobCardDto
+            {
+                Id = jc.Id,
+                SequenceId = jc.SequenceId,
+                OperationName = bom.Operations.FirstOrDefault(o => o.Id == jc.BomOperationId)?.Description,
+                ForQuantity = jc.ForQuantity,
+                CompletedQty = 0,
+                TotalTimeInMins = 0,
+                Status = 0,
+                PlannedTimeInMins = jc.PlannedTimeInMins
+            }).ToList();
+        }
     }
 
     /// <summary>

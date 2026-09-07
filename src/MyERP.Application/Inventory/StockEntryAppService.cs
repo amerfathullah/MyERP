@@ -229,6 +229,12 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         await seManager.ValidateDifferenceAccountAsync(entry);
         seManager.ValidateBatchSplit(entry);
 
+        if (entry.WeightPerPiece > 0)
+        {
+            var batchSplitManager = LazyServiceProvider.LazyGetRequiredService<DomainServices.BatchSplitManager>();
+            await batchSplitManager.ProcessBatchSplitAsync(entry);
+        }
+
         if (entry.IsFgConversion)
         {
             var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
@@ -537,6 +543,12 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         }
 
         entry.Cancel();
+
+        if (entry.WeightPerPiece > 0)
+        {
+            var batchSplitManager = LazyServiceProvider.LazyGetRequiredService<DomainServices.BatchSplitManager>();
+            await batchSplitManager.CancelBatchSplitAsync(entry);
+        }
 
         // Keep WorkOrder.ProducedQuantity in sync when a Manufacture entry is cancelled — it's
         // the only signal CancelWorkOrderAsync's own stock-reversal block has for "how much of

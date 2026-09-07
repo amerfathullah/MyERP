@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Manufacturing.Entities;
@@ -59,7 +60,61 @@ public class JobCardManager : DomainService
                     BomOperationId = op.Id,
                     WorkstationId = op.WorkstationId,
                     WipWarehouseId = wo.WipWarehouseId,
-                    PlannedTimeInMins = op.TimeInMins * (qty / batchSize)
+                    PlannedTimeInMins = op.TimeInMins * (qty / batchSize),
+                    BatchSplit = op.BatchSplit,
+                    WeightPerPiece = op.WeightPerPiece
+                };
+
+                jobCards.Add(jc);
+                remaining -= qty;
+            }
+        }
+
+        foreach (var jc in jobCards)
+        {
+            await _jobCardRepository.InsertAsync(jc);
+        }
+
+        return jobCards.ToArray();
+    }
+
+    /// <summary>
+    /// Creates Job Cards from direct BOM Operations (when routing is embedded directly in BOM).
+    /// Maps to ERPNext manufacturing/doctype/bom_operation/bom_operation.py.
+    /// </summary>
+    public async Task<JobCard[]> CreateJobCardsFromBomOperationsAsync(
+        WorkOrder wo, IEnumerable<BomOperation> bomOperations, Guid? tenantId = null)
+    {
+        var jobCards = new System.Collections.Generic.List<JobCard>();
+        var sequence = 0;
+
+        foreach (var op in bomOperations.OrderBy(o => o.SequenceId))
+        {
+            var batchSize = op.BatchSize > 0 ? op.BatchSize : wo.Quantity;
+            var remaining = wo.Quantity;
+
+            while (remaining > 0)
+            {
+                var qty = Math.Min(batchSize, remaining);
+                sequence++;
+
+                var jc = new JobCard(
+                    GuidGenerator.Create(),
+                    wo.CompanyId,
+                    wo.Id,
+                    op.OperationId,
+                    qty,
+                    sequence,
+                    tenantId
+                )
+                {
+                    BomOperationId = op.Id,
+                    WorkstationId = op.WorkstationId,
+                    WipWarehouseId = wo.WipWarehouseId,
+                    PlannedTimeInMins = op.TimeInMins * (qty / batchSize),
+                    FinishedGoodItemId = op.FinishedGoodItemId,
+                    BatchSplit = op.BatchSplit,
+                    WeightPerPiece = op.WeightPerPiece
                 };
 
                 jobCards.Add(jc);

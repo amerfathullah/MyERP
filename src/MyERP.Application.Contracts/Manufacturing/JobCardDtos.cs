@@ -13,6 +13,8 @@ public class JobCardDto : EntityDto<Guid>
     public Guid? FinishedGoodItemId { get; set; }
     public Guid? SemiFgBomId { get; set; }
     public bool IsCorrective { get; set; }
+    public bool BatchSplit { get; set; }
+    public decimal? WeightPerPiece { get; set; }
     public decimal ForQuantity { get; set; }
     public decimal CompletedQty { get; set; }
     public decimal PendingQty { get; set; }
@@ -41,6 +43,8 @@ public class CreateJobCardDto
     public Guid WorkOrderId { get; set; }
     public Guid OperationId { get; set; }
     public Guid? WorkstationId { get; set; }
+    public bool BatchSplit { get; set; }
+    public decimal? WeightPerPiece { get; set; }
     public decimal ForQuantity { get; set; }
     public int SequenceId { get; set; }
     public decimal PlannedTimeInMins { get; set; }

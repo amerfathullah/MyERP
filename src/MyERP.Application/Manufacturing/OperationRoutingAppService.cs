@@ -144,7 +144,7 @@ public class RoutingAppService : ApplicationService, IRoutingAppService
     {
         var routing = new Routing(GuidGenerator.Create(), input.Name, CurrentTenant.Id) { IsDisabled = input.IsDisabled };
         foreach (var op in input.Operations)
-            routing.AddOperation(op.OperationId, op.SequenceId, op.TimeInMins, op.WorkstationId);
+            routing.AddOperation(op.OperationId, op.SequenceId, op.TimeInMins, op.WorkstationId, null, op.BatchSplit, op.WeightPerPiece);
         await _repository.InsertAsync(routing);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
@@ -164,7 +164,7 @@ public class RoutingAppService : ApplicationService, IRoutingAppService
         routing.Name = input.Name;
         routing.IsDisabled = input.IsDisabled;
         routing.ReplaceOperations(input.Operations
-            .Select(o => (o.OperationId, o.SequenceId, o.TimeInMins, o.WorkstationId, (string?)null)));
+            .Select(o => (o.OperationId, o.SequenceId, o.TimeInMins, o.WorkstationId, (string?)null, o.BatchSplit, o.WeightPerPiece)));
         await _repository.UpdateAsync(routing);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();

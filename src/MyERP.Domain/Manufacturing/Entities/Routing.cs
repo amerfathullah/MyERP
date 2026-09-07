@@ -31,7 +31,8 @@ public class Routing : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     public void AddOperation(Guid operationId, int sequenceId, decimal timeInMins,
-        Guid? workstationId = null, string? description = null)
+        Guid? workstationId = null, string? description = null,
+        bool batchSplit = false, decimal? weightPerPiece = null)
     {
         // Sequence ID must be monotonically increasing
         if (_operations.Any() && sequenceId < _operations.Max(o => o.SequenceId))
@@ -39,7 +40,7 @@ public class Routing : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("detail", "Routing sequence_id must be monotonically increasing");
 
         _operations.Add(new RoutingOperation(Guid.NewGuid(), Id, operationId,
-            sequenceId, timeInMins, workstationId, description));
+            sequenceId, timeInMins, workstationId, description, batchSplit, weightPerPiece));
     }
 
     public decimal GetTotalOperatingCost()
@@ -48,7 +49,7 @@ public class Routing : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>Replaces the full operations list (used by Update).</summary>
-    public void ReplaceOperations(IEnumerable<(Guid OperationId, int SequenceId, decimal TimeInMins, Guid? WorkstationId, string? Description)> rows)
+    public void ReplaceOperations(IEnumerable<(Guid OperationId, int SequenceId, decimal TimeInMins, Guid? WorkstationId, string? Description, bool BatchSplit, decimal? WeightPerPiece)> rows)
     {
         _operations.Clear();
         var lastSequence = -1;
@@ -58,9 +59,14 @@ public class Routing : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                     .WithData("detail", "Routing sequence_id must be monotonically increasing");
             _operations.Add(new RoutingOperation(Guid.NewGuid(), Id, row.OperationId,
-                row.SequenceId, row.TimeInMins, row.WorkstationId, row.Description));
+                row.SequenceId, row.TimeInMins, row.WorkstationId, row.Description, row.BatchSplit, row.WeightPerPiece));
             lastSequence = row.SequenceId;
         }
+    }
+
+    public void ReplaceOperations(IEnumerable<(Guid OperationId, int SequenceId, decimal TimeInMins, Guid? WorkstationId, string? Description)> rows)
+    {
+        ReplaceOperations(rows.Select(r => (r.OperationId, r.SequenceId, r.TimeInMins, r.WorkstationId, r.Description, false, (decimal?)null)));
     }
 }
 
@@ -87,10 +93,23 @@ public class RoutingOperation : FullAuditedEntity<Guid>
     /// </summary>
     public decimal BatchSize { get; set; }
 
+    /// <summary>
+    /// On completion of the Job Card, split the consumed batch into one child batch per finished piece.
+    /// Maps to ERPNext manufacturing/doctype/routing (batch_split).
+    /// </summary>
+    public bool BatchSplit { get; set; }
+
+    /// <summary>
+    /// Weight per piece when batch splitting is enabled. Non-negative.
+    /// Maps to ERPNext manufacturing/doctype/routing (weight_per_piece).
+    /// </summary>
+    public decimal? WeightPerPiece { get; set; }
+
     protected RoutingOperation() { }
 
     public RoutingOperation(Guid id, Guid routingId, Guid operationId,
-        int sequenceId, decimal timeInMins, Guid? workstationId, string? description) : base(id)
+        int sequenceId, decimal timeInMins, Guid? workstationId, string? description,
+        bool batchSplit = false, decimal? weightPerPiece = null) : base(id)
     {
         RoutingId = routingId;
         OperationId = operationId;
@@ -98,6 +117,8 @@ public class RoutingOperation : FullAuditedEntity<Guid>
         TimeInMins = timeInMins;
         WorkstationId = workstationId;
         Description = description;
+        BatchSplit = batchSplit;
+        WeightPerPiece = weightPerPiece;
         OperatingCost = 0; // Calculated when hour_rate is resolved
     }
 

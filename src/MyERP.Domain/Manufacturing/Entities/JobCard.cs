@@ -48,6 +48,18 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool IsCorrective { get; set; }
 
+    /// <summary>
+    /// On completion of the Job Card, split the consumed batch into one child batch per finished piece.
+    /// Maps to ERPNext manufacturing/doctype/job_card/job_card.json (batch_split).
+    /// </summary>
+    public bool BatchSplit { get; set; }
+
+    /// <summary>
+    /// Weight per piece when batch splitting is enabled. Non-negative.
+    /// Maps to ERPNext manufacturing/doctype/job_card/job_card.json (weight_per_piece).
+    /// </summary>
+    public decimal? WeightPerPiece { get; set; }
+
     public decimal ForQuantity { get; set; }
     public decimal CompletedQty { get; set; }
     public decimal PendingQty { get; set; }

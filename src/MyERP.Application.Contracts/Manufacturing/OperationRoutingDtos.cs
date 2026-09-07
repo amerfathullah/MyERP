@@ -50,6 +50,8 @@ public class RoutingOperationDto
     public decimal TimeInMins { get; set; }
     public Guid? WorkstationId { get; set; }
     public decimal OperatingCost { get; set; }
+    public bool BatchSplit { get; set; }
+    public decimal? WeightPerPiece { get; set; }
 }
 
 public class CreateOperationDto
@@ -79,4 +81,6 @@ public class CreateRoutingOperationDto
     public int SequenceId { get; set; }
     public decimal TimeInMins { get; set; }
     public Guid? WorkstationId { get; set; }
+    public bool BatchSplit { get; set; }
+    public decimal? WeightPerPiece { get; set; }
 }

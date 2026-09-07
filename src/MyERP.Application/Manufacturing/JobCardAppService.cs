@@ -77,6 +77,8 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         {
             WorkstationId = input.WorkstationId,
             PlannedTimeInMins = input.PlannedTimeInMins,
+            BatchSplit = input.BatchSplit,
+            WeightPerPiece = input.WeightPerPiece,
         };
         await _repository.InsertAsync(jc);
 
@@ -114,6 +116,8 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         jc.PlannedTimeInMins = input.PlannedTimeInMins;
         jc.ForQuantity = input.ForQuantity;
         jc.SequenceId = input.SequenceId;
+        jc.BatchSplit = input.BatchSplit;
+        jc.WeightPerPiece = input.WeightPerPiece;
 
         await _repository.UpdateAsync(jc);
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);
@@ -240,6 +244,8 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                 DateTime.UtcNow.Date, CurrentTenant.Id)
             {
                 WorkOrderId = wo.Id,
+                JobCardId = jc.Id,
+                WeightPerPiece = jc.BatchSplit && jc.WeightPerPiece.HasValue ? jc.WeightPerPiece.Value : 0m,
                 EntryNumber = await numberGen.GenerateAsync("SE", wo.CompanyId),
                 FgCompletedQty = delta,
                 Notes = $"Production recorded — WO {wo.WorkOrderNumber} (Job Card {jc.Id} completion)",
@@ -283,6 +289,15 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                     wo.ItemId, wo.FgWarehouseId.Value, -delta, wo.TenantId);
             }
 
+            var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+            await seRepo.InsertAsync(entry, autoSave: true);
+
+            if (entry.WeightPerPiece > 0)
+            {
+                var batchSplitManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.BatchSplitManager>();
+                await batchSplitManager.ProcessBatchSplitAsync(entry, jc);
+            }
+
             // Submit + post the entry: StockPostingService creates the SLE/Bin movement,
             // DocumentPostingOrchestrator posts the GL Journal Entry, then the entry itself is
             // persisted so this production event is auditable via the normal Stock Entry list.
@@ -294,8 +309,7 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             await FlushPendingChangesAsync();
             await postingOrchestrator.PostStockEntryAsync(entry);
 
-            var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
-            await seRepo.InsertAsync(entry, autoSave: true);
+            await seRepo.UpdateAsync(entry, autoSave: true);
 
             await woRepo.UpdateAsync(wo, autoSave: true);
         }

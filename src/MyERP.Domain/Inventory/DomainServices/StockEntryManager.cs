@@ -617,33 +617,36 @@ public class StockEntryManager : DomainService
     /// <summary>
     /// Validates Batch Split Repack Stock Entry (upstream PR #58530).
     /// Splits consumed batch inventory into one child batch per finished piece.
+    /// <summary>
+    /// Validates Batch Split Repack or Manufacture Stock Entry (upstream PR #58530).
+    /// Splits consumed batch inventory into one child batch per finished piece.
     /// </summary>
     public void ValidateBatchSplit(StockEntry entry)
     {
         if (entry.WeightPerPiece <= 0) return;
 
-        if (entry.EntryType != StockEntryType.Repack)
+        if (entry.EntryType != StockEntryType.Repack && entry.EntryType != StockEntryType.Manufacture)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", "Batch Split operation is only supported for 'Repack' Stock Entry purpose.");
+                .WithData("detail", "Batch Split operation is only supported for 'Repack' and 'Manufacture' Stock Entry purposes.");
         }
 
-        var sourceItems = entry.Items.Where(i => i.SourceWarehouseId.HasValue).ToList();
+        var sourceItems = entry.Items.Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem && i.SecondaryItemType == null).ToList();
         var uniqueSourceItemIds = sourceItems.Select(i => i.ItemId).Distinct().ToList();
 
         if (uniqueSourceItemIds.Count > 1)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", "Batch Split repack requires exactly one raw material item type to be consumed.");
+                .WithData("detail", "Batch Split entry requires exactly one raw material item type to be consumed.");
         }
 
-        var outputItems = entry.Items.Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue).ToList();
+        var outputItems = entry.Items.Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue && (i.IsFinishedItem || entry.EntryType == StockEntryType.Repack) && i.SecondaryItemType == null).ToList();
         var totalOutputQty = outputItems.Sum(i => i.Quantity);
 
         if (totalOutputQty <= 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", "Batch Split repack must have finished/incoming goods.");
+                .WithData("detail", "Batch Split entry must have finished/incoming goods.");
         }
 
         var totalPieces = totalOutputQty / entry.WeightPerPiece;
