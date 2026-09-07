@@ -55,4 +55,48 @@ public abstract class EdiAppServiceTests<TStartupModule> : MyERPApplicationTestB
             list.Items.ShouldContain(x => x.Code == "MYS");
         });
     }
+
+    [Fact]
+    public async Task Edi_CodeList_Should_Resolve_By_Uri_And_Version()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var canonicalUri = "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2";
+
+            // Create Version 2.0
+            await _codeListAppService.CreateAsync(new CreateUpdateCodeListDto
+            {
+                Title = "Credit Note Codes v2.0",
+                CanonicalUri = canonicalUri,
+                Version = "2.0",
+                DefaultCommonCode = "381",
+                IsActive = true
+            });
+
+            // Create Version 2.1 (later version)
+            await _codeListAppService.CreateAsync(new CreateUpdateCodeListDto
+            {
+                Title = "Credit Note Codes v2.1",
+                CanonicalUri = canonicalUri,
+                Version = "2.1",
+                DefaultCommonCode = "383",
+                IsActive = true
+            });
+
+            // Resolve by URI -> Should resolve to v2.1
+            var resolved = await _codeListAppService.ResolveAsync(canonicalUri);
+            resolved.ShouldNotBeNull();
+            resolved.Version.ShouldBe("2.1");
+            resolved.DefaultCommonCode.ShouldBe("383");
+
+            // Resolve by Title -> Should resolve exact match
+            var resolvedByTitle = await _codeListAppService.ResolveAsync("Credit Note Codes v2.0");
+            resolvedByTitle.ShouldNotBeNull();
+            resolvedByTitle.Version.ShouldBe("2.0");
+
+            // GetDefaultCodeAsync by URI -> Should return 383
+            var defaultCode = await _codeListAppService.GetDefaultCodeAsync(canonicalUri);
+            defaultCode.ShouldBe("383");
+        });
+    }
 }

@@ -7,6 +7,7 @@ using MyERP.EDI.Entities;
 using MyERP.Permissions;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Domain.Repositories;
+using MyERP.EDI.DomainServices;
 
 namespace MyERP.EDI;
 
@@ -14,10 +15,25 @@ namespace MyERP.EDI;
 public class CodeListAppService : MyERPAppService, ICodeListAppService
 {
     private readonly IRepository<CodeList, Guid> _repository;
+    private readonly CodeListResolver _codeListResolver;
 
-    public CodeListAppService(IRepository<CodeList, Guid> repository)
+    public CodeListAppService(
+        IRepository<CodeList, Guid> repository,
+        CodeListResolver codeListResolver)
     {
         _repository = repository;
+        _codeListResolver = codeListResolver;
+    }
+
+    public async Task<CodeListDto?> ResolveAsync(string identifier)
+    {
+        var entity = await _codeListResolver.ResolveCodeListAsync(identifier);
+        return entity == null ? null : new CodeListMapper().Map(entity);
+    }
+
+    public async Task<string?> GetDefaultCodeAsync(string identifier)
+    {
+        return await _codeListResolver.GetDefaultCodeAsync(identifier);
     }
 
     public async Task<CodeListDto> GetAsync(Guid id)

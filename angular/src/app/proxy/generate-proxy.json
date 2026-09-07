@@ -78569,6 +78569,52 @@
               "name": "ICodeListAppService",
               "methods": [
                 {
+                  "name": "ResolveAsync",
+                  "parametersOnMethod": [
+                    {
+                      "name": "identifier",
+                      "typeAsString": "System.String, System.Private.CoreLib",
+                      "type": "System.String",
+                      "typeSimple": "string",
+                      "isOptional": false,
+                      "defaultValue": null,
+                      "summary": null,
+                      "description": null,
+                      "displayName": null
+                    }
+                  ],
+                  "returnValue": {
+                    "type": "MyERP.EDI.CodeListDto",
+                    "typeSimple": "MyERP.EDI.CodeListDto",
+                    "summary": null,
+                    "contentTypes": null,
+                    "isRemoteStream": false
+                  }
+                },
+                {
+                  "name": "GetDefaultCodeAsync",
+                  "parametersOnMethod": [
+                    {
+                      "name": "identifier",
+                      "typeAsString": "System.String, System.Private.CoreLib",
+                      "type": "System.String",
+                      "typeSimple": "string",
+                      "isOptional": false,
+                      "defaultValue": null,
+                      "summary": null,
+                      "description": null,
+                      "displayName": null
+                    }
+                  ],
+                  "returnValue": {
+                    "type": "System.String",
+                    "typeSimple": "string",
+                    "summary": null,
+                    "contentTypes": null,
+                    "isRemoteStream": false
+                  }
+                },
+                {
                   "name": "GetAsync",
                   "parametersOnMethod": [
                     {
@@ -78698,6 +78744,126 @@
             }
           ],
           "actions": {
+            "ResolveAsyncByIdentifier": {
+              "uniqueName": "ResolveAsyncByIdentifier",
+              "name": "ResolveAsync",
+              "httpMethod": "POST",
+              "url": "api/app/code-list/resolve",
+              "supportedVersions": [],
+              "parametersOnMethod": [
+                {
+                  "name": "identifier",
+                  "typeAsString": "System.String, System.Private.CoreLib",
+                  "type": "System.String",
+                  "typeSimple": "string",
+                  "isOptional": false,
+                  "defaultValue": null,
+                  "summary": null,
+                  "description": null,
+                  "displayName": null
+                }
+              ],
+              "parameters": [
+                {
+                  "nameOnMethod": "identifier",
+                  "name": "identifier",
+                  "jsonName": null,
+                  "type": "System.String",
+                  "typeSimple": "string",
+                  "isOptional": false,
+                  "defaultValue": null,
+                  "constraintTypes": null,
+                  "bindingSourceId": "ModelBinding",
+                  "descriptorName": "",
+                  "summary": null,
+                  "description": null,
+                  "displayName": null
+                }
+              ],
+              "returnValue": {
+                "type": "MyERP.EDI.CodeListDto",
+                "typeSimple": "MyERP.EDI.CodeListDto",
+                "summary": null,
+                "contentTypes": [
+                  "text/plain",
+                  "application/json",
+                  "text/json"
+                ],
+                "isRemoteStream": false
+              },
+              "allowAnonymous": false,
+              "authorizeDatas": [
+                {
+                  "policy": "MyERP.CodeLists",
+                  "roles": null
+                }
+              ],
+              "implementFrom": "MyERP.EDI.ICodeListAppService",
+              "summary": null,
+              "remarks": null,
+              "description": null,
+              "displayName": null
+            },
+            "GetDefaultCodeAsyncByIdentifier": {
+              "uniqueName": "GetDefaultCodeAsyncByIdentifier",
+              "name": "GetDefaultCodeAsync",
+              "httpMethod": "GET",
+              "url": "api/app/code-list/default-code",
+              "supportedVersions": [],
+              "parametersOnMethod": [
+                {
+                  "name": "identifier",
+                  "typeAsString": "System.String, System.Private.CoreLib",
+                  "type": "System.String",
+                  "typeSimple": "string",
+                  "isOptional": false,
+                  "defaultValue": null,
+                  "summary": null,
+                  "description": null,
+                  "displayName": null
+                }
+              ],
+              "parameters": [
+                {
+                  "nameOnMethod": "identifier",
+                  "name": "identifier",
+                  "jsonName": null,
+                  "type": "System.String",
+                  "typeSimple": "string",
+                  "isOptional": false,
+                  "defaultValue": null,
+                  "constraintTypes": null,
+                  "bindingSourceId": "ModelBinding",
+                  "descriptorName": "",
+                  "summary": null,
+                  "description": null,
+                  "displayName": null
+                }
+              ],
+              "returnValue": {
+                "type": "System.String",
+                "typeSimple": "string",
+                "summary": null,
+                "contentTypes": [
+                  "text/plain",
+                  "application/json",
+                  "text/json"
+                ],
+                "isRemoteStream": false
+              },
+              "allowAnonymous": false,
+              "authorizeDatas": [
+                {
+                  "policy": "MyERP.CodeLists",
+                  "roles": null
+                }
+              ],
+              "implementFrom": "MyERP.EDI.ICodeListAppService",
+              "summary": null,
+              "remarks": null,
+              "description": null,
+              "displayName": null
+            },
             "GetAsyncById": {
               "uniqueName": "GetAsyncById",
               "name": "GetAsync",

@@ -36,11 +36,30 @@ export class CodeListService {
     { apiName: this.apiName,...config });
   
 
+  getDefaultCode = (identifier: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, string>({
+      method: 'GET',
+      responseType: 'text',
+      url: '/api/app/code-list/default-code',
+      params: { identifier },
+    },
+    { apiName: this.apiName,...config });
+  
+
   getList = (input: GetCodeListListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<CodeListDto>>({
       method: 'GET',
       url: '/api/app/code-list',
       params: { filter: input.filter, publisher: input.publisher, isActive: input.isActive, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  resolve = (identifier: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CodeListDto>({
+      method: 'POST',
+      url: '/api/app/code-list/resolve',
+      params: { identifier },
     },
     { apiName: this.apiName,...config });
   
