@@ -68,7 +68,7 @@ export class IssueService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   resolve = (id: string, input: ResolveIssueDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueDto>({

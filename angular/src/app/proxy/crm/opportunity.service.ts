@@ -1,4 +1,4 @@
-import type { AddCompetitorDetailDto, CompetitorDetailDto, CreateOpportunityDto, GetOpportunityListDto, OpportunityDto, UpdateOpportunityDto, UpdateOpportunityStageDto } from './models';
+import type { AddCompetitorDetailDto, AddCrmNoteDto, CompetitorDetailDto, CreateOpportunityDto, CrmNoteDto, GetOpportunityListDto, OpportunityDto, UpdateCrmNoteDto, UpdateOpportunityDto, UpdateOpportunityStageDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -9,6 +9,15 @@ import { Injectable, inject } from '@angular/core';
 export class OpportunityService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
+
+  addNote = (id: string, input: AddCrmNoteDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CrmNoteDto>({
+      method: 'POST',
+      url: `/api/app/opportunity/${id}/note`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
   
 
   close = (id: string, config?: Partial<Rest.Config>) =>
@@ -70,6 +79,23 @@ export class OpportunityService {
     { apiName: this.apiName,...config });
   
 
+  deleteNote = (id: string, noteId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/opportunity/${id}/note/${noteId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  editNote = (id: string, noteId: string, input: UpdateCrmNoteDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CrmNoteDto>({
+      method: 'POST',
+      url: `/api/app/opportunity/${id}/edit-note/${noteId}`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OpportunityDto>({
       method: 'GET',
@@ -83,6 +109,14 @@ export class OpportunityService {
       method: 'GET',
       url: '/api/app/opportunity',
       params: { status: input.status, opportunityType: input.opportunityType, filter: input.filter, companyId: input.companyId, leadId: input.leadId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getNotes = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CrmNoteDto[]>({
+      method: 'GET',
+      url: `/api/app/opportunity/${id}/notes`,
     },
     { apiName: this.apiName,...config });
   

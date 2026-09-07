@@ -37,6 +37,22 @@ export class PurchaseReceiptService {
     { apiName: this.apiName,...config });
   
 
+  close = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseReceiptDto>({
+      method: 'POST',
+      url: `/api/app/purchase-receipt/${id}/close`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  closeItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseReceiptDto>({
+      method: 'POST',
+      url: `/api/app/purchase-receipt/${id}/close-item/${itemId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   create = (input: CreatePurchaseReceiptDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
@@ -68,6 +84,22 @@ export class PurchaseReceiptService {
       method: 'GET',
       url: `/api/app/purchase-receipt/putaway-allocations/${companyId}`,
       params: { items },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  reopen = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseReceiptDto>({
+      method: 'POST',
+      url: `/api/app/purchase-receipt/${id}/reopen`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  reopenItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseReceiptDto>({
+      method: 'POST',
+      url: `/api/app/purchase-receipt/${id}/reopen-item/${itemId}`,
     },
     { apiName: this.apiName,...config });
   

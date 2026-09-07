@@ -1,4 +1,4 @@
-import type { BatchDto, BatchMovementHistoryDto, BatchStockBalanceDto, BatchTraceabilityDto, CreateBatchDto, GetBatchListDto, MoveBatchDto, MoveBatchResultDto, SplitBatchDto, SplitBatchResultDto } from './models';
+import type { AutoPickBatchDto, AvailableBatchItemDto, BatchDto, BatchMovementHistoryDto, BatchSplitTreeNodeDto, BatchStockBalanceDto, BatchTraceabilityDto, CreateBatchDto, GetAvailableBatchesDto, GetBatchListDto, GetBatchSplitTreeDto, MoveBatchDto, MoveBatchResultDto, SplitBatchDto, SplitBatchResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -36,6 +36,33 @@ export class BatchService {
     { apiName: this.apiName,...config });
   
 
+  getAvailableBatches = (input: GetAvailableBatchesDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AvailableBatchItemDto[]>({
+      method: 'GET',
+      url: '/api/app/batch/available-batches',
+      params: { companyId: input.companyId, itemId: input.itemId, warehouseId: input.warehouseId, sameDocumentBatchQuantities: input.sameDocumentBatchQuantities },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getBatchCoveringQuantity = (input: AutoPickBatchDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AvailableBatchItemDto>({
+      method: 'GET',
+      url: '/api/app/batch/batch-covering-quantity',
+      params: { companyId: input.companyId, itemId: input.itemId, warehouseId: input.warehouseId, requiredStockQty: input.requiredStockQty, sameDocumentBatchQuantities: input.sameDocumentBatchQuantities },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getBatchSplitTree = (input: GetBatchSplitTreeDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BatchSplitTreeNodeDto[]>({
+      method: 'GET',
+      url: '/api/app/batch/batch-split-tree',
+      params: { batchId: input.batchId, itemId: input.itemId },
+    },
+    { apiName: this.apiName,...config });
+  
+
   getList = (input: GetBatchListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<BatchDto>>({
       method: 'GET',
@@ -68,21 +95,21 @@ export class BatchService {
       url: `/api/app/batch/traceability/${batchId}`,
     },
     { apiName: this.apiName,...config });
-
-
-  splitBatch = (input: SplitBatchDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, SplitBatchResultDto>({
-      method: 'POST',
-      url: '/api/app/batch/split-batch',
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
+  
 
   moveBatch = (input: MoveBatchDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MoveBatchResultDto>({
       method: 'POST',
       url: '/api/app/batch/move-batch',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  splitBatch = (input: SplitBatchDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SplitBatchResultDto>({
+      method: 'POST',
+      url: '/api/app/batch/split-batch',
       body: input,
     },
     { apiName: this.apiName,...config });

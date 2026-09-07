@@ -8,13 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class SubscriptionSettingsService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
   get = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubscriptionSettingsDto>({
       method: 'GET',
       url: '/api/app/subscription-settings',
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
+  
 
   update = (input: UpdateSubscriptionSettingsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubscriptionSettingsDto>({
@@ -22,5 +24,5 @@ export class SubscriptionSettingsService {
       url: '/api/app/subscription-settings',
       body: input,
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
 }

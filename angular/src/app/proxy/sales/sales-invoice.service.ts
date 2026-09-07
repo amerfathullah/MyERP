@@ -56,6 +56,14 @@ export class SalesInvoiceService {
     { apiName: this.apiName,...config });
   
 
+  createDebitNote = (salesInvoiceId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesInvoiceDto>({
+      method: 'POST',
+      url: `/api/app/sales-invoice/debit-note/${salesInvoiceId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   createFromDeliveryNotes = (input: CreateInvoiceFromDeliveryNotesDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',

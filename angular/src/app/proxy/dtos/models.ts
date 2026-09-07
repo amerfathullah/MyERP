@@ -17,11 +17,26 @@ export interface BudgetDto extends EntityDto<string> {
   budgetAgainst?: string;
   budgetAgainstId?: string;
   budgetAgainstName?: string | null;
+  monthlyDistributionId?: string | null;
   status?: DocumentStatus;
   actionIfAnnualBudgetExceeded?: BudgetAction;
   actionIfAccumulatedMonthlyBudgetExceeded?: BudgetAction;
+  actionIfAnnualBudgetExceededOnPo?: BudgetAction;
+  actionIfAccumulatedMonthlyBudgetExceededOnPo?: BudgetAction;
+  actionIfAnnualBudgetExceededOnMr?: BudgetAction;
+  actionIfAccumulatedMonthlyBudgetExceededOnMr?: BudgetAction;
+  applicableOnCumulativeExpense?: boolean;
+  actionIfAnnualExceededOnCumulativeExpense?: BudgetAction;
+  actionIfAccumulatedMonthlyExceededOnCumulativeExpense?: BudgetAction;
   accounts?: BudgetAccountDto[];
   creationTime?: string;
+}
+
+export interface CalculateLandedCostDistributionDto {
+  distributionMethod?: LandedCostDistributionMethod;
+  totalCharges?: number;
+  charges?: CreateLandedCostChargeDto[];
+  items?: LandedCostItemDto[];
 }
 
 export interface CreateBudgetAccountDto {
@@ -36,16 +51,17 @@ export interface CreateBudgetDto {
   budgetAgainst?: string;
   budgetAgainstId?: string;
   budgetAgainstName?: string | null;
+  monthlyDistributionId?: string | null;
   actionIfAnnualBudgetExceeded?: BudgetAction;
   actionIfAccumulatedMonthlyBudgetExceeded?: BudgetAction;
+  actionIfAnnualBudgetExceededOnPo?: BudgetAction;
+  actionIfAccumulatedMonthlyBudgetExceededOnPo?: BudgetAction;
+  actionIfAnnualBudgetExceededOnMr?: BudgetAction;
+  actionIfAccumulatedMonthlyBudgetExceededOnMr?: BudgetAction;
+  applicableOnCumulativeExpense?: boolean;
+  actionIfAnnualExceededOnCumulativeExpense?: BudgetAction;
+  actionIfAccumulatedMonthlyExceededOnCumulativeExpense?: BudgetAction;
   accounts?: CreateBudgetAccountDto[];
-}
-
-export interface CalculateLandedCostDistributionDto {
-  distributionMethod?: LandedCostDistributionMethod;
-  totalCharges?: number;
-  charges?: CreateLandedCostChargeDto[];
-  items?: LandedCostItemDto[];
 }
 
 export interface CreateLandedCostChargeDto {
@@ -112,10 +128,13 @@ export interface CreateStockReconciliationDto {
 export interface CreateStockReconciliationItemDto {
   itemId?: string;
   warehouseId?: string;
+  stockUom?: string | null;
   newQuantity?: number;
   newValuationRate?: number;
   currentQuantity?: number;
   currentValuationRate?: number;
+  serialAndBatchBundleId?: string | null;
+  currentSerialAndBatchBundleId?: string | null;
 }
 
 export interface GetBudgetListDto extends PagedAndSortedResultRequestDto {
@@ -156,6 +175,12 @@ export interface LandedCostChargeDto extends EntityDto<string> {
   projectId?: string | null;
 }
 
+export interface LandedCostDistributionResultDto {
+  totalCharges?: number;
+  totalDistributedAmount?: number;
+  distributedItems?: LandedCostItemDto[];
+}
+
 export interface LandedCostItemDto extends EntityDto<string> {
   receiptId?: string;
   receiptType?: string;
@@ -164,12 +189,6 @@ export interface LandedCostItemDto extends EntityDto<string> {
   quantity?: number;
   amount?: number;
   applicableCharges?: number;
-}
-
-export interface LandedCostDistributionResultDto {
-  totalCharges?: number;
-  totalDistributedAmount?: number;
-  distributedItems?: LandedCostItemDto[];
 }
 
 export interface LandedCostVoucherDto extends EntityDto<string> {
@@ -230,10 +249,13 @@ export interface StockReconciliationDto extends EntityDto<string> {
 export interface StockReconciliationItemDto extends EntityDto<string> {
   itemId?: string;
   warehouseId?: string;
+  stockUom?: string | null;
   currentQuantity?: number;
   currentValuationRate?: number;
   newQuantity?: number;
   newValuationRate?: number;
+  serialAndBatchBundleId?: string | null;
+  currentSerialAndBatchBundleId?: string | null;
   quantityDifference?: number;
   differenceAmount?: number;
 }

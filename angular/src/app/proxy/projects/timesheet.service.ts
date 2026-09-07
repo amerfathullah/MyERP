@@ -49,16 +49,16 @@ export class TimesheetService {
     this.restService.request<any, PagedResultDto<TimesheetDto>>({
       method: 'GET',
       url: '/api/app/timesheet',
-      params: { companyId: input.companyId, employeeId: input.employeeId, status: input.status, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, employeeId: input.employeeId, status: input.status, fromDate: input.fromDate, toDate: input.toDate, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   
 
-  getUnbilledSummary = (companyId: string, projectId: string, config?: Partial<Rest.Config>) =>
+  getUnbilledSummary = (companyId: string, projectId: string, fromDate?: string, toDate?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UnbilledTimesheetSummaryDto[]>({
       method: 'GET',
       url: '/api/app/timesheet/unbilled-summary',
-      params: { companyId, projectId },
+      params: { companyId, projectId, fromDate, toDate },
     },
     { apiName: this.apiName,...config });
   
@@ -67,6 +67,15 @@ export class TimesheetService {
     this.restService.request<any, TimesheetDto>({
       method: 'POST',
       url: `/api/app/timesheet/${id}/submit`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  update = (id: string, input: CreateTimesheetDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, TimesheetDto>({
+      method: 'PUT',
+      url: `/api/app/timesheet/${id}`,
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

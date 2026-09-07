@@ -107,8 +107,11 @@ export interface AssetDto extends FullAuditedEntityDto<string> {
   frequencyMonths?: number;
   availableForUseDate?: string | null;
   openingAccumulatedDepreciation?: number;
+  expectedValueAfterUsefulLife?: number;
   valueAfterDepreciation?: number;
   isFullyDepreciated?: boolean;
+  isCompositeAsset?: boolean;
+  isCompositeComponent?: boolean;
   disposalDate?: string | null;
   disposalAmount?: number | null;
   notes?: string | null;
@@ -216,6 +219,20 @@ export interface AssetMovementItemDto extends FullAuditedEntityDto<string> {
   toEmployeeId?: string | null;
 }
 
+export interface AssetPurchaseDocValuesDto {
+  companyId?: string;
+  purchaseDate?: string;
+  purchaseAmount?: number;
+  assetQuantity?: number;
+  itemId?: string | null;
+  itemName?: string | null;
+  costCenterId?: string | null;
+  locationId?: string | null;
+  location?: string | null;
+  purchaseReceiptId?: string | null;
+  purchaseInvoiceId?: string | null;
+}
+
 export interface AssetRepairConsumedItemDto extends FullAuditedEntityDto<string> {
   assetRepairId?: string;
   itemId?: string;
@@ -245,6 +262,7 @@ export interface AssetRepairDto extends FullAuditedEntityDto<string> {
   capitalizeRepairCost?: boolean;
   increaseInAssetLife?: number;
   status?: AssetRepairStatus;
+  stockEntryId?: string | null;
   stockItems?: AssetRepairConsumedItemDto[];
   invoices?: AssetRepairPurchaseInvoiceDto[];
 }
@@ -342,7 +360,10 @@ export interface CreateAssetDto {
   frequencyMonths?: number;
   availableForUseDate?: string | null;
   openingAccumulatedDepreciation?: number;
+  expectedValueAfterUsefulLife?: number;
   assetQuantity?: number;
+  isCompositeAsset?: boolean;
+  isCompositeComponent?: boolean;
   notes?: string | null;
 }
 
@@ -749,6 +770,9 @@ export interface UpdateAssetDto {
   frequencyMonths?: number;
   availableForUseDate?: string | null;
   openingAccumulatedDepreciation?: number;
+  expectedValueAfterUsefulLife?: number;
+  isCompositeAsset?: boolean;
+  isCompositeComponent?: boolean;
   notes?: string | null;
 }
 

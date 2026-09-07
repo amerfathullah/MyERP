@@ -17,8 +17,8 @@ export class EmployeeService {
       url: `/api/app/employee/${id}/change-status`,
       body: input,
     },
-    { apiName: this.apiName, ...config });
-
+    { apiName: this.apiName,...config });
+  
 
   create = (input: CreateUpdateEmployeeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, EmployeeDto>({

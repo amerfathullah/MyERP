@@ -56,6 +56,14 @@ export class PurchaseInvoiceService {
     { apiName: this.apiName,...config });
   
 
+  createDebitNote = (purchaseInvoiceId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseInvoiceDto>({
+      method: 'POST',
+      url: `/api/app/purchase-invoice/debit-note/${purchaseInvoiceId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',

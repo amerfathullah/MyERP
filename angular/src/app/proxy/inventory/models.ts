@@ -7,12 +7,32 @@ import type { StockEntryType } from './stock-entry-type.enum';
 import type { ItemType } from './item-type.enum';
 import type { ValuationMethod } from './valuation-method.enum';
 import type { QualityActionType } from './quality-action-type.enum';
+import type { WarehouseType } from './warehouse-type.enum';
 import type { DeliveryTripStatus } from './delivery-trip-status.enum';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 import type { NonConformanceStatus } from './non-conformance-status.enum';
 import type { QualityActionStatus } from './quality-action-status.enum';
 import type { QualityMeetingStatus } from './quality-meeting-status.enum';
-import type { WarehouseType } from './warehouse-type.enum';
+
+export interface AutoPickBatchDto {
+  companyId?: string | null;
+  itemId?: string;
+  warehouseId?: string;
+  requiredStockQty?: number;
+  sameDocumentBatchQuantities?: ExcludedBatchQtyDto[] | null;
+}
+
+export interface AvailableBatchItemDto {
+  batchId?: string;
+  batchNo?: string;
+  itemId?: string;
+  itemName?: string | null;
+  warehouseId?: string;
+  warehouseName?: string;
+  availableQuantity?: number;
+  expiryDate?: string | null;
+  isExpired?: boolean;
+}
 
 export interface BarcodeScanResultDto {
   success?: boolean;
@@ -59,12 +79,16 @@ export interface BatchDeliveryTraceDto {
 export interface BatchDto extends AuditedEntityDto<string> {
   batchNo?: string;
   itemId?: string;
+  parentBatchId?: string | null;
+  referenceDocType?: string | null;
+  referenceDocId?: string | null;
   manufacturingDate?: string | null;
   expiryDate?: string | null;
   shelfLifeInDays?: number | null;
   supplierBatchNo?: string | null;
   isDisabled?: boolean;
   isExpired?: boolean;
+  allowNegativeStock?: boolean;
   description?: string | null;
 }
 
@@ -86,6 +110,23 @@ export interface BatchMovementHistoryDto {
   entries?: BatchMovementEntryDto[];
 }
 
+export interface BatchSplitTreeNodeDto {
+  batchId?: string;
+  batchNo?: string;
+  parentBatchId?: string | null;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string | null;
+  batchQty?: number;
+  stockUom?: string | null;
+  referenceDocType?: string | null;
+  referenceDocId?: string | null;
+  referenceName?: string | null;
+  manufacturingDate?: string | null;
+  indent?: number;
+  children?: BatchSplitTreeNodeDto[];
+}
+
 export interface BatchStockBalanceDto {
   batchId?: string;
   batchNo?: string;
@@ -93,35 +134,6 @@ export interface BatchStockBalanceDto {
   totalQuantity?: number;
   totalValue?: number;
   warehouseBalances?: BatchWarehouseBalanceDto[];
-}
-
-export interface SplitBatchDto {
-  sourceBatchId: string;
-  newBatchNo: string;
-  warehouseId: string;
-  splitQuantity: number;
-  description?: string | null;
-}
-
-export interface SplitBatchResultDto {
-  newBatchId?: string;
-  newBatchNo?: string;
-  stockEntryId?: string;
-  stockEntryNumber?: string | null;
-}
-
-export interface MoveBatchDto {
-  batchId: string;
-  sourceWarehouseId: string;
-  targetWarehouseId: string;
-  quantity: number;
-  description?: string | null;
-}
-
-export interface MoveBatchResultDto {
-  batchId?: string;
-  stockEntryId?: string;
-  stockEntryNumber?: string | null;
 }
 
 export interface BatchTraceabilityDto {
@@ -194,6 +206,11 @@ export interface BundleEntryDto {
   rate?: number;
 }
 
+export interface CalculateArrivalTimesInput {
+  optimizeRoute?: boolean;
+  averageSpeedKmH?: number;
+}
+
 export interface CreateBatchDto {
   itemId: string;
   batchNo: string;
@@ -201,6 +218,7 @@ export interface CreateBatchDto {
   expiryDate?: string | null;
   shelfLifeInDays?: number | null;
   supplierBatchNo?: string | null;
+  allowNegativeStock?: boolean;
   description?: string | null;
 }
 
@@ -229,6 +247,7 @@ export interface CreateItemGroupDto {
   parentId?: string | null;
   isGroup?: boolean;
   defaultWarehouseId?: string | null;
+  defaultInventoryAccountId?: string | null;
 }
 
 export interface CreateItemReorderDto {
@@ -359,7 +378,18 @@ export interface CreateStockEntryDto {
   postingDate: string;
   referenceType?: string | null;
   referenceId?: string | null;
+  workOrderId?: string | null;
+  jobCardId?: string | null;
+  fgCompletedQty?: number;
+  processLossQty?: number;
+  processLossPercentage?: number;
+  isFgConversion?: boolean;
+  weightPerPiece?: number;
+  totalAdditionalCosts?: number;
+  costCenterId?: string | null;
+  projectId?: string | null;
   notes?: string | null;
+  isOpening?: boolean;
   items: CreateStockEntryItemDto[];
 }
 
@@ -369,6 +399,12 @@ export interface CreateStockEntryItemDto {
   sourceWarehouseId?: string | null;
   targetWarehouseId?: string | null;
   valuationRate?: number | null;
+  additionalCost?: number;
+  isFinishedItem?: boolean;
+  batchId?: string | null;
+  costCenterId?: string | null;
+  expenseAccountId?: string | null;
+  projectId?: string | null;
 }
 
 export interface CreateStockReservationDto {
@@ -471,8 +507,12 @@ export interface CreateUpdateItemDto {
   standardBuyingPrice?: number | null;
   taxCategoryId?: string | null;
   maintainStock?: boolean;
+  hasSerialNo?: boolean;
+  hasBatchNo?: boolean;
+  allowNegativeStock?: boolean;
   defaultIncomeAccountId?: string | null;
   defaultExpenseAccountId?: string | null;
+  defaultInventoryAccountId?: string | null;
   grantCommission?: boolean;
   maxDiscount?: number | null;
   isActive?: boolean;
@@ -491,6 +531,25 @@ export interface CreateUpdateItemDto {
   suppliers?: CreateItemSupplierDto[];
   customerDetails?: CreateItemCustomerDetailDto[];
   reorders?: CreateItemReorderDto[];
+}
+
+export interface CreateUpdateItemLeadTimeDto {
+  itemId: string;
+  shiftTimeInHours?: number;
+  noOfWorkstations?: number;
+  noOfShifts?: number;
+  manufacturingTimeInMins?: number;
+  dailyYield?: number;
+  purchaseTimeDays?: number;
+  bufferTimeDays?: number;
+  suppliers?: CreateUpdateItemLeadTimeSupplierDto[];
+}
+
+export interface CreateUpdateItemLeadTimeSupplierDto {
+  supplierId: string;
+  purchaseTimeDays?: number;
+  bufferTimeDays?: number;
+  isDefault?: boolean;
 }
 
 export interface CreateUpdateItemManufacturerDto {
@@ -592,6 +651,12 @@ export interface CreateUpdateQualityGoalObjectiveDto {
   uom?: string | null;
 }
 
+export interface CreateUpdateQualityInspectionParameterGroupDto {
+  groupName: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
 export interface CreateUpdateQualityMeetingDto {
   companyId?: string;
   meetingDate?: string;
@@ -617,6 +682,16 @@ export interface CreateUpdateQualityProcedureStepDto {
   childProcedureId?: string | null;
 }
 
+export interface CreateUpdateShipmentParcelTemplateDto {
+  parcelTemplateName: string;
+  length?: number;
+  width?: number;
+  height?: number;
+  weight?: number;
+  description?: string | null;
+  isActive?: boolean;
+}
+
 export interface CreateUpdateUomCategoryDto {
   name: string;
 }
@@ -635,6 +710,7 @@ export interface CreateUpdateWarehouseDto {
   isGroup?: boolean;
   isActive?: boolean;
   warehouseType?: WarehouseType;
+  defaultAccountId?: string | null;
 }
 
 export interface CreateWarehouseAccountDto {
@@ -692,22 +768,39 @@ export interface DeliveryTripDto extends FullAuditedEntityDto<string> {
   deliveryStops?: DeliveryStopDto[];
 }
 
+export interface EvaluateGoalDto {
+  actualValue?: number;
+  reviewDate?: string;
+  notes?: string | null;
+}
+
 export interface EvaluateQualityReviewDto {
   actualValue?: number | null;
   notes?: string | null;
   passed?: boolean;
 }
 
-export interface EvaluateGoalDto {
-  actualValue: number;
-  reviewDate: string;
-  notes?: string | null;
+export interface ExcludedBatchQtyDto {
+  batchId?: string;
+  stockQty?: number;
+}
+
+export interface GetAvailableBatchesDto {
+  companyId?: string | null;
+  itemId?: string | null;
+  warehouseId?: string | null;
+  sameDocumentBatchQuantities?: ExcludedBatchQtyDto[] | null;
 }
 
 export interface GetBatchListDto extends PagedAndSortedResultRequestDto {
   itemId?: string | null;
   isDisabled?: boolean | null;
   filter?: string | null;
+}
+
+export interface GetBatchSplitTreeDto {
+  batchId?: string | null;
+  itemId?: string | null;
 }
 
 export interface GetBatchWiseBalanceRequestDto {
@@ -735,12 +828,21 @@ export interface GetItemDetailsInput {
   transactionDate?: string | null;
 }
 
+export interface GetItemLeadTimeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  itemId?: string | null;
+}
+
 export interface GetItemListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
   companyId?: string | null;
   itemType?: string | null;
   customerId?: string | null;
   supplierId?: string | null;
+  hasVariants?: boolean | null;
+  hasBatchNo?: boolean | null;
+  hasSerialNo?: boolean | null;
+  maintainStock?: boolean | null;
 }
 
 export interface GetItemPriceListDto extends PagedAndSortedResultRequestDto {
@@ -770,9 +872,17 @@ export interface GetItemsAvailabilityInput {
   warehouseId?: string | null;
 }
 
+export interface GetQualityInspectionParameterGroupListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
 export interface GetSerialNoListDto extends PagedAndSortedResultRequestDto {
   itemId?: string | null;
   warehouseId?: string | null;
+  filter?: string | null;
+}
+
+export interface GetShipmentParcelTemplateListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }
 
@@ -787,6 +897,20 @@ export interface GetStockReservationListDto extends CompanyFilteredPagedRequestD
   warehouseId?: string | null;
   voucherId?: string | null;
   status?: string | null;
+}
+
+export interface GetStopsFromDeliveryNotesInput {
+  companyId: string;
+  deliveryNoteIds: string[];
+}
+
+export interface GetUomListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isEnabled?: boolean | null;
+}
+
+export interface GetWarehouseListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
 }
 
 export interface InventoryAgingBucketDto {
@@ -948,6 +1072,7 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   maintainStock?: boolean;
   defaultIncomeAccountId?: string | null;
   defaultExpenseAccountId?: string | null;
+  defaultInventoryAccountId?: string | null;
   grantCommission?: boolean;
   maxDiscount?: number | null;
   isActive?: boolean;
@@ -979,6 +1104,34 @@ export interface ItemGroupDto extends EntityDto<string> {
   parentId?: string | null;
   isGroup?: boolean;
   defaultWarehouseId?: string | null;
+  defaultInventoryAccountId?: string | null;
+}
+
+export interface ItemLeadTimeDto extends FullAuditedEntityDto<string> {
+  itemId?: string;
+  itemCode?: string | null;
+  itemName?: string | null;
+  stockUom?: string | null;
+  shiftTimeInHours?: number;
+  noOfWorkstations?: number;
+  noOfShifts?: number;
+  totalWorkstationTime?: number;
+  manufacturingTimeInMins?: number;
+  dailyYield?: number;
+  noOfUnitsProduced?: number;
+  capacityPerDay?: number;
+  purchaseTimeDays?: number;
+  bufferTimeDays?: number;
+  suppliers?: ItemLeadTimeSupplierDto[];
+}
+
+export interface ItemLeadTimeSupplierDto extends FullAuditedEntityDto<string> {
+  itemLeadTimeId?: string;
+  supplierId?: string;
+  supplierName?: string | null;
+  purchaseTimeDays?: number;
+  bufferTimeDays?: number;
+  isDefault?: boolean;
 }
 
 export interface ItemManufacturerDto extends FullAuditedEntityDto<string> {
@@ -1175,6 +1328,20 @@ export interface MaterialRequestItemsForSeDto {
   items?: MaterialRequestItemLineDto[];
 }
 
+export interface MoveBatchDto {
+  batchId: string;
+  sourceWarehouseId: string;
+  targetWarehouseId: string;
+  quantity?: number;
+  description?: string | null;
+}
+
+export interface MoveBatchResultDto {
+  batchId?: string;
+  stockEntryId?: string;
+  stockEntryNumber?: string | null;
+}
+
 export interface NonConformanceDto extends FullAuditedEntityDto<string> {
   companyId?: string;
   subject?: string;
@@ -1352,6 +1519,12 @@ export interface QualityGoalObjectiveDto extends EntityDto<string> {
   uom?: string | null;
 }
 
+export interface QualityInspectionParameterGroupDto extends FullAuditedEntityDto<string> {
+  groupName?: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
 export interface QualityMeetingAgendaDto extends EntityDto<string> {
   qualityMeetingId?: string;
   agenda?: string;
@@ -1445,6 +1618,18 @@ export interface RepostItemValuationDto extends EntityDto<string> {
   creationTime?: string;
 }
 
+export interface RepostItemValuationSummaryDto {
+  companyId?: string;
+  queuedCount?: number;
+  inProgressCount?: number;
+  completedCount?: number;
+  failedCount?: number;
+  skippedCount?: number;
+  cancelledCount?: number;
+  totalEntriesProcessed?: number;
+  lastProcessedDate?: string | null;
+}
+
 export interface ResolveNonConformanceDto {
   correctiveAction?: string | null;
   preventiveAction?: string | null;
@@ -1483,6 +1668,31 @@ export interface SerialNoDto extends EntityDto<string> {
   maintenanceStatus?: string;
   status?: number;
   creationTime?: string;
+}
+
+export interface ShipmentParcelTemplateDto extends FullAuditedEntityDto<string> {
+  parcelTemplateName?: string;
+  length?: number;
+  width?: number;
+  height?: number;
+  weight?: number;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface SplitBatchDto {
+  sourceBatchId: string;
+  newBatchNo: string;
+  warehouseId: string;
+  splitQuantity?: number;
+  description?: string | null;
+}
+
+export interface SplitBatchResultDto {
+  newBatchId?: string;
+  newBatchNo?: string;
+  stockEntryId?: string;
+  stockEntryNumber?: string | null;
 }
 
 export interface StockBalanceDto extends EntityDto<string> {
@@ -1533,7 +1743,18 @@ export interface StockEntryDto extends FullAuditedEntityDto<string> {
   postingDate?: string;
   referenceType?: string | null;
   referenceId?: string | null;
+  workOrderId?: string | null;
+  jobCardId?: string | null;
+  fgCompletedQty?: number;
+  processLossQty?: number;
+  processLossPercentage?: number;
+  isFgConversion?: boolean;
+  weightPerPiece?: number;
+  totalAdditionalCosts?: number;
+  costCenterId?: string | null;
+  projectId?: string | null;
   notes?: string | null;
+  isOpening?: boolean;
   status?: string;
   items?: StockEntryItemDto[];
 }
@@ -1548,6 +1769,11 @@ export interface StockEntryItemDto {
   targetWarehouseId?: string | null;
   targetWarehouseName?: string | null;
   valuationRate?: number | null;
+  additionalCost?: number;
+  isFinishedItem?: boolean;
+  costCenterId?: string | null;
+  expenseAccountId?: string | null;
+  projectId?: string | null;
 }
 
 export interface StockGlComparisonDto {
@@ -1637,6 +1863,9 @@ export interface StockReservationEntryDto extends EntityDto<string> {
   voucherType?: string;
   voucherId?: string;
   voucherDetailId?: string | null;
+  fromVoucherType?: string | null;
+  fromVoucherId?: string | null;
+  fromVoucherDetailId?: string | null;
   reservedQty?: number;
   deliveredQty?: number;
   availableQty?: number;
@@ -1732,106 +1961,12 @@ export interface WarehouseDto extends FullAuditedEntityDto<string> {
   isGroup?: boolean;
   isActive?: boolean;
   warehouseType?: WarehouseType;
-}
-
-export interface GetWarehouseListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
+  defaultAccountId?: string | null;
 }
 
 export interface UomConversionDto extends EntityDto<string> {
   fromUom?: string;
   toUom?: string;
   conversionFactor?: number;
-  itemId?: string | null;
-}
-
-export interface QualityInspectionParameterGroupDto extends FullAuditedEntityDto<string> {
-  groupName: string;
-  description?: string | null;
-  isActive: boolean;
-}
-
-export interface CreateUpdateQualityInspectionParameterGroupDto {
-  groupName: string;
-  description?: string | null;
-  isActive?: boolean;
-}
-
-export interface GetQualityInspectionParameterGroupListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-}
-
-export interface ShipmentParcelTemplateDto extends FullAuditedEntityDto<string> {
-  parcelTemplateName: string;
-  length: number;
-  width: number;
-  height: number;
-  weight: number;
-  description?: string | null;
-  isActive: boolean;
-}
-
-export interface CreateUpdateShipmentParcelTemplateDto {
-  parcelTemplateName: string;
-  length?: number;
-  width?: number;
-  height?: number;
-  weight?: number;
-  description?: string | null;
-  isActive?: boolean;
-}
-
-export interface GetShipmentParcelTemplateListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-}
-
-export interface ItemLeadTimeDto extends FullAuditedEntityDto<string> {
-  itemId: string;
-  itemCode?: string | null;
-  itemName?: string | null;
-  stockUom?: string | null;
-  shiftTimeInHours: number;
-  noOfWorkstations: number;
-  noOfShifts: number;
-  totalWorkstationTime: number;
-  manufacturingTimeInMins: number;
-  dailyYield: number;
-  noOfUnitsProduced: number;
-  capacityPerDay: number;
-  purchaseTimeDays: number;
-  bufferTimeDays: number;
-  suppliers: ItemLeadTimeSupplierDto[];
-}
-
-export interface ItemLeadTimeSupplierDto extends FullAuditedEntityDto<string> {
-  itemLeadTimeId: string;
-  supplierId: string;
-  supplierName?: string | null;
-  purchaseTimeDays: number;
-  bufferTimeDays: number;
-  isDefault: boolean;
-}
-
-export interface CreateUpdateItemLeadTimeDto {
-  itemId: string;
-  shiftTimeInHours?: number;
-  noOfWorkstations?: number;
-  noOfShifts?: number;
-  manufacturingTimeInMins?: number;
-  dailyYield?: number;
-  purchaseTimeDays?: number;
-  bufferTimeDays?: number;
-  suppliers?: CreateUpdateItemLeadTimeSupplierDto[];
-}
-
-export interface CreateUpdateItemLeadTimeSupplierDto {
-  supplierId: string;
-  purchaseTimeDays?: number;
-  bufferTimeDays?: number;
-  isDefault?: boolean;
-}
-
-export interface GetItemLeadTimeListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
   itemId?: string | null;
 }

@@ -9,6 +9,8 @@ export enum AssetStatus {
   Scrapped = 5,
   InMaintenance = 6,
   Cancelled = 7,
+  Capitalized = 8,
+  WorkInProgress = 9,
 }
 
 export const assetStatusOptions = mapEnumToOptions(AssetStatus);

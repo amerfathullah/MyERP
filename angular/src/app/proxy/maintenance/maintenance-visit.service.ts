@@ -1,4 +1,4 @@
-import type { CreateMaintenanceVisitDto, GetMaintenanceVisitListDto, MaintenanceVisitDto } from './models';
+import type { CreateMaintenanceVisitDto, GetMaintenanceVisitListDto, MaintenanceVisitDto, MaintenanceVisitSummaryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -49,6 +49,22 @@ export class MaintenanceVisitService {
       method: 'GET',
       url: '/api/app/maintenance-visit',
       params: { filter: input.filter, customerId: input.customerId, maintenanceScheduleId: input.maintenanceScheduleId, maintenanceType: input.maintenanceType, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getSummary = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaintenanceVisitSummaryDto>({
+      method: 'GET',
+      url: `/api/app/maintenance-visit/${id}/summary`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  makeFromWarrantyClaim = (warrantyClaimId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CreateMaintenanceVisitDto>({
+      method: 'POST',
+      url: `/api/app/maintenance-visit/make-from-warranty-claim/${warrantyClaimId}`,
     },
     { apiName: this.apiName,...config });
   

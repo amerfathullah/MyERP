@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ProcessDeferredAccountingService } from '../../proxy/accounting/process-deferred-accounting.service';
-import { DeferredAccountingType, type ProcessDeferredAccountingDto } from '../../proxy/accounting/models';
+import { DeferredAccountingType } from '../../proxy/accounting/deferred-accounting-type.enum';
+import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-process-deferred-accounting-list',

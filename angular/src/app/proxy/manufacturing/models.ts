@@ -1,9 +1,10 @@
-import type { AuditedEntityDto, EntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { SalesForecastFrequency } from './sales-forecast-frequency.enum';
 import type { JobCardStatus } from './job-card-status.enum';
 import type { ProductionPlanStatus } from './production-plan-status.enum';
 import type { SubAssemblyType } from './sub-assembly-type.enum';
 import type { SecondaryItemType } from './secondary-item-type.enum';
+import type { SecondaryItemValuationType } from './secondary-item-valuation-type.enum';
 import type { WorkOrderStatus } from './work-order-status.enum';
 
 export interface AddTimeLogDto {
@@ -49,7 +50,9 @@ export interface BomCreatorItemDto {
 
 export interface BomMaterialAvailabilityDto {
   itemId?: string;
+  itemCode?: string;
   itemName?: string;
+  description?: string | null;
   requiredQtyPerUnit?: number;
   requiredQtyForBatch?: number;
   availableQty?: number;
@@ -73,6 +76,8 @@ export interface CreateJobCardDto {
   workOrderId?: string;
   operationId?: string;
   workstationId?: string | null;
+  batchSplit?: boolean;
+  weightPerPiece?: number | null;
   forQuantity?: number;
   sequenceId?: number;
   plannedTimeInMins?: number;
@@ -83,6 +88,7 @@ export interface CreateMasterProductionScheduleDto {
   postingDate?: string;
   fromDate?: string;
   parentWarehouseId?: string | null;
+  salesForecastId?: string | null;
 }
 
 export interface CreateProductionPlanDto {
@@ -95,8 +101,14 @@ export interface CreateProductionPlanDto {
   skipAvailableSubAssemblyItem?: boolean;
   rawMaterialGroupWarehouseId?: string | null;
   forWarehouseId?: string | null;
+  reserveStock?: boolean;
   notes?: string | null;
   items?: CreateProductionPlanItemDto[];
+}
+
+export interface CreateProductionPlanFromMpsInput {
+  forWarehouseId?: string | null;
+  combineItems?: boolean;
 }
 
 export interface CreateProductionPlanItemDto {
@@ -142,6 +154,14 @@ export interface CreateUpdateDowntimeEntryDto {
   remarks?: string | null;
 }
 
+export interface CreateUpdatePlantFloorDto {
+  companyId: string;
+  floorName: string;
+  warehouseId?: string | null;
+  description?: string | null;
+  isActive?: boolean;
+}
+
 export interface CreateWorkstationTypeCostDto {
   component?: string;
   operatingCost?: number;
@@ -176,6 +196,7 @@ export interface FetchMaterialRequestsDto {
 
 export interface FetchSalesOrdersDto {
   customerId?: string | null;
+  itemId?: string | null;
   fromDate?: string | null;
   toDate?: string | null;
 }
@@ -184,6 +205,11 @@ export interface GetJobCardListDto extends PagedAndSortedResultRequestDto {
   workOrderId?: string | null;
   companyId?: string | null;
   status?: JobCardStatus | null;
+  filter?: string | null;
+}
+
+export interface GetPlantFloorListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
   filter?: string | null;
 }
 
@@ -202,8 +228,11 @@ export interface JobCardDto extends EntityDto<string> {
   finishedGoodItemId?: string | null;
   semiFgBomId?: string | null;
   isCorrective?: boolean;
+  batchSplit?: boolean;
+  weightPerPiece?: number | null;
   forQuantity?: number;
   completedQty?: number;
+  pendingQty?: number;
   totalTimeInMins?: number;
   plannedTimeInMins?: number;
   sequenceId?: number;
@@ -239,6 +268,7 @@ export interface ManufacturingSettingsDto extends EntityDto<string> {
   enforceTimeLogs?: boolean;
   addCorrectiveOpCostInFGValuation?: boolean;
   validateComponentsQuantitiesPerBom?: boolean;
+  allowAlternativeFinishedGoods?: boolean;
 }
 
 export interface MasterProductionScheduleDto extends EntityDto<string> {
@@ -268,6 +298,18 @@ export interface MasterProductionScheduleItemDto {
   orderReleaseDate?: string;
 }
 
+export interface MasterProductionScheduleSummaryDto {
+  id?: string;
+  scheduleNumber?: string;
+  status?: number;
+  totalItemsCount?: number;
+  totalPlannedQty?: number;
+  earliestReleaseDate?: string | null;
+  latestDeliveryDate?: string | null;
+  salesOrdersCount?: number;
+  materialRequestsCount?: number;
+}
+
 export interface MpsMaterialRequestRefDto {
   materialRequestId?: string;
   materialRequestDate?: string;
@@ -279,6 +321,16 @@ export interface MpsSalesOrderRefDto {
   customerId?: string;
   grandTotal?: number;
   status?: string | null;
+}
+
+export interface PlantFloorDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  companyName?: string | null;
+  floorName?: string;
+  warehouseId?: string | null;
+  warehouseName?: string | null;
+  description?: string | null;
+  isActive?: boolean;
 }
 
 export interface ProductionAnalyticsDto {
@@ -307,6 +359,7 @@ export interface ProductionPlanDto extends AuditedEntityDto<string> {
   skipAvailableSubAssemblyItem?: boolean;
   rawMaterialGroupWarehouseId?: string | null;
   forWarehouseId?: string | null;
+  reserveStock?: boolean;
   notes?: string | null;
   plannedItems?: ProductionPlanItemDto[];
   materialRequirements?: ProductionPlanMrItemDto[];
@@ -340,6 +393,17 @@ export interface ProductionPlanMrItemDto {
   warehouseId?: string | null;
   materialRequestId?: string | null;
   procurementType?: SubAssemblyType;
+}
+
+export interface ProductionPlanVisualizerDto {
+  planId?: string;
+  planNumber?: string;
+  status?: ProductionPlanStatus;
+  totalPlannedQty?: number;
+  totalProducedQty?: number;
+  completionPercentage?: number;
+  finishedGoods?: VisualizerFinishedGoodDto[];
+  rawMaterials?: VisualizerMaterialDto[];
 }
 
 export interface ProductionStatusCountDto {
@@ -389,6 +453,7 @@ export interface SaveManufacturingSettingsDto {
   enforceTimeLogs?: boolean;
   addCorrectiveOpCostInFGValuation?: boolean;
   validateComponentsQuantitiesPerBom?: boolean;
+  allowAlternativeFinishedGoods?: boolean;
 }
 
 export interface TopProducedItemDto {
@@ -402,6 +467,7 @@ export interface UpdateMasterProductionScheduleDto {
   postingDate?: string;
   fromDate?: string;
   parentWarehouseId?: string | null;
+  salesForecastId?: string | null;
   items?: MasterProductionScheduleItemDto[];
 }
 
@@ -411,6 +477,37 @@ export interface UpdateSalesForecastDto {
   frequency?: SalesForecastFrequency;
   demandNumber?: number;
   selectedItemIds?: string[];
+}
+
+export interface VisualizerFinishedGoodDto {
+  itemId?: string;
+  itemName?: string;
+  plannedQty?: number;
+  producedQty?: number;
+  pendingQty?: number;
+  warehouseId?: string | null;
+  plannedStartDate?: string | null;
+  salesOrderId?: string | null;
+  workOrders?: VisualizerLinkedDocDto[];
+}
+
+export interface VisualizerLinkedDocDto {
+  id?: string;
+  documentNumber?: string;
+  status?: string;
+  qty?: number;
+  completedQty?: number;
+}
+
+export interface VisualizerMaterialDto {
+  itemId?: string;
+  itemName?: string;
+  requiredQty?: number;
+  availableQty?: number;
+  orderedQty?: number;
+  receivedQty?: number;
+  warehouseId?: string | null;
+  materialRequests?: VisualizerLinkedDocDto[];
 }
 
 export interface WorkstationTypeCostDto {
@@ -437,6 +534,17 @@ export interface ActiveJobOnWorkstationDto {
   status?: number;
 }
 
+export interface AlternativeFinishedGoodItemDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+}
+
+export interface AlternativeFinishedGoodsDetailsDto {
+  alternativeItems?: AlternativeFinishedGoodItemDto[];
+  availableQty?: number;
+}
+
 export interface BatchCreateWorkOrdersResultDto {
   createdCount?: number;
   skippedCount?: number;
@@ -458,6 +566,7 @@ export interface BomDto extends AuditedEntityDto<string> {
   processLossPercentage?: number;
   fgCostAllocationPercentage?: number;
   scrapWarehouseId?: string | null;
+  setQtyBasedOnPercentage?: boolean;
   items?: BomItemDto[];
   operations?: BomOperationDto[];
   secondaryItems?: BomSecondaryItemDto[];
@@ -471,12 +580,16 @@ export interface BomItemDto {
   uom?: string | null;
   rate?: number;
   amount?: number;
+  percentage?: number;
+  isBalanceItem?: boolean;
+  doNotExplode?: boolean;
 }
 
 export interface BomOperationDto {
   id?: string;
   operationId?: string;
   workstationId?: string | null;
+  workstationTypeId?: string | null;
   sequenceId?: number;
   timeInMins?: number;
   operatingCost?: number;
@@ -484,6 +597,9 @@ export interface BomOperationDto {
   fixedTime?: number;
   description?: string | null;
   isSubcontracted?: boolean;
+  qualityInspectionRequired?: boolean;
+  batchSplit?: boolean;
+  weightPerPiece?: number | null;
 }
 
 export interface BomSecondaryItemDto {
@@ -491,6 +607,7 @@ export interface BomSecondaryItemDto {
   itemId?: string;
   itemName?: string | null;
   secondaryItemType?: SecondaryItemType;
+  valuationType?: SecondaryItemValuationType;
   quantity?: number;
   effectiveQuantity?: number;
   stockUom?: string | null;
@@ -519,6 +636,7 @@ export interface CreateBomDto {
   routingId?: string | null;
   scrapWarehouseId?: string | null;
   processLossPercentage?: number;
+  setQtyBasedOnPercentage?: boolean;
   items?: CreateBomItemDto[];
   operations?: CreateBomOperationDto[];
   secondaryItems?: CreateBomSecondaryItemDto[];
@@ -530,27 +648,24 @@ export interface CreateBomItemDto {
   quantity?: number;
   uom?: string | null;
   rate?: number;
-}
-
-export interface ReplaceBomDto {
-  currentBomId: string;
-  newBomId: string;
-}
-
-export interface ReplaceBomResultDto {
-  updatedBomItemCount?: number;
-  recostedBomCount?: number;
+  percentage?: number;
+  isBalanceItem?: boolean;
+  doNotExplode?: boolean;
 }
 
 export interface CreateBomOperationDto {
   operationId: string;
   workstationId?: string | null;
+  workstationTypeId?: string | null;
   sequenceId?: number;
   timeInMins?: number;
   batchSize?: number;
   fixedTime?: number;
   description?: string | null;
   isSubcontracted?: boolean;
+  qualityInspectionRequired?: boolean;
+  batchSplit?: boolean;
+  weightPerPiece?: number | null;
   workstationHourRate?: number;
 }
 
@@ -558,6 +673,7 @@ export interface CreateBomSecondaryItemDto {
   itemId: string;
   itemName?: string | null;
   secondaryItemType?: SecondaryItemType;
+  valuationType?: SecondaryItemValuationType;
   quantity?: number;
   stockUom?: string | null;
   rate?: number;
@@ -570,6 +686,12 @@ export interface CreateDisassemblyDto {
   workOrderId: string;
   quantity: number;
   sourceStockEntryId?: string | null;
+}
+
+export interface CreateFgConversionEntryDto {
+  workOrderId: string;
+  alternativeItemId: string;
+  quantity?: number;
 }
 
 export interface CreateManufactureStockEntryDto {
@@ -607,10 +729,12 @@ export interface CreateRoutingOperationDto {
   sequenceId?: number;
   timeInMins?: number;
   workstationId?: string | null;
+  batchSplit?: boolean;
+  weightPerPiece?: number | null;
 }
 
 export interface CreateSubOperationDto {
-  operationId?: string;
+  operationId: string;
   timeInMins?: number;
   description?: string | null;
 }
@@ -621,11 +745,14 @@ export interface CreateWorkOrderDto {
   quantity: number;
   companyId: string;
   salesOrderId?: string | null;
+  salesOrderItemId?: string | null;
   sourceWarehouseId?: string | null;
   wipWarehouseId?: string | null;
   fgWarehouseId?: string | null;
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
+  skipTransfer?: boolean;
+  fromWipWarehouse?: boolean;
   notes?: string | null;
 }
 
@@ -764,6 +891,16 @@ export interface ProductionScheduleItemDto {
   statusColor?: string;
 }
 
+export interface ReplaceBomDto {
+  currentBomId: string;
+  newBomId: string;
+}
+
+export interface ReplaceBomResultDto {
+  updatedBomItemCount?: number;
+  recostedBomCount?: number;
+}
+
 export interface RoutingDto extends EntityDto<string> {
   name?: string;
   isDisabled?: boolean;
@@ -777,6 +914,8 @@ export interface RoutingOperationDto {
   timeInMins?: number;
   workstationId?: string | null;
   operatingCost?: number;
+  batchSplit?: boolean;
+  weightPerPiece?: number | null;
 }
 
 export interface StockEntryResultDto {
@@ -829,11 +968,14 @@ export interface WorkOrderDto extends AuditedEntityDto<string> {
   percentComplete?: number;
   companyId?: string;
   salesOrderId?: string | null;
+  salesOrderItemId?: string | null;
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
   actualStartDate?: string | null;
   actualEndDate?: string | null;
   notes?: string | null;
+  skipTransfer?: boolean;
+  fromWipWarehouse?: boolean;
   requiredItems?: WorkOrderItemDto[];
 }
 
@@ -844,6 +986,8 @@ export interface WorkOrderItemDto {
   requiredQuantity?: number;
   transferredQuantity?: number;
   consumedQuantity?: number;
+  isAdditionalItem?: boolean;
+  voucherDetailReference?: string | null;
 }
 
 export interface WorkOrderJobCardDto {
@@ -885,6 +1029,7 @@ export interface WorkstationDto extends EntityDto<string> {
   hourRate?: number;
   description?: string | null;
   isActive?: boolean;
+  holidayListId?: string | null;
   costs?: WorkstationCostDto[];
   workingHours?: WorkstationWorkingHourDto[];
 }
@@ -902,31 +1047,8 @@ export interface WorkstationUtilizationDto {
   activeJobs?: ActiveJobOnWorkstationDto[];
 }
 
-export interface WorkstationWorkingHourDto {
+export interface WorkstationWorkingHourDto extends EntityDto<string> {
   dayOfWeek?: string;
   startTime?: string;
   endTime?: string;
-}
-
-export interface PlantFloorDto extends AuditedEntityDto<string> {
-  companyId?: string;
-  companyName?: string | null;
-  floorName: string;
-  warehouseId?: string | null;
-  warehouseName?: string | null;
-  description?: string | null;
-  isActive: boolean;
-}
-
-export interface CreateUpdatePlantFloorDto {
-  companyId: string;
-  floorName: string;
-  warehouseId?: string | null;
-  description?: string | null;
-  isActive?: boolean;
-}
-
-export interface GetPlantFloorListDto extends PagedAndSortedResultRequestDto {
-  companyId?: string | null;
-  filter?: string | null;
 }

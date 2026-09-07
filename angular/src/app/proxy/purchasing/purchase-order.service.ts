@@ -46,6 +46,14 @@ export class PurchaseOrderService {
     { apiName: this.apiName,...config });
   
 
+  closeItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseOrderDto>({
+      method: 'POST',
+      url: `/api/app/purchase-order/${id}/close-item/${itemId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   create = (input: CreatePurchaseOrderDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseOrderDto>({
       method: 'POST',
@@ -126,6 +134,14 @@ export class PurchaseOrderService {
     this.restService.request<any, PurchaseOrderDto>({
       method: 'POST',
       url: `/api/app/purchase-order/${id}/reopen`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  reopenItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseOrderDto>({
+      method: 'POST',
+      url: `/api/app/purchase-order/${id}/reopen-item/${itemId}`,
     },
     { apiName: this.apiName,...config });
   

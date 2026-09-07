@@ -58,7 +58,7 @@ public class PosProfileAppService : CrudAppService<
 
     public override async Task<PosProfileDto> GetAsync(Guid id)
     {
-        var query = await _posProfileRepository.WithDetailsAsync(x => x.PaymentMethods);
+        var query = await _posProfileRepository.WithDetailsAsync(x => x.PaymentMethods, x => x.Users);
         var entity = await AsyncExecuter.FirstOrDefaultAsync(query.Where(x => x.Id == id));
         if (entity == null)
         {
@@ -117,13 +117,28 @@ public class PosProfileAppService : CrudAppService<
             }
         }
 
+        if (input.Users != null)
+        {
+            var userDupes = input.Users.GroupBy(u => u.UserId).Where(g => g.Count() > 1).ToList();
+            if (userDupes.Any())
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Duplicate User added in Applicable Users table.");
+            }
+
+            foreach (var userDto in input.Users)
+            {
+                entity.AddUser(userDto.UserId, userDto.IsDefault);
+            }
+        }
+
         await _posProfileRepository.InsertAsync(entity, autoSave: true);
         return ObjectMapper.Map<PosProfile, PosProfileDto>(entity);
     }
 
     public override async Task<PosProfileDto> UpdateAsync(Guid id, CreateUpdatePosProfileDto input)
     {
-        var query = await _posProfileRepository.WithDetailsAsync(x => x.PaymentMethods);
+        var query = await _posProfileRepository.WithDetailsAsync(x => x.PaymentMethods, x => x.Users);
         var entity = await AsyncExecuter.FirstOrDefaultAsync(query.Where(x => x.Id == id));
         if (entity == null)
         {
@@ -197,6 +212,22 @@ public class PosProfileAppService : CrudAppService<
             }
         }
 
+        entity.ClearUsers();
+        if (input.Users != null)
+        {
+            var userDupes = input.Users.GroupBy(u => u.UserId).Where(g => g.Count() > 1).ToList();
+            if (userDupes.Any())
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Duplicate User added in Applicable Users table.");
+            }
+
+            foreach (var userDto in input.Users)
+            {
+                entity.AddUser(userDto.UserId, userDto.IsDefault);
+            }
+        }
+
         await _posProfileRepository.UpdateAsync(entity, autoSave: true);
         return ObjectMapper.Map<PosProfile, PosProfileDto>(entity);
     }
@@ -229,5 +260,36 @@ public class PosProfileAppService : CrudAppService<
         entity.Disable();
         await _posProfileRepository.UpdateAsync(entity, autoSave: true);
         return ObjectMapper.Map<PosProfile, PosProfileDto>(entity);
+    }
+
+    /// <summary>
+    /// Returns POS profiles available for the current cashier user.
+    /// Per ERPNext PR #58508 (commit 9018573179) & PR #58591 (commit 4355f8e60e):
+    /// Profiles where current user is assigned take precedence, with IsDefault profiles ranked first.
+    /// Profiles with no users configured are accessible to all users.
+    /// </summary>
+    public async Task<List<PosProfileDto>> GetForCurrentUserAsync(Guid companyId)
+    {
+        var currentUserId = CurrentUser.Id;
+        var query = await _posProfileRepository.WithDetailsAsync(x => x.PaymentMethods, x => x.Users);
+        query = query.Where(x => x.CompanyId == companyId && !x.IsDisabled);
+
+        var list = await AsyncExecuter.ToListAsync(query);
+
+        if (currentUserId.HasValue)
+        {
+            var userProfiles = list.Where(p => p.Users.Count == 0 || p.Users.Any(u => u.UserId == currentUserId.Value)).ToList();
+            if (userProfiles.Any())
+            {
+                userProfiles = userProfiles
+                    .OrderByDescending(p => p.Users.Any(u => u.UserId == currentUserId.Value && u.IsDefault))
+                    .ThenByDescending(p => p.Users.Any(u => u.UserId == currentUserId.Value))
+                    .ThenBy(p => p.ProfileName)
+                    .ToList();
+                return userProfiles.Select(p => ObjectMapper.Map<PosProfile, PosProfileDto>(p)).ToList();
+            }
+        }
+
+        return list.Select(p => ObjectMapper.Map<PosProfile, PosProfileDto>(p)).ToList();
     }
 }

@@ -54,4 +54,5 @@ export * from './uom-category.service';
 export * from './uom.service';
 export * from './valuation-method.enum';
 export * from './warehouse-account.service';
+export * from './warehouse-type.enum';
 export * from './warehouse.service';

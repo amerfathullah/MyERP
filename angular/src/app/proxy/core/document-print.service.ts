@@ -40,7 +40,7 @@ export class DocumentPrintService {
       url: `/api/app/document-print/sales-invoice-print/${invoiceId}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getSalesOrderPrint = (orderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DocumentPrintResult>({

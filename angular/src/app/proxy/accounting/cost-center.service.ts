@@ -1,4 +1,4 @@
-import type { CostCenterDto, CreateCostCenterDto, GetCostCenterListDto } from './models';
+import type { CostCenterDto, CostCenterTreeNodeDto, CreateCostCenterDto, GetCostCenterListDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -25,6 +25,15 @@ export class CostCenterService {
       method: 'GET',
       url: '/api/app/cost-center',
       params: { companyId: input.companyId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getTree = (companyId: string, includeDisabled?: boolean, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CostCenterTreeNodeDto[]>({
+      method: 'GET',
+      url: `/api/app/cost-center/tree/${companyId}`,
+      params: { includeDisabled },
     },
     { apiName: this.apiName,...config });
   

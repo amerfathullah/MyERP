@@ -107,6 +107,15 @@ export class PaymentEntryService {
     { apiName: this.apiName,...config });
   
 
+  getPaymentEntryTemplate = (documentType: string, documentId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CreatePaymentEntryDto>({
+      method: 'GET',
+      url: `/api/app/payment-entry/payment-entry-template/${documentId}`,
+      params: { documentType },
+    },
+    { apiName: this.apiName,...config });
+  
+
   post = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentEntryDto>({
       method: 'POST',

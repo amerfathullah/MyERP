@@ -1,4 +1,4 @@
-import type { StatementOfAccountsDto, SupplierStatementDto } from './models';
+import type { BatchStatementOfAccountsInput, BatchStatementOfAccountsResultDto, StatementOfAccountsDto, SupplierStatementDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -24,6 +24,15 @@ export class StatementOfAccountsService {
       method: 'GET',
       url: '/api/app/statement-of-accounts/supplier-statement',
       params: { supplierId, companyId, fromDate, toDate },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  processBatchStatement = (input: BatchStatementOfAccountsInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BatchStatementOfAccountsResultDto>({
+      method: 'POST',
+      url: '/api/app/statement-of-accounts/process-batch-statement',
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

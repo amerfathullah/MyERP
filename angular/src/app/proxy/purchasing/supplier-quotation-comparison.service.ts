@@ -19,10 +19,11 @@ export class SupplierQuotationComparisonService {
     { apiName: this.apiName,...config });
   
 
-  getComparisonByRfq = (rfqId: string, config?: Partial<Rest.Config>) =>
+  getComparisonByRfq = (rfqId: string, status?: string, orderStatus?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierQuotationComparisonDto>({
       method: 'GET',
       url: `/api/app/supplier-quotation-comparison/comparison-by-rfq/${rfqId}`,
+      params: { status, orderStatus },
     },
     { apiName: this.apiName,...config });
 }

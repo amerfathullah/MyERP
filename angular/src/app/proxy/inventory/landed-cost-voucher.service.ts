@@ -18,7 +18,7 @@ export class LandedCostVoucherService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LandedCostVoucherDto>({
@@ -61,7 +61,7 @@ export class LandedCostVoucherService {
       params: { companyId: input.companyId, receiptType: input.receiptType, receiptIds: input.receiptIds },
     },
     { apiName: this.apiName,...config });
-
+  
 
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LandedCostVoucherDto>({

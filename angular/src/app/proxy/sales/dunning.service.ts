@@ -38,6 +38,14 @@ export class DunningService {
     { apiName: this.apiName,...config });
   
 
+  createFromSalesInvoice = (salesInvoiceId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DunningDto>({
+      method: 'POST',
+      url: `/api/app/dunning/from-sales-invoice/${salesInvoiceId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DunningDto>({
       method: 'GET',

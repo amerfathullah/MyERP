@@ -24,6 +24,11 @@ export interface BulkLeaveAllocationDto {
   totalLeavesPerEmployee: number;
 }
 
+export interface ChangeEmployeeStatusDto {
+  status: EmploymentStatus;
+  dateOfResignation?: string | null;
+}
+
 export interface CreateAttendanceDto {
   companyId?: string;
   employeeId?: string;
@@ -121,6 +126,19 @@ export interface CreatePayrollEntryDto {
   month: number;
 }
 
+export interface CreateSalarySlipDto {
+  companyId: string;
+  employeeId: string;
+  postingDate: string;
+  startDate: string;
+  endDate: string;
+  totalWorkingDays?: number;
+  paymentDays?: number;
+  leavesWithoutPay?: number;
+  earnings?: SalarySlipComponentInputDto[];
+  deductions?: SalarySlipComponentInputDto[];
+}
+
 export interface CreateSalaryStructureDetailDto {
   salaryComponentId?: string;
   componentName?: string;
@@ -166,11 +184,6 @@ export interface CreateUpdateDesignationDto {
   description?: string | null;
 }
 
-export interface ChangeEmployeeStatusDto {
-  status: EmploymentStatus;
-  dateOfResignation?: string | null;
-}
-
 export interface CreateUpdateEmployeeDto {
   companyId: string;
   firstName: string;
@@ -182,11 +195,24 @@ export interface CreateUpdateEmployeeDto {
   designation?: string | null;
   department?: string | null;
   gender?: string | null;
+  reportsToEmployeeId?: string | null;
+  userId?: string | null;
   epfNumber?: string | null;
   socsoNumber?: string | null;
   taxNumber?: string | null;
-  reportsToEmployeeId?: string | null;
-  userId?: string | null;
+}
+
+export interface CreateUpdateEmployeeGroupDto {
+  companyId: string;
+  groupName: string;
+  isDisabled?: boolean;
+  items?: CreateUpdateEmployeeGroupItemDto[];
+}
+
+export interface CreateUpdateEmployeeGroupItemDto {
+  employeeId: string;
+  employeeName: string;
+  designation?: string | null;
 }
 
 export interface CreateUpdateLeaveTypeDto {
@@ -250,6 +276,20 @@ export interface EmployeeDto extends FullAuditedEntityDto<string> {
   userId?: string | null;
 }
 
+export interface EmployeeGroupDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  groupName?: string;
+  isDisabled?: boolean;
+  items?: EmployeeGroupItemDto[];
+}
+
+export interface EmployeeGroupItemDto extends EntityDto<string> {
+  employeeGroupId?: string;
+  employeeId?: string;
+  employeeName?: string;
+  designation?: string | null;
+}
+
 export interface ExpenseClaimDetailDto {
   id?: string;
   expenseDate?: string;
@@ -276,6 +316,12 @@ export interface GetAttendanceListDto extends PagedAndSortedResultRequestDto {
   fromDate?: string | null;
   toDate?: string | null;
   status?: AttendanceStatus | null;
+}
+
+export interface GetEmployeeGroupListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  isDisabled?: boolean | null;
+  filter?: string | null;
 }
 
 export interface GetEmployeeListDto extends PagedAndSortedResultRequestDto {
@@ -346,6 +392,7 @@ export interface LeaveApplicationDto extends AuditedEntityDto<string> {
   halfDay?: boolean;
   reason?: string | null;
   status?: LeaveApplicationStatus;
+  leaveApproverId?: string | null;
 }
 
 export interface LeaveTypeDetailDto extends EntityDto<string> {
@@ -474,6 +521,13 @@ export interface SalarySlipComponentDto extends EntityDto<string> {
   isStatutory?: boolean;
 }
 
+export interface SalarySlipComponentInputDto {
+  salaryComponentId: string;
+  componentName: string;
+  amount: number;
+  isStatutory?: boolean;
+}
+
 export interface SalarySlipDto extends EntityDto<string> {
   companyId?: string;
   employeeId?: string;
@@ -487,26 +541,6 @@ export interface SalarySlipDto extends EntityDto<string> {
   status?: number;
   earnings?: SalarySlipComponentDto[];
   deductions?: SalarySlipComponentDto[];
-}
-
-export interface CreateSalarySlipDto {
-  companyId: string;
-  employeeId: string;
-  postingDate: string;
-  startDate: string;
-  endDate: string;
-  totalWorkingDays?: number;
-  paymentDays?: number;
-  leavesWithoutPay?: number;
-  earnings: SalarySlipComponentInputDto[];
-  deductions: SalarySlipComponentInputDto[];
-}
-
-export interface SalarySlipComponentInputDto {
-  salaryComponentId: string;
-  componentName: string;
-  amount: number;
-  isStatutory?: boolean;
 }
 
 export interface SalaryStructureDetailDto {
@@ -544,37 +578,4 @@ export interface ShiftTypeDto extends FullAuditedEntityDto<string> {
   startTime?: string;
   endTime?: string;
   holidayListId?: string | null;
-}
-
-export interface EmployeeGroupItemDto extends EntityDto<string> {
-  employeeGroupId?: string;
-  employeeId?: string;
-  employeeName?: string;
-  designation?: string | null;
-}
-
-export interface EmployeeGroupDto extends FullAuditedEntityDto<string> {
-  companyId?: string;
-  groupName?: string;
-  isDisabled?: boolean;
-  items?: EmployeeGroupItemDto[];
-}
-
-export interface CreateUpdateEmployeeGroupItemDto {
-  employeeId: string;
-  employeeName: string;
-  designation?: string | null;
-}
-
-export interface CreateUpdateEmployeeGroupDto {
-  companyId: string;
-  groupName: string;
-  isDisabled?: boolean;
-  items?: CreateUpdateEmployeeGroupItemDto[];
-}
-
-export interface GetEmployeeGroupListDto extends PagedAndSortedResultRequestDto {
-  companyId?: string | null;
-  isDisabled?: boolean | null;
-  filter?: string | null;
 }

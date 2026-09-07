@@ -1,7 +1,7 @@
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { BatchCreateWorkOrdersResultDto, BomDto, CreateBomDto, CreateDisassemblyDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateOperationDto, CreateRoutingDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialShortageAcrossOrdersDto, OperationDto, ProductionCostBreakdownDto, ProductionScheduleDto, ReplaceBomDto, ReplaceBomResultDto, RoutingDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto, WorkstationUtilizationDto } from '../manufacturing/models';
+import type { AlternativeFinishedGoodsDetailsDto, BatchCreateWorkOrdersResultDto, BomDto, CreateBomDto, CreateDisassemblyDto, CreateFgConversionEntryDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateOperationDto, CreateRoutingDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialShortageAcrossOrdersDto, OperationDto, ProductionCostBreakdownDto, ProductionScheduleDto, ReplaceBomDto, ReplaceBomResultDto, RoutingDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto, WorkstationUtilizationDto } from '../manufacturing/models';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -33,6 +33,15 @@ export class ManufacturingService {
     this.restService.request<any, DisassemblyResultDto>({
       method: 'POST',
       url: '/api/app/manufacturing/work-order/disassembly',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  createFgConversionEntry = (input: CreateFgConversionEntryDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryResultDto>({
+      method: 'POST',
+      url: '/api/app/manufacturing/work-order/fg-conversion',
       body: input,
     },
     { apiName: this.apiName,...config });
@@ -192,6 +201,14 @@ export class ManufacturingService {
     { apiName: this.apiName,...config });
   
 
+  getFgConversionDetails = (workOrderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AlternativeFinishedGoodsDetailsDto>({
+      method: 'GET',
+      url: `/api/app/manufacturing/work-order/${workOrderId}/fg-conversion-details`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getMaterialAvailability = (workOrderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MaterialAvailabilityDto[]>({
       method: 'GET',
@@ -302,20 +319,20 @@ export class ManufacturingService {
     { apiName: this.apiName,...config });
   
 
-  replaceBom = (input: ReplaceBomDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, ReplaceBomResultDto>({
-      method: 'POST',
-      url: '/api/app/manufacturing/bom/replace',
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
-
   recordProduction = (id: string, quantity: number, processLossQty?: number, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WorkOrderDto>({
       method: 'POST',
       url: `/api/app/manufacturing/work-order/${id}/record-production`,
       params: { quantity, processLossQty },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  replaceBom = (input: ReplaceBomDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ReplaceBomResultDto>({
+      method: 'POST',
+      url: '/api/app/manufacturing/bom/replace',
+      body: input,
     },
     { apiName: this.apiName,...config });
   

@@ -26,7 +26,7 @@ export class DocumentEmailService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   sendPurchaseOrderEmail = (input: SendPurchaseOrderEmailDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -35,7 +35,7 @@ export class DocumentEmailService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   sendQuotationEmail = (input: SendQuotationEmailDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({

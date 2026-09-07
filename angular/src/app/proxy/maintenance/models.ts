@@ -106,6 +106,15 @@ export interface MaintenanceScheduleItemDto extends EntityDto<string> {
   periodicity?: number;
 }
 
+export interface MaintenanceScheduleSummaryDto {
+  scheduleId?: string;
+  totalVisits?: number;
+  completedVisits?: number;
+  pendingVisits?: number;
+  completionPercentage?: number;
+  nextScheduledDate?: string | null;
+}
+
 export interface MaintenanceVisitDto extends EntityDto<string> {
   companyId?: string;
   visitNumber?: string;
@@ -131,6 +140,26 @@ export interface MaintenanceVisitPurposeDto extends EntityDto<string> {
   status?: number;
   servicePersonId?: string | null;
   servicePersonName?: string | null;
+}
+
+export interface MaintenanceVisitSummaryDto {
+  id?: string;
+  visitNumber?: string;
+  maintenanceType?: string;
+  visitDate?: string;
+  completionStatus?: number;
+  customerId?: string | null;
+  maintenanceScheduleId?: string | null;
+  warrantyClaimId?: string | null;
+  totalPurposesCount?: number;
+  canSubmit?: boolean;
+  canCancel?: boolean;
+}
+
+export interface MakeMaintenanceVisitInput {
+  scheduleDetailId?: string | null;
+  visitDate?: string | null;
+  maintenanceType?: number | null;
 }
 
 export interface WarrantyClaimDto extends EntityDto<string> {

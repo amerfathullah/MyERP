@@ -14,7 +14,7 @@ export class SalesAnalyticsService {
     this.restService.request<any, SalesAnalyticsReportDto>({
       method: 'GET',
       url: '/api/app/sales-analytics/report',
-      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, groupBy: input.groupBy, periodType: input.periodType, valueField: input.valueField },
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, groupBy: input.groupBy, periodType: input.periodType, valueField: input.valueField, entityIds: input.entityIds },
     },
     { apiName: this.apiName,...config });
 }

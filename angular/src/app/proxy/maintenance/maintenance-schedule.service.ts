@@ -1,4 +1,4 @@
-import type { CreateMaintenanceScheduleDto, GetMaintenanceScheduleListDto, MaintenanceScheduleDto } from './models';
+import type { CreateMaintenanceScheduleDto, CreateMaintenanceVisitDto, GetMaintenanceScheduleListDto, MaintenanceScheduleDto, MaintenanceScheduleSummaryDto, MakeMaintenanceVisitInput } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -24,6 +24,14 @@ export class MaintenanceScheduleService {
       method: 'POST',
       url: '/api/app/maintenance-schedule',
       body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  createFromSalesOrder = (salesOrderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CreateMaintenanceScheduleDto>({
+      method: 'POST',
+      url: `/api/app/maintenance-schedule/from-sales-order/${salesOrderId}`,
     },
     { apiName: this.apiName,...config });
   
@@ -57,6 +65,23 @@ export class MaintenanceScheduleService {
       method: 'GET',
       url: '/api/app/maintenance-schedule',
       params: { filter: input.filter, customerId: input.customerId, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getSummary = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaintenanceScheduleSummaryDto>({
+      method: 'GET',
+      url: `/api/app/maintenance-schedule/${id}/summary`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  makeMaintenanceVisit = (id: string, input?: MakeMaintenanceVisitInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CreateMaintenanceVisitDto>({
+      method: 'POST',
+      url: `/api/app/maintenance-schedule/${id}/make-maintenance-visit`,
+      body: input,
     },
     { apiName: this.apiName,...config });
   

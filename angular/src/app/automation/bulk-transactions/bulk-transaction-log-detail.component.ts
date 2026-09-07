@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { BulkTransactionLogService } from '../../proxy/automation/bulk-transaction-log.service';
-import { BulkTransactionLogDto, BulkTransactionLogDetailDto } from '../../proxy/automation/dtos/models';
+import { BulkTransactionLogDto, BulkTransactionLogDetailDto } from '../../proxy/automation/models';
 import { BulkTransactionStatus } from '../../proxy/automation/bulk-transaction-status.enum';
 
 @Component({

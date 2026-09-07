@@ -92,6 +92,12 @@ export interface CreateUpdateTaxRuleDto {
   isActive?: boolean;
 }
 
+export interface CreateUpdateTaxWithholdingGroupDto {
+  groupName: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
 export interface DefaultTaxLineDto {
   taxName?: string;
   rate?: number;
@@ -109,6 +115,11 @@ export interface GetTaxTemplateListDto extends PagedAndSortedResultRequestDto {
   companyId?: string | null;
   templateType?: TaxTemplateType | null;
   filter?: string | null;
+}
+
+export interface GetTaxWithholdingGroupListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isActive?: boolean | null;
 }
 
 export interface ItemTaxTemplateDetailDto {
@@ -259,6 +270,12 @@ export interface TaxWithholdingCategoryDto extends FullAuditedEntityDto<string> 
   accounts?: TaxWithholdingAccountDto[];
 }
 
+export interface TaxWithholdingGroupDto extends FullAuditedEntityDto<string> {
+  groupName?: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
 export interface TaxWithholdingRateDto {
   id?: string;
   fromDate?: string;
@@ -277,21 +294,3 @@ export interface UpdateItemTaxTemplateDto {
 
 export interface UpdateTaxWithholdingCategoryDto extends CreateTaxWithholdingCategoryDto {
 }
-
-export interface TaxWithholdingGroupDto extends FullAuditedEntityDto<string> {
-  groupName: string;
-  description?: string | null;
-  isActive: boolean;
-}
-
-export interface CreateUpdateTaxWithholdingGroupDto {
-  groupName: string;
-  description?: string | null;
-  isActive?: boolean;
-}
-
-export interface GetTaxWithholdingGroupListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-  isActive?: boolean | null;
-}
-

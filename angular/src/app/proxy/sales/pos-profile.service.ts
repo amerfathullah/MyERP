@@ -52,6 +52,14 @@ export class PosProfileService {
     { apiName: this.apiName,...config });
   
 
+  getForCurrentUser = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PosProfileDto[]>({
+      method: 'GET',
+      url: `/api/app/pos-profile/for-current-user/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getList = (input: GetPosProfileListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PosProfileDto>>({
       method: 'GET',

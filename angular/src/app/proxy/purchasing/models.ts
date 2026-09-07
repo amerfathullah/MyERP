@@ -1,3 +1,4 @@
+import type { EInvoiceDocumentType } from '../sales/einvoice-document-type.enum';
 import type { ScorecardPeriodType } from './scorecard-period-type.enum';
 import type { SupplierHoldType } from './supplier-hold-type.enum';
 import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
@@ -33,6 +34,8 @@ export interface ComparisonSupplierDto {
   currency?: string | null;
   validTill?: string | null;
   grandTotal?: number;
+  orderStatus?: string;
+  status?: number;
 }
 
 export interface CreateCriterionDto {
@@ -56,8 +59,11 @@ export interface CreatePurchaseInvoiceDto {
   projectId?: string | null;
   isOpening?: boolean;
   isReturn?: boolean;
+  isDebitNote?: boolean;
+  isReturnRefund?: boolean;
   isSubcontracted?: boolean;
   returnAgainstId?: string | null;
+  eInvoiceDocType?: EInvoiceDocumentType | null;
   updateStock?: boolean;
   warehouseId?: string | null;
   items: CreatePurchaseInvoiceItemDto[];
@@ -77,6 +83,7 @@ export interface CreatePurchaseInvoiceItemDto {
   serviceStopDate?: string | null;
   purchaseOrderItemId?: string | null;
   purchaseReceiptItemId?: string | null;
+  deliveredBySupplier?: boolean;
 }
 
 export interface CreatePurchaseOrderDto {
@@ -99,7 +106,9 @@ export interface CreatePurchaseOrderItemDto {
   taxAmount?: number;
   uom?: string;
   warehouseId?: string | null;
+  expenseAccountId?: string | null;
   expectedDeliveryDate?: string | null;
+  deliveredBySupplier?: boolean;
 }
 
 export interface CreatePurchaseOrdersFromMrDto {
@@ -197,6 +206,17 @@ export interface CreateScrItemDto {
   qty?: number;
   rate?: number;
   warehouseId?: string | null;
+  expenseAccountId?: string | null;
+  serviceExpenseAccountId?: string | null;
+  costCenterId?: string | null;
+}
+
+export interface CreateScrReturnItemDto {
+  itemId: string;
+  itemName: string;
+  qty?: number;
+  rate?: number;
+  warehouseId?: string | null;
 }
 
 export interface CreateStandingDto {
@@ -228,20 +248,6 @@ export interface CreateSubcontractingOrderDto {
   items?: CreateScoItemDto[];
 }
 
-export interface CreateScrReturnItemDto {
-  itemId: string;
-  itemName: string;
-  qty?: number;
-  rate?: number;
-  warehouseId?: string | null;
-}
-
-export interface CreateSubcontractingReceiptReturnDto {
-  returnAgainstReceiptId: string;
-  postingDate: string;
-  items?: CreateScrReturnItemDto[];
-}
-
 export interface CreateSubcontractingReceiptDto {
   companyId: string;
   supplierId: string;
@@ -249,6 +255,12 @@ export interface CreateSubcontractingReceiptDto {
   postingDate: string;
   warehouseId?: string | null;
   items?: CreateScrItemDto[];
+}
+
+export interface CreateSubcontractingReceiptReturnDto {
+  returnAgainstReceiptId: string;
+  postingDate: string;
+  items?: CreateScrReturnItemDto[];
 }
 
 export interface CreateSupplierQuotationDto {
@@ -309,6 +321,14 @@ export interface CreateUpdateSupplierDto {
   restrictToCompanies?: boolean;
 }
 
+export interface CreateUpdateSupplierScorecardVariableDto {
+  variableLabel: string;
+  paramName: string;
+  path: string;
+  isCustom?: boolean;
+  description?: string | null;
+}
+
 export interface CreatedPurchaseOrderInfo {
   purchaseOrderId?: string;
   orderNumber?: string | null;
@@ -349,6 +369,10 @@ export interface GetSupplierListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }
 
+export interface GetSupplierScorecardVariableListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
 export interface IncotermDto extends FullAuditedEntityDto<string> {
   code?: string;
   title?: string;
@@ -362,6 +386,11 @@ export interface InvoicePaymentDto {
   postingDate?: string;
   amount?: number;
   status?: string;
+}
+
+export interface MapSubcontractingInwardOrderFromSalesOrderDto {
+  salesOrderId: string;
+  supplierId: string;
 }
 
 export interface PendingMaterialRequestItemDto {
@@ -391,6 +420,7 @@ export interface PurchaseAnalyticsRequestDto {
   groupBy?: AnalyticsGroupBy;
   periodType?: AnalyticsPeriodType;
   valueField?: string | null;
+  entityIds?: string[] | null;
 }
 
 export interface PurchaseAnalyticsRowDto {
@@ -423,9 +453,12 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   baseGrandTotal?: number;
   baseOutstandingAmount?: number;
   status?: string;
+  eInvoiceDocType?: EInvoiceDocumentType | null;
   eInvoiceStatus?: string;
   lhdnUuid?: string | null;
   isReturn?: boolean;
+  isDebitNote?: boolean;
+  isReturnRefund?: boolean;
   isSubcontracted?: boolean;
   returnAgainstId?: string | null;
   amendedFromId?: string | null;
@@ -456,6 +489,7 @@ export interface PurchaseInvoiceItemDto {
   lineTotal?: number;
   purchaseOrderItemId?: string | null;
   purchaseReceiptItemId?: string | null;
+  deliveredBySupplier?: boolean;
   enableDeferredExpense?: boolean;
   deferredExpenseAccountId?: string | null;
   serviceStartDate?: string | null;
@@ -509,7 +543,15 @@ export interface PurchaseOrderItemDto {
   receivedQty?: number;
   billedQty?: number;
   warehouseId?: string | null;
+  expenseAccountId?: string | null;
   expectedDeliveryDate?: string | null;
+  isClosed?: boolean;
+  deliveredBySupplier?: boolean;
+  conversionFactor?: number;
+  stockQty?: number;
+  stockUom?: string | null;
+  materialRequestItemId?: string | null;
+  supplierQuotationItemId?: string | null;
 }
 
 export interface PurchaseOrderTrackingBoardDto {
@@ -540,6 +582,7 @@ export interface PurchaseReceiptDto extends EntityDto<string> {
   returnAgainstId?: string | null;
   status?: string;
   perBilled?: number;
+  billingStatus?: string | null;
   items?: PurchaseReceiptItemDto[];
 }
 
@@ -555,6 +598,7 @@ export interface PurchaseReceiptItemDto {
   lineTotal?: number;
   billedQty?: number;
   amountDifferenceWithPurchaseInvoice?: number;
+  isClosed?: boolean;
   purchaseOrderItemId?: string | null;
 }
 
@@ -623,6 +667,16 @@ export interface RmTransferResultDto {
   totalQty?: number;
 }
 
+export interface ScioReceiveItemDto {
+  itemId: string;
+  qty?: number;
+}
+
+export interface ScioReceiveItemsDto {
+  postingDate: string;
+  items?: ScioReceiveItemDto[];
+}
+
 export interface ScoItemDto extends EntityDto<string> {
   itemId?: string;
   itemName?: string;
@@ -636,26 +690,6 @@ export interface ScorecardCriterionDto extends EntityDto<string> {
   weight?: number;
   maxScore?: number;
   formula?: string | null;
-}
-
-export interface SupplierScorecardVariableDto extends FullAuditedEntityDto<string> {
-  variableLabel?: string;
-  paramName?: string;
-  path?: string;
-  isCustom?: boolean;
-  description?: string | null;
-}
-
-export interface CreateUpdateSupplierScorecardVariableDto {
-  variableLabel: string;
-  paramName: string;
-  path: string;
-  isCustom?: boolean;
-  description?: string | null;
-}
-
-export interface GetSupplierScorecardVariableListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
 }
 
 export interface ScorecardDto extends EntityDto<string> {
@@ -693,6 +727,17 @@ export interface SubcontractingBomDto extends EntityDto<string> {
   conversionFactor?: number;
 }
 
+export interface SubcontractingInwardOrderActionSummaryDto {
+  orderId?: string;
+  status?: SubcontractingInwardOrderStatus;
+  perReceived?: number;
+  perBilled?: number;
+  canReopen?: boolean;
+  canClose?: boolean;
+  canCancel?: boolean;
+  pendingItemCount?: number;
+}
+
 export interface SubcontractingInwardOrderDto extends EntityDto<string> {
   companyId?: string;
   orderNumber?: string;
@@ -722,16 +767,6 @@ export interface SubcontractingInwardOrderItemDto extends EntityDto<string> {
   serviceCostPerQty?: number;
 }
 
-export interface ScioReceiveItemsDto {
-  postingDate?: string;
-  items: ScioReceiveItemDto[];
-}
-
-export interface ScioReceiveItemDto {
-  itemId: string;
-  qty?: number;
-}
-
 export interface SubcontractingOrderDto extends AuditedEntityDto<string> {
   orderNumber?: string;
   orderDate?: string;
@@ -746,6 +781,21 @@ export interface SubcontractingOrderDto extends AuditedEntityDto<string> {
   items?: ScoItemDto[];
 }
 
+export interface SubcontractingOrderSummaryDto {
+  id?: string;
+  orderNumber?: string;
+  status?: number;
+  netTotal?: number;
+  perReceived?: number;
+  totalItemsCount?: number;
+  totalSuppliedItemsCount?: number;
+  totalOrderedQty?: number;
+  totalReceivedQty?: number;
+  canReopen?: boolean;
+  canClose?: boolean;
+  canCancel?: boolean;
+}
+
 export interface SubcontractingReceiptDto extends AuditedEntityDto<string> {
   receiptNumber?: string;
   postingDate?: string;
@@ -753,6 +803,8 @@ export interface SubcontractingReceiptDto extends AuditedEntityDto<string> {
   subcontractingOrderId?: string;
   netTotal?: number;
   status?: SubcontractingReceiptStatus;
+  isReturn?: boolean;
+  returnAgainstReceiptId?: string | null;
   items?: SubcontractingReceiptItemDto[];
 }
 
@@ -763,6 +815,21 @@ export interface SubcontractingReceiptItemDto extends EntityDto<string> {
   rate?: number;
   amount?: number;
   warehouseId?: string | null;
+  expenseAccountId?: string | null;
+  serviceExpenseAccountId?: string | null;
+  costCenterId?: string | null;
+}
+
+export interface SubcontractingReceiptSummaryDto {
+  id?: string;
+  receiptNumber?: string;
+  status?: number;
+  netTotal?: number;
+  totalReceivedQty?: number;
+  totalItemsCount?: number;
+  isReturn?: boolean;
+  returnAgainstReceiptId?: string | null;
+  returnAgainstReceiptNumber?: string | null;
 }
 
 export interface SupplierDeliveryPerformanceDto {
@@ -847,6 +914,7 @@ export interface SupplierQuotationDto extends EntityDto<string> {
   netTotal?: number;
   grandTotal?: number;
   status?: number;
+  orderStatus?: string | null;
   items?: SupplierQuotationItemDto[];
 }
 
@@ -856,6 +924,16 @@ export interface SupplierQuotationItemDto extends EntityDto<string> {
   qty?: number;
   rate?: number;
   amount?: number;
+  orderedQty?: number;
+  pendingOrderQty?: number;
+}
+
+export interface SupplierScorecardVariableDto extends FullAuditedEntityDto<string> {
+  variableLabel?: string;
+  paramName?: string;
+  path?: string;
+  isCustom?: boolean;
+  description?: string | null;
 }
 
 export interface SupplierSelectionItemDto {
@@ -961,11 +1039,12 @@ export interface UpdateOrderItemDto {
   unitPrice: number;
   deliveryDate?: string | null;
   warehouseId?: string | null;
+  conversionFactor?: number | null;
 }
 
 export interface UpdateOrderItemsDto {
-  items: UpdateOrderItemDto[];
-  removedItemIds: string[];
+  items?: UpdateOrderItemDto[];
+  removedItemIds?: string[];
 }
 
 export interface UpdateOrderItemsResultDto {

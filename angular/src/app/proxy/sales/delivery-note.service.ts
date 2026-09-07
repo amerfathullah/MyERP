@@ -37,6 +37,22 @@ export class DeliveryNoteService {
     { apiName: this.apiName,...config });
   
 
+  close = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DeliveryNoteDto>({
+      method: 'POST',
+      url: `/api/app/delivery-note/${id}/close`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  closeItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DeliveryNoteDto>({
+      method: 'POST',
+      url: `/api/app/delivery-note/${id}/close-item/${itemId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   create = (input: CreateDeliveryNoteDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'POST',
@@ -59,6 +75,22 @@ export class DeliveryNoteService {
       method: 'GET',
       url: '/api/app/delivery-note',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  reopen = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DeliveryNoteDto>({
+      method: 'POST',
+      url: `/api/app/delivery-note/${id}/reopen`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  reopenItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DeliveryNoteDto>({
+      method: 'POST',
+      url: `/api/app/delivery-note/${id}/reopen-item/${itemId}`,
     },
     { apiName: this.apiName,...config });
   

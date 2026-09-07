@@ -25,15 +25,7 @@ export class MaintenanceService {
       url: `/api/app/maintenance/${id}/complete-visit`,
     },
     { apiName: this.apiName,...config });
-
-
-  partiallyCompleteVisit = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, MaintenanceVisitDto>({
-      method: 'POST',
-      url: `/api/app/maintenance/${id}/partially-complete-visit`,
-    },
-    { apiName: this.apiName, ...config });
-
+  
 
   createSchedule = (input: CreateMaintenanceScheduleDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MaintenanceScheduleDto>({
@@ -91,6 +83,14 @@ export class MaintenanceService {
       method: 'GET',
       url: '/api/app/maintenance/visit-list',
       params: { completionStatus: input.completionStatus, maintenanceScheduleId: input.maintenanceScheduleId, maintenanceType: input.maintenanceType, customerId: input.customerId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  partiallyCompleteVisit = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaintenanceVisitDto>({
+      method: 'POST',
+      url: `/api/app/maintenance/${id}/partially-complete-visit`,
     },
     { apiName: this.apiName,...config });
   

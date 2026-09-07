@@ -9,7 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class LetterHeadService {
   private restService = inject(RestService);
   apiName = 'Default';
-
+  
 
   create = (input: CreateUpdateLetterHeadDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LetterHeadDto>({
@@ -18,7 +18,7 @@ export class LetterHeadService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
@@ -26,7 +26,7 @@ export class LetterHeadService {
       url: `/api/app/letter-head/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LetterHeadDto>({
@@ -34,7 +34,7 @@ export class LetterHeadService {
       url: `/api/app/letter-head/${id}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getList = (input: GetLetterHeadListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<LetterHeadDto>>({
@@ -43,7 +43,7 @@ export class LetterHeadService {
       params: { companyId: input.companyId, letterHeadFor: input.letterHeadFor, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
-
+  
 
   setDefault = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LetterHeadDto>({
@@ -51,7 +51,7 @@ export class LetterHeadService {
       url: `/api/app/letter-head/${id}/set-default`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   update = (id: string, input: CreateUpdateLetterHeadDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LetterHeadDto>({

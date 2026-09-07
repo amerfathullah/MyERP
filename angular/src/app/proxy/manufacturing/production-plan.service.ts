@@ -1,4 +1,4 @@
-import type { CreateProductionPlanDto, GetProductionPlanListDto, ProductionPlanDto } from './models';
+import type { CreateProductionPlanDto, GetProductionPlanListDto, ProductionPlanDto, ProductionPlanVisualizerDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -23,6 +23,14 @@ export class ProductionPlanService {
     this.restService.request<any, ProductionPlanDto>({
       method: 'POST',
       url: `/api/app/production-plan/${id}/cancel`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  close = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProductionPlanDto>({
+      method: 'POST',
+      url: `/api/app/production-plan/${id}/close`,
     },
     { apiName: this.apiName,...config });
   
@@ -73,6 +81,22 @@ export class ProductionPlanService {
       method: 'GET',
       url: '/api/app/production-plan',
       params: { status: input.status, companyId: input.companyId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getVisualizerData = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProductionPlanVisualizerDto>({
+      method: 'GET',
+      url: `/api/app/production-plan/${id}/visualizer-data`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  reopen = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProductionPlanDto>({
+      method: 'POST',
+      url: `/api/app/production-plan/${id}/reopen`,
     },
     { apiName: this.apiName,...config });
   

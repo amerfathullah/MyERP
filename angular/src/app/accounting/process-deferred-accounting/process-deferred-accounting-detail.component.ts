@@ -6,7 +6,8 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { ProcessDeferredAccountingService } from '../../proxy/accounting/process-deferred-accounting.service';
 import { CompanyService } from '../../proxy/core/company.service';
 import { AccountService } from '../../proxy/accounting/account.service';
-import { DeferredAccountingType, type ProcessDeferredAccountingDto } from '../../proxy/accounting/models';
+import { DeferredAccountingType } from '../../proxy/accounting/deferred-accounting-type.enum';
+import type { ProcessDeferredAccountingDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-process-deferred-accounting-detail',

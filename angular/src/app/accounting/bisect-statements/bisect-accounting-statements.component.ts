@@ -4,7 +4,8 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ToasterService } from '@abp/ng.theme.shared';
 import { BisectAccountingStatementsService } from '../../proxy/accounting/bisect-accounting-statements.service';
 import { CompanyService } from '../../proxy/core/company.service';
-import { BisectAlgorithm, type BisectAccountingStatementsDto, type BisectNodeDto } from '../../proxy/accounting/models';
+import { BisectAlgorithm } from '../../proxy/accounting/bisect-algorithm.enum';
+import type { BisectAccountingStatementsDto, BisectNodeDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-bisect-accounting-statements',

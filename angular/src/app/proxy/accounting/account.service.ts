@@ -1,4 +1,4 @@
-import type { AccountDto, CreateUpdateAccountDto, GetAccountListDto } from './models';
+import type { AccountDto, AccountTreeNodeDto, CreateUpdateAccountDto, GetAccountListDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -41,6 +41,15 @@ export class AccountService {
       method: 'GET',
       url: '/api/app/account',
       params: { filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getTree = (companyId: string, includeDisabled?: boolean, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AccountTreeNodeDto[]>({
+      method: 'GET',
+      url: `/api/app/account/tree/${companyId}`,
+      params: { includeDisabled },
     },
     { apiName: this.apiName,...config });
   

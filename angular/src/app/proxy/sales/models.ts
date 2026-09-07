@@ -3,6 +3,7 @@ import type { CouponType } from './coupon-type.enum';
 import type { PricingRuleApplyOn } from './pricing-rule-apply-on.enum';
 import type { PricingRuleType } from './pricing-rule-type.enum';
 import type { ProformaInvoiceBasis } from './proforma-invoice-basis.enum';
+import type { EInvoiceDocumentType } from './einvoice-document-type.enum';
 import type { ShippingCalculationMode } from './shipping-calculation-mode.enum';
 import type { ShippingRuleType } from './shipping-rule-type.enum';
 import type { PartySpecificItemPartyType } from './party-specific-item-party-type.enum';
@@ -55,6 +56,8 @@ export interface BlanketOrderDto extends EntityDto<string> {
   partyName?: string | null;
   fromDate?: string;
   toDate?: string;
+  currency?: string;
+  exchangeRate?: number;
   status?: number;
   items?: BlanketOrderItemDto[];
   creationTime?: string;
@@ -66,6 +69,7 @@ export interface BlanketOrderItemDto {
   itemName?: string | null;
   qty?: number;
   rate?: number;
+  baseRate?: number;
   orderedQty?: number;
   remainingQty?: number;
 }
@@ -91,6 +95,8 @@ export interface CreateBlanketOrderDto {
   partyName?: string | null;
   fromDate?: string;
   toDate?: string;
+  currency?: string;
+  exchangeRate?: number;
   items?: CreateBlanketOrderItemDto[];
 }
 
@@ -121,6 +127,8 @@ export interface CreateDeliveryNoteDto {
   warehouseId: string;
   postingDate: string;
   salesOrderId?: string | null;
+  contactPersonId?: string | null;
+  shippingContactPersonId?: string | null;
   shippingAddress?: string | null;
   transporter?: string | null;
   trackingNumber?: string | null;
@@ -261,10 +269,13 @@ export interface CreatePosClosingPaymentDto {
 export interface CreatePosInvoiceDto {
   companyId: string;
   customerId?: string | null;
+  posProfileId?: string | null;
   warehouseId?: string | null;
   items: PosLineItemDto[];
   paymentMethod?: string;
   amountReceived?: number;
+  currencyCode?: string | null;
+  exchangeRate?: number | null;
 }
 
 export interface CreatePosOpeningDto {
@@ -298,6 +309,8 @@ export interface CreatePricingRuleDto {
   validFrom?: string | null;
   validUpto?: string | null;
   companyId?: string | null;
+  applyOnOtherItem?: boolean;
+  otherItemId?: string | null;
 }
 
 export interface CreateProductBundleDto {
@@ -333,6 +346,7 @@ export interface CreateQuotationDto {
   validUntil?: string | null;
   currencyCode?: string;
   priceListId?: string | null;
+  opportunityId?: string | null;
   terms?: string | null;
   notes?: string | null;
   items: CreateQuotationItemDto[];
@@ -350,6 +364,8 @@ export interface CreateQuotationItemDto {
 export interface CreateSalesInvoiceDto {
   companyId: string;
   customerId: string;
+  contactPersonId?: string | null;
+  shippingContactPersonId?: string | null;
   issueDate: string;
   dueDate?: string | null;
   currencyCode?: string;
@@ -357,12 +373,21 @@ export interface CreateSalesInvoiceDto {
   notes?: string | null;
   paymentTermsTemplateId?: string | null;
   isReturn?: boolean;
+  isDebitNote?: boolean;
+  isReturnRefund?: boolean;
   returnAgainstId?: string | null;
   isOpening?: boolean;
   costCenterId?: string | null;
   projectId?: string | null;
   updateStock?: boolean;
   warehouseId?: string | null;
+  isPos?: boolean;
+  isConsolidated?: boolean;
+  consolidatedSalesInvoiceId?: string | null;
+  buyerTin?: string | null;
+  supplierTin?: string | null;
+  eInvoiceDocType?: EInvoiceDocumentType | null;
+  posProfileId?: string | null;
   couponCode?: string | null;
   loyaltyPointsToRedeem?: number;
   discountAmount?: number;
@@ -378,11 +403,15 @@ export interface CreateSalesInvoiceItemDto {
   unitPrice: number;
   taxAmount?: number;
   uom?: string;
+  salesOrderItemId?: string | null;
+  deliveryNoteItemId?: string | null;
   enableDeferredRevenue?: boolean;
   deferredRevenueAccountId?: string | null;
   serviceStartDate?: string | null;
   serviceEndDate?: string | null;
   serviceStopDate?: string | null;
+  isFixedAsset?: boolean;
+  assetId?: string | null;
 }
 
 export interface CreateSalesOrderDto {
@@ -391,6 +420,8 @@ export interface CreateSalesOrderDto {
   orderDate: string;
   deliveryDate?: string | null;
   customerPoNumber?: string | null;
+  contactPersonId?: string | null;
+  shippingContactPersonId?: string | null;
   currencyCode?: string;
   priceListId?: string | null;
   terms?: string | null;
@@ -413,7 +444,9 @@ export interface CreateSalesOrderItemDto {
   taxAmount?: number;
   uom?: string;
   warehouseId?: string | null;
+  deliveryDate?: string | null;
   blanketOrderId?: string | null;
+  quotationItemId?: string | null;
 }
 
 export interface CreateSalesPartnerDto {
@@ -504,6 +537,9 @@ export interface CreateUpdateCustomerDto {
   restrictToCompanies?: boolean;
   soRequired?: boolean;
   dnRequired?: boolean;
+  leadId?: string | null;
+  opportunityId?: string | null;
+  prospectId?: string | null;
 }
 
 export interface CreateUpdatePartySpecificItemDto {
@@ -523,6 +559,7 @@ export interface CreateUpdatePosProfileDto {
   validateStock?: boolean;
   invoiceType?: string;
   isDisabled?: boolean;
+  hideUnavailableItems?: boolean;
   taxTemplateId?: string | null;
   writeOffAccountId?: string | null;
   writeOffCostCenterId?: string | null;
@@ -530,12 +567,19 @@ export interface CreateUpdatePosProfileDto {
   postChangeGlEntries?: boolean;
   incomeAccountId?: string | null;
   expenseAccountId?: string | null;
+  projectId?: string | null;
   paymentMethods?: CreateUpdatePosProfilePaymentMethodDto[];
+  users?: CreateUpdatePosProfileUserDto[];
 }
 
 export interface CreateUpdatePosProfilePaymentMethodDto {
   modeOfPaymentId: string;
   accountId: string;
+  isDefault?: boolean;
+}
+
+export interface CreateUpdatePosProfileUserDto {
+  userId: string;
   isDefault?: boolean;
 }
 
@@ -559,6 +603,18 @@ export interface CreateUpdatePromotionalSchemeDto {
   parties?: PromotionalSchemePartyDto[];
   priceDiscountSlabs?: PromotionalSchemePriceDiscountSlabDto[];
   productDiscountSlabs?: PromotionalSchemeProductDiscountSlabDto[];
+}
+
+export interface CreateUpdateQuotationLostReasonDto {
+  reason: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface CreateUpdateSalesPartnerTypeDto {
+  partnerTypeName: string;
+  description?: string | null;
+  isActive?: boolean;
 }
 
 export interface CustomerDto extends FullAuditedEntityDto<string> {
@@ -591,6 +647,9 @@ export interface CustomerDto extends FullAuditedEntityDto<string> {
   restrictToCompanies?: boolean;
   soRequired?: boolean;
   dnRequired?: boolean;
+  leadId?: string | null;
+  opportunityId?: string | null;
+  prospectId?: string | null;
 }
 
 export interface CustomerRevenueLineDto {
@@ -620,6 +679,8 @@ export interface DeliveryNoteDto extends EntityDto<string> {
   salesOrderId?: string | null;
   warehouseId?: string;
   shippingAddress?: string | null;
+  contactPersonId?: string | null;
+  shippingContactPersonId?: string | null;
   transporter?: string | null;
   trackingNumber?: string | null;
   currencyCode?: string;
@@ -630,6 +691,7 @@ export interface DeliveryNoteDto extends EntityDto<string> {
   returnAgainstId?: string | null;
   status?: string;
   perBilled?: number;
+  billingStatus?: string | null;
   items?: DeliveryNoteItemDto[];
 }
 
@@ -644,6 +706,7 @@ export interface DeliveryNoteItemDto {
   lineTotal?: number;
   billedQty?: number;
   packedQty?: number;
+  isClosed?: boolean;
   salesOrderItemId?: string | null;
 }
 
@@ -730,8 +793,17 @@ export interface GetPosProfileListDto extends PagedAndSortedResultRequestDto {
   isDisabled?: boolean | null;
 }
 
+export interface GetQuotationLostReasonListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
 export interface GetSalesPartnerListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
+}
+
+export interface GetSalesPartnerTypeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isActive?: boolean | null;
 }
 
 export interface GrossProfitLineDto {
@@ -897,6 +969,8 @@ export interface PaymentScheduleDto {
   paymentAmount?: number;
   paidAmount?: number;
   outstanding?: number;
+  basePaymentAmount?: number;
+  baseOutstanding?: number;
   discountType?: string | null;
   discountPercentage?: number;
   discountValidTill?: string | null;
@@ -994,6 +1068,7 @@ export interface PosInvoiceDto extends EntityDto<string> {
   grandTotal?: number;
   amountReceived?: number;
   change?: number;
+  baseChange?: number;
   status?: string;
 }
 
@@ -1009,6 +1084,9 @@ export interface PosItemDto {
 export interface PosItemSearchDto {
   search?: string | null;
   maxResultCount?: number;
+  warehouseId?: string | null;
+  posProfileId?: string | null;
+  hideUnavailableItems?: boolean;
 }
 
 export interface PosLineItemDto {
@@ -1046,6 +1124,7 @@ export interface PosProfileDto extends FullAuditedEntityDto<string> {
   validateStock?: boolean;
   invoiceType?: string;
   isDisabled?: boolean;
+  hideUnavailableItems?: boolean;
   taxTemplateId?: string | null;
   writeOffAccountId?: string | null;
   writeOffCostCenterId?: string | null;
@@ -1053,13 +1132,21 @@ export interface PosProfileDto extends FullAuditedEntityDto<string> {
   postChangeGlEntries?: boolean;
   incomeAccountId?: string | null;
   expenseAccountId?: string | null;
+  projectId?: string | null;
   paymentMethods?: PosProfilePaymentMethodDto[];
+  users?: PosProfileUserDto[];
 }
 
 export interface PosProfilePaymentMethodDto extends EntityDto<string> {
   posProfileId?: string;
   modeOfPaymentId?: string;
   accountId?: string;
+  isDefault?: boolean;
+}
+
+export interface PosProfileUserDto extends EntityDto<string> {
+  posProfileId?: string;
+  userId?: string;
   isDefault?: boolean;
 }
 
@@ -1087,6 +1174,8 @@ export interface PricingRuleDto extends EntityDto<string> {
   validFrom?: string | null;
   validUpto?: string | null;
   isDisabled?: boolean;
+  applyOnOtherItem?: boolean;
+  otherItemId?: string | null;
 }
 
 export interface PricingRuleResultDto {
@@ -1240,6 +1329,7 @@ export interface QuotationDto extends FullAuditedEntityDto<string> {
   notes?: string | null;
   status?: string;
   convertedToSalesOrderId?: string | null;
+  opportunityId?: string | null;
   perOrdered?: number;
   items?: QuotationItemDto[];
   competitors?: CompetitorDetailDto[];
@@ -1255,6 +1345,12 @@ export interface QuotationItemDto {
   taxAmount?: number;
   lineTotal?: number;
   orderedQty?: number;
+}
+
+export interface QuotationLostReasonDto extends FullAuditedEntityDto<string> {
+  reason?: string;
+  description?: string | null;
+  isActive?: boolean;
 }
 
 export interface RegisterFilterDto {
@@ -1285,6 +1381,7 @@ export interface SalesAnalyticsRequestDto {
   groupBy?: AnalyticsGroupBy;
   periodType?: AnalyticsPeriodType;
   valueField?: string | null;
+  entityIds?: string[] | null;
 }
 
 export interface SalesAnalyticsRowDto {
@@ -1310,6 +1407,8 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   dueDate?: string | null;
   customerId?: string;
   customerName?: string | null;
+  contactPersonId?: string | null;
+  shippingContactPersonId?: string | null;
   currencyCode?: string;
   exchangeRate?: number;
   priceListId?: string | null;
@@ -1323,18 +1422,28 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   baseGrandTotal?: number;
   baseOutstandingAmount?: number;
   status?: string;
+  eInvoiceDocType?: EInvoiceDocumentType | null;
   eInvoiceStatus?: string | null;
   lhdnUuid?: string | null;
   lhdnLongId?: string | null;
   lhdnSubmissionId?: string | null;
   lhdnSubmittedAt?: string | null;
   isReturn?: boolean;
+  isDebitNote?: boolean;
+  isReturnRefund?: boolean;
   returnAgainstId?: string | null;
   amendedFromId?: string | null;
   amendmentIndex?: number;
   debitToAccountId?: string;
   costCenterId?: string | null;
   projectId?: string | null;
+  isPos?: boolean;
+  isConsolidated?: boolean;
+  consolidatedSalesInvoiceId?: string | null;
+  consolidatedSalesInvoiceNumber?: string | null;
+  buyerTin?: string | null;
+  supplierTin?: string | null;
+  posProfileId?: string | null;
   daysOverdue?: number;
   isOverdue?: boolean;
   items?: SalesInvoiceItemDto[];
@@ -1361,6 +1470,8 @@ export interface SalesInvoiceItemDto {
   serviceStartDate?: string | null;
   serviceEndDate?: string | null;
   serviceStopDate?: string | null;
+  isFixedAsset?: boolean;
+  assetId?: string | null;
 }
 
 export interface SalesInvoiceListSummaryDto {
@@ -1380,6 +1491,8 @@ export interface SalesOrderDto extends FullAuditedEntityDto<string> {
   customerId?: string;
   customerName?: string | null;
   customerPoNumber?: string | null;
+  contactPersonId?: string | null;
+  shippingContactPersonId?: string | null;
   currencyCode?: string;
   priceListId?: string | null;
   netTotal?: number;
@@ -1417,8 +1530,10 @@ export interface SalesOrderItemDto {
   billedQty?: number;
   warehouseId?: string | null;
   blanketOrderId?: string | null;
+  quotationItemId?: string | null;
   availableQty?: number;
   isInsufficientStock?: boolean;
+  isClosed?: boolean;
 }
 
 export interface SalesOrderTrackingBoardCardDto {
@@ -1455,6 +1570,12 @@ export interface SalesPartnerDto extends EntityDto<string> {
   description?: string | null;
   isEnabled?: boolean;
   referralCode?: string | null;
+}
+
+export interface SalesPartnerTypeDto extends FullAuditedEntityDto<string> {
+  partnerTypeName?: string;
+  description?: string | null;
+  isActive?: boolean;
 }
 
 export interface SalesPersonCommissionRowDto {
@@ -1516,6 +1637,14 @@ export interface ScanBarcodeInput {
   companyId?: string | null;
 }
 
+export interface SendDeliveryNoteEmailDto {
+  documentId?: string;
+  recipientEmail?: string | null;
+  ccEmails?: string[] | null;
+  templateId?: string | null;
+  attachPdf?: boolean;
+}
+
 export interface SendDunningEmailDto {
   recipientEmail?: string | null;
   cc?: string | null;
@@ -1534,14 +1663,6 @@ export interface SendProformaEmailDto {
 }
 
 export interface SendPurchaseOrderEmailDto {
-  documentId?: string;
-  recipientEmail?: string | null;
-  ccEmails?: string[] | null;
-  templateId?: string | null;
-  attachPdf?: boolean;
-}
-
-export interface SendDeliveryNoteEmailDto {
   documentId?: string;
   recipientEmail?: string | null;
   ccEmails?: string[] | null;
@@ -1670,37 +1791,4 @@ export interface OrderReceiptDto {
   postingDate?: string;
   status?: string;
   itemCount?: number;
-}
-
-export interface QuotationLostReasonDto extends FullAuditedEntityDto<string> {
-  reason: string;
-  description?: string | null;
-  isActive: boolean;
-}
-
-export interface CreateUpdateQuotationLostReasonDto {
-  reason: string;
-  description?: string | null;
-  isActive?: boolean;
-}
-
-export interface GetQuotationLostReasonListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-}
-
-export interface SalesPartnerTypeDto extends FullAuditedEntityDto<string> {
-  partnerTypeName: string;
-  description?: string | null;
-  isActive: boolean;
-}
-
-export interface CreateUpdateSalesPartnerTypeDto {
-  partnerTypeName: string;
-  description?: string | null;
-  isActive?: boolean;
-}
-
-export interface GetSalesPartnerTypeListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-  isActive?: boolean | null;
 }

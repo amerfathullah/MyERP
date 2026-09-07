@@ -99,6 +99,36 @@ import { ToasterService } from '@abp/ng.theme.shared';
             <i class="bi bi-plus-lg me-1"></i>{{ 'MyERP::AddRow' | abpLocalization }}
           </button>
 
+          <!-- Applicable Users (ERPNext PR #58508) -->
+          <h6 class="mt-4 mb-2">{{ 'MyERP::PosProfileUsers' | abpLocalization }}</h6>
+          <table class="table table-sm table-bordered">
+            <thead class="table-light">
+              <tr>
+                <th>{{ 'MyERP::User' | abpLocalization }}</th>
+                <th class="text-center" style="width: 120px;">{{ 'MyERP::Default' | abpLocalization }}</th>
+                <th style="width: 50px;"></th>
+              </tr>
+            </thead>
+            <tbody formArrayName="users">
+              @for (u of users.controls; track $index) {
+                <tr [formGroupName]="$index">
+                  <td><input type="text" class="form-control form-control-sm" formControlName="userId" [placeholder]="'::Placeholder:SearchUserAccount' | abpLocalization" /></td>
+                  <td class="text-center">
+                    <input type="checkbox" class="form-check-input" formControlName="isDefault" />
+                  </td>
+                  <td>
+                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeUser($index)">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <button type="button" class="btn btn-sm btn-outline-secondary mb-3" (click)="addUser()">
+            <i class="bi bi-plus-lg me-1"></i>{{ 'MyERP::AddRow' | abpLocalization }}
+          </button>
+
           <div class="d-flex justify-content-end gap-2 mt-4">
             <a routerLink=".." class="btn btn-secondary">{{ 'MyERP::Cancel' | abpLocalization }}</a>
             <button type="submit" class="btn btn-primary" [disabled]="!form.valid || saving">
@@ -127,6 +157,10 @@ export class PosProfileFormComponent implements OnInit {
     return this.form.get('paymentMethods') as FormArray;
   }
 
+  get users(): FormArray {
+    return this.form.get('users') as FormArray;
+  }
+
   ngOnInit() {
     this.form = this.fb.group({
       profileName: ['', Validators.required],
@@ -138,6 +172,7 @@ export class PosProfileFormComponent implements OnInit {
       postChangeGlEntries: [false],
       projectId: [''],
       paymentMethods: this.fb.array([]),
+      users: this.fb.array([]),
     });
 
     this.editId = this.route.snapshot.paramMap.get('id');
@@ -156,6 +191,7 @@ export class PosProfileFormComponent implements OnInit {
             projectId: (p as any).projectId ?? '',
           });
           (p.paymentMethods ?? []).forEach(pm => this.addPaymentMethod(pm));
+          (p.users ?? []).forEach(u => this.addUser(u));
         },
       });
     } else {
@@ -173,6 +209,17 @@ export class PosProfileFormComponent implements OnInit {
 
   removePaymentMethod(idx: number) {
     this.paymentMethods.removeAt(idx);
+  }
+
+  addUser(data?: any) {
+    this.users.push(this.fb.group({
+      userId: [data?.userId || '', Validators.required],
+      isDefault: [data?.isDefault || false],
+    }));
+  }
+
+  removeUser(idx: number) {
+    this.users.removeAt(idx);
   }
 
   save() {

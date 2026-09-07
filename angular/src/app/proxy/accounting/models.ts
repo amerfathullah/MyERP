@@ -1,18 +1,20 @@
-import type { AuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
+import type { AuditedEntityDto, CreationAuditedEntityDto, EntityDto, FullAuditedEntityDto, PagedAndSortedResultRequestDto } from '@abp/ng.core';
 import type { AccountType } from './account-type.enum';
 import type { AccountSubType } from './account-sub-type.enum';
 import type { BankGuaranteeType } from './bank-guarantee-type.enum';
 import type { DocumentStatus } from '../core/document-status.enum';
+import type { BisectAlgorithm } from './bisect-algorithm.enum';
+import type { ChequeSize } from './cheque-size.enum';
 import type { PaymentType } from './payment-type.enum';
-import type { PaymentTaxChargeType } from './payment-tax-charge-type.enum';
-import type { TaxAddDeduct } from './tax-add-deduct.enum';
 import type { FinancialReportDataSource } from './financial-report-data-source.enum';
 import type { FinancialReportType } from './financial-report-type.enum';
 import type { JournalEntryVoucherType } from './journal-entry-voucher-type.enum';
 import type { PaymentOrderType } from './payment-order-type.enum';
+import type { DeferredAccountingType } from './deferred-accounting-type.enum';
 import type { UnreconcileVoucherType } from './unreconcile-voucher-type.enum';
 import type { ShareTransferType } from './share-transfer-type.enum';
-import type { ChequeSize } from './cheque-size.enum';
+import type { PaymentTaxChargeType } from './payment-tax-charge-type.enum';
+import type { TaxAddDeduct } from './tax-add-deduct.enum';
 
 export interface AccountCategoryDto {
   id?: string;
@@ -49,8 +51,19 @@ export interface AccountDto extends FullAuditedEntityDto<string> {
   isActive?: boolean;
 }
 
-export interface GetAccountListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
+export interface AccountTreeNodeDto extends EntityDto<string> {
+  companyId?: string;
+  accountCode?: string;
+  accountName?: string;
+  accountType?: AccountType;
+  accountSubType?: AccountSubType | null;
+  parentAccountId?: string | null;
+  isGroup?: boolean;
+  currency?: string | null;
+  isFrozen?: boolean;
+  isActive?: boolean;
+  balance?: number;
+  children?: AccountTreeNodeDto[];
 }
 
 export interface AccountingDimensionDto extends EntityDto<string> {
@@ -76,6 +89,62 @@ export interface AccountingPeriodDto extends EntityDto<string> {
   startDate?: string;
   endDate?: string;
   isClosed?: boolean;
+  isDisabled?: boolean;
+}
+
+export interface AccountsSettingsDto extends FullAuditedEntityDto<string> {
+  unlinkPaymentOnCancellationOfInvoice?: boolean;
+  unlinkAdvancePaymentOnCancellationOfOrder?: boolean;
+  deleteLinkedLedgerEntries?: boolean;
+  enableImmutableLedger?: boolean;
+  checkSupplierInvoiceUniqueness?: boolean;
+  automaticallyFetchPaymentTerms?: boolean;
+  enableSubscription?: boolean;
+  enableCommonPartyAccounting?: boolean;
+  allowMultiCurrencyInvoicesAgainstSinglePartyAccount?: boolean;
+  confirmBeforeResettingPostingDate?: boolean;
+  bookStockExpenseGlEntries?: boolean;
+  enableDiscountsAndMargin?: boolean;
+  enableAccountingDimensions?: boolean;
+  maintainSameInternalTransactionRate?: boolean;
+  maintainSameRateAction?: string;
+  roleToOverrideStopAction?: string | null;
+  mergeSimilarAccountHeads?: boolean;
+  bookDeferredEntriesBasedOn?: string;
+  automaticallyProcessDeferredAccountingEntry?: boolean;
+  bookDeferredEntriesViaJournalEntry?: boolean;
+  submitJournalEntries?: boolean;
+  determineAddressTaxCategoryFrom?: string;
+  addTaxesFromItemTaxTemplate?: boolean;
+  addTaxesFromTaxesAndChargesTemplate?: boolean;
+  bookTaxDiscountLoss?: boolean;
+  roundRowWiseTax?: boolean;
+  allowStaleExchangeRates?: boolean;
+  staleDays?: number;
+  autoReconcilePayments?: boolean;
+  autoReconciliationJobTrigger?: number;
+  reconciliationQueueSize?: number;
+  overBillingAllowance?: number;
+  creditControllerRole?: string | null;
+  enableOverdueBillingThreshold?: boolean;
+  roleAllowedToBypassOverdueBilling?: string | null;
+  bookAssetDepreciationEntryAutomatically?: boolean;
+  calculateDeprUsingTotalDays?: boolean;
+  defaultAgeingRange?: string;
+  showBalanceInCoa?: boolean;
+  enablePartyMatching?: boolean;
+  enableFuzzyMatching?: boolean;
+  transferMatchDays?: number;
+  createPrInDraftStatus?: boolean;
+}
+
+export interface AgingBucketDto {
+  current_0_30?: number;
+  age_31_60?: number;
+  age_61_90?: number;
+  age_91_120?: number;
+  age_120_Plus?: number;
+  totalOutstanding?: number;
 }
 
 export interface AgingDetailEntryDto {
@@ -93,6 +162,8 @@ export interface AgingDetailEntryDto {
 export interface AgingReportDto {
   reportType?: string;
   asOfDate?: string;
+  calculateAgeingWith?: string;
+  ageingBasedOn?: string;
   bucketLabels?: string[];
   bucketTotals?: number[];
   totalOutstanding?: number;
@@ -103,6 +174,11 @@ export interface AgingReportDto {
 export interface AgingReportRequestDto {
   companyId?: string;
   asOfDate?: string | null;
+  calculateAgeingWith?: string | null;
+  ageingBasedOn?: string | null;
+  partyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
 }
 
 export interface AllocationSuggestionDto {
@@ -169,6 +245,15 @@ export interface BalanceSheetRowDto {
   isGroup?: boolean;
 }
 
+export interface BankAccountBalanceDto extends FullAuditedEntityDto<string> {
+  bankAccountId?: string;
+  bankAccountName?: string | null;
+  companyId?: string | null;
+  companyName?: string | null;
+  date?: string;
+  balance?: number;
+}
+
 export interface BankAccountDto extends EntityDto<string> {
   companyId?: string;
   accountName?: string;
@@ -189,25 +274,16 @@ export interface BankAccountDto extends EntityDto<string> {
   lastIntegrationDate?: string | null;
 }
 
-export interface BankAccountBalanceDto extends FullAuditedEntityDto<string> {
-  bankAccountId?: string;
-  bankAccountName?: string | null;
-  companyId?: string | null;
-  companyName?: string | null;
-  date?: string;
-  balance?: number;
+export interface BankAccountSubtypeDto extends FullAuditedEntityDto<string> {
+  accountSubtypeName?: string;
+  description?: string | null;
+  isActive?: boolean;
 }
 
-export interface CreateUpdateBankAccountBalanceDto {
-  bankAccountId: string;
-  date: string;
-  balance: number;
-}
-
-export interface GetBankAccountBalanceListDto extends PagedAndSortedResultRequestDto {
-  bankAccountId?: string | null;
-  fromDate?: string | null;
-  toDate?: string | null;
+export interface BankAccountTypeDto extends FullAuditedEntityDto<string> {
+  accountTypeName?: string;
+  description?: string | null;
+  isActive?: boolean;
 }
 
 export interface BankClearanceDocRefDto {
@@ -224,6 +300,13 @@ export interface BankClearanceEntryDto {
   credit?: number;
   referenceNumber?: string | null;
   clearanceDate?: string | null;
+}
+
+export interface BankDto extends FullAuditedEntityDto<string> {
+  bankName?: string;
+  swiftNumber?: string | null;
+  website?: string | null;
+  isActive?: boolean;
 }
 
 export interface BankGuaranteeDto extends FullAuditedEntityDto<string> {
@@ -256,6 +339,14 @@ export interface BankGuaranteeDto extends FullAuditedEntityDto<string> {
   fixedDepositNumber?: string | null;
   clausesAndConditions?: string | null;
   status?: DocumentStatus;
+}
+
+export interface BankPaymentFileResultDto {
+  fileName?: string;
+  fileContent?: string;
+  mimeType?: string;
+  totalRecords?: number;
+  totalAmount?: number;
 }
 
 export interface BankReconciliationStatementDto {
@@ -362,6 +453,62 @@ export interface BatchPaymentResultDto {
   createdPaymentEntryIds?: string[];
 }
 
+export interface BatchStatementOfAccountsInput {
+  companyId?: string;
+  partyType?: string;
+  fromDate?: string;
+  toDate?: string;
+  partyIds?: string[] | null;
+  includeZeroBalance?: boolean;
+  includeAging?: boolean;
+}
+
+export interface BatchStatementOfAccountsResultDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  statements?: PartyStatementSummaryDto[];
+  totalOpeningBalance?: number;
+  totalInvoiced?: number;
+  totalPaid?: number;
+  totalClosingBalance?: number;
+  grandTotalAging?: AgingBucketDto | null;
+}
+
+export interface BisectAccountingStatementsDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  companyName?: string | null;
+  fromDate?: string;
+  toDate?: string;
+  algorithm?: BisectAlgorithm;
+  currentNodeId?: string | null;
+  currentFromDate?: string | null;
+  currentToDate?: string | null;
+  plSummary?: number;
+  bsSummary?: number;
+  difference?: number;
+  nodes?: BisectNodeDto[];
+}
+
+export interface BisectAccountingStatementsGetListInput extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface BisectNodeDto extends FullAuditedEntityDto<string> {
+  bisectAccountingStatementsId?: string;
+  parentNodeId?: string | null;
+  leftChildId?: string | null;
+  rightChildId?: string | null;
+  periodFromDate?: string;
+  periodToDate?: string;
+  plSummary?: number;
+  bsSummary?: number;
+  difference?: number;
+  isGenerated?: boolean;
+}
+
 export interface BudgetVarianceReportDto {
   companyId?: string;
   fiscalYearId?: string;
@@ -397,10 +544,51 @@ export interface BulkClearanceResultDto {
   updatedCount?: number;
 }
 
+export interface CalculateCashierClosingTotalsRequestDto {
+  date?: string;
+  fromTime?: string;
+  toTime?: string;
+  userId?: string | null;
+}
+
+export interface CalculateCashierClosingTotalsResponseDto {
+  outstandingAmount?: number;
+  suggestedPayments?: CreateUpdateCashierClosingPaymentDto[];
+}
+
 export interface CalculateDiscountingDto {
   totalOutstanding?: number;
   annualDiscountRate?: number;
   daysToMaturity?: number;
+}
+
+export interface CandidatePaymentEntryDto {
+  id?: string;
+  entryNumber?: string;
+  postingDate?: string;
+  paymentType?: string;
+  partyId?: string | null;
+  partyType?: string | null;
+  partyName?: string | null;
+  paidAmount?: number;
+  receivedAmount?: number;
+  modeOfPayment?: string | null;
+  paidToBankAccountId?: string | null;
+  paidFromBankAccountId?: string | null;
+}
+
+export interface CandidatePaymentRequestDto {
+  id?: string;
+  referenceDoctype?: string;
+  referenceId?: string;
+  referenceNumber?: string | null;
+  partyId?: string;
+  partyType?: string;
+  partyName?: string | null;
+  grandTotal?: number;
+  outstandingAmount?: number;
+  currency?: string;
+  bankAccountId?: string | null;
 }
 
 export interface CashFlowForecastDto {
@@ -479,6 +667,67 @@ export interface CashFlowStatementDto {
   closingCashBalance?: number;
 }
 
+export interface CashierClosingDto extends FullAuditedEntityDto<string> {
+  closingNumber?: string;
+  userId?: string;
+  userName?: string;
+  date?: string;
+  fromTime?: string;
+  toTime?: string;
+  expense?: number;
+  custody?: number;
+  returns?: number;
+  outstandingAmount?: number;
+  netAmount?: number;
+  isSubmitted?: boolean;
+  payments?: CashierClosingPaymentDto[];
+}
+
+export interface CashierClosingGetListInput extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  userId?: string | null;
+}
+
+export interface CashierClosingPaymentDto extends CreationAuditedEntityDto<string> {
+  cashierClosingId?: string;
+  modeOfPayment?: string;
+  amount?: number;
+}
+
+export interface ChequePrintPreviewDto {
+  htmlContent?: string;
+}
+
+export interface ChequePrintTemplateDto extends FullAuditedEntityDto<string> {
+  bankName?: string;
+  chequeSize?: ChequeSize;
+  startingPositionFromTopEdge?: number;
+  chequeWidth?: number;
+  chequeHeight?: number;
+  scannedCheque?: string | null;
+  isAccountPayable?: boolean;
+  accPayDistFromTopEdge?: number;
+  accPayDistFromLeftEdge?: number;
+  messageToShow?: string | null;
+  dateDistFromTopEdge?: number;
+  dateDistFromLeftEdge?: number;
+  payerNameFromTopEdge?: number;
+  payerNameFromLeftEdge?: number;
+  amtInWordsFromTopEdge?: number;
+  amtInWordsFromLeftEdge?: number;
+  amtInWordWidth?: number;
+  amtInWordsLineSpacing?: number;
+  amtInFiguresFromTopEdge?: number;
+  amtInFiguresFromLeftEdge?: number;
+  accNoDistFromTopEdge?: number;
+  accNoDistFromLeftEdge?: number;
+  signatoryFromTopEdge?: number;
+  signatoryFromLeftEdge?: number;
+  hasPrintFormat?: boolean;
+}
+
 export interface ClosingBalanceStatusDto {
   latestPeriod?: string | null;
   latestClosingDate?: string | null;
@@ -539,6 +788,16 @@ export interface CostCenterPLRowDto {
   profitMargin?: number;
 }
 
+export interface CostCenterTreeNodeDto extends EntityDto<string> {
+  companyId?: string;
+  name?: string;
+  costCenterNumber?: string | null;
+  isGroup?: boolean;
+  parentId?: string | null;
+  isActive?: boolean;
+  children?: CostCenterTreeNodeDto[];
+}
+
 export interface CreateAccountCategoryDto {
   name?: string;
   rootType?: string;
@@ -572,6 +831,23 @@ export interface CreateBatchPaymentDto {
   postingDate?: string | null;
   groupByParty?: boolean;
   items: BatchPaymentItemDto[];
+}
+
+export interface CreateBisectAccountingStatementsDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  algorithm?: BisectAlgorithm;
+}
+
+export interface CreateCashierClosingDto {
+  date: string;
+  fromTime: string;
+  toTime: string;
+  expense?: number;
+  custody?: number;
+  returns?: number;
+  payments?: CreateUpdateCashierClosingPaymentDto[];
 }
 
 export interface CreateCostCenterAllocationDto {
@@ -643,6 +919,7 @@ export interface CreateFiscalYearDto {
   name?: string;
   startDate?: string;
   endDate?: string;
+  isShortYear?: boolean;
 }
 
 export interface CreateInternalTransferDto {
@@ -736,6 +1013,10 @@ export interface CreatePaymentEntryDto {
   receivedAmount?: number | null;
   paidFromAccountId: string;
   paidToAccountId: string;
+  paidFromAccountCurrency?: string | null;
+  paidFromAccountType?: string | null;
+  paidToAccountCurrency?: string | null;
+  paidToAccountType?: string | null;
   modeOfPayment?: string | null;
   partyType?: string | null;
   partyId?: string | null;
@@ -743,6 +1024,7 @@ export interface CreatePaymentEntryDto {
   projectId?: string | null;
   referenceNumber?: string | null;
   notes?: string | null;
+  remarks?: string | null;
   againstInvoiceId?: string | null;
   againstInvoiceType?: string | null;
   references?: PaymentReferenceDto[] | null;
@@ -751,20 +1033,6 @@ export interface CreatePaymentEntryDto {
   exchangeRate?: number;
   paymentCurrency?: string | null;
   taxes?: PaymentEntryTaxDto[] | null;
-}
-
-export interface PaymentEntryTaxDto {
-  id?: string;
-  accountId: string;
-  accountName?: string | null;
-  chargeType: PaymentTaxChargeType;
-  rate?: number;
-  taxAmount?: number;
-  baseTaxAmount?: number;
-  includedInPaidAmount?: boolean;
-  addDeductTax?: TaxAddDeduct;
-  description?: string | null;
-  costCenterId?: string | null;
 }
 
 export interface CreatePaymentOrderDto {
@@ -796,6 +1064,8 @@ export interface CreatePaymentRequestDto {
   partyName?: string | null;
   grandTotal?: number;
   currency?: string;
+  isASubscription?: boolean;
+  subscriptionId?: string | null;
   emailTo?: string | null;
   subject?: string | null;
   message?: string | null;
@@ -815,6 +1085,15 @@ export interface CreatePeriodClosingVoucherDto {
   transactionDate?: string;
   closingAccountId?: string;
   remarks?: string | null;
+}
+
+export interface CreateProcessDeferredAccountingDto {
+  companyId: string;
+  type: DeferredAccountingType;
+  accountId?: string | null;
+  postingDate: string;
+  startDate: string;
+  endDate: string;
 }
 
 export interface CreateProcessPaymentReconciliationDto {
@@ -856,6 +1135,12 @@ export interface CreateUpdateAccountDto {
   isActive?: boolean;
 }
 
+export interface CreateUpdateBankAccountBalanceDto {
+  bankAccountId: string;
+  date: string;
+  balance: number;
+}
+
 export interface CreateUpdateBankAccountDto {
   companyId?: string;
   accountName?: string;
@@ -870,6 +1155,25 @@ export interface CreateUpdateBankAccountDto {
   partyId?: string | null;
   currencyCode?: string;
   isCreditCard?: boolean;
+}
+
+export interface CreateUpdateBankAccountSubtypeDto {
+  accountSubtypeName: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface CreateUpdateBankAccountTypeDto {
+  accountTypeName: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface CreateUpdateBankDto {
+  bankName: string;
+  swiftNumber?: string | null;
+  website?: string | null;
+  isActive?: boolean;
 }
 
 export interface CreateUpdateBankGuaranteeDto {
@@ -900,6 +1204,48 @@ export interface CreateUpdateBankGuaranteeDto {
   charges?: number;
   fixedDepositNumber?: string | null;
   clausesAndConditions?: string | null;
+}
+
+export interface CreateUpdateCashierClosingPaymentDto {
+  modeOfPayment: string;
+  amount?: number;
+}
+
+export interface CreateUpdateChequePrintTemplateDto {
+  bankName: string;
+  chequeSize?: ChequeSize;
+  startingPositionFromTopEdge?: number;
+  chequeWidth?: number;
+  chequeHeight?: number;
+  scannedCheque?: string | null;
+  isAccountPayable?: boolean;
+  accPayDistFromTopEdge?: number;
+  accPayDistFromLeftEdge?: number;
+  messageToShow?: string | null;
+  dateDistFromTopEdge?: number;
+  dateDistFromLeftEdge?: number;
+  payerNameFromTopEdge?: number;
+  payerNameFromLeftEdge?: number;
+  amtInWordsFromTopEdge?: number;
+  amtInWordsFromLeftEdge?: number;
+  amtInWordWidth?: number;
+  amtInWordsLineSpacing?: number;
+  amtInFiguresFromTopEdge?: number;
+  amtInFiguresFromLeftEdge?: number;
+  accNoDistFromTopEdge?: number;
+  accNoDistFromLeftEdge?: number;
+  signatoryFromTopEdge?: number;
+  signatoryFromLeftEdge?: number;
+  hasPrintFormat?: boolean;
+}
+
+export interface CreateUpdateCurrencyExchangeSettingsDetailDto {
+  key: string;
+  value: string;
+}
+
+export interface CreateUpdateCurrencyExchangeSettingsResultDto {
+  key: string;
 }
 
 export interface CreateUpdateJournalEntryTemplateDto {
@@ -960,6 +1306,51 @@ export interface CurrencyExchangeDto extends EntityDto<string> {
   toCurrency?: string;
   exchangeRate?: number;
   date?: string;
+}
+
+export interface CurrencyExchangeSettingsDetailDto extends CreationAuditedEntityDto<string> {
+  settingsId?: string;
+  key?: string;
+  value?: string;
+}
+
+export interface CurrencyExchangeSettingsDto extends FullAuditedEntityDto<string> {
+  serviceProvider?: string;
+  apiEndpoint?: string;
+  accessKey?: string | null;
+  url?: string | null;
+  useHttp?: boolean;
+  disabled?: boolean;
+  reqParams?: CurrencyExchangeSettingsDetailDto[];
+  resultKeys?: CurrencyExchangeSettingsResultDto[];
+}
+
+export interface CurrencyExchangeSettingsResultDto extends CreationAuditedEntityDto<string> {
+  settingsId?: string;
+  key?: string;
+}
+
+export interface DeferredAccountingPreviewDto {
+  companyId?: string;
+  type?: DeferredAccountingType;
+  startDate?: string;
+  endDate?: string;
+  items?: DeferredAccountingPreviewItemDto[];
+  totalAmountToRecognize?: number;
+  totalInvoicesCount?: number;
+}
+
+export interface DeferredAccountingPreviewItemDto {
+  invoiceId?: string;
+  invoiceNumber?: string;
+  itemId?: string;
+  itemDescription?: string;
+  serviceStartDate?: string;
+  serviceEndDate?: string;
+  totalAmount?: number;
+  amountToRecognize?: number;
+  deferredAccountId?: string;
+  postingDate?: string;
 }
 
 export interface DisburseInvoiceDiscountingDto {
@@ -1071,6 +1462,7 @@ export interface FiscalYearDto extends EntityDto<string> {
   startDate?: string;
   endDate?: string;
   isClosed?: boolean;
+  isShortYear?: boolean;
 }
 
 export interface FreezeAccountingPeriodDto {
@@ -1114,10 +1506,34 @@ export interface GeneralLedgerReportDto {
   count?: number;
 }
 
+export interface GenerateBankFileInput {
+  fileFormat?: string | null;
+}
+
+export interface GetAccountListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
+export interface GetBankAccountBalanceListDto extends PagedAndSortedResultRequestDto {
+  bankAccountId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
 export interface GetBankAccountListDto extends PagedAndSortedResultRequestDto {
   companyId?: string | null;
   filter?: string | null;
   isCompanyAccount?: boolean | null;
+}
+
+export interface GetBankAccountSubtypeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isActive?: boolean | null;
+}
+
+export interface GetBankAccountTypeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isActive?: boolean | null;
 }
 
 export interface GetBankClearanceEntriesInput {
@@ -1126,6 +1542,11 @@ export interface GetBankClearanceEntriesInput {
   fromDate: string;
   toDate: string;
   includeCleared?: boolean;
+}
+
+export interface GetBankListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isActive?: boolean | null;
 }
 
 export interface GetBankReconciliationStatementInput {
@@ -1139,6 +1560,10 @@ export interface GetBankTransactionsDto extends PagedAndSortedResultRequestDto {
   isReconciled?: boolean | null;
   dateFrom?: string | null;
   dateTo?: string | null;
+}
+
+export interface GetChequePrintTemplateListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
 }
 
 export interface GetCostCenterListDto extends PagedAndSortedResultRequestDto {
@@ -1324,7 +1749,9 @@ export interface MakePaymentRecordsDto {
 }
 
 export interface MatchCandidate {
-  paymentEntryId?: string;
+  voucherType?: string;
+  paymentEntryId?: string | null;
+  journalEntryId?: string | null;
   paymentNumber?: string | null;
   amount?: number;
   postingDate?: string;
@@ -1532,6 +1959,56 @@ export interface PartyOutstandingDto {
   totalOrderPending?: number;
 }
 
+export interface PartyStatementSummaryDto {
+  partyId?: string;
+  partyName?: string;
+  partyType?: string;
+  openingBalance?: number;
+  invoicedAmount?: number;
+  paidAmount?: number;
+  closingBalance?: number;
+  aging?: AgingBucketDto | null;
+}
+
+export interface PartyTrialBalanceReportDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  partyType?: string;
+  currency?: string;
+  rows?: PartyTrialBalanceRowDto[];
+  totalOpeningDebit?: number;
+  totalOpeningCredit?: number;
+  totalDebit?: number;
+  totalCredit?: number;
+  totalClosingDebit?: number;
+  totalClosingCredit?: number;
+}
+
+export interface PartyTrialBalanceRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  partyType?: string;
+  partyId?: string | null;
+  accountId?: string | null;
+  excludeZeroBalanceParties?: boolean;
+  showZeroValues?: boolean;
+}
+
+export interface PartyTrialBalanceRowDto {
+  partyId?: string;
+  partyName?: string;
+  partyType?: string;
+  openingDebit?: number;
+  openingCredit?: number;
+  debit?: number;
+  credit?: number;
+  closingDebit?: number;
+  closingCredit?: number;
+  currency?: string;
+}
+
 export interface PayableInvoiceInfoDto {
   invoiceId?: string;
   invoiceNumber?: string;
@@ -1559,10 +2036,31 @@ export interface PaymentEntryDto extends EntityDto<string> {
   currencyCode?: string;
   status?: string;
   referenceNumber?: string | null;
+  paidFromAccountId?: string;
+  paidToAccountId?: string;
+  paidFromAccountCurrency?: string | null;
+  paidFromAccountType?: string | null;
+  paidToAccountCurrency?: string | null;
+  paidToAccountType?: string | null;
   partyType?: string | null;
   partyId?: string | null;
   partyName?: string | null;
-  taxes: PaymentEntryTaxDto[];
+  remarks?: string | null;
+  taxes?: PaymentEntryTaxDto[];
+}
+
+export interface PaymentEntryTaxDto {
+  id?: string;
+  accountId: string;
+  accountName?: string | null;
+  chargeType: PaymentTaxChargeType;
+  rate?: number;
+  taxAmount?: number;
+  baseTaxAmount?: number;
+  includedInPaidAmount?: boolean;
+  addDeductTax?: TaxAddDeduct;
+  description?: string | null;
+  costCenterId?: string | null;
 }
 
 export interface PaymentLedgerRepostResultDto {
@@ -1596,6 +2094,16 @@ export interface PaymentOrderReferenceDto {
   paymentReference?: string | null;
 }
 
+export interface PaymentOrderSummaryDto {
+  paymentOrderId?: string;
+  orderNumber?: string | null;
+  status?: number;
+  totalReferences?: number;
+  totalAmount?: number;
+  distinctSuppliersCount?: number;
+  amountByModeOfPayment?: Record<string, number>;
+}
+
 export interface PaymentReferenceDto {
   referenceType: string;
   referenceId: string;
@@ -1615,7 +2123,39 @@ export interface PaymentRequestDto extends EntityDto<string> {
   outstandingAmount?: number;
   currency?: string;
   status?: number;
+  isASubscription?: boolean;
+  subscriptionId?: string | null;
   paymentEntryId?: string | null;
+}
+
+export interface PaymentRequestSubscriptionPlanDto {
+  planId?: string;
+  itemId?: string;
+  itemName?: string | null;
+  qty?: number;
+  rate?: number;
+  amount?: number;
+}
+
+export interface PaymentRequestSummaryDto {
+  id?: string;
+  paymentRequestType?: string;
+  referenceDoctype?: string;
+  referenceId?: string;
+  partyType?: string;
+  partyId?: string;
+  partyName?: string | null;
+  grandTotal?: number;
+  outstandingAmount?: number;
+  currency?: string;
+  status?: number;
+  statusName?: string;
+  paymentUrl?: string | null;
+  paymentGateway?: string | null;
+  paymentEntryId?: string | null;
+  canPay?: boolean;
+  canResendEmail?: boolean;
+  canCancel?: boolean;
 }
 
 export interface PaymentTermDto {
@@ -1655,6 +2195,45 @@ export interface PeriodClosingVoucherDto extends EntityDto<string> {
   entryCount?: number;
 }
 
+export interface PreviewDeferredAccountingInput {
+  companyId: string;
+  type: DeferredAccountingType;
+  accountId?: string | null;
+  startDate: string;
+  endDate: string;
+}
+
+export interface ProcessDeferredAccountingDto extends FullAuditedEntityDto<string> {
+  processNumber?: string;
+  companyId?: string;
+  companyName?: string | null;
+  type?: DeferredAccountingType;
+  accountId?: string | null;
+  accountName?: string | null;
+  postingDate?: string;
+  startDate?: string;
+  endDate?: string;
+  isSubmitted?: boolean;
+  isCancelled?: boolean;
+  entriesProcessed?: number;
+}
+
+export interface ProcessDeferredAccountingGetListInput extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  companyId?: string | null;
+  type?: DeferredAccountingType | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface ProcessDeferredAccountingSummaryDto {
+  id?: string;
+  processNumber?: string;
+  isSubmitted?: boolean;
+  isCancelled?: boolean;
+  entriesProcessed?: number;
+}
+
 export interface ProcessPaymentReconciliationDto extends EntityDto<string> {
   companyId?: string;
   partyType?: string;
@@ -1666,6 +2245,17 @@ export interface ProcessPaymentReconciliationDto extends EntityDto<string> {
   reconciledCount?: number;
   errorLog?: string | null;
   creationTime?: string;
+}
+
+export interface ProcessPaymentReconciliationProgressDto {
+  id?: string;
+  status?: number;
+  statusName?: string;
+  reconciledCount?: number;
+  canPause?: boolean;
+  canResume?: boolean;
+  canCancel?: boolean;
+  errorLog?: string | null;
 }
 
 export interface ProfitLossByCostCenterDto {
@@ -1799,6 +2389,12 @@ export interface RepostableVoucherDto {
   postingDate?: string;
 }
 
+export interface ResendPaymentEmailResultDto {
+  success?: boolean;
+  message?: string;
+  sentTo?: string | null;
+}
+
 export interface RunLedgerHealthCheckDto {
   companyId?: string;
 }
@@ -1887,6 +2483,12 @@ export interface SubmitInvoiceDiscountingDto {
   loanPeriodDays?: number;
 }
 
+export interface SubscriptionSettingsDto extends FullAuditedEntityDto<string> {
+  gracePeriod?: number;
+  cancelAfterGrace?: boolean;
+  prorate?: boolean;
+}
+
 export interface SupplierStatementDto {
   supplierId?: string;
   companyId?: string;
@@ -1897,6 +2499,20 @@ export interface SupplierStatementDto {
   totalInvoiced?: number;
   totalPaid?: number;
   entries?: StatementEntryDto[];
+}
+
+export interface TestCurrencyExchangeApiRequestDto {
+  fromCurrency?: string | null;
+  toCurrency?: string | null;
+  transactionDate?: string | null;
+}
+
+export interface TestCurrencyExchangeApiResponseDto {
+  success?: boolean;
+  exchangeRate?: number;
+  resolvedUrl?: string | null;
+  rawResponse?: string | null;
+  errorMessage?: string | null;
 }
 
 export interface TrialBalanceReportDto {
@@ -1995,10 +2611,92 @@ export interface UpdateAccountingDimensionDto {
   companyId?: string | null;
 }
 
+export interface UpdateAccountsSettingsDto {
+  unlinkPaymentOnCancellationOfInvoice?: boolean;
+  unlinkAdvancePaymentOnCancellationOfOrder?: boolean;
+  deleteLinkedLedgerEntries?: boolean;
+  enableImmutableLedger?: boolean;
+  checkSupplierInvoiceUniqueness?: boolean;
+  automaticallyFetchPaymentTerms?: boolean;
+  enableSubscription?: boolean;
+  enableCommonPartyAccounting?: boolean;
+  allowMultiCurrencyInvoicesAgainstSinglePartyAccount?: boolean;
+  confirmBeforeResettingPostingDate?: boolean;
+  bookStockExpenseGlEntries?: boolean;
+  enableDiscountsAndMargin?: boolean;
+  enableAccountingDimensions?: boolean;
+  maintainSameInternalTransactionRate?: boolean;
+  maintainSameRateAction?: string;
+  roleToOverrideStopAction?: string | null;
+  mergeSimilarAccountHeads?: boolean;
+  bookDeferredEntriesBasedOn?: string;
+  automaticallyProcessDeferredAccountingEntry?: boolean;
+  bookDeferredEntriesViaJournalEntry?: boolean;
+  submitJournalEntries?: boolean;
+  determineAddressTaxCategoryFrom?: string;
+  addTaxesFromItemTaxTemplate?: boolean;
+  addTaxesFromTaxesAndChargesTemplate?: boolean;
+  bookTaxDiscountLoss?: boolean;
+  roundRowWiseTax?: boolean;
+  allowStaleExchangeRates?: boolean;
+  staleDays?: number;
+  autoReconcilePayments?: boolean;
+  autoReconciliationJobTrigger?: number;
+  reconciliationQueueSize?: number;
+  overBillingAllowance?: number;
+  creditControllerRole?: string | null;
+  enableOverdueBillingThreshold?: boolean;
+  roleAllowedToBypassOverdueBilling?: string | null;
+  bookAssetDepreciationEntryAutomatically?: boolean;
+  calculateDeprUsingTotalDays?: boolean;
+  defaultAgeingRange?: string;
+  showBalanceInCoa?: boolean;
+  enablePartyMatching?: boolean;
+  enableFuzzyMatching?: boolean;
+  transferMatchDays?: number;
+  createPrInDraftStatus?: boolean;
+}
+
+export interface UpdateCashierClosingDto {
+  date: string;
+  fromTime: string;
+  toTime: string;
+  expense?: number;
+  custody?: number;
+  returns?: number;
+  payments?: CreateUpdateCashierClosingPaymentDto[];
+}
+
+export interface UpdateCurrencyExchangeSettingsDto {
+  serviceProvider: string;
+  apiEndpoint: string;
+  accessKey?: string | null;
+  url?: string | null;
+  useHttp?: boolean;
+  disabled?: boolean;
+  reqParams?: CreateUpdateCurrencyExchangeSettingsDetailDto[];
+  resultKeys?: CreateUpdateCurrencyExchangeSettingsResultDto[];
+}
+
 export interface UpdateLedgerHealthMonitorSettingsDto {
   companyId?: string;
   isEnabled?: boolean;
   lookbackPeriodDays?: number;
+}
+
+export interface UpdateProcessDeferredAccountingDto {
+  companyId: string;
+  type: DeferredAccountingType;
+  accountId?: string | null;
+  postingDate: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface UpdateSubscriptionSettingsDto {
+  gracePeriod?: number;
+  cancelAfterGrace?: boolean;
+  prorate?: boolean;
 }
 
 export interface ValidatePayableInvoicesDto {
@@ -2034,433 +2732,3 @@ export interface VoucherLedgerEntryDto {
   description?: string | null;
   financeBook?: string | null;
 }
-
-export interface BankAccountTypeDto extends FullAuditedEntityDto<string> {
-  accountTypeName: string;
-  description?: string | null;
-  isActive: boolean;
-}
-
-export interface CreateUpdateBankAccountTypeDto {
-  accountTypeName: string;
-  description?: string | null;
-  isActive?: boolean;
-}
-
-export interface GetBankAccountTypeListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-  isActive?: boolean | null;
-}
-
-export interface BankAccountSubtypeDto extends FullAuditedEntityDto<string> {
-  accountSubtypeName: string;
-  description?: string | null;
-  isActive: boolean;
-}
-
-export interface CreateUpdateBankAccountSubtypeDto {
-  accountSubtypeName: string;
-  description?: string | null;
-  isActive?: boolean;
-}
-
-export interface GetBankAccountSubtypeListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-  isActive?: boolean | null;
-}
-
-export interface BankDto extends FullAuditedEntityDto<string> {
-  bankName: string;
-  swiftNumber?: string | null;
-  website?: string | null;
-  isActive: boolean;
-}
-
-export interface CreateUpdateBankDto {
-  bankName: string;
-  swiftNumber?: string | null;
-  website?: string | null;
-  isActive?: boolean;
-}
-
-export interface GetBankListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-  isActive?: boolean | null;
-}
-
-export interface ChequePrintTemplateDto extends FullAuditedEntityDto<string> {
-  bankName: string;
-  chequeSize: ChequeSize;
-  startingPositionFromTopEdge: number;
-  chequeWidth: number;
-  chequeHeight: number;
-  scannedCheque?: string | null;
-  isAccountPayable: boolean;
-  accPayDistFromTopEdge: number;
-  accPayDistFromLeftEdge: number;
-  messageToShow?: string | null;
-  dateDistFromTopEdge: number;
-  dateDistFromLeftEdge: number;
-  payerNameFromTopEdge: number;
-  payerNameFromLeftEdge: number;
-  amtInWordsFromTopEdge: number;
-  amtInWordsFromLeftEdge: number;
-  amtInWordWidth: number;
-  amtInWordsLineSpacing: number;
-  amtInFiguresFromTopEdge: number;
-  amtInFiguresFromLeftEdge: number;
-  accNoDistFromTopEdge: number;
-  accNoDistFromLeftEdge: number;
-  signatoryFromTopEdge: number;
-  signatoryFromLeftEdge: number;
-  hasPrintFormat: boolean;
-}
-
-export interface CreateUpdateChequePrintTemplateDto {
-  bankName: string;
-  chequeSize?: ChequeSize;
-  startingPositionFromTopEdge?: number;
-  chequeWidth?: number;
-  chequeHeight?: number;
-  scannedCheque?: string | null;
-  isAccountPayable?: boolean;
-  accPayDistFromTopEdge?: number;
-  accPayDistFromLeftEdge?: number;
-  messageToShow?: string | null;
-  dateDistFromTopEdge?: number;
-  dateDistFromLeftEdge?: number;
-  payerNameFromTopEdge?: number;
-  payerNameFromLeftEdge?: number;
-  amtInWordsFromTopEdge?: number;
-  amtInWordsFromLeftEdge?: number;
-  amtInWordWidth?: number;
-  amtInWordsLineSpacing?: number;
-  amtInFiguresFromTopEdge?: number;
-  amtInFiguresFromLeftEdge?: number;
-  accNoDistFromTopEdge?: number;
-  accNoDistFromLeftEdge?: number;
-  signatoryFromTopEdge?: number;
-  signatoryFromLeftEdge?: number;
-  hasPrintFormat?: boolean;
-}
-
-export interface GetChequePrintTemplateListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-}
-
-export interface ChequePrintPreviewDto {
-  htmlContent: string;
-}
-
-export interface SubscriptionSettingsDto extends FullAuditedEntityDto<string> {
-  gracePeriod: number;
-  cancelAfterGrace: boolean;
-  prorate: boolean;
-}
-
-export interface UpdateSubscriptionSettingsDto {
-  gracePeriod?: number;
-  cancelAfterGrace?: boolean;
-  prorate?: boolean;
-}
-
-export interface AccountsSettingsDto extends FullAuditedEntityDto<string> {
-  unlinkPaymentOnCancellationOfInvoice: boolean;
-  unlinkAdvancePaymentOnCancellationOfOrder: boolean;
-  deleteLinkedLedgerEntries: boolean;
-  enableImmutableLedger: boolean;
-  checkSupplierInvoiceUniqueness: boolean;
-  automaticallyFetchPaymentTerms: boolean;
-  enableSubscription: boolean;
-  enableCommonPartyAccounting: boolean;
-  allowMultiCurrencyInvoicesAgainstSinglePartyAccount: boolean;
-  confirmBeforeResettingPostingDate: boolean;
-  bookStockExpenseGlEntries: boolean;
-  enableDiscountsAndMargin: boolean;
-  enableAccountingDimensions: boolean;
-  mergeSimilarAccountHeads: boolean;
-  bookDeferredEntriesBasedOn: string;
-  automaticallyProcessDeferredAccountingEntry: boolean;
-  bookDeferredEntriesViaJournalEntry: boolean;
-  submitJournalEntries: boolean;
-  determineAddressTaxCategoryFrom: string;
-  addTaxesFromItemTaxTemplate: boolean;
-  addTaxesFromTaxesAndChargesTemplate: boolean;
-  bookTaxDiscountLoss: boolean;
-  roundRowWiseTax: boolean;
-  allowStaleExchangeRates: boolean;
-  staleDays: number;
-  autoReconcilePayments: boolean;
-  autoReconciliationJobTrigger: number;
-  reconciliationQueueSize: number;
-  overBillingAllowance: number;
-  creditControllerRole?: string | null;
-  enableOverdueBillingThreshold: boolean;
-  roleAllowedToBypassOverdueBilling?: string | null;
-  bookAssetDepreciationEntryAutomatically: boolean;
-  calculateDeprUsingTotalDays: boolean;
-  defaultAgeingRange: string;
-  showBalanceInCoa: boolean;
-  enablePartyMatching: boolean;
-  enableFuzzyMatching: boolean;
-  transferMatchDays: number;
-  createPrInDraftStatus: boolean;
-}
-
-export interface UpdateAccountsSettingsDto {
-  unlinkPaymentOnCancellationOfInvoice?: boolean;
-  unlinkAdvancePaymentOnCancellationOfOrder?: boolean;
-  deleteLinkedLedgerEntries?: boolean;
-  enableImmutableLedger?: boolean;
-  checkSupplierInvoiceUniqueness?: boolean;
-  automaticallyFetchPaymentTerms?: boolean;
-  enableSubscription?: boolean;
-  enableCommonPartyAccounting?: boolean;
-  allowMultiCurrencyInvoicesAgainstSinglePartyAccount?: boolean;
-  confirmBeforeResettingPostingDate?: boolean;
-  bookStockExpenseGlEntries?: boolean;
-  enableDiscountsAndMargin?: boolean;
-  enableAccountingDimensions?: boolean;
-  mergeSimilarAccountHeads?: boolean;
-  bookDeferredEntriesBasedOn?: string;
-  automaticallyProcessDeferredAccountingEntry?: boolean;
-  bookDeferredEntriesViaJournalEntry?: boolean;
-  submitJournalEntries?: boolean;
-  determineAddressTaxCategoryFrom?: string;
-  addTaxesFromItemTaxTemplate?: boolean;
-  addTaxesFromTaxesAndChargesTemplate?: boolean;
-  bookTaxDiscountLoss?: boolean;
-  roundRowWiseTax?: boolean;
-  allowStaleExchangeRates?: boolean;
-  staleDays?: number;
-  autoReconcilePayments?: boolean;
-  autoReconciliationJobTrigger?: number;
-  reconciliationQueueSize?: number;
-  overBillingAllowance?: number;
-  creditControllerRole?: string | null;
-  enableOverdueBillingThreshold?: boolean;
-  roleAllowedToBypassOverdueBilling?: string | null;
-  bookAssetDepreciationEntryAutomatically?: boolean;
-  calculateDeprUsingTotalDays?: boolean;
-  defaultAgeingRange?: string;
-  showBalanceInCoa?: boolean;
-  enablePartyMatching?: boolean;
-  enableFuzzyMatching?: boolean;
-  transferMatchDays?: number;
-  createPrInDraftStatus?: boolean;
-}
-
-export interface CurrencyExchangeSettingsDetailDto extends AuditedEntityDto<string> {
-  settingsId: string;
-  key: string;
-  value: string;
-}
-
-export interface CreateUpdateCurrencyExchangeSettingsDetailDto {
-  key: string;
-  value: string;
-}
-
-export interface CurrencyExchangeSettingsResultDto extends AuditedEntityDto<string> {
-  settingsId: string;
-  key: string;
-}
-
-export interface CreateUpdateCurrencyExchangeSettingsResultDto {
-  key: string;
-}
-
-export interface CurrencyExchangeSettingsDto extends FullAuditedEntityDto<string> {
-  serviceProvider: string;
-  apiEndpoint: string;
-  accessKey?: string | null;
-  url?: string | null;
-  useHttp: boolean;
-  disabled: boolean;
-  reqParams: CurrencyExchangeSettingsDetailDto[];
-  resultKeys: CurrencyExchangeSettingsResultDto[];
-}
-
-export interface UpdateCurrencyExchangeSettingsDto {
-  serviceProvider: string;
-  apiEndpoint: string;
-  accessKey?: string | null;
-  url?: string | null;
-  useHttp?: boolean;
-  disabled?: boolean;
-  reqParams?: CreateUpdateCurrencyExchangeSettingsDetailDto[];
-  resultKeys?: CreateUpdateCurrencyExchangeSettingsResultDto[];
-}
-
-export interface TestCurrencyExchangeApiRequestDto {
-  fromCurrency?: string | null;
-  toCurrency?: string | null;
-  transactionDate?: string | null;
-}
-
-export interface TestCurrencyExchangeApiResponseDto {
-  success: boolean;
-  exchangeRate: number;
-  resolvedUrl?: string | null;
-  rawResponse?: string | null;
-  errorMessage?: string | null;
-}
-
-export interface CashierClosingPaymentDto extends AuditedEntityDto<string> {
-  cashierClosingId: string;
-  modeOfPayment: string;
-  amount: number;
-}
-
-export interface CreateUpdateCashierClosingPaymentDto {
-  modeOfPayment: string;
-  amount: number;
-}
-
-export interface CashierClosingDto extends FullAuditedEntityDto<string> {
-  closingNumber: string;
-  userId: string;
-  userName: string;
-  date: string;
-  fromTime: string;
-  toTime: string;
-  expense: number;
-  custody: number;
-  returns: number;
-  outstandingAmount: number;
-  netAmount: number;
-  isSubmitted: boolean;
-  payments: CashierClosingPaymentDto[];
-}
-
-export interface CreateCashierClosingDto {
-  date: string;
-  fromTime: string;
-  toTime: string;
-  expense: number;
-  custody: number;
-  returns: number;
-  payments: CreateUpdateCashierClosingPaymentDto[];
-}
-
-export interface UpdateCashierClosingDto {
-  date: string;
-  fromTime: string;
-  toTime: string;
-  expense: number;
-  custody: number;
-  returns: number;
-  payments: CreateUpdateCashierClosingPaymentDto[];
-}
-
-export interface CashierClosingGetListInput extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-  fromDate?: string | null;
-  toDate?: string | null;
-  userId?: string | null;
-}
-
-export interface CalculateCashierClosingTotalsRequestDto {
-  date: string;
-  fromTime: string;
-  toTime: string;
-  userId?: string | null;
-}
-
-export interface CalculateCashierClosingTotalsResponseDto {
-  outstandingAmount: number;
-  suggestedPayments: CreateUpdateCashierClosingPaymentDto[];
-}
-
-export enum DeferredAccountingType {
-  Income = 1,
-  Expense = 2,
-}
-
-export interface ProcessDeferredAccountingDto extends FullAuditedEntityDto<string> {
-  processNumber: string;
-  companyId: string;
-  companyName?: string | null;
-  type: DeferredAccountingType;
-  accountId?: string | null;
-  accountName?: string | null;
-  postingDate: string;
-  startDate: string;
-  endDate: string;
-  isSubmitted: boolean;
-  isCancelled: boolean;
-  entriesProcessed: number;
-}
-
-export interface CreateProcessDeferredAccountingDto {
-  companyId: string;
-  type: DeferredAccountingType;
-  accountId?: string | null;
-  postingDate: string;
-  startDate: string;
-  endDate: string;
-}
-
-export interface UpdateProcessDeferredAccountingDto {
-  companyId: string;
-  type: DeferredAccountingType;
-  accountId?: string | null;
-  postingDate: string;
-  startDate: string;
-  endDate: string;
-}
-
-export interface ProcessDeferredAccountingGetListInput extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-  companyId?: string | null;
-  type?: DeferredAccountingType | null;
-  fromDate?: string | null;
-  toDate?: string | null;
-}
-
-export enum BisectAlgorithm {
-  BFS = 1,
-  DFS = 2,
-}
-
-export interface BisectNodeDto extends FullAuditedEntityDto<string> {
-  bisectAccountingStatementsId: string;
-  parentNodeId?: string | null;
-  leftChildId?: string | null;
-  rightChildId?: string | null;
-  periodFromDate: string;
-  periodToDate: string;
-  plSummary: number;
-  bsSummary: number;
-  difference: number;
-  isGenerated: boolean;
-}
-
-export interface BisectAccountingStatementsDto extends FullAuditedEntityDto<string> {
-  companyId: string;
-  companyName?: string | null;
-  fromDate: string;
-  toDate: string;
-  algorithm: BisectAlgorithm;
-  currentNodeId?: string | null;
-  currentFromDate?: string | null;
-  currentToDate?: string | null;
-  plSummary: number;
-  bsSummary: number;
-  difference: number;
-  nodes: BisectNodeDto[];
-}
-
-export interface CreateBisectAccountingStatementsDto {
-  companyId: string;
-  fromDate: string;
-  toDate: string;
-  algorithm: BisectAlgorithm;
-}
-
-export interface BisectAccountingStatementsGetListInput extends PagedAndSortedResultRequestDto {
-  companyId?: string | null;
-  fromDate?: string | null;
-  toDate?: string | null;
-}
-

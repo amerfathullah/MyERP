@@ -1,5 +1,5 @@
-export * from './activity-type.service';
 export * from './activity-cost.service';
+export * from './activity-type.service';
 export * from './models';
 export * from './percent-complete-method.enum';
 export * from './project-priority.enum';

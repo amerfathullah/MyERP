@@ -182,6 +182,7 @@ public class MyERPDbContext :
     public DbSet<PosOpeningPayment> PosOpeningPayments { get; set; }
     public DbSet<PosProfile> PosProfiles { get; set; }
     public DbSet<PosProfilePaymentMethod> PosProfilePaymentMethods { get; set; }
+    public DbSet<PosProfileUser> PosProfileUsers { get; set; }
     public DbSet<InstallationNote> InstallationNotes { get; set; }
     public DbSet<InstallationNoteItem> InstallationNoteItems { get; set; }
     public DbSet<CouponCode> CouponCodes { get; set; }
@@ -4312,6 +4313,8 @@ public class MyERPDbContext :
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasMany(x => x.PaymentMethods).WithOne().HasForeignKey(x => x.PosProfileId).IsRequired();
             b.Navigation(x => x.PaymentMethods).AutoInclude();
+            b.HasMany(x => x.Users).WithOne().HasForeignKey(x => x.PosProfileId).IsRequired();
+            b.Navigation(x => x.Users).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.IsDisabled });
         });
 
@@ -4319,6 +4322,14 @@ public class MyERPDbContext :
         {
             b.ToTable("Sal_PosProfilePaymentMethods", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
+        });
+
+        builder.Entity<PosProfileUser>(b =>
+        {
+            b.ToTable("Sal_PosProfileUsers", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasIndex(x => new { x.TenantId, x.PosProfileId, x.UserId }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.UserId, x.IsDefault });
         });
 
         // Installation Note

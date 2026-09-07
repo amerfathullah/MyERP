@@ -7,6 +7,7 @@ export enum JobCardStatus {
   Completed = 3,
   OnHold = 4,
   Cancelled = 5,
+  PartiallyTransferred = 6,
 }
 
 export const jobCardStatusOptions = mapEnumToOptions(JobCardStatus);

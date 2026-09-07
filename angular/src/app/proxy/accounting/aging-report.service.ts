@@ -14,7 +14,7 @@ export class AgingReportService {
     this.restService.request<any, AgingReportDto>({
       method: 'GET',
       url: '/api/app/aging-report/payables-aging',
-      params: { companyId: input.companyId, asOfDate: input.asOfDate },
+      params: { companyId: input.companyId, asOfDate: input.asOfDate, calculateAgeingWith: input.calculateAgeingWith, ageingBasedOn: input.ageingBasedOn, partyId: input.partyId, fromDate: input.fromDate, toDate: input.toDate },
     },
     { apiName: this.apiName,...config });
   
@@ -23,7 +23,7 @@ export class AgingReportService {
     this.restService.request<any, AgingReportDto>({
       method: 'GET',
       url: '/api/app/aging-report/receivables-aging',
-      params: { companyId: input.companyId, asOfDate: input.asOfDate },
+      params: { companyId: input.companyId, asOfDate: input.asOfDate, calculateAgeingWith: input.calculateAgeingWith, ageingBasedOn: input.ageingBasedOn, partyId: input.partyId, fromDate: input.fromDate, toDate: input.toDate },
     },
     { apiName: this.apiName,...config });
   

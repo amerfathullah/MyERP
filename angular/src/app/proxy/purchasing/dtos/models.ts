@@ -7,6 +7,7 @@ export interface CreateMaterialRequestDto {
   requestType: MaterialRequestType;
   requestDate: string;
   requiredByDate?: string | null;
+  projectId?: string | null;
   workOrderId?: string | null;
   sourceWarehouseId?: string | null;
   targetWarehouseId?: string | null;
@@ -19,7 +20,11 @@ export interface CreateMaterialRequestItemDto {
   itemName: string;
   quantity: number;
   uom?: string;
+  conversionFactor?: number;
   warehouseId?: string | null;
+  salesOrderId?: string | null;
+  salesOrderItemId?: string | null;
+  projectId?: string | null;
 }
 
 export interface GetMaterialRequestListDto extends PagedAndSortedResultRequestDto {
@@ -37,6 +42,7 @@ export interface MaterialRequestDto {
   requestDate?: string;
   requiredByDate?: string | null;
   companyId?: string;
+  projectId?: string | null;
   workOrderId?: string | null;
   sourceWarehouseId?: string | null;
   targetWarehouseId?: string | null;
@@ -55,7 +61,12 @@ export interface MaterialRequestItemDto {
   orderedQuantity?: number;
   receivedQuantity?: number;
   uom?: string | null;
+  conversionFactor?: number;
+  stockQty?: number;
   warehouseId?: string | null;
+  salesOrderId?: string | null;
+  salesOrderItemId?: string | null;
+  projectId?: string | null;
 }
 
 export interface MrFulfillmentStatusDto {

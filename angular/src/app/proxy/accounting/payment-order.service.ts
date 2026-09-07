@@ -1,4 +1,4 @@
-import type { CreatePaymentOrderDto, MakePaymentRecordsDto, PaymentOrderDto } from './models';
+import type { BankPaymentFileResultDto, CandidatePaymentEntryDto, CandidatePaymentRequestDto, CreatePaymentOrderDto, GenerateBankFileInput, MakePaymentRecordsDto, PaymentOrderDto, PaymentOrderSummaryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -37,10 +37,35 @@ export class PaymentOrderService {
     { apiName: this.apiName,...config });
   
 
+  generateBankFile = (id: string, input?: GenerateBankFileInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BankPaymentFileResultDto>({
+      method: 'POST',
+      url: `/api/app/payment-order/${id}/generate-bank-file`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentOrderDto>({
       method: 'GET',
       url: `/api/app/payment-order/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getCandidatePaymentEntries = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CandidatePaymentEntryDto[]>({
+      method: 'GET',
+      url: `/api/app/payment-order/candidate-payment-entries/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getCandidatePaymentRequests = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CandidatePaymentRequestDto[]>({
+      method: 'GET',
+      url: `/api/app/payment-order/candidate-payment-requests/${companyId}`,
     },
     { apiName: this.apiName,...config });
   
@@ -50,6 +75,14 @@ export class PaymentOrderService {
       method: 'GET',
       url: '/api/app/payment-order',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getSummary = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PaymentOrderSummaryDto>({
+      method: 'GET',
+      url: `/api/app/payment-order/${id}/summary`,
     },
     { apiName: this.apiName,...config });
   

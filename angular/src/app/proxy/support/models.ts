@@ -104,6 +104,12 @@ export interface IssueTypeDto extends AuditedEntityDto<string> {
   description?: string | null;
 }
 
+export interface ResetIssueSlaDto {
+  resetReason: string;
+  newPriority?: string | null;
+  newServiceLevelAgreementId?: string | null;
+}
+
 export interface ResolveIssueDto {
   resolution?: string | null;
 }
@@ -143,12 +149,6 @@ export interface ServiceLevelPriorityDto {
   responseTimeHours?: number;
   resolutionTimeHours?: number;
   isDefault?: boolean;
-}
-
-export interface ResetIssueSlaDto {
-  resetReason: string;
-  newPriority?: string | null;
-  newServiceLevelAgreementId?: string | null;
 }
 
 export interface SplitIssueDto {

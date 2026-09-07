@@ -44,4 +44,13 @@ export class StockBalanceService {
       params: { itemId: input.itemId, warehouseId: input.warehouseId, excludeZeroStock: input.excludeZeroStock, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
+  
+
+  recalculateBinQty = (itemId: string, warehouseId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'POST',
+      url: '/api/app/stock-balance/recalculate-bin-qty',
+      params: { itemId, warehouseId },
+    },
+    { apiName: this.apiName,...config });
 }

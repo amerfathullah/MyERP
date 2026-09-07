@@ -8,13 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class VideoSettingsService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
   get = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, VideoSettingsDto>({
       method: 'GET',
       url: '/api/app/video-settings',
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
+  
 
   update = (input: UpdateVideoSettingsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, VideoSettingsDto>({
@@ -22,5 +24,5 @@ export class VideoSettingsService {
       url: '/api/app/video-settings',
       body: input,
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
 }

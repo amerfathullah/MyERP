@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Services;
 
@@ -12,4 +13,5 @@ public interface IPosProfileAppService : ICrudAppService<
 {
     Task<PosProfileDto> EnableAsync(Guid id);
     Task<PosProfileDto> DisableAsync(Guid id);
+    Task<List<PosProfileDto>> GetForCurrentUserAsync(Guid companyId);
 }

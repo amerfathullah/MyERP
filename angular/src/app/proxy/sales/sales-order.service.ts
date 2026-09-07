@@ -38,6 +38,14 @@ export class SalesOrderService {
     { apiName: this.apiName,...config });
   
 
+  closeItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesOrderDto>({
+      method: 'POST',
+      url: `/api/app/sales-order/${id}/close-item/${itemId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   create = (input: CreateSalesOrderDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesOrderDto>({
       method: 'POST',
@@ -109,6 +117,14 @@ export class SalesOrderService {
     this.restService.request<any, SalesOrderDto>({
       method: 'POST',
       url: `/api/app/sales-order/${id}/reopen`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  reopenItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesOrderDto>({
+      method: 'POST',
+      url: `/api/app/sales-order/${id}/reopen-item/${itemId}`,
     },
     { apiName: this.apiName,...config });
   

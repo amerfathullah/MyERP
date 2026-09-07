@@ -1912,6 +1912,13 @@ public partial class PosProfilePaymentMethodMapper : MapperBase<Sales.Entities.P
     public override partial void Map(Sales.Entities.PosProfilePaymentMethod source, Sales.PosProfilePaymentMethodDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class PosProfileUserMapper : MapperBase<Sales.Entities.PosProfileUser, Sales.PosProfileUserDto>
+{
+    public override partial Sales.PosProfileUserDto Map(Sales.Entities.PosProfileUser source);
+    public override partial void Map(Sales.Entities.PosProfileUser source, Sales.PosProfileUserDto destination);
+}
+
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
 public partial class PosProfileMapper : MapperBase<Sales.Entities.PosProfile, Sales.PosProfileDto>
 {

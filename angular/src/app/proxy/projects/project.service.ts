@@ -103,6 +103,15 @@ export class ProjectService {
     { apiName: this.apiName,...config });
   
 
+  duplicateProject = (sourceProjectId: string, newProjectName: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProjectDto>({
+      method: 'POST',
+      url: `/api/app/project/duplicate-project/${sourceProjectId}`,
+      params: { newProjectName },
+    },
+    { apiName: this.apiName,...config });
+  
+
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProjectDto>({
       method: 'GET',

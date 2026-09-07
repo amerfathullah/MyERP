@@ -1,4 +1,4 @@
-import type { AddCrmNoteDto, ConvertLeadToCustomerDto, ConvertLeadToOpportunityDto, CreateLeadDto, CrmNoteDto, GetLeadListDto, LeadDto, OpportunityDto, UpdateLeadDto } from './models';
+import type { AddCrmNoteDto, ConvertLeadToCustomerDto, ConvertLeadToOpportunityDto, CreateLeadDto, CreateProspectAndContactDto, CreateProspectAndContactResultDto, CrmNoteDto, GetLeadListDto, LeadDto, OpportunityDto, UpdateCrmNoteDto, UpdateLeadDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -48,10 +48,36 @@ export class LeadService {
     { apiName: this.apiName,...config });
   
 
+  createProspectAndContact = (id: string, input: CreateProspectAndContactDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CreateProspectAndContactResultDto>({
+      method: 'POST',
+      url: `/api/app/lead/${id}/prospect-and-contact`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/lead/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  deleteNote = (id: string, noteId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/lead/${id}/note/${noteId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  editNote = (id: string, noteId: string, input: UpdateCrmNoteDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CrmNoteDto>({
+      method: 'POST',
+      url: `/api/app/lead/${id}/edit-note/${noteId}`,
+      body: input,
     },
     { apiName: this.apiName,...config });
   

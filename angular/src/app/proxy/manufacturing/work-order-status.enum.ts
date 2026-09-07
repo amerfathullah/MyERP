@@ -8,6 +8,7 @@ export enum WorkOrderStatus {
   Completed = 4,
   Stopped = 5,
   Cancelled = 6,
+  Closed = 7,
 }
 
 export const workOrderStatusOptions = mapEnumToOptions(WorkOrderStatus);

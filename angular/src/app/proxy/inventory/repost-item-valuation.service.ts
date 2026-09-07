@@ -1,4 +1,4 @@
-import type { CreateRepostItemValuationDto, RepostItemValuationDto } from './models';
+import type { CreateRepostItemValuationDto, RepostItemValuationDto, RepostItemValuationSummaryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -10,6 +10,14 @@ import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 export class RepostItemValuationService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
+
+  cancel = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, RepostItemValuationDto>({
+      method: 'POST',
+      url: `/api/app/repost-item-valuation/${id}/cancel`,
+    },
+    { apiName: this.apiName,...config });
   
 
   create = (input: CreateRepostItemValuationDto, config?: Partial<Rest.Config>) =>
@@ -42,6 +50,22 @@ export class RepostItemValuationService {
     this.restService.request<any, number>({
       method: 'GET',
       url: `/api/app/repost-item-valuation/pending-count/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getSummary = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, RepostItemValuationSummaryDto>({
+      method: 'GET',
+      url: `/api/app/repost-item-valuation/summary/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  restart = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, RepostItemValuationDto>({
+      method: 'POST',
+      url: `/api/app/repost-item-valuation/${id}/restart`,
     },
     { apiName: this.apiName,...config });
 }

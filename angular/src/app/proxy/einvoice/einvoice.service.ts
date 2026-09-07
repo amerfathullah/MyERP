@@ -79,7 +79,7 @@ export class EInvoiceService {
       url: `/api/app/e-invoice/monthly-trend/${companyId}`,
     },
     { apiName: this.apiName,...config });
-
+  
 
   getPurchaseStatusReport = (input: LhdnStatusReportRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LhdnStatusReportItemDto[]>({
@@ -88,7 +88,7 @@ export class EInvoiceService {
       params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, status: input.status },
     },
     { apiName: this.apiName,...config });
-
+  
 
   getSalesStatusReport = (input: LhdnStatusReportRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LhdnStatusReportItemDto[]>({

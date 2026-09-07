@@ -130,7 +130,7 @@ export class QualityManagementService {
       body: input,
     },
     { apiName: this.apiName,...config });
-
+  
 
   evaluateReview = (id: string, input: EvaluateQualityReviewDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, QualityReviewDto>({

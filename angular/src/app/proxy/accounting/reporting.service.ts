@@ -1,4 +1,4 @@
-import type { BalanceSheetReportDto, BalanceSheetRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, ProfitLossReportDto, ProfitLossRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto } from './models';
+import type { BalanceSheetReportDto, BalanceSheetRequestDto, MonthlyProfitLossReportDto, MonthlyProfitLossRequestDto, PartyTrialBalanceReportDto, PartyTrialBalanceRequestDto, ProfitLossReportDto, ProfitLossRequestDto, TrialBalanceReportDto, TrialBalanceRequestDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -42,6 +42,15 @@ export class ReportingService {
       method: 'GET',
       url: '/api/app/reporting/trial-balance',
       params: { companyId: input.companyId, asOfDate: input.asOfDate, fiscalYearId: input.fiscalYearId, includeSubsidiaries: input.includeSubsidiaries },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getTrialBalanceForParty = (input: PartyTrialBalanceRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PartyTrialBalanceReportDto>({
+      method: 'GET',
+      url: '/api/app/reporting/trial-balance-for-party',
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, partyType: input.partyType, partyId: input.partyId, accountId: input.accountId, excludeZeroBalanceParties: input.excludeZeroBalanceParties, showZeroValues: input.showZeroValues },
     },
     { apiName: this.apiName,...config });
 }

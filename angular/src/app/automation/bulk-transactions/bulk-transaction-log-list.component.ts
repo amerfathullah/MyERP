@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, Confirmation, ToasterService } from '@abp/ng.theme.shared';
 import { BulkTransactionLogService } from '../../proxy/automation/bulk-transaction-log.service';
-import { BulkTransactionLogDto } from '../../proxy/automation/dtos/models';
+import { BulkTransactionLogDto } from '../../proxy/automation/models';
 
 @Component({
   selector: 'app-bulk-transaction-log-list',

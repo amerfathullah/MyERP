@@ -26,6 +26,7 @@ public class PosProfileDto : FullAuditedEntityDto<Guid>
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ProjectId { get; set; }
     public List<PosProfilePaymentMethodDto> PaymentMethods { get; set; } = new();
+    public List<PosProfileUserDto> Users { get; set; } = new();
 }
 
 public class PosProfilePaymentMethodDto : EntityDto<Guid>
@@ -33,6 +34,13 @@ public class PosProfilePaymentMethodDto : EntityDto<Guid>
     public Guid PosProfileId { get; set; }
     public Guid ModeOfPaymentId { get; set; }
     public Guid AccountId { get; set; }
+    public bool IsDefault { get; set; }
+}
+
+public class PosProfileUserDto : EntityDto<Guid>
+{
+    public Guid PosProfileId { get; set; }
+    public Guid UserId { get; set; }
     public bool IsDefault { get; set; }
 }
 
@@ -70,6 +78,7 @@ public class CreateUpdatePosProfileDto
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ProjectId { get; set; }
     public List<CreateUpdatePosProfilePaymentMethodDto> PaymentMethods { get; set; } = new();
+    public List<CreateUpdatePosProfileUserDto> Users { get; set; } = new();
 }
 
 public class CreateUpdatePosProfilePaymentMethodDto
@@ -79,6 +88,14 @@ public class CreateUpdatePosProfilePaymentMethodDto
 
     [Required]
     public Guid AccountId { get; set; }
+
+    public bool IsDefault { get; set; }
+}
+
+public class CreateUpdatePosProfileUserDto
+{
+    [Required]
+    public Guid UserId { get; set; }
 
     public bool IsDefault { get; set; }
 }

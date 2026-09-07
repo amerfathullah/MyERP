@@ -60,7 +60,12 @@ public class PosOpeningAppService : ApplicationService, IPosOpeningAppService
     public async Task<PosOpeningDto> CreateAsync(CreatePosOpeningDto input)
     {
         var profileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
-        var profile = await profileRepo.GetAsync(input.PosProfileId);
+        var profileQuery = await profileRepo.WithDetailsAsync(x => x.Users);
+        var profile = await AsyncExecuter.FirstOrDefaultAsync(profileQuery.Where(x => x.Id == input.PosProfileId));
+        if (profile == null)
+        {
+            throw new BusinessException("MyERP:EntityNotFound");
+        }
         if (profile.IsDisabled)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
@@ -70,6 +75,14 @@ public class PosOpeningAppService : ApplicationService, IPosOpeningAppService
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"POS Profile '{profile.ProfileName}' does not belong to company.");
+        }
+
+        // Authorize cashier: if profile has users assigned, cashier must be in the list
+        if (profile.Users.Count > 0 && !profile.Users.Any(u => u.UserId == input.UserId))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.PosProfileUserNotAuthorized)
+                .WithData("user", input.UserId.ToString())
+                .WithData("posProfile", profile.ProfileName);
         }
 
         // Enforce: one open per profile + one open per user

@@ -45,10 +45,27 @@ export class JournalEntryService {
     { apiName: this.apiName,...config });
   
 
+  createReverseJournalEntry = (sourceId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, JournalEntryDto>({
+      method: 'POST',
+      url: `/api/app/journal-entry/reverse-journal-entry/${sourceId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JournalEntryDto>({
       method: 'GET',
       url: `/api/app/journal-entry/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getJournalEntryTemplate = (documentType: string, documentId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CreateJournalEntryDto>({
+      method: 'GET',
+      url: `/api/app/journal-entry/journal-entry-template/${documentId}`,
+      params: { documentType },
     },
     { apiName: this.apiName,...config });
   

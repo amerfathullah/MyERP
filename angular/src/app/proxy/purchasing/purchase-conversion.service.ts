@@ -1,4 +1,4 @@
-import type { CreatePurchaseOrdersFromMrDto, PurchaseInvoiceDto, PurchaseOrderDto, PurchaseReceiptDto, SupplierQuotationDto, SupplierSelectionResultDto } from './models';
+import type { CreatePurchaseOrdersFromMrDto, PurchaseInvoiceDto, PurchaseOrderDto, PurchaseReceiptDto, RfqDto, SupplierQuotationDto, SupplierSelectionResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -15,6 +15,22 @@ export class PurchaseConversionService {
       method: 'POST',
       url: '/api/app/purchase-conversion/convert-material-request-to-purchase-order',
       params: { materialRequestId, supplierId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  convertMaterialRequestToRfq = (materialRequestId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, RfqDto>({
+      method: 'POST',
+      url: `/api/app/purchase-conversion/convert-material-request-to-rfq/${materialRequestId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  convertPurchaseInvoiceToReceipt = (purchaseInvoiceId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseReceiptDto>({
+      method: 'POST',
+      url: `/api/app/purchase-conversion/convert-purchase-invoice-to-receipt/${purchaseInvoiceId}`,
     },
     { apiName: this.apiName,...config });
   

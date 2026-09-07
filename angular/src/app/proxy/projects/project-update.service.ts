@@ -9,6 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class ProjectUpdateService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
   create = (input: CreateUpdateProjectUpdateDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProjectUpdateDto>({
@@ -16,21 +17,24 @@ export class ProjectUpdateService {
       url: '/api/app/project-update',
       body: input,
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/project-update/${id}`,
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProjectUpdateDto>({
       method: 'GET',
       url: `/api/app/project-update/${id}`,
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
+  
 
   getList = (input: GetProjectUpdateListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ProjectUpdateDto>>({
@@ -38,7 +42,8 @@ export class ProjectUpdateService {
       url: '/api/app/project-update',
       params: { filter: input.filter, projectId: input.projectId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
+  
 
   update = (id: string, input: CreateUpdateProjectUpdateDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProjectUpdateDto>({
@@ -46,5 +51,5 @@ export class ProjectUpdateService {
       url: `/api/app/project-update/${id}`,
       body: input,
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
 }

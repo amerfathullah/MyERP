@@ -28031,6 +28031,36 @@ namespace MyERP.Migrations
                     b.ToTable("Sal_PosProfilePaymentMethods", (string)null);
                 });
 
+            modelBuilder.Entity("MyERP.Sales.Entities.PosProfileUser", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("PosProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PosProfileId");
+
+                    b.HasIndex("TenantId", "PosProfileId", "UserId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "UserId", "IsDefault");
+
+                    b.ToTable("Sal_PosProfileUsers", (string)null);
+                });
+
             modelBuilder.Entity("MyERP.Sales.Entities.PricingRule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -37219,6 +37249,15 @@ namespace MyERP.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MyERP.Sales.Entities.PosProfileUser", b =>
+                {
+                    b.HasOne("MyERP.Sales.Entities.PosProfile", null)
+                        .WithMany("Users")
+                        .HasForeignKey("PosProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MyERP.Sales.Entities.ProductBundle", b =>
                 {
                     b.HasOne("MyERP.Inventory.Entities.Item", null)
@@ -38383,6 +38422,8 @@ namespace MyERP.Migrations
             modelBuilder.Entity("MyERP.Sales.Entities.PosProfile", b =>
                 {
                     b.Navigation("PaymentMethods");
+
+                    b.Navigation("Users");
                 });
 
             modelBuilder.Entity("MyERP.Sales.Entities.ProductBundle", b =>

@@ -1,4 +1,4 @@
-import type { CreateUpdateDeliveryTripDto, DeliveryTripDto } from './models';
+import type { CalculateArrivalTimesInput, CreateUpdateDeliveryTripDto, DeliveryStopDto, DeliveryTripDto, GetStopsFromDeliveryNotesInput } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -9,6 +9,15 @@ import { Injectable, inject } from '@angular/core';
 export class DeliveryTripService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
+
+  calculateArrivalTimes = (id: string, input: CalculateArrivalTimesInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DeliveryTripDto>({
+      method: 'POST',
+      url: `/api/app/delivery-trip/${id}/calculate-arrival-times`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
   
 
   cancel = (id: string, config?: Partial<Rest.Config>) =>
@@ -57,6 +66,23 @@ export class DeliveryTripService {
       method: 'GET',
       url: '/api/app/delivery-trip',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getStopsFromDeliveryNotes = (input: GetStopsFromDeliveryNotesInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DeliveryStopDto[]>({
+      method: 'GET',
+      url: '/api/app/delivery-trip/stops-from-delivery-notes',
+      params: { companyId: input.companyId, deliveryNoteIds: input.deliveryNoteIds },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  notifyCustomers = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DeliveryTripDto>({
+      method: 'POST',
+      url: `/api/app/delivery-trip/${id}/notify-customers`,
     },
     { apiName: this.apiName,...config });
   

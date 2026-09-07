@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Entities.Auditing;
@@ -80,6 +81,10 @@ public class PosProfile : FullAuditedAggregateRoot<Guid>, IMultiTenant
     private readonly List<PosProfilePaymentMethod> _paymentMethods = new();
     public IReadOnlyList<PosProfilePaymentMethod> PaymentMethods => _paymentMethods.AsReadOnly();
 
+    /// <summary>Authorized users for this POS profile (per ERPNext PR #58508 / commit 9018573179).</summary>
+    private readonly List<PosProfileUser> _users = new();
+    public IReadOnlyList<PosProfileUser> Users => _users.AsReadOnly();
+
     protected PosProfile() { }
 
     public PosProfile(Guid id, Guid companyId, string profileName, Guid warehouseId, Guid? tenantId = null)
@@ -99,6 +104,25 @@ public class PosProfile : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void ClearPaymentMethods()
     {
         _paymentMethods.Clear();
+    }
+
+    public void AddUser(Guid userId, bool isDefault = false)
+    {
+        if (_users.Any(u => u.UserId == userId))
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "User already assigned to this POS Profile.");
+
+        _users.Add(new PosProfileUser(Guid.NewGuid(), Id, userId, isDefault, TenantId));
+    }
+
+    public void RemoveUser(Guid userId)
+    {
+        _users.RemoveAll(u => u.UserId == userId);
+    }
+
+    public void ClearUsers()
+    {
+        _users.Clear();
     }
 
     public void Disable()

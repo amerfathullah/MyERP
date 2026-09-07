@@ -1,4 +1,4 @@
-import type { AssetCategoryDto, AssetDto, CreateAssetDto, CreateUpdateAssetCategoryDto, GetAssetListDto, UpdateAssetDto } from './models';
+import type { AssetCategoryDto, AssetDto, AssetPurchaseDocValuesDto, CreateAssetDto, CreateUpdateAssetCategoryDto, GetAssetListDto, UpdateAssetDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -66,6 +66,15 @@ export class AssetService {
       method: 'GET',
       url: '/api/app/asset',
       params: { status: input.status, filter: input.filter, companyId: input.companyId, assetCategoryId: input.assetCategoryId, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getValuesFromPurchaseDoc = (purchaseDocType: string, purchaseDocId: string, itemId?: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AssetPurchaseDocValuesDto>({
+      method: 'GET',
+      url: '/api/app/asset/values-from-purchase-doc',
+      params: { purchaseDocType, purchaseDocId, itemId },
     },
     { apiName: this.apiName,...config });
   

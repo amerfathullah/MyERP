@@ -1,4 +1,4 @@
-import type { CreateMasterProductionScheduleDto, FetchMaterialRequestsDto, FetchSalesOrdersDto, MasterProductionScheduleDto, UpdateMasterProductionScheduleDto } from './models';
+import type { CreateMasterProductionScheduleDto, CreateProductionPlanFromMpsInput, FetchMaterialRequestsDto, FetchSalesOrdersDto, MasterProductionScheduleDto, MasterProductionScheduleSummaryDto, UpdateMasterProductionScheduleDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -76,6 +76,24 @@ export class MasterProductionScheduleService {
       method: 'GET',
       url: '/api/app/master-production-schedule',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getSummary = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MasterProductionScheduleSummaryDto>({
+      method: 'GET',
+      url: `/api/app/master-production-schedule/${id}/summary`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  makeProductionPlan = (id: string, input?: CreateProductionPlanFromMpsInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, string>({
+      method: 'POST',
+      responseType: 'text',
+      url: `/api/app/master-production-schedule/${id}/make-production-plan`,
+      body: input,
     },
     { apiName: this.apiName,...config });
   

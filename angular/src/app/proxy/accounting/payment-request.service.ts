@@ -1,4 +1,4 @@
-import type { CreatePaymentRequestDto, PaymentRequestDto } from './models';
+import type { CreatePaymentRequestDto, PaymentRequestDto, PaymentRequestSubscriptionPlanDto, PaymentRequestSummaryDto, ResendPaymentEmailResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -46,10 +46,35 @@ export class PaymentRequestService {
     { apiName: this.apiName,...config });
   
 
+  getSubscriptionDetails = (referenceDoctype: string, referenceId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PaymentRequestSubscriptionPlanDto[]>({
+      method: 'GET',
+      url: `/api/app/payment-request/subscription-details/${referenceId}`,
+      params: { referenceDoctype },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getSummary = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PaymentRequestSummaryDto>({
+      method: 'GET',
+      url: `/api/app/payment-request/${id}/summary`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   pay = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentRequestDto>({
       method: 'POST',
       url: `/api/app/payment-request/${id}/pay`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  resendPaymentEmail = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ResendPaymentEmailResultDto>({
+      method: 'POST',
+      url: `/api/app/payment-request/${id}/resend-payment-email`,
     },
     { apiName: this.apiName,...config });
   

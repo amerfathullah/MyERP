@@ -15,18 +15,6 @@ export interface ActivityCostDto extends FullAuditedEntityDto<string> {
   costingRate?: number;
 }
 
-export interface CreateUpdateActivityCostDto {
-  employeeId: string;
-  activityTypeId: string;
-  billingRate?: number;
-  costingRate?: number;
-}
-
-export interface GetActivityCostListDto extends PagedAndSortedResultRequestDto {
-  employeeId?: string | null;
-  activityTypeId?: string | null;
-}
-
 export interface ActivityTypeDto extends EntityDto<string> {
   name?: string;
   defaultBillingRate?: number;
@@ -54,10 +42,14 @@ export interface CreateProjectDto {
   companyId: string;
   customerId?: string | null;
   salesOrderId?: string | null;
+  costCenterId?: string | null;
   expectedStartDate?: string | null;
   expectedEndDate?: string | null;
   estimatedCost?: number;
   notes?: string | null;
+  collectProgress?: boolean;
+  subject?: string | null;
+  message?: string | null;
   projectTemplateId?: string | null;
 }
 
@@ -105,6 +97,13 @@ export interface CreateTimesheetInvoiceDto {
   projectId?: string | null;
 }
 
+export interface CreateUpdateActivityCostDto {
+  employeeId: string;
+  activityTypeId: string;
+  billingRate?: number;
+  costingRate?: number;
+}
+
 export interface CreateUpdateProjectTemplateDto {
   templateName?: string;
   disabled?: boolean;
@@ -116,16 +115,48 @@ export interface CreateUpdateProjectTypeDto {
   isActive?: boolean;
 }
 
+export interface CreateUpdateProjectUpdateDto {
+  projectId: string;
+  date: string;
+  time?: string | null;
+  percentComplete?: number;
+  summary?: string | null;
+  notes?: string | null;
+  sent?: boolean;
+}
+
+export interface CreateUpdateTaskTypeDto {
+  name: string;
+  weight?: number;
+  description?: string | null;
+}
+
+export interface GetActivityCostListDto extends PagedAndSortedResultRequestDto {
+  employeeId?: string | null;
+  activityTypeId?: string | null;
+}
+
 export interface GetProjectListDto extends PagedAndSortedResultRequestDto {
   status?: ProjectStatus | null;
   filter?: string | null;
   companyId?: string | null;
 }
 
+export interface GetProjectUpdateListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  projectId?: string | null;
+}
+
+export interface GetTaskTypeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+}
+
 export interface GetTimesheetListDto extends PagedAndSortedResultRequestDto {
   companyId?: string | null;
   employeeId?: string | null;
   status?: TimesheetStatus | null;
+  fromDate?: string | null;
+  toDate?: string | null;
   filter?: string | null;
 }
 
@@ -149,6 +180,10 @@ export interface ProjectDto extends AuditedEntityDto<string> {
   totalBilledAmount?: number;
   grossMargin?: number;
   notes?: string | null;
+  costCenterId?: string | null;
+  collectProgress?: boolean;
+  subject?: string | null;
+  message?: string | null;
   taskCount?: number;
   users?: ProjectUserDto[];
 }
@@ -195,6 +230,18 @@ export interface ProjectTypeDto extends FullAuditedEntityDto<string> {
   isActive?: boolean;
 }
 
+export interface ProjectUpdateDto extends FullAuditedEntityDto<string> {
+  projectId?: string;
+  projectNumber?: string | null;
+  projectName?: string | null;
+  date?: string;
+  time?: string | null;
+  percentComplete?: number;
+  summary?: string | null;
+  notes?: string | null;
+  sent?: boolean;
+}
+
 export interface ProjectUserDto extends EntityDto<string> {
   projectId?: string;
   userId?: string;
@@ -208,6 +255,12 @@ export interface SetActivityCostDto {
   activityTypeId: string;
   billingRate?: number;
   costingRate?: number;
+}
+
+export interface TaskTypeDto extends FullAuditedEntityDto<string> {
+  name?: string;
+  weight?: number;
+  description?: string | null;
 }
 
 export interface TimesheetBillingResultDto {
@@ -227,6 +280,7 @@ export interface TimesheetDetailDto extends EntityDto<string> {
   projectId?: string | null;
   taskId?: string | null;
   isBillable?: boolean;
+  billingHours?: number;
   billingRate?: number;
   billingAmount?: number;
   costingRate?: number;
@@ -268,10 +322,14 @@ export interface UpdateProjectDto {
   priority?: ProjectPriority;
   percentCompleteMethod?: PercentCompleteMethod;
   customerId?: string | null;
+  costCenterId?: string | null;
   expectedStartDate?: string | null;
   expectedEndDate?: string | null;
   estimatedCost?: number;
   notes?: string | null;
+  collectProgress?: boolean;
+  subject?: string | null;
+  message?: string | null;
 }
 
 export interface UpdateProjectTaskDto {
@@ -292,47 +350,4 @@ export interface UpdateProjectTaskDto {
 export interface UpdateProjectUserDto {
   viewAttachments?: boolean;
   hideTimesheets?: boolean;
-}
-
-export interface TaskTypeDto extends FullAuditedEntityDto<string> {
-  name: string;
-  weight: number;
-  description?: string | null;
-}
-
-export interface CreateUpdateTaskTypeDto {
-  name: string;
-  weight?: number;
-  description?: string | null;
-}
-
-export interface GetTaskTypeListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-}
-
-export interface ProjectUpdateDto extends FullAuditedEntityDto<string> {
-  projectId: string;
-  projectNumber?: string | null;
-  projectName?: string | null;
-  date: string;
-  time?: string | null;
-  percentComplete: number;
-  summary?: string | null;
-  notes?: string | null;
-  sent: boolean;
-}
-
-export interface CreateUpdateProjectUpdateDto {
-  projectId: string;
-  date: string;
-  time?: string | null;
-  percentComplete?: number;
-  summary?: string | null;
-  notes?: string | null;
-  sent?: boolean;
-}
-
-export interface GetProjectUpdateListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-  projectId?: string | null;
 }

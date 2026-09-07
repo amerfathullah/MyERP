@@ -237,6 +237,17 @@ export interface CreateOpportunityItemDto {
   uom?: string | null;
 }
 
+export interface CreateProspectAndContactDto {
+  createContact?: boolean;
+  createProspect?: boolean;
+  prospectName?: string | null;
+}
+
+export interface CreateProspectAndContactResultDto {
+  contactId?: string | null;
+  prospectId?: string | null;
+}
+
 export interface CreateProspectDto {
   companyId?: string;
   prospectName?: string;
@@ -296,6 +307,19 @@ export interface CreateUpdateMarketSegmentDto {
   name: string;
 }
 
+export interface CreateUpdateOpportunityLostReasonDto {
+  companyId: string;
+  reason: string;
+  description?: string | null;
+  isDisabled?: boolean;
+}
+
+export interface CreateUpdateOpportunityTypeDto {
+  name: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
 export interface CreateUpdateSalesStageDto {
   stageName: string;
   sortOrder?: number;
@@ -307,6 +331,17 @@ export interface CrmNoteDto extends EntityDto<string> {
   noteText?: string;
   addedByUserId?: string;
   addedOn?: string;
+}
+
+export interface CrmSettingsDto extends FullAuditedEntityDto<string> {
+  campaignNamingBy?: string;
+  allowLeadDuplicationBasedOnEmails?: boolean;
+  autoCreationOfContact?: boolean;
+  closeOpportunityAfterDays?: number;
+  enableOpportunityCreationFromContactUs?: boolean;
+  defaultQuotationValidityDays?: number;
+  carryForwardCommunicationAndComments?: boolean;
+  updateTimestampOnNewCommunication?: boolean;
 }
 
 export interface EmailCampaignDto extends AuditedEntityDto<string> {
@@ -364,6 +399,17 @@ export interface GetOpportunityListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
   companyId?: string | null;
   leadId?: string | null;
+}
+
+export interface GetOpportunityLostReasonListDto extends PagedAndSortedResultRequestDto {
+  companyId?: string | null;
+  isDisabled?: boolean | null;
+  filter?: string | null;
+}
+
+export interface GetOpportunityTypeListDto extends PagedAndSortedResultRequestDto {
+  filter?: string | null;
+  isActive?: boolean | null;
 }
 
 export interface GetSalesStageListDto extends PagedAndSortedResultRequestDto {
@@ -435,6 +481,19 @@ export interface OpportunityItemDto {
   unitPrice?: number;
   amount?: number;
   uom?: string | null;
+}
+
+export interface OpportunityLostReasonDto extends FullAuditedEntityDto<string> {
+  companyId?: string;
+  reason?: string;
+  description?: string | null;
+  isDisabled?: boolean;
+}
+
+export interface OpportunityTypeDto extends FullAuditedEntityDto<string> {
+  name?: string;
+  description?: string | null;
+  isActive?: boolean;
 }
 
 export interface PipelineOpportunityDto {
@@ -539,6 +598,21 @@ export interface ShipmentDto extends EntityDto<string> {
   notes?: string | null;
 }
 
+export interface UpdateCrmNoteDto {
+  noteText: string;
+}
+
+export interface UpdateCrmSettingsDto {
+  campaignNamingBy?: string;
+  allowLeadDuplicationBasedOnEmails?: boolean;
+  autoCreationOfContact?: boolean;
+  closeOpportunityAfterDays?: number;
+  enableOpportunityCreationFromContactUs?: boolean;
+  defaultQuotationValidityDays?: number;
+  carryForwardCommunicationAndComments?: boolean;
+  updateTimestampOnNewCommunication?: boolean;
+}
+
 export interface UpdateLeadDto {
   firstName: string;
   lastName?: string | null;
@@ -582,63 +656,3 @@ export interface UpdateOpportunityStageDto {
 export interface VerifyAppointmentDto {
   token: string;
 }
-
-export interface OpportunityLostReasonDto extends EntityDto<string> {
-  companyId?: string;
-  reason?: string;
-  description?: string | null;
-  isDisabled?: boolean;
-}
-
-export interface CreateUpdateOpportunityLostReasonDto {
-  companyId: string;
-  reason: string;
-  description?: string | null;
-  isDisabled?: boolean;
-}
-
-export interface GetOpportunityLostReasonListDto extends PagedAndSortedResultRequestDto {
-  companyId?: string | null;
-  isDisabled?: boolean | null;
-  filter?: string | null;
-}
-
-export interface OpportunityTypeDto extends FullAuditedEntityDto<string> {
-  name: string;
-  description?: string | null;
-  isActive: boolean;
-}
-
-export interface CreateUpdateOpportunityTypeDto {
-  name: string;
-  description?: string | null;
-  isActive?: boolean;
-}
-
-export interface GetOpportunityTypeListDto extends PagedAndSortedResultRequestDto {
-  filter?: string | null;
-  isActive?: boolean | null;
-}
-
-export interface CrmSettingsDto extends FullAuditedEntityDto<string> {
-  campaignNamingBy: string;
-  allowLeadDuplicationBasedOnEmails: boolean;
-  autoCreationOfContact: boolean;
-  closeOpportunityAfterDays: number;
-  enableOpportunityCreationFromContactUs: boolean;
-  defaultQuotationValidityDays: number;
-  carryForwardCommunicationAndComments: boolean;
-  updateTimestampOnNewCommunication: boolean;
-}
-
-export interface UpdateCrmSettingsDto {
-  campaignNamingBy?: string;
-  allowLeadDuplicationBasedOnEmails?: boolean;
-  autoCreationOfContact?: boolean;
-  closeOpportunityAfterDays?: number;
-  enableOpportunityCreationFromContactUs?: boolean;
-  defaultQuotationValidityDays?: number;
-  carryForwardCommunicationAndComments?: boolean;
-  updateTimestampOnNewCommunication?: boolean;
-}
-

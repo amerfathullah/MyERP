@@ -45,6 +45,14 @@ export class CompanyService {
     { apiName: this.apiName,...config });
   
 
+  repairSrbnbAndTaxPayableAccounts = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'POST',
+      url: `/api/app/company/repair-srbnb-and-tax-payable-accounts/${companyId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   setupNewCompany = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',

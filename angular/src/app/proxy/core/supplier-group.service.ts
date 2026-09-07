@@ -9,6 +9,7 @@ import { Injectable, inject } from '@angular/core';
 export class SupplierGroupService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
   create = (input: CreateUpdateSupplierGroupDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierGroupDto>({
@@ -16,21 +17,24 @@ export class SupplierGroupService {
       url: '/api/app/supplier-group',
       body: input,
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
+  
 
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/supplier-group/${id}`,
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
+  
 
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierGroupDto>({
       method: 'GET',
       url: `/api/app/supplier-group/${id}`,
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
+  
 
   getList = (input: GetSupplierGroupListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SupplierGroupDto>>({
@@ -38,7 +42,8 @@ export class SupplierGroupService {
       url: '/api/app/supplier-group',
       params: { parentId: input.parentId, isGroup: input.isGroup, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
+  
 
   update = (id: string, input: CreateUpdateSupplierGroupDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierGroupDto>({
@@ -46,5 +51,5 @@ export class SupplierGroupService {
       url: `/api/app/supplier-group/${id}`,
       body: input,
     },
-    { apiName: this.apiName, ...config });
+    { apiName: this.apiName,...config });
 }

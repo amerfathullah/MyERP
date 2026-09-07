@@ -55,10 +55,23 @@ public class PosAppService : ApplicationService, IPosAppService
         var openingQuery = await posOpeningRepo.GetQueryableAsync();
 
         PosProfile? profile = null;
+        var profileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
+        var currentUserId = CurrentUser.Id;
+
         if (input.PosProfileId.HasValue)
         {
-            var profileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
-            profile = await profileRepo.FindAsync(input.PosProfileId.Value);
+            var profileQuery = await profileRepo.WithDetailsAsync(x => x.Users);
+            profile = await AsyncExecuter.FirstOrDefaultAsync(profileQuery.Where(x => x.Id == input.PosProfileId.Value));
+            if (profile != null)
+            {
+                // Authorize cashier: if profile has users configured, cashier must be in the list
+                if (currentUserId.HasValue && profile.Users.Count > 0 && !profile.Users.Any(u => u.UserId == currentUserId.Value))
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PosProfileUserNotAuthorized)
+                        .WithData("user", currentUserId.Value.ToString())
+                        .WithData("posProfile", profile.ProfileName);
+                }
+            }
 
             var hasActiveSession = openingQuery.Any(
                 e => e.CompanyId == input.CompanyId
@@ -73,13 +86,42 @@ public class PosAppService : ApplicationService, IPosAppService
         }
         else
         {
-            var hasActiveSession = openingQuery.Any(
-                e => e.CompanyId == input.CompanyId
-                    && e.Status == PosOpeningStatus.Open);
-            if (!hasActiveSession)
+            // Auto-resolve default POS profile for current user
+            // Per ERPNext PR #58591 (commit 4355f8e60e) & PR #58508 (commit 9018573179)
+            if (currentUserId.HasValue)
             {
-                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.NoPosOpeningEntry)
-                    .WithData("posProfile", "Default");
+                var profilesQuery = await profileRepo.WithDetailsAsync(x => x.Users);
+                var activeProfiles = await AsyncExecuter.ToListAsync(
+                    profilesQuery.Where(x => x.CompanyId == input.CompanyId && !x.IsDisabled));
+
+                profile = activeProfiles.FirstOrDefault(p => p.Users.Any(u => u.UserId == currentUserId.Value && u.IsDefault))
+                    ?? activeProfiles.FirstOrDefault(p => p.Users.Any(u => u.UserId == currentUserId.Value))
+                    ?? activeProfiles.FirstOrDefault(p => p.Users.Count == 0);
+            }
+
+            if (profile != null)
+            {
+                input.PosProfileId = profile.Id;
+                var hasActiveSession = openingQuery.Any(
+                    e => e.CompanyId == input.CompanyId
+                        && e.PosProfileId == profile.Id
+                        && e.Status == PosOpeningStatus.Open);
+                if (!hasActiveSession)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.NoPosOpeningEntry)
+                        .WithData("posProfile", profile.ProfileName);
+                }
+            }
+            else
+            {
+                var hasActiveSession = openingQuery.Any(
+                    e => e.CompanyId == input.CompanyId
+                        && e.Status == PosOpeningStatus.Open);
+                if (!hasActiveSession)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.NoPosOpeningEntry)
+                        .WithData("posProfile", "Default");
+                }
             }
         }
 
