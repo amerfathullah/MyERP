@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
 using MyERP.Assets;
@@ -59,7 +60,7 @@ public class AssetSplitTests
         existingAsset.Submit();
         existingAsset.GenerateDepreciationSchedule();
 
-        _assetRepository.GetAsync(_assetId, includeDetails: true).Returns(existingAsset);
+        _assetRepository.WithDetailsAsync(a => a.DepreciationDetails).ReturnsForAnyArgs(new[] { existingAsset }.AsQueryable());
 
         Asset? newAsset = null;
         await _assetRepository.InsertAsync(Arg.Do<Asset>(a => newAsset = a));
@@ -93,7 +94,7 @@ public class AssetSplitTests
             AssetQuantity = 3
         };
         existingAsset.Submit();
-        _assetRepository.GetAsync(_assetId, includeDetails: true).Returns(existingAsset);
+        _assetRepository.WithDetailsAsync(a => a.DepreciationDetails).ReturnsForAnyArgs(new[] { existingAsset }.AsQueryable());
 
         // Attempting to split 3 out of 3 (or more) must throw
         await Assert.ThrowsAsync<BusinessException>(() => _lifecycleManager.SplitAssetAsync(_assetId, 3));
@@ -107,7 +108,7 @@ public class AssetSplitTests
         {
             AssetQuantity = 5
         }; // Still Draft
-        _assetRepository.GetAsync(_assetId, includeDetails: true).Returns(draftAsset);
+        _assetRepository.WithDetailsAsync(a => a.DepreciationDetails).ReturnsForAnyArgs(new[] { draftAsset }.AsQueryable());
 
         await Assert.ThrowsAsync<BusinessException>(() => _lifecycleManager.SplitAssetAsync(_assetId, 2));
     }

@@ -84,7 +84,14 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
             return;
         }
 
-        var assetQuery = await _assetRepository.GetQueryableAsync();
+        // The Where(...DepreciationSchedule.Any(...)) below translates to a SQL EXISTS subquery —
+        // it correctly finds the right assets without needing the navigation loaded. But without
+        // these Includes, the DepreciationSchedule/DepreciationDetails collections on the assets
+        // THEMSELVES come back empty once materialized (a different manifestation of the same
+        // missing-eager-load bug class as AssetCategory.Accounts/Asset.DepreciationSchedule
+        // elsewhere this session) — so unbookedEntries below was always empty and this job posted
+        // literally nothing for any asset, ever, despite correctly identifying candidates.
+        var assetQuery = await _assetRepository.WithDetailsAsync(a => a.DepreciationSchedule, a => a.DepreciationDetails);
         var assets = assetQuery
             .Where(a => a.CompanyId == args.CompanyId
                 && a.CalculateDepreciation

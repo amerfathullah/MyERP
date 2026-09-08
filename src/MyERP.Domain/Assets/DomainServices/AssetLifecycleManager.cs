@@ -305,7 +305,11 @@ public class AssetLifecycleManager : DomainService
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Split quantity must be greater than zero.");
 
-        var existingAsset = await _assetRepository.GetAsync(assetId, includeDetails: true);
+        // Plain GetAsync(includeDetails: true) does not eager-load DepreciationDetails (no
+        // AutoInclude configured) — every split silently copied zero finance-book/depreciation-
+        // detail rows onto the new asset.
+        var existingAsset = (await _assetRepository.WithDetailsAsync(a => a.DepreciationDetails))
+            .First(a => a.Id == assetId);
 
         if (splitQty >= existingAsset.AssetQuantity)
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)

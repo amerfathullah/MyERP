@@ -97,14 +97,14 @@ public class DriverAppService : ApplicationService, IDriverAppService
 
     public async Task<DriverDto> GetAsync(Guid id)
     {
-        var query = await _repository.WithDetailsAsync();
+        var query = await _repository.WithDetailsAsync(x => x.LicenseCategories);
         var entity = query.First(x => x.Id == id);
         return ToDto(entity);
     }
 
     public async Task<PagedResultDto<DriverDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
-        var query = await _repository.WithDetailsAsync();
+        var query = await _repository.WithDetailsAsync(x => x.LicenseCategories);
         if (input.CompanyId.HasValue)
             query = query.Where(x => x.CompanyId == input.CompanyId.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
@@ -138,7 +138,7 @@ public class DriverAppService : ApplicationService, IDriverAppService
     [Authorize(MyERPPermissions.Drivers.Edit)]
     public async Task<DriverDto> UpdateAsync(Guid id, CreateUpdateDriverDto input)
     {
-        var query = await _repository.WithDetailsAsync();
+        var query = await _repository.WithDetailsAsync(x => x.LicenseCategories);
         var entity = query.First(x => x.Id == id);
 
         entity.SetName(input.FullName);
@@ -157,7 +157,7 @@ public class DriverAppService : ApplicationService, IDriverAppService
     [Authorize(MyERPPermissions.Drivers.Edit)]
     public async Task<DriverDto> SuspendAsync(Guid id)
     {
-        var entity = await _repository.GetAsync(id);
+        var entity = (await _repository.WithDetailsAsync(x => x.LicenseCategories)).First(x => x.Id == id);
         entity.Suspend();
         await _repository.UpdateAsync(entity);
         return ToDto(entity);
@@ -166,7 +166,7 @@ public class DriverAppService : ApplicationService, IDriverAppService
     [Authorize(MyERPPermissions.Drivers.Edit)]
     public async Task<DriverDto> ReinstateAsync(Guid id)
     {
-        var entity = await _repository.GetAsync(id);
+        var entity = (await _repository.WithDetailsAsync(x => x.LicenseCategories)).First(x => x.Id == id);
         entity.Reinstate();
         await _repository.UpdateAsync(entity);
         return ToDto(entity);
@@ -175,7 +175,7 @@ public class DriverAppService : ApplicationService, IDriverAppService
     [Authorize(MyERPPermissions.Drivers.Edit)]
     public async Task<DriverDto> MarkLeftAsync(Guid id)
     {
-        var entity = await _repository.GetAsync(id);
+        var entity = (await _repository.WithDetailsAsync(x => x.LicenseCategories)).First(x => x.Id == id);
         entity.MarkLeft();
         await _repository.UpdateAsync(entity);
         return ToDto(entity);

@@ -344,7 +344,15 @@ public class AssetAppService : ApplicationService, IAssetAppService
     [Authorize(MyERPPermissions.Assets.Edit)]
     public async Task<AssetDto> CancelAsync(Guid id)
     {
-        var asset = await _assetRepository.GetAsync(id, includeDetails: true);
+        // Plain GetAsync(includeDetails: true) does NOT eager-load DepreciationSchedule/
+        // DepreciationDetails — neither has AutoInclude configured, and ABP's default
+        // IncludeDetails() is a no-op unless a custom repository overrides it (none exists here).
+        // Both collections came back empty, so bookedEntries was always empty and GL reversal was
+        // silently skipped for every cancel of a Partially/FullyDepreciated asset — Asset.Cancel()'s
+        // own booked-entry guard (checking the same empty collection) then let the cancel through
+        // anyway, leaving previously-posted depreciation Journal Entries permanently orphaned in GL.
+        var asset = (await _assetRepository.WithDetailsAsync(a => a.DepreciationSchedule, a => a.DepreciationDetails))
+            .First(a => a.Id == id);
 
         var bookedEntries = asset.DepreciationSchedule.Where(e => e.IsBooked && e.JournalEntryId.HasValue).ToList();
         if (bookedEntries.Count > 0)
