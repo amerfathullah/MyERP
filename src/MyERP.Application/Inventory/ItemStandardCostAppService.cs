@@ -1,7 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
+using MyERP.Core.Entities;
+using MyERP.Dtos;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
@@ -24,15 +28,24 @@ public class ItemStandardCostAppService : ApplicationService, IItemStandardCostA
     private readonly IRepository<ItemStandardCost, Guid> _repository;
     private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly StockValuationService _valuationService;
+    private readonly IStockReconciliationAppService _stockReconciliationAppService;
 
     public ItemStandardCostAppService(
         IRepository<ItemStandardCost, Guid> repository,
         IRepository<StockLedgerEntry, Guid> sleRepository,
-        IRepository<Item, Guid> itemRepository)
+        IRepository<Item, Guid> itemRepository,
+        IRepository<Company, Guid> companyRepository,
+        StockValuationService valuationService,
+        IStockReconciliationAppService stockReconciliationAppService)
     {
         _repository = repository;
         _sleRepository = sleRepository;
         _itemRepository = itemRepository;
+        _companyRepository = companyRepository;
+        _valuationService = valuationService;
+        _stockReconciliationAppService = stockReconciliationAppService;
     }
 
     public async Task<PagedResultDto<ItemStandardCostDto>> GetListAsync(GetItemStandardCostListDto input)
@@ -111,9 +124,87 @@ public class ItemStandardCostAppService : ApplicationService, IItemStandardCostA
         // Entity is now the latest submitted, currently-effective record for this item/company
         // (or will be superseded by a later-dated one on the next sync) — always push it through,
         // since the user just explicitly asked this rate to take effect.
-        await SyncItemStandardBuyingPriceAsync(entity.ItemId, entity.CompanyId, fallbackToNull: false);
+        var appliedRate = await SyncItemStandardBuyingPriceAsync(entity.ItemId, entity.CompanyId, fallbackToNull: false);
+
+        // Per the entity's own doc comment ("Creates auto-revaluation Stock Reconciliation on
+        // submit for all warehouses with stock") — only meaningful when this record actually WON
+        // (a later-dated record could have superseded it already) and the rate genuinely changed;
+        // a first-ever Standard Cost record for an item with no prior rate has nothing to revalue
+        // FROM (existing stock's book value, if any, came from FIFO/moving-average history, not a
+        // stale standard cost — reposting a full valuation-method switch is a separate, bigger
+        // concern deliberately not attempted here).
+        if (appliedRate == entity.StandardRate && entity.PreviousRate.HasValue && entity.PreviousRate != entity.StandardRate)
+        {
+            entity.RevaluationStockReconciliationId = await CreateRevaluationReconciliationAsync(entity);
+            await _repository.UpdateAsync(entity, autoSave: true);
+        }
 
         return ObjectMapper.Map<ItemStandardCost, ItemStandardCostDto>(entity);
+    }
+
+    /// <summary>
+    /// Re-bases every warehouse currently holding stock of this item to the new standard rate via
+    /// a real Stock Reconciliation (same quantity, new valuation rate — a pure revaluation, no
+    /// physical count change). StockValuationService.CalculateStandardCost values a Standard Cost
+    /// item purely off Item.StandardBuyingPrice regardless of the SLE's own IncomingRate, so once
+    /// that field is synced (above), submitting a zero-quantity-change reconciliation at the new
+    /// rate is all that's needed to correctly re-value the existing balance — StockReconciliation-
+    /// AppService already posts the resulting GL difference per warehouse.
+    /// </summary>
+    private async Task<Guid?> CreateRevaluationReconciliationAsync(ItemStandardCost entity)
+    {
+        var sleQuery = await _sleRepository.GetQueryableAsync();
+        var warehouseIds = sleQuery
+            .Where(s => s.ItemId == entity.ItemId)
+            .Select(s => s.WarehouseId)
+            .Distinct()
+            .ToList();
+
+        var rows = new List<CreateStockReconciliationItemDto>();
+        foreach (var warehouseId in warehouseIds)
+        {
+            var balance = await _valuationService.GetCurrentBalanceAsync(entity.ItemId, warehouseId);
+            if (balance.Quantity == 0) continue;
+
+            rows.Add(new CreateStockReconciliationItemDto
+            {
+                ItemId = entity.ItemId,
+                WarehouseId = warehouseId,
+                CurrentQuantity = balance.Quantity,
+                CurrentValuationRate = balance.ValuationRate,
+                NewQuantity = balance.Quantity,
+                NewValuationRate = entity.StandardRate,
+            });
+        }
+
+        if (rows.Count == 0) return null;
+
+        var company = await _companyRepository.GetAsync(entity.CompanyId);
+
+        var created = await _stockReconciliationAppService.CreateAsync(new CreateStockReconciliationDto
+        {
+            CompanyId = entity.CompanyId,
+            PostingDate = entity.EffectiveDate,
+            Purpose = "Item Standard Cost revaluation",
+            Notes = $"Auto-created by Item Standard Cost effective {entity.EffectiveDate:yyyy-MM-dd} (rate {entity.PreviousRate:N4} -> {entity.StandardRate:N4}).",
+            ExpenseAccountId = company.DefaultStockAdjustmentAccountId,
+            Items = rows.ToArray(),
+        });
+
+        // StockReconciliationAppService.CreateAsync inserts with autoSave:false — fine for its own
+        // normal (separate-request) Create-then-Submit flow, since the ambient UnitOfWork commits
+        // at the end of that call. Here both calls share the SAME ambient UnitOfWork (this method
+        // runs inside ItemStandardCostAppService.SubmitAsync), so without an explicit flush the
+        // reconciliation SubmitAsync below queries the DB directly and finds zero rows. Same
+        // pattern as JobCardAppService.FlushPendingChangesAsync.
+        var uowManager = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>();
+        if (uowManager.Current != null)
+        {
+            await uowManager.Current.SaveChangesAsync();
+        }
+
+        await _stockReconciliationAppService.SubmitAsync(created.Id);
+        return created.Id;
     }
 
     [Authorize(MyERPPermissions.StockEntries.Cancel)]
@@ -146,7 +237,7 @@ public class ItemStandardCostAppService : ApplicationService, IItemStandardCostA
     /// no effect on valuation at all: it validated and tracked PreviousRate for PPV, but never
     /// wrote back to the field the valuation engine reads.
     /// </summary>
-    private async Task SyncItemStandardBuyingPriceAsync(Guid itemId, Guid companyId, bool fallbackToNull)
+    private async Task<decimal?> SyncItemStandardBuyingPriceAsync(Guid itemId, Guid companyId, bool fallbackToNull)
     {
         var query = await _repository.GetQueryableAsync();
         var current = query
@@ -158,7 +249,7 @@ public class ItemStandardCostAppService : ApplicationService, IItemStandardCostA
             .FirstOrDefault();
 
         if (current == null && !fallbackToNull)
-            return;
+            return null;
 
         var item = await _itemRepository.FindAsync(itemId);
         if (item != null && item.StandardBuyingPrice != current)
@@ -166,5 +257,7 @@ public class ItemStandardCostAppService : ApplicationService, IItemStandardCostA
             item.StandardBuyingPrice = current;
             await _itemRepository.UpdateAsync(item, autoSave: true);
         }
+
+        return current;
     }
 }
