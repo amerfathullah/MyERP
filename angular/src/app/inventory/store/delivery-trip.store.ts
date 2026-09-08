@@ -146,6 +146,34 @@ export const DeliveryTripStore = signalStore(
       )
     ),
 
+    notifyCustomers: rxMethod<string>(
+      pipe(
+        switchMap((id) => service.notifyCustomers(id)),
+        tap((updated) => {
+          patchState(store, updateEntity({ id: updated.id!, changes: updated as DeliveryTripEntity }));
+          toaster.success('::CustomersNotified');
+        }),
+        catchError((err) => {
+          toaster.error(err?.error?.error?.message ?? 'Notify customers failed');
+          return EMPTY;
+        }),
+      )
+    ),
+
+    calculateArrivalTimes: rxMethod<string>(
+      pipe(
+        switchMap((id) => service.calculateArrivalTimes(id, { averageSpeedKmH: 40 })),
+        tap((updated) => {
+          patchState(store, updateEntity({ id: updated.id!, changes: updated as DeliveryTripEntity }));
+          toaster.success('::ArrivalTimesCalculated');
+        }),
+        catchError((err) => {
+          toaster.error(err?.error?.error?.message ?? 'Calculate arrival times failed');
+          return EMPTY;
+        }),
+      )
+    ),
+
     select(id: string | null) {
       patchState(store, { selectedId: id });
     },

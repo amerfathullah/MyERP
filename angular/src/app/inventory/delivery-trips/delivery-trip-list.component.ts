@@ -78,8 +78,14 @@ import { PaginationComponent, PageEvent } from '../../shared/components/paginati
                           <button class="btn btn-outline-success" (click)="complete(trip.id)" title="Complete">
                             <i class="bi bi-check-circle"></i>
                           </button>
+                          <button class="btn btn-outline-info" (click)="notifyCustomers(trip.id)" title="{{ 'MyERP::NotifyCustomers' | abpLocalization }}">
+                            <i class="bi bi-envelope"></i>
+                          </button>
                         }
                         @if (trip.status !== 3 && trip.status !== 4) {
+                          <button class="btn btn-outline-secondary" (click)="calculateArrivalTimes(trip.id)" title="{{ 'MyERP::CalculateArrivalTimes' | abpLocalization }}">
+                            <i class="bi bi-clock-history"></i>
+                          </button>
                           <button class="btn btn-outline-warning" (click)="cancel(trip.id)" title="Cancel">
                             <i class="bi bi-x-circle"></i>
                           </button>
@@ -161,6 +167,14 @@ export class DeliveryTripListComponent implements OnInit {
         this.store.cancel(id);
       }
     });
+  }
+
+  notifyCustomers(id: string): void {
+    this.store.notifyCustomers(id);
+  }
+
+  calculateArrivalTimes(id: string): void {
+    this.store.calculateArrivalTimes(id);
   }
 
   delete(id: string): void {
