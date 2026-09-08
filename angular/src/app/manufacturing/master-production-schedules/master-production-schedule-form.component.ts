@@ -53,6 +53,9 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
             <button class="btn btn-success" (click)="submit()" [disabled]="saving()"><i class="fa fa-paper-plane me-1"></i>{{ 'Submit' | abpLocalization }}</button>
           }
           @if (isEdit() && status === 1) {
+            <button class="btn btn-outline-primary" (click)="makeProductionPlan()" [disabled]="saving()">
+              <i class="fa fa-industry me-1"></i>{{ 'MakeProductionPlan' | abpLocalization }}
+            </button>
             <button class="btn btn-outline-danger" (click)="cancelSchedule()" [disabled]="saving()"><i class="fa fa-ban me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
           }
         </div>
@@ -275,6 +278,22 @@ export class MasterProductionScheduleFormComponent implements OnInit {
     this.service.cancel(this.scheduleId).subscribe({
       next: () => { this.toaster.success('::SuccessfullyCancelled'); this.saving.set(false); this.load(this.scheduleId!); },
       error: () => this.saving.set(false),
+    });
+  }
+
+  makeProductionPlan(): void {
+    if (!this.scheduleId) return;
+    this.saving.set(true);
+    this.service.makeProductionPlan(this.scheduleId).subscribe({
+      next: (planId) => {
+        this.saving.set(false);
+        this.toaster.success('::SuccessfullyCreated');
+        this.router.navigate(['/manufacturing/production-plans', planId]);
+      },
+      error: (err: any) => {
+        this.saving.set(false);
+        this.toaster.error(err?.error?.error?.message ?? 'OperationFailed');
+      },
     });
   }
 }
