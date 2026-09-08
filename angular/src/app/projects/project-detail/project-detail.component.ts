@@ -35,8 +35,25 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
                     <i [class]="action.icon + ' me-1'"></i>{{ action.label | abpLocalization }}
                   </button>
                 }
+                <button class="btn btn-sm btn-outline-secondary" (click)="showDuplicateForm.set(!showDuplicateForm())">
+                  <i class="fas fa-copy me-1"></i>{{ '::Duplicate' | abpLocalization }}
+                </button>
               </div>
             </div>
+            @if (showDuplicateForm()) {
+              <div class="card-body border-top bg-light py-2">
+                <div class="d-flex gap-2 align-items-center">
+                  <input type="text" class="form-control form-control-sm" style="max-width: 300px"
+                    [(ngModel)]="duplicateName" [placeholder]="'::NewProjectName' | abpLocalization">
+                  <button class="btn btn-sm btn-primary" [disabled]="!duplicateName.trim() || duplicating()" (click)="duplicateProject()">
+                    <i class="fas fa-check me-1"></i>{{ '::Confirm' | abpLocalization }}
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary" (click)="showDuplicateForm.set(false)">
+                    {{ '::Cancel' | abpLocalization }}
+                  </button>
+                </div>
+              </div>
+            }
             <div class="card-body">
               <div class="row mb-3">
                 <div class="col-md-4"><strong>{{ '::ProjectNumber' | abpLocalization }}:</strong></div>
@@ -356,6 +373,30 @@ export class ProjectDetailComponent implements OnInit {
     this.service.getTasks(projectId).subscribe({
       next: (res: any) => this.tasks.set(res?.items ?? res ?? []),
       error: () => {}
+    });
+  }
+
+  showDuplicateForm = signal(false);
+  duplicateName = '';
+  duplicating = signal(false);
+
+  /** Duplicates the project including its tasks and hierarchy, then navigates to the copy */
+  duplicateProject(): void {
+    const id = this.project()?.id;
+    const newName = this.duplicateName.trim();
+    if (!id || !newName) return;
+
+    this.duplicating.set(true);
+    this.service.duplicateProject(id, newName).subscribe({
+      next: (copy) => {
+        this.duplicating.set(false);
+        this.toaster.success('::SuccessfullyCreated');
+        this.router.navigate(['/projects', copy.id]);
+      },
+      error: (err: any) => {
+        this.duplicating.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      },
     });
   }
 
