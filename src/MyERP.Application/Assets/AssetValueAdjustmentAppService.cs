@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Accounting.DomainServices;
+using MyERP.Assets.DomainServices;
 using MyERP.Assets.Entities;
 using MyERP.Permissions;
 using Volo.Abp;
@@ -18,17 +20,23 @@ public class AssetValueAdjustmentAppService : ApplicationService, IAssetValueAdj
     private readonly IRepository<Asset, Guid> _assetRepository;
     private readonly IRepository<AssetActivity, Guid> _activityRepository;
     private readonly AssetValueAdjustmentMapper _mapper;
+    private readonly AssetLifecycleManager _lifecycleManager;
+    private readonly DocumentPostingOrchestrator _postingOrchestrator;
 
     public AssetValueAdjustmentAppService(
         IRepository<AssetValueAdjustment, Guid> repository,
         IRepository<Asset, Guid> assetRepository,
         IRepository<AssetActivity, Guid> activityRepository,
-        AssetValueAdjustmentMapper mapper)
+        AssetValueAdjustmentMapper mapper,
+        AssetLifecycleManager lifecycleManager,
+        DocumentPostingOrchestrator postingOrchestrator)
     {
         _repository = repository;
         _assetRepository = assetRepository;
         _activityRepository = activityRepository;
         _mapper = mapper;
+        _lifecycleManager = lifecycleManager;
+        _postingOrchestrator = postingOrchestrator;
     }
 
     public async Task<PagedResultDto<AssetValueAdjustmentDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -111,6 +119,13 @@ public class AssetValueAdjustmentAppService : ApplicationService, IAssetValueAdj
         adj.Submit();
 
         var asset = await _assetRepository.GetAsync(adj.AssetId);
+
+        var journalEntryId = await _lifecycleManager.PostValueAdjustmentJournalEntryAsync(adj, asset);
+        if (journalEntryId.HasValue)
+        {
+            adj.JournalEntryId = journalEntryId;
+        }
+
         asset.ApplyValueAdjustment(adj.NewAssetValue);
         await _assetRepository.UpdateAsync(asset);
 
@@ -135,6 +150,11 @@ public class AssetValueAdjustmentAppService : ApplicationService, IAssetValueAdj
     {
         var adj = await _repository.GetAsync(id);
         adj.Cancel();
+
+        if (adj.JournalEntryId.HasValue)
+        {
+            await _postingOrchestrator.ReverseGlForJournalEntryAsync(adj.JournalEntryId.Value);
+        }
 
         var asset = await _assetRepository.GetAsync(adj.AssetId);
         asset.ApplyValueAdjustment(adj.CurrentAssetValue);

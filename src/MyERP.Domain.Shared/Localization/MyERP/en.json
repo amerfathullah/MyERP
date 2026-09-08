@@ -2459,6 +2459,7 @@
     "MyERP:15005": "Cannot delete asset category — {reason}",
     "MyERP:15006": "Overlapping time logs: {reason}",
     "MyERP:15007": "Cannot apply shift reallocation — {reason}",
+    "MyERP:15008": "Cannot post value adjustment entry for asset '{assetName}': missing {accountField} configuration.",
     "MyERP:16006": "Cannot cancel POS Closing Entry: a new POS Opening Entry is already active for this profile. Close or cancel the new session first.",
     "MyERP:16007": "User '{user}' is not authorized to use POS Profile '{posProfile}'.",
     "PosProfileUsers": "Applicable Users",

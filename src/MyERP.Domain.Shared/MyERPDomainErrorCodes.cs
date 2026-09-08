@@ -205,6 +205,7 @@ public static class MyERPDomainErrorCodes
     public const string AssetCategoryCannotBeDeleted = "MyERP:15005"; // was hardcoded "MyERP:15002" (collided with AssetMissingRequiredField)
     public const string TimesheetOverlappingTimeLog = "MyERP:15006"; // was hardcoded "MyERP:15002" (collided with AssetMissingRequiredField)
     public const string AssetShiftInsufficientUnassignedPeriods = "MyERP:15007"; // was hardcoded "MyERP:15003" (collided with AssetDisposalAccountMissing)
+    public const string AssetValueAdjustmentAccountMissing = "MyERP:15008";
 
     // Accounting — Additional
     public const string AccountCannotBeDeleted = "MyERP:02013";

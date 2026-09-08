@@ -182,6 +182,62 @@ public class AssetLifecycleManagerTests
     }
 
     [Fact]
+    public async Task PostValueAdjustmentJournalEntry_ZeroDifference_ReturnsNullWithoutTouchingAccounts()
+    {
+        var asset = CreateAsset(purchaseAmount: 10000);
+        asset.Submit();
+        var adjustment = new AssetValueAdjustment(Guid.NewGuid(), "AS-ADJ-001", asset.CompanyId,
+            asset.Id, DateTime.UtcNow, currentAssetValue: 5000, newAssetValue: 5000,
+            differenceAccountId: Guid.NewGuid());
+
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
+
+        var result = await manager.PostValueAdjustmentJournalEntryAsync(adjustment, asset);
+
+        result.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task PostValueAdjustmentJournalEntry_NoAssetCategory_Throws()
+    {
+        var asset = CreateAsset(purchaseAmount: 10000);
+        asset.Submit();
+        // AssetCategoryId left unset (null) — nothing to resolve accounts from.
+        var adjustment = new AssetValueAdjustment(Guid.NewGuid(), "AS-ADJ-002", asset.CompanyId,
+            asset.Id, DateTime.UtcNow, currentAssetValue: 5000, newAssetValue: 7000,
+            differenceAccountId: Guid.NewGuid());
+
+        var manager = new DomainServices.AssetLifecycleManager(null!, null!, null!, null!, null!, null!);
+
+        await Should.ThrowAsync<BusinessException>(
+            () => manager.PostValueAdjustmentJournalEntryAsync(adjustment, asset));
+    }
+
+    [Fact]
+    public async Task PostValueAdjustmentJournalEntry_CategoryHasNoAccountsForCompany_Throws()
+    {
+        var asset = CreateAsset(purchaseAmount: 10000);
+        var categoryId = Guid.NewGuid();
+        asset.AssetCategoryId = categoryId;
+        asset.Submit();
+        var adjustment = new AssetValueAdjustment(Guid.NewGuid(), "AS-ADJ-003", asset.CompanyId,
+            asset.Id, DateTime.UtcNow, currentAssetValue: 7000, newAssetValue: 5000,
+            differenceAccountId: Guid.NewGuid());
+
+        var category = new AssetCategory(categoryId, "Test Category");
+        // No AddAccount() call for asset.CompanyId — GetAccountForCompany() returns null.
+
+        var categoryRepo = Substitute.For<IRepository<AssetCategory, Guid>>();
+        categoryRepo.FindAsync(categoryId, Arg.Any<bool>(), Arg.Any<System.Threading.CancellationToken>())
+            .Returns(category);
+
+        var manager = new DomainServices.AssetLifecycleManager(null!, categoryRepo, null!, null!, null!, null!);
+
+        await Should.ThrowAsync<BusinessException>(
+            () => manager.PostValueAdjustmentJournalEntryAsync(adjustment, asset));
+    }
+
+    [Fact]
     public void RepairOptions_FullyDepreciated_CannotCapitalize()
     {
         var asset = CreateAsset();

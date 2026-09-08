@@ -142,6 +142,66 @@ public class AssetLifecycleManager : DomainService
     }
 
     /// <summary>
+    /// Posts the GL journal entry for an Asset Value Adjustment (revaluation/impairment).
+    /// Per ERPNext asset_value_adjustment.py: value increase -> DR Fixed Asset, CR Difference
+    /// Account; value decrease -> DR Difference Account, CR Fixed Asset. No-op when the adjustment
+    /// nets to zero.
+    /// </summary>
+    public async Task<Guid?> PostValueAdjustmentJournalEntryAsync(AssetValueAdjustment adjustment, Asset asset)
+    {
+        if (adjustment.DifferenceAmount == 0)
+            return null;
+
+        var category = asset.AssetCategoryId.HasValue
+            ? await _categoryRepository.FindAsync(asset.AssetCategoryId.Value)
+            : null;
+        var accounts = category?.GetAccountForCompany(asset.CompanyId);
+        if (accounts == null)
+            throw new BusinessException(MyERPDomainErrorCodes.AssetValueAdjustmentAccountMissing)
+                .WithData("assetName", asset.AssetName)
+                .WithData("accountField", "AssetCategoryAccount");
+
+        var fiscalYear = (await _fiscalYearRepository.GetQueryableAsync())
+            .FirstOrDefault(fy => fy.CompanyId == adjustment.CompanyId
+                && fy.StartDate <= adjustment.Date
+                && fy.EndDate >= adjustment.Date);
+        if (fiscalYear == null)
+            throw new BusinessException(MyERPDomainErrorCodes.FiscalYearClosed)
+                .WithData("postingDate", adjustment.Date.ToString("yyyy-MM-dd"));
+
+        var jeNumber = await _numberGenerator.GenerateAsync("JE", adjustment.CompanyId);
+        var je = new JournalEntry(GuidGenerator.Create(), adjustment.CompanyId, fiscalYear.Id,
+            adjustment.Date, asset.TenantId)
+        {
+            EntryNumber = jeNumber,
+            ReferenceType = "AssetValueAdjustment",
+            ReferenceId = adjustment.Id,
+            Narration = $"Asset value adjustment ({adjustment.AdjustmentNumber})",
+        };
+
+        var amount = Math.Abs(adjustment.DifferenceAmount);
+        if (adjustment.DifferenceAmount > 0)
+        {
+            je.AddLine(accounts.FixedAssetAccountId, amount, isDebit: true,
+                description: "Asset value adjustment — value increase");
+            je.AddLine(adjustment.DifferenceAccountId, amount, isDebit: false,
+                description: "Asset value adjustment — value increase");
+        }
+        else
+        {
+            je.AddLine(adjustment.DifferenceAccountId, amount, isDebit: true,
+                description: "Asset value adjustment — value decrease");
+            je.AddLine(accounts.FixedAssetAccountId, amount, isDebit: false,
+                description: "Asset value adjustment — value decrease");
+        }
+
+        je.Validate();
+        je.Post();
+        await _journalEntryRepository.InsertAsync(je);
+        return je.Id;
+    }
+
+    /// <summary>
     /// Validates that an asset can be submitted for depreciation.
     /// Checks: has depreciation settings, has category, available-for-use date is set.
     /// </summary>
