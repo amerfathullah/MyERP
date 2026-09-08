@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using MyERP.Accounting.DomainServices;
 using MyERP.Inventory.Entities;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.DependencyInjection;
@@ -14,19 +16,38 @@ namespace MyERP.Inventory.BackgroundJobs;
 /// Reposts future valuation rates and balances for backdated stock entries.
 /// Per ERPNext: stock_reposting_settings.repost_incorrect_valuation_entries (daily scheduler).
 /// </summary>
+/// <remarks>
+/// This is the job actually enqueued by NightlyProcessingWorker — the more complete sibling
+/// implementation, RepostItemValuationJob (advisory locking, Bin sync via StockValuationService,
+/// GL repost via GlRepostService), is never enqueued anywhere in the codebase and is effectively
+/// dead code. Rather than swap which job runs (NightlyProcessingWorker enqueues one job per
+/// company that internally loops every queued repost, while RepostItemValuationJob's args are
+/// scoped to a single item+warehouse — swapping would mean restructuring the worker's enqueue
+/// loop, a bigger change than closing this job's own gap), this job now reposts GL itself for
+/// every voucher touched by the SLEs it corrects, matching RepostItemValuationJob's own
+/// RepostAffectedGlEntriesAsync logic. Before this fix, a repost silently corrected
+/// StockLedgerEntry balances/valuation while leaving GL permanently pointing at the pre-repost
+/// values — invisible until someone reconciled stock value against the GL stock account.
+/// </remarks>
 public class StockValuationCorrectionJob : AsyncBackgroundJob<StockValuationCorrectionJobArgs>, ITransientDependency
 {
     private readonly IRepository<RepostItemValuation, Guid> _repostRepository;
     private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
+    private readonly GlRepostService _glRepostService;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<StockValuationCorrectionJob> _logger;
 
     public StockValuationCorrectionJob(
         IRepository<RepostItemValuation, Guid> repostRepository,
         IRepository<StockLedgerEntry, Guid> sleRepository,
+        GlRepostService glRepostService,
+        IServiceProvider serviceProvider,
         ILogger<StockValuationCorrectionJob> logger)
     {
         _repostRepository = repostRepository;
         _sleRepository = sleRepository;
+        _glRepostService = glRepostService;
+        _serviceProvider = serviceProvider;
         _logger = logger;
     }
 
@@ -100,10 +121,14 @@ public class StockValuationCorrectionJob : AsyncBackgroundJob<StockValuationCorr
                         runningQty += sle.QuantityChange;
                         if (sle.QuantityChange > 0)
                         {
-                            // Inward: add inward value
-                            runningValue += sle.StockValueDifference != 0
-                                ? sle.StockValueDifference
-                                : (sle.QuantityChange * sle.IncomingRate);
+                            // Inward: add inward value at the rate this entry was originally posted
+                            // at. Per StockValuationService.CreateLedgerEntryAsync (the only place
+                            // that ever constructs a StockLedgerEntry), IncomingRate and
+                            // StockValueDifference are never populated — they stay 0 on every real
+                            // SLE — so falling back to them here silently zeroed out the recomputed
+                            // value on every repost. ValuationRate is the one field that's always
+                            // set to the entry's real posting rate.
+                            runningValue += sle.QuantityChange * sle.ValuationRate;
                         }
                         else if (sle.QuantityChange < 0 && runningQty > 0)
                         {
@@ -128,6 +153,8 @@ public class StockValuationCorrectionJob : AsyncBackgroundJob<StockValuationCorr
                     }
                 }
 
+                await RepostAffectedGlEntriesAsync(repost.CompanyId, affectedList);
+
                 repost.Complete(totalAffected);
                 await _repostRepository.UpdateAsync(repost);
 
@@ -140,6 +167,79 @@ public class StockValuationCorrectionJob : AsyncBackgroundJob<StockValuationCorr
                 repost.Fail(ex.Message);
                 await _repostRepository.UpdateAsync(repost);
             }
+        }
+    }
+
+    /// <summary>
+    /// Rebuilds GL entries for every stock voucher touched by the SLEs this repost corrected —
+    /// otherwise GL keeps pointing at the pre-repost valuation forever. Mirrors
+    /// RepostItemValuationJob.RepostAffectedGlEntriesAsync (see class remarks for why this job,
+    /// not that one, needed the fix).
+    /// </summary>
+    private async Task RepostAffectedGlEntriesAsync(Guid companyId, List<StockLedgerEntry> affectedSles)
+    {
+        var affectedVouchers = affectedSles
+            .Where(sle => !string.IsNullOrEmpty(sle.VoucherType) && sle.VoucherId.HasValue)
+            .GroupBy(sle => new { sle.VoucherType, VoucherId = sle.VoucherId!.Value })
+            .Select(g => new { g.Key.VoucherType, g.Key.VoucherId })
+            .ToList();
+
+        foreach (var voucher in affectedVouchers)
+        {
+            if (voucher.VoucherType == null || !GlRepostService.IsRepostAllowed(voucher.VoucherType))
+                continue;
+
+            try
+            {
+                var document = await LoadAccountableDocumentAsync(voucher.VoucherType, voucher.VoucherId);
+                if (document == null)
+                    continue;
+
+                await _glRepostService.RepostForVoucherAsync(companyId, voucher.VoucherType, voucher.VoucherId, document);
+            }
+            catch (Exception ex)
+            {
+                // Per-voucher error isolation: one failure doesn't block the others or fail the repost.
+                _logger.LogWarning(ex, "StockValuationCorrectionJob: GL repost failed for {VoucherType}/{VoucherId}",
+                    voucher.VoucherType, voucher.VoucherId);
+            }
+        }
+    }
+
+    /// <summary>Loads a stock voucher document as IAccountableDocument for GL repost.</summary>
+    private async Task<IAccountableDocument?> LoadAccountableDocumentAsync(string voucherType, Guid voucherId)
+    {
+        switch (voucherType)
+        {
+            case "StockEntry":
+                var seRepo = (IRepository<MyERP.Inventory.Entities.StockEntry, Guid>)
+                    _serviceProvider.GetService(typeof(IRepository<MyERP.Inventory.Entities.StockEntry, Guid>))!;
+                return await seRepo.FindAsync(voucherId);
+
+            case "PurchaseReceipt":
+                var prRepo = (IRepository<MyERP.Purchasing.Entities.PurchaseReceipt, Guid>)
+                    _serviceProvider.GetService(typeof(IRepository<MyERP.Purchasing.Entities.PurchaseReceipt, Guid>))!;
+                return await prRepo.FindAsync(voucherId);
+
+            case "DeliveryNote":
+                var dnRepo = (IRepository<MyERP.Sales.Entities.DeliveryNote, Guid>)
+                    _serviceProvider.GetService(typeof(IRepository<MyERP.Sales.Entities.DeliveryNote, Guid>))!;
+                return await dnRepo.FindAsync(voucherId);
+
+            case "SalesInvoice":
+                var siRepo = (IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>)
+                    _serviceProvider.GetService(typeof(IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>))!;
+                var si = await siRepo.FindAsync(voucherId);
+                return si?.UpdateStock == true ? si : null;
+
+            case "PurchaseInvoice":
+                var piRepo = (IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>)
+                    _serviceProvider.GetService(typeof(IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>))!;
+                var pi = await piRepo.FindAsync(voucherId);
+                return pi?.UpdateStock == true ? pi : null;
+
+            default:
+                return null;
         }
     }
 }
