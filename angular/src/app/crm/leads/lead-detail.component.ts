@@ -83,6 +83,23 @@ export class LeadDetailComponent implements OnInit {
     });
   }
 
+  createProspect(): void {
+    this.service.createProspectAndContact(this.lead!.id!, {
+      createContact: true,
+      createProspect: true,
+    }).subscribe({
+      next: (result) => {
+        this.toaster.success('::SuccessfullyCreated');
+        if (result.prospectId) {
+          this.router.navigate(['/crm/prospects', result.prospectId]);
+        }
+      },
+      error: (err: any) => {
+        this.toaster.error(err?.error?.error?.message ?? 'Failed');
+      },
+    });
+  }
+
   convertToCustomer(): void {
     this.service.convertToCustomer({ leadId: this.lead!.id! }).subscribe({
       next: (customerId) => {

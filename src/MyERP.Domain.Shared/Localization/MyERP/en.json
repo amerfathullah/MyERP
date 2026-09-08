@@ -413,6 +413,7 @@
     "CRM:MarkLost": "Mark Lost",
     "CRM:ConvertToOpportunity": "Convert To Opportunity",
     "CRM:ConvertToCustomer": "Convert To Customer",
+    "CRM:CreateProspect": "Create Prospect",
     "CRM:ConvertedToOpportunity": "Converted To Opportunity",
     "Permission:Payroll": "Payroll Management",
     "Permission:Payroll.Create": "Create payroll runs",

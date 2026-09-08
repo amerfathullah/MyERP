@@ -29,6 +29,9 @@
             <button class="btn btn-outline-success btn-sm" (click)="convertToCustomer()">
               <i class="fa fa-user-plus me-1"></i>{{ '::CRM:ConvertToCustomer' | abpLocalization }}
             </button>
+            <button class="btn btn-outline-secondary btn-sm" (click)="createProspect()">
+              <i class="fa fa-building me-1"></i>{{ '::CRM:CreateProspect' | abpLocalization }}
+            </button>
           }
         }
         @if (lead.status !== 5 && lead.status !== 6) {
