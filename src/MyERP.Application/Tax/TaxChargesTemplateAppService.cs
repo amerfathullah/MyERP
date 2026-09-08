@@ -29,7 +29,12 @@ public class TaxChargesTemplateAppService : ApplicationService, ITaxChargesTempl
     /// <summary>Get all templates, optionally filtered by type and company.</summary>
     public async Task<PagedResultDto<TaxChargesTemplateDto>> GetListAsync(GetTaxTemplateListDto input)
     {
-        var query = await _repository.GetQueryableAsync();
+        // TaxChargesTemplate.Rows has no EF AutoInclude — plain GetQueryableAsync()/GetAsync()
+        // never loads it, so every template came back with an empty Rows collection everywhere
+        // in this file. Silently applied zero tax lines whenever a Sales/Purchase Invoice
+        // auto-loaded its default template (GetDefaultAsync), and made the edit form for any
+        // template look like all its rows had been deleted (GetAsync).
+        var query = await _repository.WithDetailsAsync(t => t.Rows);
 
         if (input.CompanyId.HasValue)
             query = query.Where(t => t.CompanyId == input.CompanyId.Value);
@@ -51,7 +56,7 @@ public class TaxChargesTemplateAppService : ApplicationService, ITaxChargesTempl
     /// <summary>Get a single template with all rows.</summary>
     public async Task<TaxChargesTemplateDto> GetAsync(Guid id)
     {
-        var template = await _repository.GetAsync(id, includeDetails: true);
+        var template = (await _repository.WithDetailsAsync(t => t.Rows)).First(t => t.Id == id);
         return MapToDto(template);
     }
 
@@ -61,7 +66,7 @@ public class TaxChargesTemplateAppService : ApplicationService, ITaxChargesTempl
     /// </summary>
     public async Task<TaxChargesTemplateDto?> GetDefaultAsync(Guid companyId, TaxTemplateType templateType, Guid? taxCategoryId = null)
     {
-        var query = await _repository.GetQueryableAsync();
+        var query = await _repository.WithDetailsAsync(t => t.Rows);
         var template = query
             .Where(t => t.CompanyId == companyId
                      && t.TemplateType == templateType
@@ -79,7 +84,7 @@ public class TaxChargesTemplateAppService : ApplicationService, ITaxChargesTempl
     /// </summary>
     public async Task<List<TaxChargesTemplateDto>> GetActiveTemplatesAsync(Guid companyId, TaxTemplateType templateType)
     {
-        var query = await _repository.GetQueryableAsync();
+        var query = await _repository.WithDetailsAsync(t => t.Rows);
         return query
             .Where(t => t.CompanyId == companyId && t.TemplateType == templateType && t.IsEnabled)
             .OrderBy(t => t.Name)
@@ -145,7 +150,7 @@ public class TaxChargesTemplateAppService : ApplicationService, ITaxChargesTempl
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
         }
 
-        var template = await _repository.GetAsync(id, includeDetails: true);
+        var template = (await _repository.WithDetailsAsync(t => t.Rows)).First(t => t.Id == id);
 
         template.Name = input.Name;
         template.TaxCategoryId = input.TaxCategoryId;
@@ -193,7 +198,7 @@ public class TaxChargesTemplateAppService : ApplicationService, ITaxChargesTempl
     [Authorize(MyERPPermissions.TaxTemplates.Edit)]
     public async Task<TaxChargesTemplateDto> ToggleEnabledAsync(Guid id)
     {
-        var template = await _repository.GetAsync(id);
+        var template = (await _repository.WithDetailsAsync(t => t.Rows)).First(t => t.Id == id);
         template.IsEnabled = !template.IsEnabled;
         if (!template.IsEnabled) template.IsDefault = false; // Disabled cannot be default
         await _repository.UpdateAsync(template);
