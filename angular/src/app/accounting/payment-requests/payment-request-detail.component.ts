@@ -73,6 +73,10 @@ import type { PaymentRequestDto } from '../../proxy/accounting/models';
                   @if (paying()) { <span class="spinner-border spinner-border-sm me-1"></span> }
                   <i class="fas fa-money-check-alt me-1"></i>{{ '::CreatePaymentEntry' | abpLocalization }}
                 </button>
+                <button class="btn btn-outline-secondary" (click)="resendEmail()" [disabled]="resendingEmail()">
+                  @if (resendingEmail()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                  <i class="fas fa-envelope me-1"></i>{{ '::ResendPaymentEmail' | abpLocalization }}
+                </button>
                 <button class="btn btn-outline-danger" (click)="cancel()">
                   <i class="fas fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}
                 </button>
@@ -128,6 +132,7 @@ export class PaymentRequestDetailComponent implements OnInit {
   entity = signal<PaymentRequestDto | null>(null);
   statusNum = signal(0);
   paying = signal(false);
+  resendingEmail = signal(false);
 
   statusLabel(): string {
     const labels: Record<number, string> = { 0: 'Draft', 1: 'Initiated', 2: 'Paid', 3: 'Cancelled' };
@@ -166,6 +171,24 @@ export class PaymentRequestDetailComponent implements OnInit {
       error: (err: any) => {
         this.toaster.error(err?.error?.error?.message ?? 'OperationFailed');
         this.paying.set(false);
+      },
+    });
+  }
+
+  resendEmail(): void {
+    this.resendingEmail.set(true);
+    this.service.resendPaymentEmail(this.entity()!.id!).subscribe({
+      next: (result) => {
+        this.resendingEmail.set(false);
+        if (result.success) {
+          this.toaster.success(result.message ?? this.l.instant('::SuccessfullySent'));
+        } else {
+          this.toaster.error(result.message ?? 'OperationFailed');
+        }
+      },
+      error: (err: any) => {
+        this.resendingEmail.set(false);
+        this.toaster.error(err?.error?.error?.message ?? 'OperationFailed');
       },
     });
   }

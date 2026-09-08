@@ -31,6 +31,8 @@
     "Pause": "Pause",
     "GenerateBankFile": "Generate Bank File",
     "SuccessfullyGenerated": "Successfully generated.",
+    "ResendPaymentEmail": "Resend Payment Email",
+    "SuccessfullySent": "Successfully sent.",
     "Close": "Close",
     "Delete": "Delete",
     "Edit": "Edit",
