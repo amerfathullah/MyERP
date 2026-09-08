@@ -4,7 +4,7 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { QualityInspectionService } from '../../proxy/inventory/quality-inspection.service';
-import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
+import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { PurchaseReceiptService } from '../../proxy/purchasing/purchase-receipt.service';
@@ -34,6 +34,7 @@ export class PurchaseReceiptDetailComponent implements OnInit {
   private conversionService = inject(PurchaseConversionService);
   private store = inject(PurchaseReceiptStore);
   private confirmation = inject(ConfirmationService);
+  private toaster = inject(ToasterService);
   private companyService = inject(CompanyService);
   private qiService = inject(QualityInspectionService);
 
@@ -54,7 +55,11 @@ export class PurchaseReceiptDetailComponent implements OnInit {
     if (this.receipt.status === 'Submitted') {
       actions.push({ name: 'invoice', label: 'Make Invoice', icon: 'file-invoice', color: 'info' });
       actions.push({ name: 'return', label: 'Create Return', icon: 'rotate-left', color: 'warning' });
+      actions.push({ name: 'close', label: 'Close', icon: 'lock', color: 'warning' });
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+    }
+    if (this.receipt.status === 'Closed') {
+      actions.push({ name: 'reopen', label: 'Reopen', icon: 'lock-open', color: 'primary' });
     }
     if (this.receipt.status === 'Cancelled') {
       actions.push({ name: 'amend', label: 'Amend', icon: 'file-circle-plus', color: 'success' });
@@ -143,6 +148,18 @@ export class PurchaseReceiptDetailComponent implements OnInit {
       case 'return':
         this.router.navigate(['/purchasing/receipts/new'], {
           queryParams: { returnAgainst: id }
+        });
+        break;
+      case 'close':
+        this.service.close(id).subscribe({
+          next: () => this.reloadAfterAction(),
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+        });
+        break;
+      case 'reopen':
+        this.service.reopen(id).subscribe({
+          next: () => this.reloadAfterAction(),
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
         });
         break;
     }
