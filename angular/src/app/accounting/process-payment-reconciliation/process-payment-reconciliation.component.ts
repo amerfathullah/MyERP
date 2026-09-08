@@ -9,7 +9,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 import { ProcessPaymentReconciliationService } from '../../proxy/accounting/process-payment-reconciliation.service';
 import type { ProcessPaymentReconciliationDto } from '../../proxy/accounting/models';
 
-const STATUS = ['Draft', 'Queued', 'Running', 'Completed', 'PartiallyReconciled', 'Failed', 'Cancelled'] as const;
+const STATUS = ['Draft', 'Queued', 'Running', 'Completed', 'PartiallyReconciled', 'Failed', 'Cancelled', 'Paused'] as const;
 
 @Component({
   selector: 'app-process-payment-reconciliation',
@@ -102,7 +102,13 @@ const STATUS = ['Draft', 'Queued', 'Running', 'Completed', 'PartiallyReconciled'
                       @if (item.status === 0) {
                         <button class="btn btn-outline-success" (click)="submitItem(item)" title="Submit"><i class="fa fa-check"></i></button>
                       }
-                      @if (item.status === 0 || item.status === 1 || item.status === 2) {
+                      @if (item.status === 1 || item.status === 2) {
+                        <button class="btn btn-outline-warning" (click)="pauseItem(item)" title="{{ '::Pause' | abpLocalization }}"><i class="fa fa-pause"></i></button>
+                      }
+                      @if (item.status === 7) {
+                        <button class="btn btn-outline-info" (click)="resumeItem(item)" title="{{ '::Resume' | abpLocalization }}"><i class="fa fa-play"></i></button>
+                      }
+                      @if (item.status === 0 || item.status === 1 || item.status === 2 || item.status === 7) {
                         <button class="btn btn-outline-danger" (click)="cancelItem(item)" title="Cancel"><i class="fa fa-ban"></i></button>
                       }
                       @if (item.status === 1 || item.status === 2) {
@@ -200,7 +206,21 @@ export class ProcessPaymentReconciliationComponent implements OnInit {
     });
   }
 
+  pauseItem(item: ProcessPaymentReconciliationDto) {
+    this.service.pause(item.id!).subscribe({
+      next: () => { this.toaster.success('SuccessfullyPaused'); this.loadData(); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || 'OperationFailed'),
+    });
+  }
+
+  resumeItem(item: ProcessPaymentReconciliationDto) {
+    this.service.resume(item.id!).subscribe({
+      next: () => { this.toaster.success('SuccessfullyResumed'); this.loadData(); },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || 'OperationFailed'),
+    });
+  }
+
   statusClass(status: number): string {
-    return ['bg-secondary', 'bg-info', 'bg-warning text-dark', 'bg-success', 'bg-primary', 'bg-danger', 'bg-dark'][status] ?? 'bg-secondary';
+    return ['bg-secondary', 'bg-info', 'bg-warning text-dark', 'bg-success', 'bg-primary', 'bg-danger', 'bg-dark', 'bg-warning text-dark'][status] ?? 'bg-secondary';
   }
 }
