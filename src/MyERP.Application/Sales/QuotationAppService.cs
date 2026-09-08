@@ -202,6 +202,18 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
                     .WithData("opportunity", opp.OpportunityNumber);
             }
             quotation.OpportunityId = input.OpportunityId.Value;
+
+            // Per ERPNext: raising a Quotation against an Opportunity moves its stage to
+            // Quotation. Opportunity.MarkQuotation() only allows the Open/Replied -> Quotation
+            // transition — guard on that instead of letting the exception surface, since this is
+            // a courtesy status sync, not a precondition for creating the quotation itself (an
+            // opportunity can legitimately get more than one quotation after the first already
+            // advanced its stage).
+            if (opp != null && opp.Status is CRM.OpportunityStatus.Open or CRM.OpportunityStatus.Replied)
+            {
+                opp.MarkQuotation();
+                await oppRepo.UpdateAsync(opp);
+            }
         }
 
         quotation.ValidUntil = input.ValidUntil;

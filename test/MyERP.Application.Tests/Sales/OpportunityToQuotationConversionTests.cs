@@ -89,4 +89,89 @@ public abstract class OpportunityToQuotationConversionTests<TStartupModule> : My
                 () => conversionAppService.ConvertOpportunityToQuotationAsync(opportunity.Id));
         });
     }
+
+    /// <summary>
+    /// Separate gap from the one above: QuotationAppService.CreateAsync — the direct/manual path
+    /// used when a user creates a Quotation from the standard form and links an Opportunity via
+    /// its own OpportunityId field, rather than the dedicated "Convert to Quotation" button — never
+    /// called Opportunity.MarkQuotation() at all, so the opportunity's stage silently stayed Open
+    /// even after a quotation existed against it. Fixed alongside this test.
+    /// </summary>
+    [Fact]
+    public async Task CreateAsync_WithOpportunityId_MarksOpportunityQuotation()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepository = GetRequiredService<IRepository<Customer, Guid>>();
+            var opportunityRepository = GetRequiredService<IRepository<Opportunity, Guid>>();
+            var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var quotationAppService = GetRequiredService<IQuotationAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Direct Quotation Test Co"), autoSave: true);
+            await seriesRepository.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "Quotation Series 3", "Quotation", "QTN3-"), autoSave: true);
+            var customer = await customerRepository.InsertAsync(
+                new Customer(Guid.NewGuid(), company.Id, "Test Customer 3"), autoSave: true);
+
+            var opportunity = new Opportunity(Guid.NewGuid(), company.Id, "OPP-DIRECT-1", "Direct Deal")
+            {
+                CustomerId = customer.Id,
+            };
+            await opportunityRepository.InsertAsync(opportunity, autoSave: true);
+
+            await quotationAppService.CreateAsync(new CreateQuotationDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                IssueDate = DateTime.Today,
+                OpportunityId = opportunity.Id,
+                Items = { new CreateQuotationItemDto { ItemId = Guid.NewGuid(), Description = "Widget", Quantity = 1m, UnitPrice = 50m } },
+            });
+
+            var reloadedOpp = await opportunityRepository.GetAsync(opportunity.Id);
+            reloadedOpp.Status.ShouldBe(OpportunityStatus.Quotation);
+        });
+    }
+
+    /// <summary>
+    /// A second quotation against an opportunity that's already past Open/Replied must not blow up
+    /// creation just because the courtesy status sync can't apply — MarkQuotation() would throw,
+    /// but CreateAsync only calls it when the guard allows.
+    /// </summary>
+    [Fact]
+    public async Task CreateAsync_WithOpportunityId_AlreadyPastQuotationStage_DoesNotThrow()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepository = GetRequiredService<IRepository<Customer, Guid>>();
+            var opportunityRepository = GetRequiredService<IRepository<Opportunity, Guid>>();
+            var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var quotationAppService = GetRequiredService<IQuotationAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Direct Quotation Test Co 2"), autoSave: true);
+            await seriesRepository.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "Quotation Series 4", "Quotation", "QTN4-"), autoSave: true);
+            var customer = await customerRepository.InsertAsync(
+                new Customer(Guid.NewGuid(), company.Id, "Test Customer 4"), autoSave: true);
+
+            var opportunity = new Opportunity(Guid.NewGuid(), company.Id, "OPP-DIRECT-2", "Direct Deal 2")
+            {
+                CustomerId = customer.Id,
+            };
+            opportunity.MarkQuotation();
+            await opportunityRepository.InsertAsync(opportunity, autoSave: true);
+
+            var quotation = await quotationAppService.CreateAsync(new CreateQuotationDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                IssueDate = DateTime.Today,
+                OpportunityId = opportunity.Id,
+                Items = { new CreateQuotationItemDto { ItemId = Guid.NewGuid(), Description = "Widget", Quantity = 1m, UnitPrice = 50m } },
+            });
+
+            quotation.Id.ShouldNotBe(Guid.Empty);
+            (await opportunityRepository.GetAsync(opportunity.Id)).Status.ShouldBe(OpportunityStatus.Quotation);
+        });
+    }
 }
