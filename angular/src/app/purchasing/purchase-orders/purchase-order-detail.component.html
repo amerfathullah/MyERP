@@ -254,6 +254,7 @@
                   <th>{{ '::ExpectedDate' | abpLocalization }}</th>
                   <th style="min-width: 140px;">{{ '::ReceiptProgress' | abpLocalization }}</th>
                   <th style="min-width: 140px;">{{ '::BillingProgress' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
                 }
               </tr>
             </thead>
@@ -297,6 +298,20 @@
                           {{ row.billedQty | number:'1.0-1' }}/{{ row.quantity }}
                         </small>
                       </div>
+                    </td>
+                    <td>
+                      @if (row.isClosed) {
+                        <span class="badge bg-secondary me-1">{{ '::Closed' | abpLocalization }}</span>
+                        @if (order.status !== 'Cancelled' && order.status !== 'Closed') {
+                          <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1" (click)="reopenItem(row.id)" [title]="'::Reopen' | abpLocalization">
+                            <i class="fa fa-lock-open"></i>
+                          </button>
+                        }
+                      } @else if (order.status !== 'Cancelled' && order.status !== 'Closed' && order.status !== 'Completed') {
+                        <button type="button" class="btn btn-outline-warning btn-sm py-0 px-1" (click)="closeItem(row.id)" [title]="'::Close' | abpLocalization">
+                          <i class="fa fa-lock"></i>
+                        </button>
+                      }
                     </td>
                   }
                 </tr>

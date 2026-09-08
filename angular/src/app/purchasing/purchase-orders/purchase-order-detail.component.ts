@@ -282,6 +282,24 @@ export class PurchaseOrderDetailComponent implements OnInit {
     });
   }
 
+  /** Close a single line item so it no longer accepts further receipts/invoices, without closing the whole order */
+  closeItem(itemId: string): void {
+    const id = this.order!.id!;
+    this.service.closeItem(id, itemId).subscribe({
+      next: () => this.reloadAfterAction(),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
+  }
+
+  /** Reopen a previously closed line item */
+  reopenItem(itemId: string): void {
+    const id = this.order!.id!;
+    this.service.reopenItem(id, itemId).subscribe({
+      next: () => this.reloadAfterAction(),
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
+  }
+
   /** Per-item receipt progress percentage (capped at 100%) */
   getItemReceiptPct(row: any): number {
     if (!row.quantity || row.quantity <= 0) return 0;
