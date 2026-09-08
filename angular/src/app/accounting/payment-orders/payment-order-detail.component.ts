@@ -45,6 +45,9 @@ const STATUS_LABELS = ['Draft', 'Submitted', 'Approved', 'Posted', 'Cancelled'];
                   <i class="fa fa-file-invoice-dollar me-1"></i>{{ '::MakePaymentRecords' | abpLocalization }}
                 </button>
               }
+              <button class="btn btn-sm btn-outline-primary" [disabled]="generatingBankFile" (click)="generateBankFile()">
+                <i class="fa fa-file-arrow-down me-1"></i>{{ '::GenerateBankFile' | abpLocalization }}
+              </button>
               <button class="btn btn-sm btn-outline-danger" (click)="cancel()"><i class="fa fa-ban me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
             }
           </div>
@@ -60,6 +63,7 @@ export class PaymentOrderDetailComponent implements OnInit {
   private confirmation = inject(ConfirmationService);
 
   d: PaymentOrderDto | null = null;
+  generatingBankFile = false;
 
   ngOnInit(): void { this.load(); }
 
@@ -92,6 +96,33 @@ export class PaymentOrderDetailComponent implements OnInit {
           error: (err: any) => this.toaster.error(err?.error?.error?.message ?? 'Cancel failed'),
         });
       }
+    });
+  }
+
+  generateBankFile(): void {
+    const id = this.route.snapshot.paramMap.get('id')!;
+    this.generatingBankFile = true;
+    this.service.generateBankFile(id).subscribe({
+      next: (result) => {
+        this.generatingBankFile = false;
+        if (!result.fileContent) {
+          this.toaster.error('::OperationFailed');
+          return;
+        }
+        const byteArray = Uint8Array.from(atob(result.fileContent), (c) => c.charCodeAt(0));
+        const blob = new Blob([byteArray], { type: result.mimeType || 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = result.fileName || 'payment-order.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        this.toaster.success('::SuccessfullyGenerated');
+      },
+      error: (err: any) => {
+        this.generatingBankFile = false;
+        this.toaster.error(err?.error?.error?.message ?? 'Failed');
+      },
     });
   }
 

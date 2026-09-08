@@ -29,6 +29,8 @@
     "Actions": "Actions",
     "Restart": "Restart",
     "Pause": "Pause",
+    "GenerateBankFile": "Generate Bank File",
+    "SuccessfullyGenerated": "Successfully generated.",
     "Close": "Close",
     "Delete": "Delete",
     "Edit": "Edit",
