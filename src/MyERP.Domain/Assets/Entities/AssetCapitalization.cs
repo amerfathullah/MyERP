@@ -28,6 +28,9 @@ public class AssetCapitalization : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Total value being capitalized (sum of all consumed items/expenses).</summary>
     public decimal TotalCapitalizedAmount { get; set; }
 
+    /// <summary>GL journal entry posted on submit, reversed on cancel.</summary>
+    public Guid? JournalEntryId { get; set; }
+
     /// <summary>
     /// Consumed stock items (reduces inventory, adds to asset value).
     /// </summary>
@@ -65,7 +68,7 @@ public class AssetCapitalization : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status != AssetCapitalizationStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
-        _stockItems.Add(new AssetCapitalizationItem
+        _stockItems.Add(new AssetCapitalizationItem(Guid.NewGuid())
         {
             ItemId = itemId, ItemName = itemName,
             Qty = qty, Rate = rate, Amount = qty * rate,
@@ -79,7 +82,7 @@ public class AssetCapitalization : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status != AssetCapitalizationStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
-        _serviceItems.Add(new AssetCapitalizationItem
+        _serviceItems.Add(new AssetCapitalizationItem(Guid.NewGuid())
         {
             ItemId = itemId, ItemName = itemName,
             Qty = 1, Rate = amount, Amount = amount,
@@ -93,7 +96,7 @@ public class AssetCapitalization : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status != AssetCapitalizationStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
-        _consumedAssets.Add(new AssetCapitalizationAsset
+        _consumedAssets.Add(new AssetCapitalizationAsset(Guid.NewGuid())
         {
             AssetId = assetId, AssetName = assetName,
             CurrentValue = valueAfterDepreciation
@@ -133,6 +136,10 @@ public class AssetCapitalizationItem : Volo.Abp.Domain.Entities.Entity<Guid>
     public decimal Amount { get; set; }
     public Guid? WarehouseId { get; set; }
     public Guid? ExpenseAccountId { get; set; }
+
+    protected AssetCapitalizationItem() { }
+
+    public AssetCapitalizationItem(Guid id) : base(id) { }
 }
 
 public class AssetCapitalizationAsset : Volo.Abp.Domain.Entities.Entity<Guid>
@@ -140,4 +147,8 @@ public class AssetCapitalizationAsset : Volo.Abp.Domain.Entities.Entity<Guid>
     public Guid AssetId { get; set; }
     public string AssetName { get; set; } = null!;
     public decimal CurrentValue { get; set; }
+
+    protected AssetCapitalizationAsset() { }
+
+    public AssetCapitalizationAsset(Guid id) : base(id) { }
 }

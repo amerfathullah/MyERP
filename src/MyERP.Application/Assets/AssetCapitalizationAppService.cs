@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Accounting.DomainServices;
+using MyERP.Assets.DomainServices;
 using MyERP.Assets.Entities;
 using MyERP.Permissions;
 using Volo.Abp;
@@ -18,17 +20,23 @@ public class AssetCapitalizationAppService : ApplicationService, IAssetCapitaliz
     private readonly IRepository<Asset, Guid> _assetRepository;
     private readonly IRepository<AssetActivity, Guid> _activityRepository;
     private readonly AssetCapitalizationMapper _mapper;
+    private readonly AssetCapitalizationPostingService _postingService;
+    private readonly DocumentPostingOrchestrator _postingOrchestrator;
 
     public AssetCapitalizationAppService(
         IRepository<AssetCapitalization, Guid> repository,
         IRepository<Asset, Guid> assetRepository,
         IRepository<AssetActivity, Guid> activityRepository,
-        AssetCapitalizationMapper mapper)
+        AssetCapitalizationMapper mapper,
+        AssetCapitalizationPostingService postingService,
+        DocumentPostingOrchestrator postingOrchestrator)
     {
         _repository = repository;
         _assetRepository = assetRepository;
         _activityRepository = activityRepository;
         _mapper = mapper;
+        _postingService = postingService;
+        _postingOrchestrator = postingOrchestrator;
     }
 
     public async Task<PagedResultDto<AssetCapitalizationDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -45,7 +53,7 @@ public class AssetCapitalizationAppService : ApplicationService, IAssetCapitaliz
 
     public async Task<AssetCapitalizationDto> GetAsync(Guid id)
     {
-        var cap = await _repository.GetAsync(id);
+        var cap = (await _repository.WithDetailsAsync(c => c.StockItems, c => c.ServiceItems, c => c.ConsumedAssets)).First(c => c.Id == id);
         return _mapper.Map(cap);
     }
 
@@ -162,7 +170,11 @@ public class AssetCapitalizationAppService : ApplicationService, IAssetCapitaliz
     [Authorize(MyERPPermissions.AssetCapitalizations.Edit)]
     public async Task<AssetCapitalizationDto> SubmitAsync(Guid id)
     {
-        var cap = await _repository.GetAsync(id);
+        // Plain GetAsync never loaded StockItems/ServiceItems/ConsumedAssets (no AutoInclude
+        // configured on those navigations) — SubmitAsync's own item-count guard right below always
+        // saw them as empty and threw DocumentMustHaveItems for every capitalization, regardless of
+        // its real content. Submitting one had never actually worked.
+        var cap = (await _repository.WithDetailsAsync(c => c.StockItems, c => c.ServiceItems, c => c.ConsumedAssets)).First(c => c.Id == id);
         if (!cap.StockItems.Any() && !cap.ServiceItems.Any() && !cap.ConsumedAssets.Any())
         {
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
@@ -173,6 +185,16 @@ public class AssetCapitalizationAppService : ApplicationService, IAssetCapitaliz
         var targetAsset = await _assetRepository.FindAsync(cap.TargetAssetId);
         if (targetAsset != null)
         {
+            // Consumes stock items for real (StockLedgerEntry per item) and posts GL, returning the
+            // total recomputed at true stock-consumption cost — applied to the target asset's book
+            // value below instead of the row-level estimate so GL and asset value stay consistent.
+            var (journalEntryId, postedTotal) = await _postingService.PostAsync(cap, targetAsset);
+            if (journalEntryId.HasValue)
+            {
+                cap.JournalEntryId = journalEntryId;
+                cap.TotalCapitalizedAmount = postedTotal;
+            }
+
             targetAsset.ApplyRepairCapitalization(cap.TotalCapitalizedAmount, 0);
             await _assetRepository.UpdateAsync(targetAsset);
 
@@ -220,8 +242,14 @@ public class AssetCapitalizationAppService : ApplicationService, IAssetCapitaliz
     [Authorize(MyERPPermissions.AssetCapitalizations.Edit)]
     public async Task<AssetCapitalizationDto> CancelAsync(Guid id)
     {
-        var cap = await _repository.GetAsync(id);
+        var cap = (await _repository.WithDetailsAsync(c => c.StockItems, c => c.ServiceItems, c => c.ConsumedAssets)).First(c => c.Id == id);
         cap.Cancel();
+
+        if (cap.JournalEntryId.HasValue)
+        {
+            await _postingOrchestrator.ReverseGlForJournalEntryAsync(cap.JournalEntryId.Value);
+            await _postingService.ReverseStockAsync(cap, CurrentTenant.Id);
+        }
 
         var targetAsset = await _assetRepository.FindAsync(cap.TargetAssetId);
         if (targetAsset != null)

@@ -81,7 +81,8 @@ public class AssetLifecycleManager : DomainService
                 .WithData("accountField", "SettlementAccountId");
 
         var category = asset.AssetCategoryId.HasValue
-            ? await _categoryRepository.FindAsync(asset.AssetCategoryId.Value)
+            ? (await _categoryRepository.WithDetailsAsync(c => c.Accounts))
+                .FirstOrDefault(c => c.Id == asset.AssetCategoryId.Value)
             : null;
         var accounts = category?.GetAccountForCompany(asset.CompanyId);
         if (accounts == null)
@@ -153,7 +154,8 @@ public class AssetLifecycleManager : DomainService
             return null;
 
         var category = asset.AssetCategoryId.HasValue
-            ? await _categoryRepository.FindAsync(asset.AssetCategoryId.Value)
+            ? (await _categoryRepository.WithDetailsAsync(c => c.Accounts))
+                .FirstOrDefault(c => c.Id == asset.AssetCategoryId.Value)
             : null;
         var accounts = category?.GetAccountForCompany(asset.CompanyId);
         if (accounts == null)
