@@ -213,6 +213,8 @@
     "Tax": "Tax",
     "Items": "Items",
     "Qty": "Qty",
+    "DropShip": "Drop Ship",
+    "RecordDelivery": "Record Delivery",
     "UnitPrice": "Unit Price",
     "Total": "Total",
     "UoM": "UoM",

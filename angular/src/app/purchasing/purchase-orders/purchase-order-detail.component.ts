@@ -282,6 +282,27 @@ export class PurchaseOrderDetailComponent implements OnInit {
     });
   }
 
+  /** Per-row qty delta input for drop-ship delivery recording, keyed by PurchaseOrderItemId */
+  dropShipQtyInputs: Record<string, number | null> = {};
+
+  /** Records a drop-ship delivery qty change for a single item (goods went straight to the
+   *  customer, so there's no real Purchase Receipt to derive receivedQty from). */
+  recordDropShipDelivery(itemId: string): void {
+    const id = this.order!.id!;
+    const qtyChange = this.dropShipQtyInputs[itemId];
+    if (!qtyChange) return;
+
+    this.service.updateDropShipDeliveredQty(id, {
+      items: [{ purchaseOrderItemId: itemId, qtyChange }],
+    }).subscribe({
+      next: () => {
+        this.dropShipQtyInputs[itemId] = null;
+        this.reloadAfterAction();
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
+  }
+
   /** Close a single line item so it no longer accepts further receipts/invoices, without closing the whole order */
   closeItem(itemId: string): void {
     const id = this.order!.id!;

@@ -280,14 +280,31 @@
                       }
                     </td>
                     <td>
-                      <div class="d-flex align-items-center gap-1">
-                        <div class="progress flex-grow-1" style="height: 6px;">
-                          <div class="progress-bar bg-info" [style.width.%]="getItemReceiptPct(row)"></div>
+                      @if (row.deliveredBySupplier) {
+                        <!-- Drop-ship items never get a real Purchase Receipt (goods go straight
+                             to the customer) — delivered qty has to be recorded manually. -->
+                        <div class="d-flex align-items-center gap-1">
+                          <span class="badge bg-info-subtle text-info-emphasis">{{ '::DropShip' | abpLocalization }}</span>
+                          <small class="text-nowrap">{{ row.receivedQty | number:'1.0-1' }}/{{ row.quantity }}</small>
+                          @if (order.status !== 'Cancelled' && order.status !== 'Closed' && order.status !== 'Completed') {
+                            <input type="number" class="form-control form-control-sm py-0" style="width: 70px"
+                              [(ngModel)]="dropShipQtyInputs[row.id]" [placeholder]="'::Qty' | abpLocalization">
+                            <button type="button" class="btn btn-outline-info btn-sm py-0 px-1"
+                              [disabled]="!dropShipQtyInputs[row.id]" (click)="recordDropShipDelivery(row.id)" [title]="'::RecordDelivery' | abpLocalization">
+                              <i class="fa fa-truck"></i>
+                            </button>
+                          }
                         </div>
-                        <small class="text-nowrap" [class.text-success]="getItemReceiptPct(row) >= 100" [class.fw-bold]="getItemReceiptPct(row) >= 100">
-                          {{ row.receivedQty | number:'1.0-1' }}/{{ row.quantity }}
-                        </small>
-                      </div>
+                      } @else {
+                        <div class="d-flex align-items-center gap-1">
+                          <div class="progress flex-grow-1" style="height: 6px;">
+                            <div class="progress-bar bg-info" [style.width.%]="getItemReceiptPct(row)"></div>
+                          </div>
+                          <small class="text-nowrap" [class.text-success]="getItemReceiptPct(row) >= 100" [class.fw-bold]="getItemReceiptPct(row) >= 100">
+                            {{ row.receivedQty | number:'1.0-1' }}/{{ row.quantity }}
+                          </small>
+                        </div>
+                      }
                     </td>
                     <td>
                       <div class="d-flex align-items-center gap-1">
