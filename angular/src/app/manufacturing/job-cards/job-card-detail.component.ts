@@ -44,7 +44,7 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
           </div>
         </div></div>
 
-        <!-- LIVE TIMER — visible when Work In Progress (status=1) -->
+        <!-- LIVE TIMER — visible when Work In Progress (status=1) and actively timing -->
         @if (d.status === 1 && timerRunning()) {
           <div class="card mb-3 border-primary"><div class="card-body text-center">
             <div class="d-flex align-items-center justify-content-center gap-3">
@@ -62,19 +62,29 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                 <i class="fa fa-pause me-1"></i>{{ '::Hold' | abpLocalization }}
               </button>
             </div>
-            @if (showCompletionQty()) {
-              <div class="mt-3">
-                <label class="form-label">{{ '::CompletedQtyThisRun' | abpLocalization }}</label>
-                <input type="number" class="form-control form-control-sm w-auto d-inline-block mx-2"
-                  [(ngModel)]="completionQtyInput" [min]="0" [max]="(d.forQuantity ?? 0) - (d.completedQty ?? 0)" step="1">
-                <small class="text-muted">/ {{ (d.forQuantity ?? 0) - (d.completedQty ?? 0) }} {{ '::Remaining' | abpLocalization }}</small>
-              </div>
-            }
           </div></div>
         }
 
-        <!-- Workflow Actions — when NOT timing -->
-        @if (!timerRunning()) {
+        <!-- Completion qty prompt — records the time log (from d.startedAt or the live timer's
+             start, to now) before completing. Shown whenever a Complete is in progress, whether
+             or not the live client-side timer happens to be running (e.g. after a page reload
+             while Work In Progress, timerRunning resets but the job card is still WIP). -->
+        @if (d.status === 1 && showCompletionQty()) {
+          <div class="card mb-3 border-success"><div class="card-body">
+            <label class="form-label">{{ '::CompletedQtyThisRun' | abpLocalization }}</label>
+            <input type="number" class="form-control form-control-sm w-auto d-inline-block mx-2"
+              [(ngModel)]="completionQtyInput" [min]="0" [max]="(d.forQuantity ?? 0) - (d.completedQty ?? 0)" step="1">
+            <small class="text-muted">/ {{ (d.forQuantity ?? 0) - (d.completedQty ?? 0) }} {{ '::Remaining' | abpLocalization }}</small>
+            <div class="mt-2">
+              <button class="btn btn-success btn-sm" [disabled]="!completionQtyInput || completionQtyInput <= 0" (click)="recordTimeLogAndComplete()">
+                <i class="fa fa-check me-1"></i>{{ '::Confirm' | abpLocalization }}
+              </button>
+            </div>
+          </div></div>
+        }
+
+        <!-- Workflow Actions — when NOT timing and NOT already prompting for completion qty -->
+        @if (!timerRunning() && !showCompletionQty()) {
           @if (d.status === 0 || d.status === 1 || d.status === 4) {
             <div class="card mb-3"><div class="card-body">
               <div class="d-flex gap-2 flex-wrap">
@@ -87,7 +97,7 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                   <button class="btn btn-primary" (click)="startTimer()">
                     <i class="fa fa-stopwatch me-1"></i>{{ '::StartTimer' | abpLocalization }}
                   </button>
-                  <button class="btn btn-success" (click)="action('complete')">
+                  <button class="btn btn-success" (click)="stopTimerAndComplete()">
                     <i class="fa fa-check me-1"></i>{{ '::Complete' | abpLocalization }}
                   </button>
                   <button class="btn btn-warning" (click)="action('hold')">
@@ -250,14 +260,34 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
   /** Called when user confirms completion qty */
   recordTimeLogAndComplete(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
+    const toTime = new Date();
+    // Prefer the live timer's own start; fall back to the job card's server-recorded start
+    // (covers the page-reload case, where the client timerStartTime signal has reset but the
+    // job card is still Work In Progress), then to "now" as a last resort so the log is never
+    // rejected for an invalid range.
+    const fromTime = this.timerStartTime()
+      ?? (this.d?.startedAt ? new Date(this.d.startedAt) : toTime);
     this.clearTimer();
-    // Per ERPNext: time log is recorded as part of the complete action
-    this.service.complete(id).subscribe({
+
+    // JobCard.CompletedQty is derived entirely from the sum of its time logs (see
+    // JobCard.AddTimeLog) and CompleteAsync itself takes no qty/time input — so unless this log
+    // is recorded first, completedQty stays 0 forever and Work Order produced qty (which bottle-
+    // necks across job cards' CompletedQty) never advances from job-card-driven completion.
+    this.service.addTimeLog(id, {
+      fromTime: fromTime.toISOString(),
+      toTime: toTime.toISOString(),
+      completedQty: this.completionQtyInput,
+    }).subscribe({
       next: () => {
-        this.toaster.success(this.l.instant('::SuccessfullyCompleted'));
-        this.showCompletionQty.set(false);
-        this.completionQtyInput = 0;
-        this.load();
+        this.service.complete(id).subscribe({
+          next: () => {
+            this.toaster.success(this.l.instant('::SuccessfullyCompleted'));
+            this.showCompletionQty.set(false);
+            this.completionQtyInput = 0;
+            this.load();
+          },
+          error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+        });
       },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
     });
