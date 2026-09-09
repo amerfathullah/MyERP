@@ -584,7 +584,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         foreach (var item in input.Items)
         {
-            invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.WarehouseId);
             var added = invoice.Items.Last();
             added.PurchaseOrderItemId = item.PurchaseOrderItemId;
             added.PurchaseReceiptItemId = item.PurchaseReceiptItemId;
@@ -711,7 +711,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.ClearItems();
         foreach (var item in input.Items)
         {
-            invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.WarehouseId);
         }
 
         await _repository.UpdateAsync(invoice, autoSave: true);
@@ -1073,14 +1073,17 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     ? item.UnitPrice / item.ConversionFactor
                     : item.UnitPrice;
 
+                // Item-level warehouse override (putaway allocation) wins over the invoice's own.
+                var targetWarehouseId = item.WarehouseId ?? invoice.WarehouseId.Value;
+
                 await _valuationService.CreateLedgerEntryAsync(
-                    invoice.CompanyId, item.ItemId, invoice.WarehouseId.Value,
+                    invoice.CompanyId, item.ItemId, targetWarehouseId,
                     invoice.IssueDate, stockQty, ratePerStockUnit,
                     voucherType: "PurchaseInvoice", voucherId: invoice.Id,
                     tenantId: invoice.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
-                    item.ItemId, invoice.WarehouseId.Value,
+                    item.ItemId, targetWarehouseId,
                     stockQty, stockQty * ratePerStockUnit, invoice.TenantId);
             }
         }
@@ -1325,14 +1328,17 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     ? item.UnitPrice / item.ConversionFactor
                     : item.UnitPrice;
 
+                // Reverse out of the warehouse the line actually went into on submit.
+                var cancelWarehouseId = item.WarehouseId ?? invoice.WarehouseId.Value;
+
                 await _valuationService.CreateLedgerEntryAsync(
-                    invoice.CompanyId, item.ItemId, invoice.WarehouseId.Value,
+                    invoice.CompanyId, item.ItemId, cancelWarehouseId,
                     invoice.IssueDate, -stockQty, ratePerStockUnit, // Negative = stock out (reversal)
                     voucherType: "PurchaseInvoice", voucherId: invoice.Id,
                     tenantId: invoice.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
-                    item.ItemId, invoice.WarehouseId.Value,
+                    item.ItemId, cancelWarehouseId,
                     -stockQty, -(stockQty * ratePerStockUnit), invoice.TenantId);
             }
         }

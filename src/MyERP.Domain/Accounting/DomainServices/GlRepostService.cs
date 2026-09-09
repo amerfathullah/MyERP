@@ -192,13 +192,22 @@ public class GlRepostService : DomainService
                 .WithData("reason", "No payable account configured. Set Default Payable Account in Company settings.");
         }
 
+        var updateStockSplit = await ResolveUpdateStockSplitAsync(invoice);
+
         if (company.DefaultExpenseAccountId.HasValue)
         {
+            // Lines that go to inventory are not expense-budget spend — they buy an asset. Checking
+            // them against the expense budget would reject an update_stock invoice for cost that
+            // never reaches the expense account at all.
             var expenseItems = invoice.Items
+                .Where(i => updateStockSplit == null || !updateStockSplit.StockItemIds.Contains(i.ItemId))
                 .Select(i => new BudgetCheckItem(company.DefaultExpenseAccountId.Value, i.Quantity * i.UnitPrice))
                 .ToList();
-            await _postingOrchestrator.ValidateBudgetOnPostingAsync(
-                invoice.CompanyId, invoice.IssueDate, expenseItems, invoice.TenantId);
+            if (expenseItems.Count > 0)
+            {
+                await _postingOrchestrator.ValidateBudgetOnPostingAsync(
+                    invoice.CompanyId, invoice.IssueDate, expenseItems, invoice.TenantId);
+            }
         }
 
         var journal = await _postingOrchestrator.PostPurchaseInvoiceAsync(
@@ -206,7 +215,8 @@ public class GlRepostService : DomainService
             payableAccountId: payableAccountId,
             dueDate: invoice.DueDate,
             accountCurrency: invoice.CurrencyCode,
-            exchangeRate: invoice.ExchangeRate);
+            exchangeRate: invoice.ExchangeRate,
+            warehouseStockSplit: updateStockSplit?.Lines);
 
         var reconciliation = await _commonPartyService.ReconcileAsync(new CommonPartyReconciliationContext
         {
@@ -233,6 +243,65 @@ public class GlRepostService : DomainService
 
         return journal;
     }
+
+
+    /// <summary>
+    /// For a Purchase Invoice that moves stock itself (update_stock, i.e. a direct purchase with no
+    /// Purchase Receipt), works out how much of the debit leg is inventory rather than expense, per
+    /// stock account.
+    /// </summary>
+    /// <remarks>
+    /// The seeded PI rules debit ItemExpense for the whole net total. That is correct for a service
+    /// invoice, but for update_stock the goods are sitting in a warehouse, not consumed — ERPNext's
+    /// PI gl_composer debits the warehouse's inventory account for stock items and leaves only
+    /// non-stock lines on expense. Without this the invoice created real StockLedgerEntry and Bin
+    /// rows while GL expensed the cost immediately, so inventory value never appeared on the books
+    /// and the same cost was recognised twice — once here, again as COGS when the stock was sold.
+    ///
+    /// Returns null for anything that is not a stock-moving invoice, leaving GL composition exactly
+    /// as it was.
+    /// </remarks>
+    private async Task<UpdateStockSplit?> ResolveUpdateStockSplitAsync(PurchaseInvoice invoice)
+    {
+        if (!invoice.UpdateStock || !invoice.WarehouseId.HasValue || invoice.IsReturn) return null;
+
+        var itemRepository = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var warehouseAccountService = LazyServiceProvider
+            .LazyGetRequiredService<Inventory.DomainServices.WarehouseAccountService>();
+
+        var valueByWarehouse = new Dictionary<Guid, decimal>();
+        var stockItemIds = new HashSet<Guid>();
+        foreach (var item in invoice.Items)
+        {
+            // Service items keep their expense treatment — they never reached the stock ledger.
+            var itemEntity = await itemRepository.FindAsync(item.ItemId);
+            if (itemEntity != null && !itemEntity.MaintainStock) continue;
+            stockItemIds.Add(item.ItemId);
+
+            // Same value the stock ledger was written with: stock qty at the per-stock-unit rate,
+            // so GL and the ledger cannot drift apart.
+            var ratePerStockUnit = item.ConversionFactor != 0
+                ? item.UnitPrice / item.ConversionFactor
+                : item.UnitPrice;
+            var warehouseId = item.WarehouseId ?? invoice.WarehouseId.Value;
+
+            valueByWarehouse.TryGetValue(warehouseId, out var prior);
+            valueByWarehouse[warehouseId] = prior + (item.StockQty * ratePerStockUnit);
+        }
+
+        if (valueByWarehouse.Count == 0) return null;
+
+        var split = new List<WarehouseStockSplitLine>();
+        foreach (var (warehouseId, value) in valueByWarehouse)
+        {
+            var accountId = await warehouseAccountService.ResolveStockAccountAsync(warehouseId, invoice.CompanyId);
+            split.Add(new WarehouseStockSplitLine(accountId, value));
+        }
+        return new UpdateStockSplit(split, stockItemIds);
+    }
+
+    /// <summary>The inventory share of an update_stock invoice: where it posts, and which items it came from.</summary>
+    private sealed record UpdateStockSplit(List<WarehouseStockSplitLine> Lines, HashSet<Guid> StockItemIds);
 
     /// <summary>Company-default-account GL build for voucher types with no dedicated account
     /// resolution or PLE handling (PurchaseReceipt, DeliveryNote) — same rule-engine call

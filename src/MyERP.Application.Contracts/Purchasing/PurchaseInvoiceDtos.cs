@@ -200,6 +200,12 @@ public class CreatePurchaseInvoiceItemDto
     public Guid? PurchaseOrderItemId { get; set; }
     public Guid? PurchaseReceiptItemId { get; set; }
     public bool DeliveredBySupplier { get; set; }
+
+    /// <summary>
+    /// Item-level target warehouse for an update_stock invoice. Null falls back to the invoice's
+    /// warehouse. Set by putaway allocation, which splits one qty across warehouses by capacity.
+    /// </summary>
+    public Guid? WarehouseId { get; set; }
 }
 
 /// <summary>

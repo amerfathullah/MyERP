@@ -103,15 +103,18 @@ public class AccountingRuleEngine : DomainService
     }
 
     /// <summary>
-    /// Generate a balanced journal entry whose stock leg is split across several warehouse stock
-    /// accounts, proportionally to the value that actually moved into each one.
+    /// Generate a balanced journal entry whose goods-cost debit leg is routed to the stock accounts
+    /// the goods actually landed in, in proportion to the value that went to each.
     /// </summary>
     /// <param name="warehouseStockSplit">
-    /// Value moved per stock account. Two or more distinct accounts expand the single
-    /// AccountSource.WarehouseStock line into one line per account; anything less falls back to
-    /// <paramref name="warehouseStockAccountOverride"/> and behaves exactly as before. A document
-    /// whose lines all land in one warehouse — or in several warehouses sharing one stock account —
-    /// therefore posts byte-identical GL to what it did before splitting existed.
+    /// Value that reached the stock ledger, per stock account. It carves that much out of the
+    /// document's goods-cost debit leg (AccountSource.WarehouseStock or ItemExpense) and leaves any
+    /// balance on the rule's own account.
+    ///
+    /// A Purchase Receipt's stock leg is entirely goods, so the carve-out takes the whole amount and
+    /// the result is the old single line, just spread per warehouse — a receipt landing in one
+    /// warehouse posts byte-identical GL. A Purchase Invoice with update_stock is the case that
+    /// needs the balance: stock items belong in inventory, service items stay on expense.
     /// </param>
     public async Task<JournalEntry> PostDocumentAsync(
         IAccountableDocument document,
@@ -178,22 +181,48 @@ public class AccountingRuleEngine : DomainService
 
             var (amountInTransactionCurrency, isDebit) = ResolveDirectionAndAmount(rawAmount, rule.IsDebit);
 
-            if (rule.AccountSource == AccountSource.WarehouseStock && splitAccounts != null)
+            if (splitAccounts != null
+                && rule.AccountSource is AccountSource.WarehouseStock or AccountSource.ItemExpense)
             {
-                // Spread the stock leg over the accounts the stock actually landed in. The last
-                // account absorbs the rounding remainder so the split always re-sums to the rule
-                // amount exactly and the entry stays balanced.
-                var totalValue = splitAccounts.Sum(x => x.Value);
-                var allocated = 0m;
-                for (var i = 0; i < splitAccounts.Count; i++)
+                var stockLines = splitAccounts;
+                // Route the goods-cost portion of this leg to the accounts the stock actually
+                // landed in, and leave whatever is left on the rule's own account.
+                //
+                // A Purchase Receipt's stock leg is entirely goods, so the carve-out consumes the
+                // whole amount and nothing remains — exactly the single-line behaviour from before
+                // splitting existed, just spread per warehouse. A Purchase Invoice with
+                // update_stock is the case that needs the remainder: its expense leg covers both
+                // stock items (which belong in inventory, per ERPNext's PI gl_composer, which
+                // debits the warehouse's inventory account for stock items) and service items
+                // (which stay expensed).
+                var stockPortion = Math.Min(amountInTransactionCurrency, stockLines.Sum(x => x.Value));
+                var remainder = amountInTransactionCurrency - stockPortion;
+
+                // A sub-cent remainder is rounding noise, not a real service-item cost: fold it
+                // into the stock portion rather than emitting a junk line.
+                if (remainder < 0.005m)
                 {
-                    var share = i == splitAccounts.Count - 1
-                        ? amountInTransactionCurrency - allocated
-                        : Math.Round(amountInTransactionCurrency * (splitAccounts[i].Value / totalValue), 4);
+                    stockPortion = amountInTransactionCurrency;
+                    remainder = 0m;
+                }
+
+                var totalValue = stockLines.Sum(x => x.Value);
+                var allocated = 0m;
+                for (var i = 0; i < stockLines.Count; i++)
+                {
+                    // Last account absorbs the rounding remainder so the split always re-sums to
+                    // stockPortion exactly and the entry stays balanced.
+                    var share = i == stockLines.Count - 1
+                        ? stockPortion - allocated
+                        : Math.Round(stockPortion * (stockLines[i].Value / totalValue), 4);
                     allocated += share;
                     if (share == 0) continue;
-                    AddLine(splitAccounts[i].AccountId, share, isDebit);
+                    AddLine(stockLines[i].AccountId, share, isDebit);
                 }
+
+                if (remainder > 0)
+                    AddLine(ResolveAccountId(rule, company, warehouseStockAccountOverride), remainder, isDebit);
+
                 continue;
             }
 
@@ -222,10 +251,16 @@ public class AccountingRuleEngine : DomainService
 
 
     /// <summary>
-    /// Collapses a per-warehouse split down to per-account totals, and returns null whenever the
-    /// split cannot change the outcome — no split supplied, a single account, zero/negative total
-    /// value — so the caller falls back to the single-account path.
+    /// Collapses a per-warehouse split down to per-account totals, and returns null when there is
+    /// nothing to route — no split supplied, or no account with positive value — so the caller
+    /// falls back to the plain single-account path.
     /// </summary>
+    /// <remarks>
+    /// A single account is kept, not discarded: a Purchase Invoice with update_stock needs the
+    /// carve-out even when everything lands in one warehouse, because the point there is splitting
+    /// stock cost away from service cost, not splitting across warehouses. Purchase Receipt callers
+    /// pass null below two warehouses of their own accord, so this does not change their GL.
+    /// </remarks>
     private static List<WarehouseStockSplitLine>? NormalizeWarehouseStockSplit(
         IReadOnlyList<WarehouseStockSplitLine>? split)
     {
@@ -237,7 +272,7 @@ public class AccountingRuleEngine : DomainService
             .Where(x => x.Value > 0)
             .ToList();
 
-        if (byAccount.Count < 2) return null;
+        if (byAccount.Count == 0) return null;
         return byAccount;
     }
 

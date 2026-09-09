@@ -198,7 +198,12 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit")
+    /// <summary>
+    /// Adds an invoiced line. <paramref name="warehouseId"/> is an item-level override of the
+    /// invoice's warehouse, used by update_stock invoices whose qty is split across warehouses.
+    /// Null keeps the invoice-level warehouse.
+    /// </summary>
+    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", Guid? warehouseId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -209,7 +214,10 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             throw new ArgumentException("Quantity must be positive for non-return invoices.", nameof(quantity));
 
         _items.Add(new PurchaseInvoiceItem(
-            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom));
+            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom)
+        {
+            WarehouseId = warehouseId,
+        });
 
         RecalculateTotals();
     }

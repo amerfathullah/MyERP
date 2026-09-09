@@ -125,16 +125,21 @@ public class DocumentPostingOrchestrator : DomainService
     /// Post a Purchase Invoice: creates GL entries + PLE (CR outstanding).
     /// Supports multi-currency: amountInAccountCurrency is in transaction currency.
     /// </summary>
+    /// <param name="warehouseStockSplit">
+    /// For an update_stock invoice: how much of the debit leg is inventory rather than expense, per
+    /// stock account. The expense leg keeps whatever is left over (service items).
+    /// </param>
     public async Task<JournalEntry> PostPurchaseInvoiceAsync(
         IAccountableDocument invoice,
         Guid payableAccountId,
         DateTime? dueDate = null,
         string accountCurrency = "MYR",
-        decimal exchangeRate = 1m)
+        decimal exchangeRate = 1m,
+        IReadOnlyList<WarehouseStockSplitLine>? warehouseStockSplit = null)
     {
         await ValidatePostingPeriodAsync(invoice.CompanyId, invoice.PostingDate, invoice.DocumentType);
 
-        var journal = await _ruleEngine.PostDocumentAsync(invoice);
+        var journal = await _ruleEngine.PostDocumentAsync(invoice, warehouseStockAccountOverride: null, warehouseStockSplit);
 
         // Validate mandatory accounting dimensions on GL lines
         await _dimensionService.ValidateMandatoryDimensionsAsync(invoice.CompanyId, journal.Lines);

@@ -84,6 +84,7 @@ export interface CreatePurchaseInvoiceItemDto {
   purchaseOrderItemId?: string | null;
   purchaseReceiptItemId?: string | null;
   deliveredBySupplier?: boolean;
+  warehouseId?: string | null;
 }
 
 export interface CreatePurchaseOrderDto {
