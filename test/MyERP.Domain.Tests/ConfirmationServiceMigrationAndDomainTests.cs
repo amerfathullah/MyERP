@@ -209,7 +209,7 @@ public class ConfirmationServiceMigrationAndDomainTests
     public void Batch_IsExpired_WhenPastExpiryDate()
     {
         var batch = new Batch(Guid.NewGuid(), Guid.NewGuid(), "BATCH-001", null);
-        batch.ExpiryDate = DateTime.Today.AddDays(-1);
+        batch.ExpiryDate = DateTime.UtcNow.Date.AddDays(-1);
         Assert.True(batch.IsExpired());
     }
 
@@ -217,7 +217,7 @@ public class ConfirmationServiceMigrationAndDomainTests
     public void Batch_NotExpired_WhenFutureExpiryDate()
     {
         var batch = new Batch(Guid.NewGuid(), Guid.NewGuid(), "BATCH-001", null);
-        batch.ExpiryDate = DateTime.Today.AddDays(30);
+        batch.ExpiryDate = DateTime.UtcNow.Date.AddDays(30);
         Assert.False(batch.IsExpired());
     }
 
