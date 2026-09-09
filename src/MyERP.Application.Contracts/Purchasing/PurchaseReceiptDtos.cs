@@ -44,6 +44,9 @@ public class PurchaseReceiptItemDto
     public decimal AmountDifferenceWithPurchaseInvoice { get; set; }
     public bool IsClosed { get; set; }
     public Guid? PurchaseOrderItemId { get; set; }
+
+    /// <summary>Item-level target warehouse override; null means the receipt's own warehouse.</summary>
+    public Guid? WarehouseId { get; set; }
 }
 
 public class CreatePurchaseReceiptDto
@@ -69,6 +72,12 @@ public class CreatePurchaseReceiptItemDto
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(50)] public string Uom { get; set; } = "Unit";
     public Guid? PurchaseOrderItemId { get; set; }
+
+    /// <summary>
+    /// Item-level target warehouse. Null falls back to the receipt's warehouse. Set by putaway
+    /// allocation, which splits one ordered qty across several warehouses by capacity.
+    /// </summary>
+    public Guid? WarehouseId { get; set; }
 }
 
 public class PutawayItemInput

@@ -37,6 +37,7 @@
             <thead>
               <tr>
                 <th>{{ '::Description' | abpLocalization }}</th>
+                <th>{{ '::Warehouse' | abpLocalization }}</th>
                 <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
                 <th class="text-end">{{ '::UnitPrice' | abpLocalization }}</th>
                 <th class="text-end">{{ '::Tax' | abpLocalization }}</th>
@@ -49,7 +50,8 @@
             <tbody>
               @for (row of receipt.items!; track $index) {
                 <tr>
-                  <td>{{ row.description }}</td>
+                  <!-- Blank override means the line went to the receipt's own warehouse. -->
+                  <td>{{ row.warehouseId ? warehouseName(row.warehouseId) : (receipt?.warehouseName ?? '-') }}</td>
                   <td class="text-end">{{ row.quantity }}</td>
                   <td class="text-end font-monospace">{{ row.unitPrice | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ row.taxAmount | number:'1.2-2' }}</td>

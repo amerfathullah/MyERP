@@ -184,9 +184,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         receipt.ReturnAgainstId = input.ReturnAgainstId;
         receipt.Notes = input.Notes;
 
+        await ValidateItemWarehousesAsync(input.Items, input.CompanyId);
         foreach (var item in input.Items)
         {
-            receipt.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.PurchaseOrderItemId);
+            receipt.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.PurchaseOrderItemId, item.WarehouseId);
         }
 
         // Resolve UOM conversion factors
@@ -244,9 +245,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         receipt.Notes = input.Notes;
 
         receipt.ClearItems();
+        await ValidateItemWarehousesAsync(input.Items, receipt.CompanyId);
         foreach (var item in input.Items)
         {
-            receipt.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.PurchaseOrderItemId);
+            receipt.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.PurchaseOrderItemId, item.WarehouseId);
         }
 
         await _repository.UpdateAsync(receipt, autoSave: true);
@@ -350,6 +352,12 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
         receipt.Submit();
 
+        // Stock value actually moved, keyed by the warehouse it moved into/out of. With one
+        // warehouse this has a single entry and GL is unchanged; with putaway-split lines it lets
+        // the stock leg be posted against each warehouse's own stock account instead of lumping
+        // everything onto the header warehouse's account.
+        var stockValueByWarehouse = new Dictionary<Guid, decimal>();
+
         if (receipt.IsReturn)
         {
             // Validate return qty does not exceed original receipt qty
@@ -393,19 +401,26 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     ? (originalItem.ConversionFactor != 0 ? originalItem.UnitPrice / originalItem.ConversionFactor : originalItem.UnitPrice)
                     : (item.ConversionFactor != 0 ? item.UnitPrice / item.ConversionFactor : item.UnitPrice);
 
+                // Return the stock from wherever the original receipt actually put it — the
+                // original line's warehouse, not the return document's header warehouse.
+                var returnWarehouseId = originalItem?.WarehouseId ?? item.WarehouseId ?? receipt.WarehouseId;
+
                 await _valuationService.CreateLedgerEntryAsync(
-                    receipt.CompanyId, item.ItemId, receipt.WarehouseId,
+                    receipt.CompanyId, item.ItemId, returnWarehouseId,
                     receipt.PostingDate, -returnStockQty, ratePerStockUnit,
                     voucherType: "PurchaseReceipt", voucherId: receipt.Id,
                     tenantId: receipt.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
-                    item.ItemId, receipt.WarehouseId,
+                    item.ItemId, returnWarehouseId,
                     -returnStockQty, -(returnStockQty * ratePerStockUnit), receipt.TenantId);
 
                 // Restore ordered qty in stock UOM
                 await _binService.UpdateOrderedQtyAsync(
-                    item.ItemId, receipt.WarehouseId, returnStockQty, receipt.TenantId);
+                    item.ItemId, returnWarehouseId, returnStockQty, receipt.TenantId);
+
+                stockValueByWarehouse.TryGetValue(returnWarehouseId, out var priorReturnValue);
+                stockValueByWarehouse[returnWarehouseId] = priorReturnValue + (returnStockQty * ratePerStockUnit);
             }
 
             // GL: reverse of normal receipt (DR SRBNB, CR Stock)
@@ -413,7 +428,9 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 .LazyGetRequiredService<WarehouseAccountService>();
             var returnStockAccountId = await warehouseAccountService
                 .ResolveStockAccountAsync(receipt.WarehouseId, receipt.CompanyId);
-            await _postingOrchestrator.PostPurchaseReceiptAsync(receipt, returnStockAccountId);
+            var returnStockSplit = await ResolveStockAccountSplitAsync(receipt, stockValueByWarehouse);
+            await _postingOrchestrator.PostPurchaseReceiptAsync(
+                receipt, returnStockAccountId, srbnbAccountId: null, warehouseStockSplit: returnStockSplit);
 
             // Reduce linked PO ReceivedQty (with concurrency retry)
             if (receipt.PurchaseOrderId.HasValue)
@@ -438,19 +455,26 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     ? item.UnitPrice / item.ConversionFactor
                     : item.UnitPrice;
 
+                // Item-level warehouse override (set by putaway allocation) wins over the
+                // receipt-level warehouse; null keeps the old single-warehouse behaviour.
+                var targetWarehouseId = item.WarehouseId ?? receipt.WarehouseId;
+
                 await _valuationService.CreateLedgerEntryAsync(
-                    receipt.CompanyId, item.ItemId, receipt.WarehouseId,
+                    receipt.CompanyId, item.ItemId, targetWarehouseId,
                     receipt.PostingDate, stockQty, ratePerStockUnit,
                     voucherType: "PurchaseReceipt", voucherId: receipt.Id,
                     tenantId: receipt.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
-                    item.ItemId, receipt.WarehouseId,
+                    item.ItemId, targetWarehouseId,
                     stockQty, stockQty * ratePerStockUnit, receipt.TenantId);
 
                 // Reduce ordered qty (stock is no longer "on order" once received)
                 await _binService.UpdateOrderedQtyAsync(
-                    item.ItemId, receipt.WarehouseId, -stockQty, receipt.TenantId);
+                    item.ItemId, targetWarehouseId, -stockQty, receipt.TenantId);
+
+                stockValueByWarehouse.TryGetValue(targetWarehouseId, out var priorValue);
+                stockValueByWarehouse[targetWarehouseId] = priorValue + (stockQty * ratePerStockUnit);
 
                 // If rejected warehouse and rejected qty exist, post rejected stock SLE in stock UOM (PR #51968 / commit 343ee9695b)
                 if (item.RejectedWarehouseId.HasValue && item.RejectedQty > 0)
@@ -477,7 +501,9 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 .LazyGetRequiredService<WarehouseAccountService>();
             var stockAccountId = await warehouseAccountService
                 .ResolveStockAccountAsync(receipt.WarehouseId, receipt.CompanyId);
-            await _postingOrchestrator.PostPurchaseReceiptAsync(receipt, stockAccountId);
+            var stockSplit = await ResolveStockAccountSplitAsync(receipt, stockValueByWarehouse);
+            await _postingOrchestrator.PostPurchaseReceiptAsync(
+                receipt, stockAccountId, srbnbAccountId: null, warehouseStockSplit: stockSplit);
 
             // Update linked Purchase Order fulfillment tracking
             // Update linked PO fulfillment (with concurrency retry)
@@ -617,19 +643,22 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 ? item.UnitPrice / item.ConversionFactor
                 : item.UnitPrice;
 
+            // Reverse out of the warehouse the line actually went into on submit.
+            var cancelWarehouseId = item.WarehouseId ?? receipt.WarehouseId;
+
             await _valuationService.CreateLedgerEntryAsync(
-                receipt.CompanyId, item.ItemId, receipt.WarehouseId,
+                receipt.CompanyId, item.ItemId, cancelWarehouseId,
                 receipt.PostingDate, -stockQty, ratePerStockUnit,
                 voucherType: "PurchaseReceipt", voucherId: receipt.Id,
                 tenantId: receipt.TenantId);
 
             await _binService.ApplyStockMovementAsync(
-                item.ItemId, receipt.WarehouseId,
+                item.ItemId, cancelWarehouseId,
                 -stockQty, -(stockQty * ratePerStockUnit), receipt.TenantId);
 
             // Restore ordered qty in stock UOM
             await _binService.UpdateOrderedQtyAsync(
-                item.ItemId, receipt.WarehouseId, stockQty, receipt.TenantId);
+                item.ItemId, cancelWarehouseId, stockQty, receipt.TenantId);
 
             // If rejected warehouse and rejected qty exist, reverse rejected stock SLE (PR #51968 / commit 343ee9695b)
             if (item.RejectedWarehouseId.HasValue && item.RejectedQty > 0)
@@ -784,6 +813,52 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
     }
 
     /// <summary>
+    /// Turns "value moved per warehouse" into "value moved per stock account", so a receipt split
+    /// across warehouses posts its stock leg against each warehouse's own account. Returns null for
+    /// the ordinary single-warehouse case, leaving GL composition exactly as it was.
+    /// </summary>
+    private async Task<List<WarehouseStockSplitLine>?> ResolveStockAccountSplitAsync(
+        PurchaseReceipt receipt,
+        Dictionary<Guid, decimal> stockValueByWarehouse)
+    {
+        if (stockValueByWarehouse.Count < 2) return null;
+
+        var warehouseAccountService = LazyServiceProvider.LazyGetRequiredService<WarehouseAccountService>();
+        var split = new List<WarehouseStockSplitLine>();
+        foreach (var (warehouseId, value) in stockValueByWarehouse)
+        {
+            var accountId = await warehouseAccountService.ResolveStockAccountAsync(warehouseId, receipt.CompanyId);
+            split.Add(new WarehouseStockSplitLine(accountId, value));
+        }
+
+        // Warehouses sharing one stock account collapse back to a single line downstream, which the
+        // engine treats as "no split" — same GL as before.
+        return split;
+    }
+
+    /// <summary>
+    /// Item-level warehouse overrides must belong to the receipt's company — otherwise a putaway
+    /// allocation (or a hand-edited row) could land stock in another company's warehouse, which the
+    /// receipt-level warehouse check would never catch.
+    /// </summary>
+    private async Task ValidateItemWarehousesAsync(List<CreatePurchaseReceiptItemDto> items, Guid companyId)
+    {
+        var overrides = items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value).Distinct().ToList();
+        if (overrides.Count == 0) return;
+
+        var warehouseRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+        foreach (var warehouseId in overrides)
+        {
+            var warehouse = await warehouseRepo.GetAsync(warehouseId);
+            if (warehouse.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.PutawayRuleWarehouseCompanyMismatch)
+                    .WithData("warehouse", warehouse.Name);
+            }
+        }
+    }
+
+    /// <summary>
     /// Resolves putaway warehouse allocations for incoming items.
     /// Per ERPNext: putaway rules determine which warehouses receive stock based on priority + capacity.
     /// Called before PR creation to suggest optimal warehouse distribution.
@@ -848,4 +923,4 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         }
         return results;
     }
-}
+}

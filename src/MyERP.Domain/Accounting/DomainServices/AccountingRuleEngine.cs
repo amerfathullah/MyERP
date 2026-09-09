@@ -99,6 +99,25 @@ public class AccountingRuleEngine : DomainService
     /// </summary>
     public async Task<JournalEntry> PostDocumentAsync(IAccountableDocument document, Guid? warehouseStockAccountOverride)
     {
+        return await PostDocumentAsync(document, warehouseStockAccountOverride, warehouseStockSplit: null);
+    }
+
+    /// <summary>
+    /// Generate a balanced journal entry whose stock leg is split across several warehouse stock
+    /// accounts, proportionally to the value that actually moved into each one.
+    /// </summary>
+    /// <param name="warehouseStockSplit">
+    /// Value moved per stock account. Two or more distinct accounts expand the single
+    /// AccountSource.WarehouseStock line into one line per account; anything less falls back to
+    /// <paramref name="warehouseStockAccountOverride"/> and behaves exactly as before. A document
+    /// whose lines all land in one warehouse — or in several warehouses sharing one stock account —
+    /// therefore posts byte-identical GL to what it did before splitting existed.
+    /// </param>
+    public async Task<JournalEntry> PostDocumentAsync(
+        IAccountableDocument document,
+        Guid? warehouseStockAccountOverride,
+        IReadOnlyList<WarehouseStockSplitLine>? warehouseStockSplit)
+    {
         var rules = await _ruleRepository.GetListAsync(r =>
             r.CompanyId == document.CompanyId &&
             r.DocumentType == document.DocumentType &&
@@ -124,15 +143,8 @@ public class AccountingRuleEngine : DomainService
 
         var isMultiCurrency = document.ExchangeRate != 1m;
 
-        foreach (var rule in rules.OrderBy(r => r.SortOrder))
+        void AddLine(Guid accountId, decimal amountInTransactionCurrency, bool isDebit)
         {
-            var rawAmount = ResolveAmount(rule.AmountSource, document);
-            if (rawAmount == 0) continue;
-
-            var (amountInTransactionCurrency, isDebit) = ResolveDirectionAndAmount(rawAmount, rule.IsDebit);
-
-            var accountId = ResolveAccountId(rule, company, warehouseStockAccountOverride);
-
             if (isMultiCurrency)
             {
                 // Multi-currency: Amount in company currency, AmountInAccountCurrency in transaction currency
@@ -157,6 +169,37 @@ public class AccountingRuleEngine : DomainService
             }
         }
 
+        var splitAccounts = NormalizeWarehouseStockSplit(warehouseStockSplit);
+
+        foreach (var rule in rules.OrderBy(r => r.SortOrder))
+        {
+            var rawAmount = ResolveAmount(rule.AmountSource, document);
+            if (rawAmount == 0) continue;
+
+            var (amountInTransactionCurrency, isDebit) = ResolveDirectionAndAmount(rawAmount, rule.IsDebit);
+
+            if (rule.AccountSource == AccountSource.WarehouseStock && splitAccounts != null)
+            {
+                // Spread the stock leg over the accounts the stock actually landed in. The last
+                // account absorbs the rounding remainder so the split always re-sums to the rule
+                // amount exactly and the entry stays balanced.
+                var totalValue = splitAccounts.Sum(x => x.Value);
+                var allocated = 0m;
+                for (var i = 0; i < splitAccounts.Count; i++)
+                {
+                    var share = i == splitAccounts.Count - 1
+                        ? amountInTransactionCurrency - allocated
+                        : Math.Round(amountInTransactionCurrency * (splitAccounts[i].Value / totalValue), 4);
+                    allocated += share;
+                    if (share == 0) continue;
+                    AddLine(splitAccounts[i].AccountId, share, isDebit);
+                }
+                continue;
+            }
+
+            AddLine(ResolveAccountId(rule, company, warehouseStockAccountOverride), amountInTransactionCurrency, isDebit);
+        }
+
         // Apply cost center allocation BEFORE validation (distribution may expand lines)
         // Per ERPNext gotcha #418: budget validates MAIN CC, GL posts to split CCs
         // Per gotcha #550: distribution happens before journal posting
@@ -175,6 +218,27 @@ public class AccountingRuleEngine : DomainService
         journal.Post();
 
         return journal;
+    }
+
+
+    /// <summary>
+    /// Collapses a per-warehouse split down to per-account totals, and returns null whenever the
+    /// split cannot change the outcome — no split supplied, a single account, zero/negative total
+    /// value — so the caller falls back to the single-account path.
+    /// </summary>
+    private static List<WarehouseStockSplitLine>? NormalizeWarehouseStockSplit(
+        IReadOnlyList<WarehouseStockSplitLine>? split)
+    {
+        if (split == null || split.Count == 0) return null;
+
+        var byAccount = split
+            .GroupBy(x => x.AccountId)
+            .Select(g => new WarehouseStockSplitLine(g.Key, g.Sum(x => x.Value)))
+            .Where(x => x.Value > 0)
+            .ToList();
+
+        if (byAccount.Count < 2) return null;
+        return byAccount;
     }
 
     /// <summary>
@@ -405,3 +469,10 @@ public class AccountingRuleEngine : DomainService
         return fiscalYear;
     }
 }
+
+/// <summary>
+/// One slice of a document's stock leg: the value that moved against a given stock account.
+/// Several warehouses can resolve to the same account, so callers may pass one entry per
+/// warehouse and let the engine aggregate.
+/// </summary>
+public sealed record WarehouseStockSplitLine(Guid AccountId, decimal Value);

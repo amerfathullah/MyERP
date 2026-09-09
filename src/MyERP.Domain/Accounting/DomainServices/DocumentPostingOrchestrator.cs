@@ -333,14 +333,20 @@ public class DocumentPostingOrchestrator : DomainService
     /// DR: warehouse-specific stock account, CR: SRBNB account (resolved by WarehouseAccountService).
     /// Per ERPNext BaseStockGLComposer: uses WarehouseAccount for DR Stock, company for CR SRBNB.
     /// </summary>
+    /// <param name="warehouseStockSplit">
+    /// Optional per-account breakdown of the stock that actually moved, for a receipt whose lines
+    /// went to more than one warehouse (putaway allocation). Ignored unless it resolves to two or
+    /// more distinct stock accounts, so single-warehouse receipts are unaffected.
+    /// </param>
     public async Task<JournalEntry> PostPurchaseReceiptAsync(
         IAccountableDocument purchaseReceipt,
         Guid stockAccountId,
-        Guid? srbnbAccountId = null)
+        Guid? srbnbAccountId = null,
+        IReadOnlyList<WarehouseStockSplitLine>? warehouseStockSplit = null)
     {
         await ValidatePostingPeriodAsync(purchaseReceipt.CompanyId, purchaseReceipt.PostingDate, purchaseReceipt.DocumentType);
 
-        var journal = await _ruleEngine.PostDocumentAsync(purchaseReceipt, stockAccountId);
+        var journal = await _ruleEngine.PostDocumentAsync(purchaseReceipt, stockAccountId, warehouseStockSplit);
         await _dimensionService.ValidateMandatoryDimensionsAsync(purchaseReceipt.CompanyId, journal.Lines);
         await _journalRepository.InsertAsync(journal);
         return journal;

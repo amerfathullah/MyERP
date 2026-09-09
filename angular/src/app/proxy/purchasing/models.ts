@@ -137,6 +137,7 @@ export interface CreatePurchaseReceiptItemDto {
   taxAmount?: number;
   uom?: string;
   purchaseOrderItemId?: string | null;
+  warehouseId?: string | null;
 }
 
 export interface CreateRfqDto {
@@ -600,6 +601,7 @@ export interface PurchaseReceiptItemDto {
   amountDifferenceWithPurchaseInvoice?: number;
   isClosed?: boolean;
   purchaseOrderItemId?: string | null;
+  warehouseId?: string | null;
 }
 
 export interface PurchaseRegisterLineDto {

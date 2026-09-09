@@ -18,6 +18,7 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { PurchaseReceiptPrintLayoutComponent } from '../../shared/components/pr-print-layout/pr-print-layout.component';
 import { CompanyService } from '../../proxy/core/company.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 
 @Component({
   selector: 'app-purchase-receipt-detail',
@@ -37,10 +38,15 @@ export class PurchaseReceiptDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private companyService = inject(CompanyService);
   private qiService = inject(QualityInspectionService);
+  private warehouseService = inject(WarehouseService);
 
   receipt: PurchaseReceiptDto | null = null;
   companyData = { name: '', tin: '', sst: '', address: '' };
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
+
+  // Item rows may carry their own warehouse (putaway split); resolve ids to names for display.
+  private warehouseNames: Record<string, string> = {};
+  warehouseName(id: string): string { return this.warehouseNames[id] ?? id.substring(0, 8) + '…'; }
 
   // QI status tracking per item
   qiStatus = signal<Record<string, { status: string; inspectionNumber?: string }>>({});
@@ -76,6 +82,10 @@ export class PurchaseReceiptDetailComponent implements OnInit {
       }
     });
     this.loadCompanyData();
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe({
+      next: res => (res.items ?? []).forEach((w: any) => this.warehouseNames[w.id] = w.name),
+      error: () => {},
+    });
   }
 
   private loadQiStatus(receipt: PurchaseReceiptDto): void {

@@ -367,7 +367,10 @@ public class CompanyAppService :
                 new AccountingRule(GuidGenerator.Create(), companyId, "PE CR Receivable", "PaymentEntry", false, Accounting.AccountSource.CustomerReceivable, Accounting.AmountSource.GrandTotal) { SortOrder = 2 },
                 new AccountingRule(GuidGenerator.Create(), companyId, "DN DR COGS", "DeliveryNote", true, Accounting.AccountSource.ItemExpense, Accounting.AmountSource.NetTotal) { SortOrder = 1 },
                 new AccountingRule(GuidGenerator.Create(), companyId, "DN CR Stock", "DeliveryNote", false, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.NetTotal) { SortOrder = 2, FixedAccountId = company.DefaultInventoryAccountId },
-                new AccountingRule(GuidGenerator.Create(), companyId, "PR DR Stock", "PurchaseReceipt", true, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.NetTotal) { SortOrder = 1, FixedAccountId = company.DefaultInventoryAccountId },
+                // WarehouseStock, not FixedAccount: this is the leg WarehouseAccountService resolves
+                // per warehouse (and splits across warehouses when a receipt is putaway-allocated).
+                // FixedAccountId stays set as the last-resort fallback inside ResolveAccountId.
+                new AccountingRule(GuidGenerator.Create(), companyId, "PR DR Stock", "PurchaseReceipt", true, Accounting.AccountSource.WarehouseStock, Accounting.AmountSource.NetTotal) { SortOrder = 1, FixedAccountId = company.DefaultInventoryAccountId },
                 new AccountingRule(GuidGenerator.Create(), companyId, "PR CR SRBNB", "PurchaseReceipt", false, Accounting.AccountSource.FixedAccount, Accounting.AmountSource.NetTotal) { SortOrder = 2, FixedAccountId = company.StockReceivedButNotBilledAccountId ?? company.DefaultPayableAccountId },
             };
             foreach (var rule in rules) await ruleRepo.InsertAsync(rule, autoSave: true);
@@ -493,6 +496,19 @@ public class CompanyAppService :
         {
             srbnbRule.FixedAccountId = company.StockReceivedButNotBilledAccountId;
             await ruleRepo.UpdateAsync(srbnbRule, autoSave: true);
+        }
+
+        // Companies seeded before the stock leg became warehouse-resolved still carry a
+        // FixedAccount rule, which ignores the per-warehouse account the AppService resolves and
+        // passes in. Flip it: with no warehouse-specific account configured, WarehouseStock
+        // resolves to this very same DefaultInventoryAccountId, so nothing changes for them.
+        var prStockRule = rules.FirstOrDefault(r =>
+            r.DocumentType == "PurchaseReceipt" && r.IsDebit
+            && (r.Name == "PR DR Stock" || r.Name == "PR - Debit Stock"));
+        if (prStockRule != null && prStockRule.AccountSource == AccountSource.FixedAccount)
+        {
+            prStockRule.AccountSource = AccountSource.WarehouseStock;
+            await ruleRepo.UpdateAsync(prStockRule, autoSave: true);
         }
 
         var taxRule = rules.FirstOrDefault(r => r.Name == "SI CR Tax" && r.DocumentType == "SalesInvoice");

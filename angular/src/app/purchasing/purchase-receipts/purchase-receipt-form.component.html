@@ -57,9 +57,16 @@
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}</h5>
-        <button type="button" class="btn btn-outline-primary btn-sm" (click)="addItem()">
-          <i class="fa fa-plus me-1"></i>{{ '::AddRow' | abpLocalization }}
-        </button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  [disabled]="items.length === 0 || isApplyingPutaway()"
+                  (click)="applyPutawayRule()">
+            <i class="fa fa-warehouse me-1"></i>{{ '::ApplyPutawayRule' | abpLocalization }}
+          </button>
+          <button type="button" class="btn btn-outline-primary btn-sm" (click)="addItem()">
+            <i class="fa fa-plus me-1"></i>{{ '::AddRow' | abpLocalization }}
+          </button>
+        </div>
       </div>
       <div class="card-body">
         @if (items.length === 0) {
@@ -70,6 +77,7 @@
               <thead>
                 <tr>
                   <th>{{ '::Item' | abpLocalization }}</th>
+                  <th style="width:180px">{{ '::Warehouse' | abpLocalization }}</th>
                   <th style="width:100px">{{ '::Qty' | abpLocalization }}</th>
                   <th style="width:120px">{{ '::UnitPrice' | abpLocalization }}</th>
                   <th style="width:80px">{{ '::UOM' | abpLocalization }}</th>
@@ -84,6 +92,14 @@
                         <option value="">{{ '::SelectItem' | abpLocalization }}</option>
                         @for (avail of availableItems(); track avail.id) {
                           <option [value]="avail.id">{{ avail.itemCode }} — {{ avail.itemName }}</option>
+                        }
+                      </select>
+                    </td>
+                    <td>
+                      <select class="form-select form-select-sm" formControlName="warehouseId">
+                        <option value="">{{ '::SameAsReceipt' | abpLocalization }}</option>
+                        @for (wh of warehouses(); track wh.id) {
+                          <option [value]="wh.id">{{ wh.name }}</option>
                         }
                       </select>
                     </td>

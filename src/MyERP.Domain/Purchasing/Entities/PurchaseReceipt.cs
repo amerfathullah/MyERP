@@ -124,7 +124,12 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", Guid? purchaseOrderItemId = null)
+    /// <summary>
+    /// Adds a received line. <paramref name="warehouseId"/> is an item-level override of the
+    /// receipt's target warehouse — set by putaway allocation, which splits one ordered qty across
+    /// several warehouses. Null keeps the receipt-level warehouse.
+    /// </summary>
+    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", Guid? purchaseOrderItemId = null, Guid? warehouseId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -136,7 +141,10 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             throw new ArgumentException("Quantity must be negative for return receipts.", nameof(quantity));
 
         _items.Add(new PurchaseReceiptItem(
-            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, purchaseOrderItemId));
+            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, purchaseOrderItemId)
+        {
+            WarehouseId = warehouseId,
+        });
 
         RecalculateTotals();
     }
