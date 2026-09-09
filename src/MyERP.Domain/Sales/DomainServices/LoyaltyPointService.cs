@@ -74,7 +74,10 @@ public class LoyaltyPointService : DomainService
     }
 
     /// <summary>
-    /// Redeem loyalty points. Uses FIFO (oldest non-expired points first).
+    /// Redeem loyalty points. Uses FIFO (oldest non-expired earn entry first), splitting the
+    /// redemption across as many earn entries as needed and stamping each split's RedeemAgainstId —
+    /// this is what lets <see cref="HasPointsBeenRedeemedAsync"/> actually find a match; a single
+    /// unlinked redemption entry (the previous behavior) left that cancel-guard permanently dead.
     /// Returns the total currency value of redeemed points.
     /// </summary>
     public async Task<LoyaltyRedemptionResult> RedeemPointsAsync(
@@ -100,25 +103,54 @@ public class LoyaltyPointService : DomainService
         // Determine tier for redemption value
         var totalSpent = await GetTotalSpentAsync(customerId, loyaltyProgramId);
         var tier = program.DetermineTier(totalSpent, 0);
-        var redemptionValue = program.CalculateRedemptionValue(pointsToRedeem, tier);
 
-        // Create redemption entry (negative points)
-        var entry = new LoyaltyPointEntry(
-            Guid.NewGuid(), companyId, customerId, loyaltyProgramId,
-            -pointsToRedeem, postingDate, tenantId: tenantId)
+        var query = await _entryRepository.GetQueryableAsync();
+        var earnEntries = query
+            .Where(e => e.CustomerId == customerId
+                && e.LoyaltyProgramId == loyaltyProgramId
+                && e.Points > 0
+                && e.PostingDate <= postingDate
+                && (!e.ExpiryDate.HasValue || e.ExpiryDate.Value >= postingDate))
+            .OrderBy(e => e.PostingDate)
+            .ToList();
+
+        var remaining = pointsToRedeem;
+        Guid lastEntryId = Guid.Empty;
+
+        foreach (var earnEntry in earnEntries)
         {
-            InvoiceType = invoiceType,
-            InvoiceId = invoiceId,
-            TierName = tier.TierName
-        };
+            if (remaining <= 0) break;
 
-        await _entryRepository.InsertAsync(entry);
+            var alreadyRedeemed = query
+                .Where(e => e.RedeemAgainstId == earnEntry.Id && e.Points < 0)
+                .Sum(e => -e.Points);
+            var availableFromEntry = earnEntry.Points - alreadyRedeemed;
+            if (availableFromEntry <= 0) continue;
+
+            var redeemFromEntry = Math.Min(availableFromEntry, remaining);
+
+            var redemptionEntry = new LoyaltyPointEntry(
+                Guid.NewGuid(), companyId, customerId, loyaltyProgramId,
+                -redeemFromEntry, postingDate, earnEntry.ExpiryDate, tenantId)
+            {
+                InvoiceType = invoiceType,
+                InvoiceId = invoiceId,
+                TierName = earnEntry.TierName,
+                RedeemAgainstId = earnEntry.Id
+            };
+
+            await _entryRepository.InsertAsync(redemptionEntry);
+            lastEntryId = redemptionEntry.Id;
+            remaining -= redeemFromEntry;
+        }
+
+        var redemptionValue = program.CalculateRedemptionValue(pointsToRedeem, tier);
 
         return new LoyaltyRedemptionResult
         {
             PointsRedeemed = pointsToRedeem,
             RedemptionValue = redemptionValue,
-            EntryId = entry.Id
+            EntryId = lastEntryId
         };
     }
 

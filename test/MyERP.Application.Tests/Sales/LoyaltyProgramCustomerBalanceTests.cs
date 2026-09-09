@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
 using MyERP.Sales.Entities;
@@ -85,6 +86,54 @@ public abstract class LoyaltyProgramCustomerBalanceTests<TStartupModule> : MyERP
 
             await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
                 loyaltyProgramAppService.RedeemPointsAsync(customer.Id, program.Id, 100, company.Id));
+        });
+    }
+
+    /// <summary>
+    /// Regression coverage for a real gap found via ERPNext validate() parity: RedeemPointsAsync
+    /// created a redemption entry with no RedeemAgainstId, so SalesInvoiceAppService.CancelAsync's
+    /// loyalty cancel guard (HasPointsBeenRedeemedAsync, which looks for a redemption entry whose
+    /// RedeemAgainstId points at the earning entry) could never find a match — an invoice could
+    /// always be cancelled even after its earned points had been redeemed elsewhere. Fixed by
+    /// having RedeemPointsAsync consume earn entries FIFO and stamp RedeemAgainstId per split.
+    /// </summary>
+    [Fact]
+    public async Task RedeemPointsAsync_LinksRedemptionToEarnEntry_SoCancelGuardCanSeeIt()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepository = GetRequiredService<IRepository<Customer, Guid>>();
+            var programRepository = GetRequiredService<IRepository<LoyaltyProgram, Guid>>();
+            var entryRepository = GetRequiredService<IRepository<LoyaltyPointEntry, Guid>>();
+            var loyaltyProgramAppService = GetRequiredService<ILoyaltyProgramAppService>();
+            var loyaltyPointService = GetRequiredService<MyERP.Sales.DomainServices.LoyaltyPointService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Loyalty Link Test Co"), autoSave: true);
+            var customer = await customerRepository.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Loyalty Link Test Customer"), autoSave: true);
+
+            var program = new LoyaltyProgram(Guid.NewGuid(), company.Id, "Test Loyalty Program 3", conversionFactor: 10m);
+            program.AddTier("Bronze", minSpent: 0, collectionFactor: 1m, redemptionFactor: 0.01m);
+            await programRepository.InsertAsync(program, autoSave: true);
+
+            var earnEntry = await entryRepository.InsertAsync(
+                new LoyaltyPointEntry(Guid.NewGuid(), company.Id, customer.Id, program.Id, points: 50, postingDate: DateTime.UtcNow)
+                {
+                    InvoiceType = "SalesInvoice",
+                    InvoiceId = Guid.NewGuid(),
+                    TierName = "Bronze",
+                },
+                autoSave: true);
+
+            await loyaltyProgramAppService.RedeemPointsAsync(customer.Id, program.Id, 20, company.Id);
+
+            var hasBeenRedeemed = await loyaltyPointService.HasPointsBeenRedeemedAsync(earnEntry.InvoiceId!.Value, "SalesInvoice");
+            hasBeenRedeemed.ShouldBeTrue();
+
+            var entries = await entryRepository.GetListAsync();
+            var redemption = entries.Single(e => e.Points < 0);
+            redemption.RedeemAgainstId.ShouldBe(earnEntry.Id);
+            redemption.Points.ShouldBe(-20);
         });
     }
 }

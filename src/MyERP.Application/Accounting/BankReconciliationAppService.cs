@@ -68,9 +68,25 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
     {
         var tx = await _repository.GetAsync(input.TransactionId);
 
+        if (tx.IsReconciled)
+            throw new Volo.Abp.BusinessException("MyERP:02048")
+                .WithData("transactionId", tx.Id);
+
         if (input.PaymentEntryId.HasValue == input.JournalEntryId.HasValue)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Exactly one of PaymentEntryId or JournalEntryId must be set.");
+
+        // Prevent the same voucher from being reconciled against more than one bank transaction —
+        // MyERP's model links a voucher 1:1 to a bank transaction (no partial-allocation child
+        // table like ERPNext's), so a second reconciliation of an already-linked voucher would
+        // silently overwrite which statement line it's cleared against.
+        var txQuery = await _repository.GetQueryableAsync();
+        var alreadyAllocated = input.PaymentEntryId.HasValue
+            ? txQuery.Any(t => t.Id != tx.Id && t.IsReconciled && t.PaymentEntryId == input.PaymentEntryId.Value)
+            : txQuery.Any(t => t.Id != tx.Id && t.IsReconciled && t.JournalEntryId == input.JournalEntryId!.Value);
+        if (alreadyAllocated)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "This voucher is already reconciled against another bank transaction.");
 
         // A statement-line match is the most authoritative "this cleared the bank" signal there
         // is — feed it into ClearanceDate so the Bank Reconciliation Statement (which reads
