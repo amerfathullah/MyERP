@@ -191,7 +191,7 @@ public class WarehouseAccountPartnerClaimTests
     [Fact]
     public void WarrantyClaim_Create_SetsDefaults()
     {
-        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         Assert.Equal(WarrantyClaimStatus.Open, wc.Status);
         Assert.Null(wc.SerialNoId);
         Assert.Null(wc.SalesInvoiceId);
@@ -204,7 +204,7 @@ public class WarehouseAccountPartnerClaimTests
     [Fact]
     public void WarrantyClaim_StartWork_FromOpen()
     {
-        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         wc.StartWork();
         Assert.Equal(WarrantyClaimStatus.WorkInProgress, wc.Status);
     }
@@ -212,7 +212,7 @@ public class WarehouseAccountPartnerClaimTests
     [Fact]
     public void WarrantyClaim_StartWork_FromClosed_Throws()
     {
-        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         wc.Close();
         Assert.Throws<Volo.Abp.BusinessException>(() => wc.StartWork());
     }
@@ -220,7 +220,7 @@ public class WarehouseAccountPartnerClaimTests
     [Fact]
     public void WarrantyClaim_Close_FromOpen()
     {
-        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         wc.Close("Replaced part");
         Assert.Equal(WarrantyClaimStatus.Closed, wc.Status);
         Assert.Equal("Replaced part", wc.Resolution);
@@ -230,7 +230,7 @@ public class WarehouseAccountPartnerClaimTests
     [Fact]
     public void WarrantyClaim_Close_FromWIP()
     {
-        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         wc.StartWork();
         wc.Close("Fixed");
         Assert.Equal(WarrantyClaimStatus.Closed, wc.Status);
@@ -239,7 +239,7 @@ public class WarehouseAccountPartnerClaimTests
     [Fact]
     public void WarrantyClaim_Cancel()
     {
-        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         wc.Cancel();
         Assert.Equal(WarrantyClaimStatus.Cancelled, wc.Status);
     }
@@ -247,7 +247,7 @@ public class WarehouseAccountPartnerClaimTests
     [Fact]
     public void WarrantyClaim_DoubleCancel_Throws()
     {
-        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         wc.Cancel();
         Assert.Throws<Volo.Abp.BusinessException>(() => wc.Cancel());
     }
@@ -255,32 +255,32 @@ public class WarehouseAccountPartnerClaimTests
     [Fact]
     public void WarrantyClaim_IsUnderWarranty_WithinPeriod()
     {
-        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
-        wc.WarrantyExpiryDate = DateTime.Today.AddMonths(6);
+        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
+        wc.WarrantyExpiryDate = DateTime.UtcNow.AddMonths(6);
         Assert.True(wc.IsUnderWarranty());
     }
 
     [Fact]
     public void WarrantyClaim_IsUnderWarranty_Expired()
     {
-        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
-        wc.WarrantyExpiryDate = DateTime.Today.AddDays(-1);
+        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
+        wc.WarrantyExpiryDate = DateTime.UtcNow.AddDays(-1);
         Assert.False(wc.IsUnderWarranty());
     }
 
     [Fact]
     public void WarrantyClaim_IsUnderWarranty_AMC_Covers()
     {
-        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
-        wc.WarrantyExpiryDate = DateTime.Today.AddDays(-30); // warranty expired
-        wc.AmcExpiryDate = DateTime.Today.AddMonths(3); // AMC still active
+        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
+        wc.WarrantyExpiryDate = DateTime.UtcNow.AddDays(-30); // warranty expired
+        wc.AmcExpiryDate = DateTime.UtcNow.AddMonths(3); // AMC still active
         Assert.True(wc.IsUnderWarranty());
     }
 
     [Fact]
     public void WarrantyClaim_IsUnderWarranty_NoDates()
     {
-        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.Today);
+        var wc = new WarrantyClaim(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow);
         Assert.False(wc.IsUnderWarranty());
     }
 

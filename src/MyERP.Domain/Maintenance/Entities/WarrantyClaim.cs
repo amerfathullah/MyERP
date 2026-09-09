@@ -123,10 +123,10 @@ public class WarrantyClaim : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Check if the claim is within warranty coverage.</summary>
     public bool IsUnderWarranty(DateTime? asOfDate = null)
     {
-        var checkDate = asOfDate ?? DateTime.UtcNow;
-        if (WarrantyExpiryDate.HasValue && WarrantyExpiryDate.Value >= checkDate)
+        var checkDate = (asOfDate ?? DateTime.UtcNow).Date;
+        if (WarrantyExpiryDate.HasValue && WarrantyExpiryDate.Value.Date >= checkDate)
             return true;
-        if (AmcExpiryDate.HasValue && AmcExpiryDate.Value >= checkDate)
+        if (AmcExpiryDate.HasValue && AmcExpiryDate.Value.Date >= checkDate)
             return true;
         return false;
     }
