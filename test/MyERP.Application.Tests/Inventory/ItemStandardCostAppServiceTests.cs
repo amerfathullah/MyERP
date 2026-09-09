@@ -39,7 +39,7 @@ public abstract class ItemStandardCostAppServiceTests<TStartupModule> : MyERPApp
                 CompanyId = company.Id,
                 ItemId = item.Id,
                 StandardRate = 42.5m,
-                EffectiveDate = DateTime.Today,
+                EffectiveDate = DateTime.UtcNow.Date,
             });
 
             await appService.SubmitAsync(created.Id);
@@ -68,7 +68,7 @@ public abstract class ItemStandardCostAppServiceTests<TStartupModule> : MyERPApp
                 CompanyId = company.Id,
                 ItemId = item.Id,
                 StandardRate = 10m,
-                EffectiveDate = DateTime.Today.AddDays(-2),
+                EffectiveDate = DateTime.UtcNow.Date.AddDays(-2),
             });
             await appService.SubmitAsync(first.Id);
 
@@ -77,7 +77,7 @@ public abstract class ItemStandardCostAppServiceTests<TStartupModule> : MyERPApp
                 CompanyId = company.Id,
                 ItemId = item.Id,
                 StandardRate = 25m,
-                EffectiveDate = DateTime.Today,
+                EffectiveDate = DateTime.UtcNow.Date,
             });
             await appService.SubmitAsync(second.Id);
 
@@ -110,7 +110,7 @@ public abstract class ItemStandardCostAppServiceTests<TStartupModule> : MyERPApp
                 CompanyId = company.Id,
                 ItemId = item.Id,
                 StandardRate = 15m,
-                EffectiveDate = DateTime.Today,
+                EffectiveDate = DateTime.UtcNow.Date,
             });
             await appService.SubmitAsync(created.Id);
             (await itemRepository.GetAsync(item.Id)).StandardBuyingPrice.ShouldBe(15m);

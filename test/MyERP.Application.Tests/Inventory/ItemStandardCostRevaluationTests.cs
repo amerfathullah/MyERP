@@ -66,14 +66,14 @@ public abstract class ItemStandardCostRevaluationTests<TStartupModule> : MyERPAp
             CompanyId = company.Id,
             ItemId = item.Id,
             StandardRate = 5m,
-            EffectiveDate = DateTime.Today.AddDays(-2),
+            EffectiveDate = DateTime.UtcNow.Date.AddDays(-2),
         });
         await costAppService.SubmitAsync(first.Id);
 
         // Stock received at the current standard rate.
         await sleRepository.InsertAsync(new StockLedgerEntry(
             Guid.NewGuid(), company.Id, item.Id, warehouse.Id,
-            DateTime.Today.AddDays(-1), quantityChange: 10m, valuationRate: 5m,
+            DateTime.UtcNow.Date.AddDays(-1), quantityChange: 10m, valuationRate: 5m,
             balanceQuantity: 10m, balanceValue: 50m), autoSave: true);
 
         // Rate change: this is the one that should trigger revaluation.
@@ -82,7 +82,7 @@ public abstract class ItemStandardCostRevaluationTests<TStartupModule> : MyERPAp
             CompanyId = company.Id,
             ItemId = item.Id,
             StandardRate = 8m,
-            EffectiveDate = DateTime.Today,
+            EffectiveDate = DateTime.UtcNow.Date,
         });
         await costAppService.SubmitAsync(second.Id);
 

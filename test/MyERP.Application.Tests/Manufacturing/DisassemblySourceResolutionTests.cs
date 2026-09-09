@@ -74,7 +74,7 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
             // starting balance's rate, so the exact seeded rate here doesn't matter.
             await sleRepository.InsertAsync(new StockLedgerEntry(
                 Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse.Id,
-                DateTime.Today.AddDays(-1), quantityChange: 300m, valuationRate: 2.00m,
+                DateTime.UtcNow.Date.AddDays(-1), quantityChange: 300m, valuationRate: 2.00m,
                 balanceQuantity: 300m, balanceValue: 600m)
             {
                 StockQueue = "[[300,2.00]]",
@@ -82,7 +82,7 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
 
             // The actual Manufacture Stock Entry: 100 FG produced, only 300 RM actually consumed
             // (3/unit, not the planned 5/unit), at a real rate of 2.00/unit.
-            var manufactureEntry = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.Today, company.TenantId)
+            var manufactureEntry = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.UtcNow.Date, company.TenantId)
             {
                 WorkOrderId = wo.Id,
                 EntryNumber = "SE-MFG-0001",
@@ -161,14 +161,14 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
             // check, not this starting balance's rate.
             await sleRepository.InsertAsync(new StockLedgerEntry(
                 Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse.Id,
-                DateTime.Today.AddDays(-1), quantityChange: 200m, valuationRate: 3.00m,
+                DateTime.UtcNow.Date.AddDays(-1), quantityChange: 200m, valuationRate: 3.00m,
                 balanceQuantity: 200m, balanceValue: 600m)
             {
                 StockQueue = "[[200,3.00]]",
             }, autoSave: true);
 
             // Two separate production runs at different costs: 60 units @ rate 3.00, 40 units @ rate 4.50.
-            var run1 = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.Today, company.TenantId)
+            var run1 = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.UtcNow.Date, company.TenantId)
             { WorkOrderId = wo.Id, EntryNumber = "SE-MFG-0002A", FgCompletedQty = 60m };
             run1.AddItem(rmItem.Id, 120m, sourceWarehouseId: sourceWarehouse.Id, targetWarehouseId: null, valuationRate: 3.00m);
             run1.AddItem(fgItem.Id, 60m, sourceWarehouseId: null, targetWarehouseId: fgWarehouse.Id, valuationRate: 6.00m);
@@ -177,7 +177,7 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
             await stockPostingService.PostStockEntryAsync(run1);
             await seRepository.InsertAsync(run1, autoSave: true);
 
-            var run2 = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.Today, company.TenantId)
+            var run2 = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.UtcNow.Date, company.TenantId)
             { WorkOrderId = wo.Id, EntryNumber = "SE-MFG-0002B", FgCompletedQty = 40m };
             run2.AddItem(rmItem.Id, 80m, sourceWarehouseId: sourceWarehouse.Id, targetWarehouseId: null, valuationRate: 4.50m);
             run2.AddItem(fgItem.Id, 40m, sourceWarehouseId: null, targetWarehouseId: fgWarehouse.Id, valuationRate: 6.00m);
