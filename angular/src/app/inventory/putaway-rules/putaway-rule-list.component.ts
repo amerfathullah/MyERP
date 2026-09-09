@@ -2,16 +2,16 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe , LocalizationService } from '@abp/ng.core';
-import { RouterModule } from '@angular/router';
 import { PutawayRuleService } from '../../proxy/inventory/putaway-rule.service';
 import { ItemService } from '../../proxy/inventory/item.service';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.theme.shared';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
   standalone: true,
   selector: 'app-putaway-rule-list',
-  imports: [CommonModule, FormsModule, RouterModule, LocalizationPipe],
+  imports: [CommonModule, FormsModule, LocalizationPipe],
   template: `
     <div class="container-fluid my-3">
       <div class="card">
@@ -75,7 +75,9 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
               <tbody>
                 @for (item of items(); track item.id) {
                   <tr>
-                    <td><a [routerLink]="[item.id]" class="text-decoration-none">{{ getItemName(item.itemId) }}</a></td>
+                    <!-- No :id route exists for putaway rules (this list is the whole screen), so
+                         the item name is plain text rather than a link that would dead-end. -->
+                    <td>{{ getItemName(item.itemId) }}</td>
                     <td>{{ getWarehouseName(item.warehouseId) }}</td>
                     <td>{{ item.stockCapacity || '∞' }}</td>
                     <td>{{ item.priority }}</td>
@@ -103,6 +105,7 @@ export class PutawayRuleListComponent implements OnInit {
   private localization = inject(LocalizationService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
+  private companyContext = inject(CompanyContextService);
 
   items = signal<any[]>([]);
   availableItems = signal<any[]>([]);
@@ -134,7 +137,10 @@ export class PutawayRuleListComponent implements OnInit {
   }
 
   load() {
-    this.putawayService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' } as any).subscribe({ next: (res: any) => this.items.set(res.items ?? []), error: () => {} });
+    this.putawayService.getList({
+      skipCount: 0, maxResultCount: 100, sorting: '',
+      companyId: this.companyContext.currentCompanyId() || undefined,
+    } as any).subscribe({ next: (res: any) => this.items.set(res.items ?? []), error: () => {} });
   }
 
   getItemName(id: string) { return this.itemMap[id] || id?.substring(0, 8) + '…'; }
@@ -142,9 +148,13 @@ export class PutawayRuleListComponent implements OnInit {
 
   save() {
     if (!this.newItem.itemId || !this.newItem.warehouseId) return;
-    this.putawayService.create(this.newItem as any).subscribe({
+    // companyId is what PutawayService matches rules on during allocation — without it every rule
+    // is stored against an empty company id and can never match an incoming receipt.
+    const companyId = this.companyContext.currentCompanyId();
+    if (!companyId) { this.toaster.error('::SelectCompanyFirst'); return; }
+    this.putawayService.create({ ...this.newItem, companyId } as any).subscribe({
       next: () => { this.toaster.success('::SuccessfullyCreated'); this.showForm = false; this.load(); },
-      error: () => {}
+      error: (err: any) => this.toaster.error(err?.error?.error?.message ?? '::SaveFailed'),
     });
   }
 

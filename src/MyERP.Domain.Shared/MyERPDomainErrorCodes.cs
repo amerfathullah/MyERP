@@ -90,6 +90,10 @@ public static class MyERPDomainErrorCodes
     public const string QualityInspectionRejected = "MyERP:05010";
     public const string QualityInspectionNotAllowedAfterSubmission = "MyERP:05068";
     public const string QualityInspectionNotRequired = "MyERP:05069";
+    public const string PutawayRuleDuplicate = "MyERP:05070";
+    public const string PutawayRuleWarehouseCompanyMismatch = "MyERP:05071";
+    public const string PutawayRuleCapacityBelowStock = "MyERP:05072";
+    public const string PutawayRulePriorityInvalid = "MyERP:05073";
 
     // Batch/Serial
     public const string BatchExpired = "MyERP:05011";

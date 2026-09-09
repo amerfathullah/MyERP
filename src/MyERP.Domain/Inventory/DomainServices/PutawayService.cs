@@ -76,12 +76,22 @@ public class PutawayService : DomainService
             .ThenByDescending(x => x.FreeSpace)
             .ToList();
 
+        // Free space is a property of the WAREHOUSE, not of the rule. More than one matching rule
+        // can target the same warehouse (an item-specific rule and an item-group rule, or two
+        // duplicate rules), and each one computes its free space from the same Bin balance — so
+        // allocating each rule's full free space in turn would fill that warehouse several times
+        // over. Track what has already been promised per warehouse and net it off, mirroring
+        // ERPNext apply_putaway_rule's own `rule["free_space"] -= stock_qty_to_allocate` decrement.
+        var allocatedPerWarehouse = new Dictionary<Guid, decimal>();
+
         foreach (var candidate in ruleWithCapacities)
         {
             if (remaining <= 0) break;
 
             var rule = candidate.Rule;
-            var available = candidate.FreeSpace;
+            var alreadyAllocated = allocatedPerWarehouse.TryGetValue(rule.WarehouseId, out var used) ? used : 0m;
+            var available = candidate.FreeSpace - alreadyAllocated;
+            if (available <= 0) continue;
 
             var allocateQty = Math.Min(remaining, available);
 
@@ -98,6 +108,7 @@ public class PutawayService : DomainService
                 PutawayRuleId = rule.Id
             });
 
+            allocatedPerWarehouse[rule.WarehouseId] = alreadyAllocated + allocateQty;
             remaining -= allocateQty;
         }
 

@@ -41,8 +41,11 @@ public class PutawayRuleAppService : ApplicationService, IPutawayRuleAppService
     public async Task<PutawayRuleDto> GetAsync(Guid id)
         => ObjectMapper.Map<PutawayRule, PutawayRuleDto>(await _repository.GetAsync(id));
 
-    [Authorize(MyERPPermissions.Warehouses.Create)]
-    public async Task<PutawayRuleDto> CreateAsync(CreateUpdatePutawayRuleDto input)
+    /// <summary>
+    /// Mirrors ERPNext PutawayRule.validate: duplicate rule, warehouse/company match,
+    /// capacity vs existing stock level, and priority floor.
+    /// </summary>
+    private async Task ValidateRuleAsync(CreateUpdatePutawayRuleDto input, Guid? existingRuleId)
     {
         if (input.StockCapacity <= 0)
         {
@@ -50,11 +53,60 @@ public class PutawayRuleAppService : ApplicationService, IPutawayRuleAppService
                 .WithData("field", "StockCapacity");
         }
 
+        if (input.Priority < 1)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PutawayRulePriorityInvalid);
+        }
+
         if (input.ItemId.HasValue)
         {
             var itemValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemTransactionValidationService>();
             await itemValidation.ValidateItemAsync(input.ItemId.Value);
         }
+
+        // Warehouse must belong to the rule's company — a cross-company warehouse would make the
+        // rule allocate stock into another company's warehouse.
+        var warehouseRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+        var warehouse = await warehouseRepo.GetAsync(input.WarehouseId);
+        if (warehouse.CompanyId != input.CompanyId)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PutawayRuleWarehouseCompanyMismatch)
+                .WithData("warehouse", warehouse.Name);
+        }
+
+        // One rule per (item-or-item-group, warehouse) within a company. Duplicates otherwise each
+        // claim the same warehouse's free space independently during allocation.
+        var ruleQuery = await _repository.GetQueryableAsync();
+        var duplicate = ruleQuery.Any(r =>
+            r.CompanyId == input.CompanyId
+            && r.WarehouseId == input.WarehouseId
+            && r.ItemId == input.ItemId
+            && r.ItemGroupId == input.ItemGroupId
+            && (existingRuleId == null || r.Id != existingRuleId.Value));
+        if (duplicate)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PutawayRuleDuplicate);
+        }
+
+        // Capacity below what the warehouse already holds would make the rule permanently
+        // unusable (free space negative), so reject it up front like ERPNext does.
+        if (input.ItemId.HasValue)
+        {
+            var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Bin, Guid>>();
+            var bin = await binRepo.FindAsync(b => b.ItemId == input.ItemId.Value && b.WarehouseId == input.WarehouseId);
+            if (bin != null && input.StockCapacity < bin.ActualQty)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PutawayRuleCapacityBelowStock)
+                    .WithData("capacity", input.StockCapacity)
+                    .WithData("balance", bin.ActualQty);
+            }
+        }
+    }
+
+    [Authorize(MyERPPermissions.Warehouses.Create)]
+    public async Task<PutawayRuleDto> CreateAsync(CreateUpdatePutawayRuleDto input)
+    {
+        await ValidateRuleAsync(input, existingRuleId: null);
 
         var rule = new PutawayRule(GuidGenerator.Create(), input.CompanyId, input.WarehouseId, CurrentTenant.Id)
         {
@@ -79,17 +131,7 @@ public class PutawayRuleAppService : ApplicationService, IPutawayRuleAppService
     [Authorize(MyERPPermissions.Warehouses.Edit)]
     public async Task<PutawayRuleDto> UpdateAsync(Guid id, CreateUpdatePutawayRuleDto input)
     {
-        if (input.StockCapacity <= 0)
-        {
-            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
-                .WithData("field", "StockCapacity");
-        }
-
-        if (input.ItemId.HasValue)
-        {
-            var itemValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemTransactionValidationService>();
-            await itemValidation.ValidateItemAsync(input.ItemId.Value);
-        }
+        await ValidateRuleAsync(input, existingRuleId: id);
 
         var rule = await _repository.GetAsync(id);
         rule.ItemId = input.ItemId;
