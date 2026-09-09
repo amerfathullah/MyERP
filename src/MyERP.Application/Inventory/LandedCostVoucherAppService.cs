@@ -90,6 +90,60 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
         return null;
     }
 
+    /// <summary>
+    /// Guards a receipt reference before it's allowed onto a Landed Cost Voucher: must belong to
+    /// the same company as the voucher and be submitted. Purchase Invoices additionally require
+    /// UpdateStock (gotcha #280); Stock Entries are restricted to the entry types that actually
+    /// move stock in (Material Receipt/Manufacture/Repack), matching GetReceiptItemsAsync.
+    /// </summary>
+    private async Task ValidateReceiptForLandedCostAsync(string receiptType, Guid receiptId, Guid companyId)
+    {
+        if (string.Equals(receiptType, "PurchaseReceipt", StringComparison.OrdinalIgnoreCase))
+        {
+            var pr = await _purchaseReceiptRepository.GetAsync(receiptId);
+            if (pr.CompanyId != companyId)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Purchase Receipt '{pr.ReceiptNumber}' belongs to a different company.");
+            if (pr.Status != Core.DocumentStatus.Submitted)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Purchase Receipt '{pr.ReceiptNumber}' must be submitted.");
+        }
+        else if (string.Equals(receiptType, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase))
+        {
+            var pi = await _purchaseInvoiceRepository.GetAsync(receiptId);
+            if (pi.CompanyId != companyId)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Purchase Invoice '{pi.InvoiceNumber}' belongs to a different company.");
+            if (pi.Status != Core.DocumentStatus.Submitted)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Purchase Invoice '{pi.InvoiceNumber}' must be submitted.");
+            if (!pi.UpdateStock)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Purchase Invoice '{pi.InvoiceNumber}' does not have Update Stock enabled. Landed Cost Voucher can only apply to Purchase Invoices with Update Stock.");
+        }
+        else if (string.Equals(receiptType, "StockEntry", StringComparison.OrdinalIgnoreCase))
+        {
+            var stockEntryRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
+            var se = await stockEntryRepo.GetAsync(receiptId);
+            if (se.CompanyId != companyId)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Stock Entry '{se.EntryNumber}' belongs to a different company.");
+            if (se.Status != Core.DocumentStatus.Submitted)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be submitted.");
+            if (se.EntryType != StockEntryType.MaterialReceipt &&
+                se.EntryType != StockEntryType.Manufacture &&
+                se.EntryType != StockEntryType.Repack)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be of entry type Material Receipt, Manufacture, or Repack.");
+        }
+        else
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Unsupported receipt type: {receiptType}");
+        }
+    }
+
     public async Task<PagedResultDto<LandedCostVoucherDto>> GetListAsync(GetLandedCostVoucherListDto input)
     {
         var query = (await _repository.WithDetailsAsync()).AsQueryable();
@@ -134,19 +188,22 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             Notes = input.Notes,
         };
 
+        // Re-validate each referenced receipt server-side (company match + submitted status),
+        // instead of trusting that the caller went through GetReceiptItemsAsync first — that
+        // method applies these same checks, but CreateAsync is a public endpoint in its own
+        // right and nothing stops a direct call with an arbitrary ReceiptId from a different
+        // company or a Draft/Cancelled document. Per ERPNext validate_receipt_documents.
+        var validatedReceipts = new HashSet<(string Type, Guid Id)>();
         foreach (var item in input.Items)
         {
-            // Per gotcha #280: LCV requires Purchase Invoice to have UpdateStock=true
-            if (string.Equals(item.ReceiptType, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase))
-            {
-                var pi = await _purchaseInvoiceRepository.FindAsync(item.ReceiptId);
-                if (pi != null && !pi.UpdateStock)
-                {
-                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", $"Purchase Invoice {pi.InvoiceNumber} does not have Update Stock enabled. Landed Cost Voucher can only apply to Purchase Invoices with Update Stock.");
-                }
-            }
+            var key = (item.ReceiptType, item.ReceiptId);
+            if (!validatedReceipts.Add(key)) continue;
 
+            await ValidateReceiptForLandedCostAsync(item.ReceiptType, item.ReceiptId, input.CompanyId);
+        }
+
+        foreach (var item in input.Items)
+        {
             lcv.AddItem(item.ReceiptId, item.ReceiptType, item.ItemId,
                 item.Quantity, item.Amount, item.Description);
         }
