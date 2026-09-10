@@ -55,7 +55,18 @@ public class PickListAppService : ApplicationService, IPickListAppService
     {
         // Validate all items are active
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
-        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+        var itemIds = input.Items.Select(i => i.ItemId).ToArray();
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        // Company-restriction check: every other transaction AppService referencing a
+        // company-restricted master wires this in. Per ERPNext pick_list.py validate_warehouses:
+        // each row's Warehouse must belong to the Pick List's own company.
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "PickList", input.CompanyId,
+            itemIds: itemIds,
+            customerIds: input.CustomerId.HasValue ? new[] { input.CustomerId.Value } : null,
+            warehouseIds: input.Items.Select(i => i.WarehouseId).Distinct().ToArray());
 
         // SRE conflict check per gotcha #3533
         if (input.SalesOrderId.HasValue)
