@@ -49,6 +49,12 @@ public class PosAppService : ApplicationService, IPosAppService
             .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.ValidatePostingPeriodAsync(input.CompanyId, DateTime.UtcNow, "POS Invoice");
 
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "POS Invoice", input.CompanyId,
+            itemIds: input.Items.Select(i => i.ItemId).Distinct().ToArray(),
+            customerIds: input.CustomerId.HasValue ? new[] { input.CustomerId.Value } : null);
+
         // Validate an active POS Opening Entry exists for this POS Profile / company
         // Per ERPNext PR #46907 / commit 3de1b22480: validate if pos is opened before pos invoice creation
         var posOpeningRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosOpeningEntry, Guid>>();
