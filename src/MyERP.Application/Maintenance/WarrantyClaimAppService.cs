@@ -96,6 +96,10 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemAsync(input.ItemId);
 
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "WarrantyClaim", input.CompanyId, itemIds: new[] { input.ItemId }, customerIds: new[] { input.CustomerId });
+
         var entity = new WarrantyClaim(
             GuidGenerator.Create(),
             input.CompanyId,
