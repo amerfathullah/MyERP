@@ -311,6 +311,12 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     [Authorize(MyERPPermissions.Projects.Edit)]
     public async Task<ProjectTaskDto> UpdateTaskAsync(Guid taskId, UpdateProjectTaskDto input)
     {
+        if (input.Progress > 100)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Progress % for a task cannot be more than 100.");
+        }
+
         if (input.ParentTaskId.HasValue)
         {
             if (input.ParentTaskId.Value == taskId)
