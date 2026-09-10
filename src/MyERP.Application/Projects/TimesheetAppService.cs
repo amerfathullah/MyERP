@@ -32,6 +32,42 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
         _numberGenerator = numberGenerator;
     }
 
+    /// <summary>
+    /// Per ERPNext timesheet.py validate_overlap_for/get_overlap_for: a time log cannot overlap
+    /// with another time log for the same employee on a *different*, non-cancelled Timesheet. The
+    /// entity's own doc-comment claims "supports overlap validation," but only the within-document
+    /// check (gotcha #2801) was ever implemented — an employee could log the same hours on two
+    /// separate timesheets, double-counting both billable revenue and the Project cost/billing
+    /// rollup this session already wired up (round-96).
+    /// </summary>
+    private async Task ValidateCrossDocumentOverlapAsync(
+        Guid employeeId, IEnumerable<(DateTime FromTime, DateTime ToTime, string ActivityType)> newDetails, Guid? excludeTimesheetId)
+    {
+        var query = await _repository.WithDetailsAsync();
+        var otherTimesheets = query
+            .Where(t => t.EmployeeId == employeeId && t.Status != TimesheetStatus.Cancelled && t.Id != excludeTimesheetId)
+            .ToList();
+
+        if (otherTimesheets.Count == 0) return;
+
+        foreach (var newDetail in newDetails)
+        {
+            foreach (var other in otherTimesheets)
+            {
+                foreach (var existing in other.Details)
+                {
+                    if (newDetail.FromTime < existing.ToTime && newDetail.ToTime > existing.FromTime)
+                    {
+                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.TimesheetOverlappingTimeLog)
+                            .WithData("reason",
+                                $"{newDetail.ActivityType} ({newDetail.FromTime:HH:mm}-{newDetail.ToTime:HH:mm}) overlaps with " +
+                                $"{existing.ActivityType} ({existing.FromTime:HH:mm}-{existing.ToTime:HH:mm}) on another Timesheet for this employee.");
+                    }
+                }
+            }
+        }
+    }
+
     public async Task<TimesheetDto> GetAsync(Guid id)
     {
         var ts = await _repository.GetAsync(id, includeDetails: true);
@@ -102,6 +138,12 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
                 }
             }
         }
+
+        // Validate against time logs on the employee's OTHER timesheets (per ERPNext validate_overlap_for)
+        await ValidateCrossDocumentOverlapAsync(
+            input.EmployeeId,
+            input.Details.Select(d => (d.FromTime, d.ToTime, d.ActivityType)),
+            excludeTimesheetId: null);
 
         // Validate that logged tasks are not group tasks (PR #50319 / commit 5bac896329)
         var taskIds = input.Details.Where(d => d.TaskId.HasValue).Select(d => d.TaskId!.Value).Distinct().ToList();
@@ -211,6 +253,12 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
                 }
             }
         }
+
+        // Validate against time logs on the employee's OTHER timesheets (per ERPNext validate_overlap_for)
+        await ValidateCrossDocumentOverlapAsync(
+            input.EmployeeId,
+            input.Details.Select(d => (d.FromTime, d.ToTime, d.ActivityType)),
+            excludeTimesheetId: id);
 
         // Validate that logged tasks are not group tasks (PR #50319 / commit 5bac896329)
         var taskIds = input.Details.Where(d => d.TaskId.HasValue).Select(d => d.TaskId!.Value).Distinct().ToList();
