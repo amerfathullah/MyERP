@@ -72,6 +72,8 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                 .WithData("status", wo.Status.ToString());
         }
 
+        await ValidateJobCardQtyAsync(wo.Id, input.OperationId, input.ForQuantity, wo.Quantity, wo.CompanyId);
+
         var jc = new JobCard(GuidGenerator.Create(), input.CompanyId, input.WorkOrderId,
             input.OperationId, input.ForQuantity, input.SequenceId, CurrentTenant.Id)
         {
@@ -112,6 +114,13 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                 .WithData("documentType", "JobCard")
                 .WithData("status", jc.Status.ToString());
 
+        if (input.ForQuantity != jc.ForQuantity)
+        {
+            var woRepoForUpdate = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var woForUpdate = await woRepoForUpdate.GetAsync(jc.WorkOrderId);
+            await ValidateJobCardQtyAsync(jc.WorkOrderId, jc.OperationId, input.ForQuantity, woForUpdate.Quantity, jc.CompanyId, excludeJobCardId: jc.Id);
+        }
+
         jc.WorkstationId = input.WorkstationId;
         jc.PlannedTimeInMins = input.PlannedTimeInMins;
         jc.ForQuantity = input.ForQuantity;
@@ -121,6 +130,34 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
 
         await _repository.UpdateAsync(jc);
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);
+    }
+
+    /// <summary>
+    /// Per ERPNext Job Card validate_job_card_qty/get_allowed_wo_qty: the sum of ForQuantity
+    /// across every non-cancelled Job Card for a given Work Order + operation must not exceed
+    /// the Work Order's quantity plus the configured overproduction percentage. Without this,
+    /// Job Cards could be planned (not just completed) far beyond what the Work Order calls for,
+    /// with no guard until production was actually recorded at completion time.
+    /// </summary>
+    private async Task ValidateJobCardQtyAsync(Guid workOrderId, Guid operationId, decimal forQuantity, decimal woQuantity, Guid companyId, Guid? excludeJobCardId = null)
+    {
+        var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+        var settingsQ = await settingsRepo.GetQueryableAsync();
+        var settings = settingsQ.FirstOrDefault(s => s.CompanyId == companyId);
+        var overproductionPct = settings?.OverproductionPercentage ?? 5m;
+        var allowedQty = woQuantity + (woQuantity * overproductionPct / 100m);
+
+        var jcQuery = await _repository.GetQueryableAsync();
+        var existingQty = jcQuery
+            .Where(j => j.WorkOrderId == workOrderId && j.OperationId == operationId && j.Status != JobCardStatus.Cancelled)
+            .Where(j => !excludeJobCardId.HasValue || j.Id != excludeJobCardId.Value)
+            .Sum(j => (decimal?)j.ForQuantity) ?? 0m;
+
+        if (existingQty + forQuantity > allowedQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Job Card quantity ({existingQty + forQuantity}) exceeds the allowed quantity ({allowedQty}) for this Work Order operation. Increase the overproduction percentage in Manufacturing Settings or reduce the Job Card quantity.");
+        }
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
