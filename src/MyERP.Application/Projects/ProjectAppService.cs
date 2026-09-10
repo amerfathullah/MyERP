@@ -143,6 +143,17 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     [Authorize(MyERPPermissions.Projects.Edit)]
     public async Task<ProjectDto> UpdateAsync(Guid id, UpdateProjectDto input)
     {
+        if (input.ExpectedStartDate.HasValue && input.ExpectedEndDate.HasValue && input.ExpectedEndDate.Value < input.ExpectedStartDate.Value)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        if (input.EstimatedCost < 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "EstimatedCost");
+        }
+
         var project = await _projectRepository.GetAsync(id);
         project.ProjectName = input.ProjectName;
         project.Priority = input.Priority;
