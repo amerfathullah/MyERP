@@ -83,6 +83,12 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
             await itemValidation.ValidateItemAsync(item.ItemId);
         }
 
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "SubcontractingInwardOrder", input.CompanyId,
+            itemIds: input.Items.Select(i => i.ItemId).ToArray(),
+            supplierIds: new[] { input.SupplierId });
+
         var orderNumber = $"SCIO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..4].ToUpper()}";
         var entity = new SubcontractingInwardOrder(GuidGenerator.Create(), input.CompanyId,
             orderNumber, input.OrderDate, input.SupplierId, CurrentTenant.Id);
