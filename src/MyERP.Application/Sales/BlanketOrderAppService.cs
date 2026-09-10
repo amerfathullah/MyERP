@@ -51,7 +51,16 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
     {
         // Validate all items are active
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
-        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+        var itemIds = input.Items.Select(i => i.ItemId).ToArray();
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        // Company-restriction check: every other Selling/Purchasing document wires this in.
+        // PartyId is a Customer for a Selling agreement, a Supplier for a Buying one.
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "BlanketOrder", input.CompanyId, itemIds: itemIds,
+            customerIds: string.Equals(input.OrderType, "Selling", StringComparison.OrdinalIgnoreCase) ? new[] { input.PartyId } : null,
+            supplierIds: string.Equals(input.OrderType, "Selling", StringComparison.OrdinalIgnoreCase) ? null : new[] { input.PartyId });
 
         var bo = new BlanketOrder(GuidGenerator.Create(), input.CompanyId,
             $"BO-{DateTime.UtcNow:yyyyMMdd-HHmmss}", input.OrderType,
