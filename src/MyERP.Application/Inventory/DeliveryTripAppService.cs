@@ -77,6 +77,14 @@ public class DeliveryTripAppService :
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
         }
 
+        var stopCustomerIds = input.DeliveryStops.Where(s => s.CustomerId.HasValue).Select(s => s.CustomerId!.Value).Distinct().ToArray();
+        if (stopCustomerIds.Length > 0)
+        {
+            var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+            await companyRestriction.ValidateTransactionCompanyAsync(
+                "DeliveryTrip", input.CompanyId, customerIds: stopCustomerIds);
+        }
+
         var entity = new DeliveryTrip(
             GuidGenerator.Create(),
             input.CompanyId,
