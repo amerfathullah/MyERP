@@ -87,6 +87,51 @@ public class DunningAppService : ApplicationService, IDunningAppService
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
     public async Task<DunningDto> CreateAsync(CreateDunningDto input)
     {
+        // Company-restriction check on the customer this dunning is issued to — every other
+        // transaction AppService referencing a company-restricted master wires this in.
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "Dunning", input.CompanyId, customerIds: new[] { input.CustomerId });
+
+        // Each overdue payment row is otherwise fully client-supplied (invoice id, outstanding
+        // amount, days overdue) with nothing re-fetched server-side — Submit() posts a GL entry
+        // (DR Receivable / CR Income) off Dunning.GrandTotal, so an unchecked row could smuggle in
+        // another customer's invoice, or a fabricated outstanding amount that never existed.
+        // Per ERPNext validate_same_currency: at minimum, confirm the referenced invoice is real
+        // and belongs to this customer/company before trusting anything else about the row.
+        if (input.OverduePayments.Length > 0)
+        {
+            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+            var invoiceIds = input.OverduePayments.Select(p => p.SalesInvoiceId).Distinct().ToArray();
+            var invoices = (await siRepo.GetQueryableAsync())
+                .Where(si => invoiceIds.Contains(si.Id))
+                .ToDictionary(si => si.Id);
+
+            foreach (var invoiceId in invoiceIds)
+            {
+                if (!invoices.TryGetValue(invoiceId, out var invoice))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Sales Invoice {invoiceId} does not exist.");
+                }
+                if (invoice.CustomerId != input.CustomerId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Sales Invoice {invoice.InvoiceNumber} does not belong to the selected customer.");
+                }
+                if (invoice.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Sales Invoice {invoice.InvoiceNumber} belongs to a different company.");
+                }
+                if (invoice.Status != DocumentStatus.Submitted)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Sales Invoice {invoice.InvoiceNumber} must be submitted.");
+                }
+            }
+        }
+
         // Determine correct dunning level from existing submitted dunnings
         var level = await _dunningManager.DetermineDunningLevelAsync(
             input.CustomerId, input.CompanyId, CurrentTenant.Id);
