@@ -78,6 +78,14 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
         await itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
         var deliveryNote = await _deliveryNoteRepository.GetAsync(input.DeliveryNoteId, includeDetails: true);
+        if (deliveryNote.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch);
+        }
+
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "InstallationNote", input.CompanyId, itemIds: itemIds, customerIds: new[] { input.CustomerId });
 
         var number = await _numberGenerator.GenerateAsync("IN", input.CompanyId);
         var note = new InstallationNote(
