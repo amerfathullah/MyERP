@@ -128,6 +128,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Buying.SetValuationRateForRejectedMaterials,
             MyERPSettings.Buying.SupplierNamingBy,
             MyERPSettings.Buying.OverTransferAllowance,
+            MyERPSettings.Buying.BlanketOrderAllowance,
             MyERPSettings.Buying.AllowZeroQtyInSupplierQuotation,
             MyERPSettings.Buying.AllowZeroQtyInRequestForQuotation,
         ],

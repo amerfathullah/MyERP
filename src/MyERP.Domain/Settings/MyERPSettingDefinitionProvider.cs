@@ -62,6 +62,7 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Buying.SetValuationRateForRejectedMaterials, "false"),
             new SettingDefinition(MyERPSettings.Buying.SupplierNamingBy, "Supplier Name"),
             new SettingDefinition(MyERPSettings.Buying.OverTransferAllowance, "0"),
+            new SettingDefinition(MyERPSettings.Buying.BlanketOrderAllowance, "0"),
             new SettingDefinition(MyERPSettings.Buying.AllowZeroQtyInSupplierQuotation, "false"),
             new SettingDefinition(MyERPSettings.Buying.AllowZeroQtyInRequestForQuotation, "false")
         );

@@ -110,6 +110,7 @@ export interface CreatePurchaseOrderItemDto {
   expenseAccountId?: string | null;
   expectedDeliveryDate?: string | null;
   deliveredBySupplier?: boolean;
+  blanketOrderId?: string | null;
 }
 
 export interface CreatePurchaseOrdersFromMrDto {
@@ -554,6 +555,7 @@ export interface PurchaseOrderItemDto {
   stockUom?: string | null;
   materialRequestItemId?: string | null;
   supplierQuotationItemId?: string | null;
+  blanketOrderId?: string | null;
 }
 
 export interface PurchaseOrderTrackingBoardDto {

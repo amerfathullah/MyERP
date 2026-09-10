@@ -84,6 +84,7 @@ public static class MyERPSettings
         public const string SetValuationRateForRejectedMaterials = G + ".SetValuationRateForRejectedMaterials";
         public const string SupplierNamingBy = G + ".SupplierNamingBy";
         public const string OverTransferAllowance = G + ".OverTransferAllowance";
+        public const string BlanketOrderAllowance = G + ".BlanketOrderAllowance";
         public const string AllowZeroQtyInSupplierQuotation = G + ".AllowZeroQtyInSupplierQuotation";
         public const string AllowZeroQtyInRequestForQuotation = G + ".AllowZeroQtyInRequestForQuotation";
         public const string SetLandedCostBasedOnPurchaseInvoiceRate = G + ".SetLandedCostBasedOnPurchaseInvoiceRate";

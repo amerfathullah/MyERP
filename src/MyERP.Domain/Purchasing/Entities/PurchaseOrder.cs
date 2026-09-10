@@ -385,6 +385,9 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Link to Supplier Quotation item (for SQ fulfillment tracking).</summary>
     public Guid? SupplierQuotationItemId { get; set; }
 
+    /// <summary>Blanket Order (Buying) this line draws from — qty deducted from the blanket allocation on submit.</summary>
+    public Guid? BlanketOrderId { get; set; }
+
     /// <summary>Per-item expected delivery date (overrides parent PO ExpectedDeliveryDate).
     /// Per ERPNext: each PO item can have its own expected_delivery_date.</summary>
     public DateTime? ExpectedDeliveryDate { get; set; }

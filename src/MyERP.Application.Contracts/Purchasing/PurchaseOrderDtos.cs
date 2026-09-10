@@ -57,6 +57,9 @@ public class PurchaseOrderItemDto
     public string? StockUom { get; set; }
     public Guid? MaterialRequestItemId { get; set; }
     public Guid? SupplierQuotationItemId { get; set; }
+
+    /// <summary>Blanket Order this line draws from (null if not linked to one).</summary>
+    public Guid? BlanketOrderId { get; set; }
 }
 
 public class CreatePurchaseOrderDto
@@ -85,6 +88,9 @@ public class CreatePurchaseOrderItemDto
     public Guid? ExpenseAccountId { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }
     public bool DeliveredBySupplier { get; set; }
+
+    /// <summary>Blanket Order this line draws from — qty deducted from the blanket allocation on submit.</summary>
+    public Guid? BlanketOrderId { get; set; }
 }
 
 /// <summary>
