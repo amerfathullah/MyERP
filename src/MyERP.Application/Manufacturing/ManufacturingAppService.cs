@@ -92,6 +92,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         await ValidateNoFixedAssetBomItemsAsync(input.Items.Select(i => i.ItemId));
 
+        await ValidateBomCompanyAsync(input.CompanyId, input.ItemId, input.Items.Select(i => i.ItemId),
+            input.SourceWarehouseId, input.TargetWarehouseId, input.ScrapWarehouseId);
+
         var number = await _numberGenerator.GenerateAsync("BOM", input.CompanyId);
         var bom = new BillOfMaterials(GuidGenerator.Create(), input.CompanyId, number, input.ItemId, CurrentTenant.Id)
         {
@@ -189,6 +192,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         await ValidateNoFixedAssetBomItemsAsync(input.Items.Select(i => i.ItemId));
 
         var bom = await _bomRepository.GetAsync(id, includeDetails: true);
+
+        await ValidateBomCompanyAsync(bom.CompanyId, bom.ItemId, input.Items.Select(i => i.ItemId),
+            input.SourceWarehouseId, input.TargetWarehouseId, input.ScrapWarehouseId);
 
         bom.Quantity = input.Quantity;
         bom.Uom = input.Uom;
@@ -2258,6 +2264,24 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Fixed Asset item(s) '{string.Join(", ", fixedAssetItems)}' cannot be used in BOMs.");
         }
+    }
+
+    /// <summary>
+    /// BOM never wired CompanyRestrictionValidationService at all despite referencing the FG
+    /// item, every raw-material item, and up to three warehouses — a cross-company reference here
+    /// propagates silently into every downstream Work Order/Job Card built from the BOM.
+    /// </summary>
+    private async Task ValidateBomCompanyAsync(Guid companyId, Guid fgItemId, IEnumerable<Guid> rmItemIds,
+        Guid? sourceWarehouseId, Guid? targetWarehouseId, Guid? scrapWarehouseId)
+    {
+        var itemIds = rmItemIds.Append(fgItemId).Distinct().ToArray();
+        var warehouseIds = new[] { sourceWarehouseId, targetWarehouseId, scrapWarehouseId }
+            .Where(w => w.HasValue).Select(w => w!.Value).Distinct().ToArray();
+
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "BOM", companyId, itemIds: itemIds,
+            warehouseIds: warehouseIds.Length > 0 ? warehouseIds : null);
     }
 }
 
