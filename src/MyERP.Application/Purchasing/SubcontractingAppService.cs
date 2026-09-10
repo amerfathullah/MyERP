@@ -79,8 +79,13 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
         }
 
+        var itemIds = input.Items.Select(i => i.ItemId).ToArray();
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
-        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "SubcontractingOrder", input.CompanyId, itemIds: itemIds, supplierIds: new[] { input.SupplierId });
 
         var number = await _numberGenerator.GenerateAsync("SCO", input.CompanyId);
         var sco = new SubcontractingOrder(GuidGenerator.Create(), input.CompanyId, number,
@@ -323,8 +328,13 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
         }
 
+        var receiptItemIds = input.Items.Select(i => i.ItemId).ToArray();
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
-        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+        await itemValidation.ValidateItemsForTransactionAsync(receiptItemIds);
+
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "SubcontractingReceipt", input.CompanyId, itemIds: receiptItemIds, supplierIds: new[] { input.SupplierId });
 
         var number = await _numberGenerator.GenerateAsync("SCR", input.CompanyId);
         var scr = new SubcontractingReceipt(GuidGenerator.Create(), input.CompanyId, number,
