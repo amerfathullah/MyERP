@@ -93,7 +93,12 @@ public class AssetCapitalizationAppService : ApplicationService, IAssetCapitaliz
                     throw new BusinessException(MyERPDomainErrorCodes.AssetCompanyMismatch)
                         .WithData("assetName", consumedAsset.AssetName);
                 }
-                if (consumedAsset.Status is AssetStatus.Sold or AssetStatus.Scrapped)
+                // Per ERPNext asset_capitalization.py validate_consumed_asset_item: a Draft asset has
+                // no real value/depreciation schedule to consume, and one already Capitalized has
+                // already been consumed into a different target — allowing either here would let the
+                // same underlying value get capitalized twice, or a phantom asset capitalized once.
+                if (consumedAsset.Status is AssetStatus.Sold or AssetStatus.Scrapped
+                    or AssetStatus.Draft or AssetStatus.Capitalized or AssetStatus.Cancelled)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.AssetCannotBeMoved)
                         .WithData("assetName", consumedAsset.AssetName)
