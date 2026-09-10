@@ -18,6 +18,7 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
     private readonly IRepository<AssetRepair, Guid> _repository;
     private readonly IRepository<Asset, Guid> _assetRepository;
     private readonly IRepository<AssetActivity, Guid> _activityRepository;
+    private readonly IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid> _purchaseInvoiceRepository;
     private readonly AssetRepairMapper _mapper;
     private readonly AssetLifecycleManager _lifecycleManager;
 
@@ -25,14 +26,51 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
         IRepository<AssetRepair, Guid> repository,
         IRepository<Asset, Guid> assetRepository,
         IRepository<AssetActivity, Guid> activityRepository,
+        IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid> purchaseInvoiceRepository,
         AssetRepairMapper mapper,
         AssetLifecycleManager lifecycleManager)
     {
         _repository = repository;
         _assetRepository = assetRepository;
         _activityRepository = activityRepository;
+        _purchaseInvoiceRepository = purchaseInvoiceRepository;
         _mapper = mapper;
         _lifecycleManager = lifecycleManager;
+    }
+
+    /// <summary>
+    /// Per ERPNext asset_repair.py validate_purchase_invoice_status: every referenced Purchase
+    /// Invoice must actually be submitted, and belong to the same company as the repair — neither
+    /// was checked here, so an Asset Repair could capitalize a cost claimed against a Draft/
+    /// Cancelled invoice, or one from an unrelated company, straight onto the asset's book value.
+    /// </summary>
+    private async Task ValidateInvoiceRowsAsync(CreateUpdateAssetRepairDto input)
+    {
+        if (input.Invoices == null || !input.Invoices.Any()) return;
+
+        var invoiceIds = input.Invoices.Select(i => i.PurchaseInvoiceId).Distinct().ToArray();
+        var invoices = (await _purchaseInvoiceRepository.GetQueryableAsync())
+            .Where(pi => invoiceIds.Contains(pi.Id))
+            .ToDictionary(pi => pi.Id);
+
+        foreach (var invoiceId in invoiceIds)
+        {
+            if (!invoices.TryGetValue(invoiceId, out var pi))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Purchase Invoice {invoiceId} does not exist.");
+            }
+            if (pi.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Purchase Invoice {pi.InvoiceNumber} belongs to a different company.");
+            }
+            if (pi.Status != Core.DocumentStatus.Submitted)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Purchase Invoice {pi.InvoiceNumber} must be submitted.");
+            }
+        }
     }
 
     public async Task<PagedResultDto<AssetRepairDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -96,6 +134,10 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", "RepairCost");
         }
+
+        // Per ERPNext validate_purchase_invoice_status: every referenced invoice must be submitted
+        // and belong to this company.
+        await ValidateInvoiceRowsAsync(input);
 
         // Validate duplicate purchase invoice rows (per ERPNext PR #50804 / commit ff9b392024)
         if (input.Invoices != null && input.Invoices.Any())
@@ -222,6 +264,10 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", "RepairCost");
         }
+
+        // Per ERPNext validate_purchase_invoice_status: every referenced invoice must be submitted
+        // and belong to this company.
+        await ValidateInvoiceRowsAsync(input);
 
         // Validate duplicate purchase invoice rows (per ERPNext PR #50804 / commit ff9b392024)
         if (input.Invoices != null && input.Invoices.Any())
