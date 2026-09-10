@@ -19,6 +19,7 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
     private readonly IRepository<Asset, Guid> _assetRepository;
     private readonly IRepository<AssetActivity, Guid> _activityRepository;
     private readonly IRepository<Location, Guid> _locationRepository;
+    private readonly IRepository<MyERP.HumanResources.Entities.Employee, Guid> _employeeRepository;
     private readonly AssetMovementMapper _mapper;
 
     public AssetMovementAppService(
@@ -26,12 +27,14 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
         IRepository<Asset, Guid> assetRepository,
         IRepository<AssetActivity, Guid> activityRepository,
         IRepository<Location, Guid> locationRepository,
+        IRepository<MyERP.HumanResources.Entities.Employee, Guid> employeeRepository,
         AssetMovementMapper mapper)
     {
         _repository = repository;
         _assetRepository = assetRepository;
         _activityRepository = activityRepository;
         _locationRepository = locationRepository;
+        _employeeRepository = employeeRepository;
         _mapper = mapper;
     }
 
@@ -217,6 +220,34 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
             {
                 throw new BusinessException(MyERPDomainErrorCodes.AssetMovementSameLocationAndCustodian)
                     .WithData("assetName", asset.AssetName);
+            }
+
+            // Per ERPNext asset_movement.py validate_location/validate_employee: a claimed source
+            // location/custodian that doesn't match the asset's actual current location/custodian
+            // would silently corrupt the location/custodian audit trail this document exists to keep.
+            if (item.SourceLocationId.HasValue && asset.LocationId.HasValue
+                && item.SourceLocationId != asset.LocationId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Asset '{asset.AssetName}' does not belong to the specified source location.");
+            }
+
+            if (item.FromEmployeeId.HasValue && asset.CustodianEmployeeId.HasValue
+                && item.FromEmployeeId != asset.CustodianEmployeeId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Asset '{asset.AssetName}' does not belong to the specified custodian.");
+            }
+
+            // Per ERPNext: the receiving employee must belong to the movement's own company.
+            if (item.ToEmployeeId.HasValue)
+            {
+                var toEmployee = await _employeeRepository.FindAsync(item.ToEmployeeId.Value);
+                if (toEmployee != null && toEmployee.CompanyId != am.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Employee does not belong to the company for asset '{asset.AssetName}'.");
+                }
             }
 
             // Validate transaction date against prior submitted movements for this asset (ERPNext PR #52340 / commit e98b68c38f)
