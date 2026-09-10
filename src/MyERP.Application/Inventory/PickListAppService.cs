@@ -75,7 +75,7 @@ public class PickListAppService : ApplicationService, IPickListAppService
             var activeSre = await sreRepo.FindAsync(s =>
                 s.VoucherType == "SalesOrder"
                 && s.VoucherId == input.SalesOrderId.Value
-                && s.Status == DocumentStatus.Posted
+                && s.Status == DocumentStatus.Submitted
                 && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0);
 
             if (activeSre != null)
