@@ -52,6 +52,13 @@ public class IssueAppService : ApplicationService, IIssueAppService
     [Authorize(MyERPPermissions.Issues.Create)]
     public async Task<IssueDto> CreateAsync(CreateIssueDto input)
     {
+        if (input.CustomerId.HasValue)
+        {
+            var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+            await companyRestriction.ValidateTransactionCompanyAsync(
+                "Issue", input.CompanyId, customerIds: new[] { input.CustomerId.Value });
+        }
+
         var issue = new Issue(GuidGenerator.Create(), input.CompanyId, input.Subject, CurrentTenant.Id)
         {
             Description = input.Description,
