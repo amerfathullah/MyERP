@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Accounting.Entities;
 using MyERP.Assets.DomainServices;
 using MyERP.Assets.Entities;
 using MyERP.Permissions;
@@ -19,6 +21,7 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
     private readonly IRepository<Asset, Guid> _assetRepository;
     private readonly IRepository<AssetActivity, Guid> _activityRepository;
     private readonly IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid> _purchaseInvoiceRepository;
+    private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
     private readonly AssetRepairMapper _mapper;
     private readonly AssetLifecycleManager _lifecycleManager;
 
@@ -27,6 +30,7 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
         IRepository<Asset, Guid> assetRepository,
         IRepository<AssetActivity, Guid> activityRepository,
         IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid> purchaseInvoiceRepository,
+        IRepository<JournalEntry, Guid> journalEntryRepository,
         AssetRepairMapper mapper,
         AssetLifecycleManager lifecycleManager)
     {
@@ -34,6 +38,7 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
         _assetRepository = assetRepository;
         _activityRepository = activityRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
+        _journalEntryRepository = journalEntryRepository;
         _mapper = mapper;
         _lifecycleManager = lifecycleManager;
     }
@@ -65,10 +70,70 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Purchase Invoice {pi.InvoiceNumber} belongs to a different company.");
             }
-            if (pi.Status != Core.DocumentStatus.Submitted)
+            // MyERP splits ERPNext's atomic "submit" into Submit (status change) + Post (GL creation)
+            // steps, so a fully processed invoice ends at Posted, not Submitted. Accepting only
+            // Submitted would reject exactly the invoices whose GL actually exists to claim against.
+            if (pi.Status != Core.DocumentStatus.Submitted && pi.Status != Core.DocumentStatus.Posted)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Purchase Invoice {pi.InvoiceNumber} must be submitted.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Per ERPNext asset_repair.py validate_purchase_invoice_repair_cost / get_unallocated_repair_cost:
+    /// the repair cost claimed against a given (Purchase Invoice, Expense Account) pair must not exceed
+    /// what was actually posted to GL for that pair, minus whatever other completed Asset Repair
+    /// documents have already claimed against the same pair. Without this, two separate Asset Repair
+    /// documents could each capitalize the full invoice expense onto their own asset's book value,
+    /// double- (or N-times-) counting the same underlying Purchase Invoice cost. "Completed" is
+    /// MyERP's equivalent of ERPNext's submitted (docstatus=1) state — Pending repairs, like ERPNext
+    /// drafts, don't count as allocated yet, so re-running this check in CompleteAsync (the "submit"
+    /// moment) is what actually resolves a race between two still-Pending documents claiming the
+    /// same pair: whichever completes first locks in its allocation.
+    /// </summary>
+    private async Task ValidateRepairCostAllocationAsync(
+        Guid? excludeRepairId,
+        IEnumerable<(Guid PurchaseInvoiceId, Guid ExpenseAccountId, decimal RepairCost)> rows)
+    {
+        var claims = rows.Where(r => r.RepairCost > 0).ToList();
+        if (claims.Count == 0) return;
+
+        var invoiceIds = claims.Select(c => c.PurchaseInvoiceId).Distinct().ToArray();
+
+        var jeQuery = await _journalEntryRepository.GetQueryableAsync();
+        var journals = jeQuery
+            .Where(je => je.ReferenceType == "PurchaseInvoice" && je.ReferenceId.HasValue && invoiceIds.Contains(je.ReferenceId.Value))
+            .Where(je => je.Status == Core.DocumentStatus.Posted)
+            .ToList();
+
+        var repairQuery = await _repository.WithDetailsAsync(r => r.Invoices);
+        var otherCompletedRepairs = repairQuery
+            .Where(r => r.Status == AssetRepairStatus.Completed && r.Id != excludeRepairId)
+            .ToList();
+
+        foreach (var claim in claims)
+        {
+            var glTotal = journals
+                .Where(je => je.ReferenceId == claim.PurchaseInvoiceId)
+                .SelectMany(je => je.Lines)
+                .Where(l => l.AccountId == claim.ExpenseAccountId)
+                .Sum(l => l.IsDebit ? l.Amount : -l.Amount);
+
+            var allocatedByOthers = otherCompletedRepairs
+                .SelectMany(r => r.Invoices)
+                .Where(i => i.PurchaseInvoiceId == claim.PurchaseInvoiceId && i.ExpenseAccountId == claim.ExpenseAccountId)
+                .Sum(i => i.RepairCost);
+
+            var unallocated = glTotal - allocatedByOthers;
+
+            if (claim.RepairCost > unallocated)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail",
+                        $"Claimed repair cost ({claim.RepairCost:N2}) exceeds the unallocated posted expense " +
+                        $"({unallocated:N2}) for this Purchase Invoice and Expense Account.");
             }
         }
     }
@@ -158,6 +223,14 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", "Duplicate Purchase Invoice and Expense Account combination found in Asset Repair invoice rows.");
             }
+
+            // Per ERPNext validate_purchase_invoice_repair_cost: claimed cost per (invoice, expense
+            // account) pair cannot exceed what's unallocated against that pair's posted GL amount.
+            await ValidateRepairCostAllocationAsync(
+                excludeRepairId: null,
+                input.Invoices
+                    .Where(i => i.ExpenseAccountId.HasValue)
+                    .Select(i => (i.PurchaseInvoiceId, i.ExpenseAccountId!.Value, i.RepairCost)));
         }
 
         var repairNumber = $"AS-REP-{DateTime.UtcNow:yyyyMMdd}-{GuidGenerator.Create().ToString()[..6].ToUpper()}";
@@ -288,6 +361,14 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", "Duplicate Purchase Invoice and Expense Account combination found in Asset Repair invoice rows.");
             }
+
+            // Per ERPNext validate_purchase_invoice_repair_cost: claimed cost per (invoice, expense
+            // account) pair cannot exceed what's unallocated against that pair's posted GL amount.
+            await ValidateRepairCostAllocationAsync(
+                excludeRepairId: repair.Id,
+                input.Invoices
+                    .Where(i => i.ExpenseAccountId.HasValue)
+                    .Select(i => (i.PurchaseInvoiceId, i.ExpenseAccountId!.Value, i.RepairCost)));
         }
 
         repair.AssetId = input.AssetId;
@@ -361,6 +442,19 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
             throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound);
 
         repair.Complete();
+
+        // Re-check the GL allocation cap at completion (ERPNext re-runs validate() on submit): two
+        // Asset Repairs can both be Pending and pass the create/update check against the same
+        // (invoice, account) pair since neither counts as "allocated" yet — whichever completes
+        // first here locks in its claim, and the second is blocked.
+        if (repair.Invoices.Any())
+        {
+            await ValidateRepairCostAllocationAsync(
+                excludeRepairId: repair.Id,
+                repair.Invoices
+                    .Where(i => i.ExpenseAccountId.HasValue)
+                    .Select(i => (i.PurchaseInvoiceId, i.ExpenseAccountId!.Value, i.RepairCost)));
+        }
 
         // Consumed stock cost is always added to asset value; repair cost is added if capitalized (ERPNext PR #47233 / commit ed8a8532e1)
         var capitalizedCost = repair.ConsumedItemsCost + (repair.CapitalizeRepairCost ? repair.RepairCost : 0m);

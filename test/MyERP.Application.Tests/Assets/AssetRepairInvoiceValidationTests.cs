@@ -7,6 +7,7 @@ using MyERP.Assets.Entities;
 using MyERP.Core.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.Entities;
+using MyERP.Purchasing;
 using MyERP.Purchasing.Entities;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
@@ -117,27 +118,65 @@ public abstract class AssetRepairInvoiceValidationTests<TStartupModule> : MyERPA
         {
             var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
             var assetRepository = GetRequiredService<IRepository<Asset, Guid>>();
-            var invoiceRepository = GetRequiredService<IRepository<PurchaseInvoice, Guid>>();
             var supplierRepository = GetRequiredService<IRepository<Supplier, Guid>>();
             var accountRepository = GetRequiredService<IRepository<Account, Guid>>();
+            var fiscalYearRepository = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var ruleRepository = GetRequiredService<IRepository<AccountingRule, Guid>>();
+            var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var costCenterRepository = GetRequiredService<IRepository<CostCenter, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var invoiceAppService = GetRequiredService<IPurchaseInvoiceAppService>();
             var assetRepairAppService = GetRequiredService<IAssetRepairAppService>();
 
             var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Asset Repair Happy Co"), autoSave: true);
             var supplier = await supplierRepository.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "Asset Repair Happy Supplier"), autoSave: true);
             var expenseAccount = await accountRepository.InsertAsync(
                 new Account(Guid.NewGuid(), company.Id, "5912", "Repair Expense 3", AccountType.Expense), autoSave: true);
-            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
-            var lineItem = await itemRepository.InsertAsync(
-                new Item(Guid.NewGuid(), company.Id, "AR-ITEM-003", "Asset Repair Happy Line Item", ItemType.Goods), autoSave: true);
+            var payableAccount = await accountRepository.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "2012", "Creditors 3", AccountType.Liability), autoSave: true);
+
+            var costCenter = await costCenterRepository.InsertAsync(
+                new CostCenter(Guid.NewGuid(), company.Id, "Asset Repair Happy Cost Center"), autoSave: true);
+
+            company.DefaultExpenseAccountId = expenseAccount.Id;
+            company.DefaultPayableAccountId = payableAccount.Id;
+            company.DefaultCostCenterId = costCenter.Id;
+            await companyRepository.UpdateAsync(company, autoSave: true);
+
+            await fiscalYearRepository.InsertAsync(
+                new FiscalYear(Guid.NewGuid(), company.Id, "FY Happy", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)),
+                autoSave: true);
+            await seriesRepository.InsertAsync(
+                new DocumentSeries(Guid.NewGuid(), company.Id, "AR Happy Series", "PurchaseInvoice", "ARHAPPY-"), autoSave: true);
+            await ruleRepository.InsertAsync(
+                new AccountingRule(Guid.NewGuid(), company.Id, "PI DR Expense", "PurchaseInvoice", true, AccountSource.ItemExpense, AmountSource.NetTotal)
+                { SortOrder = 1 }, autoSave: true);
+            await ruleRepository.InsertAsync(
+                new AccountingRule(Guid.NewGuid(), company.Id, "PI CR Payable", "PurchaseInvoice", false, AccountSource.SupplierPayable, AmountSource.GrandTotal)
+                { SortOrder = 2 }, autoSave: true);
+
+            var lineItem = new Item(Guid.NewGuid(), company.Id, "AR-ITEM-003", "Asset Repair Happy Line Item", ItemType.Service) { MaintainStock = false };
+            await itemRepository.InsertAsync(lineItem, autoSave: true);
 
             var asset = new Asset(Guid.NewGuid(), company.Id, "AST-REP-003", "Asset Repair Happy Asset", DateTime.UtcNow, 4000m);
             asset.Submit();
             await assetRepository.InsertAsync(asset, autoSave: true);
 
-            var invoice = new PurchaseInvoice(Guid.NewGuid(), company.Id, supplier.Id, "PI-REP-003", DateTime.Today);
-            invoice.AddItem(lineItem.Id, "Repair line item", 1m, 150m, 0m);
-            invoice.Submit();
-            await invoiceRepository.InsertAsync(invoice, autoSave: true);
+            // Real posting pipeline so a JournalEntry actually exists for the new GL-allocation cap
+            // (AssetRepairAppService.ValidateRepairCostAllocationAsync) to sum against.
+            var invoice = await invoiceAppService.CreateAsync(new CreatePurchaseInvoiceDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                IssueDate = DateTime.UtcNow.Date,
+                DueDate = DateTime.UtcNow.Date.AddDays(30),
+                Items = new List<CreatePurchaseInvoiceItemDto>
+                {
+                    new() { ItemId = lineItem.Id, Description = "Repair line item", Quantity = 1m, UnitPrice = 150m, Uom = "Unit" },
+                },
+            });
+            await invoiceAppService.SubmitAsync(invoice.Id);
+            await invoiceAppService.PostAsync(invoice.Id);
 
             var dto = await assetRepairAppService.CreateAsync(new CreateUpdateAssetRepairDto
             {
