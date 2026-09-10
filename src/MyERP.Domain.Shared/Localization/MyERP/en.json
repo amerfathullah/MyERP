@@ -1571,6 +1571,7 @@
     "MyERP:05071": "Warehouse does not belong to the selected company.",
     "MyERP:05072": "Capacity ({capacity}) must be at least the existing stock level of {balance} in this warehouse.",
     "MyERP:05073": "Priority cannot be less than 1.",
+    "MyERP:05074": "Quality Inspection reading '{specification}' has a missing or invalid acceptance formula: {reason}",
     "MyERP:01050": "Customer cannot be changed when Quotation is created from an Opportunity.",
     "MyERP:02090": "A Payment Request for the full remaining amount is already created for this document.",
     "BudgetExceededMessage": "Budget exceeded for account '{account}': budget {budget}, spent {spent}, requested {requested}.",

@@ -94,6 +94,7 @@ public static class MyERPDomainErrorCodes
     public const string PutawayRuleWarehouseCompanyMismatch = "MyERP:05071";
     public const string PutawayRuleCapacityBelowStock = "MyERP:05072";
     public const string PutawayRulePriorityInvalid = "MyERP:05073";
+    public const string QualityInspectionInvalidFormula = "MyERP:05074";
 
     // Batch/Serial
     public const string BatchExpired = "MyERP:05011";

@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using MyERP.Inventory.DomainServices;
+using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 
 namespace MyERP.Inventory.Entities;
@@ -55,9 +58,41 @@ public class QualityInspectionReading : FullAuditedEntity<Guid>
     {
         if (FormulaBased)
         {
-            // Formula evaluation would need a safe expression evaluator
-            // For now, treat non-empty reading as accepted
-            Status = !string.IsNullOrWhiteSpace(ReadingValue) ? InspectionStatus.Accepted : InspectionStatus.Rejected;
+            if (string.IsNullOrWhiteSpace(Formula))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionInvalidFormula)
+                    .WithData("specification", Specification)
+                    .WithData("reason", "Formula is missing.");
+            }
+
+            // MyERP stores a single ReadingValue per parameter (unlike ERPNext's
+            // reading_1..reading_10 samples), so both "reading_1" and "mean" resolve
+            // to that same value — templates should compare against just reading_1/mean.
+            if (!decimal.TryParse(ReadingValue, out var numericReading))
+            {
+                Status = InspectionStatus.Rejected;
+                return;
+            }
+
+            var variables = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["reading_1"] = numericReading,
+                ["mean"] = numericReading,
+            };
+
+            bool accepted;
+            try
+            {
+                accepted = AcceptanceFormulaEvaluator.EvaluateBoolean(Formula, variables);
+            }
+            catch (FormatException ex)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionInvalidFormula)
+                    .WithData("specification", Specification)
+                    .WithData("reason", ex.Message);
+            }
+
+            Status = accepted ? InspectionStatus.Accepted : InspectionStatus.Rejected;
             return;
         }
 

@@ -102,4 +102,44 @@ public class QualityInspectionTests
         qi.Evaluate();
         qi.Status.ShouldBe(InspectionStatus.Rejected);
     }
+
+    [Fact]
+    public void AddReading_FormulaBased_Accepted()
+    {
+        var qi = CreateQI();
+        qi.AddReading("Tensile Strength", null, null, null, "15",
+            formulaBased: true, formula: "reading_1 >= 10 and reading_1 <= 20");
+        qi.Evaluate();
+        qi.Readings[0].Status.ShouldBe(InspectionStatus.Accepted);
+        qi.Status.ShouldBe(InspectionStatus.Accepted);
+    }
+
+    [Fact]
+    public void AddReading_FormulaBased_Rejected()
+    {
+        var qi = CreateQI();
+        qi.AddReading("Tensile Strength", null, null, null, "25",
+            formulaBased: true, formula: "reading_1 >= 10 and reading_1 <= 20");
+        qi.Evaluate();
+        qi.Readings[0].Status.ShouldBe(InspectionStatus.Rejected);
+        qi.Status.ShouldBe(InspectionStatus.Rejected);
+    }
+
+    [Fact]
+    public void AddReading_FormulaBased_MissingFormula_Throws()
+    {
+        var qi = CreateQI();
+        qi.AddReading("Tensile Strength", null, null, null, "15",
+            formulaBased: true, formula: null);
+        Should.Throw<BusinessException>(() => qi.Evaluate());
+    }
+
+    [Fact]
+    public void AddReading_FormulaBased_InvalidFormula_Throws()
+    {
+        var qi = CreateQI();
+        qi.AddReading("Tensile Strength", null, null, null, "15",
+            formulaBased: true, formula: "reading_1 >=");
+        Should.Throw<BusinessException>(() => qi.Evaluate());
+    }
 }
