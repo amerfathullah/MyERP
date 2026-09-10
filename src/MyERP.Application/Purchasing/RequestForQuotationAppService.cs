@@ -71,6 +71,18 @@ public class RequestForQuotationAppService : ApplicationService, IRequestForQuot
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
 
+        // Company-restriction check (Item/Supplier/Warehouse must belong to — or explicitly allow —
+        // this company). Every other Purchasing/Sales document wires this in; RFQ was the one
+        // sibling that didn't, so a cross-company Supplier or Warehouse could be referenced here
+        // even though the identical reference is blocked on the resulting Purchase Order.
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "RequestForQuotation",
+            input.CompanyId,
+            itemIds: input.Items.Select(i => i.ItemId).ToArray(),
+            supplierIds: input.Suppliers.Select(s => s.SupplierId).ToArray(),
+            warehouseIds: input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value).ToArray());
+
         foreach (var item in input.Items)
             rfq.AddItem(item.ItemId, item.Description, item.Qty, item.Uom, item.WarehouseId, item.MaterialRequestItemId);
 
