@@ -106,6 +106,27 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
                 .WithData("existingSlipId", overlapping.Id);
         }
 
+        // Per ERPNext packing_slip.py validate_items: a row referencing a DN item cannot pack more
+        // than that line's remaining (unpacked) quantity — DN_Item.Quantity - already-accumulated
+        // PackedQty from other submitted slips. Without this, cumulative Packing Slips against one
+        // DN line can exceed what was ever ordered/shipped on it.
+        foreach (var itemDto in input.Items.Where(i => i.DeliveryNoteItemId.HasValue))
+        {
+            var dnItem = dn.Items.FirstOrDefault(i => i.Id == itemDto.DeliveryNoteItemId!.Value);
+            if (dnItem == null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Delivery Note Item reference does not exist on the selected Delivery Note.");
+            }
+
+            var remainingQty = dnItem.Quantity - dnItem.PackedQty;
+            if (itemDto.Qty > remainingQty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Qty cannot be greater than {remainingQty} for Item {dnItem.ItemId} — Packing Slip already covers the rest of this Delivery Note line.");
+            }
+        }
+
         var entity = new PackingSlip(
             GuidGenerator.Create(),
             input.CompanyId,
@@ -120,6 +141,11 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
         foreach (var itemDto in input.Items)
         {
             entity.AddItem(itemDto.ItemId, itemDto.Qty, itemDto.NetWeight, itemDto.Description);
+            // AddItem has no DeliveryNoteItemId parameter — without this, the field a Packing Slip
+            // Item carries for exactly this purpose was always left null, which silently made both
+            // AdjustParentDeliveryNotePackedQtyAsync (DN PackedQty write-back on submit/cancel) and
+            // the over-pack guard above permanently unreachable dead code.
+            entity.Items.Last().DeliveryNoteItemId = itemDto.DeliveryNoteItemId;
         }
 
         await _repository.InsertAsync(entity);
