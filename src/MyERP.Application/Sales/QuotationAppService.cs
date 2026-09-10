@@ -227,7 +227,17 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
 
         // Validate all items are active (per DO-NOT: disabled items must not appear in transactions)
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
-        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+        var itemIds = input.Items.Select(i => i.ItemId).ToArray();
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        // Company-restriction check: every other Selling document (SalesOrder, SalesInvoice,
+        // DeliveryNote) wires this in; Quotation didn't, and since ConvertQuotationToSalesOrderAsync
+        // builds the SalesOrder directly rather than going through SalesOrderAppService.CreateAsync,
+        // an unchecked Quotation would carry a cross-company Customer/Item all the way through to a
+        // submitted Sales Order with no check ever firing.
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "Quotation", input.CompanyId, itemIds: itemIds, customerIds: new[] { input.CustomerId });
 
         foreach (var item in input.Items)
         {

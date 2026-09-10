@@ -76,7 +76,15 @@ public class SupplierQuotationAppService : ApplicationService, ISupplierQuotatio
 
         // Validate all items are active
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
-        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+        var itemIds = input.Items.Select(i => i.ItemId).ToArray();
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        // Company-restriction check: every other Purchasing document (PO, PI, PR, MaterialRequest,
+        // RFQ) wires this in; Supplier Quotation didn't, despite being the RFQ's own direct reply
+        // and the document Purchase Order conversion reads a Supplier/Item reference from.
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "SupplierQuotation", input.CompanyId, itemIds: itemIds, supplierIds: new[] { input.SupplierId });
 
         // Validate zero qty according to Buying Settings
         var allowZeroQty = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowZeroQtyInSupplierQuotation);
