@@ -83,6 +83,14 @@ public class SubscriptionAppService : ApplicationService, ISubscriptionAppServic
             EndDate = input.EndDate,
             TrialPeriodDays = input.TrialPeriodDays,
         };
+
+        // Per ERPNext subscription.py validate_end_date/validate_to_follow_calendar_months: an
+        // end date must clear at least one full billing cycle. This guard already existed on the
+        // entity but had zero callers — the plain `EndDate < StartDate` check above lets an end
+        // date land anywhere inside the first cycle (e.g. Yearly billing, end date one day after
+        // start) through without error.
+        sub.ValidateSubscriptionPeriod();
+
         foreach (var p in input.Plans)
         {
             var costCenterId = await ResolvePlanCostCenterAsync(p.ItemId, input.CompanyId, input.PartyType);
