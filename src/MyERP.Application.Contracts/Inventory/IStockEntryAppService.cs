@@ -14,4 +14,5 @@ public interface IStockEntryAppService : IApplicationService
     Task<StockEntryDto> SubmitAsync(Guid id);
     Task<StockEntryDto> PostAsync(Guid id);
     Task<StockEntryDto> CancelAsync(Guid id);
+    Task<MaterialRequestItemsForSeDto> GetItemsFromMaterialRequestAsync(Guid materialRequestId);
 }

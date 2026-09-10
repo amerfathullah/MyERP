@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Purchasing.Entities;
@@ -32,25 +33,37 @@ public class MaterialRequestManager : DomainService
     }
 
     /// <summary>
-    /// Updates ordered/transferred/received quantities on MR items when downstream documents are submitted.
+    /// Updates ordered/transferred/received quantities on MR items when downstream documents (e.g.
+    /// Stock Entries pulled from a Transfer/Issue-type MR) are submitted or cancelled.
+    /// Batches by affected MR the same way PurchaseOrderManager.UpdateMaterialRequestOrderedQtyAsync
+    /// does for the Purchase side, since a caller only knows MaterialRequestItemId per line (not
+    /// the owning MaterialRequestId).
     /// Per DO-NOT: "Allow Material Request over-fulfillment beyond mr_qty_allowance percentage"
     /// </summary>
-    public async Task UpdateFulfillmentAsync(Guid mrId, Guid mrItemId, decimal qty, bool reverse = false)
+    public async Task UpdateFulfillmentForItemsAsync(
+        IEnumerable<(Guid MaterialRequestItemId, decimal Quantity)> lines, bool reverse = false)
     {
-        var mr = await _mrRepository.GetAsync(mrId);
-        var mrItem = mr.Items.FirstOrDefault(i => i.Id == mrItemId);
-        if (mrItem == null) return;
+        var lineList = lines.ToList();
+        if (!lineList.Any()) return;
 
-        if (reverse)
-        {
-            mrItem.OrderedQuantity = Math.Max(0, mrItem.OrderedQuantity - qty);
-        }
-        else
-        {
-            mrItem.OrderedQuantity += qty;
-        }
+        var mrItemIds = lineList.Select(l => l.MaterialRequestItemId).Distinct().ToList();
+        var mrQuery = await _mrRepository.GetQueryableAsync();
+        var affectedMRs = mrQuery
+            .Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id)))
+            .ToList();
 
-        await _mrRepository.UpdateAsync(mr);
+        foreach (var mr in affectedMRs)
+        {
+            foreach (var line in lineList)
+            {
+                var mrItem = mr.Items.FirstOrDefault(i => i.Id == line.MaterialRequestItemId);
+                if (mrItem == null) continue;
+
+                var delta = reverse ? -line.Quantity : line.Quantity;
+                mrItem.OrderedQuantity = Math.Max(0, mrItem.OrderedQuantity + delta);
+            }
+            await _mrRepository.UpdateAsync(mr);
+        }
     }
 
     /// <summary>

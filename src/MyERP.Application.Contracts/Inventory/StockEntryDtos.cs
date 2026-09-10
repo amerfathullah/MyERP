@@ -45,6 +45,7 @@ public class StockEntryItemDto
     public Guid? CostCenterId { get; set; }
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ProjectId { get; set; }
+    public Guid? MaterialRequestItemId { get; set; }
 }
 
 public class CreateStockEntryDto
@@ -107,6 +108,7 @@ public class CreateStockEntryItemDto
     public Guid? CostCenterId { get; set; }
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ProjectId { get; set; }
+    public Guid? MaterialRequestItemId { get; set; }
 }
 
 /// <summary>Pre-populated items for a Manufacture stock entry from Work Order BOM.</summary>
@@ -160,4 +162,25 @@ public class PendingTransitTransferDto
     public string? SourceWarehouseName { get; set; }
     public decimal TotalQuantity { get; set; }
     public int ItemCount { get; set; }
+}
+
+/// <summary>DTO for pre-populating Stock Entry from Material Request.</summary>
+public class MaterialRequestItemsForSeDto
+{
+    public Guid MaterialRequestId { get; set; }
+    public string? MaterialRequestNumber { get; set; }
+    public string SuggestedPurpose { get; set; } = null!;
+    public Guid? SourceWarehouseId { get; set; }
+    public Guid? TargetWarehouseId { get; set; }
+    public List<MaterialRequestItemLineDto> Items { get; set; } = new();
+}
+
+public class MaterialRequestItemLineDto
+{
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public decimal Quantity { get; set; }
+    public string? Uom { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public Guid MaterialRequestItemId { get; set; }
 }

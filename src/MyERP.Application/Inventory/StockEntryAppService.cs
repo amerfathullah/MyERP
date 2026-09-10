@@ -170,6 +170,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 entry.Items[^1].ProjectId = item.ProjectId ?? input.ProjectId;
             if (item.AdditionalCost > 0)
                 entry.Items[^1].AdditionalCost = item.AdditionalCost;
+            if (item.MaterialRequestItemId.HasValue)
+                entry.Items[^1].MaterialRequestItemId = item.MaterialRequestItemId;
         }
 
         if (entry.TotalAdditionalCosts > 0)
@@ -274,7 +276,42 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             await seManager.ValidateDuplicateManufactureEntryAsync(entry, woRepo, _repository, overproductionPct);
         }
 
+        // Material Request over-fulfillment guard + fulfillment tracking (Transfer/Issue MR types).
+        // Per DO-NOT: "Allow Material Request over-fulfillment beyond mr_qty_allowance percentage" —
+        // this was the one MR-consuming document with zero cap; PO/RFQ already enforce pending qty
+        // via PurchaseConversionAppService. Validate against the CURRENT pending qty (0% allowance,
+        // matching ERPNext's mapper.py hard filter) before committing, then persist the increment.
+        var mrLinkedItems = entry.Items.Where(i => i.MaterialRequestItemId.HasValue).ToList();
+        List<(Guid MaterialRequestItemId, decimal Quantity)>? mrFulfillmentLines = null;
+        if (mrLinkedItems.Any())
+        {
+            var mrManager = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.MaterialRequestManager>();
+            var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+            var mrItemIds = mrLinkedItems.Select(i => i.MaterialRequestItemId!.Value).Distinct().ToList();
+            var mrQuery = await mrRepo.GetQueryableAsync();
+            var affectedMRs = mrQuery.Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id))).ToList();
+
+            mrFulfillmentLines = mrLinkedItems
+                .GroupBy(i => i.MaterialRequestItemId!.Value)
+                .Select(g => (MaterialRequestItemId: g.Key, Quantity: g.Sum(i => i.Quantity)))
+                .ToList();
+
+            foreach (var line in mrFulfillmentLines)
+            {
+                var mrItem = affectedMRs.SelectMany(mr => mr.Items).FirstOrDefault(i => i.Id == line.MaterialRequestItemId);
+                if (mrItem == null) continue;
+                mrManager.ValidateOrderedQty(mrItem, mrItem.OrderedQuantity + line.Quantity);
+            }
+        }
+
         entry.Submit();
+
+        if (mrFulfillmentLines != null)
+        {
+            var mrManager = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.MaterialRequestManager>();
+            await mrManager.UpdateFulfillmentForItemsAsync(mrFulfillmentLines);
+        }
+
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
     }
@@ -544,6 +581,18 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         }
 
         entry.Cancel();
+
+        // Reverse Material Request fulfillment tracking (mirrors PurchaseOrderManager's
+        // UpdateMaterialRequestOrderedQtyAsync(reverse: true) on PO Cancel).
+        var mrLinkedItemsForCancel = entry.Items.Where(i => i.MaterialRequestItemId.HasValue).ToList();
+        if (mrLinkedItemsForCancel.Any())
+        {
+            var mrManager = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.MaterialRequestManager>();
+            var lines = mrLinkedItemsForCancel
+                .GroupBy(i => i.MaterialRequestItemId!.Value)
+                .Select(g => (MaterialRequestItemId: g.Key, Quantity: g.Sum(i => i.Quantity)));
+            await mrManager.UpdateFulfillmentForItemsAsync(lines, reverse: true);
+        }
 
         if (entry.WeightPerPiece > 0)
         {
@@ -828,7 +877,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         // Replace items
         entry.ClearItems();
         foreach (var item in input.Items)
+        {
             entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate, item.IsFinishedItem, item.BatchId);
+            if (item.MaterialRequestItemId.HasValue)
+                entry.Items[^1].MaterialRequestItemId = item.MaterialRequestItemId;
+        }
 
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
@@ -950,9 +1003,23 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             TargetWarehouseId = mr.TargetWarehouseId,
         };
 
+        // Account for draft Stock Entries already pulled from this MR (per ERPNext PR #58617 /
+        // commit d8432d92c8, mirrored from PurchaseConversionAppService's draft-PO discount) —
+        // OrderedQuantity only increments on Submit, so a second draft pulling the same MR item
+        // would otherwise still see the full pending qty.
+        var seQuery = await _repository.GetQueryableAsync();
+        var draftSeQtyMap = seQuery
+            .Where(se => se.CompanyId == mr.CompanyId && se.Status == Core.DocumentStatus.Draft)
+            .SelectMany(se => se.Items)
+            .Where(i => i.MaterialRequestItemId.HasValue)
+            .GroupBy(i => i.MaterialRequestItemId!.Value)
+            .Select(g => new { MrItemId = g.Key, Qty = g.Sum(i => i.Quantity) })
+            .ToList()
+            .ToDictionary(x => x.MrItemId, x => x.Qty);
+
         foreach (var item in mr.Items)
         {
-            var pendingQty = item.Quantity - item.OrderedQuantity;
+            var pendingQty = item.Quantity - item.OrderedQuantity - draftSeQtyMap.GetValueOrDefault(item.Id, 0m);
             if (pendingQty <= 0) continue;
 
             result.Items.Add(new MaterialRequestItemLineDto
@@ -969,26 +1036,5 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         return result;
     }
 
-}
-
-/// <summary>DTO for pre-populating Stock Entry from Material Request.</summary>
-public class MaterialRequestItemsForSeDto
-{
-    public Guid MaterialRequestId { get; set; }
-    public string? MaterialRequestNumber { get; set; }
-    public string SuggestedPurpose { get; set; } = null!;
-    public Guid? SourceWarehouseId { get; set; }
-    public Guid? TargetWarehouseId { get; set; }
-    public List<MaterialRequestItemLineDto> Items { get; set; } = new();
-}
-
-public class MaterialRequestItemLineDto
-{
-    public Guid ItemId { get; set; }
-    public string? ItemName { get; set; }
-    public decimal Quantity { get; set; }
-    public string? Uom { get; set; }
-    public Guid? WarehouseId { get; set; }
-    public Guid MaterialRequestItemId { get; set; }
 }
 

@@ -405,6 +405,7 @@ export interface CreateStockEntryItemDto {
   costCenterId?: string | null;
   expenseAccountId?: string | null;
   projectId?: string | null;
+  materialRequestItemId?: string | null;
 }
 
 export interface CreateStockReservationDto {
@@ -1798,6 +1799,7 @@ export interface StockEntryItemDto {
   costCenterId?: string | null;
   expenseAccountId?: string | null;
   projectId?: string | null;
+  materialRequestItemId?: string | null;
 }
 
 export interface StockGlComparisonDto {

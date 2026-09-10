@@ -41,6 +41,9 @@ public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Link to source stock entry detail row (for Disassemble scale factor matching).</summary>
     public Guid? SourceStockEntryDetailId { get; set; }
 
+    /// <summary>Material Request line this item was pulled from, for fulfillment tracking (Transfer/Issue MR types).</summary>
+    public Guid? MaterialRequestItemId { get; set; }
+
     /// <summary>Cost center for this line item (falls back to parent StockEntry.CostCenterId).</summary>
     public Guid? CostCenterId { get; set; }
 
