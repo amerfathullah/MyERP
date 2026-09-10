@@ -109,6 +109,45 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
         return je;
     }
 
+    /// <summary>
+    /// Per ERPNext stock_reconciliation.py validate_reserved_stock(): a reconciliation that changes
+    /// an item/warehouse's on-hand qty must not silently invalidate an active Stock Reservation
+    /// Entry's basis. Unlike Pick List's SRE conflict check (scoped to one Sales Order), this looks
+    /// up outstanding reservations for the (Item, Warehouse) pairs directly, since a Stock
+    /// Reconciliation isn't tied to a single voucher.
+    /// </summary>
+    private async Task ValidateNoActiveReservationsAsync(StockReconciliation sr)
+    {
+        var affectedPairs = sr.Items
+            .Where(item => item.QuantityDifference != 0)
+            .Select(item => (item.ItemId, item.WarehouseId))
+            .Distinct()
+            .ToList();
+
+        if (affectedPairs.Count == 0) return;
+
+        var itemIds = affectedPairs.Select(p => p.ItemId).Distinct().ToArray();
+        var warehouseIds = affectedPairs.Select(p => p.WarehouseId).Distinct().ToArray();
+
+        var sreRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockReservationEntry, Guid>>();
+        var sreQuery = await sreRepo.GetQueryableAsync();
+        var reservedPairs = sreQuery
+            .Where(s => itemIds.Contains(s.ItemId)
+                && warehouseIds.Contains(s.WarehouseId)
+                && s.Status == DocumentStatus.Submitted
+                && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
+            .Select(s => new { s.ItemId, s.WarehouseId })
+            .Distinct()
+            .ToList()
+            .Select(s => (s.ItemId, s.WarehouseId))
+            .ToHashSet();
+
+        if (affectedPairs.Any(reservedPairs.Contains))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.StockReconciliationActiveReservation);
+        }
+    }
+
     public async Task<PagedResultDto<StockReconciliationDto>> GetListAsync(GetStockReconciliationListDto input)
     {
         var query = (await _repository.WithDetailsAsync()).AsQueryable();
@@ -239,6 +278,8 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
         var postingOrchestrator = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
         await postingOrchestrator.ValidatePostingPeriodAsync(sr.CompanyId, sr.PostingDate, "StockReconciliation");
 
+        await ValidateNoActiveReservationsAsync(sr);
+
         sr.Submit();
 
         // Create SLE entries for each item adjustment (absolute qty set, not delta)
@@ -318,6 +359,9 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
     public async Task<StockReconciliationDto> CancelAsync(Guid id)
     {
         var sr = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
+
+        await ValidateNoActiveReservationsAsync(sr);
+
         sr.Cancel();
 
         // Reverse SLE entries for each item
