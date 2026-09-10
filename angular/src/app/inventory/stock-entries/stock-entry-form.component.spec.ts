@@ -169,3 +169,55 @@ describe('StockEntry type validation rules', () => {
     expect(errors.length).toBe(0);
   });
 });
+
+describe('StockEntry save() item warehouse fallback', () => {
+  // Mirrors stock-entry-form.component.ts save(): item rows from addItem() and
+  // loadMaterialRequestItems() carry no per-item warehouse override, so the
+  // document-level sourceWarehouse/targetWarehouse selects must be used instead
+  // of sending null (which the backend's StockEntryManager.ValidateWarehousesAsync
+  // rejects with MissingWarehouse for MaterialIssue/Transfer/Receipt/Adjustment).
+  function mapItemsForSave(raw: { sourceWarehouse?: string; targetWarehouse?: string; items: any[] }) {
+    return raw.items.map((item: any) => ({
+      itemId: item.itemId,
+      quantity: item.quantity ?? item.qty ?? 0,
+      sourceWarehouseId: item.sourceWarehouseId || raw.sourceWarehouse || null,
+      targetWarehouseId: item.targetWarehouseId || raw.targetWarehouse || null,
+    }));
+  }
+
+  it('falls back to document-level source warehouse for plain Add Item rows (MaterialIssue)', () => {
+    const dto = mapItemsForSave({
+      sourceWarehouse: 'wh-main',
+      targetWarehouse: '',
+      items: [{ itemId: 'item-1', qty: 5 }],
+    });
+    expect(dto[0].sourceWarehouseId).toBe('wh-main');
+    expect(dto[0].targetWarehouseId).toBeNull();
+  });
+
+  it('falls back to document-level source+target for plain Add Item rows (MaterialTransfer)', () => {
+    const dto = mapItemsForSave({
+      sourceWarehouse: 'wh-a',
+      targetWarehouse: 'wh-b',
+      items: [{ itemId: 'item-1', qty: 5 }],
+    });
+    expect(dto[0].sourceWarehouseId).toBe('wh-a');
+    expect(dto[0].targetWarehouseId).toBe('wh-b');
+  });
+
+  it('prefers a per-item warehouse override over the document-level value (BOM/Manufacture rows)', () => {
+    const dto = mapItemsForSave({
+      sourceWarehouse: 'wh-doc-source',
+      targetWarehouse: 'wh-doc-target',
+      items: [{ itemId: 'item-1', qty: 5, sourceWarehouseId: 'wh-row-source', targetWarehouseId: '' }],
+    });
+    expect(dto[0].sourceWarehouseId).toBe('wh-row-source');
+    expect(dto[0].targetWarehouseId).toBe('wh-doc-target');
+  });
+
+  it('sends null when neither the row nor the document has a warehouse', () => {
+    const dto = mapItemsForSave({ items: [{ itemId: 'item-1', qty: 5 }] });
+    expect(dto[0].sourceWarehouseId).toBeNull();
+    expect(dto[0].targetWarehouseId).toBeNull();
+  });
+});

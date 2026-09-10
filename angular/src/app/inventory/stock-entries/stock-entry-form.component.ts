@@ -233,9 +233,10 @@ export class StockEntryFormComponent implements OnInit {
             itemId: [item.itemId, Validators.required],
             itemName: [item.itemName ?? '', Validators.required],
             quantity: [item.quantity, [Validators.required, Validators.min(0.001)]],
-            sourceWarehouse: [result.sourceWarehouseId ?? ''],
-            targetWarehouse: [item.warehouseId ?? result.targetWarehouseId ?? ''],
+            sourceWarehouseId: [result.sourceWarehouseId ?? ''],
+            targetWarehouseId: [item.warehouseId ?? result.targetWarehouseId ?? ''],
             basicRate: [0],
+            materialRequestItemId: [item.materialRequestItemId ?? null],
           }));
         }
         this.toaster.success(`${result.items?.length ?? 0} items loaded from Material Request`);
@@ -397,9 +398,10 @@ export class StockEntryFormComponent implements OnInit {
       items: (raw.items ?? []).map((item: any) => ({
         itemId: item.itemId,
         quantity: item.quantity ?? item.qty ?? 0,
-        sourceWarehouseId: item.sourceWarehouseId || null,
-        targetWarehouseId: item.targetWarehouseId || null,
+        sourceWarehouseId: item.sourceWarehouseId || raw.sourceWarehouse || null,
+        targetWarehouseId: item.targetWarehouseId || raw.targetWarehouse || null,
         isFinishedItem: item.isFinishedItem ?? false,
+        materialRequestItemId: item.materialRequestItemId || null,
       })),
     };
     if (this.isEditMode) {
