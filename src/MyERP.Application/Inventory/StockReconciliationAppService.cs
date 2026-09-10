@@ -140,6 +140,31 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
         // Validate that all rows for a Standard Cost item share the same rate (ERPNext PR #56799)
         await ValidateStandardCostRatesAsync(input);
 
+        // Per ERPNext stock_reconciliation.py validate_data: negative qty/rate are never valid, and
+        // the same item+warehouse combination cannot appear twice in one reconciliation (the second
+        // row would silently overwrite the SLE the first row just created for that item/warehouse).
+        var seenCombinations = new HashSet<(Guid ItemId, Guid WarehouseId)>();
+        foreach (var item in input.Items)
+        {
+            if (item.NewQuantity < 0)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Negative quantity is not allowed.");
+            if (item.NewValuationRate < 0)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Negative valuation rate is not allowed.");
+            if (!seenCombinations.Add((item.ItemId, item.WarehouseId)))
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Same item and warehouse combination already entered.");
+        }
+
+        // Company-restriction check: every other transaction AppService referencing a
+        // company-restricted master wires this in.
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "StockReconciliation", input.CompanyId,
+            itemIds: input.Items.Select(i => i.ItemId).Distinct().ToArray(),
+            warehouseIds: input.Items.Select(i => i.WarehouseId).Distinct().ToArray());
+
         var sr = new StockReconciliation(GuidGenerator.Create(), input.CompanyId,
             input.PostingDate, CurrentTenant.Id)
         {
