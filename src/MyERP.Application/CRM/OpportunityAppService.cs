@@ -262,16 +262,18 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 
-    [Authorize(MyERPPermissions.Opportunities.Edit)]
-    public async Task<OpportunityDto> DeclareLostAsync(Guid id, string? reason)
+    /// <summary>
+    /// Per ERPNext PR #57489 (has_active_quotation): block lost declaration when active
+    /// quotations exist. Active = submitted quotations that are NOT Lost/Cancelled/Expired
+    /// (Rejected). Shared by every path that can declare an opportunity Lost — DeclareLostAsync
+    /// and the Kanban stage-drag path both need it, since a guard on only one of them leaves the
+    /// other free to mark an opportunity Lost while a live Quotation could still convert to an SO.
+    /// </summary>
+    private async Task ValidateNoActiveQuotationAsync(Guid opportunityId)
     {
-        var opp = await _repository.GetAsync(id);
-
-        // Per ERPNext PR #57489: block lost declaration when active quotations exist
-        // Active = submitted quotations that are NOT Lost/Cancelled/Expired(Rejected)
         var quotationQuery = await _quotationRepository.GetQueryableAsync();
         var hasActiveQuotation = quotationQuery.Any(q =>
-            q.OpportunityId == id &&
+            q.OpportunityId == opportunityId &&
             q.Status != DocumentStatus.Draft &&
             q.Status != DocumentStatus.Cancelled &&
             q.Status != DocumentStatus.Rejected); // Rejected = Lost/Expired in our model
@@ -281,6 +283,14 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("reason", "Cannot declare opportunity as Lost while active quotations exist. Cancel or mark quotations as lost first.");
         }
+    }
+
+    [Authorize(MyERPPermissions.Opportunities.Edit)]
+    public async Task<OpportunityDto> DeclareLostAsync(Guid id, string? reason)
+    {
+        var opp = await _repository.GetAsync(id);
+
+        await ValidateNoActiveQuotationAsync(id);
 
         opp.DeclareLost(reason);
         await _repository.UpdateAsync(opp);
@@ -381,6 +391,7 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         }
         else if (input.SalesStage == "Lost")
         {
+            await ValidateNoActiveQuotationAsync(id);
             opp.DeclareLost("Moved to Lost via Kanban");
         }
 

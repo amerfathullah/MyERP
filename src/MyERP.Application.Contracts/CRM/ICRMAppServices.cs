@@ -36,6 +36,7 @@ public interface IOpportunityAppService : IApplicationService
     Task<OpportunityDto> MarkQuotationAsync(Guid id);
     Task<OpportunityDto> ConvertAsync(Guid id);
     Task<OpportunityDto> DeclareLostAsync(Guid id, string? reason);
+    Task<OpportunityDto> UpdateStageAsync(Guid id, UpdateOpportunityStageDto input);
     Task<OpportunityDto> CloseAsync(Guid id);
     Task<OpportunityDto> ReopenAsync(Guid id);
     Task<CompetitorDetailDto> CreateCompetitorAsync(AddCompetitorDetailDto input);
