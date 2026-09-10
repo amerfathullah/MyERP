@@ -98,6 +98,13 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
     [Authorize(MyERPPermissions.Assets.Create)]
     public async Task<MaintenanceVisitDto> CreateVisitAsync(CreateMaintenanceVisitDto input)
     {
+        var visitItemIds = input.Purposes.Where(p => p.ItemId.HasValue).Select(p => p.ItemId!.Value).Distinct().ToArray();
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "MaintenanceVisit", input.CompanyId,
+            itemIds: visitItemIds.Length > 0 ? visitItemIds : null,
+            customerIds: input.CustomerId.HasValue ? new[] { input.CustomerId.Value } : null);
+
         var visit = new MaintenanceVisit(GuidGenerator.Create(), input.CompanyId,
             input.VisitDate, input.MaintenanceType, CurrentTenant.Id)
         {

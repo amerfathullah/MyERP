@@ -63,6 +63,12 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
             await itemValidation.ValidateItemsForTransactionAsync(itemIds);
         }
 
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "MaintenanceVisit", input.CompanyId,
+            itemIds: itemIds.Length > 0 ? itemIds : null,
+            customerIds: new[] { input.CustomerId });
+
         var typeStr = input.MaintenanceType switch
         {
             0 => "Scheduled",
