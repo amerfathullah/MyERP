@@ -94,6 +94,14 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             Notes = input.Notes,
         };
 
+        // Per ERPNext buying_controller.py validate_schedule_date: schedule/required date cannot
+        // precede the request's own transaction date.
+        if (entity.RequiredByDate.HasValue && entity.RequiredByDate.Value.Date < entity.RequestDate.Date)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Required By Date cannot be before the Request Date.");
+        }
+
         // Validate all items are active
         var itemIds = input.Items.Select(i => i.ItemId).ToArray();
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
@@ -132,6 +140,14 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
     public async Task<MaterialRequestDto> SubmitAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id, includeDetails: true);
+
+        // Re-checked at submit per ERPNext's before_update_after_submit re-validation — RequiredByDate
+        // has a public setter and could have been changed after Create.
+        if (entity.RequiredByDate.HasValue && entity.RequiredByDate.Value.Date < entity.RequestDate.Date)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Required By Date cannot be before the Request Date.");
+        }
 
         await ValidateItemsAgainstSalesOrderAsync(entity);
 
