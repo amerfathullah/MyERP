@@ -59,8 +59,17 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
     /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
     public bool IsClosed { get; set; }
 
-    /// <summary>Pending billing quantity = Quantity - BilledQty. 0 if closed.</summary>
-    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, Math.Abs(Quantity) - Math.Abs(BilledQty));
+    /// <summary>
+    /// Quantity returned against this DN item via Return Delivery Note.
+    /// Per ERPNext PR #58953 / commit be8208e7cb: enables accurate DN PerBilled calculation when returned.
+    /// </summary>
+    public decimal ReturnedQty { get; set; }
+
+    /// <summary>Effective billable quantity: Quantity - ReturnedQty.</summary>
+    public decimal BillableQty => Math.Max(0, Math.Abs(Quantity) - Math.Abs(ReturnedQty));
+
+    /// <summary>Pending billing quantity = BillableQty - BilledQty. 0 if closed.</summary>
+    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, BillableQty - Math.Abs(BilledQty));
 
     /// <summary>
     /// Quantity packed into a submitted Packing Slip so far, updated by

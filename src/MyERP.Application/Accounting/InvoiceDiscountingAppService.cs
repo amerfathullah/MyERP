@@ -69,6 +69,13 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
 
     public async Task<List<InvoiceForDiscountingDto>> GetEligibleInvoicesAsync(Guid companyId, Guid? customerId = null)
     {
+        // Per ERPNext PR #58975 / commit b481083ff0: require company before requesting invoices
+        if (companyId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Please set company on the document before requesting for invoices.");
+        }
+
         var pledgedInvoiceIds = await GetPledgedInvoiceIdsAsync();
 
         var siQuery = await _salesInvoiceRepository.GetQueryableAsync();

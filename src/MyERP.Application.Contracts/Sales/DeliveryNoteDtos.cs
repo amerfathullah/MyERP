@@ -43,6 +43,7 @@ public class DeliveryNoteItemDto
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
     public decimal BilledQty { get; set; }
+    public decimal ReturnedQty { get; set; }
     public decimal PackedQty { get; set; }
     public bool IsClosed { get; set; }
     public Guid? SalesOrderItemId { get; set; }

@@ -69,6 +69,7 @@ public class CreateUpdateItemPriceDto
 
 public class GetItemPriceListDto : PagedAndSortedResultRequestDto
 {
+    public Guid? CompanyId { get; set; }
     public Guid? ItemId { get; set; }
     public Guid? PriceListId { get; set; }
     public Guid? CustomerId { get; set; }

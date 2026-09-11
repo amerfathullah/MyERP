@@ -456,6 +456,21 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             {
                 var dnManager = LazyServiceProvider.LazyGetRequiredService<DeliveryNoteManager>();
                 await dnManager.ValidateReturnAsync(dn);
+
+                // Per ERPNext PR #58953 / commit be8208e7cb: update original DN returned_qty
+                var originalDn = await _repository.FindAsync(dn.ReturnAgainstId.Value);
+                if (originalDn != null)
+                {
+                    foreach (var returnItem in dn.Items)
+                    {
+                        var origItem = originalDn.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
+                        if (origItem != null)
+                        {
+                            origItem.ReturnedQty += Math.Abs(returnItem.Quantity);
+                        }
+                    }
+                    await _repository.UpdateAsync(originalDn);
+                }
             }
 
             // RETURN: Stock comes BACK to warehouse (positive SLE, positive Bin)
@@ -908,6 +923,24 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         {
             await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: true, isReturn: dn.IsReturn);
             await ReverseDeliveryScheduleAsync(dn.SalesOrderId.Value, dn.Items);
+        }
+
+        // Per ERPNext PR #58953 / commit be8208e7cb: revert original DN returned_qty when return is cancelled
+        if (dn.IsReturn && dn.ReturnAgainstId.HasValue)
+        {
+            var originalDn = await _repository.FindAsync(dn.ReturnAgainstId.Value);
+            if (originalDn != null)
+            {
+                foreach (var returnItem in dn.Items)
+                {
+                    var origItem = originalDn.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
+                    if (origItem != null)
+                    {
+                        origItem.ReturnedQty = Math.Max(0, origItem.ReturnedQty - Math.Abs(returnItem.Quantity));
+                    }
+                }
+                await _repository.UpdateAsync(originalDn);
+            }
         }
 
         await _repository.UpdateAsync(dn, autoSave: true);

@@ -103,8 +103,8 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             var basis = openItems.Count > 0 ? openItems : _items;
             return Math.Round(basis.Min(i =>
             {
-                var absQty = Math.Abs(i.Quantity);
-                return absQty == 0 ? 100 : Math.Min(100, Math.Abs(i.BilledQty) / absQty * 100);
+                var netQty = Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty));
+                return netQty == 0 ? 100 : Math.Min(100, Math.Abs(i.BilledQty) / netQty * 100);
             }), 2);
         }
     }

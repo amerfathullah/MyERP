@@ -1850,8 +1850,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
     public async Task<List<UnbilledOrderItemDto>> GetUnbilledOrderItemsAsync(
         Guid customerId, Guid? companyId = null)
     {
-        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
-        var soQuery = await soRepo.GetQueryableAsync();
+        var soQuery = await _salesOrderRepository.GetQueryableAsync();
 
         var query = soQuery.Where(so =>
             so.CustomerId == customerId &&
@@ -1867,6 +1866,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var result = new List<UnbilledOrderItemDto>();
         foreach (var so in orders)
         {
+            // Per ERPNext PR #58966 / commit 5f216c5d55: exclude fully billed orders
+            if (so.PerBilled >= 100m) continue;
+
             foreach (var item in so.Items)
             {
                 var unbilledQty = item.PendingBillingQty;

@@ -53,6 +53,17 @@ public class ItemPriceAppService : ApplicationService, IItemPriceAppService
         if (input.SupplierId.HasValue)
             queryable = queryable.Where(p => p.SupplierId == input.SupplierId.Value);
 
+        // Per ERPNext PR #58948 / commit 4671d1a665: Item Price inherits company restriction from Item
+        if (input.CompanyId.HasValue)
+        {
+            var itemsQ = await _itemRepo.GetQueryableAsync();
+            var companyItemIds = itemsQ
+                .Where(i => i.CompanyId == input.CompanyId.Value)
+                .Select(i => i.Id)
+                .ToList();
+            queryable = queryable.Where(p => companyItemIds.Contains(p.ItemId));
+        }
+
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var filter = input.Filter.Trim();
