@@ -497,69 +497,19 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var sourceWarehouseId = input.SourceWarehouseId
             ?? bom.SourceWarehouseId;
 
+        if (wipWarehouseId.HasValue && fgWarehouseId.HasValue && wipWarehouseId.Value == fgWarehouseId.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Work-in-Progress Warehouse and Target Warehouse cannot be the same.");
+        }
+
         var plannedStartDate = input.PlannedStartDate;
         var plannedEndDate = input.PlannedEndDate;
 
         if (input.SalesOrderId.HasValue)
         {
-            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
-            var so = await soRepo.FindAsync(input.SalesOrderId.Value);
-            if (so != null)
-            {
-                if (so.CompanyId != input.CompanyId)
-                {
-                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                        .WithData("salesOrderCompany", so.CompanyId)
-                        .WithData("workOrderCompany", input.CompanyId);
-                }
-
-                if (!plannedEndDate.HasValue)
-                {
-                    if (input.SalesOrderItemId.HasValue)
-                    {
-                        var soItem = so.Items.FirstOrDefault(i => i.Id == input.SalesOrderItemId.Value);
-                        if (soItem?.DeliveryDate.HasValue == true)
-                        {
-                            plannedEndDate = soItem.DeliveryDate.Value;
-                        }
-                    }
-
-                    if (!plannedEndDate.HasValue)
-                    {
-                        var matchingSoItem = so.Items.FirstOrDefault(i => i.ItemId == input.ItemId);
-                        if (matchingSoItem?.DeliveryDate.HasValue == true)
-                        {
-                            plannedEndDate = matchingSoItem.DeliveryDate.Value;
-                        }
-                        else
-                        {
-                            // Per ERPNext PR #58568 (commit db56080285): use packed row delivery date
-                            // When production item is part of a Product Bundle, resolve delivery date from parent bundle row
-                            var bundleDecompositionService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
-                            foreach (var item in so.Items)
-                            {
-                                if (await bundleDecompositionService.IsBundleItemAsync(item.ItemId))
-                                {
-                                    var components = await bundleDecompositionService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice, item.WarehouseId);
-                                    if (components.Any(c => c.ComponentItemId == input.ItemId))
-                                    {
-                                        if (item.DeliveryDate.HasValue)
-                                        {
-                                            plannedEndDate = item.DeliveryDate.Value;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (!plannedEndDate.HasValue && so.DeliveryDate.HasValue)
-                    {
-                        plannedEndDate = so.DeliveryDate.Value;
-                    }
-                }
-            }
+            plannedEndDate = await ValidateSalesOrderReferenceAsync(
+                input.CompanyId, input.ItemId, input.SalesOrderId.Value, input.SalesOrderItemId, plannedEndDate);
         }
 
         var wo = new WorkOrder(GuidGenerator.Create(), input.CompanyId, number, input.ItemId, input.BomId, input.Quantity, CurrentTenant.Id)
@@ -604,6 +554,126 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             wo.RequiredItems.Select(r => r.SourceWarehouseId));
 
         await _workOrderRepository.InsertAsync(wo);
+        return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
+    }
+
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<WorkOrderDto> UpdateWorkOrderAsync(Guid id, CreateWorkOrderDto input)
+    {
+        Check.NotDefaultOrNull<Guid>(input.CompanyId, nameof(input.CompanyId));
+        Check.NotDefaultOrNull<Guid>(input.ItemId, nameof(input.ItemId));
+        Check.NotDefaultOrNull<Guid>(input.BomId, nameof(input.BomId));
+        if (input.Quantity <= 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "Quantity");
+
+        if (input.PlannedEndDate.HasValue && input.PlannedEndDate.Value < input.PlannedStartDate)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+        }
+
+        var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
+
+        if (wo.Status != WorkOrderStatus.Draft)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "WorkOrder")
+                .WithData("status", wo.Status.ToString());
+        }
+
+        if (wo.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("workOrderCompany", wo.CompanyId)
+                .WithData("inputCompany", input.CompanyId);
+        }
+
+        var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+        await woManager.ValidateProductionItemAsync(input.ItemId);
+        await woManager.ValidateBomAsync(input.BomId, input.ItemId);
+
+        var bom = await _bomRepository.GetAsync(input.BomId, includeDetails: true);
+        if (bom.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("bomCompany", bom.CompanyId)
+                .WithData("workOrderCompany", input.CompanyId);
+        }
+
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(bom.Items.Select(i => i.ItemId).Concat(new[] { input.ItemId }).Distinct().ToArray());
+
+        var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+        var company = await companyRepo.FindAsync(input.CompanyId);
+
+        var fgWarehouseId = input.FgWarehouseId
+            ?? company?.DefaultFgWarehouseId
+            ?? await itemDefaultsService.ResolveWarehouseAsync(input.ItemId);
+
+        var wipWarehouseId = input.WipWarehouseId
+            ?? company?.DefaultWipWarehouseId;
+
+        var sourceWarehouseId = input.SourceWarehouseId
+            ?? bom.SourceWarehouseId;
+
+        if (wipWarehouseId.HasValue && fgWarehouseId.HasValue && wipWarehouseId.Value == fgWarehouseId.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Work-in-Progress Warehouse and Target Warehouse cannot be the same.");
+        }
+
+        var plannedStartDate = input.PlannedStartDate;
+        var plannedEndDate = input.PlannedEndDate;
+
+        if (input.SalesOrderId.HasValue)
+        {
+            plannedEndDate = await ValidateSalesOrderReferenceAsync(
+                input.CompanyId, input.ItemId, input.SalesOrderId.Value, input.SalesOrderItemId, plannedEndDate);
+        }
+
+        wo.ItemId = input.ItemId;
+        wo.BomId = input.BomId;
+        wo.Quantity = input.Quantity;
+        wo.SalesOrderId = input.SalesOrderId;
+        wo.SalesOrderItemId = input.SalesOrderItemId;
+        wo.SourceWarehouseId = sourceWarehouseId;
+        wo.WipWarehouseId = wipWarehouseId;
+        wo.FgWarehouseId = fgWarehouseId;
+        wo.TrackSemiFinishedGoods = bom.TrackSemiFinishedGoods;
+        wo.SkipTransfer = input.SkipTransfer;
+        wo.FromWipWarehouse = input.FromWipWarehouse;
+        wo.Notes = input.Notes;
+        wo.SetPlannedDates(plannedStartDate, plannedEndDate);
+
+        // Repopulate required items
+        wo.ClearRequiredItems();
+        var multiplier = input.Quantity / (bom.Quantity > 0 ? bom.Quantity : 1);
+        foreach (var bi in bom.Items)
+        {
+            var rawWarehouseId = bi.SourceWarehouseId
+                ?? sourceWarehouseId
+                ?? await itemDefaultsService.ResolveWarehouseAsync(bi.ItemId, wo.CompanyId);
+
+            wo.RequiredItems.Add(new WorkOrderItem(
+                GuidGenerator.Create(), wo.Id, bi.ItemId, bi.ItemName, bi.Quantity * multiplier)
+            { SourceWarehouseId = rawWarehouseId });
+        }
+
+        var warehouseRepoForValidation = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+        await woManager.ValidateWarehouseCompanyAsync(wo, warehouseRepoForValidation);
+
+        await ValidateWorkOrderCompanyAsync(
+            input.CompanyId,
+            input.ItemId,
+            bom.Items.Select(i => i.ItemId),
+            sourceWarehouseId,
+            wipWarehouseId,
+            fgWarehouseId,
+            bom.ScrapWarehouseId,
+            wo.RequiredItems.Select(r => r.SourceWarehouseId));
+
+        await _workOrderRepository.UpdateAsync(wo);
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
@@ -2338,6 +2408,124 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         await companyRestriction.ValidateTransactionCompanyAsync(
             "WorkOrder", companyId, itemIds: itemIds,
             warehouseIds: warehouseIds.Length > 0 ? warehouseIds : null);
+    }
+
+    /// <summary>
+    /// Validates linked Sales Order exists, belongs to company, is not cancelled, and contains production item.
+    /// Returns resolved delivery date fallback for planned end date.
+    /// </summary>
+    private async Task<DateTime?> ValidateSalesOrderReferenceAsync(
+        Guid companyId,
+        Guid itemId,
+        Guid salesOrderId,
+        Guid? salesOrderItemId,
+        DateTime? currentPlannedEndDate)
+    {
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+        var so = await soRepo.FindAsync(salesOrderId);
+        if (so == null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound)
+                .WithData("entity", "SalesOrder")
+                .WithData("id", salesOrderId);
+        }
+
+        if (so.CompanyId != companyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("salesOrderCompany", so.CompanyId)
+                .WithData("workOrderCompany", companyId);
+        }
+
+        if (so.Status == Core.DocumentStatus.Cancelled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "SalesOrder")
+                .WithData("status", "Cancelled");
+        }
+
+        var bundleDecompositionService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
+
+        if (salesOrderItemId.HasValue)
+        {
+            var soItem = so.Items.FirstOrDefault(i => i.Id == salesOrderItemId.Value);
+            if (soItem == null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Sales Order Item {salesOrderItemId.Value} does not exist on Sales Order {salesOrderId}.");
+            }
+
+            var itemMatches = soItem.ItemId == itemId;
+            if (!itemMatches && await bundleDecompositionService.IsBundleItemAsync(soItem.ItemId))
+            {
+                var components = await bundleDecompositionService.DecomposeAsync(soItem.ItemId, soItem.Quantity, soItem.UnitPrice, soItem.WarehouseId);
+                itemMatches = components.Any(c => c.ComponentItemId == itemId);
+            }
+
+            if (!itemMatches)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Item {itemId} does not match Sales Order Item {soItem.ItemId}.");
+            }
+
+            if (!currentPlannedEndDate.HasValue && soItem.DeliveryDate.HasValue)
+            {
+                return soItem.DeliveryDate.Value;
+            }
+        }
+        else
+        {
+            var itemMatches = so.Items.Any(i => i.ItemId == itemId);
+            if (!itemMatches)
+            {
+                foreach (var item in so.Items)
+                {
+                    if (await bundleDecompositionService.IsBundleItemAsync(item.ItemId))
+                    {
+                        var components = await bundleDecompositionService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice, item.WarehouseId);
+                        if (components.Any(c => c.ComponentItemId == itemId))
+                        {
+                            itemMatches = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!itemMatches)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Production Item {itemId} does not exist on Sales Order {salesOrderId}.");
+            }
+        }
+
+        if (!currentPlannedEndDate.HasValue)
+        {
+            var matchingSoItem = so.Items.FirstOrDefault(i => i.ItemId == itemId);
+            if (matchingSoItem?.DeliveryDate.HasValue == true)
+            {
+                return matchingSoItem.DeliveryDate.Value;
+            }
+
+            foreach (var item in so.Items)
+            {
+                if (await bundleDecompositionService.IsBundleItemAsync(item.ItemId))
+                {
+                    var components = await bundleDecompositionService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice, item.WarehouseId);
+                    if (components.Any(c => c.ComponentItemId == itemId) && item.DeliveryDate.HasValue)
+                    {
+                        return item.DeliveryDate.Value;
+                    }
+                }
+            }
+
+            if (so.DeliveryDate.HasValue)
+            {
+                return so.DeliveryDate.Value;
+            }
+        }
+
+        return currentPlannedEndDate;
     }
 }
 

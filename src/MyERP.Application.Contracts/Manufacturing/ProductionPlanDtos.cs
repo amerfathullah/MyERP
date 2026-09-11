@@ -148,6 +148,7 @@ public interface IProductionPlanAppService : IApplicationService
     Task<ProductionPlanDto> GetAsync(Guid id);
     Task<PagedResultDto<ProductionPlanDto>> GetListAsync(GetProductionPlanListDto input);
     Task<ProductionPlanDto> CreateAsync(CreateProductionPlanDto input);
+    Task<ProductionPlanDto> UpdateAsync(Guid id, CreateProductionPlanDto input);
     Task DeleteAsync(Guid id);
     Task<ProductionPlanDto> SubmitAsync(Guid id);
     Task<ProductionPlanDto> CancelAsync(Guid id);

@@ -180,6 +180,10 @@ public class WorkOrderDto : AuditedEntityDto<Guid>
     public DateTime? PlannedEndDate { get; set; }
     public DateTime? ActualStartDate { get; set; }
     public DateTime? ActualEndDate { get; set; }
+    public Guid? SourceWarehouseId { get; set; }
+    public Guid? WipWarehouseId { get; set; }
+    public Guid? FgWarehouseId { get; set; }
+    public Guid? ScrapWarehouseId { get; set; }
     public string? Notes { get; set; }
     public bool SkipTransfer { get; set; }
     public bool FromWipWarehouse { get; set; }
@@ -349,6 +353,7 @@ public interface IManufacturingAppService : IApplicationService
     Task<WorkOrderDto> GetWorkOrderAsync(Guid id);
     Task<PagedResultDto<WorkOrderDto>> GetWorkOrderListAsync(GetWorkOrderListDto input);
     Task<WorkOrderDto> CreateWorkOrderAsync(CreateWorkOrderDto input);
+    Task<WorkOrderDto> UpdateWorkOrderAsync(Guid id, CreateWorkOrderDto input);
     Task DeleteWorkOrderAsync(Guid id);
     Task<WorkOrderDto> SubmitWorkOrderAsync(Guid id);
     Task<WorkOrderDto> StartWorkOrderAsync(Guid id);

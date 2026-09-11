@@ -113,6 +113,13 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
         AddLocalEvent(new MyERP.Manufacturing.Events.ProductionPlanCancelledEvent(Id, TenantId));
     }
 
+    public void ClearPlannedItems()
+    {
+        if (Status != ProductionPlanStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        PlannedItems.Clear();
+    }
+
     public void AddPlannedItem(ProductionPlanItem item)
     {
         if (Status != ProductionPlanStatus.Draft)

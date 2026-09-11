@@ -86,6 +86,13 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         PlannedEndDate = endDate;
     }
 
+    public void ClearRequiredItems()
+    {
+        if (Status != WorkOrderStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        RequiredItems.Clear();
+    }
+
     /// <summary>
     /// Validates whole number quantity when item stock UOM has MustBeWholeNumber set (gotcha #497).
     /// </summary>

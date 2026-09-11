@@ -148,4 +148,86 @@ public abstract class JobCardCompanyGuardTests<TStartupModule> : MyERPApplicatio
                 }));
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_OperationNotInBom_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var woRepo = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var jobCardAppService = GetRequiredService<IJobCardAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "JC Op Guard Co"), autoSave: true);
+            var fgItem = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "JC-OP-FG", "JC OP FG", ItemType.Goods), autoSave: true);
+
+            var validOpId = Guid.NewGuid();
+            var bom = new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-JC-OP", fgItem.Id) { Quantity = 1, IsActive = true };
+            bom.AddOperation(new BomOperation(Guid.NewGuid(), bom.Id, validOpId, 1, 30m));
+            await bomRepo.InsertAsync(bom, autoSave: true);
+
+            var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-JC-OP", fgItem.Id, bom.Id, 10);
+            wo.Submit();
+            await woRepo.InsertAsync(wo, autoSave: true);
+
+            var randomOpId = Guid.NewGuid();
+
+            await Should.ThrowAsync<BusinessException>(() =>
+                jobCardAppService.CreateAsync(new CreateJobCardDto
+                {
+                    CompanyId = company.Id,
+                    WorkOrderId = wo.Id,
+                    OperationId = randomOpId,
+                    ForQuantity = 5,
+                    SequenceId = 1
+                }));
+        });
+    }
+
+    [Fact]
+    public async Task UpdateAsync_CompanyMismatch_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var woRepo = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var jobCardAppService = GetRequiredService<IJobCardAppService>();
+
+            var ownerCompany = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "JC Co Upd Owner"), autoSave: true);
+            var otherCompany = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "JC Co Upd Other"), autoSave: true);
+
+            var fgItem = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), ownerCompany.Id, "JC-CO-FG", "JC CO FG", ItemType.Goods), autoSave: true);
+            var bom = await bomRepo.InsertAsync(
+                new BillOfMaterials(Guid.NewGuid(), ownerCompany.Id, "BOM-JC-CO", fgItem.Id) { Quantity = 1, IsActive = true }, autoSave: true);
+
+            var wo = new WorkOrder(Guid.NewGuid(), ownerCompany.Id, "WO-JC-CO", fgItem.Id, bom.Id, 10);
+            wo.Submit();
+            await woRepo.InsertAsync(wo, autoSave: true);
+
+            var jc = await jobCardAppService.CreateAsync(new CreateJobCardDto
+            {
+                CompanyId = ownerCompany.Id,
+                WorkOrderId = wo.Id,
+                OperationId = Guid.NewGuid(),
+                ForQuantity = 5,
+                SequenceId = 1
+            });
+
+            await Should.ThrowAsync<BusinessException>(() =>
+                jobCardAppService.UpdateAsync(jc.Id, new CreateJobCardDto
+                {
+                    CompanyId = otherCompany.Id,
+                    WorkOrderId = wo.Id,
+                    OperationId = jc.OperationId,
+                    ForQuantity = 5,
+                    SequenceId = 1
+                }));
+        });
+    }
 }

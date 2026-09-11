@@ -108,6 +108,9 @@ public class ManufacturingController : MyERPController
     [HttpPost("work-order")]
     public Task<WorkOrderDto> CreateWorkOrderAsync([FromBody] CreateWorkOrderDto input) => _service.CreateWorkOrderAsync(input);
 
+    [HttpPut("work-order/{id}")]
+    public Task<WorkOrderDto> UpdateWorkOrderAsync(Guid id, [FromBody] CreateWorkOrderDto input) => _service.UpdateWorkOrderAsync(id, input);
+
     [HttpDelete("work-order/{id}")]
     public Task DeleteWorkOrderAsync(Guid id) => _service.DeleteWorkOrderAsync(id);
 

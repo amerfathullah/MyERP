@@ -171,4 +171,143 @@ public abstract class ProductionPlanCompanyGuardTests<TStartupModule> : MyERPApp
                 }));
         });
     }
+
+    [Fact]
+    public async Task UpdateAsync_NonDraft_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var planRepository = GetRequiredService<IRepository<ProductionPlan, Guid>>();
+            var productionPlanAppService = GetRequiredService<IProductionPlanAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "PP Upd NonDraft Co"), autoSave: true);
+            var fg = await itemRepository.InsertAsync(new Item(Guid.NewGuid(), company.Id, "PP-FG-ND", "PP FG ND", ItemType.Goods), autoSave: true);
+            var rm = await itemRepository.InsertAsync(new Item(Guid.NewGuid(), company.Id, "PP-RM-ND", "PP RM ND", ItemType.Goods), autoSave: true);
+
+            var bom = new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-PP-ND", fg.Id) { Quantity = 1, IsActive = true };
+            bom.Items.Add(new BomItem(Guid.NewGuid(), bom.Id, rm.Id, "PP RM ND", 1, 10));
+            await bomRepository.InsertAsync(bom, autoSave: true);
+
+            var plan = new ProductionPlan(Guid.NewGuid(), company.Id, "PP-SUBMITTED", DateTime.UtcNow);
+            plan.AddPlannedItem(new ProductionPlanItem(Guid.NewGuid(), plan.Id, fg.Id, fg.ItemName, bom.Id, 1));
+            plan.Submit();
+            await planRepository.InsertAsync(plan, autoSave: true);
+
+            await Should.ThrowAsync<BusinessException>(() =>
+                productionPlanAppService.UpdateAsync(plan.Id, new CreateProductionPlanDto
+                {
+                    CompanyId = company.Id,
+                    PostingDate = DateTime.UtcNow,
+                    Items = new List<CreateProductionPlanItemDto>
+                    {
+                        new()
+                        {
+                            ItemId = fg.Id,
+                            ItemName = fg.ItemName,
+                            BomId = bom.Id,
+                            PlannedQty = 5
+                        }
+                    }
+                }));
+        });
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WarehouseFromDifferentCompany_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var planRepository = GetRequiredService<IRepository<ProductionPlan, Guid>>();
+            var productionPlanAppService = GetRequiredService<IProductionPlanAppService>();
+
+            var ownerCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "PP Upd Wh Owner Co"), autoSave: true);
+            var otherCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "PP Upd Wh Other Co"), autoSave: true);
+
+            var fg = await itemRepository.InsertAsync(new Item(Guid.NewGuid(), ownerCompany.Id, "PP-FG-UPD", "PP FG Upd", ItemType.Goods), autoSave: true);
+            var rm = await itemRepository.InsertAsync(new Item(Guid.NewGuid(), ownerCompany.Id, "PP-RM-UPD", "PP RM Upd", ItemType.Goods), autoSave: true);
+
+            var bom = new BillOfMaterials(Guid.NewGuid(), ownerCompany.Id, "BOM-PP-UPD", fg.Id) { Quantity = 1, IsActive = true };
+            bom.Items.Add(new BomItem(Guid.NewGuid(), bom.Id, rm.Id, "PP RM Upd", 1, 10));
+            await bomRepository.InsertAsync(bom, autoSave: true);
+
+            var crossCoWh = await warehouseRepository.InsertAsync(
+                new Warehouse(Guid.NewGuid(), otherCompany.Id, "Cross Co PP WH"), autoSave: true);
+
+            var plan = new ProductionPlan(Guid.NewGuid(), ownerCompany.Id, "PP-DRAFT-UPD", DateTime.UtcNow);
+            plan.AddPlannedItem(new ProductionPlanItem(Guid.NewGuid(), plan.Id, fg.Id, fg.ItemName, bom.Id, 1));
+            await planRepository.InsertAsync(plan, autoSave: true);
+
+            await Should.ThrowAsync<BusinessException>(() =>
+                productionPlanAppService.UpdateAsync(plan.Id, new CreateProductionPlanDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    PostingDate = DateTime.UtcNow,
+                    ForWarehouseId = crossCoWh.Id,
+                    Items = new List<CreateProductionPlanItemDto>
+                    {
+                        new()
+                        {
+                            ItemId = fg.Id,
+                            ItemName = fg.ItemName,
+                            BomId = bom.Id,
+                            PlannedQty = 2
+                        }
+                    }
+                }));
+        });
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Success()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var planRepository = GetRequiredService<IRepository<ProductionPlan, Guid>>();
+            var productionPlanAppService = GetRequiredService<IProductionPlanAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "PP Upd Success Co"), autoSave: true);
+            var fg = await itemRepository.InsertAsync(new Item(Guid.NewGuid(), company.Id, "PP-FG-SUCC", "PP FG Succ", ItemType.Goods), autoSave: true);
+            var rm = await itemRepository.InsertAsync(new Item(Guid.NewGuid(), company.Id, "PP-RM-SUCC", "PP RM Succ", ItemType.Goods), autoSave: true);
+
+            var bom = new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-PP-SUCC", fg.Id) { Quantity = 1, IsActive = true };
+            bom.Items.Add(new BomItem(Guid.NewGuid(), bom.Id, rm.Id, "PP RM Succ", 1, 10));
+            await bomRepository.InsertAsync(bom, autoSave: true);
+
+            var plan = new ProductionPlan(Guid.NewGuid(), company.Id, "PP-DRAFT-SUCC", DateTime.UtcNow);
+            plan.AddPlannedItem(new ProductionPlanItem(Guid.NewGuid(), plan.Id, fg.Id, fg.ItemName, bom.Id, 1));
+            await planRepository.InsertAsync(plan, autoSave: true);
+
+            var updated = await productionPlanAppService.UpdateAsync(plan.Id, new CreateProductionPlanDto
+            {
+                CompanyId = company.Id,
+                PostingDate = DateTime.UtcNow,
+                Notes = "Updated plan notes",
+                Items = new List<CreateProductionPlanItemDto>
+                {
+                    new()
+                    {
+                        ItemId = fg.Id,
+                        ItemName = fg.ItemName,
+                        BomId = bom.Id,
+                        PlannedQty = 8
+                    }
+                }
+            });
+
+            updated.ShouldNotBeNull();
+            updated.Notes.ShouldBe("Updated plan notes");
+            updated.PlannedItems.Count.ShouldBe(1);
+            updated.PlannedItems[0].PlannedQty.ShouldBe(8);
+        });
+    }
 }

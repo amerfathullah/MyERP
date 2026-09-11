@@ -182,6 +182,131 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
     }
 
+    [Authorize(MyERPPermissions.ProductionPlans.Edit)]
+    public async Task<ProductionPlanDto> UpdateAsync(Guid id, CreateProductionPlanDto input)
+    {
+        if (input.Items == null || !input.Items.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        foreach (var item in input.Items)
+        {
+            if (item.PlannedQty <= 0)
+                throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", "PlannedQty");
+        }
+
+        var plan = await _planRepository.GetAsync(id, includeDetails: true);
+
+        if (plan.Status != ProductionPlanStatus.Draft)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "ProductionPlan")
+                .WithData("status", plan.Status.ToString());
+        }
+
+        if (plan.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("productionPlanCompany", plan.CompanyId)
+                .WithData("inputCompany", input.CompanyId);
+        }
+
+        // Validate Raw Material Group Warehouse hierarchy (ERPNext PR #56948)
+        await ValidateRawMaterialGroupWarehouseAsync(input.CompanyId, input.RawMaterialGroupWarehouseId, input.ForWarehouseId);
+
+        // Validate all planned items are active
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
+
+        // Validate BOMs belong to company
+        var bomIds = input.Items.Select(i => i.BomId).Distinct().ToList();
+        var bomQuery = await _bomRepository.GetQueryableAsync();
+        var boms = bomQuery.Where(b => bomIds.Contains(b.Id)).ToList();
+        foreach (var bom in boms)
+        {
+            if (bom.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("bomCompany", bom.CompanyId)
+                    .WithData("productionPlanCompany", input.CompanyId);
+            }
+        }
+
+        // Validate Sales Orders belong to company (if referenced)
+        var soIds = input.Items.Where(i => i.SalesOrderId.HasValue).Select(i => i.SalesOrderId!.Value).Distinct().ToList();
+        if (soIds.Count > 0)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var soQuery = await soRepo.GetQueryableAsync();
+            var sos = soQuery.Where(s => soIds.Contains(s.Id)).ToList();
+            foreach (var so in sos)
+            {
+                if (so.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("salesOrderCompany", so.CompanyId)
+                        .WithData("productionPlanCompany", input.CompanyId);
+                }
+            }
+        }
+
+        // Validate warehouses belong to company
+        var warehouseIds = input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value)
+            .Concat(new[] { input.RawMaterialGroupWarehouseId, input.ForWarehouseId }.Where(w => w.HasValue).Select(w => w!.Value))
+            .Distinct()
+            .ToList();
+        if (warehouseIds.Count > 0)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+            var whQuery = await whRepo.GetQueryableAsync();
+            var warehouses = whQuery.Where(w => warehouseIds.Contains(w.Id)).ToList();
+            foreach (var wh in warehouses)
+            {
+                if (wh.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("warehouseCompany", wh.CompanyId)
+                        .WithData("productionPlanCompany", input.CompanyId);
+                }
+            }
+        }
+
+        // Validate items and warehouses pass CompanyRestrictionValidationService
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "ProductionPlan", input.CompanyId,
+            itemIds: input.Items.Select(i => i.ItemId).Distinct().ToArray(),
+            warehouseIds: warehouseIds.Count > 0 ? warehouseIds.ToArray() : null);
+
+        plan.PostingDate = input.PostingDate;
+        plan.CombineItems = input.CombineItems;
+        plan.IgnoreExistingOrderedQty = input.IgnoreExistingOrderedQty;
+        plan.ConsiderMinimumOrderQty = input.ConsiderMinimumOrderQty;
+        plan.IncludeSafetyStock = input.IncludeSafetyStock;
+        plan.SkipAvailableSubAssemblyItem = input.SkipAvailableSubAssemblyItem;
+        plan.RawMaterialGroupWarehouseId = input.RawMaterialGroupWarehouseId;
+        plan.ForWarehouseId = input.ForWarehouseId;
+        plan.ReserveStock = input.ReserveStock;
+        plan.Notes = input.Notes;
+
+        plan.ClearPlannedItems();
+        foreach (var item in input.Items)
+        {
+            plan.AddPlannedItem(new ProductionPlanItem(
+                GuidGenerator.Create(), plan.Id,
+                item.ItemId, item.ItemName, item.BomId, item.PlannedQty)
+            {
+                WarehouseId = item.WarehouseId,
+                PlannedStartDate = item.PlannedStartDate,
+                SalesOrderId = item.SalesOrderId,
+                MaterialRequestId = item.MaterialRequestId,
+            });
+        }
+
+        await _planRepository.UpdateAsync(plan);
+        return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
+    }
+
     [Authorize(MyERPPermissions.ProductionPlans.Delete)]
     public async Task DeleteAsync(Guid id)
     {

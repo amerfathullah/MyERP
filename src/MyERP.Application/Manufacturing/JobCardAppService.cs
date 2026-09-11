@@ -82,6 +82,25 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             }
         }
 
+        var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
+        var bom = await bomRepo.GetAsync(wo.BomId, includeDetails: true);
+        if (bom.Operations.Any() || bom.RoutingId.HasValue)
+        {
+            var operationFound = bom.Operations.Any(o => o.OperationId == input.OperationId);
+            if (!operationFound && bom.RoutingId.HasValue)
+            {
+                var routingRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Routing, Guid>>();
+                var routing = await routingRepo.FindAsync(bom.RoutingId.Value, includeDetails: true);
+                operationFound = routing?.Operations.Any(o => o.OperationId == input.OperationId) == true;
+            }
+
+            if (!operationFound)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Operation {input.OperationId} does not belong to Work Order BOM {bom.BomNumber}.");
+            }
+        }
+
         await ValidateJobCardQtyAsync(wo.Id, input.OperationId, input.ForQuantity, wo.Quantity, wo.CompanyId);
 
         var jc = new JobCard(GuidGenerator.Create(), input.CompanyId, input.WorkOrderId,
@@ -123,6 +142,19 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("documentType", "JobCard")
                 .WithData("status", jc.Status.ToString());
+
+        if (input.CompanyId != default && jc.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("jobCardCompany", jc.CompanyId)
+                .WithData("inputCompany", input.CompanyId);
+        }
+
+        if (input.WorkOrderId != default && input.WorkOrderId != jc.WorkOrderId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "WorkOrderId cannot be changed on existing Job Card.");
+        }
 
         var woRepoForUpdate = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
         var woForUpdate = await woRepoForUpdate.GetAsync(jc.WorkOrderId);
