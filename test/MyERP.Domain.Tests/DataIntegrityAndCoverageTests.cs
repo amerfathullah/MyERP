@@ -2585,10 +2585,10 @@ public class DataIntegrityAndCoverageTests
         };
 
         var targetWh = Guid.NewGuid();
-        // Item 1: 30 qty, base rate 10
+        // Item 1: 30 qty, base rate 10 -> basic amount = 300
         entry.AddItem(Guid.NewGuid(), 30m, null, targetWh, valuationRate: 10m);
-        // Item 2: 70 qty, base rate 20
-        entry.AddItem(Guid.NewGuid(), 70m, null, targetWh, valuationRate: 20m);
+        // Item 2: 70 qty, base rate 10 -> basic amount = 700
+        entry.AddItem(Guid.NewGuid(), 70m, null, targetWh, valuationRate: 10m);
 
         MyERP.Inventory.DomainServices.StockEntryManager.DistributeAdditionalCosts(entry);
 
@@ -2597,11 +2597,76 @@ public class DataIntegrityAndCoverageTests
         Assert.Equal(30m, entry.Items[0].AdditionalCost);
         Assert.Equal(11m, entry.Items[0].ValuationRate);
 
-        // Item 2: 70% of 100 = 70; rate becomes 20 + 70/70 = 21
+        // Item 2: 70% of 100 = 70; rate becomes 10 + 70/70 = 11
         Assert.Equal(70m, entry.Items[1].AdditionalCost);
-        Assert.Equal(21m, entry.Items[1].ValuationRate);
+        Assert.Equal(11m, entry.Items[1].ValuationRate);
 
         Assert.Equal(100m, entry.Items[0].AdditionalCost + entry.Items[1].AdditionalCost);
+    }
+
+    [Fact]
+    public void StockEntry_DistributeAdditionalCosts_ZeroValuedItems_FallsBackToQuantity()
+    {
+        // Per ERPNext PR #58842 / commit 1728d1b0f5:
+        // When incoming items have zero basic amount, fall back to distributing additional costs by transfer_qty.
+        var entry = new MyERP.Inventory.Entities.StockEntry(
+            Guid.NewGuid(), Guid.NewGuid(), StockEntryType.MaterialReceipt, DateTime.UtcNow)
+        {
+            TotalAdditionalCosts = 100m
+        };
+
+        var targetWh = Guid.NewGuid();
+        // Item 1: 20 qty, zero rate
+        entry.AddItem(Guid.NewGuid(), 20m, null, targetWh, valuationRate: 0m);
+        // Item 2: 30 qty, zero rate
+        entry.AddItem(Guid.NewGuid(), 30m, null, targetWh, valuationRate: 0m);
+
+        MyERP.Inventory.DomainServices.StockEntryManager.DistributeAdditionalCosts(entry);
+
+        Assert.Equal(2, entry.Items.Count);
+        // Item 1: 20/50 * 100 = 40; rate becomes 0 + 40/20 = 2
+        Assert.Equal(40m, entry.Items[0].AdditionalCost);
+        Assert.Equal(2m, entry.Items[0].ValuationRate);
+
+        // Item 2: 30/50 * 100 = 60; rate becomes 0 + 60/30 = 2
+        Assert.Equal(60m, entry.Items[1].AdditionalCost);
+        Assert.Equal(2m, entry.Items[1].ValuationRate);
+
+        Assert.Equal(100m, entry.Items[0].AdditionalCost + entry.Items[1].AdditionalCost);
+    }
+
+    [Fact]
+    public void StockEntry_DistributeAdditionalCosts_Manufacture_OnlyAllocatesToFinishedGoods()
+    {
+        // Per ERPNext PR #58842 / commit 1728d1b0f5:
+        // In Manufacture/Repack, additional costs are only allocated to finished goods (IsFinishedItem = true),
+        // ignoring raw materials and scrap items even if they have a target warehouse.
+        var entry = new MyERP.Inventory.Entities.StockEntry(
+            Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Manufacture, DateTime.UtcNow)
+        {
+            TotalAdditionalCosts = 100m
+        };
+
+        var sourceWh = Guid.NewGuid();
+        var targetWh = Guid.NewGuid();
+
+        // Raw material
+        entry.AddItem(Guid.NewGuid(), 10m, sourceWh, null, valuationRate: 0m, isFinishedItem: false);
+        // Finished good
+        entry.AddItem(Guid.NewGuid(), 5m, null, targetWh, valuationRate: 0m, isFinishedItem: true);
+        // Scrap item (has target warehouse but not finished item)
+        entry.AddItem(Guid.NewGuid(), 2m, null, targetWh, valuationRate: 0m, isFinishedItem: false);
+
+        MyERP.Inventory.DomainServices.StockEntryManager.DistributeAdditionalCosts(entry);
+
+        Assert.Equal(3, entry.Items.Count);
+        // RM: 0
+        Assert.Equal(0m, entry.Items[0].AdditionalCost);
+        // FG: receives 100% of additional cost = 100; rate becomes 0 + 100/5 = 20
+        Assert.Equal(100m, entry.Items[1].AdditionalCost);
+        Assert.Equal(20m, entry.Items[1].ValuationRate);
+        // Scrap: 0
+        Assert.Equal(0m, entry.Items[2].AdditionalCost);
     }
 
     [Fact]

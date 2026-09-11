@@ -199,6 +199,14 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 .WithData("detail", "Received Amount cannot be greater than Paid Amount for same-currency payments.");
         }
 
+        // Per ERPNext PR #58529 / commit 36a4dfe797: reject same-account internal transfers
+        if (input.PaymentType == PaymentType.InternalTransfer &&
+            input.PaidFromAccountId != Guid.Empty &&
+            input.PaidFromAccountId == input.PaidToAccountId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.SameAccountInternalTransfer);
+        }
+
         var paymentNumber = await _numberGenerator.GenerateAsync("PaymentEntry", input.CompanyId);
         var pe = new PaymentEntry(
             GuidGenerator.Create(), input.CompanyId, input.PaymentType, input.PostingDate,
@@ -1259,6 +1267,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         entry.PaidAmount = input.PaidAmount;
         entry.PaidFromAccountId = input.PaidFromAccountId != Guid.Empty ? input.PaidFromAccountId : entry.PaidFromAccountId;
         entry.PaidToAccountId = input.PaidToAccountId != Guid.Empty ? input.PaidToAccountId : entry.PaidToAccountId;
+        entry.ValidateInternalTransferAccounts();
         entry.ReferenceNumber = input.ReferenceNumber;
 
         if (input.Taxes != null)

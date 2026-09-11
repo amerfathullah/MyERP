@@ -122,4 +122,40 @@ public class PaymentEntryValidationRuleTests
         // ExchangeGainLoss should absorb residual (400 MYR)
         Assert.Equal(400m, pe.ExchangeGainLoss);
     }
+
+    [Fact]
+    public void PaymentEntry_InternalTransfer_SameAccount_ThrowsException()
+    {
+        // Per ERPNext PR #58529 / commit 36a4dfe797:
+        // Internal Transfer must reject same account for Paid From and Paid To.
+        var sameAccount = Guid.NewGuid();
+        var ex = Assert.Throws<BusinessException>(() => new PaymentEntry(
+            Guid.NewGuid(),
+            _companyId,
+            PaymentType.InternalTransfer,
+            DateTime.UtcNow,
+            100m,
+            sameAccount,
+            sameAccount
+        ));
+
+        Assert.Equal(MyERPDomainErrorCodes.SameAccountInternalTransfer, ex.Code);
+    }
+
+    [Fact]
+    public void PaymentEntry_InternalTransfer_DifferentAccounts_Succeeds()
+    {
+        var pe = new PaymentEntry(
+            Guid.NewGuid(),
+            _companyId,
+            PaymentType.InternalTransfer,
+            DateTime.UtcNow,
+            100m,
+            _paidFrom,
+            _paidTo
+        );
+
+        pe.Submit();
+        Assert.Equal(global::MyERP.Core.DocumentStatus.Submitted, pe.Status);
+    }
 }

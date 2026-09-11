@@ -250,6 +250,7 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         PaidFromAccountId = Check.NotDefaultOrNull<Guid>(paidFromAccountId, nameof(paidFromAccountId));
         PaidToAccountId = Check.NotDefaultOrNull<Guid>(paidToAccountId, nameof(paidToAccountId));
         TenantId = tenantId;
+        ValidateInternalTransferAccounts();
     }
 
     public void Submit()
@@ -257,10 +258,25 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        ValidateInternalTransferAccounts();
         ValidatePaymentTypeWithOutstanding();
 
         Status = DocumentStatus.Submitted;
         AddLocalEvent(new PaymentEntrySubmittedEvent(this));
+    }
+
+    /// <summary>
+    /// Validates that Paid From and Paid To accounts are different for an Internal Transfer (ERPNext PR #58529).
+    /// </summary>
+    public void ValidateInternalTransferAccounts()
+    {
+        if (PaymentType == PaymentType.InternalTransfer &&
+            PaidFromAccountId != Guid.Empty &&
+            PaidToAccountId != Guid.Empty &&
+            PaidFromAccountId == PaidToAccountId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.SameAccountInternalTransfer);
+        }
     }
 
     /// <summary>

@@ -562,6 +562,11 @@ export class PaymentEntryFormComponent implements OnInit {
     }
 
     const raw = this.form.getRawValue();
+    if (raw.paymentType === 'InternalTransfer' && raw.paidFromAccount && raw.paidFromAccount === raw.paidToAccount) {
+      this.toaster.error(this.localization.instant('::MyERP:02091'));
+      return;
+    }
+
     const dto: any = {
       ...raw,
       postingDate: raw.paymentDate,

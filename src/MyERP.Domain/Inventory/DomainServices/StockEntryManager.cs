@@ -757,19 +757,42 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
-    /// Distributes total additional costs across all incoming rows (TargetWarehouseId != null).
-    /// Per ERPNext commit 074c84e880 / PR #58433:
-    /// Additional costs are redistributed across all incoming rows and persisted during stock entry recalculation.
+    /// Distributes total additional costs across incoming rows.
+    /// Per ERPNext commit 074c84e880 / PR #58433 and PR #58842 / commit 1728d1b0f5:
+    /// - For Repack/Manufacture: incoming items are finished goods (IsFinishedItem = true).
+    /// - For other purposes: incoming items have TargetWarehouseId != null.
+    /// - Primary allocation basis: proportional to basic amount (Quantity * ValuationRate).
+    /// - Fallback allocation basis: if total basic amount is zero (zero-valued items), proportional to Quantity.
+    /// - Additional costs are redistributed across incoming rows and valuation rate is updated.
     /// </summary>
     public static void DistributeAdditionalCosts(StockEntry entry)
     {
+        foreach (var item in entry.Items)
+        {
+            item.AdditionalCost = 0;
+        }
+
         if (entry.TotalAdditionalCosts <= 0) return;
 
-        var incomingRows = entry.Items.Where(i => i.TargetWarehouseId.HasValue).ToList();
+        List<StockEntryItem> incomingRows;
+        if (entry.EntryType == StockEntryType.Repack || entry.EntryType == StockEntryType.Manufacture)
+        {
+            incomingRows = entry.Items.Where(i => i.IsFinishedItem).ToList();
+        }
+        else
+        {
+            incomingRows = entry.Items.Where(i => i.TargetWarehouseId.HasValue).ToList();
+        }
+
         if (!incomingRows.Any()) return;
 
-        var totalQty = incomingRows.Sum(i => i.Quantity);
-        if (totalQty <= 0) return;
+        var totalBasicAmount = incomingRows.Sum(i => i.Quantity * (i.ValuationRate ?? 0m));
+        var useBasicAmount = totalBasicAmount > 0m;
+        var totalBasis = useBasicAmount
+            ? totalBasicAmount
+            : incomingRows.Sum(i => i.Quantity);
+
+        if (totalBasis <= 0m) return;
 
         decimal allocated = 0;
         for (int i = 0; i < incomingRows.Count; i++)
@@ -781,7 +804,10 @@ public class StockEntryManager : DomainService
             }
             else
             {
-                var portion = Math.Round(entry.TotalAdditionalCosts * (row.Quantity / totalQty), 4);
+                var basisVal = useBasicAmount
+                    ? row.Quantity * (row.ValuationRate ?? 0m)
+                    : row.Quantity;
+                var portion = Math.Round(entry.TotalAdditionalCosts * (basisVal / totalBasis), 4);
                 row.AdditionalCost = portion;
                 allocated += portion;
             }
@@ -789,7 +815,7 @@ public class StockEntryManager : DomainService
             if (row.Quantity > 0)
             {
                 var rateIncrement = row.AdditionalCost / row.Quantity;
-                row.ValuationRate = (row.ValuationRate ?? 0) + rateIncrement;
+                row.ValuationRate = (row.ValuationRate ?? 0m) + rateIncrement;
             }
         }
     }
