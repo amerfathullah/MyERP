@@ -10,6 +10,7 @@ public class HolidayListDto : EntityDto<Guid>
     public int Year { get; set; }
     public string? WeeklyOff { get; set; }
     public bool IsDefault { get; set; }
+    public decimal TotalHolidays { get; set; }
     public HolidayDto[] Holidays { get; set; } = [];
     public DateTime CreationTime { get; set; }
 }
@@ -20,6 +21,7 @@ public class HolidayDto
     public DateTime HolidayDate { get; set; }
     public string Description { get; set; } = null!;
     public bool IsWeeklyOff { get; set; }
+    public bool IsHalfDay { get; set; }
 }
 
 public class CreateHolidayListDto
@@ -37,4 +39,5 @@ public class CreateHolidayDto
     public DateTime HolidayDate { get; set; }
     public string Description { get; set; } = null!;
     public bool IsWeeklyOff { get; set; }
+    public bool IsHalfDay { get; set; }
 }

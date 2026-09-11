@@ -58,6 +58,11 @@ public class PaymentEntryTax : FullAuditedEntity<Guid>, IMultiTenant
     public string? AccountHead { get; set; }
 
     /// <summary>
+    /// Optional linked Dunning notice for dunning fee and interest deductions (ERPNext PR #58227).
+    /// </summary>
+    public Guid? DunningId { get; set; }
+
+    /// <summary>
     /// Marks this row as exchange gain/loss (auto-managed, not user-editable).
     /// Excluded from unallocated_amount calculation (per gotcha #437).
     /// </summary>

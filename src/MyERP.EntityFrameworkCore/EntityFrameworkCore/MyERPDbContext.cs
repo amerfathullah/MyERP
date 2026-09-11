@@ -1641,6 +1641,7 @@ public class MyERPDbContext :
             b.Property(x => x.Description).HasMaxLength(500);
             b.Property(x => x.AccountHead).HasMaxLength(200);
             b.HasIndex(x => x.PaymentEntryId);
+            b.HasIndex(x => x.DunningId);
         });
 
         builder.Entity<PaymentOrder>(b =>
@@ -3987,6 +3988,7 @@ public class MyERPDbContext :
             b.Property(x => x.TotalOutstanding).HasColumnType("decimal(18,2)");
             b.Property(x => x.DunningFee).HasColumnType("decimal(18,2)");
             b.Property(x => x.InterestAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.PaidDunningAmount).HasColumnType("decimal(18,2)");
             b.Property(x => x.Notes).HasMaxLength(2000);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasOne<Customer>().WithMany().HasForeignKey(x => x.CustomerId).IsRequired();
@@ -4407,6 +4409,7 @@ public class MyERPDbContext :
             b.Property(x => x.Qty).HasColumnType("decimal(18,4)");
             b.Property(x => x.NetWeight).HasColumnType("decimal(18,4)");
             b.Property(x => x.Description).HasMaxLength(500);
+            b.Property(x => x.ItemName).HasMaxLength(200);
         });
 
         // ProformaInvoice — progressive/partial invoicing before delivery (v16)

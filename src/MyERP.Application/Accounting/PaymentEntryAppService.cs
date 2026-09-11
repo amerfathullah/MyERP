@@ -1281,6 +1281,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 AddDeductTax = row.AddDeductTax,
                 Description = row.Description,
                 CostCenterId = row.CostCenterId,
+                DunningId = row.DunningId,
             };
             pe.AddTax(tax);
         }
@@ -1414,7 +1415,8 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 Description = taxRow.Description,
                 CostCenterId = taxRow.CostCenterId,
                 AccountHead = taxRow.AccountHead,
-                IsExchangeGainLoss = taxRow.IsExchangeGainLoss
+                IsExchangeGainLoss = taxRow.IsExchangeGainLoss,
+                DunningId = taxRow.DunningId
             };
             amended.Taxes.Add(taxCopy);
         }

@@ -38,6 +38,15 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public decimal GrandTotal => TotalOutstanding + DunningFee + InterestAmount;
 
+    /// <summary>Total dunning fee and interest charges (DunningFee + InterestAmount).</summary>
+    public decimal DunningAmount => DunningFee + InterestAmount;
+
+    /// <summary>Paid dunning fee and interest amount tracked from Payment Entry deductions.</summary>
+    public decimal PaidDunningAmount { get; set; }
+
+    /// <summary>Remaining uncollected dunning fee and interest amount (ERPNext PR #58227).</summary>
+    public decimal UnpaidDunningAmount => Math.Max(0, DunningAmount - PaidDunningAmount);
+
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
     public string? Notes { get; set; }
 
@@ -108,6 +117,18 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Posted; // Resolved
+    }
+
+    public void Reopen()
+    {
+        if (Status != DocumentStatus.Posted)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = DocumentStatus.Submitted;
+    }
+
+    public void RecordDunningPayment(decimal amount)
+    {
+        PaidDunningAmount = Math.Max(0, PaidDunningAmount + amount);
     }
 
     public void Cancel()

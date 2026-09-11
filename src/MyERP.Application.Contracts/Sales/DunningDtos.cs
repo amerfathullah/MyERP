@@ -17,6 +17,9 @@ public class DunningDto : EntityDto<Guid>
     public decimal DunningFee { get; set; }
     public decimal InterestAmount { get; set; }
     public decimal GrandTotal { get; set; }
+    public decimal DunningAmount { get; set; }
+    public decimal PaidDunningAmount { get; set; }
+    public decimal UnpaidDunningAmount { get; set; }
     public int Status { get; set; }
     public int OverduePaymentCount { get; set; }
     public DateTime? EmailSentAt { get; set; }

@@ -6,6 +6,7 @@ using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.Sales.Entities;
+using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Accounting.DomainServices;
 using MyERP.Permissions;
@@ -234,7 +235,8 @@ public class DunningAppService : ApplicationService, IDunningAppService
         d.Submit();
 
         // Post GL entries for dunning fee + interest (DR Receivable, CR Income)
-        if (d.GrandTotal > 0)
+        var feeAndInterest = d.DunningFee + d.InterestAmount;
+        if (feeAndInterest > 0)
         {
             try
             {
@@ -262,9 +264,9 @@ public class DunningAppService : ApplicationService, IDunningAppService
                     je.ReferenceType = "Dunning";
                     je.ReferenceId = d.Id;
                     // DR Receivable (customer owes fee + interest)
-                    je.AddLine(company.DefaultReceivableAccountId.Value, d.GrandTotal, true);
+                    je.AddLineWithParty(company.DefaultReceivableAccountId.Value, feeAndInterest, true, d.CustomerId, "Customer", AccountSubType.AccountsReceivable);
                     // CR Income (dunning fee + interest earned)
-                    je.AddLine(incomeAccountId.Value, d.GrandTotal, false);
+                    je.AddLine(incomeAccountId.Value, feeAndInterest, false);
                     je.Post();
                     await jeRepo.InsertAsync(je);
                 }
@@ -312,6 +314,25 @@ public class DunningAppService : ApplicationService, IDunningAppService
     {
         var d = await _repository.GetAsync(id);
         d.Cancel();
+
+        // Cancel linked Journal Entries created by Dunning submit
+        try
+        {
+            var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+            var linkedJes = (await jeRepo.GetQueryableAsync())
+                .Where(j => j.ReferenceType == "Dunning" && j.ReferenceId == d.Id && j.Status == DocumentStatus.Posted)
+                .ToList();
+            foreach (var je in linkedJes)
+            {
+                je.Cancel();
+                await jeRepo.UpdateAsync(je);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to cancel linked Journal Entry for Dunning {DunningId}", d.Id);
+        }
+
         await _repository.UpdateAsync(d);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DocumentActivityLog, Guid>>();

@@ -62,5 +62,6 @@ public class CreatePackingSlipItemDto
 
     public decimal NetWeight { get; set; }
     public string? Description { get; set; }
+    public string? ItemName { get; set; }
     public Guid? DeliveryNoteItemId { get; set; }
 }

@@ -69,7 +69,7 @@ public class DunningStatusSyncJob : AsyncBackgroundJob<DunningStatusSyncJobArgs>
                 }
             }
 
-            if (allPaid)
+            if (allPaid && dunning.UnpaidDunningAmount <= 0)
             {
                 dunning.Resolve();
                 await _dunningRepository.UpdateAsync(dunning);

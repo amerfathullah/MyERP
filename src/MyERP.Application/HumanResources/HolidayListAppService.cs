@@ -41,7 +41,7 @@ public class HolidayListAppService : ApplicationService, IHolidayListAppService
             IsDefault = input.IsDefault,
         };
         foreach (var h in input.Holidays)
-            hl.AddHoliday(new Holiday(Guid.NewGuid(), hl.Id, h.HolidayDate, h.Description, h.IsWeeklyOff));
+            hl.AddHoliday(new Holiday(Guid.NewGuid(), hl.Id, h.HolidayDate, h.Description, h.IsWeeklyOff, h.IsHalfDay));
         await _repository.InsertAsync(hl);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();

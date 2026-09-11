@@ -67,14 +67,14 @@ public class PackingSlip : FullAuditedAggregateRoot<Guid>, IMultiTenant
         ToCaseNo = toCaseNo;
     }
 
-    public void AddItem(Guid itemId, decimal qty, decimal netWeight, string? description = null)
+    public void AddItem(Guid itemId, decimal qty, decimal netWeight, string? description = null, string? itemName = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException("MyERP:01001");
         if (qty <= 0)
             throw new ArgumentException("Quantity must be positive", nameof(qty));
 
-        Items.Add(new PackingSlipItem(Guid.NewGuid(), Id, itemId, qty, netWeight, description));
+        Items.Add(new PackingSlipItem(Guid.NewGuid(), Id, itemId, qty, netWeight, description, itemName));
         RecalculateWeight();
     }
 
@@ -124,6 +124,7 @@ public class PackingSlipItem : Entity<Guid>
     public decimal Qty { get; set; }
     public decimal NetWeight { get; set; }
     public string? Description { get; set; }
+    public string? ItemName { get; set; }
 
     /// <summary>Reference to the DN item this packing row covers.</summary>
     public Guid? DeliveryNoteItemId { get; set; }
@@ -133,7 +134,8 @@ public class PackingSlipItem : Entity<Guid>
 
     protected PackingSlipItem() { }
 
-    public PackingSlipItem(Guid id, Guid packingSlipId, Guid itemId, decimal qty, decimal netWeight, string? description = null)
+    public PackingSlipItem(Guid id, Guid packingSlipId, Guid itemId, decimal qty, decimal netWeight,
+        string? description = null, string? itemName = null)
         : base(id)
     {
         PackingSlipId = packingSlipId;
@@ -141,5 +143,6 @@ public class PackingSlipItem : Entity<Guid>
         Qty = qty;
         NetWeight = netWeight;
         Description = description;
+        ItemName = itemName;
     }
 }

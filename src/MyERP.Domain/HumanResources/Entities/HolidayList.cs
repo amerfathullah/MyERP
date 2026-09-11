@@ -50,6 +50,9 @@ public class HolidayList : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         return _holidays.Any(h => h.HolidayDate.Date == date.Date);
     }
+
+    /// <summary>Total holiday days in list, counting half-days as 0.5 (ERPNext PR #58792).</summary>
+    public decimal TotalHolidays => _holidays.Sum(h => h.IsHalfDay ? 0.5m : 1.0m);
 }
 
 /// <summary>Individual holiday date entry.</summary>
@@ -62,14 +65,19 @@ public class Holiday : Entity<Guid>
     /// <summary>If true, this is a weekly off (auto-generated), not a named holiday.</summary>
     public bool IsWeeklyOff { get; set; }
 
+    /// <summary>If true, counts as 0.5 days instead of 1.0 day (ERPNext PR #58792).</summary>
+    public bool IsHalfDay { get; set; }
+
     protected Holiday() { }
 
-    public Holiday(Guid id, Guid holidayListId, DateTime holidayDate, string description, bool isWeeklyOff = false)
+    public Holiday(Guid id, Guid holidayListId, DateTime holidayDate, string description,
+        bool isWeeklyOff = false, bool isHalfDay = false)
         : base(id)
     {
         HolidayListId = holidayListId;
         HolidayDate = holidayDate;
         Description = description;
         IsWeeklyOff = isWeeklyOff;
+        IsHalfDay = isHalfDay;
     }
 }

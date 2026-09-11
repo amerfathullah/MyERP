@@ -140,14 +140,18 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
 
         foreach (var itemDto in input.Items)
         {
+            var itemName = itemDto.ItemName;
             var description = itemDto.Description;
-            if (string.IsNullOrWhiteSpace(description))
+            if (string.IsNullOrWhiteSpace(itemName) || string.IsNullOrWhiteSpace(description))
             {
                 var itemEntity = await _itemRepository.FindAsync(itemDto.ItemId);
-                description = itemEntity?.ItemName ?? itemEntity?.ItemCode;
+                if (string.IsNullOrWhiteSpace(itemName))
+                    itemName = itemEntity?.ItemName ?? itemEntity?.ItemCode;
+                if (string.IsNullOrWhiteSpace(description))
+                    description = itemEntity?.ItemName ?? itemEntity?.ItemCode;
             }
 
-            entity.AddItem(itemDto.ItemId, itemDto.Qty, itemDto.NetWeight, description);
+            entity.AddItem(itemDto.ItemId, itemDto.Qty, itemDto.NetWeight, description, itemName);
             // AddItem has no DeliveryNoteItemId parameter — without this, the field a Packing Slip
             // Item carries for exactly this purpose was always left null, which silently made both
             // AdjustParentDeliveryNotePackedQtyAsync (DN PackedQty write-back on submit/cancel) and
@@ -285,7 +289,7 @@ public class PackingSlipAppService : ApplicationService, IPackingSlipAppService
                 Id = item.Id,
                 ItemId = item.ItemId,
                 ItemCode = itemEntity?.ItemCode,
-                ItemName = itemEntity?.ItemName,
+                ItemName = item.ItemName ?? itemEntity?.ItemName,
                 Qty = item.Qty,
                 NetWeight = item.NetWeight,
                 Description = item.Description,

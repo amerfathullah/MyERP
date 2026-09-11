@@ -46,6 +46,7 @@ public class PaymentEntryTaxDto
     public TaxAddDeduct AddDeductTax { get; set; } = TaxAddDeduct.Add;
     public string? Description { get; set; }
     public Guid? CostCenterId { get; set; }
+    public Guid? DunningId { get; set; }
 }
 
 public class CreatePaymentEntryDto

@@ -871,6 +871,7 @@ public partial class PaymentEntryMapper : MapperBase<Accounting.Entities.Payment
             AddDeductTax = t.AddDeductTax,
             Description = t.Description,
             CostCenterId = t.CostCenterId,
+            DunningId = t.DunningId,
         }).ToList();
 }
 
