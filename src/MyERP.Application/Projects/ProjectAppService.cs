@@ -1,9 +1,11 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
 using MyERP.Core.DomainServices;
 using MyERP.Permissions;
 using MyERP.Projects.Entities;
+using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -74,6 +76,47 @@ public class ProjectAppService : ApplicationService, IProjectAppService
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", "EstimatedCost");
         }
+
+        if (input.CustomerId.HasValue)
+        {
+            var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+            var customer = await customerRepo.FindAsync(input.CustomerId.Value);
+            if (customer != null && customer.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("customerCompany", customer.CompanyId)
+                    .WithData("projectCompany", input.CompanyId);
+            }
+        }
+
+        if (input.SalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+            var so = await soRepo.FindAsync(input.SalesOrderId.Value);
+            if (so != null && so.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("salesOrderCompany", so.CompanyId)
+                    .WithData("projectCompany", input.CompanyId);
+            }
+        }
+
+        if (input.CostCenterId.HasValue)
+        {
+            var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+            var cc = await ccRepo.FindAsync(input.CostCenterId.Value);
+            if (cc != null && cc.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("costCenterCompany", cc.CompanyId)
+                    .WithData("projectCompany", input.CompanyId);
+            }
+        }
+
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "Project", input.CompanyId,
+            customerIds: input.CustomerId.HasValue ? new[] { input.CustomerId.Value } : null);
 
         var number = await _numberGenerator.GenerateAsync("Project", input.CompanyId);
         var project = new Project(GuidGenerator.Create(), input.CompanyId, number, input.ProjectName, CurrentTenant.Id)
@@ -155,6 +198,36 @@ public class ProjectAppService : ApplicationService, IProjectAppService
         }
 
         var project = await _projectRepository.GetAsync(id);
+
+        if (input.CustomerId.HasValue)
+        {
+            var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+            var customer = await customerRepo.FindAsync(input.CustomerId.Value);
+            if (customer != null && customer.CompanyId != project.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("customerCompany", customer.CompanyId)
+                    .WithData("projectCompany", project.CompanyId);
+            }
+        }
+
+        if (input.CostCenterId.HasValue)
+        {
+            var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+            var cc = await ccRepo.FindAsync(input.CostCenterId.Value);
+            if (cc != null && cc.CompanyId != project.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("costCenterCompany", cc.CompanyId)
+                    .WithData("projectCompany", project.CompanyId);
+            }
+        }
+
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "Project", project.CompanyId,
+            customerIds: input.CustomerId.HasValue ? new[] { input.CustomerId.Value } : null);
+
         project.ProjectName = input.ProjectName;
         project.Priority = input.Priority;
         project.PercentCompleteMethod = input.PercentCompleteMethod;

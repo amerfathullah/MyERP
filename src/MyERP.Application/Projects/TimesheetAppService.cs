@@ -5,10 +5,12 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
+using MyERP.HumanResources.Entities;
 using MyERP.Permissions;
 using MyERP.Projects.Entities;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -159,6 +161,29 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
             }
         }
 
+        var employeeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Employee, Guid>>();
+        var employee = await employeeRepo.FindAsync(input.EmployeeId);
+        if (employee != null && employee.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("employeeCompany", employee.CompanyId)
+                .WithData("timesheetCompany", input.CompanyId);
+        }
+
+        var projectIds = input.Details.Where(d => d.ProjectId.HasValue).Select(d => d.ProjectId!.Value).Distinct().ToList();
+        if (projectIds.Count > 0)
+        {
+            var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
+            var projects = await projectRepo.GetListAsync(p => projectIds.Contains(p.Id));
+            var mismatch = projects.FirstOrDefault(p => p.CompanyId != input.CompanyId);
+            if (mismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("projectCompany", mismatch.CompanyId)
+                    .WithData("timesheetCompany", input.CompanyId);
+            }
+        }
+
         var ts = new Timesheet(GuidGenerator.Create(), input.CompanyId, input.EmployeeId,
             input.StartDate, input.EndDate, CurrentTenant.Id)
         { EmployeeName = input.EmployeeName, Note = input.Note };
@@ -271,6 +296,36 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
             {
                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Cannot log timesheet against Group Task '{groupTask.Subject}'.");
+            }
+        }
+
+        if (input.CompanyId != Guid.Empty && input.CompanyId != ts.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("entityCompany", ts.CompanyId)
+                .WithData("inputCompany", input.CompanyId);
+        }
+
+        var employeeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Employee, Guid>>();
+        var employee = await employeeRepo.FindAsync(input.EmployeeId);
+        if (employee != null && employee.CompanyId != ts.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("employeeCompany", employee.CompanyId)
+                .WithData("timesheetCompany", ts.CompanyId);
+        }
+
+        var updateProjectIds = input.Details.Where(d => d.ProjectId.HasValue).Select(d => d.ProjectId!.Value).Distinct().ToList();
+        if (updateProjectIds.Count > 0)
+        {
+            var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
+            var projects = await projectRepo.GetListAsync(p => updateProjectIds.Contains(p.Id));
+            var mismatch = projects.FirstOrDefault(p => p.CompanyId != ts.CompanyId);
+            if (mismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("projectCompany", mismatch.CompanyId)
+                    .WithData("timesheetCompany", ts.CompanyId);
             }
         }
 
@@ -434,10 +489,30 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
                 && t.Status == TimesheetStatus.Submitted)
             .ToList();
 
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+        var customer = await customerRepo.FindAsync(input.CustomerId);
+        if (customer != null && customer.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("customerCompany", customer.CompanyId)
+                .WithData("companyId", input.CompanyId);
+        }
+
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "SalesInvoice", input.CompanyId,
+            customerIds: new[] { input.CustomerId });
+
         var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
         if (input.ProjectId.HasValue)
         {
             var project = await projectRepo.FindAsync(input.ProjectId.Value);
+            if (project != null && project.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("projectCompany", project.CompanyId)
+                    .WithData("companyId", input.CompanyId);
+            }
             if (project != null && project.CustomerId.HasValue && project.CustomerId.Value != input.CustomerId)
             {
                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
