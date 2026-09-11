@@ -71,6 +71,40 @@ public class RequestForQuotationAppService : ApplicationService, IRequestForQuot
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
 
+        var whIds = input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value).Distinct().ToList();
+        if (whIds.Count > 0)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var warehouses = await whRepo.GetListAsync(w => whIds.Contains(w.Id));
+            var whMismatch = warehouses.FirstOrDefault(w => w.CompanyId != input.CompanyId);
+            if (whMismatch != null)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("warehouseCompany", whMismatch.CompanyId)
+                    .WithData("rfqCompany", input.CompanyId);
+            }
+        }
+
+        var linkedMrItemIds = input.Items
+            .Where(i => i.MaterialRequestItemId.HasValue)
+            .Select(i => i.MaterialRequestItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (linkedMrItemIds.Count > 0)
+        {
+            var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MaterialRequest, Guid>>();
+            var mrQuery = await mrRepo.GetQueryableAsync();
+            var crossCompanyMr = mrQuery
+                .Where(mr => mr.Items.Any(i => linkedMrItemIds.Contains(i.Id)) && mr.CompanyId != input.CompanyId)
+                .FirstOrDefault();
+            if (crossCompanyMr != null)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("materialRequestCompany", crossCompanyMr.CompanyId)
+                    .WithData("rfqCompany", input.CompanyId);
+            }
+        }
+
         // Company-restriction check (Item/Supplier/Warehouse must belong to — or explicitly allow —
         // this company). Every other Purchasing/Sales document wires this in; RFQ was the one
         // sibling that didn't, so a cross-company Supplier or Warehouse could be referenced here
@@ -81,7 +115,7 @@ public class RequestForQuotationAppService : ApplicationService, IRequestForQuot
             input.CompanyId,
             itemIds: input.Items.Select(i => i.ItemId).ToArray(),
             supplierIds: input.Suppliers.Select(s => s.SupplierId).ToArray(),
-            warehouseIds: input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value).ToArray());
+            warehouseIds: whIds.Count > 0 ? whIds.ToArray() : null);
 
         foreach (var item in input.Items)
             rfq.AddItem(item.ItemId, item.Description, item.Qty, item.Uom, item.WarehouseId, item.MaterialRequestItemId);
@@ -162,6 +196,8 @@ public class RequestForQuotationAppService : ApplicationService, IRequestForQuot
 
         // Deduct quantities already mapped in draft RFQs (PR #58617 parity)
         var rfqQuery = await _repository.GetQueryableAsync();
+        if (companyId.HasValue)
+            rfqQuery = rfqQuery.Where(r => r.CompanyId == companyId.Value);
         var draftRfqs = rfqQuery
             .Where(r => r.Status == Core.DocumentStatus.Draft)
             .SelectMany(r => r.Items)

@@ -5,8 +5,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
 using MyERP.Core.DomainServices;
+using MyERP.Inventory.Entities;
 using MyERP.Inventory.DomainServices;
 using MyERP.Permissions;
+using MyERP.Projects.Entities;
 using MyERP.Purchasing;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
@@ -249,8 +251,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var itemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
-        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await companyRestriction.ValidateTransactionCompanyAsync("SalesOrder", input.CompanyId, itemIds, customerIds: new[] { input.CustomerId });
+        await ValidateCompanyBoundariesAsync(input, input.CompanyId);
 
         var customerForStatus = await _customerRepository.GetAsync(input.CustomerId);
         LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
@@ -279,17 +280,6 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.PriceListId = input.PriceListId
             ?? (await _customerRepository.FindAsync(input.CustomerId))?.DefaultPriceListId;
 
-        // Per gotcha #468: project-customer cross-validation
-        if (input.ProjectId.HasValue)
-        {
-            var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Projects.Entities.Project, Guid>>();
-            var project = await projectRepo.FindAsync(input.ProjectId.Value);
-            if (project != null && project.CustomerId.HasValue && project.CustomerId.Value != input.CustomerId)
-            {
-                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Project {project.ProjectName} belongs to a different Customer.");
-            }
-        }
 
         // Auto-fill addresses from customer master
         var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
@@ -993,15 +983,39 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft sales orders can be edited");
 
+        if (input.CompanyId != Guid.Empty && input.CompanyId != order.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("entityCompany", order.CompanyId)
+                .WithData("inputCompany", input.CompanyId);
+        }
+
+        if (input.Items == null || input.Items.Count == 0)
+            throw new Volo.Abp.BusinessException("MyERP:01007")
+                .WithData("documentType", "Sales Order");
+
         var updateItemIds = input.Items.Select(i => i.ItemId).ToArray();
-        var updateCompanyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await updateCompanyRestriction.ValidateTransactionCompanyAsync("SalesOrder", order.CompanyId, updateItemIds, customerIds: new[] { input.CustomerId });
+        await _itemValidation.ValidateItemsForTransactionAsync(updateItemIds);
+
+        var customerForStatus = await _customerRepository.GetAsync(input.CustomerId);
+        LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
+            .ValidatePartyStatus("Customer", isFrozen: false, isDisabled: !customerForStatus.IsActive, customerForStatus.Name);
+
+        await ValidateCompanyBoundariesAsync(input, order.CompanyId);
 
         order.OrderDate = input.OrderDate;
         order.DeliveryDate = input.DeliveryDate;
         order.CustomerId = input.CustomerId;
+        order.CustomerPoNumber = input.CustomerPoNumber;
+        order.ContactPersonId = input.ContactPersonId;
+        order.ShippingContactPersonId = input.ShippingContactPersonId;
+        order.CurrencyCode = input.CurrencyCode;
+        order.Terms = input.Terms;
         order.Notes = input.Notes;
+        order.CostCenterId = input.CostCenterId;
+        order.ProjectId = input.ProjectId;
         order.PriceListId = input.PriceListId;
+        order.QuotationId = input.QuotationId;
 
         // Replace items
         order.ClearItems();
@@ -1039,6 +1053,115 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
         dto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
         return dto;
+    }
+
+    private async Task ValidateCompanyBoundariesAsync(CreateSalesOrderDto input, Guid companyId)
+    {
+        if (input.CostCenterId.HasValue)
+        {
+            var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+            var cc = await ccRepo.FindAsync(input.CostCenterId.Value);
+            if (cc != null && cc.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("costCenterCompany", cc.CompanyId)
+                    .WithData("salesOrderCompany", companyId);
+            }
+        }
+
+        if (input.ProjectId.HasValue)
+        {
+            var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
+            var project = await projectRepo.FindAsync(input.ProjectId.Value);
+            if (project != null && project.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("projectCompany", project.CompanyId)
+                    .WithData("salesOrderCompany", companyId);
+            }
+            if (project != null && project.CustomerId.HasValue && project.CustomerId.Value != input.CustomerId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Project {project.ProjectName} belongs to a different Customer.");
+            }
+        }
+
+        if (input.QuotationId.HasValue)
+        {
+            var quotationRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
+            var quotation = await quotationRepo.FindAsync(input.QuotationId.Value);
+            if (quotation != null && quotation.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("quotationCompany", quotation.CompanyId)
+                    .WithData("salesOrderCompany", companyId);
+            }
+        }
+
+        var warehouseIds = input.Items
+            .Where(i => i.WarehouseId.HasValue)
+            .Select(i => i.WarehouseId!.Value)
+            .Distinct()
+            .ToList();
+        if (warehouseIds.Count > 0)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+            var warehouses = await whRepo.GetListAsync(w => warehouseIds.Contains(w.Id));
+            var whMismatch = warehouses.FirstOrDefault(w => w.CompanyId != companyId);
+            if (whMismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("warehouseCompany", whMismatch.CompanyId)
+                    .WithData("salesOrderCompany", companyId);
+            }
+        }
+
+        var linkedQuotationItemIds = input.Items
+            .Where(i => i.QuotationItemId.HasValue)
+            .Select(i => i.QuotationItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (linkedQuotationItemIds.Count > 0)
+        {
+            var quotationRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
+            var quotationQuery = await quotationRepo.GetQueryableAsync();
+            var crossCompanyQuotation = quotationQuery
+                .Where(q => q.Items.Any(i => linkedQuotationItemIds.Contains(i.Id)) && q.CompanyId != companyId)
+                .FirstOrDefault();
+            if (crossCompanyQuotation != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("quotationCompany", crossCompanyQuotation.CompanyId)
+                    .WithData("salesOrderCompany", companyId);
+            }
+        }
+
+        var linkedBlanketOrderIds = input.Items
+            .Where(i => i.BlanketOrderId.HasValue)
+            .Select(i => i.BlanketOrderId!.Value)
+            .Distinct()
+            .ToList();
+        if (linkedBlanketOrderIds.Count > 0)
+        {
+            var boRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+            var blanketOrders = await boRepo.GetListAsync(b => linkedBlanketOrderIds.Contains(b.Id));
+            var boMismatch = blanketOrders.FirstOrDefault(b => b.CompanyId != companyId);
+            if (boMismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("blanketOrderCompany", boMismatch.CompanyId)
+                    .WithData("salesOrderCompany", companyId);
+            }
+        }
+
+        var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToList();
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "SalesOrder",
+            companyId,
+            itemIds: itemIds,
+            customerIds: new[] { input.CustomerId },
+            warehouseIds: warehouseIds.Count > 0 ? warehouseIds : null);
     }
 
     /// <summary>

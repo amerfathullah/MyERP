@@ -11,6 +11,7 @@ public interface IMaterialRequestAppService : IApplicationService
     Task<MaterialRequestDto> GetAsync(Guid id);
     Task<PagedResultDto<MaterialRequestDto>> GetListAsync(GetMaterialRequestListDto input);
     Task<MaterialRequestDto> CreateAsync(CreateMaterialRequestDto input);
+    Task<MaterialRequestDto> UpdateAsync(Guid id, CreateMaterialRequestDto input);
     Task DeleteAsync(Guid id);
     Task<MaterialRequestDto> SubmitAsync(Guid id);
     Task<MaterialRequestDto> CancelAsync(Guid id);

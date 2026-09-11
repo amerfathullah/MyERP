@@ -1,53 +1,53 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.Entities;
+using MyERP.Purchasing.DTOs;
+using MyERP.Purchasing.Entities;
 using Shouldly;
+using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Modularity;
 using Xunit;
 
 namespace MyERP.Purchasing;
 
-/// <summary>
-/// Regression coverage for a real gap found via ERPNext validate() parity: every other Purchasing
-/// document (PurchaseOrder, PurchaseInvoice, PurchaseReceipt, MaterialRequest, RequestForQuotation)
-/// wires CompanyRestrictionValidationService into CreateAsync; Supplier Quotation — the RFQ's own
-/// direct reply, and the document a Purchase Order conversion reads Supplier/Item references from
-/// — was the one that didn't.
-/// </summary>
 public abstract class SupplierQuotationCompanyGuardTests<TStartupModule> : MyERPApplicationTestBase<TStartupModule>
     where TStartupModule : IAbpModule
 {
     [Fact]
-    public async Task CreateAsync_SupplierFromDifferentCompany_Throws()
+    public async Task CreateAsync_RfqFromDifferentCompany_Throws()
     {
         await WithUnitOfWorkAsync(async () =>
         {
-            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
-            var supplierRepository = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
-            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var rfqRepo = GetRequiredService<IRepository<RequestForQuotation, Guid>>();
             var sqAppService = GetRequiredService<ISupplierQuotationAppService>();
 
-            var ownerCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "SQ Guard Owner Co"), autoSave: true);
-            var otherCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "SQ Guard Other Co"), autoSave: true);
+            var ownerCompany = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SQ Guard Owner Co 1"), autoSave: true);
+            var otherCompany = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SQ Guard Other Co 1"), autoSave: true);
 
-            var item = await itemRepository.InsertAsync(
-                new Item(Guid.NewGuid(), ownerCompany.Id, "SQ-ITEM-001", "SQ Guard Item", ItemType.Goods), autoSave: true);
-            var supplier = await supplierRepository.InsertAsync(
-                new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), otherCompany.Id, "SQ Guard Cross-Co Supplier"), autoSave: true);
+            var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), ownerCompany.Id, "SQ Guard Supp 1"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), ownerCompany.Id, "SQ-ITEM-1", "SQ Item 1", ItemType.Goods), autoSave: true);
 
-            await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            var crossRfq = new RequestForQuotation(Guid.NewGuid(), otherCompany.Id, "RFQ-CROSS-1", DateTime.UtcNow.Date);
+            await rfqRepo.InsertAsync(crossRfq, autoSave: true);
+
+            await Should.ThrowAsync<BusinessException>(() =>
                 sqAppService.CreateAsync(new CreateSupplierQuotationDto
                 {
                     CompanyId = ownerCompany.Id,
                     SupplierId = supplier.Id,
-                    TransactionDate = DateTime.Today,
-                    Items =
-                    [
-                        new CreateSQItemDto { ItemId = item.Id, ItemName = "Widget", Qty = 5m, Rate = 10m }
-                    ]
+                    TransactionDate = DateTime.UtcNow.Date,
+                    RequestForQuotationId = crossRfq.Id,
+                    Items = new[]
+                    {
+                        new CreateSQItemDto { ItemId = item.Id, ItemName = "SQ Item 1", Qty = 1, Rate = 100 }
+                    }
                 }));
         });
     }

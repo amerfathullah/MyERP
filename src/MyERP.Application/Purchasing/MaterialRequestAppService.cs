@@ -7,9 +7,12 @@ using MyERP.Accounting.Entities;
 using MyERP.Core.DomainServices;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
+using MyERP.Projects.Entities;
 using MyERP.Purchasing.DTOs;
 using MyERP.Purchasing.Entities;
+using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -81,6 +84,23 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
     [Authorize(MyERPPermissions.MaterialRequests.Create)]
     public async Task<MaterialRequestDto> CreateAsync(CreateMaterialRequestDto input)
     {
+        if (input.RequiredByDate.HasValue && input.RequiredByDate.Value.Date < input.RequestDate.Date)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Required By Date cannot be before the Request Date.");
+        }
+
+        if (input.Items == null || input.Items.Count == 0)
+            throw new Volo.Abp.BusinessException("MyERP:01007")
+                .WithData("documentType", "Material Request");
+
+        // Validate all items are active
+        var itemIds = input.Items.Select(i => i.ItemId).ToArray();
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        await ValidateCompanyBoundariesAsync(input, input.CompanyId);
+
         var number = await _numberGenerator.GenerateAsync("MR", input.CompanyId);
         var entity = new MaterialRequest(
             GuidGenerator.Create(), input.CompanyId, number,
@@ -93,22 +113,6 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             TargetWarehouseId = input.TargetWarehouseId,
             Notes = input.Notes,
         };
-
-        // Per ERPNext buying_controller.py validate_schedule_date: schedule/required date cannot
-        // precede the request's own transaction date.
-        if (entity.RequiredByDate.HasValue && entity.RequiredByDate.Value.Date < entity.RequestDate.Date)
-        {
-            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", "Required By Date cannot be before the Request Date.");
-        }
-
-        // Validate all items are active
-        var itemIds = input.Items.Select(i => i.ItemId).ToArray();
-        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
-        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
-
-        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await companyRestriction.ValidateTransactionCompanyAsync("MaterialRequest", input.CompanyId, itemIds);
 
         foreach (var item in input.Items)
         {
@@ -127,6 +131,68 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         await ValidateItemsAgainstSalesOrderAsync(entity);
 
         await _repository.InsertAsync(entity);
+        return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
+    }
+
+    [Authorize(MyERPPermissions.MaterialRequests.Edit)]
+    public async Task<MaterialRequestDto> UpdateAsync(Guid id, CreateMaterialRequestDto input)
+    {
+        var entity = await _repository.GetAsync(id, includeDetails: true);
+        if (entity.Status != Core.DocumentStatus.Draft)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Only Draft material requests can be edited");
+
+        if (input.CompanyId != Guid.Empty && input.CompanyId != entity.CompanyId)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("entityCompany", entity.CompanyId)
+                .WithData("inputCompany", input.CompanyId);
+        }
+
+        if (input.RequiredByDate.HasValue && input.RequiredByDate.Value.Date < input.RequestDate.Date)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Required By Date cannot be before the Request Date.");
+        }
+
+        if (input.Items == null || input.Items.Count == 0)
+            throw new Volo.Abp.BusinessException("MyERP:01007")
+                .WithData("documentType", "Material Request");
+
+        // Validate all items are active
+        var itemIds = input.Items.Select(i => i.ItemId).ToArray();
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        await ValidateCompanyBoundariesAsync(input, entity.CompanyId);
+
+        entity.RequestType = input.RequestType;
+        entity.RequestDate = input.RequestDate;
+        entity.RequiredByDate = input.RequiredByDate;
+        entity.ProjectId = input.ProjectId;
+        entity.WorkOrderId = input.WorkOrderId;
+        entity.SourceWarehouseId = input.SourceWarehouseId;
+        entity.TargetWarehouseId = input.TargetWarehouseId;
+        entity.Notes = input.Notes;
+
+        entity.ClearItems();
+        foreach (var item in input.Items)
+        {
+            entity.AddItem(
+                item.ItemId,
+                item.ItemName,
+                item.Quantity,
+                item.Uom,
+                item.WarehouseId,
+                item.SalesOrderId,
+                item.SalesOrderItemId,
+                item.ProjectId ?? input.ProjectId,
+                item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
+        }
+
+        await ValidateItemsAgainstSalesOrderAsync(entity);
+
+        await _repository.UpdateAsync(entity);
         return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
     }
 
@@ -315,5 +381,111 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
         var mrManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.MaterialRequestManager>();
         await mrManager.ValidateWithSalesOrderAsync(mr, soRepo);
+    }
+
+    private async Task ValidateCompanyBoundariesAsync(CreateMaterialRequestDto input, Guid companyId)
+    {
+        var allProjectIds = input.Items
+            .Where(i => i.ProjectId.HasValue)
+            .Select(i => i.ProjectId!.Value)
+            .ToList();
+        if (input.ProjectId.HasValue)
+        {
+            allProjectIds.Add(input.ProjectId.Value);
+        }
+        allProjectIds = allProjectIds.Distinct().ToList();
+
+        if (allProjectIds.Count > 0)
+        {
+            var projRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Projects.Entities.Project, Guid>>();
+            var projects = await projRepo.GetListAsync(p => allProjectIds.Contains(p.Id));
+            var projMismatch = projects.FirstOrDefault(p => p.CompanyId != companyId);
+            if (projMismatch != null)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("projectCompany", projMismatch.CompanyId)
+                    .WithData("materialRequestCompany", companyId);
+            }
+        }
+
+        if (input.WorkOrderId.HasValue)
+        {
+            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Manufacturing.Entities.WorkOrder, Guid>>();
+            var wo = await woRepo.FindAsync(input.WorkOrderId.Value);
+            if (wo != null && wo.CompanyId != companyId)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("workOrderCompany", wo.CompanyId)
+                    .WithData("materialRequestCompany", companyId);
+            }
+        }
+
+        var allWarehouseIds = input.Items
+            .Where(i => i.WarehouseId.HasValue)
+            .Select(i => i.WarehouseId!.Value)
+            .ToList();
+        if (input.SourceWarehouseId.HasValue)
+            allWarehouseIds.Add(input.SourceWarehouseId.Value);
+        if (input.TargetWarehouseId.HasValue)
+            allWarehouseIds.Add(input.TargetWarehouseId.Value);
+        allWarehouseIds = allWarehouseIds.Distinct().ToList();
+
+        if (allWarehouseIds.Count > 0)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+            var warehouses = await whRepo.GetListAsync(w => allWarehouseIds.Contains(w.Id));
+            var whMismatch = warehouses.FirstOrDefault(w => w.CompanyId != companyId);
+            if (whMismatch != null)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("warehouseCompany", whMismatch.CompanyId)
+                    .WithData("materialRequestCompany", companyId);
+            }
+        }
+
+        var linkedSoIds = input.Items
+            .Where(i => i.SalesOrderId.HasValue)
+            .Select(i => i.SalesOrderId!.Value)
+            .Distinct()
+            .ToList();
+        if (linkedSoIds.Count > 0)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+            var salesOrders = await soRepo.GetListAsync(s => linkedSoIds.Contains(s.Id));
+            var soMismatch = salesOrders.FirstOrDefault(s => s.CompanyId != companyId);
+            if (soMismatch != null)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("salesOrderCompany", soMismatch.CompanyId)
+                    .WithData("materialRequestCompany", companyId);
+            }
+        }
+
+        var linkedSoItemIds = input.Items
+            .Where(i => i.SalesOrderItemId.HasValue)
+            .Select(i => i.SalesOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (linkedSoItemIds.Count > 0)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+            var soQuery = await soRepo.GetQueryableAsync();
+            var crossCompanySo = soQuery
+                .Where(so => so.Items.Any(i => linkedSoItemIds.Contains(i.Id)) && so.CompanyId != companyId)
+                .FirstOrDefault();
+            if (crossCompanySo != null)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("salesOrderCompany", crossCompanySo.CompanyId)
+                    .WithData("materialRequestCompany", companyId);
+            }
+        }
+
+        var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToList();
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "MaterialRequest", companyId,
+            itemIds: itemIds,
+            warehouseIds: allWarehouseIds.Count > 0 ? allWarehouseIds : null);
     }
 }

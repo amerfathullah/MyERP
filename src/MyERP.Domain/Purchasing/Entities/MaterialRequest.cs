@@ -88,6 +88,13 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
         });
     }
 
+    public void ClearItems()
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        _items.Clear();
+    }
+
     public void Submit()
     {
         if (Status != DocumentStatus.Draft)
