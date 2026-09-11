@@ -145,8 +145,30 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+        var headerWh = await whRepo.FindAsync(input.WarehouseId);
+        if (headerWh != null && headerWh.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("warehouseCompany", headerWh.CompanyId)
+                .WithData("receiptCompany", input.CompanyId);
+        }
+
+        await ValidateItemWarehousesAsync(input.Items, input.CompanyId);
+
+        var allWarehouseIds = input.Items
+            .Where(i => i.WarehouseId.HasValue)
+            .Select(i => i.WarehouseId!.Value)
+            .ToList();
+        allWarehouseIds.Add(input.WarehouseId);
+        allWarehouseIds = allWarehouseIds.Distinct().ToList();
+
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await companyRestriction.ValidateTransactionCompanyAsync("PurchaseReceipt", input.CompanyId, itemIds, supplierIds: new[] { input.SupplierId });
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "PurchaseReceipt", input.CompanyId,
+            itemIds: itemIds,
+            supplierIds: new[] { input.SupplierId },
+            warehouseIds: allWarehouseIds.Count > 0 ? allWarehouseIds : null);
 
         // Per gotcha #538: PR blocks future posting date
         if (input.PostingDate.Date > DateTime.UtcNow.Date)
@@ -160,10 +182,51 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         {
             var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
             var po = await poRepo.FindAsync(input.PurchaseOrderId.Value);
-            if (po != null && input.PostingDate.Date < po.OrderDate.Date)
+            if (po != null)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Posting Date cannot be before Purchase Order {po.OrderNumber} date ({po.OrderDate:yyyy-MM-dd}).");
+                if (po.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("purchaseOrderCompany", po.CompanyId)
+                        .WithData("receiptCompany", input.CompanyId);
+                }
+
+                if (input.PostingDate.Date < po.OrderDate.Date)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Posting Date cannot be before Purchase Order {po.OrderNumber} date ({po.OrderDate:yyyy-MM-dd}).");
+                }
+            }
+        }
+
+        var linkedPoItemIds = input.Items
+            .Where(i => i.PurchaseOrderItemId.HasValue)
+            .Select(i => i.PurchaseOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (linkedPoItemIds.Count > 0)
+        {
+            var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            var poQuery = await poRepo.GetQueryableAsync();
+            var crossCompanyPo = poQuery
+                .Where(po => po.Items.Any(i => linkedPoItemIds.Contains(i.Id)) && po.CompanyId != input.CompanyId)
+                .FirstOrDefault();
+            if (crossCompanyPo != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("purchaseOrderCompany", crossCompanyPo.CompanyId)
+                    .WithData("receiptCompany", input.CompanyId);
+            }
+        }
+
+        if (input.IsReturn && input.ReturnAgainstId.HasValue)
+        {
+            var returnAgainstPr = await _repository.FindAsync(input.ReturnAgainstId.Value);
+            if (returnAgainstPr != null && returnAgainstPr.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("originalReceiptCompany", returnAgainstPr.CompanyId)
+                    .WithData("receiptCompany", input.CompanyId);
             }
         }
 
@@ -184,7 +247,6 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         receipt.ReturnAgainstId = input.ReturnAgainstId;
         receipt.Notes = input.Notes;
 
-        await ValidateItemWarehousesAsync(input.Items, input.CompanyId);
         foreach (var item in input.Items)
         {
             receipt.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.PurchaseOrderItemId, item.WarehouseId);
@@ -225,27 +287,96 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         }
 
         // Per gotcha #1238 / #1508: PR posting date cannot be before linked PO date
-        if (input.PurchaseOrderId.HasValue)
+        var poId = input.PurchaseOrderId ?? receipt.PurchaseOrderId;
+        if (poId.HasValue)
         {
             var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
-            var po = await poRepo.FindAsync(input.PurchaseOrderId.Value);
-            if (po != null && input.PostingDate.Date < po.OrderDate.Date)
+            var po = await poRepo.FindAsync(poId.Value);
+            if (po != null)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Posting Date cannot be before Purchase Order {po.OrderNumber} date ({po.OrderDate:yyyy-MM-dd}).");
+                if (po.CompanyId != receipt.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("purchaseOrderCompany", po.CompanyId)
+                        .WithData("receiptCompany", receipt.CompanyId);
+                }
+
+                if (input.PostingDate.Date < po.OrderDate.Date)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Posting Date cannot be before Purchase Order {po.OrderNumber} date ({po.OrderDate:yyyy-MM-dd}).");
+                }
             }
         }
 
+        var updateWhRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+        var headerWh = await updateWhRepo.FindAsync(receipt.WarehouseId);
+        if (headerWh != null && headerWh.CompanyId != receipt.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("warehouseCompany", headerWh.CompanyId)
+                .WithData("receiptCompany", receipt.CompanyId);
+        }
+
+        var updatePoItemIds = input.Items
+            .Where(i => i.PurchaseOrderItemId.HasValue)
+            .Select(i => i.PurchaseOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (updatePoItemIds.Count > 0)
+        {
+            var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            var poQuery = await poRepo.GetQueryableAsync();
+            var crossCompanyPo = poQuery
+                .Where(po => po.Items.Any(i => updatePoItemIds.Contains(i.Id)) && po.CompanyId != receipt.CompanyId)
+                .FirstOrDefault();
+            if (crossCompanyPo != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("purchaseOrderCompany", crossCompanyPo.CompanyId)
+                    .WithData("receiptCompany", receipt.CompanyId);
+            }
+        }
+
+        var returnAgainstId = input.ReturnAgainstId ?? receipt.ReturnAgainstId;
+        if ((input.IsReturn || receipt.IsReturn) && returnAgainstId.HasValue)
+        {
+            var returnAgainstPr = await _repository.FindAsync(returnAgainstId.Value);
+            if (returnAgainstPr != null && returnAgainstPr.CompanyId != receipt.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("originalReceiptCompany", returnAgainstPr.CompanyId)
+                    .WithData("receiptCompany", receipt.CompanyId);
+            }
+        }
+
+        await ValidateItemWarehousesAsync(input.Items, receipt.CompanyId);
+
+        var updateAllWarehouseIds = input.Items
+            .Where(i => i.WarehouseId.HasValue)
+            .Select(i => i.WarehouseId!.Value)
+            .ToList();
+        updateAllWarehouseIds.Add(receipt.WarehouseId);
+        updateAllWarehouseIds = updateAllWarehouseIds.Distinct().ToList();
+
         var updateItemIds = input.Items.Select(i => i.ItemId).ToList();
+        await _itemValidation.ValidateItemsForTransactionAsync(updateItemIds);
+
         var updateCompanyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await updateCompanyRestriction.ValidateTransactionCompanyAsync("PurchaseReceipt", receipt.CompanyId, updateItemIds, supplierIds: new[] { receipt.SupplierId });
+        await updateCompanyRestriction.ValidateTransactionCompanyAsync(
+            "PurchaseReceipt", receipt.CompanyId,
+            itemIds: updateItemIds,
+            supplierIds: new[] { receipt.SupplierId },
+            warehouseIds: updateAllWarehouseIds.Count > 0 ? updateAllWarehouseIds : null);
 
         receipt.PostingDate = input.PostingDate;
+        receipt.PurchaseOrderId = input.PurchaseOrderId;
         receipt.SupplierDeliveryNote = input.SupplierDeliveryNote;
+        receipt.IsReturn = input.IsReturn;
+        receipt.ReturnAgainstId = input.ReturnAgainstId;
         receipt.Notes = input.Notes;
 
         receipt.ClearItems();
-        await ValidateItemWarehousesAsync(input.Items, receipt.CompanyId);
         foreach (var item in input.Items)
         {
             receipt.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.PurchaseOrderItemId, item.WarehouseId);

@@ -18,7 +18,10 @@ using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Settings;
+using MyERP.Accounting.Entities;
 using MyERP.Manufacturing;
+using MyERP.Projects.Entities;
+using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 
 namespace MyERP.Inventory;
@@ -133,6 +136,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
+        await ValidateCompanyBoundariesAsync(input, input.CompanyId);
 
         // Create entry first so we can validate warehouses via domain manager
         var entryNumber = await _numberGenerator.GenerateAsync("StockEntry", input.CompanyId);
@@ -861,6 +865,16 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft stock entries can be edited");
 
+        if (input.Items == null || input.Items.Count == 0)
+            throw new Volo.Abp.BusinessException("MyERP:01007")
+                .WithData("documentType", "Stock Entry");
+
+        var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToArray();
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemTransactionValidationService>();
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        await ValidateCompanyBoundariesAsync(input, entry.CompanyId);
+
         entry.EntryType = input.EntryType;
         entry.PostingDate = input.PostingDate;
         entry.Notes = input.Notes;
@@ -873,15 +887,48 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.SyncProcessLoss();
         entry.IsFgConversion = input.IsFgConversion;
         entry.WeightPerPiece = input.WeightPerPiece;
+        entry.TotalAdditionalCosts = input.TotalAdditionalCosts;
+        entry.CostCenterId = input.CostCenterId;
+        entry.ProjectId = input.ProjectId;
+        entry.IsOpening = input.IsOpening;
 
         // Replace items
         entry.ClearItems();
         foreach (var item in input.Items)
         {
             entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate, item.IsFinishedItem, item.BatchId);
+            if (item.CostCenterId.HasValue || input.CostCenterId.HasValue)
+                entry.Items[^1].CostCenterId = item.CostCenterId ?? input.CostCenterId;
+            if (item.ExpenseAccountId.HasValue)
+                entry.Items[^1].ExpenseAccountId = item.ExpenseAccountId;
+            if (item.ProjectId.HasValue || input.ProjectId.HasValue)
+                entry.Items[^1].ProjectId = item.ProjectId ?? input.ProjectId;
+            if (item.AdditionalCost > 0)
+                entry.Items[^1].AdditionalCost = item.AdditionalCost;
             if (item.MaterialRequestItemId.HasValue)
                 entry.Items[^1].MaterialRequestItemId = item.MaterialRequestItemId;
         }
+
+        if (entry.TotalAdditionalCosts > 0)
+        {
+            StockEntryManager.DistributeAdditionalCosts(entry);
+        }
+
+        var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
+        await seManager.ValidateWarehousesAsync(entry);
+        await seManager.ValidateDifferenceAccountAsync(entry);
+        seManager.ValidateRepackItems(entry);
+        seManager.ValidateManufactureItems(entry);
+        seManager.ValidateBatchSplit(entry);
+
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
+        var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
+        await seManager.ValidateFgConversionAsync(entry, woRepo, altRepo, _repository, mfgSettingsRepo);
+
+        var mfgSettings = await mfgSettingsRepo.FindAsync(s => s.CompanyId == entry.CompanyId);
+        var overproductionPct = mfgSettings?.OverproductionPercentage ?? 5m;
+        await seManager.ValidateDuplicateManufactureEntryAsync(entry, woRepo, _repository, overproductionPct);
 
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
@@ -1036,5 +1083,149 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         return result;
     }
 
+    private async Task ValidateCompanyBoundariesAsync(CreateStockEntryDto input, Guid companyId)
+    {
+        var allCostCenterIds = input.Items
+            .Where(i => i.CostCenterId.HasValue)
+            .Select(i => i.CostCenterId!.Value)
+            .ToList();
+        if (input.CostCenterId.HasValue)
+        {
+            allCostCenterIds.Add(input.CostCenterId.Value);
+        }
+        allCostCenterIds = allCostCenterIds.Distinct().ToList();
+
+        if (allCostCenterIds.Count > 0)
+        {
+            var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+            var costCenters = await ccRepo.GetListAsync(c => allCostCenterIds.Contains(c.Id));
+            var ccMismatch = costCenters.FirstOrDefault(c => c.CompanyId != companyId);
+            if (ccMismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("costCenterCompany", ccMismatch.CompanyId)
+                    .WithData("stockEntryCompany", companyId);
+            }
+        }
+
+        var allProjectIds = input.Items
+            .Where(i => i.ProjectId.HasValue)
+            .Select(i => i.ProjectId!.Value)
+            .ToList();
+        if (input.ProjectId.HasValue)
+        {
+            allProjectIds.Add(input.ProjectId.Value);
+        }
+        allProjectIds = allProjectIds.Distinct().ToList();
+
+        if (allProjectIds.Count > 0)
+        {
+            var projRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
+            var projects = await projRepo.GetListAsync(p => allProjectIds.Contains(p.Id));
+            var projMismatch = projects.FirstOrDefault(p => p.CompanyId != companyId);
+            if (projMismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("projectCompany", projMismatch.CompanyId)
+                    .WithData("stockEntryCompany", companyId);
+            }
+        }
+
+        var expenseAcctIds = input.Items
+            .Where(i => i.ExpenseAccountId.HasValue)
+            .Select(i => i.ExpenseAccountId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (expenseAcctIds.Count > 0)
+        {
+            var acctRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+            var accounts = await acctRepo.GetListAsync(a => expenseAcctIds.Contains(a.Id));
+            var acctMismatch = accounts.FirstOrDefault(a => a.CompanyId != companyId);
+            if (acctMismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("accountCompany", acctMismatch.CompanyId)
+                    .WithData("stockEntryCompany", companyId);
+            }
+        }
+
+        var allWarehouseIds = input.Items
+            .SelectMany(i => new[] { i.SourceWarehouseId, i.TargetWarehouseId })
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        if (allWarehouseIds.Count > 0)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+            var warehouses = await whRepo.GetListAsync(w => allWarehouseIds.Contains(w.Id));
+            var whMismatch = warehouses.FirstOrDefault(w => w.CompanyId != companyId);
+            if (whMismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("warehouseCompany", whMismatch.CompanyId)
+                    .WithData("stockEntryCompany", companyId);
+            }
+        }
+
+        if (input.WorkOrderId.HasValue)
+        {
+            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var wo = await woRepo.FindAsync(input.WorkOrderId.Value);
+            if (wo != null && wo.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("workOrderCompany", wo.CompanyId)
+                    .WithData("stockEntryCompany", companyId);
+            }
+        }
+
+        if (input.ReferenceId.HasValue && !string.IsNullOrWhiteSpace(input.ReferenceType))
+        {
+            if (string.Equals(input.ReferenceType, "SalesOrder", StringComparison.OrdinalIgnoreCase))
+            {
+                var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+                var so = await soRepo.FindAsync(input.ReferenceId.Value);
+                if (so != null && so.CompanyId != companyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("salesOrderCompany", so.CompanyId)
+                        .WithData("stockEntryCompany", companyId);
+                }
+            }
+            else if (string.Equals(input.ReferenceType, "SubcontractingOrder", StringComparison.OrdinalIgnoreCase))
+            {
+                var scoRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SubcontractingOrder, Guid>>();
+                var sco = await scoRepo.FindAsync(input.ReferenceId.Value);
+                if (sco != null && sco.CompanyId != companyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("subcontractingOrderCompany", sco.CompanyId)
+                        .WithData("stockEntryCompany", companyId);
+                }
+            }
+            else if (string.Equals(input.ReferenceType, "MaterialRequest", StringComparison.OrdinalIgnoreCase))
+            {
+                var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MaterialRequest, Guid>>();
+                var mr = await mrRepo.FindAsync(input.ReferenceId.Value);
+                if (mr != null && mr.CompanyId != companyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("materialRequestCompany", mr.CompanyId)
+                        .WithData("stockEntryCompany", companyId);
+                }
+            }
+        }
+
+        var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToList();
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "StockEntry", companyId,
+            itemIds: itemIds,
+            warehouseIds: allWarehouseIds.Count > 0 ? allWarehouseIds : null,
+            accountIds: expenseAcctIds.Count > 0 ? expenseAcctIds : null);
+    }
 }
 

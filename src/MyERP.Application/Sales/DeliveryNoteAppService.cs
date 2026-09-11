@@ -142,8 +142,64 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+        var warehouse = await whRepo.FindAsync(input.WarehouseId);
+        if (warehouse != null && warehouse.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("warehouseCompany", warehouse.CompanyId)
+                .WithData("deliveryNoteCompany", input.CompanyId);
+        }
+
+        if (input.SalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var so = await soRepo.FindAsync(input.SalesOrderId.Value);
+            if (so != null && so.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("salesOrderCompany", so.CompanyId)
+                    .WithData("deliveryNoteCompany", input.CompanyId);
+            }
+        }
+
+        var linkedSoItemIds = input.Items
+            .Where(i => i.SalesOrderItemId.HasValue)
+            .Select(i => i.SalesOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (linkedSoItemIds.Count > 0)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var soQuery = await soRepo.GetQueryableAsync();
+            var crossCompanySo = soQuery
+                .Where(so => so.Items.Any(i => linkedSoItemIds.Contains(i.Id)) && so.CompanyId != input.CompanyId)
+                .FirstOrDefault();
+            if (crossCompanySo != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("salesOrderCompany", crossCompanySo.CompanyId)
+                    .WithData("deliveryNoteCompany", input.CompanyId);
+            }
+        }
+
+        if (input.IsReturn && input.ReturnAgainstId.HasValue)
+        {
+            var returnAgainstDn = await _repository.FindAsync(input.ReturnAgainstId.Value);
+            if (returnAgainstDn != null && returnAgainstDn.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("originalDeliveryNoteCompany", returnAgainstDn.CompanyId)
+                    .WithData("deliveryNoteCompany", input.CompanyId);
+            }
+        }
+
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await companyRestriction.ValidateTransactionCompanyAsync("DeliveryNote", input.CompanyId, itemIds, customerIds: new[] { input.CustomerId });
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "DeliveryNote", input.CompanyId,
+            itemIds: itemIds,
+            customerIds: new[] { input.CustomerId },
+            warehouseIds: new[] { input.WarehouseId });
 
         var deliveryNumber = await _numberGenerator.GenerateAsync("DeliveryNote", input.CompanyId);
 
@@ -218,11 +274,74 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft delivery notes can be edited");
 
+        var updateWhRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+        var warehouse = await updateWhRepo.FindAsync(dn.WarehouseId);
+        if (warehouse != null && warehouse.CompanyId != dn.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("warehouseCompany", warehouse.CompanyId)
+                .WithData("deliveryNoteCompany", dn.CompanyId);
+        }
+
+        var soId = input.SalesOrderId ?? dn.SalesOrderId;
+        if (soId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var so = await soRepo.FindAsync(soId.Value);
+            if (so != null && so.CompanyId != dn.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("salesOrderCompany", so.CompanyId)
+                    .WithData("deliveryNoteCompany", dn.CompanyId);
+            }
+        }
+
+        var updateSoItemIds = input.Items
+            .Where(i => i.SalesOrderItemId.HasValue)
+            .Select(i => i.SalesOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (updateSoItemIds.Count > 0)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var soQuery = await soRepo.GetQueryableAsync();
+            var crossCompanySo = soQuery
+                .Where(so => so.Items.Any(i => updateSoItemIds.Contains(i.Id)) && so.CompanyId != dn.CompanyId)
+                .FirstOrDefault();
+            if (crossCompanySo != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("salesOrderCompany", crossCompanySo.CompanyId)
+                    .WithData("deliveryNoteCompany", dn.CompanyId);
+            }
+        }
+
+        var returnAgainstId = input.ReturnAgainstId ?? dn.ReturnAgainstId;
+        if ((input.IsReturn || dn.IsReturn) && returnAgainstId.HasValue)
+        {
+            var returnAgainstDn = await _repository.FindAsync(returnAgainstId.Value);
+            if (returnAgainstDn != null && returnAgainstDn.CompanyId != dn.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("originalDeliveryNoteCompany", returnAgainstDn.CompanyId)
+                    .WithData("deliveryNoteCompany", dn.CompanyId);
+            }
+        }
+
         var updateItemIds = input.Items.Select(i => i.ItemId).ToList();
+        await _itemValidation.ValidateItemsForTransactionAsync(updateItemIds);
+
         var updateCompanyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await updateCompanyRestriction.ValidateTransactionCompanyAsync("DeliveryNote", dn.CompanyId, updateItemIds, customerIds: new[] { dn.CustomerId });
+        await updateCompanyRestriction.ValidateTransactionCompanyAsync(
+            "DeliveryNote", dn.CompanyId,
+            itemIds: updateItemIds,
+            customerIds: new[] { dn.CustomerId },
+            warehouseIds: new[] { dn.WarehouseId });
 
         dn.PostingDate = input.PostingDate;
+        dn.SalesOrderId = input.SalesOrderId;
+        dn.IsReturn = input.IsReturn;
+        dn.ReturnAgainstId = input.ReturnAgainstId;
         dn.ContactPersonId = input.ContactPersonId;
         dn.ShippingContactPersonId = input.ShippingContactPersonId;
         dn.ShippingAddress = input.ShippingAddress;
