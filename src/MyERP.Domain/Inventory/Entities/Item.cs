@@ -53,6 +53,44 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Item requires batch/lot number tracking.</summary>
     public bool HasBatchNo { get; set; }
 
+    /// <summary>
+    /// Automatically create a new batch when inward stock transactions occur for this item.
+    /// Maps to ERPNext stock/doctype/item/item.json: create_new_batch.
+    /// </summary>
+    public bool CreateNewBatch { get; set; }
+
+    /// <summary>
+    /// Batch number series prefix (e.g., "BATCH-.#####"). Must end with '#'.
+    /// Takes precedence over global Stock Settings batch naming series.
+    /// Maps to ERPNext stock/doctype/item/item.json: batch_number_series.
+    /// </summary>
+    public string? BatchNumberSeries { get; set; }
+
+    /// <summary>
+    /// Whether batches for this item have an expiry date.
+    /// Maps to ERPNext stock/doctype/item/item.json: has_expiry_date.
+    /// </summary>
+    public bool HasExpiryDate { get; set; }
+
+    /// <summary>
+    /// Shelf life in days. When HasExpiryDate and CreateNewBatch are enabled,
+    /// this must be greater than zero to calculate batch expiry date (PR #58911 / commit b2bdeaa672).
+    /// Maps to ERPNext stock/doctype/item/item.json: shelf_life_in_days.
+    /// </summary>
+    public int? ShelfLifeInDays { get; set; }
+
+    /// <summary>
+    /// Enable to reserve a sample from each batch for inspection/quality analysis.
+    /// Only applicable for batch items. Maps to ERPNext stock/doctype/item/item.json: retain_sample.
+    /// </summary>
+    public bool RetainSample { get; set; }
+
+    /// <summary>
+    /// Maximum sample quantity that can be retained from a batch. Must be > 0 if RetainSample is enabled.
+    /// Maps to ERPNext stock/doctype/item/item.json: sample_quantity.
+    /// </summary>
+    public int SampleQuantity { get; set; }
+
     /// <summary>Allow negative stock for this specific item (overrides global setting).</summary>
     public bool AllowNegativeStock { get; set; }
 
@@ -239,5 +277,42 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
 
         ValuationMethod = newMethod;
+    }
+
+    /// <summary>
+    /// Validates batch tracking, auto-creation, shelf life, and sample retention rules.
+    /// Per ERPNext PR #58911 / commit b2bdeaa672 and stock item doctype invariants.
+    /// </summary>
+    public void ValidateBatchSettings()
+    {
+        // PR #58911: shelf life required and > 0 for auto-created expiring batches
+        if (HasBatchNo && HasExpiryDate && CreateNewBatch && (!ShelfLifeInDays.HasValue || ShelfLifeInDays.Value <= 0))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ShelfLifeMustBeGreaterThanZero)
+                .WithData("item", ItemCode);
+        }
+
+        // Batch number series must end with '#' if provided
+        if (HasBatchNo && CreateNewBatch && !string.IsNullOrWhiteSpace(BatchNumberSeries) && !BatchNumberSeries.EndsWith("#"))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.BatchSeriesMustEndWithHash)
+                .WithData("item", ItemCode)
+                .WithData("series", BatchNumberSeries);
+        }
+
+        // Retain sample is only allowed for batch items
+        if (RetainSample && !HasBatchNo)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.RetainSampleOnlyForBatchItems)
+                .WithData("item", ItemCode);
+        }
+
+        // Retain sample requires positive sample quantity
+        if (RetainSample && SampleQuantity <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.SampleQuantityMustBeGreaterThanZero)
+                .WithData("item", ItemCode)
+                .WithData("sampleQuantity", SampleQuantity);
+        }
     }
 }

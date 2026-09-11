@@ -74,18 +74,23 @@ public class BatchAppService : ApplicationService, IBatchAppService
             Description = input.Description,
         };
 
-        if (batch.ManufacturingDate.HasValue && batch.ShelfLifeInDays.HasValue && !batch.ExpiryDate.HasValue)
-            batch.SetExpiryFromShelfLife();
-
-        // Per ERPNext commits 65ba79bb85 and cc171d9706:
-        // Batchwise valuation is ALLOWED for Moving Average items, UNLESS StockSettings.DoNotUseBatchwiseValuation is enabled.
         var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
         var item = await itemRepo.FindAsync(input.ItemId);
         if (item != null)
         {
+            if (!batch.ShelfLifeInDays.HasValue && item.ShelfLifeInDays.HasValue)
+            {
+                batch.ShelfLifeInDays = item.ShelfLifeInDays.Value;
+            }
+
+            // Per ERPNext commits 65ba79bb85 and cc171d9706:
+            // Batchwise valuation is ALLOWED for Moving Average items, UNLESS StockSettings.DoNotUseBatchwiseValuation is enabled.
             var doNotUseBatchwiseValuation = await SettingProvider.IsTrueAsync(MyERPSettings.Stock.DoNotUseBatchwiseValuation);
             batch.EvaluateBatchwiseValuation(item.ValuationMethod, doNotUseBatchwiseValuation);
         }
+
+        if (batch.ManufacturingDate.HasValue && batch.ShelfLifeInDays.HasValue && !batch.ExpiryDate.HasValue)
+            batch.SetExpiryFromShelfLife();
 
         await _repository.InsertAsync(batch);
         return ObjectMapper.Map<Batch, BatchDto>(batch);

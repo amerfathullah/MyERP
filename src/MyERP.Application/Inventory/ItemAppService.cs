@@ -290,6 +290,12 @@ public class ItemAppService :
         entity.MaintainStock = input.MaintainStock;
         entity.HasSerialNo = input.HasSerialNo;
         entity.HasBatchNo = input.HasBatchNo;
+        entity.CreateNewBatch = input.CreateNewBatch;
+        entity.BatchNumberSeries = input.BatchNumberSeries;
+        entity.HasExpiryDate = input.HasExpiryDate;
+        entity.ShelfLifeInDays = input.ShelfLifeInDays;
+        entity.RetainSample = input.RetainSample;
+        entity.SampleQuantity = input.SampleQuantity;
         entity.AllowNegativeStock = input.AllowNegativeStock;
         entity.DefaultIncomeAccountId = input.DefaultIncomeAccountId;
         entity.DefaultExpenseAccountId = input.DefaultExpenseAccountId;
@@ -304,6 +310,8 @@ public class ItemAppService :
         entity.MinOrderQty = input.MinOrderQty;
         entity.InspectionRequiredBeforePurchase = input.InspectionRequiredBeforePurchase;
         entity.InspectionRequiredBeforeDelivery = input.InspectionRequiredBeforeDelivery;
+
+        entity.ValidateBatchSettings();
 
         entity.Barcodes.Clear();
         foreach (var b in input.Barcodes)

@@ -69,6 +69,12 @@ public class ItemDto : FullAuditedEntityDto<Guid>
     public bool IsLowStock { get; set; }
     public bool HasSerialNo { get; set; }
     public bool HasBatchNo { get; set; }
+    public bool CreateNewBatch { get; set; }
+    public string? BatchNumberSeries { get; set; }
+    public bool HasExpiryDate { get; set; }
+    public int? ShelfLifeInDays { get; set; }
+    public bool RetainSample { get; set; }
+    public int SampleQuantity { get; set; }
     public bool HasVariants { get; set; }
     public int LeadTimeDays { get; set; }
     public List<ItemBarcodeDto> Barcodes { get; set; } = new();

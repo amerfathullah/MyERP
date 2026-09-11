@@ -558,4 +558,10 @@ public static class MyERPDomainErrorCodes
     public const string CannotChangeCustomerForQuotationFromOpportunity = "MyERP:01050";
     public const string PaymentRequestAlreadyCreated = "MyERP:02090";
     public const string PriceListDisabled = "MyERP:01051";
+
+    // Item Batch & Retain Sample (PR #58911 / gotcha rules)
+    public const string ShelfLifeMustBeGreaterThanZero = "MyERP:05076";
+    public const string BatchSeriesMustEndWithHash = "MyERP:05077";
+    public const string RetainSampleOnlyForBatchItems = "MyERP:05078";
+    public const string SampleQuantityMustBeGreaterThanZero = "MyERP:05079";
 }

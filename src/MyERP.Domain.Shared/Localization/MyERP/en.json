@@ -4829,6 +4829,10 @@
     "BankEntry": "Bank Entry",
     "ContraEntry": "Contra Entry",
     "FailedToCreateJournalEntry": "Failed to create journal entry",
-    "IncludePayments": "Include Payments"
+    "IncludePayments": "Include Payments",
+    "MyERP:05076": "Shelf Life In Days must be greater than zero.",
+    "MyERP:05077": "Batch Number Series must end with '#'.",
+    "MyERP:05078": "You can only retain sample for batch items.",
+    "MyERP:05079": "Sample Quantity must be greater than 0."
   }
 }

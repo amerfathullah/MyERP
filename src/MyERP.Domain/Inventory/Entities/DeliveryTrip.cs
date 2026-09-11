@@ -76,6 +76,12 @@ public class DeliveryTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("reason", "Cannot modify stops on a trip that is in transit, completed or cancelled.");
         }
 
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Address is required for delivery stop.");
+        }
+
         var stop = new DeliveryStop(Guid.NewGuid(), Id, address, customerId, customerName, deliveryNoteId, deliveryNoteNumber, grandTotal)
         {
             EstimatedArrival = estimatedArrival,
@@ -160,5 +166,44 @@ public class DeliveryTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void RecalculateTotalDistance()
     {
         TotalDistance = DeliveryStops.Sum(s => s.Distance);
+    }
+
+    /// <summary>
+    /// Removes empty placeholder stops after mapping or UI entry per ERPNext PR #58896 / commit 4b23cee2ea.
+    /// </summary>
+    public void RemoveEmptyStops()
+    {
+        var emptyStops = DeliveryStops.Where(s =>
+            string.IsNullOrWhiteSpace(s.Address) &&
+            !s.CustomerId.HasValue &&
+            !s.DeliveryNoteId.HasValue &&
+            string.IsNullOrWhiteSpace(s.CustomerName) &&
+            string.IsNullOrWhiteSpace(s.DeliveryNoteNumber)).ToList();
+
+        foreach (var empty in emptyStops)
+        {
+            DeliveryStops.Remove(empty);
+        }
+        RecalculateTotalDistance();
+    }
+
+    /// <summary>
+    /// Validates stop addresses and ensures CustomerAddress is populated per ERPNext PR #58896.
+    /// </summary>
+    public void ValidateStopAddresses()
+    {
+        foreach (var stop in DeliveryStops)
+        {
+            if (string.IsNullOrWhiteSpace(stop.Address))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Address is required for each delivery stop.");
+            }
+
+            if (string.IsNullOrWhiteSpace(stop.CustomerAddress))
+            {
+                stop.CustomerAddress = stop.Address;
+            }
+        }
     }
 }

@@ -51,5 +51,6 @@ public class DeliveryStop : FullAuditedEntity<Guid>, IMultiTenant
         DeliveryNoteId = deliveryNoteId;
         DeliveryNoteNumber = deliveryNoteNumber;
         GrandTotal = grandTotal;
+        CustomerAddress = address;
     }
 }

@@ -72,12 +72,26 @@ public class DeliveryTripAppService :
                 .WithData("detail", "Driver is required for Delivery Trip.");
         }
 
-        if (input.DeliveryStops == null || input.DeliveryStops.Count == 0)
+        // Filter out empty placeholder stops (ERPNext PR #58896 / commit 4b23cee2ea)
+        var validStops = input.DeliveryStops?
+            .Where(s => !string.IsNullOrWhiteSpace(s.Address) || s.CustomerId.HasValue || s.DeliveryNoteId.HasValue || !string.IsNullOrWhiteSpace(s.CustomerName) || !string.IsNullOrWhiteSpace(s.DeliveryNoteNumber))
+            .ToList() ?? new List<CreateUpdateDeliveryStopDto>();
+
+        if (validStops.Count == 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
         }
 
-        var stopCustomerIds = input.DeliveryStops.Where(s => s.CustomerId.HasValue).Select(s => s.CustomerId!.Value).Distinct().ToArray();
+        foreach (var s in validStops)
+        {
+            if (string.IsNullOrWhiteSpace(s.Address))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Address is required for each delivery stop.");
+            }
+        }
+
+        var stopCustomerIds = validStops.Where(s => s.CustomerId.HasValue).Select(s => s.CustomerId!.Value).Distinct().ToArray();
         if (stopCustomerIds.Length > 0)
         {
             var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
@@ -101,7 +115,7 @@ public class DeliveryTripAppService :
             Uom = input.Uom,
         };
 
-        foreach (var stopDto in input.DeliveryStops)
+        foreach (var stopDto in validStops)
         {
             entity.AddStop(
                 stopDto.Address,
@@ -156,9 +170,28 @@ public class DeliveryTripAppService :
         entity.EmployeeId = input.EmployeeId;
         entity.Uom = input.Uom;
 
+        // Filter out empty placeholder stops (ERPNext PR #58896 / commit 4b23cee2ea)
+        var validStops = input.DeliveryStops?
+            .Where(s => !string.IsNullOrWhiteSpace(s.Address) || s.CustomerId.HasValue || s.DeliveryNoteId.HasValue || !string.IsNullOrWhiteSpace(s.CustomerName) || !string.IsNullOrWhiteSpace(s.DeliveryNoteNumber))
+            .ToList() ?? new List<CreateUpdateDeliveryStopDto>();
+
+        if (validStops.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
+        foreach (var s in validStops)
+        {
+            if (string.IsNullOrWhiteSpace(s.Address))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Address is required for each delivery stop.");
+            }
+        }
+
         // Sync delivery stops
         var existingStopIds = entity.DeliveryStops.Select(s => s.Id).ToList();
-        var incomingStopIds = input.DeliveryStops.Where(s => s.Id.HasValue).Select(s => s.Id!.Value).ToList();
+        var incomingStopIds = validStops.Where(s => s.Id.HasValue).Select(s => s.Id!.Value).ToList();
 
         // Remove stops not in incoming
         foreach (var stopId in existingStopIds)
@@ -170,7 +203,7 @@ public class DeliveryTripAppService :
         }
 
         // Update or add stops
-        foreach (var stopDto in input.DeliveryStops)
+        foreach (var stopDto in validStops)
         {
             if (stopDto.Id.HasValue)
             {
