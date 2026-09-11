@@ -69,6 +69,18 @@ public class MaintenanceVisitAppService : ApplicationService, IMaintenanceVisitA
             itemIds: itemIds.Length > 0 ? itemIds : null,
             customerIds: new[] { input.CustomerId });
 
+        if (input.MaintenanceScheduleId.HasValue)
+        {
+            var scheduleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MaintenanceSchedule, Guid>>();
+            var schedule = await scheduleRepo.FindAsync(input.MaintenanceScheduleId.Value);
+            if (schedule != null && schedule.CompanyId != input.CompanyId)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("scheduleCompany", schedule.CompanyId)
+                    .WithData("visitCompany", input.CompanyId);
+            }
+        }
+
         var typeStr = input.MaintenanceType switch
         {
             0 => "Scheduled",

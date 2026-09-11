@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -59,9 +60,36 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
         }
 
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+        var customer = await customerRepo.FindAsync(input.CustomerId);
+        if (customer != null && customer.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("customerCompany", customer.CompanyId)
+                .WithData("scheduleCompany", input.CompanyId);
+        }
+
+        if (input.SalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var so = await soRepo.FindAsync(input.SalesOrderId.Value);
+            if (so != null && so.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("salesOrderCompany", so.CompanyId)
+                    .WithData("scheduleCompany", input.CompanyId);
+            }
+        }
+
         var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToArray();
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "MaintenanceSchedule", input.CompanyId,
+            itemIds: itemIds,
+            customerIds: new[] { input.CustomerId });
 
         var entity = new MaintenanceSchedule(
             GuidGenerator.Create(), input.CompanyId,
@@ -95,6 +123,31 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
     public async Task<MaintenanceScheduleDto> UpdateAsync(Guid id, CreateMaintenanceScheduleDto input)
     {
         var entity = await _repository.GetAsync(id);
+
+        if (input.CustomerId != Guid.Empty)
+        {
+            var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+            var customer = await customerRepo.FindAsync(input.CustomerId);
+            if (customer != null && customer.CompanyId != entity.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("customerCompany", customer.CompanyId)
+                    .WithData("scheduleCompany", entity.CompanyId);
+            }
+        }
+
+        if (input.SalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var so = await soRepo.FindAsync(input.SalesOrderId.Value);
+            if (so != null && so.CompanyId != entity.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("salesOrderCompany", so.CompanyId)
+                    .WithData("scheduleCompany", entity.CompanyId);
+            }
+        }
+
         entity.CustomerId = input.CustomerId;
         entity.SalesOrderId = input.SalesOrderId;
         await _repository.UpdateAsync(entity, autoSave: true);

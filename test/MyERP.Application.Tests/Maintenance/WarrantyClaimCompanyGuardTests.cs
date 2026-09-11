@@ -77,4 +77,40 @@ public abstract class WarrantyClaimCompanyGuardTests<TStartupModule> : MyERPAppl
             dto.CustomerId.ShouldBe(customer.Id);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_SalesInvoiceFromDifferentCompany_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepository = GetRequiredService<IRepository<Customer, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var siRepository = GetRequiredService<IRepository<SalesInvoice, Guid>>();
+            var warrantyClaimAppService = GetRequiredService<IWarrantyClaimAppService>();
+
+            var ownerCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "WC SI Owner Co"), autoSave: true);
+            var otherCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "WC SI Other Co"), autoSave: true);
+
+            var item = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), ownerCompany.Id, "WC-SI-ITEM", "Warranty SI Item", ItemType.Goods), autoSave: true);
+            var customer = await customerRepository.InsertAsync(
+                new Customer(Guid.NewGuid(), ownerCompany.Id, "Warranty SI Customer"), autoSave: true);
+
+            var customerOther = await customerRepository.InsertAsync(
+                new Customer(Guid.NewGuid(), otherCompany.Id, "Warranty SI Other Cust"), autoSave: true);
+            var crossCoSi = new SalesInvoice(Guid.NewGuid(), otherCompany.Id, customerOther.Id, "SI-WC-CROSS", DateTime.UtcNow);
+            await siRepository.InsertAsync(crossCoSi, autoSave: true);
+
+            await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                warrantyClaimAppService.CreateAsync(new CreateWarrantyClaimDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    CustomerId = customer.Id,
+                    ItemId = item.Id,
+                    SalesInvoiceId = crossCoSi.Id,
+                    ComplaintDate = DateTime.UtcNow,
+                }));
+        });
+    }
 }

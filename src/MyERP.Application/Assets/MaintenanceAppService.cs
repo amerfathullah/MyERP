@@ -44,6 +44,36 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
     [Authorize(MyERPPermissions.Assets.Create)]
     public async Task<MaintenanceScheduleDto> CreateScheduleAsync(CreateMaintenanceScheduleDto input)
     {
+        if (input.CustomerId.HasValue)
+        {
+            var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+            var customer = await customerRepo.FindAsync(input.CustomerId.Value);
+            if (customer != null && customer.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("customerCompany", customer.CompanyId)
+                    .WithData("scheduleCompany", input.CompanyId);
+            }
+        }
+
+        if (input.AssetId.HasValue)
+        {
+            var assetRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Entities.Asset, Guid>>();
+            var asset = await assetRepo.FindAsync(input.AssetId.Value);
+            if (asset != null && asset.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("assetCompany", asset.CompanyId)
+                    .WithData("scheduleCompany", input.CompanyId);
+            }
+        }
+
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "MaintenanceSchedule", input.CompanyId,
+            itemIds: input.ItemId.HasValue ? new[] { input.ItemId.Value } : null,
+            customerIds: input.CustomerId.HasValue ? new[] { input.CustomerId.Value } : null);
+
         var ms = new MaintenanceSchedule(GuidGenerator.Create(), input.CompanyId,
             input.StartDate, input.EndDate, input.Periodicity, CurrentTenant.Id)
         {
@@ -104,6 +134,17 @@ public class MaintenanceAppService : ApplicationService, IMaintenanceAppService
             "MaintenanceVisit", input.CompanyId,
             itemIds: visitItemIds.Length > 0 ? visitItemIds : null,
             customerIds: input.CustomerId.HasValue ? new[] { input.CustomerId.Value } : null);
+
+        if (input.MaintenanceScheduleId.HasValue)
+        {
+            var ms = await _scheduleRepo.FindAsync(input.MaintenanceScheduleId.Value);
+            if (ms != null && ms.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("scheduleCompany", ms.CompanyId)
+                    .WithData("visitCompany", input.CompanyId);
+            }
+        }
 
         var visit = new MaintenanceVisit(GuidGenerator.Create(), input.CompanyId,
             input.VisitDate, input.MaintenanceType, CurrentTenant.Id)

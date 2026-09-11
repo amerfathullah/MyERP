@@ -45,4 +45,34 @@ public abstract class MaintenanceVisitCompanyGuardTests<TStartupModule> : MyERPA
                 }));
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_ScheduleFromDifferentCompany_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepository = GetRequiredService<IRepository<Customer, Guid>>();
+            var scheduleRepository = GetRequiredService<IRepository<Entities.MaintenanceSchedule, Guid>>();
+            var visitAppService = GetRequiredService<IMaintenanceVisitAppService>();
+
+            var ownerCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "MV Sched Owner Co"), autoSave: true);
+            var otherCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "MV Sched Other Co"), autoSave: true);
+
+            var customer = await customerRepository.InsertAsync(new Customer(Guid.NewGuid(), ownerCompany.Id, "MV Sched Customer"), autoSave: true);
+
+            var otherSchedule = new Entities.MaintenanceSchedule(
+                Guid.NewGuid(), otherCompany.Id, DateTime.UtcNow, DateTime.UtcNow.AddMonths(1), "Monthly");
+            await scheduleRepository.InsertAsync(otherSchedule, autoSave: true);
+
+            await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                visitAppService.CreateAsync(new CreateMaintenanceVisitDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    CustomerId = customer.Id,
+                    MaintenanceScheduleId = otherSchedule.Id,
+                    VisitDate = DateTime.UtcNow,
+                }));
+        });
+    }
 }

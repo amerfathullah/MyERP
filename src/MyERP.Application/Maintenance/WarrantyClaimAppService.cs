@@ -108,6 +108,18 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
             input.ComplaintDate,
             CurrentTenant.Id);
 
+        if (input.SalesInvoiceId.HasValue)
+        {
+            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesInvoice, Guid>>();
+            var si = await siRepo.FindAsync(input.SalesInvoiceId.Value);
+            if (si != null && si.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("salesInvoiceCompany", si.CompanyId)
+                    .WithData("claimCompany", input.CompanyId);
+            }
+        }
+
         entity.ClaimNumber = $"WC-{DateTime.UtcNow:yyyyMMdd}-{GuidGenerator.Create().ToString()[..6].ToUpperInvariant()}";
         entity.SerialNoId = input.SerialNoId;
         entity.SalesInvoiceId = input.SalesInvoiceId;
