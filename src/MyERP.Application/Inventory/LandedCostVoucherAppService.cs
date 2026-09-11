@@ -208,6 +208,57 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                 item.Quantity, item.Amount, item.Description);
         }
 
+        // Validate all charge expense accounts belong to the voucher's company (per ERPNext validate_expense_accounts)
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var expenseAccountIds = input.Charges.Select(c => c.ExpenseAccountId).Distinct().ToList();
+        var accountQuery = await accountRepo.GetQueryableAsync();
+        var accounts = accountQuery.Where(a => expenseAccountIds.Contains(a.Id)).ToList();
+        foreach (var account in accounts)
+        {
+            if (account.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("accountCompany", account.CompanyId)
+                    .WithData("voucherCompany", input.CompanyId);
+            }
+        }
+
+        // Validate all charge cost centers belong to company
+        var costCenterIds = input.Charges.Where(c => c.CostCenterId.HasValue).Select(c => c.CostCenterId!.Value).Distinct().ToList();
+        if (costCenterIds.Count > 0)
+        {
+            var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+            var ccQuery = await ccRepo.GetQueryableAsync();
+            var costCenters = ccQuery.Where(c => costCenterIds.Contains(c.Id)).ToList();
+            foreach (var cc in costCenters)
+            {
+                if (cc.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("costCenterCompany", cc.CompanyId)
+                        .WithData("voucherCompany", input.CompanyId);
+                }
+            }
+        }
+
+        // Validate all charge projects belong to company
+        var projectIds = input.Charges.Where(c => c.ProjectId.HasValue).Select(c => c.ProjectId!.Value).Distinct().ToList();
+        if (projectIds.Count > 0)
+        {
+            var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Projects.Entities.Project, Guid>>();
+            var projectQuery = await projectRepo.GetQueryableAsync();
+            var projects = projectQuery.Where(p => projectIds.Contains(p.Id)).ToList();
+            foreach (var project in projects)
+            {
+                if (project.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("projectCompany", project.CompanyId)
+                        .WithData("voucherCompany", input.CompanyId);
+                }
+            }
+        }
+
         foreach (var charge in input.Charges)
             lcv.AddCharge(charge.Description, charge.ExpenseAccountId, charge.Amount,
                 charge.CostCenterId, charge.ProjectId);

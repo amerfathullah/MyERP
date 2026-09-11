@@ -158,4 +158,105 @@ public abstract class LandedCostVoucherReceiptGuardTests<TStartupModule> : MyERP
             dto.Id.ShouldNotBe(Guid.Empty);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_ExpenseAccountFromDifferentCompany_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepository = GetRequiredService<IRepository<Supplier, Guid>>();
+            var prRepository = GetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+            var accountRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+            var lcvAppService = GetRequiredService<ILandedCostVoucherAppService>();
+
+            var ownerCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "LCV Acct Owner Co"), autoSave: true);
+            var otherCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "LCV Acct Other Co"), autoSave: true);
+            var supplier = await supplierRepository.InsertAsync(new Supplier(Guid.NewGuid(), ownerCompany.Id, "LCV Acct Supplier"), autoSave: true);
+
+            var otherExpenseAccount = await accountRepository.InsertAsync(
+                new MyERP.Accounting.Entities.Account(Guid.NewGuid(), otherCompany.Id, "5903", "Freight Other Co", MyERP.Accounting.AccountType.Expense), autoSave: true);
+
+            var itemId = Guid.NewGuid();
+            var warehouseId = Guid.NewGuid();
+            var pr = new PurchaseReceipt(Guid.NewGuid(), ownerCompany.Id, supplier.Id, warehouseId, "PR-LCV-ACCT-001", DateTime.Today);
+            pr.AddItem(itemId, "Widget", quantity: 10m, unitPrice: 5.00m, taxAmount: 0m);
+            pr.Submit();
+            await prRepository.InsertAsync(pr, autoSave: true);
+
+            await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                lcvAppService.CreateAsync(new CreateLandedCostVoucherDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    PostingDate = DateTime.Today,
+                    Items =
+                    [
+                        new CreateLandedCostItemDto
+                        {
+                            ReceiptId = pr.Id, ReceiptType = "PurchaseReceipt", ItemId = itemId,
+                            Quantity = 10m, Amount = 50m,
+                        }
+                    ],
+                    Charges =
+                    [
+                        new CreateLandedCostChargeDto { Description = "Freight", ExpenseAccountId = otherExpenseAccount.Id, Amount = 20m }
+                    ]
+                }));
+        });
+    }
+
+    [Fact]
+    public async Task CreateAsync_CostCenterFromDifferentCompany_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepository = GetRequiredService<IRepository<Supplier, Guid>>();
+            var prRepository = GetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+            var accountRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+            var ccRepository = GetRequiredService<IRepository<MyERP.Accounting.Entities.CostCenter, Guid>>();
+            var lcvAppService = GetRequiredService<ILandedCostVoucherAppService>();
+
+            var ownerCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "LCV CC Owner Co"), autoSave: true);
+            var otherCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "LCV CC Other Co"), autoSave: true);
+            var supplier = await supplierRepository.InsertAsync(new Supplier(Guid.NewGuid(), ownerCompany.Id, "LCV CC Supplier"), autoSave: true);
+
+            var expenseAccount = await accountRepository.InsertAsync(
+                new MyERP.Accounting.Entities.Account(Guid.NewGuid(), ownerCompany.Id, "5904", "Freight Owner Co", MyERP.Accounting.AccountType.Expense), autoSave: true);
+            var otherCostCenter = await ccRepository.InsertAsync(
+                new MyERP.Accounting.Entities.CostCenter(Guid.NewGuid(), otherCompany.Id, "Other CC"), autoSave: true);
+
+            var itemId = Guid.NewGuid();
+            var warehouseId = Guid.NewGuid();
+            var pr = new PurchaseReceipt(Guid.NewGuid(), ownerCompany.Id, supplier.Id, warehouseId, "PR-LCV-CC-001", DateTime.Today);
+            pr.AddItem(itemId, "Widget", quantity: 10m, unitPrice: 5.00m, taxAmount: 0m);
+            pr.Submit();
+            await prRepository.InsertAsync(pr, autoSave: true);
+
+            await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                lcvAppService.CreateAsync(new CreateLandedCostVoucherDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    PostingDate = DateTime.Today,
+                    Items =
+                    [
+                        new CreateLandedCostItemDto
+                        {
+                            ReceiptId = pr.Id, ReceiptType = "PurchaseReceipt", ItemId = itemId,
+                            Quantity = 10m, Amount = 50m,
+                        }
+                    ],
+                    Charges =
+                    [
+                        new CreateLandedCostChargeDto
+                        {
+                            Description = "Freight",
+                            ExpenseAccountId = expenseAccount.Id,
+                            CostCenterId = otherCostCenter.Id,
+                            Amount = 20m
+                        }
+                    ]
+                }));
+        });
+    }
 }

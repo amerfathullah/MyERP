@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
@@ -77,6 +78,64 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
             throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
         }
 
+        if (input.SalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var so = await soRepo.FindAsync(input.SalesOrderId.Value);
+            if (so != null && so.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("salesOrderCompany", so.CompanyId)
+                    .WithData("orderCompany", input.CompanyId);
+            }
+        }
+
+        if (input.SubcontractingOrderId.HasValue)
+        {
+            var scoRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SubcontractingOrder, Guid>>();
+            var sco = await scoRepo.FindAsync(input.SubcontractingOrderId.Value);
+            if (sco != null && sco.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("subcontractingOrderCompany", sco.CompanyId)
+                    .WithData("orderCompany", input.CompanyId);
+            }
+        }
+
+        var bomIds = input.Items.Where(i => i.BomId.HasValue).Select(i => i.BomId!.Value).Distinct().ToList();
+        if (bomIds.Count > 0)
+        {
+            var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.BillOfMaterials, Guid>>();
+            var bomQuery = await bomRepo.GetQueryableAsync();
+            var boms = bomQuery.Where(b => bomIds.Contains(b.Id)).ToList();
+            foreach (var bom in boms)
+            {
+                if (bom.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("bomCompany", bom.CompanyId)
+                        .WithData("orderCompany", input.CompanyId);
+                }
+            }
+        }
+
+        var warehouseIds = input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value).Distinct().ToList();
+        if (warehouseIds.Count > 0)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+            var whQuery = await whRepo.GetQueryableAsync();
+            var warehouses = whQuery.Where(w => warehouseIds.Contains(w.Id)).ToList();
+            foreach (var wh in warehouses)
+            {
+                if (wh.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("warehouseCompany", wh.CompanyId)
+                        .WithData("orderCompany", input.CompanyId);
+                }
+            }
+        }
+
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.ItemTransactionValidationService>();
         foreach (var item in input.Items)
         {
@@ -87,7 +146,8 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
         await companyRestriction.ValidateTransactionCompanyAsync(
             "SubcontractingInwardOrder", input.CompanyId,
             itemIds: input.Items.Select(i => i.ItemId).ToArray(),
-            supplierIds: new[] { input.SupplierId });
+            supplierIds: new[] { input.SupplierId },
+            warehouseIds: warehouseIds.Count > 0 ? warehouseIds.ToArray() : null);
 
         var orderNumber = $"SCIO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..4].ToUpper()}";
         var entity = new SubcontractingInwardOrder(GuidGenerator.Create(), input.CompanyId,
