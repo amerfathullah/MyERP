@@ -1766,13 +1766,14 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         if (companyId.HasValue)
             query = query.Where(po => po.CompanyId == companyId.Value);
 
-        var orders = query.ToList();
+        // Per ERPNext PR #59010 / commit 5dfd21cce6: list billable purchase orders oldest first
+        var orders = query.OrderBy(po => po.OrderDate).ThenBy(po => po.CreationTime).ToList();
 
         var result = new List<UnbilledPurchaseOrderItemDto>();
         foreach (var po in orders)
         {
             // Per ERPNext PR #58966 / commit 5f216c5d55: exclude fully billed orders
-            if (po.PerBilled >= 100m) continue;
+            if (po.PerBilled >= 100m || po.Items.All(i => i.PendingBillingQty <= 0)) continue;
 
             foreach (var item in po.Items)
             {
@@ -1820,13 +1821,16 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         if (companyId.HasValue)
             query = query.Where(pr => pr.CompanyId == companyId.Value);
 
-        var receipts = query.ToList();
+        // Per ERPNext PR #59010 / commit 5dfd21cce6: list billable purchase receipts oldest first
+        var receipts = query.OrderBy(pr => pr.PostingDate).ThenBy(pr => pr.CreationTime).ToList();
 
         var billForRejectedQty = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.BillForRejectedQty);
 
         var result = new List<UnbilledPurchaseReceiptItemDto>();
         foreach (var pr in receipts)
         {
+            // Per ERPNext PR #58966 / commit 5f216c5d55: exclude fully billed receipts
+            if (pr.PerBilled >= 100m) continue;
             foreach (var item in pr.Items)
             {
                 if (item.IsClosed) continue;

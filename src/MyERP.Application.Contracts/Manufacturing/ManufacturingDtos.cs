@@ -142,6 +142,7 @@ public class CreateBomOperationDto
     public bool BatchSplit { get; set; }
     [Range(0, double.MaxValue)] public decimal? WeightPerPiece { get; set; }
     [Range(0, double.MaxValue)] public decimal WorkstationHourRate { get; set; }
+    public Guid? FinishedGoodItemId { get; set; }
 }
 
 public class CreateBomItemDto

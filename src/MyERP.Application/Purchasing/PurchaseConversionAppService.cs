@@ -133,6 +133,13 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         if (po.Status == Core.DocumentStatus.Draft || po.Status == Core.DocumentStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
+        // Per ERPNext PR #58966 / commit 5f216c5d55: exclude fully billed orders
+        if (po.PerBilled >= 100m)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "PurchaseOrder")
+                .WithData("documentNumber", po.OrderNumber)
+                .WithData("reason", "Purchase Order is already fully billed.");
+
         var invoiceNumber = await _numberGenerator.GenerateAsync("PurchaseInvoice", po.CompanyId);
 
         var invoice = new PurchaseInvoice(
@@ -195,6 +202,13 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         if (receipt.Status != Core.DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
+        // Per ERPNext PR #58966 / commit 5f216c5d55: exclude fully billed receipts
+        if (receipt.PerBilled >= 100m)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "PurchaseReceipt")
+                .WithData("documentNumber", receipt.ReceiptNumber)
+                .WithData("reason", "Purchase Receipt is already fully billed.");
+
         var invoiceNumber = await _numberGenerator.GenerateAsync("PurchaseInvoice", receipt.CompanyId);
 
         var invoice = new PurchaseInvoice(
@@ -223,7 +237,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         {
             if (item.IsClosed) continue;
             var draftQty = draftInvoiceQtyByPrItem.GetValueOrDefault(item.Id, 0m);
-            var pendingQty = Math.Max(0, item.Quantity - item.BilledQty - draftQty);
+            // Use PendingBillingQty (includes rejected qty when accepted qty is 0, per PR #58885)
+            var pendingQty = Math.Max(0, item.PendingBillingQty - draftQty);
             if (pendingQty <= 0) continue;
 
             invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom);

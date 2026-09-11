@@ -297,6 +297,13 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         if (salesOrder.Status == Core.DocumentStatus.Draft || salesOrder.Status == Core.DocumentStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
+        // Per ERPNext PR #58966 / commit 5f216c5d55: exclude fully billed orders
+        if (salesOrder.PerBilled >= 100m)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "SalesOrder")
+                .WithData("documentNumber", salesOrder.OrderNumber ?? "")
+                .WithData("reason", "Sales Order is already fully billed.");
+
         var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", salesOrder.CompanyId);
 
         var invoice = new SalesInvoice(

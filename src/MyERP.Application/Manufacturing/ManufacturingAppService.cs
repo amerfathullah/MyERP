@@ -92,6 +92,12 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         await ValidateNoFixedAssetBomItemsAsync(input.Items.Select(i => i.ItemId));
 
+        var allBomItemIds = new[] { input.ItemId }
+            .Concat(input.Items.Select(i => i.ItemId))
+            .Concat((input.SecondaryItems ?? Enumerable.Empty<CreateBomSecondaryItemDto>()).Select(s => s.ItemId))
+            .Concat(input.Operations.Where(o => o.FinishedGoodItemId.HasValue).Select(o => o.FinishedGoodItemId!.Value));
+        await ValidateNoDisabledBomItemsAsync(allBomItemIds);
+
         await ValidateBomCompanyAsync(input.CompanyId, input.ItemId, input.Items.Select(i => i.ItemId),
             input.SourceWarehouseId, input.TargetWarehouseId, input.ScrapWarehouseId);
 
@@ -133,6 +139,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 Description = op.Description,
                 IsSubcontracted = op.IsSubcontracted,
                 QualityInspectionRequired = op.QualityInspectionRequired,
+                FinishedGoodItemId = op.FinishedGoodItemId,
             };
             var hourRate = op.WorkstationHourRate;
             if (hourRate <= 0)
@@ -193,6 +200,12 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         var bom = await _bomRepository.GetAsync(id, includeDetails: true);
 
+        var allBomItemIds = new[] { bom.ItemId, input.ItemId }
+            .Concat(input.Items.Select(i => i.ItemId))
+            .Concat((input.SecondaryItems ?? Enumerable.Empty<CreateBomSecondaryItemDto>()).Select(s => s.ItemId))
+            .Concat(input.Operations.Where(o => o.FinishedGoodItemId.HasValue).Select(o => o.FinishedGoodItemId!.Value));
+        await ValidateNoDisabledBomItemsAsync(allBomItemIds);
+
         await ValidateBomCompanyAsync(bom.CompanyId, bom.ItemId, input.Items.Select(i => i.ItemId),
             input.SourceWarehouseId, input.TargetWarehouseId, input.ScrapWarehouseId);
 
@@ -231,6 +244,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 Description = op.Description,
                 IsSubcontracted = op.IsSubcontracted,
                 QualityInspectionRequired = op.QualityInspectionRequired,
+                FinishedGoodItemId = op.FinishedGoodItemId,
             };
             var hourRate = op.WorkstationHourRate;
             if (hourRate <= 0)
@@ -2360,6 +2374,30 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Fixed Asset item(s) '{string.Join(", ", fixedAssetItems)}' cannot be used in BOMs.");
+        }
+    }
+
+    /// <summary>
+    /// Validates that disabled (inactive) items are not used in BOMs.
+    /// Covers finished good item, raw materials, secondary items, and operation finished goods.
+    /// Per ERPNext PR #58997 / commit e6f431a8d6.
+    /// </summary>
+    private async Task ValidateNoDisabledBomItemsAsync(IEnumerable<Guid> itemIds)
+    {
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var distinctItemIds = itemIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (distinctItemIds.Count == 0) return;
+
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var disabledItems = itemQuery
+            .Where(i => distinctItemIds.Contains(i.Id) && !i.IsActive)
+            .Select(i => i.ItemName)
+            .ToList();
+
+        if (disabledItems.Count > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Disabled Item '{string.Join(", ", disabledItems)}' cannot be used in BOMs.");
         }
     }
 

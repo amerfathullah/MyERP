@@ -15,10 +15,44 @@ namespace MyERP.Manufacturing.DomainServices;
 public class BomValidationService : DomainService
 {
     private readonly IRepository<BillOfMaterials, Guid> _bomRepository;
+    private readonly IRepository<Inventory.Entities.Item, Guid>? _itemRepository;
 
-    public BomValidationService(IRepository<BillOfMaterials, Guid> bomRepository)
+    public BomValidationService(
+        IRepository<BillOfMaterials, Guid> bomRepository,
+        IRepository<Inventory.Entities.Item, Guid>? itemRepository = null)
     {
         _bomRepository = bomRepository;
+        _itemRepository = itemRepository;
+    }
+
+    /// <summary>
+    /// Validates that no disabled (inactive) items are used in the BOM hierarchy.
+    /// Covers finished good item, raw materials, secondary items, and operation finished goods.
+    /// Per ERPNext PR #58997 / commit e6f431a8d6.
+    /// </summary>
+    public async Task ValidateNoDisabledItemsAsync(BillOfMaterials bom)
+    {
+        if (_itemRepository == null) return;
+
+        var itemIds = new List<Guid> { bom.ItemId };
+        itemIds.AddRange(bom.Items.Select(i => i.ItemId));
+        itemIds.AddRange(bom.SecondaryItems.Select(s => s.ItemId));
+        itemIds.AddRange(bom.Operations.Where(o => o.FinishedGoodItemId.HasValue).Select(o => o.FinishedGoodItemId!.Value));
+
+        var distinctIds = itemIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (distinctIds.Count == 0) return;
+
+        var query = await _itemRepository.GetQueryableAsync();
+        var disabledItemNames = query
+            .Where(i => distinctIds.Contains(i.Id) && !i.IsActive)
+            .Select(i => i.ItemName)
+            .ToList();
+
+        if (disabledItemNames.Count > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Disabled Item '{string.Join(", ", disabledItemNames)}' cannot be used in BOMs.");
+        }
     }
 
     /// <summary>
