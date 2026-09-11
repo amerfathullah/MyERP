@@ -11,6 +11,7 @@ using MyERP.Inventory.DomainServices;
 using Microsoft.Extensions.Logging;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
+using MyERP.Projects.Entities;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales;
 using MyERP.Sales.DomainServices;
@@ -155,8 +156,91 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
+        if (input.CostCenterId.HasValue)
+        {
+            var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+            var cc = await ccRepo.FindAsync(input.CostCenterId.Value);
+            if (cc != null && cc.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("costCenterCompany", cc.CompanyId)
+                    .WithData("purchaseOrderCompany", input.CompanyId);
+            }
+        }
+
+        if (input.ProjectId.HasValue)
+        {
+            var projRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
+            var proj = await projRepo.FindAsync(input.ProjectId.Value);
+            if (proj != null && proj.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("projectCompany", proj.CompanyId)
+                    .WithData("purchaseOrderCompany", input.CompanyId);
+            }
+        }
+
+        var warehouseIds = input.Items
+            .Where(i => i.WarehouseId.HasValue)
+            .Select(i => i.WarehouseId!.Value)
+            .Distinct()
+            .ToList();
+        if (warehouseIds.Count > 0)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+            var warehouses = await whRepo.GetListAsync(w => warehouseIds.Contains(w.Id));
+            var mismatch = warehouses.FirstOrDefault(w => w.CompanyId != input.CompanyId);
+            if (mismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("warehouseCompany", mismatch.CompanyId)
+                    .WithData("purchaseOrderCompany", input.CompanyId);
+            }
+        }
+
+        var expenseAcctIds = input.Items
+            .Where(i => i.ExpenseAccountId.HasValue)
+            .Select(i => i.ExpenseAccountId!.Value)
+            .Distinct()
+            .ToList();
+        if (expenseAcctIds.Count > 0)
+        {
+            var acctRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+            var accounts = await acctRepo.GetListAsync(a => expenseAcctIds.Contains(a.Id));
+            var mismatch = accounts.FirstOrDefault(a => a.CompanyId != input.CompanyId);
+            if (mismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("accountCompany", mismatch.CompanyId)
+                    .WithData("purchaseOrderCompany", input.CompanyId);
+            }
+        }
+
+        var blanketOrderIds = input.Items
+            .Where(i => i.BlanketOrderId.HasValue)
+            .Select(i => i.BlanketOrderId!.Value)
+            .Distinct()
+            .ToList();
+        if (blanketOrderIds.Count > 0)
+        {
+            var boRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+            var blanketOrders = await boRepo.GetListAsync(b => blanketOrderIds.Contains(b.Id));
+            var mismatch = blanketOrders.FirstOrDefault(b => b.CompanyId != input.CompanyId);
+            if (mismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("blanketOrderCompany", mismatch.CompanyId)
+                    .WithData("purchaseOrderCompany", input.CompanyId);
+            }
+        }
+
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await companyRestriction.ValidateTransactionCompanyAsync("PurchaseOrder", input.CompanyId, itemIds, supplierIds: new[] { input.SupplierId });
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "PurchaseOrder", input.CompanyId,
+            itemIds: itemIds,
+            supplierIds: new[] { input.SupplierId },
+            warehouseIds: warehouseIds.Count > 0 ? warehouseIds : null,
+            accountIds: expenseAcctIds.Count > 0 ? expenseAcctIds : null);
 
         var supplierForStatus = await _supplierRepository.GetAsync(input.SupplierId);
         LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
@@ -640,9 +724,102 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft purchase orders can be edited");
 
+        if (input.CompanyId != Guid.Empty && input.CompanyId != order.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("entityCompany", order.CompanyId)
+                .WithData("inputCompany", input.CompanyId);
+        }
+
+        if (input.CostCenterId.HasValue)
+        {
+            var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+            var cc = await ccRepo.FindAsync(input.CostCenterId.Value);
+            if (cc != null && cc.CompanyId != order.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("costCenterCompany", cc.CompanyId)
+                    .WithData("purchaseOrderCompany", order.CompanyId);
+            }
+        }
+
+        if (input.ProjectId.HasValue)
+        {
+            var projRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
+            var proj = await projRepo.FindAsync(input.ProjectId.Value);
+            if (proj != null && proj.CompanyId != order.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("projectCompany", proj.CompanyId)
+                    .WithData("purchaseOrderCompany", order.CompanyId);
+            }
+        }
+
+        var updateWarehouseIds = input.Items
+            .Where(i => i.WarehouseId.HasValue)
+            .Select(i => i.WarehouseId!.Value)
+            .Distinct()
+            .ToList();
+        if (updateWarehouseIds.Count > 0)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+            var warehouses = await whRepo.GetListAsync(w => updateWarehouseIds.Contains(w.Id));
+            var mismatch = warehouses.FirstOrDefault(w => w.CompanyId != order.CompanyId);
+            if (mismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("warehouseCompany", mismatch.CompanyId)
+                    .WithData("purchaseOrderCompany", order.CompanyId);
+            }
+        }
+
+        var updateExpenseAcctIds = input.Items
+            .Where(i => i.ExpenseAccountId.HasValue)
+            .Select(i => i.ExpenseAccountId!.Value)
+            .Distinct()
+            .ToList();
+        if (updateExpenseAcctIds.Count > 0)
+        {
+            var acctRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+            var accounts = await acctRepo.GetListAsync(a => updateExpenseAcctIds.Contains(a.Id));
+            var mismatch = accounts.FirstOrDefault(a => a.CompanyId != order.CompanyId);
+            if (mismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("accountCompany", mismatch.CompanyId)
+                    .WithData("purchaseOrderCompany", order.CompanyId);
+            }
+        }
+
+        var updateBlanketOrderIds = input.Items
+            .Where(i => i.BlanketOrderId.HasValue)
+            .Select(i => i.BlanketOrderId!.Value)
+            .Distinct()
+            .ToList();
+        if (updateBlanketOrderIds.Count > 0)
+        {
+            var boRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+            var blanketOrders = await boRepo.GetListAsync(b => updateBlanketOrderIds.Contains(b.Id));
+            var mismatch = blanketOrders.FirstOrDefault(b => b.CompanyId != order.CompanyId);
+            if (mismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("blanketOrderCompany", mismatch.CompanyId)
+                    .WithData("purchaseOrderCompany", order.CompanyId);
+            }
+        }
+
         var updateItemIds = input.Items.Select(i => i.ItemId).ToList();
         var updateCompanyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await updateCompanyRestriction.ValidateTransactionCompanyAsync("PurchaseOrder", order.CompanyId, updateItemIds, supplierIds: new[] { input.SupplierId });
+        await updateCompanyRestriction.ValidateTransactionCompanyAsync(
+            "PurchaseOrder", order.CompanyId,
+            itemIds: updateItemIds,
+            supplierIds: new[] { input.SupplierId },
+            warehouseIds: updateWarehouseIds.Count > 0 ? updateWarehouseIds : null,
+            accountIds: updateExpenseAcctIds.Count > 0 ? updateExpenseAcctIds : null);
+
+        order.CostCenterId = input.CostCenterId;
+        order.ProjectId = input.ProjectId;
 
         order.OrderDate = input.OrderDate;
         order.ExpectedDeliveryDate = input.ExpectedDeliveryDate;

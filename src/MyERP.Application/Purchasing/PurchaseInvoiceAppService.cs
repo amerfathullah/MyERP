@@ -10,6 +10,7 @@ using MyERP.Core.Entities;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
+using MyERP.Projects.Entities;
 using MyERP.Purchasing.Entities;
 using MyERP.Purchasing.DomainServices;
 using MyERP.Sales;
@@ -415,8 +416,118 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var piItemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(piItemIds);
 
+        if (input.CostCenterId.HasValue)
+        {
+            var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+            var cc = await ccRepo.FindAsync(input.CostCenterId.Value);
+            if (cc != null && cc.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("costCenterCompany", cc.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
+        if (input.ProjectId.HasValue)
+        {
+            var projRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
+            var proj = await projRepo.FindAsync(input.ProjectId.Value);
+            if (proj != null && proj.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("projectCompany", proj.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
+        var allWarehouseIds = input.Items
+            .Where(i => i.WarehouseId.HasValue)
+            .Select(i => i.WarehouseId!.Value)
+            .ToList();
+        if (input.WarehouseId.HasValue)
+        {
+            allWarehouseIds.Add(input.WarehouseId.Value);
+        }
+        allWarehouseIds = allWarehouseIds.Distinct().ToList();
+
+        if (allWarehouseIds.Count > 0)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+            var warehouses = await whRepo.GetListAsync(w => allWarehouseIds.Contains(w.Id));
+            var mismatch = warehouses.FirstOrDefault(w => w.CompanyId != input.CompanyId);
+            if (mismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("warehouseCompany", mismatch.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
+        var deferredAcctIds = input.Items
+            .Where(i => i.EnableDeferredExpense && i.DeferredExpenseAccountId.HasValue)
+            .Select(i => i.DeferredExpenseAccountId!.Value)
+            .Distinct()
+            .ToList();
+        if (deferredAcctIds.Count > 0)
+        {
+            var acctRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+            var accounts = await acctRepo.GetListAsync(a => deferredAcctIds.Contains(a.Id));
+            var mismatch = accounts.FirstOrDefault(a => a.CompanyId != input.CompanyId);
+            if (mismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("accountCompany", mismatch.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
+        var linkedPoItemIds = input.Items
+            .Where(i => i.PurchaseOrderItemId.HasValue)
+            .Select(i => i.PurchaseOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (linkedPoItemIds.Count > 0)
+        {
+            var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            var poQuery = await poRepo.GetQueryableAsync();
+            var crossCompanyPo = poQuery
+                .Where(po => po.Items.Any(i => linkedPoItemIds.Contains(i.Id)) && po.CompanyId != input.CompanyId)
+                .FirstOrDefault();
+            if (crossCompanyPo != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("purchaseOrderCompany", crossCompanyPo.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
+        var linkedPrItemIds = input.Items
+            .Where(i => i.PurchaseReceiptItemId.HasValue)
+            .Select(i => i.PurchaseReceiptItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (linkedPrItemIds.Count > 0)
+        {
+            var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+            var prQuery = await prRepo.GetQueryableAsync();
+            var crossCompanyPr = prQuery
+                .Where(pr => pr.Items.Any(i => linkedPrItemIds.Contains(i.Id)) && pr.CompanyId != input.CompanyId)
+                .FirstOrDefault();
+            if (crossCompanyPr != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("purchaseReceiptCompany", crossCompanyPr.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await companyRestriction.ValidateTransactionCompanyAsync("PurchaseInvoice", input.CompanyId, piItemIds, supplierIds: new[] { input.SupplierId });
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "PurchaseInvoice", input.CompanyId,
+            itemIds: piItemIds,
+            supplierIds: new[] { input.SupplierId },
+            warehouseIds: allWarehouseIds.Count > 0 ? allWarehouseIds : null,
+            accountIds: deferredAcctIds.Count > 0 ? deferredAcctIds : null);
 
         var supplierForStatus = await _supplierRepository.GetAsync(input.SupplierId);
         LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
