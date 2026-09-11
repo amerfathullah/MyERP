@@ -513,6 +513,23 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             throw new BusinessException("MyERP:05010")
                 .WithData("detail", "Opportunity must have a Customer/Lead to create a Quotation");
 
+        var customer = await _customerRepository.FindAsync(opp.CustomerId.Value);
+        if (customer != null)
+        {
+            if (!customer.IsActive)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.PartyDisabled)
+                    .WithData("partyType", "Customer")
+                    .WithData("partyName", customer.Name);
+            }
+            if (customer.CompanyId != opp.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("customerCompany", customer.CompanyId)
+                    .WithData("opportunityCompany", opp.CompanyId);
+            }
+        }
+
         // Per ERPNext: check if quotation already exists for this opportunity
         var existingQuery = await _quotationRepository.GetQueryableAsync();
         var alreadyExists = existingQuery.Any(q =>

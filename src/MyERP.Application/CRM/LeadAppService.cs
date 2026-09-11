@@ -6,6 +6,7 @@ using MyERP.CRM.Entities;
 using MyERP.Sales.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -111,6 +112,13 @@ public class LeadAppService : ApplicationService, ILeadAppService
     {
         var lead = await _leadRepository.GetAsync(id);
 
+        if (lead.Status == LeadStatus.Converted)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "Lead")
+                .WithData("status", lead.Status.ToString());
+        }
+
         lead.FirstName = input.FirstName;
         lead.LastName = input.LastName;
         lead.CompanyName = input.CompanyName;
@@ -177,6 +185,13 @@ public class LeadAppService : ApplicationService, ILeadAppService
     {
         var lead = await _leadRepository.GetAsync(input.LeadId);
 
+        if (lead.Status is not (LeadStatus.Open or LeadStatus.Interested or LeadStatus.Qualified or LeadStatus.Replied))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "Lead")
+                .WithData("status", lead.Status.ToString());
+        }
+
         var oppNumber = $"OPP-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
         var opportunity = new Opportunity(
             GuidGenerator.Create(),
@@ -221,6 +236,35 @@ public class LeadAppService : ApplicationService, ILeadAppService
     public async Task<Guid> ConvertToCustomerAsync(ConvertLeadToCustomerDto input)
     {
         var lead = await _leadRepository.GetAsync(input.LeadId);
+
+        if (lead.Status is not (LeadStatus.New or LeadStatus.Open or LeadStatus.Replied or LeadStatus.Interested or LeadStatus.Qualified))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "Lead")
+                .WithData("status", lead.Status.ToString());
+        }
+
+        if (input.CustomerGroupId.HasValue)
+        {
+            var groupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.CustomerGroup, Guid>>();
+            var customerGroup = await groupRepo.FindAsync(input.CustomerGroupId.Value);
+            if (customerGroup != null && customerGroup.IsGroup)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot select a Group type Customer Group. Please select a non-group Customer Group.");
+            }
+        }
+
+        if (input.TerritoryId.HasValue)
+        {
+            var territoryRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Territory, Guid>>();
+            var territory = await territoryRepo.FindAsync(input.TerritoryId.Value);
+            if (territory != null && territory.IsGroup)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot select a Group type Territory. Please select a non-group Territory.");
+            }
+        }
 
         // Determine customer name: override, or CompanyName, or FullName
         var customerName = !string.IsNullOrWhiteSpace(input.CustomerName)

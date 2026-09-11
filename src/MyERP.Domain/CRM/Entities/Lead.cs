@@ -83,7 +83,7 @@ public class Lead : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void ConvertToOpportunity(Guid opportunityId)
     {
-        if (Status is not (LeadStatus.Qualified or LeadStatus.Interested or LeadStatus.Open))
+        if (Status is not (LeadStatus.Qualified or LeadStatus.Interested or LeadStatus.Open or LeadStatus.Replied))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = LeadStatus.Converted;
         ConvertedOpportunityId = opportunityId;
@@ -91,6 +91,8 @@ public class Lead : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void ConvertToCustomer(Guid customerId)
     {
+        if (Status is not (LeadStatus.New or LeadStatus.Open or LeadStatus.Replied or LeadStatus.Interested or LeadStatus.Qualified))
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = LeadStatus.Converted;
         ConvertedCustomerId = customerId;
     }

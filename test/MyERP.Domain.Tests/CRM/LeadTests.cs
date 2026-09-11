@@ -114,6 +114,47 @@ public class LeadTests
         lead.Status.ShouldBe(LeadStatus.DoNotContact);
     }
 
+    [Fact]
+    public void ConvertToCustomer_FromNewOrOpen_ShouldSucceed()
+    {
+        var lead = CreateLead();
+        var customerId = Guid.NewGuid();
+
+        lead.ConvertToCustomer(customerId);
+
+        lead.Status.ShouldBe(LeadStatus.Converted);
+        lead.ConvertedCustomerId.ShouldBe(customerId);
+
+        var lead2 = CreateLead();
+        lead2.MarkOpen();
+        lead2.ConvertToCustomer(customerId);
+        lead2.Status.ShouldBe(LeadStatus.Converted);
+    }
+
+    [Fact]
+    public void ConvertToCustomer_FromLostOrDoNotContact_ShouldThrow()
+    {
+        var lead = CreateLead();
+        lead.MarkOpen();
+        lead.MarkLost();
+
+        Assert.Throws<BusinessException>(() => lead.ConvertToCustomer(Guid.NewGuid()));
+
+        var lead2 = CreateLead();
+        lead2.MarkDoNotContact();
+
+        Assert.Throws<BusinessException>(() => lead2.ConvertToCustomer(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void ConvertToCustomer_FromAlreadyConverted_ShouldThrow()
+    {
+        var lead = CreateLead();
+        lead.ConvertToCustomer(Guid.NewGuid());
+
+        Assert.Throws<BusinessException>(() => lead.ConvertToCustomer(Guid.NewGuid()));
+    }
+
     private static Lead CreateLead()
     {
         return new Lead(
