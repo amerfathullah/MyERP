@@ -545,9 +545,21 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.DueDate = input.DueDate;
         invoice.CurrencyCode = input.CurrencyCode;
 
-        // Per ERPNext: Price List defaults from the supplier's own default when not given explicitly.
-        invoice.PriceListId = input.PriceListId
-            ?? (await _supplierRepository.FindAsync(input.SupplierId))?.DefaultPriceListId;
+        // Per ERPNext: Price List defaults from the supplier's own default when not given explicitly, if active (commit fd492100b0).
+        invoice.PriceListId = input.PriceListId;
+        if (!invoice.PriceListId.HasValue)
+        {
+            var supplier = await _supplierRepository.FindAsync(input.SupplierId);
+            if (supplier?.DefaultPriceListId.HasValue == true)
+            {
+                var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
+                var pl = await plRepo.FindAsync(supplier.DefaultPriceListId.Value);
+                if (pl != null && pl.IsActive)
+                {
+                    invoice.PriceListId = pl.Id;
+                }
+            }
+        }
 
         invoice.SupplierInvoiceNumber = input.SupplierInvoiceNumber;
         invoice.Notes = input.Notes;
@@ -557,6 +569,16 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.IsReturnRefund = input.IsReturnRefund;
         invoice.IsSubcontracted = input.IsSubcontracted;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
+
+        Guid? returnAgainstPriceListId = null;
+        if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
+        {
+            var originalInvoice = await _repository.FindAsync(invoice.ReturnAgainstId.Value);
+            returnAgainstPriceListId = originalInvoice?.PriceListId;
+        }
+
+        var transactionValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
+        await transactionValidation.ValidatePriceListAsync(invoice.PriceListId, invoice.IsReturn, returnAgainstPriceListId);
         invoice.EInvoiceDocType = input.EInvoiceDocType;
 
         invoice.ValidateDebitNote();
@@ -784,7 +806,6 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         invoice.IssueDate = input.IssueDate;
         invoice.DueDate = input.DueDate;
-        invoice.CurrencyCode = input.CurrencyCode;
         invoice.PriceListId = input.PriceListId;
         invoice.SupplierInvoiceNumber = input.SupplierInvoiceNumber;
         invoice.Notes = input.Notes;
@@ -792,6 +813,17 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.IsReturn = input.IsReturn;
         invoice.IsDebitNote = input.IsDebitNote;
         invoice.IsReturnRefund = input.IsReturnRefund;
+
+        Guid? updateReturnAgainstPriceListId = null;
+        if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
+        {
+            var originalInvoice = await _repository.FindAsync(invoice.ReturnAgainstId.Value);
+            updateReturnAgainstPriceListId = originalInvoice?.PriceListId;
+        }
+
+        var updateValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
+        await updateValidation.ValidatePriceListAsync(invoice.PriceListId, invoice.IsReturn, updateReturnAgainstPriceListId);
+
         invoice.ValidateDebitNote();
 
         // Auto-resolve DueDate from Payment Terms Template or supplier default if not explicitly provided (ERPNext PR #49232 / commit 77478303fe)
@@ -1100,6 +1132,16 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 transactionValidation.ValidateMaintainSameRate(rateLines, rateAction, canOverride);
             }
         }
+
+        Guid? postReturnAgainstPriceListId = null;
+        if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
+        {
+            var originalInvoice = await _repository.FindAsync(invoice.ReturnAgainstId.Value);
+            postReturnAgainstPriceListId = originalInvoice?.PriceListId;
+        }
+        var postValidation = LazyServiceProvider
+            .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
+        await postValidation.ValidatePriceListAsync(invoice.PriceListId, invoice.IsReturn, postReturnAgainstPriceListId);
 
         // Validate exchange rate parity with linked Purchase Receipts (upstream PR #58177)
         var prRepoForFx = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();

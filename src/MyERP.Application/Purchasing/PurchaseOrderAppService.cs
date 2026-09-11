@@ -261,9 +261,23 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             po.CostCenterId = input.CostCenterId;
         }
 
-        // Per ERPNext: Price List defaults from the supplier's own default when not given explicitly.
-        po.PriceListId = input.PriceListId
-            ?? (await _supplierRepository.FindAsync(input.SupplierId))?.DefaultPriceListId;
+        // Per ERPNext: Price List defaults from the supplier's own default when not given explicitly, if active (commit fd492100b0).
+        po.PriceListId = input.PriceListId;
+        if (!po.PriceListId.HasValue)
+        {
+            var supplier = await _supplierRepository.FindAsync(input.SupplierId);
+            if (supplier?.DefaultPriceListId.HasValue == true)
+            {
+                var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
+                var pl = await plRepo.FindAsync(supplier.DefaultPriceListId.Value);
+                if (pl != null && pl.IsActive)
+                {
+                    po.PriceListId = pl.Id;
+                }
+            }
+        }
+
+        await _transactionValidation.ValidatePriceListAsync(po.PriceListId);
 
         // Auto-fill billing address from supplier master
         var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
@@ -389,6 +403,8 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
 
         // Minimum order quantity validation (domain service)
         await _purchaseOrderManager.ValidateMinimumOrderQtyAsync(po);
+
+        await _transactionValidation.ValidatePriceListAsync(po.PriceListId);
 
         po.Submit();
 
@@ -826,6 +842,8 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         order.SupplierId = input.SupplierId;
         order.PriceListId = input.PriceListId;
         order.Notes = input.Notes;
+
+        await _transactionValidation.ValidatePriceListAsync(order.PriceListId);
 
         order.ClearItems();
         foreach (var item in input.Items)

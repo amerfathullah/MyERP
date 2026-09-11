@@ -174,6 +174,75 @@ public class PurchaseReceiptTests
         receipt.Status.ShouldBe(DocumentStatus.Submitted);
     }
 
+    [Fact]
+    public void PerBilled_FullyRejectedReceipt_Unbilled_ShouldBeZeroPercentAndToBill()
+    {
+        // Fully rejected receipt: accepted qty 0, rejected qty 10 (ERPNext PR #58885 / commit 3761eb8cbe)
+        var receipt = CreateReceipt();
+        receipt.AddItem(Guid.NewGuid(), "Part A", 0, 100m, 0m, rejectedQty: 10);
+        receipt.Submit();
+
+        var item = receipt.Items[0];
+        item.BillableQty.ShouldBe(10m);
+        item.PendingBillingQty.ShouldBe(10m);
+        receipt.PerBilled.ShouldBe(0m);
+        receipt.BillingStatus.ShouldBe("To Bill");
+    }
+
+    [Fact]
+    public void PerBilled_FullyRejectedReceipt_PartiallyBilled_ShouldBeFiftyPercentAndPartiallyBilled()
+    {
+        var receipt = CreateReceipt();
+        receipt.AddItem(Guid.NewGuid(), "Part A", 0, 100m, 0m, rejectedQty: 10);
+        receipt.Submit();
+
+        var item = receipt.Items[0];
+        item.BilledQty = 5m;
+
+        item.BillableQty.ShouldBe(10m);
+        item.PendingBillingQty.ShouldBe(5m);
+        receipt.PerBilled.ShouldBe(50m);
+        receipt.BillingStatus.ShouldBe("Partially Billed");
+    }
+
+    [Fact]
+    public void PerBilled_FullyRejectedReceipt_FullyBilled_ShouldBeHundredPercentAndCompleted()
+    {
+        var receipt = CreateReceipt();
+        receipt.AddItem(Guid.NewGuid(), "Part A", 0, 100m, 0m, rejectedQty: 10);
+        receipt.Submit();
+
+        var item = receipt.Items[0];
+        item.BilledQty = 10m;
+
+        item.BillableQty.ShouldBe(10m);
+        item.PendingBillingQty.ShouldBe(0m);
+        receipt.PerBilled.ShouldBe(100m);
+        receipt.BillingStatus.ShouldBe("Completed");
+    }
+
+    [Fact]
+    public void PerBilled_AcceptedAndRejectedBilled_NeverExceeds100Percent()
+    {
+        var receipt = CreateReceipt();
+        receipt.AddItem(Guid.NewGuid(), "Part A", 10, 100m, 0m, rejectedQty: 5);
+        receipt.Submit();
+
+        var item = receipt.Items[0];
+        // Billed more than accepted quantity because rejected qty is also billed
+        item.BilledQty = 12m;
+        item.BillableQty.ShouldBe(15m);
+        item.PendingBillingQty.ShouldBe(3m);
+        receipt.PerBilled.ShouldBe(80m); // 12 / 15 = 80%
+        receipt.BillingStatus.ShouldBe("Partially Billed");
+
+        item.BilledQty = 15m;
+        item.BillableQty.ShouldBe(15m);
+        item.PendingBillingQty.ShouldBe(0m);
+        receipt.PerBilled.ShouldBe(100m);
+        receipt.BillingStatus.ShouldBe("Completed");
+    }
+
     private static PurchaseReceipt CreateReceipt()
     {
         return new PurchaseReceipt(

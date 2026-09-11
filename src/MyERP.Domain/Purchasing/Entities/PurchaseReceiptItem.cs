@@ -90,8 +90,25 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
     public bool IsClosed { get; set; }
 
-    /// <summary>Pending billing quantity = Quantity - BilledQty. 0 if closed.</summary>
-    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, Math.Abs(Quantity) - Math.Abs(BilledQty));
+    /// <summary>
+    /// Effective billable quantity: Quantity, or RejectedQty when Quantity is 0,
+    /// or Quantity + RejectedQty when billing exceeds Quantity (PR #58885 / commit 3761eb8cbe).
+    /// </summary>
+    public decimal BillableQty
+    {
+        get
+        {
+            var absQty = Math.Abs(Quantity);
+            if (absQty == 0 && RejectedQty > 0)
+                return Math.Abs(RejectedQty);
+            if (Math.Abs(BilledQty) > absQty && RejectedQty > 0)
+                return Math.Max(absQty + Math.Abs(RejectedQty), Math.Abs(BilledQty));
+            return absQty;
+        }
+    }
+
+    /// <summary>Pending billing quantity = BillableQty - BilledQty. 0 if closed.</summary>
+    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, BillableQty - Math.Abs(BilledQty));
 
     /// <summary>
     /// Cumulative variance between what Purchase Invoices billed this item at and this PR item's

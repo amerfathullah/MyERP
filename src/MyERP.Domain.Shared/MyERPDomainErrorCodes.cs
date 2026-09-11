@@ -557,4 +557,5 @@ public static class MyERPDomainErrorCodes
     public const string StaleExchangeRate = "MyERP:02089"; // was "MyERP:02088" (collided with DuplicateDefaultFinanceBook)
     public const string CannotChangeCustomerForQuotationFromOpportunity = "MyERP:01050";
     public const string PaymentRequestAlreadyCreated = "MyERP:02090";
+    public const string PriceListDisabled = "MyERP:01051";
 }

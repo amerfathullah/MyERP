@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
+using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
@@ -226,9 +227,24 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         quotation.Terms = input.Terms;
         quotation.Notes = input.Notes;
 
-        // Per ERPNext: Price List defaults from the customer's own default when not given explicitly.
-        quotation.PriceListId = input.PriceListId
-            ?? (await _customerRepository.FindAsync(input.CustomerId))?.DefaultPriceListId;
+        // Per ERPNext: Price List defaults from the customer's own default when not given explicitly, if active (commit fd492100b0).
+        quotation.PriceListId = input.PriceListId;
+        if (!quotation.PriceListId.HasValue)
+        {
+            var customer = await _customerRepository.FindAsync(input.CustomerId);
+            if (customer?.DefaultPriceListId.HasValue == true)
+            {
+                var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
+                var pl = await plRepo.FindAsync(customer.DefaultPriceListId.Value);
+                if (pl != null && pl.IsActive)
+                {
+                    quotation.PriceListId = pl.Id;
+                }
+            }
+        }
+
+        var transactionValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
+        await transactionValidation.ValidatePriceListAsync(quotation.PriceListId);
 
         // Validate all items are active (per DO-NOT: disabled items must not appear in transactions)
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
@@ -316,6 +332,9 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         quotation.Terms = input.Terms;
         quotation.Notes = input.Notes;
 
+        var transactionValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
+        await transactionValidation.ValidatePriceListAsync(quotation.PriceListId);
+
         // Replace items
         quotation.ClearItems();
         foreach (var item in input.Items)
@@ -335,6 +354,9 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     public async Task<QuotationDto> SubmitAsync(Guid id)
     {
         var quotation = await _repository.GetAsync(id);
+        var transactionValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
+        await transactionValidation.ValidatePriceListAsync(quotation.PriceListId);
+
         quotation.Submit();
         await _repository.UpdateAsync(quotation, autoSave: true);
 

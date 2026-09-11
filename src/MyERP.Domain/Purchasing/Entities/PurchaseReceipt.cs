@@ -87,8 +87,8 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             var basis = openItems.Count > 0 ? openItems : _items;
             return Math.Round(basis.Min(i =>
             {
-                var absQty = Math.Abs(i.Quantity);
-                return absQty == 0 ? 100 : Math.Min(100, Math.Abs(i.BilledQty) / absQty * 100);
+                var billableQty = i.BillableQty;
+                return billableQty == 0 ? 100 : Math.Min(100, Math.Abs(i.BilledQty) / billableQty * 100);
             }), 2);
         }
     }
@@ -128,23 +128,39 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// Adds a received line. <paramref name="warehouseId"/> is an item-level override of the
     /// receipt's target warehouse — set by putaway allocation, which splits one ordered qty across
     /// several warehouses. Null keeps the receipt-level warehouse.
+    /// Supports rejected quantity per ERPNext PR #58885 / commit 3761eb8cbe.
     /// </summary>
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", Guid? purchaseOrderItemId = null, Guid? warehouseId = null)
+    public void AddItem(
+        Guid itemId,
+        string description,
+        decimal quantity,
+        decimal unitPrice,
+        decimal taxAmount,
+        string uom = "Unit",
+        Guid? purchaseOrderItemId = null,
+        Guid? warehouseId = null,
+        decimal rejectedQty = 0,
+        Guid? rejectedWarehouseId = null,
+        decimal receivedQty = 0)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         // Per DO-NOT: returns must always have negative qty
-        if (!IsReturn && quantity <= 0)
-            throw new ArgumentException("Quantity must be positive for non-return receipts.", nameof(quantity));
+        if (!IsReturn && quantity <= 0 && rejectedQty <= 0)
+            throw new ArgumentException("Quantity or RejectedQty must be positive for non-return receipts.", nameof(quantity));
         if (IsReturn && quantity >= 0)
             throw new ArgumentException("Quantity must be negative for return receipts.", nameof(quantity));
 
-        _items.Add(new PurchaseReceiptItem(
+        var item = new PurchaseReceiptItem(
             Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, purchaseOrderItemId)
         {
             WarehouseId = warehouseId,
-        });
+            RejectedQty = rejectedQty,
+            RejectedWarehouseId = rejectedWarehouseId,
+            ReceivedQty = receivedQty > 0 ? receivedQty : (quantity + rejectedQty),
+        };
+        _items.Add(item);
 
         RecalculateTotals();
     }

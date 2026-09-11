@@ -68,28 +68,50 @@ public class ItemDetailsAppService : ApplicationService, IItemDetailsAppService
             ? TransactionType.Buying
             : TransactionType.Selling;
 
-        // Per ERPNext: a party's own default price list (Customer/Supplier.default_price_list) takes
-        // precedence over the system default when the document itself didn't specify one.
+        // Per ERPNext (PR #58926 / commit fd492100b0): ignore disabled price lists and party defaults
+        var priceListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
         var effectivePriceListId = input.PriceListId;
+        if (effectivePriceListId.HasValue)
+        {
+            var pl = await priceListRepo.FindAsync(effectivePriceListId.Value);
+            if (pl != null && !pl.IsActive)
+            {
+                effectivePriceListId = null;
+            }
+        }
+
         if (!effectivePriceListId.HasValue)
         {
             if (txType == TransactionType.Selling && input.CustomerId.HasValue)
             {
                 var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
                 var customer = await customerRepo.FindAsync(input.CustomerId.Value);
-                effectivePriceListId = customer?.DefaultPriceListId;
+                if (customer?.DefaultPriceListId.HasValue == true)
+                {
+                    var pl = await priceListRepo.FindAsync(customer.DefaultPriceListId.Value);
+                    if (pl != null && pl.IsActive)
+                    {
+                        effectivePriceListId = pl.Id;
+                    }
+                }
             }
             else if (txType == TransactionType.Buying && input.SupplierId.HasValue)
             {
                 var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
                 var supplier = await supplierRepo.FindAsync(input.SupplierId.Value);
-                effectivePriceListId = supplier?.DefaultPriceListId;
+                if (supplier?.DefaultPriceListId.HasValue == true)
+                {
+                    var pl = await priceListRepo.FindAsync(supplier.DefaultPriceListId.Value);
+                    if (pl != null && pl.IsActive)
+                    {
+                        effectivePriceListId = pl.Id;
+                    }
+                }
             }
 
             // Fallback to default buying or selling price list if still unset (ERPNext PR #48445 / commit 27c73cf9e9)
             if (!effectivePriceListId.HasValue)
             {
-                var priceListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
                 var priceListQuery = await priceListRepo.GetQueryableAsync();
                 effectivePriceListId = txType == TransactionType.Buying
                     ? priceListQuery.Where(p => p.IsBuying && p.IsDefault && p.IsActive).Select(p => (Guid?)p.Id).FirstOrDefault()

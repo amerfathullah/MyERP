@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using MyERP.Core.Entities;
+using MyERP.Inventory.Entities;
 using MyERP.Projects.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -124,5 +125,34 @@ public class TransactionValidationService : DomainService
             .WithData("rate", mismatch.Rate)
             .WithData("referenceRate", mismatch.ReferenceRate)
             .WithData("referenceDocType", mismatch.ReferenceDocType);
+    }
+
+    /// <summary>
+    /// Validates that the price list is enabled (active).
+    /// Per ERPNext AccountsController.validate_price_list (PR #58891 / commit f8c2f3440b):
+    /// Returns retain a submitted voucher's pricing even if its price list is now disabled.
+    /// In all other cases, disabled price lists are rejected.
+    /// </summary>
+    public async Task ValidatePriceListAsync(
+        Guid? priceListId,
+        bool isReturn = false,
+        Guid? returnAgainstPriceListId = null)
+    {
+        if (!priceListId.HasValue) return;
+
+        var priceListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
+        var priceList = await priceListRepo.FindAsync(priceListId.Value);
+        if (priceList == null) return;
+
+        if (priceList.IsActive) return;
+
+        // Returns retain submitted voucher's price list even if now disabled
+        if (isReturn && returnAgainstPriceListId.HasValue && returnAgainstPriceListId.Value == priceListId.Value)
+        {
+            return;
+        }
+
+        throw new BusinessException(MyERPDomainErrorCodes.PriceListDisabled)
+            .WithData("priceListName", priceList.Name);
     }
 }

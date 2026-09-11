@@ -138,7 +138,7 @@ public class PerItemDeliveryDateAndUpstreamSyncTests
     [Fact]
     public void SalesOrder_ValidateDeliveryDates_SetsMissingItemDateWithoutOverwritingExisting()
     {
-        var so = CreateSalesOrder();
+        var so = new SalesOrder(Guid.NewGuid(), CompanyId, CustomerId, "SO-TEST-001", new DateTime(2026, 9, 1), null);
         so.DeliveryDate = new DateTime(2026, 9, 20);
         so.AddItem(ItemId1, "Item 1", 5, 100m, 0m, "Unit", new DateTime(2026, 9, 10));
         so.AddItem(ItemId2, "Item 2", 5, 100m, 0m, "Unit"); // No explicit delivery date

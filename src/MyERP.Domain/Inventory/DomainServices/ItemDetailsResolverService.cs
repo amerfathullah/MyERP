@@ -350,10 +350,14 @@ public class ItemDetailsResolverService : DomainService
     /// </summary>
     private async Task<Guid?> ResolveEffectivePriceListIdAsync(Guid? explicitPriceListId, TransactionType txType)
     {
-        if (explicitPriceListId.HasValue)
-            return explicitPriceListId;
-
         var priceListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
+        if (explicitPriceListId.HasValue)
+        {
+            var explicitPl = await priceListRepo.FindAsync(explicitPriceListId.Value);
+            if (explicitPl != null && explicitPl.IsActive)
+                return explicitPriceListId;
+        }
+
         var query = await priceListRepo.GetQueryableAsync();
         var defaultList = query.FirstOrDefault(p => p.IsActive && p.IsDefault &&
             (txType == TransactionType.Selling ? p.IsSelling : p.IsBuying));

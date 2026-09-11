@@ -551,13 +551,35 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.ContactPersonId = input.ContactPersonId;
         invoice.ShippingContactPersonId = input.ShippingContactPersonId;
 
-        // Per ERPNext: Price List defaults from the customer's own default when not given explicitly.
-        invoice.PriceListId = input.PriceListId
-            ?? (await _customerRepository.FindAsync(input.CustomerId))?.DefaultPriceListId;
+        // Per ERPNext: Price List defaults from the customer's own default when not given explicitly, if active (commit fd492100b0).
+        invoice.PriceListId = input.PriceListId;
+        if (!invoice.PriceListId.HasValue)
+        {
+            var customer = await _customerRepository.FindAsync(input.CustomerId);
+            if (customer?.DefaultPriceListId.HasValue == true)
+            {
+                var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
+                var pl = await plRepo.FindAsync(customer.DefaultPriceListId.Value);
+                if (pl != null && pl.IsActive)
+                {
+                    invoice.PriceListId = pl.Id;
+                }
+            }
+        }
         invoice.IsReturn = input.IsReturn;
         invoice.IsDebitNote = input.IsDebitNote;
         invoice.IsReturnRefund = input.IsReturnRefund;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
+
+        Guid? returnAgainstPriceListId = null;
+        if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
+        {
+            var originalInvoice = await _repository.FindAsync(invoice.ReturnAgainstId.Value);
+            returnAgainstPriceListId = originalInvoice?.PriceListId;
+        }
+
+        var transactionValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
+        await transactionValidation.ValidatePriceListAsync(invoice.PriceListId, invoice.IsReturn, returnAgainstPriceListId);
         invoice.IsOpening = input.IsOpening;
         invoice.IsPos = input.IsPos;
         invoice.IsConsolidated = input.IsConsolidated;
@@ -1020,11 +1042,20 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
             // Project must belong to the invoice's customer (prevents billing/costing
             // against a different customer's project) — same rule as Sales Order.
+            var transactionValidation = LazyServiceProvider
+                .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
+
+            Guid? returnAgainstPriceListId = null;
+            if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
+            {
+                var originalInvoice = await _repository.FindAsync(invoice.ReturnAgainstId.Value);
+                returnAgainstPriceListId = originalInvoice?.PriceListId;
+            }
+            await transactionValidation.ValidatePriceListAsync(invoice.PriceListId, invoice.IsReturn, returnAgainstPriceListId);
+
             if (invoice.ProjectId.HasValue)
             {
-                var projectValidation = LazyServiceProvider
-                    .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
-                await projectValidation.ValidateProjectCustomerAsync(invoice.ProjectId, invoice.CustomerId);
+                await transactionValidation.ValidateProjectCustomerAsync(invoice.ProjectId, invoice.CustomerId);
             }
 
             // Maintain same rate throughout the sales cycle (Selling Settings)
@@ -1054,8 +1085,6 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                         .Where(i => i.SalesOrderItemId.HasValue && soItemRates.ContainsKey(i.SalesOrderItemId.Value))
                         .Select(i => (i.Description, i.UnitPrice, soItemRates[i.SalesOrderItemId!.Value], "Sales Order"));
 
-                    var transactionValidation = LazyServiceProvider
-                        .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
                     transactionValidation.ValidateMaintainSameRate(rateLines, rateAction, canOverride);
                 }
             }

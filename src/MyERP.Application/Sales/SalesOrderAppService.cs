@@ -276,9 +276,24 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.CostCenterId = input.CostCenterId;
         order.ProjectId = input.ProjectId;
 
-        // Per ERPNext: Price List defaults from the customer's own default when not given explicitly.
-        order.PriceListId = input.PriceListId
-            ?? (await _customerRepository.FindAsync(input.CustomerId))?.DefaultPriceListId;
+        // Per ERPNext: Price List defaults from the customer's own default when not given explicitly, if active (commit fd492100b0).
+        order.PriceListId = input.PriceListId;
+        if (!order.PriceListId.HasValue)
+        {
+            var customer = await _customerRepository.FindAsync(input.CustomerId);
+            if (customer?.DefaultPriceListId.HasValue == true)
+            {
+                var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
+                var pl = await plRepo.FindAsync(customer.DefaultPriceListId.Value);
+                if (pl != null && pl.IsActive)
+                {
+                    order.PriceListId = pl.Id;
+                }
+            }
+        }
+
+        var transactionValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
+        await transactionValidation.ValidatePriceListAsync(order.PriceListId);
 
 
         // Auto-fill addresses from customer master
@@ -539,15 +554,17 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
         }
 
+        var validationService = LazyServiceProvider
+            .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
+        await validationService.ValidatePriceListAsync(order.PriceListId);
+
         order.Submit();
 
         // Project must belong to the order's customer (prevents billing/costing
         // against a different customer's project) — same rule as Sales Invoice.
         if (order.ProjectId.HasValue)
         {
-            var projectValidation = LazyServiceProvider
-                .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
-            await projectValidation.ValidateProjectCustomerAsync(order.ProjectId, order.CustomerId);
+            await validationService.ValidateProjectCustomerAsync(order.ProjectId, order.CustomerId);
         }
 
         // Credit limit check — per DO-NOT: "must also enforce at SO, DN and SI submit"
@@ -1016,6 +1033,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.ProjectId = input.ProjectId;
         order.PriceListId = input.PriceListId;
         order.QuotationId = input.QuotationId;
+
+        var updateValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
+        await updateValidation.ValidatePriceListAsync(order.PriceListId);
 
         // Replace items
         order.ClearItems();
