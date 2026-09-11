@@ -107,6 +107,7 @@ public class CreateBomDto
     public Guid? RoutingId { get; set; }
     public Guid? ScrapWarehouseId { get; set; }
     public decimal ProcessLossPercentage { get; set; }
+    [Range(0, 100)] public decimal? FgCostAllocationPercentage { get; set; }
     public bool SetQtyBasedOnPercentage { get; set; }
     public List<CreateBomItemDto> Items { get; set; } = new();
     public List<CreateBomOperationDto> Operations { get; set; } = new();

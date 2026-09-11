@@ -34,9 +34,10 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// finished good's, so it must not also count toward the FG's cost (per ERPNext
     /// bom/services/costing.py: total_cost = operating_cost + raw_material_cost -
     /// secondary_items_cost). Mirrors the per-item allocation RecalculateCost() applies.
+    /// Excludes legacy items (!s.IsLegacy) per ERPNext PR #58979.
     /// </summary>
     public decimal SecondaryItemsCost => SecondaryItems
-        .Where(s => s.CostAllocationPercentage > 0)
+        .Where(s => !s.IsLegacy && s.CostAllocationPercentage > 0)
         .Sum(s => TotalMaterialCost * (s.CostAllocationPercentage / 100m));
 
     public decimal TotalCost => TotalMaterialCost + OperatingCost - SecondaryItemsCost;
@@ -175,7 +176,7 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         var allocationBasis = Math.Max(0, TotalMaterialCost - ownCost);
 
-        foreach (var si in SecondaryItems.Where(s => s.CostAllocationPercentage > 0 || s.ValuationType == SecondaryItemValuationType.PercentageOfFgCost))
+        foreach (var si in SecondaryItems.Where(s => !s.IsLegacy && (s.CostAllocationPercentage > 0 || s.ValuationType == SecondaryItemValuationType.PercentageOfFgCost)))
         {
             if (si.CostAllocationPercentage > 0)
             {
@@ -284,31 +285,57 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         SecondaryItems.Add(item);
     }
 
-    /// <summary>
-    /// Validates that FG + all secondary items cost allocation totals exactly 100%.
-    /// Per DO-NOT: "Skip FG cost_allocation_per validation (FG + all secondary items MUST total exactly 100%)"
-    /// </summary>
-    public bool ValidateCostAllocation()
-    {
-        if (!SecondaryItems.Any(si => si.CostAllocationPercentage > 0))
-            return true; // No cost allocation configured — FG gets 100% implicitly
-
-        var secondaryTotal = SecondaryItems.Sum(si => si.CostAllocationPercentage);
-        var fgAllocation = 100m - secondaryTotal;
-        return fgAllocation >= 0 && secondaryTotal <= 100m;
-    }
+    private decimal? _fgCostAllocationPercentage;
 
     /// <summary>
-    /// Gets the FG cost allocation percentage (auto-reduced when secondary items have allocation).
-    /// Per gotcha #518: FG's allocation = 100 - total_secondary_pct.
+    /// Gets or sets the FG cost allocation percentage. Defaults to 100%.
+    /// Auto-reduced when secondary items have cost allocation per ERPNext PR #58979 / PR #58939.
     /// </summary>
     public decimal FgCostAllocationPercentage
     {
         get
         {
-            var secondaryTotal = SecondaryItems.Sum(si => si.CostAllocationPercentage);
+            if (_fgCostAllocationPercentage.HasValue)
+                return _fgCostAllocationPercentage.Value;
+            var secondaryTotal = SecondaryItems.Where(si => !si.IsLegacy).Sum(si => si.CostAllocationPercentage);
             return Math.Clamp(100m - secondaryTotal, 0m, 100m);
         }
+        set => _fgCostAllocationPercentage = value;
+    }
+
+    /// <summary>
+    /// Sets FG cost allocation percentage.
+    /// Per ERPNext PR #58979 / commit bc2fa03730 and PR #58939 / commit 33a066d568:
+    /// Handles empty/float coercion, and if FG allocation is 100% while secondary items exist,
+    /// auto-reduces FG allocation: cost_allocation_per = 100 - total_secondary_items_per.
+    /// </summary>
+    public void SetFgCostAllocation(decimal? costAllocationPercentage = null)
+    {
+        if (costAllocationPercentage.HasValue)
+            _fgCostAllocationPercentage = costAllocationPercentage.Value;
+
+        var totalSecondary = SecondaryItems.Where(s => !s.IsLegacy).Sum(s => s.CostAllocationPercentage);
+        var currentFg = _fgCostAllocationPercentage ?? 100m;
+
+        if (currentFg == 100m && totalSecondary > 0)
+        {
+            _fgCostAllocationPercentage = 100m - totalSecondary;
+        }
+    }
+
+    /// <summary>
+    /// Validates that FG + all secondary items cost allocation totals exactly 100%.
+    /// Per DO-NOT: "Skip FG cost_allocation_per validation (FG + all secondary items MUST total exactly 100%)"
+    /// Per ERPNext PR #58979 / commit bc2fa03730: total_cost_allocation_per must equal 100%.
+    /// </summary>
+    public bool ValidateCostAllocation()
+    {
+        var secondaryTotal = SecondaryItems.Where(si => !si.IsLegacy).Sum(si => si.CostAllocationPercentage);
+        if (secondaryTotal == 0 && (!_fgCostAllocationPercentage.HasValue || _fgCostAllocationPercentage.Value == 100m))
+            return true; // No cost allocation configured — FG gets 100% implicitly
+
+        var fgAllocation = FgCostAllocationPercentage;
+        return fgAllocation >= 0 && Math.Abs((fgAllocation + secondaryTotal) - 100m) < 0.0001m;
     }
 
     /// <summary>

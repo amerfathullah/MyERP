@@ -94,10 +94,17 @@ public class StockPostingService : DomainService
             // round 78's JobCard fix (GL showed the correct 100, Bin.StockValue showed 0).
             if (item.SourceWarehouseId.HasValue)
             {
-                var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, item.SourceWarehouseId.Value);
+                var rate = item.ValuationRate ?? 0m;
+                if (rate <= 0)
+                {
+                    rate = await _valuationService.GetValuationRateAsync(
+                        item.ItemId, item.SourceWarehouseId.Value, item.BatchId,
+                        asOfDate: stockEntry.PostingDate, excludeVoucherId: stockEntry.Id);
+                }
+
                 var sle = await _valuationService.CreateLedgerEntryAsync(
                     stockEntry.CompanyId, item.ItemId, item.SourceWarehouseId.Value,
-                    stockEntry.PostingDate, -item.Quantity, balance.ValuationRate,
+                    stockEntry.PostingDate, -item.Quantity, rate,
                     voucherType: "StockEntry", voucherId: stockEntry.Id,
                     tenantId: stockEntry.TenantId, batchId: item.BatchId);
 

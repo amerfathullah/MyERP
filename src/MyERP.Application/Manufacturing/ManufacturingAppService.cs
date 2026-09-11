@@ -180,8 +180,17 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             bom.AddSecondaryItem(secondaryItem);
         }
 
+        if (input.FgCostAllocationPercentage.HasValue)
+        {
+            bom.SetFgCostAllocation(input.FgCostAllocationPercentage.Value);
+        }
+        else
+        {
+            bom.SetFgCostAllocation();
+        }
+
         // Validate cost allocation totals 100%
-        if (bom.SecondaryItems.Any(s => s.CostAllocationPercentage > 0) && !bom.ValidateCostAllocation())
+        if (!bom.ValidateCostAllocation())
             throw new BusinessException(MyERPDomainErrorCodes.SecondaryItemCostAllocationInvalid);
 
         bom.RecalculateCost();
@@ -284,6 +293,19 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             };
             bom.AddSecondaryItem(secondaryItem);
         }
+
+        if (input.FgCostAllocationPercentage.HasValue)
+        {
+            bom.SetFgCostAllocation(input.FgCostAllocationPercentage.Value);
+        }
+        else
+        {
+            bom.SetFgCostAllocation();
+        }
+
+        // Validate cost allocation totals 100%
+        if (!bom.ValidateCostAllocation())
+            throw new BusinessException(MyERPDomainErrorCodes.SecondaryItemCostAllocationInvalid);
 
         bom.RecalculateCost();
         await _bomRepository.UpdateAsync(bom);

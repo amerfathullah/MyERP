@@ -54,8 +54,10 @@ public class ItemAvailabilityDto
 
 public class GetBatchWiseBalanceRequestDto
 {
+    public Guid? CompanyId { get; set; }
     public Guid? ItemId { get; set; }
     public Guid? WarehouseId { get; set; }
+    public Guid? BatchId { get; set; }
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
     public bool IncludeZeroBalance { get; set; }
@@ -67,6 +69,7 @@ public class BatchWiseBalanceReportDto
     public int TotalBatches { get; set; }
     public decimal TotalQuantity { get; set; }
     public decimal TotalStockValue { get; set; }
+    public decimal TotalReservedStock { get; set; }
     public int ExpiredBatchCount { get; set; }
 }
 
@@ -80,6 +83,11 @@ public class BatchWiseBalanceRowDto
     public string WarehouseName { get; set; } = "";
     public decimal Balance { get; set; }
     public decimal StockValue { get; set; }
+    /// <summary>
+    /// Current active reserved quantity from submitted Stock Reservation Entries.
+    /// Per ERPNext PR #59008 / commit 000dcfc23d.
+    /// </summary>
+    public decimal ReservedStockQty { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public bool IsExpired { get; set; }
     public bool IsDisabled { get; set; }

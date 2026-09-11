@@ -3826,6 +3826,8 @@
     "Menu:BatchWiseBalance": "Batch-Wise Balance",
     "BatchWiseBalance": "Batch-Wise Stock Balance",
     "TotalBatches": "Total Batches",
+    "TotalReservedStock": "Total Reserved Stock",
+    "ReservedStockCurrent": "Reserved Stock (Current)",
     "ExpiredBatches": "Expired Batches",
     "IncludeZeroBalance": "Include Zero Balance",
     "NoBatchDataFound": "No batch stock data found",

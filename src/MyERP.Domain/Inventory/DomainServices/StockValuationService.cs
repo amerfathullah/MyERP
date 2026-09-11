@@ -21,15 +21,29 @@ public class StockValuationService : DomainService
     private readonly IRepository<StockLedgerEntry, Guid> _ledgerRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly ISettingProvider _settingProvider;
+    private readonly IRepository<Batch, Guid>? _batchRepository;
+    private readonly IRepository<SerialAndBatchBundle, Guid>? _bundleRepository;
 
     public StockValuationService(
         IRepository<StockLedgerEntry, Guid> ledgerRepository,
         IRepository<Item, Guid> itemRepository,
         ISettingProvider settingProvider)
+        : this(ledgerRepository, itemRepository, settingProvider, null, null)
+    {
+    }
+
+    public StockValuationService(
+        IRepository<StockLedgerEntry, Guid> ledgerRepository,
+        IRepository<Item, Guid> itemRepository,
+        ISettingProvider settingProvider,
+        IRepository<Batch, Guid>? batchRepository = null,
+        IRepository<SerialAndBatchBundle, Guid>? bundleRepository = null)
     {
         _ledgerRepository = ledgerRepository;
         _itemRepository = itemRepository;
         _settingProvider = settingProvider;
+        _batchRepository = batchRepository;
+        _bundleRepository = bundleRepository;
     }
 
     /// <summary>
@@ -74,6 +88,22 @@ public class StockValuationService : DomainService
                 (valuationRate, newBalanceQty, newBalanceValue) =
                     CalculateMovingAverage(previousSle, quantityChange, incomingRate);
                 break;
+        }
+
+        // Per ERPNext stock_ledger.py get_valuation_rate:
+        // When stock-out is against a batch with batchwise valuation, use the batch's valuation rate
+        if (quantityChange < 0 && batchId.HasValue && incomingRate <= 0)
+        {
+            var batchRate = await GetValuationRateAsync(itemId, warehouseId, batchId, asOfDate: postingDate);
+            if (batchRate > 0)
+            {
+                valuationRate = batchRate;
+                if (item.ValuationMethod == ValuationMethod.WeightedAverage)
+                {
+                    newBalanceQty = (previousSle?.BalanceQuantity ?? 0) + quantityChange;
+                    newBalanceValue = Math.Max(0, newBalanceQty * valuationRate);
+                }
+            }
         }
 
         // Negative stock validation: block stock-out that would go negative
@@ -140,6 +170,107 @@ public class StockValuationService : DomainService
             return new StockBalance(0, 0);
 
         return new StockBalance(lastEntry.BalanceQuantity, lastEntry.BalanceValue);
+    }
+
+    /// <summary>
+    /// Gets the valuation rate for an item in a warehouse, optionally for a specific batch or serial/batch bundle.
+    /// Per ERPNext stock_ledger.py get_valuation_rate:
+    /// 1. If batch specified and uses batchwise valuation: computes batch moving average rate = sum(StockValueDifference) / sum(QuantityChange).
+    /// 2. If serial_and_batch_bundle specified: computes incoming rate per unit using bundle.TotalQty (PR #58994 / commit 825d24f406).
+    ///    Calculates weighted rate across bundle entries divided by total qty (not hardcoded to 1 unit).
+    /// 3. Fallback: last non-cancelled SLE valuation rate for (item, warehouse).
+    /// </summary>
+    public async Task<decimal> GetValuationRateAsync(
+        Guid itemId,
+        Guid warehouseId,
+        Guid? batchId = null,
+        Guid? serialAndBatchBundleId = null,
+        DateTime? asOfDate = null,
+        Guid? excludeVoucherId = null)
+    {
+        // 1. Batch-wise valuation
+        if (batchId.HasValue)
+        {
+            var batchRepo = _batchRepository ?? LazyServiceProvider.LazyGetService<IRepository<Batch, Guid>>();
+            if (batchRepo != null)
+            {
+                var batch = await batchRepo.FindAsync(batchId.Value);
+                if (batch != null && batch.UseBatchwiseValuation)
+                {
+                    var queryable = await _ledgerRepository.GetQueryableAsync();
+                    var batchEntries = queryable
+                        .Where(s => s.ItemId == itemId
+                            && s.WarehouseId == warehouseId
+                            && s.BatchId == batchId.Value
+                            && !s.IsCancelled);
+
+                    if (asOfDate.HasValue)
+                        batchEntries = batchEntries.Where(s => s.PostingDate <= asOfDate.Value);
+                    if (excludeVoucherId.HasValue)
+                        batchEntries = batchEntries.Where(s => s.VoucherId != excludeVoucherId.Value);
+
+                    var list = batchEntries.ToList();
+                    var totalQty = list.Sum(s => s.QuantityChange);
+                    if (totalQty > 0)
+                    {
+                        var totalVal = list.Sum(s => s.StockValueDifference != 0 ? s.StockValueDifference : s.StockValue);
+                        return Math.Round(totalVal / totalQty, 4);
+                    }
+                }
+            }
+        }
+
+        // 2. Serial and Batch Bundle (PR #58994: rate per unit with actual_qty = -abs(bundle.total_qty))
+        if (serialAndBatchBundleId.HasValue)
+        {
+            var bundleRepo = _bundleRepository ?? LazyServiceProvider.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
+            if (bundleRepo != null)
+            {
+                var bundle = await bundleRepo.FindAsync(serialAndBatchBundleId.Value);
+                if (bundle != null && bundle.Entries.Any())
+                {
+                    var totalQty = Math.Abs(bundle.TotalQty);
+                    if (totalQty > 0)
+                    {
+                        decimal totalAmount = 0m;
+                        foreach (var entry in bundle.Entries)
+                        {
+                            decimal entryRate = entry.IncomingRate;
+                            if (entryRate == 0 && entry.BatchId.HasValue)
+                            {
+                                entryRate = await GetValuationRateAsync(
+                                    itemId, warehouseId, entry.BatchId.Value,
+                                    asOfDate: asOfDate ?? bundle.PostingDate,
+                                    excludeVoucherId: excludeVoucherId);
+                            }
+                            totalAmount += entry.Qty * entryRate;
+                        }
+                        return Math.Round(Math.Abs(totalAmount / totalQty), 4);
+                    }
+                }
+            }
+        }
+
+        // 3. Fallback: last non-cancelled SLE for (item, warehouse)
+        var sleQ = await _ledgerRepository.GetQueryableAsync();
+        var fallbackQuery = sleQ
+            .Where(s => s.ItemId == itemId && s.WarehouseId == warehouseId && !s.IsCancelled);
+
+        if (asOfDate.HasValue)
+            fallbackQuery = fallbackQuery.Where(s => s.PostingDate <= asOfDate.Value);
+        if (excludeVoucherId.HasValue)
+            fallbackQuery = fallbackQuery.Where(s => s.VoucherId != excludeVoucherId.Value);
+
+        var lastSle = fallbackQuery
+            .OrderByDescending(s => s.PostingDate)
+            .ThenByDescending(s => s.CreationTime)
+            .FirstOrDefault();
+
+        if (lastSle != null && lastSle.ValuationRate >= 0)
+            return lastSle.ValuationRate;
+
+        var item = await _itemRepository.FindAsync(itemId);
+        return item?.StandardBuyingPrice ?? 0m;
     }
 
     /// <summary>

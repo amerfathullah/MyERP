@@ -91,12 +91,29 @@ public class SerialAndBatchBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Recalculate();
     }
 
-    /// <summary>Recalculate totals from entries.</summary>
+    /// <summary>
+    /// Recalculate totals from entries.
+    /// Per ERPNext PR #58994 / commit 825d24f406:
+    /// Calculate batch bundle valuation per unit using absolute total quantity.
+    /// </summary>
     public void Recalculate()
     {
         TotalQty = Entries.Sum(e => e.Qty);
         TotalAmount = Entries.Sum(e => e.Qty * e.IncomingRate);
-        AvgRate = TotalQty != 0 ? TotalAmount / TotalQty : 0;
+        var absQty = Math.Abs(TotalQty);
+        AvgRate = absQty != 0 ? Math.Round(Math.Abs(TotalAmount / absQty), 4) : 0m;
+    }
+
+    /// <summary>
+    /// Calculates the valuation rate per unit across all entries in the bundle.
+    /// Per ERPNext PR #58994 / commit 825d24f406:
+    /// returns abs(total_amount / total_qty) to ensure rate is per-unit rather than entire bundle amount.
+    /// </summary>
+    public decimal CalculateUnitValuationRate()
+    {
+        var absQty = Math.Abs(TotalQty);
+        if (absQty == 0) return 0m;
+        return Math.Round(Math.Abs(TotalAmount / absQty), 4);
     }
 
     /// <summary>
