@@ -103,17 +103,23 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         }
     }
 
-    /// <summary>Percentage of total amount billed (0-100). Excludes closed rows.</summary>
+    /// <summary>Percentage of total amount billed (0-100). Excludes closed rows. Falls back to quantity for zero-amount orders (ERPNext PR #58816).</summary>
     public decimal PerBilled
     {
         get
         {
             var openItems = _items.Where(i => !i.IsClosed).ToList();
             var basis = openItems.Count > 0 ? openItems : _items;
+            if (basis.Count == 0) return 0m;
+
             var basisTotal = basis.Sum(i => i.LineTotal);
-            return basisTotal > 0
-                ? Math.Round(basis.Sum(i => i.BilledQty * i.UnitPrice) / basisTotal * 100, 2)
-                : 0m;
+            if (basisTotal > 0)
+                return Math.Round(basis.Sum(i => i.BilledQty * i.UnitPrice) / basisTotal * 100, 2);
+
+            var totalQty = basis.Sum(i => i.Quantity);
+            return totalQty > 0
+                ? Math.Round(basis.Sum(i => Math.Min(i.Quantity, i.BilledQty)) / totalQty * 100, 2)
+                : 100m;
         }
     }
 

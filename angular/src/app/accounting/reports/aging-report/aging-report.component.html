@@ -106,6 +106,7 @@
                 <tr>
                   <th>{{ 'Party' | abpLocalization }}</th>
                   <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
+                  <th>{{ 'CostCenter' | abpLocalization }}</th>
                   <th>{{ 'PostingDate' | abpLocalization }}</th>
                   <th>{{ 'DueDate' | abpLocalization }}</th>
                   <th class="text-end">{{ 'Outstanding' | abpLocalization }}</th>
@@ -125,6 +126,7 @@
                         {{ d.documentNumber }}
                       </a>
                     </td>
+                    <td class="small text-muted">{{ d.costCenterName || '—' }}</td>
                     <td class="small text-muted">{{ d.postingDate | date:'dd/MM/yyyy' }}</td>
                     <td class="small" [class.text-danger]="isOverdue(d)">
                       {{ d.dueDate | date:'dd/MM/yyyy' }}

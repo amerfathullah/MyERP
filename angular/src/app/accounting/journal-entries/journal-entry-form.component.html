@@ -106,7 +106,7 @@
           @if (!isBalanced && lines.length > 0) {
             <span class="text-danger fw-medium small d-flex align-items-center gap-1">
               <i class="fa fa-exclamation-circle"></i>
-              Unbalanced: Difference {{ (totalDebit - totalCredit) | number:'1.2-2' }}
+              Unbalanced: Difference {{ difference | number:'1.2-2' }}
             </span>
           }
           @if (isBalanced && lines.length > 0) {

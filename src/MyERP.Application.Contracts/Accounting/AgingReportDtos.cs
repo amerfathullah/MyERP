@@ -26,6 +26,8 @@ public class AgingDetailEntryDto
     public decimal OutstandingAmount { get; set; }
     public int AgeDays { get; set; }
     public string BucketLabel { get; set; } = null!;
+    public Guid? CostCenterId { get; set; }
+    public string? CostCenterName { get; set; }
 }
 
 public class AgingReportRequestDto

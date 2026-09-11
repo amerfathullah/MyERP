@@ -19,6 +19,7 @@ public class JournalEntryDto : EntityDto<Guid>
     public string Status { get; set; } = null!;
     public decimal TotalDebit { get; set; }
     public decimal TotalCredit { get; set; }
+    public decimal Difference { get; set; }
     public List<JournalEntryLineDto> Lines { get; set; } = new();
 }
 

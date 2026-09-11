@@ -65,6 +65,8 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public decimal TotalDebit { get; private set; }
     public decimal TotalCredit { get; private set; }
+    /// <summary>Difference between TotalDebit and TotalCredit, rounded to field precision (ERPNext PR #58629).</summary>
+    public decimal Difference => Math.Round(TotalDebit - TotalCredit, 2);
 
     private readonly List<JournalEntryLine> _lines = new();
     public IReadOnlyList<JournalEntryLine> Lines => _lines.AsReadOnly();
@@ -411,8 +413,8 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     private void RecalculateTotals()
     {
-        TotalDebit = _lines.Where(l => l.IsDebit).Sum(l => l.Amount);
-        TotalCredit = _lines.Where(l => !l.IsDebit).Sum(l => l.Amount);
+        TotalDebit = Math.Round(_lines.Where(l => l.IsDebit).Sum(l => l.Amount), 2);
+        TotalCredit = Math.Round(_lines.Where(l => !l.IsDebit).Sum(l => l.Amount), 2);
     }
 }
 

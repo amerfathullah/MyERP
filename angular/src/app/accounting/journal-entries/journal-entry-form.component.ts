@@ -81,15 +81,19 @@ export class JournalEntryFormComponent implements OnInit {
   }
 
   get totalDebit(): number {
-    return this.lines.controls.reduce((sum, c) => sum + (c.get('debit')?.value || 0), 0);
+    return Math.round(this.lines.controls.reduce((sum, c) => sum + (c.get('debit')?.value || 0), 0) * 100) / 100;
   }
 
   get totalCredit(): number {
-    return this.lines.controls.reduce((sum, c) => sum + (c.get('credit')?.value || 0), 0);
+    return Math.round(this.lines.controls.reduce((sum, c) => sum + (c.get('credit')?.value || 0), 0) * 100) / 100;
+  }
+
+  get difference(): number {
+    return Math.round((this.totalDebit - this.totalCredit) * 100) / 100;
   }
 
   get isBalanced(): boolean {
-    return Math.abs(this.totalDebit - this.totalCredit) < 0.01;
+    return Math.abs(this.difference) < 0.01;
   }
 
   ngOnInit(): void {

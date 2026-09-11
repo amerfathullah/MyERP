@@ -151,6 +151,35 @@ public class SalesOrderFulfillmentTests
         so.Status.ShouldBe(Core.DocumentStatus.ToDeliverAndBill);
     }
 
+    [Fact]
+    public void SalesOrder_ZeroRateItems_CalculatesPerBilledByQuantityAndCompletes()
+    {
+        var so = CreateSalesOrder();
+        so.AddItem(Guid.NewGuid(), "Free Sample A", 10, 0, 0);
+        so.AddItem(Guid.NewGuid(), "Free Sample B", 5, 0, 0);
+        so.Submit();
+
+        // Before billing
+        so.PerBilled.ShouldBe(0m);
+
+        // Deliver both items
+        so.Items[0].DeliveredQty = 10;
+        so.Items[1].DeliveredQty = 5;
+        so.PerDelivered.ShouldBe(100m);
+
+        // Partially bill: bill sample A only (10 out of 15)
+        so.Items[0].BilledQty = 10;
+        so.PerBilled.ShouldBe(66.67m);
+        so.UpdateFulfillmentStatus();
+        so.Status.ShouldBe(Core.DocumentStatus.ToBill);
+
+        // Bill sample B fully
+        so.Items[1].BilledQty = 5;
+        so.PerBilled.ShouldBe(100m);
+        so.UpdateFulfillmentStatus();
+        so.Status.ShouldBe(Core.DocumentStatus.Completed);
+    }
+
     private static SalesOrder CreateSalesOrder() =>
         new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SO-001", DateTime.UtcNow);
 }

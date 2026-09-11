@@ -284,4 +284,19 @@ public class JournalEntryTests
         pi.ReleaseDate = DateTime.UtcNow.AddDays(-1); // already expired
         pi.IsBlockedOnDate(DateTime.UtcNow).ShouldBeFalse();
     }
+
+    [Fact]
+    public void JournalEntry_RecalculateTotals_RoundsToCurrencyPrecision()
+    {
+        // Per ERPNext PR #58629 / commit e825bb2f74:
+        // fractional totals round to currency precision (2 decimals)
+        var entry = CreateJournalEntry();
+        entry.AddLine(Guid.NewGuid(), 0.10000000000000004m, isDebit: true);
+        entry.AddLine(Guid.NewGuid(), 0.20000000000000004m, isDebit: true);
+        entry.AddLine(Guid.NewGuid(), 0.30m, isDebit: false);
+
+        entry.TotalDebit.ShouldBe(0.30m);
+        entry.TotalCredit.ShouldBe(0.30m);
+        entry.Difference.ShouldBe(0.00m);
+    }
 }

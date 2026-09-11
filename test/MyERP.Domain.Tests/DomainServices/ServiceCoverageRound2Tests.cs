@@ -65,6 +65,47 @@ public class AgingBucketServiceTests
     }
 
     [Fact]
+    public void AgingItem_And_AgingDetailEntry_PreserveCostCenter()
+    {
+        // Per ERPNext PR #58453 / commit cee9f4949a:
+        var costCenterId = Guid.NewGuid();
+        var item = new AgingItem
+        {
+            PartyId = Guid.NewGuid(),
+            PartyName = "Test Party",
+            DocumentId = Guid.NewGuid(),
+            DocumentNumber = "INV-001",
+            PostingDate = new DateTime(2026, 1, 1),
+            DueDate = new DateTime(2026, 1, 15),
+            OutstandingAmount = 1000m,
+            CostCenterId = costCenterId,
+            CostCenterName = "Main Operations",
+        };
+
+        item.CostCenterId.ShouldBe(costCenterId);
+        item.CostCenterName.ShouldBe("Main Operations");
+
+        var detail = new AgingDetailEntry
+        {
+            PartyId = item.PartyId,
+            PartyName = item.PartyName,
+            DocumentId = item.DocumentId,
+            DocumentNumber = item.DocumentNumber,
+            PostingDate = item.PostingDate,
+            DueDate = item.DueDate,
+            OutstandingAmount = item.OutstandingAmount,
+            AgeDays = 10,
+            BucketIndex = 0,
+            BucketLabel = "0-30",
+            CostCenterId = item.CostCenterId,
+            CostCenterName = item.CostCenterName,
+        };
+
+        detail.CostCenterId.ShouldBe(costCenterId);
+        detail.CostCenterName.ShouldBe("Main Operations");
+    }
+
+    [Fact]
     public void AgingItem_SeverelyOverdue_LastBucket()
     {
         var item = new AgingItem

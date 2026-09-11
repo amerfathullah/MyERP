@@ -103,6 +103,8 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
                 OutstandingAmount = d.OutstandingAmount,
                 AgeDays = d.AgeDays,
                 BucketLabel = d.BucketLabel,
+                CostCenterId = d.CostCenterId,
+                CostCenterName = d.CostCenterName,
             }).OrderBy(d => d.PartyName).ThenByDescending(d => d.AgeDays).ToArray(),
         };
     }

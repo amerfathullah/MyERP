@@ -97,6 +97,35 @@ public class PurchaseOrderFulfillmentTests
         po.Status.ShouldBe(Core.DocumentStatus.ToDeliverAndBill);
     }
 
+    [Fact]
+    public void PurchaseOrder_ZeroRateItems_CalculatesPerBilledByQuantityAndCompletes()
+    {
+        var po = CreatePurchaseOrder();
+        po.AddItem(Guid.NewGuid(), "Free Raw Material A", 20, 0, 0);
+        po.AddItem(Guid.NewGuid(), "Free Raw Material B", 10, 0, 0);
+        po.Submit();
+
+        // Before billing
+        po.PerBilled.ShouldBe(0m);
+
+        // Receive both items
+        po.Items[0].ReceivedQty = 20;
+        po.Items[1].ReceivedQty = 10;
+        po.PerReceived.ShouldBe(100m);
+
+        // Partially bill: bill sample A only (20 out of 30)
+        po.Items[0].BilledQty = 20;
+        po.PerBilled.ShouldBe(66.67m);
+        po.UpdateFulfillmentStatus();
+        po.Status.ShouldBe(Core.DocumentStatus.ToBill);
+
+        // Bill sample B fully
+        po.Items[1].BilledQty = 10;
+        po.PerBilled.ShouldBe(100m);
+        po.UpdateFulfillmentStatus();
+        po.Status.ShouldBe(Core.DocumentStatus.Completed);
+    }
+
     private static PurchaseOrder CreatePurchaseOrder() =>
         new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-001", DateTime.UtcNow);
 }

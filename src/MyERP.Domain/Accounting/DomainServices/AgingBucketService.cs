@@ -21,17 +21,20 @@ public class AgingBucketService : DomainService
     private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IRepository<Supplier, Guid> _supplierRepository;
+    private readonly IRepository<CostCenter, Guid> _costCenterRepository;
 
     public AgingBucketService(
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
         IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
         IRepository<Customer, Guid> customerRepository,
-        IRepository<Supplier, Guid> supplierRepository)
+        IRepository<Supplier, Guid> supplierRepository,
+        IRepository<CostCenter, Guid> costCenterRepository)
     {
         _salesInvoiceRepository = salesInvoiceRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
         _customerRepository = customerRepository;
         _supplierRepository = supplierRepository;
+        _costCenterRepository = costCenterRepository;
     }
 
     /// <summary>
@@ -79,6 +82,22 @@ public class AgingBucketService : DomainService
             .Select(c => new { c.Id, c.Name })
             .ToDictionary(c => c.Id, c => c.Name);
 
+        // Resolve cost center names for detailed report (per ERPNext PR #58453)
+        var costCenterIds = outstandingInvoices
+            .Where(si => si.CostCenterId.HasValue)
+            .Select(si => si.CostCenterId!.Value)
+            .Distinct()
+            .ToList();
+        var costCenterNames = new Dictionary<Guid, string>();
+        if (costCenterIds.Count > 0)
+        {
+            var costCenterQuery = await _costCenterRepository.GetQueryableAsync();
+            costCenterNames = costCenterQuery
+                .Where(cc => costCenterIds.Contains(cc.Id))
+                .Select(cc => new { cc.Id, cc.Name })
+                .ToDictionary(cc => cc.Id, cc => cc.Name);
+        }
+
         var report = BuildAgingReport(outstandingInvoices.Select(si => new AgingItem
         {
             PartyId = si.CustomerId,
@@ -88,6 +107,8 @@ public class AgingBucketService : DomainService
             PostingDate = si.IssueDate,
             DueDate = si.DueDate ?? si.IssueDate,
             OutstandingAmount = si.OutstandingAmount,
+            CostCenterId = si.CostCenterId,
+            CostCenterName = si.CostCenterId.HasValue ? costCenterNames.GetValueOrDefault(si.CostCenterId.Value) : null,
         }), asOfDate, bucketDays, "Receivable", calculateAgeingWith, ageingBasedOn);
 
         return report;
@@ -137,6 +158,22 @@ public class AgingBucketService : DomainService
             .Select(s => new { s.Id, s.Name })
             .ToDictionary(s => s.Id, s => s.Name);
 
+        // Resolve cost center names for detailed report (per ERPNext PR #58453)
+        var costCenterIds = outstandingInvoices
+            .Where(pi => pi.CostCenterId.HasValue)
+            .Select(pi => pi.CostCenterId!.Value)
+            .Distinct()
+            .ToList();
+        var costCenterNames = new Dictionary<Guid, string>();
+        if (costCenterIds.Count > 0)
+        {
+            var costCenterQuery = await _costCenterRepository.GetQueryableAsync();
+            costCenterNames = costCenterQuery
+                .Where(cc => costCenterIds.Contains(cc.Id))
+                .Select(cc => new { cc.Id, cc.Name })
+                .ToDictionary(cc => cc.Id, cc => cc.Name);
+        }
+
         return BuildAgingReport(outstandingInvoices.Select(pi => new AgingItem
         {
             PartyId = pi.SupplierId,
@@ -146,6 +183,8 @@ public class AgingBucketService : DomainService
             PostingDate = pi.IssueDate,
             DueDate = pi.DueDate ?? pi.IssueDate,
             OutstandingAmount = pi.OutstandingAmount,
+            CostCenterId = pi.CostCenterId,
+            CostCenterName = pi.CostCenterId.HasValue ? costCenterNames.GetValueOrDefault(pi.CostCenterId.Value) : null,
         }), asOfDate, bucketDays, "Payable", calculateAgeingWith, ageingBasedOn);
     }
 
@@ -195,6 +234,8 @@ public class AgingBucketService : DomainService
                 AgeDays = ageDays,
                 BucketIndex = bucketIndex,
                 BucketLabel = GetBucketLabel(bucketIndex, bucketDays),
+                CostCenterId = item.CostCenterId,
+                CostCenterName = item.CostCenterName,
             });
         }
 
@@ -251,6 +292,8 @@ public class AgingDetailEntry
     public int AgeDays { get; set; }
     public int BucketIndex { get; set; }
     public string BucketLabel { get; set; } = null!;
+    public Guid? CostCenterId { get; set; }
+    public string? CostCenterName { get; set; }
 }
 
 public class AgingItem
@@ -262,4 +305,6 @@ public class AgingItem
     public DateTime PostingDate { get; set; }
     public DateTime DueDate { get; set; }
     public decimal OutstandingAmount { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public string? CostCenterName { get; set; }
 }
