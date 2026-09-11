@@ -106,7 +106,7 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             if (Status == DocumentStatus.Closed) return "Closed";
             if (PerBilled >= 100m) return "Completed";
             if (IsReturn) return "Return";
-            if (PerBilled > 0m) return "Partially Billed";
+            if (PerBilled > 0m || _items.Any(i => i.BilledQty > 0)) return "Partially Billed";
             return "To Bill";
         }
     }

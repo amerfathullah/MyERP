@@ -457,19 +457,22 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 var dnManager = LazyServiceProvider.LazyGetRequiredService<DeliveryNoteManager>();
                 await dnManager.ValidateReturnAsync(dn);
 
-                // Per ERPNext PR #58953 / commit be8208e7cb: update original DN returned_qty
+                // Per ERPNext PR #58953 / commit be8208e7cb & PR #58869 / commit f864333afa: update original DN returned_qty & recalculate billing
                 var originalDn = await _repository.FindAsync(dn.ReturnAgainstId.Value);
                 if (originalDn != null)
                 {
                     foreach (var returnItem in dn.Items)
                     {
-                        var origItem = originalDn.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
+                        var origItem = originalDn.Items.FirstOrDefault(i =>
+                            (returnItem.SalesOrderItemId.HasValue && i.SalesOrderItemId == returnItem.SalesOrderItemId) ||
+                            (!returnItem.SalesOrderItemId.HasValue && i.ItemId == returnItem.ItemId));
                         if (origItem != null)
                         {
                             origItem.ReturnedQty += Math.Abs(returnItem.Quantity);
                         }
                     }
-                    await _repository.UpdateAsync(originalDn);
+                    originalDn.UpdateBillingStatus();
+                    await _repository.UpdateAsync(originalDn, autoSave: true);
                 }
             }
 
@@ -925,7 +928,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             await ReverseDeliveryScheduleAsync(dn.SalesOrderId.Value, dn.Items);
         }
 
-        // Per ERPNext PR #58953 / commit be8208e7cb: revert original DN returned_qty when return is cancelled
+        // Per ERPNext PR #58953 / commit be8208e7cb & PR #58869 / commit f864333afa: revert original DN returned_qty & recalculate billing when return is cancelled
         if (dn.IsReturn && dn.ReturnAgainstId.HasValue)
         {
             var originalDn = await _repository.FindAsync(dn.ReturnAgainstId.Value);
@@ -933,13 +936,16 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             {
                 foreach (var returnItem in dn.Items)
                 {
-                    var origItem = originalDn.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
+                    var origItem = originalDn.Items.FirstOrDefault(i =>
+                        (returnItem.SalesOrderItemId.HasValue && i.SalesOrderItemId == returnItem.SalesOrderItemId) ||
+                        (!returnItem.SalesOrderItemId.HasValue && i.ItemId == returnItem.ItemId));
                     if (origItem != null)
                     {
                         origItem.ReturnedQty = Math.Max(0, origItem.ReturnedQty - Math.Abs(returnItem.Quantity));
                     }
                 }
-                await _repository.UpdateAsync(originalDn);
+                originalDn.UpdateBillingStatus();
+                await _repository.UpdateAsync(originalDn, autoSave: true);
             }
         }
 

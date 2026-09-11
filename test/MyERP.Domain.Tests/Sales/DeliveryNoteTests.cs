@@ -184,6 +184,58 @@ public class DeliveryNoteTests
         dn.Status.ShouldBe(DocumentStatus.Submitted);
     }
 
+    /// <summary>
+    /// Per ERPNext PR #58869 / commit f864333afa:
+    /// test_dn_is_completed_when_unbilled_item_is_returned
+    /// When unbilled item is returned, original DN reaches 100% billing and becomes Completed.
+    /// When return is cancelled, original DN reverts to Partially Billed.
+    /// </summary>
+    [Fact]
+    public void DeliveryNote_IsCompleted_WhenUnbilledItemIsReturned()
+    {
+        var dn = CreateDeliveryNote();
+        var item1Id = Guid.NewGuid();
+        var item2Id = Guid.NewGuid();
+        dn.AddItem(item1Id, "Widget 1", 1, 100m, 0m);
+        dn.AddItem(item2Id, "Widget 2", 1, 100m, 0m);
+        dn.Submit();
+
+        // 1. Initial submitted state: unbilled -> To Bill
+        dn.BillingStatus.ShouldBe("To Bill");
+        dn.PerBilled.ShouldBe(0m);
+
+        // 2. Item 1 billed (qty 1)
+        dn.Items[0].BilledQty = 1;
+        dn.BillingStatus.ShouldBe("Partially Billed");
+
+        // 3. Item 2 returned (ReturnedQty = 1) -> net billable qty becomes 0 for item 2
+        dn.Items[1].ReturnedQty = 1;
+        dn.UpdateBillingStatus();
+        dn.PerBilled.ShouldBe(100m);
+        dn.BillingStatus.ShouldBe("Completed");
+
+        // 4. Return cancelled -> ReturnedQty reverts to 0
+        dn.Items[1].ReturnedQty = 0;
+        dn.UpdateBillingStatus();
+        dn.BillingStatus.ShouldBe("Partially Billed");
+    }
+
+    [Fact]
+    public void DeliveryNote_BillingStatus_ShowsPartiallyBilled_WhenAnyItemBilled()
+    {
+        var dn = CreateDeliveryNote();
+        dn.AddItem(Guid.NewGuid(), "Widget A", 10, 100m, 0m);
+        dn.AddItem(Guid.NewGuid(), "Widget B", 10, 100m, 0m);
+        dn.Submit();
+
+        // Item A partially billed, Item B not billed
+        dn.Items[0].BilledQty = 5;
+        dn.Items[1].BilledQty = 0;
+
+        dn.PerBilled.ShouldBe(0m); // Min(50%, 0%) = 0%
+        dn.BillingStatus.ShouldBe("Partially Billed");
+    }
+
     private static DeliveryNote CreateDeliveryNote()
     {
         return new DeliveryNote(

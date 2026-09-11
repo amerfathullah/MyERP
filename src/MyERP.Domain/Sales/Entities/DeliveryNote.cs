@@ -123,7 +123,7 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             // Per ERPNext commit 8290a83591: Completed takes precedence over Return Issued when fully billed
             if (PerBilled >= 100m) return "Completed";
             if (IsReturn) return "Return";
-            if (PerBilled > 0m) return "Partially Billed";
+            if (PerBilled > 0m || _items.Any(i => i.BilledQty > 0)) return "Partially Billed";
             return "To Bill";
         }
     }

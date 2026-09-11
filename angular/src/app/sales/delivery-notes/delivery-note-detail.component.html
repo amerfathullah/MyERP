@@ -67,6 +67,10 @@
                   <td class="text-end">
                     @if ((row.billedQty ?? 0) >= (row.quantity ?? 0)) {
                       <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ '::Billed' | abpLocalization }}</span>
+                    } @else if ((row.returnedQty ?? 0) >= (row.quantity ?? 0)) {
+                      <span class="badge bg-info"><i class="fa fa-undo me-1"></i>{{ '::Returned' | abpLocalization }}</span>
+                    } @else if ((row.billedQty ?? 0) + (row.returnedQty ?? 0) >= (row.quantity ?? 0)) {
+                      <span class="badge bg-success"><i class="fa fa-check me-1"></i>{{ '::Completed' | abpLocalization }}</span>
                     } @else if ((row.billedQty ?? 0) > 0) {
                       <span class="badge bg-warning text-dark">{{ row.billedQty | number:'1.0-0' }} / {{ row.quantity | number:'1.0-0' }}</span>
                     } @else {

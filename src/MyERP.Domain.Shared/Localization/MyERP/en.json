@@ -1683,6 +1683,7 @@
     "Menu:SalesRegister": "Sales Register",
     "Invoices": "Invoices",
     "Return": "Return",
+    "Returned": "Returned",
     "ConvertToPurchaseOrder": "Convert to PO",
     "SplitBySupplier": "Split by Supplier",
     "CreatePurchaseOrders": "Create Purchase Orders",
