@@ -139,12 +139,15 @@ public class ProformaInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = ProformaInvoiceStatus.Cancelled;
     }
 
-    /// <summary>Records that the proforma was emailed to recipients.</summary>
+    /// <summary>
+    /// Records that the proforma was emailed to recipients.
+    /// Per ERPNext PR #58933 / commit e2b2940452: only issued proforma invoices can be emailed.
+    /// </summary>
     public void MarkEmailed(string recipients)
     {
-        if (Status == ProformaInvoiceStatus.Cancelled)
-            throw new BusinessException("MyERP:01001")
-                .WithData("status", Status.ToString());
+        if (Status != ProformaInvoiceStatus.Issued)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Only an issued Proforma Invoice can be emailed.");
 
         SentOn = DateTime.UtcNow;
         EmailedTo = recipients;

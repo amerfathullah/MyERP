@@ -196,4 +196,57 @@ public class ItemBatchSettingsValidationTests
 
         stop.CustomerAddress.ShouldBe("789 Pine Rd");
     }
+
+    [Fact]
+    public void DeliveryTrip_Schedule_OnlyPlaceholderStops_PrunesAndThrows()
+    {
+        var trip = new DeliveryTrip(
+            Guid.NewGuid(), Guid.NewGuid(), "TRIP-005", "Driver 5", "Van-05", DateTime.UtcNow);
+
+        var emptyStop = new DeliveryStop(
+            Guid.NewGuid(), trip.Id, address: string.Empty, customerId: null, customerName: null, deliveryNoteId: null, deliveryNoteNumber: null);
+        trip.DeliveryStops.Add(emptyStop);
+
+        var ex = Should.Throw<BusinessException>(() => trip.Schedule());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["reason"].ShouldBe("Delivery trip must have at least one stop before scheduling.");
+        trip.DeliveryStops.Count.ShouldBe(0);
+    }
+
+    [Fact]
+    public void DeliveryTrip_Schedule_MixedStops_PrunesPlaceholderAndSchedules()
+    {
+        var trip = new DeliveryTrip(
+            Guid.NewGuid(), Guid.NewGuid(), "TRIP-006", "Driver 6", "Van-06", DateTime.UtcNow);
+
+        trip.AddStop(address: "500 Elm St", customerId: Guid.NewGuid(), customerName: "Valid Customer");
+
+        var emptyStop = new DeliveryStop(
+            Guid.NewGuid(), trip.Id, address: string.Empty, customerId: null, customerName: null, deliveryNoteId: null, deliveryNoteNumber: null);
+        trip.DeliveryStops.Add(emptyStop);
+
+        trip.DeliveryStops.Count.ShouldBe(2);
+
+        trip.Schedule();
+
+        trip.Status.ShouldBe(DeliveryTripStatus.Scheduled);
+        trip.DeliveryStops.Count.ShouldBe(1);
+        trip.DeliveryStops.First().Address.ShouldBe("500 Elm St");
+    }
+
+    [Fact]
+    public void DeliveryTrip_Schedule_StopWithWhitespaceAddress_ThrowsValidationFailed()
+    {
+        var trip = new DeliveryTrip(
+            Guid.NewGuid(), Guid.NewGuid(), "TRIP-007", "Driver 7", "Van-07", DateTime.UtcNow);
+
+        // Manually add stop with customer but whitespace address
+        var badStop = new DeliveryStop(
+            Guid.NewGuid(), trip.Id, address: "   ", customerId: Guid.NewGuid(), customerName: "Customer Without Address", deliveryNoteId: null, deliveryNoteNumber: null);
+        trip.DeliveryStops.Add(badStop);
+
+        var ex = Should.Throw<BusinessException>(() => trip.Schedule());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"].ShouldBe("Address is required for each delivery stop.");
+    }
 }

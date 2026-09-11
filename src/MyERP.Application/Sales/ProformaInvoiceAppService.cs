@@ -204,7 +204,7 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
         await _repository.UpdateAsync(proforma);
     }
 
-    [Authorize(MyERPPermissions.SalesInvoices.Default)]
+    [Authorize(MyERPPermissions.SalesInvoices.Edit)]
     public async Task SendEmailAsync(Guid id, SendProformaEmailDto input)
     {
         var proforma = await _repository.GetAsync(id);

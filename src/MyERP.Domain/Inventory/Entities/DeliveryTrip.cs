@@ -121,6 +121,9 @@ public class DeliveryTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("reason", "Only draft trips can be scheduled.");
         }
 
+        RemoveEmptyStops();
+        ValidateStopAddresses();
+
         if (!DeliveryStops.Any())
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)

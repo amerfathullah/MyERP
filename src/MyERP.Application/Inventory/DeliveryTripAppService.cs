@@ -132,6 +132,9 @@ public class DeliveryTripAppService :
                 stopDto.Details);
         }
 
+        entity.RemoveEmptyStops();
+        entity.ValidateStopAddresses();
+
         await Repository.InsertAsync(entity, autoSave: true);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
@@ -249,6 +252,8 @@ public class DeliveryTripAppService :
         }
 
         entity.RecalculateTotalDistance();
+        entity.RemoveEmptyStops();
+        entity.ValidateStopAddresses();
         await Repository.UpdateAsync(entity, autoSave: true);
         return ObjectMapper.Map<DeliveryTrip, DeliveryTripDto>(entity);
     }

@@ -175,6 +175,17 @@ public class ProformaInvoiceTests
     }
 
     [Fact]
+    public void MarkEmailed_FromDraft_Throws()
+    {
+        var pi = CreateProformaWithItems();
+        // Still in Draft status
+
+        var ex = Should.Throw<BusinessException>(() => pi.MarkEmailed("test@example.com"));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"].ShouldBe("Only an issued Proforma Invoice can be emailed.");
+    }
+
+    [Fact]
     public void MultipleItems_SumsTotals()
     {
         var pi = CreateProforma();
@@ -296,16 +307,14 @@ public class ProformaInvoiceTests
     }
 
     [Fact]
-    public void MarkEmailed_Draft_Succeeds()
+    public void MarkEmailed_Draft_Throws_PerPR58933()
     {
-        // Per upstream: emailing is allowed from Draft (not just Issued)
-        // Only Cancelled is blocked
+        // Per ERPNext PR #58933 / commit e2b2940452: emailing is only allowed from Issued (docstatus == 1)
         var pi = CreateProformaWithItems();
 
-        pi.MarkEmailed("sales@company.com");
-
-        pi.SentOn.ShouldNotBeNull();
-        pi.EmailedTo.ShouldBe("sales@company.com");
+        var ex = Should.Throw<BusinessException>(() => pi.MarkEmailed("sales@company.com"));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"].ShouldBe("Only an issued Proforma Invoice can be emailed.");
     }
 
     [Fact]
