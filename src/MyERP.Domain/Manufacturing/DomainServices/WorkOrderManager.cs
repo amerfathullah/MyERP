@@ -204,6 +204,7 @@ public class WorkOrderManager : DomainService
         IRepository<Warehouse, Guid> warehouseRepository)
     {
         var warehouseIds = new[] { wo.SourceWarehouseId, wo.WipWarehouseId, wo.FgWarehouseId, wo.ScrapWarehouseId }
+            .Concat(wo.RequiredItems.Select(r => r.SourceWarehouseId))
             .Where(id => id.HasValue)
             .Select(id => id!.Value)
             .Distinct()

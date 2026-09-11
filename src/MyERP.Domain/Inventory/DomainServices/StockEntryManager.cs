@@ -42,7 +42,14 @@ public class StockEntryManager : DomainService
             .Select(id => id!.Value)
             .Distinct()
             .ToArray();
-        await _companyRestriction.ValidateTransactionCompanyAsync("StockEntry", entry.CompanyId, warehouseIds: warehouseIds);
+        var itemIds = entry.Items
+            .Select(i => i.ItemId)
+            .Distinct()
+            .ToArray();
+        await _companyRestriction.ValidateTransactionCompanyAsync(
+            "StockEntry", entry.CompanyId,
+            itemIds: itemIds,
+            warehouseIds: warehouseIds);
 
         foreach (var item in entry.Items)
         {

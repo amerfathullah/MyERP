@@ -65,11 +65,21 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         {
             throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch);
         }
-        if (wo.Status is WorkOrderStatus.Draft or WorkOrderStatus.Cancelled or WorkOrderStatus.Completed)
+        if (wo.Status is WorkOrderStatus.Draft or WorkOrderStatus.Cancelled or WorkOrderStatus.Completed or WorkOrderStatus.Stopped or WorkOrderStatus.Closed)
         {
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("documentType", "WorkOrder")
                 .WithData("status", wo.Status.ToString());
+        }
+
+        if (input.WorkstationId.HasValue)
+        {
+            var wsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Workstation, Guid>>();
+            var ws = await wsRepo.GetAsync(input.WorkstationId.Value);
+            if (ws.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch);
+            }
         }
 
         await ValidateJobCardQtyAsync(wo.Id, input.OperationId, input.ForQuantity, wo.Quantity, wo.CompanyId);
@@ -114,10 +124,27 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                 .WithData("documentType", "JobCard")
                 .WithData("status", jc.Status.ToString());
 
+        var woRepoForUpdate = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var woForUpdate = await woRepoForUpdate.GetAsync(jc.WorkOrderId);
+        if (woForUpdate.Status is WorkOrderStatus.Cancelled or WorkOrderStatus.Completed or WorkOrderStatus.Stopped or WorkOrderStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "WorkOrder")
+                .WithData("status", woForUpdate.Status.ToString());
+        }
+
+        if (input.WorkstationId.HasValue && input.WorkstationId != jc.WorkstationId)
+        {
+            var wsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Workstation, Guid>>();
+            var ws = await wsRepo.GetAsync(input.WorkstationId.Value);
+            if (ws.CompanyId != jc.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch);
+            }
+        }
+
         if (input.ForQuantity != jc.ForQuantity)
         {
-            var woRepoForUpdate = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
-            var woForUpdate = await woRepoForUpdate.GetAsync(jc.WorkOrderId);
             await ValidateJobCardQtyAsync(jc.WorkOrderId, jc.OperationId, input.ForQuantity, woForUpdate.Quantity, jc.CompanyId, excludeJobCardId: jc.Id);
         }
 
