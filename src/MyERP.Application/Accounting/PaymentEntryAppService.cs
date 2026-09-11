@@ -262,6 +262,15 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         // Multi-reference allocation takes precedence over legacy single-invoice field
         if (input.References != null && input.References.Count > 0)
         {
+            var duplicateRef = input.References
+                .GroupBy(r => (r.ReferenceType, r.ReferenceId))
+                .FirstOrDefault(g => g.Count() > 1);
+            if (duplicateRef != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Duplicate reference entry: {duplicateRef.Key.ReferenceType} {duplicateRef.Key.ReferenceId} appears more than once.");
+            }
+
             foreach (var refDto in input.References)
             {
                 // Per ERPNext PR #47334 / commit b9a02b466b:
