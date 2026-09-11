@@ -189,11 +189,14 @@ public class RecentIntegrationWiringTests
     // --- PeriodClosingPosting Tests ---
 
     [Fact]
-    public void PeriodClosingVoucher_Submit_RequiresEntries()
+    public void PeriodClosingVoucher_Submit_WithNoEntries_Succeeds()
     {
+        // A period with zero P&L activity is still a valid one to close (per ERPNext).
         var pcv = new PeriodClosingVoucher(Guid.NewGuid(), _companyId, Guid.NewGuid(), DateTime.Today, DateTime.Today, Guid.NewGuid(), _tenantId);
 
-        Assert.Throws<Volo.Abp.BusinessException>(() => pcv.Submit());
+        pcv.Submit();
+
+        Assert.Equal(DocumentStatus.Submitted, pcv.Status);
     }
 
     [Fact]

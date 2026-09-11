@@ -49,13 +49,14 @@ public class UpstreamSync20260731FrozenAndCalendarTests
     }
 
     [Fact]
-    public void PCV_Submit_RequiresEntries_GuardsFrozen()
+    public void PCV_Submit_WithNoEntries_Succeeds()
     {
+        // A period with zero P&L activity is still a valid one to close (per ERPNext).
         var pcv = new PeriodClosingVoucher(Guid.NewGuid(), Guid.NewGuid(),
             Guid.NewGuid(), DateTime.UtcNow.Date, DateTime.UtcNow.Date,
             Guid.NewGuid(), null);
-        // Submit without entries should throw (entries are needed for GL posting)
-        Assert.Throws<BusinessException>(() => pcv.Submit());
+        pcv.Submit();
+        Assert.Equal(DocumentStatus.Submitted, pcv.Status);
     }
 
     [Fact]

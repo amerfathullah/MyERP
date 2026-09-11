@@ -95,13 +95,14 @@ public class LatestFeatureIntegrationTests
     #region PCV Entity Lifecycle Tests
 
     [Fact]
-    public void PeriodClosingVoucher_Submit_RequiresEntries()
+    public void PeriodClosingVoucher_Submit_WithNoEntries_Succeeds()
     {
         var pcv = new PeriodClosingVoucher(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             DateTime.UtcNow, DateTime.UtcNow, Guid.NewGuid());
 
-        // Submit without entries → error
-        Assert.Throws<Volo.Abp.BusinessException>(() => pcv.Submit());
+        // A period with zero P&L activity is still a valid one to close (per ERPNext).
+        pcv.Submit();
+        Assert.Equal(DocumentStatus.Submitted, pcv.Status);
     }
 
     [Fact]

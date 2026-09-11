@@ -43,10 +43,15 @@ public class PeriodClosingVoucherTests
     }
 
     [Fact]
-    public void Submit_Empty_Throws()
+    public void Submit_WithNoEntries_Succeeds()
     {
+        // A period with zero P&L activity (e.g. a new company's first year) is still a valid
+        // period to close — per ERPNext, before_submit only skips stock-balance validation when
+        // there's nothing to check, it never blocks the submit itself.
         var pcv = CreatePCV();
-        Should.Throw<BusinessException>(() => pcv.Submit());
+        pcv.Submit();
+        pcv.Status.ShouldBe(Core.DocumentStatus.Submitted);
+        pcv.TotalClosingAmount.ShouldBe(0);
     }
 
     [Fact]

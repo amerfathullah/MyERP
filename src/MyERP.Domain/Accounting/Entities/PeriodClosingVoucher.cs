@@ -69,8 +69,12 @@ public class PeriodClosingVoucher : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        if (!_entries.Any())
-            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        // Per ERPNext period_closing_voucher.py: a period with zero P&L activity (e.g. a new
+        // company's first year, or a dormant period) is still a valid one to close — before_submit
+        // only skips stock-balance validation when there's nothing to check, it never blocks the
+        // submit itself. Requiring at least one entry made PeriodClosingVoucherAppService.SubmitAsync's
+        // own "no balances" branch unreachable: it called Submit() with zero entries and this guard
+        // rejected it unconditionally.
         Status = DocumentStatus.Submitted;
     }
 

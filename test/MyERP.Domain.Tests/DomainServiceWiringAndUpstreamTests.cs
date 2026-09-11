@@ -157,14 +157,15 @@ public class DomainServiceWiringAndUpstreamTests
     }
 
     [Fact]
-    public void PCV_Empty_Entries_Throws_On_Submit()
+    public void PCV_Empty_Entries_Succeeds_On_Submit()
     {
         var pcv = new PeriodClosingVoucher(Guid.NewGuid(), _companyId,
             Guid.NewGuid(), DateTime.Today, DateTime.Today,
             Guid.NewGuid(), _tenantId);
 
-        // PCV with no entries throws (requires at least P&L activity to close)
-        Assert.ThrowsAny<Exception>(() => pcv.Submit());
+        // A period with zero P&L activity is still a valid one to close (per ERPNext).
+        pcv.Submit();
+        Assert.Equal(DocumentStatus.Submitted, pcv.Status);
     }
 
     // === Upstream PR #57380: SLE cancel same-posting-datetime fix ===
