@@ -11,8 +11,11 @@ public interface IQuotationAppService : IApplicationService
     Task<QuotationDto> GetAsync(Guid id);
     Task<PagedResultDto<QuotationDto>> GetListAsync(CompanyFilteredPagedRequestDto input);
     Task<QuotationDto> CreateAsync(CreateQuotationDto input);
+    Task<QuotationDto> UpdateAsync(Guid id, CreateQuotationDto input);
     Task<QuotationDto> SubmitAsync(Guid id);
     Task<QuotationDto> CancelAsync(Guid id);
+    Task<QuotationDto> MarkLostAsync(Guid id);
+    Task<QuotationDto> AmendAsync(Guid id);
     Task<MyERP.CRM.CompetitorDetailDto> CreateCompetitorAsync(MyERP.CRM.AddCompetitorDetailDto input);
     Task DeleteCompetitorAsync(Guid competitorDetailId);
 }

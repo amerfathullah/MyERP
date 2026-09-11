@@ -191,11 +191,16 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
             quotationNumber,
             input.IssueDate);
 
-        // Per ERPNext commit dc4819e897: restrict customer change if creating from opportunity
         if (input.OpportunityId.HasValue)
         {
             var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
             var opp = await oppRepo.FindAsync(input.OpportunityId.Value);
+            if (opp != null && opp.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("opportunityCompany", opp.CompanyId)
+                    .WithData("quotationCompany", input.CompanyId);
+            }
             if (opp != null && opp.CustomerId.HasValue && opp.CustomerId.Value != input.CustomerId)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.CannotChangeCustomerForQuotationFromOpportunity)
@@ -259,8 +264,28 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         if (quotation.Status != Core.DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        if (input.CompanyId != Guid.Empty && input.CompanyId != quotation.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("entityCompany", quotation.CompanyId)
+                .WithData("inputCompany", input.CompanyId);
+        }
+
+        var effectiveCustomerId = input.CustomerId != Guid.Empty ? input.CustomerId : quotation.CustomerId;
+        if (effectiveCustomerId != quotation.CustomerId)
+        {
+            var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+            var customer = await customerRepo.FindAsync(effectiveCustomerId);
+            if (customer != null && customer.CompanyId != quotation.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("customerCompany", customer.CompanyId)
+                    .WithData("quotationCompany", quotation.CompanyId);
+            }
+        }
+
         // Per ERPNext commit dc4819e897: restrict customer change if creating from opportunity
-        if (quotation.OpportunityId.HasValue && input.CustomerId != Guid.Empty && input.CustomerId != quotation.CustomerId)
+        if (quotation.OpportunityId.HasValue && effectiveCustomerId != quotation.CustomerId)
         {
             throw new BusinessException(MyERPDomainErrorCodes.CannotChangeCustomerForQuotationFromOpportunity)
                 .WithData("reason", "Customer cannot be changed when Quotation is created from an Opportunity.");
@@ -272,6 +297,18 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Valid Until date cannot be earlier than Issue Date.");
         }
+
+        // Validate all items are active (per DO-NOT: disabled items must not appear in transactions)
+        var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+        var itemIds = input.Items.Select(i => i.ItemId).ToArray();
+        await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        // Company-restriction check
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "Quotation", quotation.CompanyId, itemIds: itemIds, customerIds: new[] { effectiveCustomerId });
+
+        quotation.CustomerId = effectiveCustomerId;
 
         quotation.ValidUntil = input.ValidUntil;
         quotation.CurrencyCode = input.CurrencyCode;

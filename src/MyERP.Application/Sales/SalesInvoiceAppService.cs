@@ -8,9 +8,12 @@ using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
-using MyERP.Inventory.DomainServices;
-using MyERP.Permissions;
 using MyERP.Assets;
+using MyERP.Assets.Entities;
+using MyERP.Inventory.DomainServices;
+using MyERP.Inventory.Entities;
+using MyERP.Permissions;
+using MyERP.Projects.Entities;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using MyERP.Shared;
@@ -411,8 +414,124 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var siItemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(siItemIds);
 
+        if (input.CostCenterId.HasValue)
+        {
+            var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
+            var cc = await ccRepo.FindAsync(input.CostCenterId.Value);
+            if (cc != null && cc.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("costCenterCompany", cc.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
+        if (input.ProjectId.HasValue)
+        {
+            var projRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Project, Guid>>();
+            var proj = await projRepo.FindAsync(input.ProjectId.Value);
+            if (proj != null && proj.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("projectCompany", proj.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
+        if (input.WarehouseId.HasValue)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+            var wh = await whRepo.FindAsync(input.WarehouseId.Value);
+            if (wh != null && wh.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("warehouseCompany", wh.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
+        var deferredAcctIds = input.Items
+            .Where(i => i.EnableDeferredRevenue && i.DeferredRevenueAccountId.HasValue)
+            .Select(i => i.DeferredRevenueAccountId!.Value)
+            .Distinct()
+            .ToList();
+        if (deferredAcctIds.Count > 0)
+        {
+            var acctRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+            var accounts = await acctRepo.GetListAsync(a => deferredAcctIds.Contains(a.Id));
+            var mismatch = accounts.FirstOrDefault(a => a.CompanyId != input.CompanyId);
+            if (mismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("accountCompany", mismatch.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
+        var assetIds = input.Items
+            .Where(i => i.IsFixedAsset && i.AssetId.HasValue)
+            .Select(i => i.AssetId!.Value)
+            .Distinct()
+            .ToList();
+        if (assetIds.Count > 0)
+        {
+            var assetRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Asset, Guid>>();
+            var assets = await assetRepo.GetListAsync(a => assetIds.Contains(a.Id));
+            var mismatch = assets.FirstOrDefault(a => a.CompanyId != input.CompanyId);
+            if (mismatch != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("assetCompany", mismatch.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
+        var soItemIds = input.Items
+            .Where(i => i.SalesOrderItemId.HasValue)
+            .Select(i => i.SalesOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (soItemIds.Count > 0)
+        {
+            var soQuery = await _salesOrderRepository.GetQueryableAsync();
+            var crossCompanySo = soQuery
+                .Where(so => so.Items.Any(i => soItemIds.Contains(i.Id)) && so.CompanyId != input.CompanyId)
+                .FirstOrDefault();
+            if (crossCompanySo != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("salesOrderCompany", crossCompanySo.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
+        var dnItemIds = input.Items
+            .Where(i => i.DeliveryNoteItemId.HasValue)
+            .Select(i => i.DeliveryNoteItemId!.Value)
+            .Distinct()
+            .ToList();
+        if (dnItemIds.Count > 0)
+        {
+            var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
+            var dnQuery = await dnRepo.GetQueryableAsync();
+            var crossCompanyDn = dnQuery
+                .Where(dn => dn.Items.Any(i => dnItemIds.Contains(i.Id)) && dn.CompanyId != input.CompanyId)
+                .FirstOrDefault();
+            if (crossCompanyDn != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("deliveryNoteCompany", crossCompanyDn.CompanyId)
+                    .WithData("invoiceCompany", input.CompanyId);
+            }
+        }
+
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
-        await companyRestriction.ValidateTransactionCompanyAsync("SalesInvoice", input.CompanyId, siItemIds, customerIds: new[] { input.CustomerId });
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "SalesInvoice", input.CompanyId,
+            itemIds: siItemIds,
+            customerIds: new[] { input.CustomerId },
+            warehouseIds: input.WarehouseId.HasValue ? new[] { input.WarehouseId.Value } : null,
+            accountIds: deferredAcctIds.Count > 0 ? deferredAcctIds : null);
 
         var customerForStatus = await _customerRepository.GetAsync(input.CustomerId);
         LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
