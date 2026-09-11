@@ -124,6 +124,8 @@ public class PeriodClosingVoucherAppService : ApplicationService, IPeriodClosing
             throw new BusinessException("MyERP:02034")
                 .WithData("existingDate", allPcvs.First().PostingDate.ToString("dd/MM/yyyy"));
 
+        await ValidatePreviousYearClosedAsync(pcv);
+
         // Validate closing account via dedicated domain service (type + currency checks)
         var pcvPostingService = LazyServiceProvider.LazyGetRequiredService<PeriodClosingPostingService>();
         await pcvPostingService.ValidateForSubmitAsync(pcv);
@@ -189,6 +191,49 @@ public class PeriodClosingVoucherAppService : ApplicationService, IPeriodClosing
         await _closingBalanceService.DeleteForPeriodAsync(pcv.CompanyId, period);
 
         return ObjectMapper.Map<PeriodClosingVoucher, PeriodClosingVoucherDto>(pcv);
+    }
+
+    /// <summary>
+    /// Per ERPNext Period Closing Voucher validate_previous_year_closed: block closing a fiscal
+    /// year while the immediately prior one still has un-closed GL activity. Without this, a
+    /// company could close year 2 before year 1, leaving year 1's P&L never rolled into retained
+    /// earnings while year 2's opening balances are already locked in.
+    /// </summary>
+    private async Task ValidatePreviousYearClosedAsync(PeriodClosingVoucher pcv)
+    {
+        var fiscalYearRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<FiscalYear, Guid>>();
+        var currentFy = await fiscalYearRepo.GetAsync(pcv.FiscalYearId);
+
+        var fyQuery = await fiscalYearRepo.GetQueryableAsync();
+        var previousFy = fyQuery
+            .Where(f => f.CompanyId == pcv.CompanyId && f.EndDate < currentFy.StartDate)
+            .OrderByDescending(f => f.EndDate)
+            .FirstOrDefault();
+        if (previousFy == null)
+        {
+            return; // No earlier fiscal year for this company — nothing to have closed.
+        }
+
+        var pcvQuery = await _repository.GetQueryableAsync();
+        var previousYearClosed = pcvQuery.Any(p =>
+            p.CompanyId == pcv.CompanyId && p.Status == DocumentStatus.Submitted
+            && p.PostingDate >= previousFy.StartDate && p.PostingDate <= previousFy.EndDate);
+        if (previousYearClosed)
+        {
+            return;
+        }
+
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+        var jeQuery = await jeRepo.GetQueryableAsync();
+        var hasGlActivityInPreviousYear = jeQuery.Any(je =>
+            je.CompanyId == pcv.CompanyId && je.Status == DocumentStatus.Posted
+            && je.PostingDate >= previousFy.StartDate && je.PostingDate <= previousFy.EndDate);
+
+        if (hasGlActivityInPreviousYear)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Previous fiscal year {previousFy.Name} is not closed. Please close it first.");
+        }
     }
 }
 
