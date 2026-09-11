@@ -57,6 +57,11 @@ public class LowerDeductionCertificateAppService : ApplicationService, ILowerDed
 
     public async Task<LowerDeductionCertificateDto> CreateAsync(CreateUpdateLowerDeductionCertificateDto input)
     {
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "LowerDeductionCertificate", input.CompanyId,
+            supplierIds: new[] { input.SupplierId });
+
         var entity = new LowerDeductionCertificate(
             GuidGenerator.Create(), input.CompanyId, input.SupplierId, input.TaxWithholdingCategoryId,
             input.CertificateNumber, input.Rate, input.CertificateLimit,

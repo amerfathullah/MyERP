@@ -148,6 +148,14 @@ public class MaintenanceScheduleAppService : ApplicationService, IMaintenanceSch
             }
         }
 
+        if (input.CustomerId != Guid.Empty)
+        {
+            var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+            await companyRestriction.ValidateTransactionCompanyAsync(
+                "MaintenanceSchedule", entity.CompanyId,
+                customerIds: new[] { input.CustomerId });
+        }
+
         entity.CustomerId = input.CustomerId;
         entity.SalesOrderId = input.SalesOrderId;
         await _repository.UpdateAsync(entity, autoSave: true);

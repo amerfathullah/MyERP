@@ -70,6 +70,8 @@ public class PosProfileAppService : CrudAppService<
 
     public override async Task<PosProfileDto> CreateAsync(CreateUpdatePosProfileDto input)
     {
+        await ValidateCompanyRestrictionAsync(input);
+
         var entity = new PosProfile(
             GuidGenerator.Create(),
             input.CompanyId,
@@ -144,6 +146,8 @@ public class PosProfileAppService : CrudAppService<
         {
             throw new BusinessException("MyERP:EntityNotFound");
         }
+
+        await ValidateCompanyRestrictionAsync(input);
 
         var newInvoiceType = input.InvoiceType ?? "POS Invoice";
         if (!string.Equals(entity.InvoiceType, newInvoiceType, StringComparison.OrdinalIgnoreCase))
@@ -230,6 +234,26 @@ public class PosProfileAppService : CrudAppService<
 
         await _posProfileRepository.UpdateAsync(entity, autoSave: true);
         return ObjectMapper.Map<PosProfile, PosProfileDto>(entity);
+    }
+
+    private async Task ValidateCompanyRestrictionAsync(CreateUpdatePosProfileDto input)
+    {
+        var accountIds = new[] { input.WriteOffAccountId, input.IncomeAccountId, input.ExpenseAccountId }
+            .Where(a => a.HasValue)
+            .Select(a => a!.Value)
+            .ToList();
+
+        if (input.PaymentMethods != null)
+        {
+            accountIds.AddRange(input.PaymentMethods.Select(p => p.AccountId));
+        }
+
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "PosProfile", input.CompanyId,
+            customerIds: input.DefaultCustomerId.HasValue ? new[] { input.DefaultCustomerId.Value } : null,
+            accountIds: accountIds,
+            warehouseIds: new[] { input.WarehouseId });
     }
 
     [Authorize(MyERPPermissions.PosProfiles.Edit)]
