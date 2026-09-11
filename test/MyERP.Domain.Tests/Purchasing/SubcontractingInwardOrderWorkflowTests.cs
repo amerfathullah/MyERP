@@ -23,10 +23,9 @@ public class SubcontractingInwardOrderWorkflowTests
 {
     private readonly IRepository<SubcontractingInwardOrder, Guid> _scioRepo = Substitute.For<IRepository<SubcontractingInwardOrder, Guid>>();
     private readonly IRepository<DocumentSeries, Guid> _seriesRepo = Substitute.For<IRepository<DocumentSeries, Guid>>();
-    private readonly StockValuationService _stockValuationService = Substitute.For<StockValuationService>(
-        Substitute.For<IRepository<global::MyERP.Inventory.Entities.StockLedgerEntry, Guid>>(),
-        Substitute.For<IRepository<global::MyERP.Inventory.Entities.Item, Guid>>(),
-        Substitute.For<Volo.Abp.Settings.ISettingProvider>());
+    private readonly IRepository<global::MyERP.Inventory.Entities.StockLedgerEntry, Guid> _sleRepo = Substitute.For<IRepository<global::MyERP.Inventory.Entities.StockLedgerEntry, Guid>>();
+    private readonly IRepository<global::MyERP.Inventory.Entities.Item, Guid> _itemRepo = Substitute.For<IRepository<global::MyERP.Inventory.Entities.Item, Guid>>();
+    private readonly StockValuationService _stockValuationService;
     private readonly BinService _binService = Substitute.For<BinService>(
         Substitute.For<IRepository<global::MyERP.Inventory.Entities.Bin, Guid>>());
     private readonly SubcontractingInwardOrderAppService _appService;
@@ -36,6 +35,11 @@ public class SubcontractingInwardOrderWorkflowTests
 
     public SubcontractingInwardOrderWorkflowTests()
     {
+        _stockValuationService = Substitute.For<StockValuationService>(
+            _sleRepo,
+            _itemRepo,
+            Substitute.For<Volo.Abp.Settings.ISettingProvider>());
+
         _appService = new SubcontractingInwardOrderAppService(
             _scioRepo, _seriesRepo, _stockValuationService, _binService);
     }
@@ -149,5 +153,67 @@ public class SubcontractingInwardOrderWorkflowTests
             Items = new List<ScioReceiveItemDto> { new() { ItemId = itemId, Qty = 1m } }
         }));
         Assert.Equal(MyERPDomainErrorCodes.InvalidStatusTransition, ex.Code);
+    }
+
+    [Fact]
+    public async Task ReceiveItemsAsync_MatchesBySubcontractingInwardOrderItemId_DisambiguatesDuplicateItemRows()
+    {
+        // Per ERPNext PR #58949 / commit d5e63b8a9e:
+        // Support selecting against finished good by row ID (name) as well as item_code.
+        var scioId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var scio = new SubcontractingInwardOrder(scioId, _companyId, "SCIO-2026-008", DateTime.UtcNow, _supplierId);
+
+        var row1Id = Guid.NewGuid();
+        var row2Id = Guid.NewGuid();
+        var wh1 = Guid.NewGuid();
+        var wh2 = Guid.NewGuid();
+
+        var itemRow1 = new SubcontractingInwardOrderItem(row1Id, scio.Id, itemId, 10m, 50m)
+        {
+            WarehouseId = wh1,
+            ServiceCostPerQty = 15m
+        };
+        var itemRow2 = new SubcontractingInwardOrderItem(row2Id, scio.Id, itemId, 20m, 60m)
+        {
+            WarehouseId = wh2,
+            ServiceCostPerQty = 18m
+        };
+
+        scio.AddItem(itemRow1);
+        scio.AddItem(itemRow2);
+        scio.Submit();
+
+        _scioRepo.GetAsync(scioId).Returns(scio);
+        _itemRepo.GetAsync(itemId).Returns(new global::MyERP.Inventory.Entities.Item(itemId, _companyId, "FG-ITEM", "FG Item", global::MyERP.Inventory.ItemType.Goods));
+        _sleRepo.GetQueryableAsync().Returns(new List<global::MyERP.Inventory.Entities.StockLedgerEntry>().AsQueryable());
+
+        var lazyProvider = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        var guidGen = Substitute.For<Volo.Abp.Guids.IGuidGenerator>();
+        guidGen.Create().Returns(_ => Guid.NewGuid());
+        lazyProvider.LazyGetService<Volo.Abp.Guids.IGuidGenerator>().Returns(guidGen);
+        lazyProvider.LazyGetRequiredService<Volo.Abp.Guids.IGuidGenerator>().Returns(guidGen);
+        lazyProvider.LazyGetService(typeof(Volo.Abp.Guids.IGuidGenerator)).Returns(guidGen);
+        lazyProvider.LazyGetRequiredService(typeof(Volo.Abp.Guids.IGuidGenerator)).Returns(guidGen);
+        _stockValuationService.LazyServiceProvider = lazyProvider;
+
+        // Receive specifically against row 2 using SubcontractingInwardOrderItemId
+        var result = await _appService.ReceiveItemsAsync(scioId, new ScioReceiveItemsDto
+        {
+            PostingDate = DateTime.UtcNow,
+            Items = new List<ScioReceiveItemDto>
+            {
+                new()
+                {
+                    SubcontractingInwardOrderItemId = row2Id,
+                    ItemId = itemId,
+                    Qty = 8m
+                }
+            }
+        });
+
+        Assert.Equal(0m, itemRow1.ReceivedQty);
+        Assert.Equal(8m, itemRow2.ReceivedQty);
+        Assert.Equal(12m, itemRow2.PendingReceiptQty);
     }
 }

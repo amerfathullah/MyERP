@@ -169,12 +169,15 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
 
         await _repository.InsertAsync(entity);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
-            "Created", entity.CompanyId,
-            entity.OrderNumber, "Draft", "Draft", CurrentUser.Id,
-            $"Subcontracting inward order '{entity.OrderNumber}' created with {entity.Items.Count} items", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
+                "Created", entity.CompanyId,
+                entity.OrderNumber, "Draft", "Draft", CurrentUser?.Id,
+                $"Subcontracting inward order '{entity.OrderNumber}' created with {entity.Items.Count} items", CurrentTenant?.Id));
+        }
 
         return ObjectMapper.Map<SubcontractingInwardOrder, SubcontractingInwardOrderDto>(entity);
     }
@@ -186,12 +189,15 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
         entity.Submit();
         await _repository.UpdateAsync(entity);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
-            "Submitted", entity.CompanyId,
-            entity.OrderNumber, "Draft", "Submitted", CurrentUser.Id,
-            $"Subcontracting inward order '{entity.OrderNumber}' submitted", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
+                "Submitted", entity.CompanyId,
+                entity.OrderNumber, "Draft", "Submitted", CurrentUser?.Id,
+                $"Subcontracting inward order '{entity.OrderNumber}' submitted", CurrentTenant?.Id));
+        }
 
         return ObjectMapper.Map<SubcontractingInwardOrder, SubcontractingInwardOrderDto>(entity);
     }
@@ -203,12 +209,15 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
         entity.Cancel();
         await _repository.UpdateAsync(entity);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
-            "Cancelled", entity.CompanyId,
-            entity.OrderNumber, "Submitted", "Cancelled", CurrentUser.Id,
-            $"Subcontracting inward order '{entity.OrderNumber}' cancelled", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
+                "Cancelled", entity.CompanyId,
+                entity.OrderNumber, "Submitted", "Cancelled", CurrentUser?.Id,
+                $"Subcontracting inward order '{entity.OrderNumber}' cancelled", CurrentTenant?.Id));
+        }
 
         return MapToDto(entity);
     }
@@ -349,7 +358,10 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
         {
             if (receiveItem.Qty <= 0) continue;
 
-            var item = entity.Items.FirstOrDefault(i => i.ItemId == receiveItem.ItemId)
+            var item = (receiveItem.SubcontractingInwardOrderItemId.HasValue
+                ? entity.Items.FirstOrDefault(i => i.Id == receiveItem.SubcontractingInwardOrderItemId.Value)
+                : null)
+                ?? entity.Items.FirstOrDefault(i => i.ItemId == receiveItem.ItemId)
                 ?? throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound)
                     .WithData("detail", "Item is not part of this Subcontracting Inward Order.");
 
@@ -379,12 +391,15 @@ public class SubcontractingInwardOrderAppService : ApplicationService, ISubcontr
         entity.UpdateReceivedStatus();
         await _repository.UpdateAsync(entity);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
-            "ItemsReceived", entity.CompanyId,
-            entity.OrderNumber, entity.Status.ToString(), entity.Status.ToString(), CurrentUser.Id,
-            $"Received items against Subcontracting Inward Order '{entity.OrderNumber}'", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "SubcontractingInwardOrder", entity.Id,
+                "ItemsReceived", entity.CompanyId,
+                entity.OrderNumber, entity.Status.ToString(), entity.Status.ToString(), CurrentUser?.Id,
+                $"Received items against Subcontracting Inward Order '{entity.OrderNumber}'", CurrentTenant?.Id));
+        }
 
         return MapToDto(entity);
     }

@@ -240,6 +240,7 @@ public class ScioReceiveItemsDto
 
 public class ScioReceiveItemDto
 {
+    public Guid? SubcontractingInwardOrderItemId { get; set; }
     [Required] public Guid ItemId { get; set; }
     public decimal Qty { get; set; }
 }

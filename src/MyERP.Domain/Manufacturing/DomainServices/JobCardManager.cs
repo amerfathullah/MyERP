@@ -346,4 +346,31 @@ public class JobCardManager : DomainService
                 .WithData("detail", $"Cannot perform action on Job Card when linked Work Order is {wo.Status}.");
         }
     }
+
+    /// <summary>
+    /// Gets raw materials required for a Job Card from the linked Work Order.
+    /// Per ERPNext workstation.py / PR #58927: throws when Job Card has no raw materials to transfer.
+    /// </summary>
+    public async Task<List<WorkOrderItem>> GetRawMaterialsAsync(
+        JobCard jobCard, IRepository<WorkOrder, Guid> woRepository)
+    {
+        var wo = await woRepository.FindAsync(jobCard.WorkOrderId);
+        if (wo == null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound)
+                .WithData("detail", "Work Order not found for Job Card.");
+        }
+
+        var matchingItems = jobCard.BomOperationId.HasValue
+            ? wo.RequiredItems.Where(i => i.BomOperationId == jobCard.BomOperationId.Value).ToList()
+            : wo.RequiredItems.ToList();
+
+        if (!matchingItems.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "This Job Card has no raw materials to transfer.");
+        }
+
+        return matchingItems;
+    }
 }

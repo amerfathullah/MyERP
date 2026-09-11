@@ -474,5 +474,167 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                 .WithData("status", jc.Status.ToString());
         await _repository.DeleteAsync(id);
     }
+
+    /// <summary>
+    /// Gets raw materials required for a Job Card from the linked Work Order.
+    /// Per ERPNext workstation.py / PR #58927: throws when Job Card has no raw materials to transfer.
+    /// </summary>
+    public async Task<System.Collections.Generic.List<JobCardRawMaterialDto>> GetRawMaterialsAsync(Guid id)
+    {
+        var jc = await _repository.GetAsync(id);
+        var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var matchingItems = await jobCardManager.GetRawMaterialsAsync(jc, woRepo);
+
+        var wo = await woRepo.GetAsync(jc.WorkOrderId);
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+        var binService = LazyServiceProvider.LazyGetRequiredService<BinService>();
+
+        var itemIds = matchingItems.Select(i => i.ItemId).Distinct().ToList();
+        var items = await itemRepo.GetListAsync(i => itemIds.Contains(i.Id));
+        var itemDict = items.ToDictionary(i => i.Id);
+
+        var warehouseIds = matchingItems
+            .Select(i => i.SourceWarehouseId ?? wo.SourceWarehouseId)
+            .Where(w => w.HasValue)
+            .Select(w => w!.Value)
+            .Distinct()
+            .ToList();
+        var warehouses = await whRepo.GetListAsync(w => warehouseIds.Contains(w.Id));
+        var whDict = warehouses.ToDictionary(w => w.Id);
+
+        var result = new System.Collections.Generic.List<JobCardRawMaterialDto>();
+        foreach (var reqItem in matchingItems)
+        {
+            var srcWhId = reqItem.SourceWarehouseId ?? wo.SourceWarehouseId;
+            itemDict.TryGetValue(reqItem.ItemId, out var itemObj);
+            Inventory.Entities.Warehouse? whObj = null;
+            if (srcWhId.HasValue)
+            {
+                whDict.TryGetValue(srcWhId.Value, out whObj);
+            }
+
+            decimal stockQty = 0;
+            if (srcWhId.HasValue)
+            {
+                var bin = await binService.GetOrCreateAsync(reqItem.ItemId, srcWhId.Value, wo.TenantId);
+                stockQty = bin.ActualQty;
+            }
+
+            result.Add(new JobCardRawMaterialDto
+            {
+                ItemId = reqItem.ItemId,
+                ItemCode = itemObj?.ItemCode ?? string.Empty,
+                ItemName = itemObj?.ItemName ?? reqItem.ItemName,
+                Description = itemObj?.Description ?? reqItem.ItemName,
+                Uom = reqItem.StockUom,
+                SourceWarehouseId = srcWhId,
+                SourceWarehouseName = whObj?.Name,
+                WipWarehouseId = jc.WipWarehouseId ?? wo.WipWarehouseId,
+                RequiredQty = reqItem.RequiredQuantity,
+                TransferredQty = reqItem.TransferredQuantity,
+                StockQty = stockQty,
+                IsAvailable = stockQty >= reqItem.RequiredQuantity
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Creates a Material Transfer for Manufacture Stock Entry from a Job Card.
+    /// Maps to ERPNext job_card/mapper.py make_stock_entry and PR #58927.
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Create)]
+    public async Task<Inventory.StockEntryDto> CreateMaterialTransferAsync(Guid id)
+    {
+        var jc = await _repository.GetAsync(id);
+        if (jc.Status is JobCardStatus.Cancelled or JobCardStatus.Completed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "JobCard")
+                .WithData("status", jc.Status.ToString());
+        }
+
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var wo = await woRepo.GetAsync(jc.WorkOrderId, includeDetails: true);
+        if (wo.Status is WorkOrderStatus.Draft or WorkOrderStatus.Cancelled or WorkOrderStatus.Stopped or WorkOrderStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "WorkOrder")
+                .WithData("status", wo.Status.ToString());
+        }
+
+        var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        var matchingItems = await jobCardManager.GetRawMaterialsAsync(jc, woRepo);
+
+        if (jc.FinishedGoodItemId.HasValue && !jc.WipWarehouseId.HasValue && !wo.WipWarehouseId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                .WithData("detail", "Please set the Target Warehouse in the Job Card.");
+        }
+
+        var wipWarehouseId = jc.WipWarehouseId ?? wo.WipWarehouseId;
+        if (!wipWarehouseId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                .WithData("field", "WIPWarehouse");
+        }
+
+        var numberGenerator = LazyServiceProvider.LazyGetRequiredService<IDocumentNumberGenerator>();
+        var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
+        var bom = await bomRepo.FindAsync(wo.BomId, includeDetails: true);
+
+        var entry = new Inventory.Entities.StockEntry(
+            GuidGenerator.Create(), wo.CompanyId,
+            StockEntryType.MaterialTransferForManufacture,
+            DateTime.UtcNow.Date, CurrentTenant.Id)
+        {
+            WorkOrderId = wo.Id,
+            JobCardId = jc.Id,
+            EntryNumber = await numberGenerator.GenerateAsync("SE", wo.CompanyId),
+            Notes = $"Material Transfer for Job Card {jc.Id} (WO {wo.WorkOrderNumber ?? wo.Id.ToString()})"
+        };
+
+        foreach (var reqItem in matchingItems)
+        {
+            var pendingQty = reqItem.RequiredQuantity - reqItem.TransferredQuantity;
+            if (pendingQty <= 0) continue;
+
+            var sourceWhId = reqItem.SourceWarehouseId ?? wo.SourceWarehouseId ?? bom?.SourceWarehouseId;
+            if (!sourceWhId.HasValue)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                    .WithData("field", "SourceWarehouse");
+            }
+
+            var bomItem = bom?.Items.FirstOrDefault(b => b.ItemId == reqItem.ItemId);
+            var rate = bomItem?.Rate ?? 0m;
+
+            entry.AddItem(
+                itemId: reqItem.ItemId,
+                quantity: pendingQty,
+                sourceWarehouseId: sourceWhId.Value,
+                targetWarehouseId: wipWarehouseId.Value,
+                valuationRate: rate);
+        }
+
+        if (!entry.Items.Any())
+        {
+            throw new BusinessException("MyERP:10013")
+                .WithData("reason", "All materials have already been transferred for this Job Card.");
+        }
+
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+        await seRepo.InsertAsync(entry, autoSave: true);
+
+        var allTransferred = matchingItems.All(i => i.TransferredQuantity >= i.RequiredQuantity);
+        var anyTransferred = matchingItems.Any(i => i.TransferredQuantity > 0);
+        jc.UpdateTransferStatus(allTransferred, anyTransferred);
+        await _repository.UpdateAsync(jc);
+
+        return ObjectMapper.Map<Inventory.Entities.StockEntry, Inventory.StockEntryDto>(entry);
+    }
 }
 

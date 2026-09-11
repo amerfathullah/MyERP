@@ -64,3 +64,21 @@ public class GetJobCardListDto : PagedAndSortedResultRequestDto
     public JobCardStatus? Status { get; set; }
     public string? Filter { get; set; }
 }
+
+public class JobCardRawMaterialDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Uom { get; set; } = "Unit";
+    public Guid? SourceWarehouseId { get; set; }
+    public string? SourceWarehouseName { get; set; }
+    public Guid? WipWarehouseId { get; set; }
+    public decimal RequiredQty { get; set; }
+    public decimal TransferredQty { get; set; }
+    public decimal PendingQty => Math.Max(0, RequiredQty - TransferredQty);
+    public decimal StockQty { get; set; }
+    public bool IsAvailable { get; set; }
+}
+

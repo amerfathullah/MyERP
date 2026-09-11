@@ -307,7 +307,7 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         get
         {
             var secondaryTotal = SecondaryItems.Sum(si => si.CostAllocationPercentage);
-            return 100m - secondaryTotal;
+            return Math.Clamp(100m - secondaryTotal, 0m, 100m);
         }
     }
 
