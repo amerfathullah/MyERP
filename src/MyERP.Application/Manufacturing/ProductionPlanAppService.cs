@@ -105,6 +105,66 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
 
+        // Validate BOMs belong to company
+        var bomIds = input.Items.Select(i => i.BomId).Distinct().ToList();
+        var bomQuery = await _bomRepository.GetQueryableAsync();
+        var boms = bomQuery.Where(b => bomIds.Contains(b.Id)).ToList();
+        foreach (var bom in boms)
+        {
+            if (bom.CompanyId != input.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("bomCompany", bom.CompanyId)
+                    .WithData("productionPlanCompany", input.CompanyId);
+            }
+        }
+
+        // Validate Sales Orders belong to company (if referenced)
+        var soIds = input.Items.Where(i => i.SalesOrderId.HasValue).Select(i => i.SalesOrderId!.Value).Distinct().ToList();
+        if (soIds.Count > 0)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var soQuery = await soRepo.GetQueryableAsync();
+            var sos = soQuery.Where(s => soIds.Contains(s.Id)).ToList();
+            foreach (var so in sos)
+            {
+                if (so.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("salesOrderCompany", so.CompanyId)
+                        .WithData("productionPlanCompany", input.CompanyId);
+                }
+            }
+        }
+
+        // Validate warehouses belong to company
+        var warehouseIds = input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value)
+            .Concat(new[] { input.RawMaterialGroupWarehouseId, input.ForWarehouseId }.Where(w => w.HasValue).Select(w => w!.Value))
+            .Distinct()
+            .ToList();
+        if (warehouseIds.Count > 0)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+            var whQuery = await whRepo.GetQueryableAsync();
+            var warehouses = whQuery.Where(w => warehouseIds.Contains(w.Id)).ToList();
+            foreach (var wh in warehouses)
+            {
+                if (wh.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("warehouseCompany", wh.CompanyId)
+                        .WithData("productionPlanCompany", input.CompanyId);
+                }
+            }
+        }
+
+        // Validate items and warehouses pass CompanyRestrictionValidationService
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "ProductionPlan", input.CompanyId,
+            itemIds: input.Items.Select(i => i.ItemId).Distinct().ToArray(),
+            warehouseIds: warehouseIds.Count > 0 ? warehouseIds.ToArray() : null);
+
         foreach (var item in input.Items)
         {
             plan.AddPlannedItem(new ProductionPlanItem(
