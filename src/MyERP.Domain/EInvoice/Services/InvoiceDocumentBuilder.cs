@@ -177,7 +177,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
 
     private XElement BuildCustomerParty(EInvoicePartyData buyer)
     {
-        return new XElement(Cac + "AccountingCustomerParty",
+        var party = new XElement(Cac + "AccountingCustomerParty",
             new XElement(Cac + "Party",
                 new XElement(Cac + "PartyIdentification",
                     new XElement(Cbc + "ID",
@@ -195,6 +195,35 @@ public class InvoiceDocumentBuilder : ITransientDependency
                         new XElement(Cbc + "IdentificationCode", buyer.CountryCode ?? "MYS"))),
                 new XElement(Cac + "PartyLegalEntity",
                     new XElement(Cbc + "RegistrationName", buyer.Name))));
+
+        if (!string.IsNullOrEmpty(buyer.SstRegistration))
+        {
+            party.Element(Cac + "Party")!.Add(
+                new XElement(Cac + "PartyIdentification",
+                    new XElement(Cbc + "ID",
+                        new XAttribute("schemeID", "SST"), buyer.SstRegistration)));
+        }
+
+        if (!string.IsNullOrEmpty(buyer.TourismTaxNumber))
+        {
+            party.Element(Cac + "Party")!.Add(
+                new XElement(Cac + "PartyIdentification",
+                    new XElement(Cbc + "ID",
+                        new XAttribute("schemeID", "TTX"), buyer.TourismTaxNumber)));
+        }
+
+        // Contact info (per LHDN spec — phone and email)
+        if (!string.IsNullOrEmpty(buyer.Phone) || !string.IsNullOrEmpty(buyer.Email))
+        {
+            var contact = new XElement(Cac + "Contact");
+            if (!string.IsNullOrEmpty(buyer.Phone))
+                contact.Add(new XElement(Cbc + "Telephone", buyer.Phone));
+            if (!string.IsNullOrEmpty(buyer.Email))
+                contact.Add(new XElement(Cbc + "ElectronicMail", buyer.Email));
+            party.Element(Cac + "Party")!.Add(contact);
+        }
+
+        return party;
     }
 
     private XElement BuildTaxTotal(decimal taxAmount, string currency, List<EInvoiceTaxBreakdown>? breakdowns)
@@ -378,6 +407,7 @@ public class EInvoicePartyData
     public string? IdType { get; set; }
     public string? IdValue { get; set; }
     public string? SstRegistration { get; set; }
+    public string? TourismTaxNumber { get; set; }
     public string? MsicCode { get; set; }
     public string? MsicDescription { get; set; }
     public string? Address { get; set; }

@@ -135,18 +135,36 @@ public class EInvoiceService : DomainService
     {
         var submission = await _submissionRepository.GetAsync(submissionId);
 
-        if (string.IsNullOrEmpty(submission.DocumentUuid))
-            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceCancellationFailed);
+        if (string.IsNullOrEmpty(submission.SubmissionUid) || string.IsNullOrEmpty(submission.DocumentUuid))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceCancellationFailed)
+                .WithData("reason", "Missing submission UID or UUID. Cannot proceed with cancellation.");
+        }
+
+        if (submission.Status == "Cancelled")
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceCancellationFailed)
+                .WithData("reason", "Document is already cancelled.");
+        }
+
+        if (submission.Status != "Valid" && submission.Status != "Submitted" && submission.Status != "Pending")
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceCancellationFailed)
+                .WithData("reason", $"Cannot cancel e-Invoice with status '{submission.Status}'. Only submitted or valid documents can be cancelled.");
+        }
+
+        if (!submission.SubmittedAt.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceCancellationFailed)
+                .WithData("reason", "Submission time not found. Cannot validate cancellation window.");
+        }
 
         // Enforce 72-hour cancellation window per LHDN regulation
-        if (submission.SubmittedAt.HasValue)
+        var elapsed = DateTime.UtcNow - submission.SubmittedAt.Value;
+        if (elapsed.TotalHours > 72)
         {
-            var elapsed = DateTime.UtcNow - submission.SubmittedAt.Value;
-            if (elapsed.TotalHours > 72)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.EInvoiceCancellationFailed)
-                    .WithData("reason", "Cancellation not allowed after 72 hours of submission per LHDN regulation.");
-            }
+            throw new BusinessException(MyERPDomainErrorCodes.LhdnCancellationWindowExpired)
+                .WithData("reason", "As per LHDN Regulation, Cancellation not allowed after 72 hours of submission.");
         }
 
         var response = await _lhdnApiClient.CancelDocumentAsync(

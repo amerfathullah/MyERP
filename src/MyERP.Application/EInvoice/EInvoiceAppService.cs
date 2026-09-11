@@ -154,6 +154,9 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             State = company.State,
             PostalCode = company.PostalCode,
             CountryCode = company.Country ?? "MYS",
+            Phone = company.Phone,
+            Email = company.Email,
+            MsicCode = company.MsicCode,
         };
 
         return sourceDocType switch
@@ -187,6 +190,15 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             billingReferenceUuid = originalInvoice?.LhdnUuid;
         }
 
+        var isForeignCustomer = !string.IsNullOrWhiteSpace(customer.Country) &&
+            !customer.Country.Equals("MYS", StringComparison.OrdinalIgnoreCase) &&
+            !customer.Country.Equals("Malaysia", StringComparison.OrdinalIgnoreCase);
+
+        var defaultBuyerTin = isForeignCustomer ? EInvoiceConsts.ForeignPartyTin : EInvoiceConsts.GenericBuyerTin;
+        var buyerTin = !string.IsNullOrWhiteSpace(invoice.BuyerTin)
+            ? invoice.BuyerTin
+            : (!string.IsNullOrWhiteSpace(customer.Tin) ? customer.Tin : defaultBuyerTin);
+
         return new EInvoiceDocumentData
         {
             InvoiceNumber = invoice.InvoiceNumber,
@@ -199,15 +211,17 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             Buyer = new EInvoicePartyData
             {
                 Name = customer.Name,
-                Tin = !string.IsNullOrWhiteSpace(invoice.BuyerTin) ? invoice.BuyerTin : (customer.Tin ?? "EI00000000020"),
-                IdType = customer.IdType ?? "BRN",
-                IdValue = customer.IdValue ?? customer.RegistrationNumber ?? "",
+                Tin = buyerTin,
+                IdType = customer.IdType ?? (isForeignCustomer ? "PASSPORT" : "BRN"),
+                IdValue = customer.IdValue ?? customer.RegistrationNumber ?? (isForeignCustomer ? "NA" : ""),
                 SstRegistration = customer.SstRegistrationNumber,
                 Address = customer.Address,
                 City = customer.City,
                 State = customer.State,
                 PostalCode = customer.PostalCode,
                 CountryCode = customer.Country ?? "MYS",
+                Phone = customer.Phone,
+                Email = customer.Email,
             },
             NetTotal = invoice.NetTotal,
             TaxAmount = invoice.TaxAmount,
@@ -245,6 +259,15 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             billingReferenceUuid = originalInvoice?.LhdnUuid;
         }
 
+        var isForeignSupplier = !string.IsNullOrWhiteSpace(supplier.Country) &&
+            !supplier.Country.Equals("MYS", StringComparison.OrdinalIgnoreCase) &&
+            !supplier.Country.Equals("Malaysia", StringComparison.OrdinalIgnoreCase);
+
+        var defaultSupplierTin = isForeignSupplier ? EInvoiceConsts.ForeignPartyTin : EInvoiceConsts.GenericBuyerTin;
+        var supplierTin = !string.IsNullOrWhiteSpace(invoice.SupplierTin)
+            ? invoice.SupplierTin
+            : (!string.IsNullOrWhiteSpace(supplier.Tin) ? supplier.Tin : defaultSupplierTin);
+
         // For purchase: supplier is the seller, company is the buyer
         return new EInvoiceDocumentData
         {
@@ -257,15 +280,17 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             Supplier = new EInvoicePartyData
             {
                 Name = supplier.Name,
-                Tin = invoice.SupplierTin ?? supplier.Tin ?? "EI00000000020",
-                IdType = supplier.IdType ?? "BRN",
-                IdValue = supplier.IdValue ?? supplier.RegistrationNumber ?? "",
+                Tin = supplierTin,
+                IdType = supplier.IdType ?? (isForeignSupplier ? "PASSPORT" : "BRN"),
+                IdValue = supplier.IdValue ?? supplier.RegistrationNumber ?? (isForeignSupplier ? "NA" : ""),
                 SstRegistration = supplier.SstRegistrationNumber,
                 Address = supplier.Address,
                 City = supplier.City,
                 State = supplier.State,
                 PostalCode = supplier.PostalCode,
                 CountryCode = supplier.Country ?? "MYS",
+                Phone = supplier.Phone,
+                Email = supplier.Email,
             },
             Buyer = buyer,
             NetTotal = invoice.NetTotal,
@@ -508,6 +533,12 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
 
         // Build document with generic buyer for walk-in POS customers
         var company = await _companyRepository.GetAsync(input.CompanyId);
+        if (!company.EnableLhdnInvoice)
+        {
+            // Per MyInvois PR d9adf36: Gracefully bypass LHDN submission if disabled.
+            return new EInvoiceSubmissionDto { Status = "NotSubmitted" };
+        }
+
         var supplier = new EInvoicePartyData
         {
             Name = company.Name,
@@ -520,15 +551,18 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             State = company.State,
             PostalCode = company.PostalCode,
             CountryCode = company.Country ?? "MYS",
+            Phone = company.Phone,
+            Email = company.Email,
+            MsicCode = company.MsicCode,
         };
 
         // Per myinvois: consolidated invoices use generic buyer "General Public"
         var buyer = new EInvoicePartyData
         {
             Name = "Consolidated - General Public",
-            Tin = "EI00000000020", // LHDN generic TIN for walk-in customers
+            Tin = EInvoiceConsts.GenericBuyerTin, // LHDN generic TIN for walk-in customers
             IdType = "BRN",
-            IdValue = "EI00000000020",
+            IdValue = EInvoiceConsts.GenericBuyerTin,
             CountryCode = "MYS",
         };
 

@@ -82,7 +82,7 @@ public class EInvoiceValidationService : ITransientDependency
         {
             var customer = await _customerRepository.FindAsync(invoice.CustomerId);
             if (string.IsNullOrWhiteSpace(customer?.Tin))
-                errors.Add("Buyer TIN is required. For consumers, use generic TIN 'EI00000000020'.");
+                errors.Add("Buyer TIN is required. For Malaysian consumers, use generic TIN 'EI00000000020'; for foreign buyers, use 'EI00000000030'.");
         }
 
         // Multi-currency conversion rate check (gotcha: no hardcoded 4.72 fallback allowed)
@@ -217,7 +217,7 @@ public class EInvoiceValidationService : ITransientDependency
         // Supplier validations (in self-billed, Supplier is Seller)
         var supplierTin = invoice.SupplierTin ?? supplier?.Tin;
         if (string.IsNullOrWhiteSpace(supplierTin))
-            errors.Add("Supplier TIN is required for self-billed e-Invoice submission. For general public use 'EI00000000020'.");
+            errors.Add("Supplier TIN is required for self-billed e-Invoice submission. For Malaysian general public use 'EI00000000020'; for foreign suppliers use 'EI00000000030'.");
 
         // Invoice status validations
         if (invoice.Status != Core.DocumentStatus.Posted && invoice.Status != Core.DocumentStatus.Submitted)
