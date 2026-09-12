@@ -125,7 +125,8 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     public void AddItem(
         Guid itemId, decimal quantity, Guid? sourceWarehouseId, Guid? targetWarehouseId,
         decimal? valuationRate = null, bool isFinishedItem = false, Guid? batchId = null,
-        string? secondaryItemType = null, decimal processLossPercentage = 0)
+        string? secondaryItemType = null, decimal processLossPercentage = 0,
+        decimal conversionFactor = 1m, string stockUom = "Unit")
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -136,7 +137,9 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
             IsFinishedItem = isFinishedItem,
             BatchId = batchId,
             SecondaryItemType = secondaryItemType,
-            ProcessLossPercentage = processLossPercentage
+            ProcessLossPercentage = processLossPercentage,
+            ConversionFactor = conversionFactor > 0 ? conversionFactor : 1m,
+            StockUom = stockUom
         };
         _items.Add(item);
     }

@@ -796,7 +796,7 @@ public class StockEntryManager : DomainService
         var useBasicAmount = totalBasicAmount > 0m;
         var totalBasis = useBasicAmount
             ? totalBasicAmount
-            : incomingRows.Sum(i => i.Quantity);
+            : incomingRows.Sum(i => i.StockQty > 0 ? i.StockQty : i.Quantity);
 
         if (totalBasis <= 0m) return;
 
@@ -812,7 +812,7 @@ public class StockEntryManager : DomainService
             {
                 var basisVal = useBasicAmount
                     ? row.Quantity * (row.ValuationRate ?? 0m)
-                    : row.Quantity;
+                    : (row.StockQty > 0 ? row.StockQty : row.Quantity);
                 var portion = Math.Round(entry.TotalAdditionalCosts * (basisVal / totalBasis), 4);
                 row.AdditionalCost = portion;
                 allocated += portion;

@@ -165,7 +165,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         foreach (var item in input.Items)
         {
-            entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate, item.IsFinishedItem, item.BatchId);
+            entry.AddItem(
+                item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId,
+                item.ValuationRate, item.IsFinishedItem, item.BatchId,
+                conversionFactor: item.ConversionFactor > 0 ? item.ConversionFactor : 1m,
+                stockUom: item.StockUom ?? "Unit");
             if (item.CostCenterId.HasValue || input.CostCenterId.HasValue)
                 entry.Items[^1].CostCenterId = item.CostCenterId ?? input.CostCenterId;
             if (item.ExpenseAccountId.HasValue)
@@ -931,7 +935,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.ClearItems();
         foreach (var item in input.Items)
         {
-            entry.AddItem(item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId, item.ValuationRate, item.IsFinishedItem, item.BatchId);
+            entry.AddItem(
+                item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId,
+                item.ValuationRate, item.IsFinishedItem, item.BatchId,
+                conversionFactor: item.ConversionFactor > 0 ? item.ConversionFactor : 1m,
+                stockUom: item.StockUom ?? "Unit");
             if (item.CostCenterId.HasValue || input.CostCenterId.HasValue)
                 entry.Items[^1].CostCenterId = item.CostCenterId ?? input.CostCenterId;
             if (item.ExpenseAccountId.HasValue)

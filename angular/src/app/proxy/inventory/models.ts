@@ -408,6 +408,8 @@ export interface CreateStockEntryItemDto {
   expenseAccountId?: string | null;
   projectId?: string | null;
   materialRequestItemId?: string | null;
+  conversionFactor?: number;
+  stockUom?: string | null;
 }
 
 export interface CreateStockReservationDto {
@@ -1802,6 +1804,9 @@ export interface StockEntryItemDto {
   expenseAccountId?: string | null;
   projectId?: string | null;
   materialRequestItemId?: string | null;
+  conversionFactor?: number;
+  stockUom?: string | null;
+  stockQty?: number;
 }
 
 export interface StockGlComparisonDto {

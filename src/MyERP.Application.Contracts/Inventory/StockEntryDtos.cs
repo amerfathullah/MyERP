@@ -46,6 +46,9 @@ public class StockEntryItemDto
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ProjectId { get; set; }
     public Guid? MaterialRequestItemId { get; set; }
+    public decimal ConversionFactor { get; set; } = 1m;
+    public string StockUom { get; set; } = "Unit";
+    public decimal StockQty { get; set; }
 }
 
 public class CreateStockEntryDto
@@ -109,6 +112,8 @@ public class CreateStockEntryItemDto
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ProjectId { get; set; }
     public Guid? MaterialRequestItemId { get; set; }
+    public decimal ConversionFactor { get; set; } = 1m;
+    public string? StockUom { get; set; }
 }
 
 /// <summary>Pre-populated items for a Manufacture stock entry from Work Order BOM.</summary>

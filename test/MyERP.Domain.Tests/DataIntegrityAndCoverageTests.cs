@@ -2636,6 +2636,38 @@ public class DataIntegrityAndCoverageTests
     }
 
     [Fact]
+    public void StockEntry_DistributeAdditionalCosts_ZeroValuedItems_WithConversionFactor_AllocatesByStockQty()
+    {
+        // Per ERPNext PR #58842 / commit 1728d1b0f5 & test_additional_cost_gl_matches_valuation_split:
+        // When incoming items have zero basic amount, fall back to distributing additional costs by transfer_qty (StockQty).
+        var entry = new MyERP.Inventory.Entities.StockEntry(
+            Guid.NewGuid(), Guid.NewGuid(), StockEntryType.MaterialReceipt, DateTime.UtcNow)
+        {
+            TotalAdditionalCosts = 100m
+        };
+
+        var targetWh = Guid.NewGuid();
+        // Item A: 1 qty (Box), conversion factor 2 -> StockQty = 2, zero rate
+        entry.AddItem(Guid.NewGuid(), 1m, null, targetWh, valuationRate: 0m, conversionFactor: 2m, stockUom: "Nos");
+        // Item B: 1 qty (Box), conversion factor 3 -> StockQty = 3, zero rate
+        entry.AddItem(Guid.NewGuid(), 1m, null, targetWh, valuationRate: 0m, conversionFactor: 3m, stockUom: "Nos");
+
+        MyERP.Inventory.DomainServices.StockEntryManager.DistributeAdditionalCosts(entry);
+
+        Assert.Equal(2, entry.Items.Count);
+        // Total basis in stock qty = 2 + 3 = 5
+        // Item A: 2/5 * 100 = 40; valuation rate becomes 0 + 40/1 = 40
+        Assert.Equal(40m, entry.Items[0].AdditionalCost);
+        Assert.Equal(40m, entry.Items[0].ValuationRate);
+
+        // Item B: 3/5 * 100 = 60; valuation rate becomes 0 + 60/1 = 60
+        Assert.Equal(60m, entry.Items[1].AdditionalCost);
+        Assert.Equal(60m, entry.Items[1].ValuationRate);
+
+        Assert.Equal(100m, entry.Items[0].AdditionalCost + entry.Items[1].AdditionalCost);
+    }
+
+    [Fact]
     public void StockEntry_DistributeAdditionalCosts_Manufacture_OnlyAllocatesToFinishedGoods()
     {
         // Per ERPNext PR #58842 / commit 1728d1b0f5:
