@@ -169,15 +169,20 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         OperatingCost = Operations.Sum(o => o.OperatingCost);
 
         // Valuation Rate and Manual rows carry their own cost, deducted from raw material cost;
-        // The PercentageOfFgCost rows split the remaining allocation basis by their percentage (per ERPNext PR #58431).
+        // The PercentageOfComponentCost rows split the remaining allocation basis by their percentage (per ERPNext PR #58431 / PR #59021).
         var ownCost = SecondaryItems
             .Where(si => si.CostAllocationPercentage == 0 && (si.ValuationType == SecondaryItemValuationType.ValuationRate || si.ValuationType == SecondaryItemValuationType.Manual))
             .Sum(si => si.Amount);
 
         var allocationBasis = Math.Max(0, TotalMaterialCost - ownCost);
 
-        foreach (var si in SecondaryItems.Where(s => !s.IsLegacy && (s.CostAllocationPercentage > 0 || s.ValuationType == SecondaryItemValuationType.PercentageOfFgCost)))
+        foreach (var si in SecondaryItems.Where(s => !s.IsLegacy && (s.CostAllocationPercentage > 0 || s.ValuationType == SecondaryItemValuationType.PercentageOfComponentCost)))
         {
+            if (si.ValuationType != SecondaryItemValuationType.PercentageOfComponentCost)
+            {
+                si.CostAllocationPercentage = 0;
+            }
+
             if (si.CostAllocationPercentage > 0)
             {
                 var allocatedCost = allocationBasis * (si.CostAllocationPercentage / 100m);
@@ -281,6 +286,12 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (item.ProcessLossPercentage >= 100m)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidProcessLossPercentage)
                 .WithData("percentage", item.ProcessLossPercentage);
+
+        // Per ERPNext PR #59021 / bom.js: cost allocation % only applies to PercentageOfComponentCost
+        if (item.ValuationType != SecondaryItemValuationType.PercentageOfComponentCost)
+        {
+            item.CostAllocationPercentage = 0;
+        }
 
         SecondaryItems.Add(item);
     }

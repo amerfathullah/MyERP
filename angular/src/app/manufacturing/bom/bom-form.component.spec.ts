@@ -155,4 +155,68 @@ describe('BomFormComponent', () => {
       expect(isEditMode).toBe(false);
     });
   });
+
+  describe('secondary item DTO mapping & valuation type logic', () => {
+    function mapSecondaryItem(control: any) {
+      const valType = Number(control.valuationType ?? 0);
+      return {
+        itemId: control.itemId,
+        itemName: control.itemName || '',
+        secondaryItemType: Number(control.secondaryItemType ?? 0),
+        valuationType: valType,
+        quantity: Number(control.quantity ?? 1),
+        rate: Number(control.rate ?? 0),
+        costAllocationPercentage: valType === 1 ? Number(control.costAllocationPercentage ?? 0) : 0,
+        processLossPercentage: Number(control.processLossPercentage ?? 0),
+        stockUom: control.stockUom || 'Unit',
+        warehouseId: control.warehouseId || null,
+      };
+    }
+
+    it('should map secondary item and preserve cost allocation for PercentageOfComponentCost', () => {
+      const result = mapSecondaryItem({
+        itemId: 'item-coproduct',
+        itemName: 'Steel Dust',
+        secondaryItemType: 0,
+        valuationType: 1, // PercentageOfComponentCost (PR #59021)
+        quantity: 2,
+        costAllocationPercentage: 25,
+        rate: 50,
+      });
+
+      expect(result.valuationType).toBe(1);
+      expect(result.costAllocationPercentage).toBe(25);
+      expect(result.quantity).toBe(2);
+    });
+
+    it('should zero out cost allocation for ValuationRate valuation type', () => {
+      const result = mapSecondaryItem({
+        itemId: 'item-scrap',
+        itemName: 'Metal Scrap',
+        secondaryItemType: 2,
+        valuationType: 0, // ValuationRate
+        quantity: 5,
+        costAllocationPercentage: 15,
+        rate: 10,
+      });
+
+      expect(result.valuationType).toBe(0);
+      expect(result.costAllocationPercentage).toBe(0);
+    });
+
+    it('should zero out cost allocation for Manual valuation type', () => {
+      const result = mapSecondaryItem({
+        itemId: 'item-byproduct',
+        itemName: 'Slag',
+        secondaryItemType: 1,
+        valuationType: 2, // Manual
+        quantity: 1,
+        costAllocationPercentage: 30,
+        rate: 80,
+      });
+
+      expect(result.valuationType).toBe(2);
+      expect(result.costAllocationPercentage).toBe(0);
+    });
+  });
 });

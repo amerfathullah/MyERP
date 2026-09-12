@@ -85,18 +85,8 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
           </div>
         </div>
 
-        <div class="d-flex justify-content-between">
-          <div class="fw-bold">{{ 'TotalCost' | abpLocalization }}: {{ totalCost | number:'1.2-2' }}
-            <span class="text-muted ms-2">({{ 'Material' | abpLocalization }}: {{ materialCost | number:'1.2-2' }} + {{ 'Operations' | abpLocalization }}: {{ operatingCost | number:'1.2-2' }})</span>
-          </div>
-          <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-secondary" routerLink="/manufacturing/bom"><i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
-            <button type="submit" class="btn btn-primary"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
-          </div>
-        </div>
-
         <!-- Operations Section -->
-        <div class="card mt-3">
+        <div class="card mb-3">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h6 class="mb-0"><i class="fa fa-gears me-2"></i>{{ 'Operations' | abpLocalization }}</h6>
             <button type="button" class="btn btn-sm btn-outline-primary" (click)="addOperation()">
@@ -134,6 +124,74 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
           </div>
           }
         </div>
+
+        <!-- Secondary Items Section (Co-Products, By-Products, Scrap) -->
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="fas fa-recycle me-2"></i>{{ 'SecondaryItems' | abpLocalization }}</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" (click)="addSecondaryItem()">
+              <i class="fa fa-plus me-1"></i>{{ 'AddSecondaryItem' | abpLocalization }}
+            </button>
+          </div>
+          @if (secondaryItems.length > 0) {
+          <div class="card-body p-0">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3" style="min-width: 200px">{{ 'Item' | abpLocalization }}</th>
+                  <th style="width: 140px">{{ 'Type' | abpLocalization }}</th>
+                  <th style="width: 200px">{{ 'ValuationType' | abpLocalization }}</th>
+                  <th style="width: 100px" class="text-end">{{ 'Quantity' | abpLocalization }}</th>
+                  <th style="width: 110px" class="text-end">{{ 'CostAllocation' | abpLocalization }} %</th>
+                  <th style="width: 100px" class="text-end">{{ 'Rate' | abpLocalization }}</th>
+                  <th style="width: 50px" class="pe-3"></th>
+                </tr>
+              </thead>
+              <tbody formArrayName="secondaryItems">
+                @for (si of secondaryItems.controls; track $index; let i = $index) {
+                  <tr [formGroupName]="i">
+                    <td class="ps-3">
+                      <app-item-picker formControlName="itemId" [companyId]="form.get('companyId')?.value || null"
+                        (itemSelected)="onSecondaryItemSelected(i, $event)"></app-item-picker>
+                    </td>
+                    <td>
+                      <select class="form-select form-select-sm" formControlName="secondaryItemType">
+                        <option [ngValue]="0">{{ 'CoProduct' | abpLocalization }}</option>
+                        <option [ngValue]="1">{{ 'ByProduct' | abpLocalization }}</option>
+                        <option [ngValue]="2">{{ 'Scrap' | abpLocalization }}</option>
+                      </select>
+                    </td>
+                    <td>
+                      <select class="form-select form-select-sm" formControlName="valuationType" (change)="onSecondaryValuationTypeChange(i)">
+                        <option [ngValue]="0">{{ 'ValuationRate' | abpLocalization }}</option>
+                        <option [ngValue]="1">{{ 'PercentageOfComponentCost' | abpLocalization }}</option>
+                        <option [ngValue]="2">{{ 'Manual' | abpLocalization }}</option>
+                      </select>
+                    </td>
+                    <td><input type="number" class="form-control form-control-sm text-end" formControlName="quantity" min="0.01" step="0.01" /></td>
+                    <td>
+                      <input type="number" class="form-control form-control-sm text-end" formControlName="costAllocationPercentage" min="0" max="100" step="0.1"
+                        [readonly]="si.get('valuationType')?.value !== 1" />
+                    </td>
+                    <td><input type="number" class="form-control form-control-sm text-end" formControlName="rate" min="0" step="0.01" [readonly]="si.get('valuationType')?.value !== 2" /></td>
+                    <td class="pe-3"><button type="button" class="btn btn-sm btn-outline-danger" (click)="removeSecondaryItem(i)"><i class="fa fa-trash"></i></button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          }
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="fw-bold">{{ 'TotalCost' | abpLocalization }}: {{ totalCost | number:'1.2-2' }}
+            <span class="text-muted ms-2">({{ 'Material' | abpLocalization }}: {{ materialCost | number:'1.2-2' }} + {{ 'Operations' | abpLocalization }}: {{ operatingCost | number:'1.2-2' }})</span>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" routerLink="/manufacturing/bom"><i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
+            <button type="submit" class="btn btn-primary"><i class="fa fa-save me-1"></i>{{ 'Save' | abpLocalization }}</button>
+          </div>
+        </div>
       </form>
     </abp-page>
   `,
@@ -157,10 +215,12 @@ export class BomFormComponent implements OnInit {
     isActive: [true],
     materials: this.fb.array([]),
     operations: this.fb.array([]),
+    secondaryItems: this.fb.array([]),
   });
 
   get materials(): FormArray { return this.form.get('materials') as FormArray; }
   get operations(): FormArray { return this.form.get('operations') as FormArray; }
+  get secondaryItems(): FormArray { return this.form.get('secondaryItems') as FormArray; }
 
   get materialCost(): number {
     return this.materials.controls.reduce((sum, c) =>
@@ -185,6 +245,7 @@ export class BomFormComponent implements OnInit {
         this.form.patchValue({ itemId: bom.itemId, itemName: bom.itemName, quantity: bom.quantity, isActive: bom.isActive });
         (bom.items ?? []).forEach((item: any) => this.addMaterial(item));
         (bom.operations ?? []).forEach((op: any) => this.addOperation(op));
+        (bom.secondaryItems ?? []).forEach((si: any) => this.addSecondaryItem(si));
       });
     }
   }
@@ -232,6 +293,44 @@ export class BomFormComponent implements OnInit {
 
   removeOperation(index: number): void { this.operations.removeAt(index); }
 
+  addSecondaryItem(si?: any): void {
+    this.secondaryItems.push(this.fb.group({
+      itemId: [si?.itemId ?? '', Validators.required],
+      itemName: [si?.itemName ?? ''],
+      secondaryItemType: [si?.secondaryItemType ?? 0, Validators.required],
+      valuationType: [si?.valuationType ?? 0, Validators.required],
+      quantity: [si?.quantity ?? 1, [Validators.required, Validators.min(0.01)]],
+      costAllocationPercentage: [si?.costAllocationPercentage ?? 0, [Validators.min(0), Validators.max(100)]],
+      rate: [si?.rate ?? 0, [Validators.min(0)]],
+      processLossPercentage: [si?.processLossPercentage ?? 0, [Validators.min(0), Validators.max(99.99)]],
+      stockUom: [si?.stockUom ?? 'Unit'],
+      warehouseId: [si?.warehouseId ?? null],
+    }));
+  }
+
+  removeSecondaryItem(index: number): void {
+    this.secondaryItems.removeAt(index);
+  }
+
+  onSecondaryValuationTypeChange(index: number): void {
+    const row = this.secondaryItems.at(index);
+    const valType = Number(row.get('valuationType')?.value);
+    // Per ERPNext PR #59021 / bom.js: cost allocation % only applies to PercentageOfComponentCost (1)
+    if (valType !== 1) {
+      row.patchValue({ costAllocationPercentage: 0 });
+    }
+  }
+
+  onSecondaryItemSelected(index: number, item: ItemDto | null): void {
+    if (!item) return;
+    const row = this.secondaryItems.at(index);
+    row.patchValue({
+      itemName: item.itemName ?? item.itemCode ?? '',
+      stockUom: item.stockUom ?? 'Unit',
+      rate: item.valuationRate ?? 0,
+    });
+  }
+
   getOpCost(index: number): number {
     const op = this.operations.at(index);
     const time = op.get('timeInMins')?.value ?? 0;
@@ -252,6 +351,22 @@ export class BomFormComponent implements OnInit {
         return { itemId: v.itemId, itemName: v.description || '', quantity: v.qty ?? 0, rate: v.rate ?? 0, uom: 'Unit' };
       }),
       operations: this.operations.controls.map(c => c.getRawValue()),
+      secondaryItems: this.secondaryItems.controls.map(c => {
+        const v = c.getRawValue();
+        const valType = Number(v.valuationType ?? 0);
+        return {
+          itemId: v.itemId,
+          itemName: v.itemName || '',
+          secondaryItemType: Number(v.secondaryItemType ?? 0),
+          valuationType: valType,
+          quantity: Number(v.quantity ?? 1),
+          rate: Number(v.rate ?? 0),
+          costAllocationPercentage: valType === 1 ? Number(v.costAllocationPercentage ?? 0) : 0,
+          processLossPercentage: Number(v.processLossPercentage ?? 0),
+          stockUom: v.stockUom || 'Unit',
+          warehouseId: v.warehouseId || null,
+        };
+      }),
     };
     const req = this.isEditMode
       ? this.manufacturingService.updateBom(this.entityId!, payload as any)

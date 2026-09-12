@@ -151,7 +151,9 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                   <tr>
                     <th>{{ 'Item' | abpLocalization }}</th>
                     <th>{{ 'Type' | abpLocalization }}</th>
+                    <th>{{ 'ValuationType' | abpLocalization }}</th>
                     <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Rate' | abpLocalization }}</th>
                     <th class="text-end">{{ 'CostAllocation' | abpLocalization }} %</th>
                   </tr>
                 </thead>
@@ -166,7 +168,16 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                           @case (2) { <span class="badge bg-warning text-dark">Scrap</span> }
                         }
                       </td>
+                      <td>
+                        @switch (si.valuationType) {
+                          @case (0) { <span class="badge bg-secondary">{{ 'ValuationRate' | abpLocalization }}</span> }
+                          @case (1) { <span class="badge bg-primary">{{ 'PercentageOfComponentCost' | abpLocalization }}</span> }
+                          @case (2) { <span class="badge bg-dark">{{ 'Manual' | abpLocalization }}</span> }
+                          @default { <span class="badge bg-secondary">{{ 'ValuationRate' | abpLocalization }}</span> }
+                        }
+                      </td>
                       <td class="text-end">{{ si.quantity | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ si.rate | number:'1.2-2' }}</td>
                       <td class="text-end">{{ si.costAllocationPercentage | number:'1.1-1' }}%</td>
                     </tr>
                   }

@@ -32,7 +32,7 @@ public class BomSecondaryItemTests
             Guid.NewGuid(), bomId, itemId ?? Guid.NewGuid(), type, qty);
         item.CostAllocationPercentage = costAllocation;
         item.ProcessLossPercentage = processLoss;
-        item.ValuationType = valuationType ?? (costAllocation > 0 ? SecondaryItemValuationType.PercentageOfFgCost : SecondaryItemValuationType.ValuationRate);
+        item.ValuationType = valuationType ?? (costAllocation > 0 ? SecondaryItemValuationType.PercentageOfComponentCost : SecondaryItemValuationType.ValuationRate);
         return item;
     }
 
@@ -277,11 +277,11 @@ public class BomSecondaryItemTests
     [Fact]
     public void BOM_RecalculateCost_OwnCostDeducted_Before_PercentageSplit()
     {
-        // Per ERPNext PR #58431:
+        // Per ERPNext PR #58431 / PR #59021:
         // Raw materials = 1000
         // Scrap (Manual/Valuation Rate) = 100
         // Remainder = 900
-        // Co-Product (% of FG Cost 50%, Qty 10) gets 900 × 50% = 450 (Rate = 45)
+        // Co-Product (% of Component Cost 50%, Qty 10) gets 900 × 50% = 450 (Rate = 45)
         var bom = CreateBom();
         bom.Items.Add(new BomItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), "Steel", 20, 50)); // 1000
 
@@ -293,7 +293,7 @@ public class BomSecondaryItemTests
 
         var coProduct = new BomSecondaryItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), SecondaryItemType.CoProduct, 10)
         {
-            ValuationType = SecondaryItemValuationType.PercentageOfFgCost,
+            ValuationType = SecondaryItemValuationType.PercentageOfComponentCost,
             CostAllocationPercentage = 50m
         };
 
@@ -307,6 +307,51 @@ public class BomSecondaryItemTests
         // Allocation basis = 1000 - 100 = 900. CoProduct gets 50% = 450 / 10 qty = 45 rate
         coProduct.Rate.ShouldBe(45m);
         coProduct.Amount.ShouldBe(450m);
+    }
+
+    [Fact]
+    public void SecondaryItemValuationType_PercentageOfComponentCost_IsOne()
+    {
+        ((int)SecondaryItemValuationType.PercentageOfComponentCost).ShouldBe(1);
+    }
+
+    [Fact]
+    public void SecondaryItemValuationType_PercentageOfFgCost_ObsoleteAlias_IsOne()
+    {
+#pragma warning disable CS0618
+        ((int)SecondaryItemValuationType.PercentageOfFgCost).ShouldBe(1);
+#pragma warning restore CS0618
+    }
+
+    [Fact]
+    public void AddSecondaryItem_NonComponentCostValuationType_ResetsCostAllocationToZero()
+    {
+        // Per ERPNext PR #59021 / bom.js: cost allocation % only applies to PercentageOfComponentCost
+        var bom = CreateBom();
+        var scrap = new BomSecondaryItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), SecondaryItemType.Scrap, 5)
+        {
+            ValuationType = SecondaryItemValuationType.ValuationRate,
+            CostAllocationPercentage = 25m
+        };
+
+        bom.AddSecondaryItem(scrap);
+
+        scrap.CostAllocationPercentage.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void AddSecondaryItem_PercentageOfComponentCost_PreservesCostAllocation()
+    {
+        var bom = CreateBom();
+        var coProduct = new BomSecondaryItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), SecondaryItemType.CoProduct, 5)
+        {
+            ValuationType = SecondaryItemValuationType.PercentageOfComponentCost,
+            CostAllocationPercentage = 30m
+        };
+
+        bom.AddSecondaryItem(coProduct);
+
+        coProduct.CostAllocationPercentage.ShouldBe(30m);
     }
 
     // === BOM Process Loss ===

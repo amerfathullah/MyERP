@@ -2494,6 +2494,8 @@
     "EffectiveQty": "Effective Qty",
     "FgAllocation": "FG Allocation %",
     "AddSecondaryItem": "Add Secondary Item",
+    "ValuationType": "Valuation Type",
+    "PercentageOfComponentCost": "% of Component Cost",
     "Placeholder:BankAccountId": "Bank Account ID",
     "Placeholder:ReferenceExample": "e.g., INV-2026-001",
     "Placeholder:SearchAccount": "Search account...",
