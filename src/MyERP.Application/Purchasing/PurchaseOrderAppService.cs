@@ -290,6 +290,10 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             po.Items[^1].DeliveredBySupplier = item.DeliveredBySupplier;
             if (item.BlanketOrderId.HasValue)
                 po.Items[^1].BlanketOrderId = item.BlanketOrderId;
+            if (item.MaterialRequestItemId.HasValue)
+                po.Items[^1].MaterialRequestItemId = item.MaterialRequestItemId;
+            if (item.SupplierQuotationItemId.HasValue)
+                po.Items[^1].SupplierQuotationItemId = item.SupplierQuotationItemId;
         }
 
         // Resolve UOM conversion factors for stock qty calculation
@@ -851,6 +855,10 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.WarehouseId, item.ExpenseAccountId);
             if (item.BlanketOrderId.HasValue)
                 order.Items[^1].BlanketOrderId = item.BlanketOrderId;
+            if (item.MaterialRequestItemId.HasValue)
+                order.Items[^1].MaterialRequestItemId = item.MaterialRequestItemId;
+            if (item.SupplierQuotationItemId.HasValue)
+                order.Items[^1].SupplierQuotationItemId = item.SupplierQuotationItemId;
         }
 
         await _repository.UpdateAsync(order, autoSave: true);
@@ -1290,22 +1298,36 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
     /// <summary>
     /// Gets pending Material Request items (Purchase type) that haven't been fully ordered.
     /// Used by PO form "Get Items from Material Request" button.
-    /// Per ERPNext: MR items with PendingQty = Quantity - OrderedQuantity > 0.
+    /// Per ERPNext PR #58855 / buying/utils.py: MR must be Submitted (docstatus=1), not stopped/closed, with per_ordered < 99.99%.
+    /// If supplierId is provided, filters items by default supplier (ERPNext get_material_requests_based_on_supplier).
     /// </summary>
     public async Task<List<PendingMaterialRequestItemDto>> GetPendingMaterialRequestItemsAsync(
         Guid? companyId = null, Guid? supplierId = null)
     {
-        var mrQuery = await _materialRequestRepository.GetQueryableAsync();
+        var mrQuery = await _materialRequestRepository.WithDetailsAsync(mr => mr.Items);
 
         var query = mrQuery.Where(mr =>
             mr.RequestType == Purchasing.MaterialRequestType.Purchase &&
-            mr.Status != Core.DocumentStatus.Draft &&
-            mr.Status != Core.DocumentStatus.Cancelled);
+            mr.Status == Core.DocumentStatus.Submitted);
 
         if (companyId.HasValue)
             query = query.Where(mr => mr.CompanyId == companyId.Value);
 
-        var requests = query.ToList();
+        var requests = query.ToList()
+            .Where(mr => mr.PerOrdered < 100m)
+            .ToList();
+
+        List<Guid>? supplierItemIds = null;
+        if (supplierId.HasValue)
+        {
+            var itemDefaultRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.ItemDefault, Guid>>();
+            var defaultQuery = await itemDefaultRepo.GetQueryableAsync();
+            var q = defaultQuery.Where(d => d.DefaultSupplierId == supplierId.Value);
+            if (companyId.HasValue)
+                q = q.Where(d => d.CompanyId == companyId.Value);
+
+            supplierItemIds = q.Select(d => d.ItemId).Distinct().ToList();
+        }
 
         // Batch-resolve item names
         var allItemIds = requests.SelectMany(mr => mr.Items).Select(i => i.ItemId).Distinct().ToList();
@@ -1322,6 +1344,9 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         {
             foreach (var item in mr.Items)
             {
+                if (supplierItemIds != null && !supplierItemIds.Contains(item.ItemId))
+                    continue;
+
                 var pendingQty = item.Quantity - item.OrderedQuantity;
                 if (pendingQty > 0)
                 {

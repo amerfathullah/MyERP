@@ -289,6 +289,42 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
     }
 
+    [Authorize(MyERPPermissions.MaterialRequests.Edit)]
+    public async Task<MaterialRequestDto> StopAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id, includeDetails: true);
+        entity.Stop();
+        await _repository.UpdateAsync(entity);
+        await ApplyIndentedQtyAsync(entity, sign: -1);
+        await ApplySalesOrderRequestedQtyAsync(entity, sign: -1);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MaterialRequest", entity.Id, "Stopped",
+            entity.CompanyId, entity.RequestNumber, "Submitted", "Closed",
+            CurrentUser.Id, tenantId: entity.TenantId));
+
+        return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
+    }
+
+    [Authorize(MyERPPermissions.MaterialRequests.Edit)]
+    public async Task<MaterialRequestDto> ReopenAsync(Guid id)
+    {
+        var entity = await _repository.GetAsync(id, includeDetails: true);
+        entity.Reopen();
+        await _repository.UpdateAsync(entity);
+        await ApplyIndentedQtyAsync(entity, sign: 1);
+        await ApplySalesOrderRequestedQtyAsync(entity, sign: 1);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "MaterialRequest", entity.Id, "Reopened",
+            entity.CompanyId, entity.RequestNumber, "Closed", "Submitted",
+            CurrentUser.Id, tenantId: entity.TenantId));
+
+        return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
+    }
+
     /// <summary>
     /// Updates SalesOrderItem.RequestedQty on MR submit (+1) and cancel (-1) per ERPNext PR #52835, #52825.
     /// </summary>

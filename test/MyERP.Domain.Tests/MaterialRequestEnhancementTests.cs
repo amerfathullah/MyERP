@@ -143,6 +143,49 @@ public class MaterialRequestEnhancementTests
         Assert.True(true, "MR list: date filter, sortable headers, Ordered/Received progress bars, overdue row highlighting");
     }
 
+    // ── Stop and Reopen ──
+
+    [Fact]
+    public void MR_Stop_TransitionsToClosedStatus()
+    {
+        var mr = CreateSubmittedMR(10);
+        Assert.Equal(DocumentStatus.Submitted, mr.Status);
+
+        mr.Stop();
+        Assert.Equal(DocumentStatus.Closed, mr.Status);
+    }
+
+    [Fact]
+    public void MR_Reopen_RestoresSubmittedStatus()
+    {
+        var mr = CreateSubmittedMR(10);
+        mr.Stop();
+        Assert.Equal(DocumentStatus.Closed, mr.Status);
+
+        mr.Reopen();
+        Assert.Equal(DocumentStatus.Submitted, mr.Status);
+    }
+
+    [Fact]
+    public void MR_Stop_WhenDraftOrCancelled_ThrowsBusinessException()
+    {
+        var mrDraft = new MaterialRequest(Guid.NewGuid(), CompanyId, "MR-DRAFT",
+            MaterialRequestType.Purchase, DateTime.UtcNow);
+        mrDraft.AddItem(ItemId, "Item", 5, "Unit");
+        Assert.Throws<Volo.Abp.BusinessException>(() => mrDraft.Stop());
+
+        var mrCancelled = CreateSubmittedMR(10);
+        mrCancelled.Cancel();
+        Assert.Throws<Volo.Abp.BusinessException>(() => mrCancelled.Stop());
+    }
+
+    [Fact]
+    public void MR_Reopen_WhenNotClosed_ThrowsBusinessException()
+    {
+        var mrSubmitted = CreateSubmittedMR(10);
+        Assert.Throws<Volo.Abp.BusinessException>(() => mrSubmitted.Reopen());
+    }
+
     // ── Helpers ──
 
     private MaterialRequest CreateSubmittedMR(decimal qty)

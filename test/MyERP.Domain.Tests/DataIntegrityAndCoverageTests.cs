@@ -2858,4 +2858,24 @@ public class DataIntegrityAndCoverageTests
         // TotalSettledBaseAmount = 360 + (40 / 4.0) = 370.
         Assert.Equal(370m, pe.TotalSettledBaseAmount);
     }
+
+    [Fact]
+    public void CreatePurchaseOrderItemDto_Preserves_MaterialRequest_And_SupplierQuotation_Links()
+    {
+        var mrItemId = Guid.NewGuid();
+        var sqItemId = Guid.NewGuid();
+
+        var dto = new Purchasing.CreatePurchaseOrderItemDto
+        {
+            ItemId = Guid.NewGuid(),
+            Description = "Linked Item",
+            Quantity = 10m,
+            UnitPrice = 50m,
+            MaterialRequestItemId = mrItemId,
+            SupplierQuotationItemId = sqItemId,
+        };
+
+        Assert.Equal(mrItemId, dto.MaterialRequestItemId);
+        Assert.Equal(sqItemId, dto.SupplierQuotationItemId);
+    }
 }

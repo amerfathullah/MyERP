@@ -110,4 +110,25 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
     }
+
+    /// <summary>
+    /// Stops the Material Request. Per ERPNext: cancels pending procurement/fulfillment
+    /// without reversing already ordered or transferred items.
+    /// </summary>
+    public void Stop()
+    {
+        if (Status != DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = DocumentStatus.Closed;
+    }
+
+    /// <summary>
+    /// Reopens a stopped Material Request back to Submitted status.
+    /// </summary>
+    public void Reopen()
+    {
+        if (Status != DocumentStatus.Closed)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = DocumentStatus.Submitted;
+    }
 }

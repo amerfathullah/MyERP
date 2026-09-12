@@ -15,5 +15,7 @@ public interface IMaterialRequestAppService : IApplicationService
     Task DeleteAsync(Guid id);
     Task<MaterialRequestDto> SubmitAsync(Guid id);
     Task<MaterialRequestDto> CancelAsync(Guid id);
+    Task<MaterialRequestDto> StopAsync(Guid id);
+    Task<MaterialRequestDto> ReopenAsync(Guid id);
     Task<MrFulfillmentStatusDto> GetFulfillmentStatusAsync(Guid id);
 }

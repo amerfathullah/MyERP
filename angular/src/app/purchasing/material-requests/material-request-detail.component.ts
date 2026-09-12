@@ -61,7 +61,11 @@ export class MaterialRequestDetailComponent implements OnInit {
       if (this.entity.requestType === 1 || this.entity.requestType === 2) { // Transfer/Issue
         actions.push({ name: 'createSE', label: 'Create Stock Entry', icon: 'truck', color: 'info' });
       }
+      actions.push({ name: 'stop', label: 'Stop', icon: 'stop-circle', color: 'warning' });
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
+    }
+    if (s === 14) { // Stopped / Closed
+      actions.push({ name: 'reopen', label: 'Re-open', icon: 'redo', color: 'primary' });
     }
     return actions;
   }
@@ -93,6 +97,7 @@ export class MaterialRequestDetailComponent implements OnInit {
   }
 
   getStatusLabel(status: number | undefined): string {
+    if (status === 14) return 'Stopped';
     return ['Draft', 'Submitted', 'Approved', 'Posted', 'Cancelled', 'Rejected'][status ?? 0] ?? 'Draft';
   }
 
@@ -103,6 +108,8 @@ export class MaterialRequestDetailComponent implements OnInit {
       case 'createRFQ': this.createRFQ(); break;
       case 'splitBySupplier': this.openSplitPanel(); break;
       case 'createSE': this.createStockEntry(); break;
+      case 'stop': this.stopMR(); break;
+      case 'reopen': this.reopenMR(); break;
       case 'cancel': this.cancelMR(); break;
     }
   }
@@ -132,6 +139,40 @@ export class MaterialRequestDetailComponent implements OnInit {
         this.reload();
       },
       error: (err: any) => { this.actionLoading.set(false); this.toaster.error(err?.error?.error?.message || '::OperationFailed'); }
+    });
+  }
+
+  private stopMR(): void {
+    this.confirmation.warn('::AreYouSure', '::Stop').subscribe((status) => {
+      if (status === Confirmation.Status.confirm) {
+        this.actionLoading.set(true);
+        this.service.stop(this.entity!.id!).subscribe({
+          next: () => {
+            this.actionLoading.set(false);
+            this.toaster.success('::SuccessfullyStopped');
+            this.reload();
+          },
+          error: (err: any) => {
+            this.actionLoading.set(false);
+            this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+          }
+        });
+      }
+    });
+  }
+
+  private reopenMR(): void {
+    this.actionLoading.set(true);
+    this.service.reopen(this.entity!.id!).subscribe({
+      next: () => {
+        this.actionLoading.set(false);
+        this.toaster.success('::SuccessfullyUpdated');
+        this.reload();
+      },
+      error: (err: any) => {
+        this.actionLoading.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      }
     });
   }
 

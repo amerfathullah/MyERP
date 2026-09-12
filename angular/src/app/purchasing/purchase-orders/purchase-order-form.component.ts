@@ -153,6 +153,8 @@ export class PurchaseOrderFormComponent implements OnInit {
       unitPrice: [item?.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
       taxAmount: [item?.taxAmount ?? 0, Validators.min(0)],
       uom: [item?.uom ?? 'Unit'],
+      materialRequestItemId: [item?.materialRequestItemId ?? null],
+      supplierQuotationItemId: [item?.supplierQuotationItemId ?? null],
     }));
   }
 
@@ -297,12 +299,13 @@ export class PurchaseOrderFormComponent implements OnInit {
   /** Load pending items from Material Requests (Purchase type) for this company. */
   loadItemsFromMaterialRequest(): void {
     const companyId = this.form.get('companyId')?.value || undefined;
+    const supplierId = this.form.get('supplierId')?.value || undefined;
     if (!companyId) {
       this.toaster.warn('::PleaseSelectCompanyFirst');
       return;
     }
     this.isLoadingMrItems.set(true);
-    this.service.getPendingMaterialRequestItems(companyId).subscribe({
+    this.service.getPendingMaterialRequestItems(companyId, supplierId).subscribe({
       next: (mrItems: any[]) => {
         this.isLoadingMrItems.set(false);
         if (!mrItems || mrItems.length === 0) {
@@ -319,6 +322,8 @@ export class PurchaseOrderFormComponent implements OnInit {
             unitPrice: [0, [Validators.required, Validators.min(0)]],
             taxAmount: [0, Validators.min(0)],
             uom: [mrItem.uom || 'Unit'],
+            materialRequestItemId: [mrItem.materialRequestItemId ?? null],
+            supplierQuotationItemId: [null],
           }));
         });
         this.toaster.success(`${mrItems.length} items loaded from Material Requests`);
@@ -356,6 +361,8 @@ export class PurchaseOrderFormComponent implements OnInit {
             unitPrice: [sqItem.rate || sqItem.unitPrice || 0, [Validators.required, Validators.min(0)]],
             taxAmount: [0, Validators.min(0)],
             uom: [sqItem.uom || 'Unit'],
+            materialRequestItemId: [null],
+            supplierQuotationItemId: [sqItem.id ?? null],
           }));
         });
         this.toaster.success(this.l.instant('::ItemsLoadedFromSQ', sq.items.length.toString()));

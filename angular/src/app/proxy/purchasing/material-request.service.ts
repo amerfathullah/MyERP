@@ -67,4 +67,20 @@ export class MaterialRequestService {
       url: `/api/app/material-request/${id}/submit`,
     },
     { apiName: this.apiName,...config });
+  
+
+  stop = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaterialRequestDto>({
+      method: 'POST',
+      url: `/api/app/material-request/${id}/stop`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  reopen = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaterialRequestDto>({
+      method: 'POST',
+      url: `/api/app/material-request/${id}/reopen`,
+    },
+    { apiName: this.apiName,...config });
 }

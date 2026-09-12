@@ -91,6 +91,12 @@ public class CreatePurchaseOrderItemDto
 
     /// <summary>Blanket Order this line draws from — qty deducted from the blanket allocation on submit.</summary>
     public Guid? BlanketOrderId { get; set; }
+
+    /// <summary>Link to Material Request item (for MR fulfillment tracking).</summary>
+    public Guid? MaterialRequestItemId { get; set; }
+
+    /// <summary>Link to Supplier Quotation item (for SQ fulfillment tracking).</summary>
+    public Guid? SupplierQuotationItemId { get; set; }
 }
 
 /// <summary>

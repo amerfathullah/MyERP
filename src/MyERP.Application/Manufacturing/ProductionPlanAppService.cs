@@ -731,7 +731,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 // Per ERPNext PR #58841: skip items where calculated qty to request <= 0
                 if (Math.Round(requestedQty, 4) <= 0) continue;
 
-                mr.AddItem(item.ItemId, item.ItemName, requestedQty, item.Uom ?? "Unit", item.WarehouseId);
+                mr.AddItem(item.ItemId, item.ItemName, requestedQty, item.Uom ?? "Unit", item.WarehouseId, conversionFactor: conversionFactor);
                 item.MaterialRequestId = mr.Id;
             }
 

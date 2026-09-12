@@ -112,6 +112,8 @@ export interface CreatePurchaseOrderItemDto {
   expectedDeliveryDate?: string | null;
   deliveredBySupplier?: boolean;
   blanketOrderId?: string | null;
+  materialRequestItemId?: string | null;
+  supplierQuotationItemId?: string | null;
 }
 
 export interface CreatePurchaseOrdersFromMrDto {
