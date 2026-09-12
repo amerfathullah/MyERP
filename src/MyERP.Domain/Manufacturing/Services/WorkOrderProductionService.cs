@@ -94,13 +94,14 @@ public class WorkOrderProductionService : DomainService
         // Per gotcha #524: fg_completed_qty = produce_qty + process_loss_qty
         var totalQty = produceQty + processLossQty;
 
-        // Per DO-NOT: overproduction check
+        // Per DO-NOT and ERPNext PR #58847: overproduction check including previous production and process loss
         var maxAllowed = workOrder.Quantity * (1 + overproductionPercentage / 100m);
-        if (workOrder.ProducedQuantity + totalQty > maxAllowed)
+        var totalManufactured = workOrder.ProducedQuantity + workOrder.ProcessLossQty + totalQty;
+        if (totalManufactured > maxAllowed)
         {
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.WorkOrderOverproduction)
                 .WithData("maxAllowed", maxAllowed)
-                .WithData("produced", workOrder.ProducedQuantity)
+                .WithData("produced", workOrder.ProducedQuantity + workOrder.ProcessLossQty)
                 .WithData("attempted", totalQty);
         }
 

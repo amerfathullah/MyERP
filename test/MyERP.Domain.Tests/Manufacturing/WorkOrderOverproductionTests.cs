@@ -89,4 +89,62 @@ public class WorkOrderOverproductionTests
         wo.RecordProduction(100m);
         wo.Status.ShouldBe(WorkOrderStatus.Completed);
     }
+
+    [Fact]
+    public void RecordProduction_WithProcessLoss_CumulativeExceedsAllowance_Throws()
+    {
+        // Per ERPNext PR #58847: validate cumulative manufactured quantity including process loss
+        var wo = CreateWO(100m);
+        // Batch 1: produce 1 with 90 process loss (total 91 < 100, remains InProcess)
+        wo.RecordProduction(1m, overproductionPercentage: 10m, processLoss: 90m);
+        wo.ProducedQuantity.ShouldBe(1m);
+        wo.ProcessLossQty.ShouldBe(90m);
+        wo.Status.ShouldBe(WorkOrderStatus.InProcess);
+
+        // Batch 2: produce 10 with 15 process loss (cumulative 91 + 25 = 116 > 110 allowance)
+        Should.Throw<BusinessException>(() =>
+            wo.RecordProduction(10m, overproductionPercentage: 10m, processLoss: 15m));
+    }
+
+    [Fact]
+    public void RecordProduction_WithProcessLoss_CumulativeWithinAllowance_Succeeds()
+    {
+        // Per ERPNext PR #58847: 10% allowance on 100 allows up to 110 total manufactured
+        var wo = CreateWO(100m);
+        wo.RecordProduction(50m, overproductionPercentage: 10m, processLoss: 40m); // Total: 90
+        wo.ProducedQuantity.ShouldBe(50m);
+        wo.ProcessLossQty.ShouldBe(40m);
+        wo.Status.ShouldBe(WorkOrderStatus.InProcess);
+
+        // Next batch: 10 produced + 10 loss = 20 (cumulative 90 + 20 = 110 <= 110)
+        wo.RecordProduction(10m, overproductionPercentage: 10m, processLoss: 10m);
+        wo.ProducedQuantity.ShouldBe(60m);
+        wo.ProcessLossQty.ShouldBe(50m);
+        wo.Status.ShouldBe(WorkOrderStatus.Completed);
+    }
+
+    [Fact]
+    public void ReverseProduction_DecrementsProducedAndProcessLoss_ReopensWorkOrder()
+    {
+        var wo = CreateWO(100m);
+        wo.RecordProduction(80m, overproductionPercentage: 0m, processLoss: 20m);
+        wo.Status.ShouldBe(WorkOrderStatus.Completed);
+        wo.ActualEndDate.ShouldNotBeNull();
+
+        // Reverse 30 produced and 10 process loss (StockEntry cancel)
+        wo.ReverseProduction(30m, processLoss: 10m);
+        wo.ProducedQuantity.ShouldBe(50m);
+        wo.ProcessLossQty.ShouldBe(10m);
+        wo.Status.ShouldBe(WorkOrderStatus.InProcess);
+        wo.ActualEndDate.ShouldBeNull();
+    }
+
+    [Fact]
+    public void SetProcessLossQty_ExceedsOverproduction_Throws()
+    {
+        var wo = CreateWO(100m);
+        wo.RecordProduction(60m, overproductionPercentage: 5m); // maxAllowed = 105
+        Should.Throw<BusinessException>(() =>
+            wo.SetProcessLossQty(50m, overproductionPercentage: 5m)); // 60 + 50 = 110 > 105
+    }
 }

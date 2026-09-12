@@ -442,7 +442,9 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var bomQuery = await _bomRepository.GetQueryableAsync();
         var boms = bomQuery.Where(b => bomIds.Contains(b.Id)).ToDictionary(b => b.Id);
 
-        // Explode BOMs for each planned item (phantom-aware recursive explosion)
+        // Collect all exploded items
+        var explodedList = new List<(Guid ItemId, string ItemName, string? Uom, decimal Quantity, Guid? WarehouseId, SubAssemblyType ProcurementType)>();
+
         foreach (var plannedItem in plan.PlannedItems)
         {
             var bom = boms.TryGetValue(plannedItem.BomId, out var cachedBom)
@@ -455,32 +457,122 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
             foreach (var explodedItem in explodedItems)
             {
-                // Check if material already exists in requirements (for combining)
-                var existing = plan.MaterialRequirements
-                    .FirstOrDefault(mr => mr.ItemId == explodedItem.ItemId
-                        && mr.WarehouseId == (plan.ForWarehouseId ?? bom.SourceWarehouseId));
+                var targetWh = plan.ForWarehouseId ?? bom.SourceWarehouseId;
+                var procType = explodedItem.SubBomId.HasValue
+                    ? SubAssemblyType.InHouseManufacturing
+                    : SubAssemblyType.MaterialRequest;
+                explodedList.Add((explodedItem.ItemId, explodedItem.ItemName, explodedItem.Uom, explodedItem.Quantity, targetWh, procType));
+            }
+        }
 
-                if (existing != null && plan.CombineItems)
+        if (!explodedList.Any())
+        {
+            await _planRepository.UpdateAsync(plan);
+            return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
+        }
+
+        // Batch load item master data for MinOrderQty and SafetyStock
+        var itemIds = explodedList.Select(e => e.ItemId).Distinct().ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var itemMap = itemQuery.Where(i => itemIds.Contains(i.Id)).ToList().ToDictionary(i => i.Id);
+
+        // Batch load Bin data for available / projected quantities
+        var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Bin, Guid>>();
+        var binQuery = await binRepo.GetQueryableAsync();
+        var bins = binQuery.Where(b => itemIds.Contains(b.ItemId)).ToList();
+        var binMap = bins
+            .GroupBy(b => (b.ItemId, b.WarehouseId))
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var rawRows = new List<ProductionPlanMrItem>();
+
+        foreach (var exploded in explodedList)
+        {
+            itemMap.TryGetValue(exploded.ItemId, out var itemMaster);
+            var minOrderQty = itemMaster?.MinOrderQty ?? 0m;
+            var safetyStock = itemMaster?.SafetyStock ?? 0m;
+
+            binMap.TryGetValue((exploded.ItemId, exploded.WarehouseId ?? Guid.Empty), out var bin);
+            var actualQty = bin?.ActualQty ?? 0m;
+
+            var existing = plan.CombineItems
+                ? rawRows.FirstOrDefault(r => r.ItemId == exploded.ItemId && r.WarehouseId == exploded.WarehouseId)
+                : null;
+
+            if (existing != null)
+            {
+                existing.RequiredQty += exploded.Quantity;
+            }
+            else
+            {
+                var mrItem = new ProductionPlanMrItem(
+                    GuidGenerator.Create(), plan.Id,
+                    exploded.ItemId, exploded.ItemName, exploded.Quantity)
                 {
-                    existing.RequiredQty += explodedItem.Quantity;
-                    existing.PlannedQty = CalculatePlannedQty(existing, plan);
-                }
-                else
+                    Uom = exploded.Uom,
+                    WarehouseId = exploded.WarehouseId,
+                    ProcurementType = exploded.ProcurementType,
+                    MinOrderQty = minOrderQty,
+                    SafetyStock = safetyStock,
+                    AvailableQty = actualQty,
+                };
+                rawRows.Add(mrItem);
+            }
+        }
+
+        // Per ERPNext PR #58806: apply safety stock ONCE across rows for the same item/warehouse
+        var consumedStock = new Dictionary<(Guid ItemId, Guid? WarehouseId), decimal>();
+        foreach (var mrItem in rawRows)
+        {
+            var key = (mrItem.ItemId, mrItem.WarehouseId);
+            binMap.TryGetValue((mrItem.ItemId, mrItem.WarehouseId ?? Guid.Empty), out var bin);
+            var projectedQty = bin != null && plan.IgnoreExistingOrderedQty ? Math.Max(0, bin.ProjectedQty) : 0m;
+
+            var alreadyConsumed = consumedStock.TryGetValue(key, out var c) ? c : 0m;
+            var effectiveSafety = plan.IncludeSafetyStock ? mrItem.SafetyStock : 0m;
+            var availablePool = Math.Max(0, projectedQty - alreadyConsumed);
+            var netAvailableForDeduction = Math.Max(0, availablePool - effectiveSafety);
+
+            var needed = Math.Max(0, mrItem.RequiredQty - netAvailableForDeduction);
+            var consumedFromPool = Math.Min(netAvailableForDeduction, mrItem.RequiredQty);
+            consumedStock[key] = alreadyConsumed + consumedFromPool;
+
+            mrItem.PlannedQty = needed;
+        }
+
+        // Per ERPNext PR #58805: apply MOQ once across Production Plan rows
+        // Group purchase rows by (ItemId, WarehouseId, ProcurementType) and carry surplus forward
+        if (plan.ConsiderMinimumOrderQty)
+        {
+            var groups = rawRows
+                .Where(r => r.ProcurementType == SubAssemblyType.MaterialRequest && r.PlannedQty > 0)
+                .GroupBy(r => (r.ItemId, r.WarehouseId, r.ProcurementType));
+
+            foreach (var group in groups)
+            {
+                var surplus = 0m;
+                foreach (var row in group)
                 {
-                    var mrItem = new ProductionPlanMrItem(
-                        GuidGenerator.Create(), plan.Id,
-                        explodedItem.ItemId, explodedItem.ItemName, explodedItem.Quantity)
+                    var demand = row.PlannedQty;
+                    var covered = Math.Min(surplus, demand);
+                    demand -= covered;
+                    surplus -= covered;
+
+                    if (row.MinOrderQty > 0 && demand > 0 && demand < row.MinOrderQty)
                     {
-                        Uom = explodedItem.Uom,
-                        WarehouseId = plan.ForWarehouseId ?? bom.SourceWarehouseId,
-                        ProcurementType = explodedItem.SubBomId.HasValue
-                            ? SubAssemblyType.InHouseManufacturing
-                            : SubAssemblyType.MaterialRequest,
-                    };
-                    mrItem.PlannedQty = CalculatePlannedQty(mrItem, plan);
-                    plan.AddMaterialRequirement(mrItem);
+                        var extra = row.MinOrderQty - demand;
+                        surplus += extra;
+                        demand = row.MinOrderQty;
+                    }
+                    row.PlannedQty = demand;
                 }
             }
+        }
+
+        foreach (var row in rawRows)
+        {
+            plan.AddMaterialRequirement(row);
         }
 
         await _planRepository.UpdateAsync(plan);

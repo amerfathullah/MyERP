@@ -1126,8 +1126,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var productionParams = productionService.ValidateAndGetProductionParams(
             wo, quantity, processLossQty, overproductionPct);
 
-        // Record production on the entity (uses produce_qty only for ProducedQuantity tracking)
-        wo.RecordProduction(quantity, overproductionPercentage: overproductionPct);
+        // Record production on the entity (uses produce_qty only for ProducedQuantity tracking, passes processLossQty)
+        wo.RecordProduction(quantity, overproductionPercentage: overproductionPct, processLoss: processLossQty);
 
         // Calculate RM consumption using domain service (proper DDD delegation)
         // Per gotcha #453: MIN-capped formula for BOM mode
@@ -1307,6 +1307,20 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
 
         await _workOrderRepository.UpdateAsync(wo);
+
+        // Sync linked Production Plan item ProducedQty if applicable
+        var planItemRepo = LazyServiceProvider.LazyGetService<IRepository<ProductionPlanItem, Guid>>();
+        if (planItemRepo != null)
+        {
+            var planItemQuery = await planItemRepo.GetQueryableAsync();
+            var linkedPlanItem = planItemQuery.FirstOrDefault(p => p.WorkOrderId == wo.Id);
+            if (linkedPlanItem != null)
+            {
+                linkedPlanItem.ProducedQty = wo.ProducedQuantity;
+                await planItemRepo.UpdateAsync(linkedPlanItem, autoSave: true);
+            }
+        }
+
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 

@@ -446,11 +446,28 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             var fgQty = entry.Items
                 .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
                 .Sum(i => i.Quantity);
-            var processLoss = entry.FgCompletedQty > fgQty ? entry.FgCompletedQty - fgQty : 0m;
+            var processLoss = entry.ProcessLossQty > 0
+                ? entry.ProcessLossQty
+                : (entry.FgCompletedQty > fgQty ? entry.FgCompletedQty - fgQty : 0m);
             if (fgQty > 0 || processLoss > 0)
             {
-                wo.RecordProduction(fgQty, processLoss: processLoss);
+                var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
+                var mfgSettings = await mfgSettingsRepo.FindAsync(s => s.CompanyId == entry.CompanyId);
+                var overproductionPct = mfgSettings?.OverproductionPercentage ?? 0m;
+                wo.RecordProduction(fgQty, overproductionPercentage: overproductionPct, processLoss: processLoss);
                 await woRepo.UpdateAsync(wo, autoSave: true);
+
+                var planItemRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.ProductionPlanItem, Guid>>();
+                if (planItemRepo != null)
+                {
+                    var planItemQuery = await planItemRepo.GetQueryableAsync();
+                    var linkedPlanItem = planItemQuery.FirstOrDefault(p => p.WorkOrderId == wo.Id);
+                    if (linkedPlanItem != null)
+                    {
+                        linkedPlanItem.ProducedQty = wo.ProducedQuantity;
+                        await planItemRepo.UpdateAsync(linkedPlanItem, autoSave: true);
+                    }
+                }
             }
 
             // Auto-reserve finished goods for linked Sales Order (ERPNext PR #47382 / commit 5225d4c318)
@@ -615,8 +632,26 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             var producingWorkOrder = await workOrderRepoForProduction.FindAsync(entry.WorkOrderId.Value);
             if (producingWorkOrder != null)
             {
-                producingWorkOrder.ProducedQuantity = Math.Max(0, producingWorkOrder.ProducedQuantity - entry.FgCompletedQty);
+                var fgQty = entry.Items
+                    .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
+                    .Sum(i => i.Quantity);
+                var processLoss = entry.ProcessLossQty > 0
+                    ? entry.ProcessLossQty
+                    : (entry.FgCompletedQty > fgQty ? entry.FgCompletedQty - fgQty : 0m);
+                producingWorkOrder.ReverseProduction(fgQty, processLoss: processLoss);
                 await workOrderRepoForProduction.UpdateAsync(producingWorkOrder);
+
+                var planItemRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.ProductionPlanItem, Guid>>();
+                if (planItemRepo != null)
+                {
+                    var planItemQuery = await planItemRepo.GetQueryableAsync();
+                    var linkedPlanItem = planItemQuery.FirstOrDefault(p => p.WorkOrderId == producingWorkOrder.Id);
+                    if (linkedPlanItem != null)
+                    {
+                        linkedPlanItem.ProducedQty = producingWorkOrder.ProducedQuantity;
+                        await planItemRepo.UpdateAsync(linkedPlanItem, autoSave: true);
+                    }
+                }
             }
         }
 

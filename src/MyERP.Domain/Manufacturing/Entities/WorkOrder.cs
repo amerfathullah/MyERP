@@ -139,13 +139,15 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         // Overproduction check: cannot exceed qty × (1 + overproduction_pct/100)
+        // Per ERPNext PR #58847: cumulative manufactured quantity including process loss
         var maxAllowed = Quantity * (1 + overproductionPercentage / 100m);
-        if (ProducedQuantity + quantity > maxAllowed)
+        var totalManufactured = ProducedQuantity + ProcessLossQty + quantity + processLoss;
+        if (totalManufactured > maxAllowed)
         {
             throw new BusinessException(MyERPDomainErrorCodes.WorkOrderOverproduction)
                 .WithData("maxAllowed", maxAllowed)
-                .WithData("produced", ProducedQuantity)
-                .WithData("attempted", quantity);
+                .WithData("produced", ProducedQuantity + ProcessLossQty)
+                .WithData("attempted", quantity + processLoss);
         }
 
         ProducedQuantity += quantity;
@@ -164,11 +166,40 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Reverses recorded production and process loss (e.g. on Stock Entry cancellation).
+    /// Reopens the Work Order to InProcess if below ordered Quantity.
+    /// </summary>
+    public void ReverseProduction(decimal quantity, decimal processLoss = 0)
+    {
+        ProducedQuantity = Math.Max(0, ProducedQuantity - quantity);
+        if (processLoss > 0)
+        {
+            ProcessLossQty = Math.Max(0, ProcessLossQty - processLoss);
+        }
+
+        if (Status == WorkOrderStatus.Completed && (ProducedQuantity + ProcessLossQty) < Quantity)
+        {
+            Status = WorkOrderStatus.InProcess;
+            ActualEndDate = null;
+        }
+    }
+
+    /// <summary>
     /// Refreshes process loss quantity and checks completion for semi-finished goods tracking.
     /// Per ERPNext commit 0eb61c9fac / PR #57895.
     /// </summary>
-    public void SetProcessLossQty(decimal totalProcessLoss)
+    public void SetProcessLossQty(decimal totalProcessLoss, decimal overproductionPercentage = 0)
     {
+        var maxAllowed = Quantity * (1 + overproductionPercentage / 100m);
+        var totalManufactured = ProducedQuantity + totalProcessLoss;
+        if (totalManufactured > maxAllowed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderOverproduction)
+                .WithData("maxAllowed", maxAllowed)
+                .WithData("produced", ProducedQuantity + ProcessLossQty)
+                .WithData("attempted", totalProcessLoss);
+        }
+
         ProcessLossQty = totalProcessLoss;
         if (ProducedQuantity + ProcessLossQty >= Quantity && Status != WorkOrderStatus.Cancelled && Status != WorkOrderStatus.Draft)
         {

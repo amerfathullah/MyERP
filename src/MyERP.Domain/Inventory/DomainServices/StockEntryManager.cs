@@ -364,18 +364,34 @@ public class StockEntryManager : DomainService
         if (!otherEntries.Any())
             return;
 
-        var alreadyEnteredFgQty = otherEntries
-            .SelectMany(se => se.Items)
-            .Where(i => i.ItemId == wo.ItemId && i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
-            .Sum(i => i.Quantity);
-
         var allowedQty = wo.Quantity + (overproductionPercentage / 100m * wo.Quantity);
 
-        if (alreadyEnteredFgQty >= allowedQty)
+        // Per ERPNext PR #58847: cumulative manufactured quantity includes process loss
+        var alreadyManufactured = otherEntries
+            .Where(se => se.Status == Core.DocumentStatus.Submitted)
+            .Sum(se =>
+            {
+                var fg = se.Items
+                    .Where(i => i.ItemId == wo.ItemId && i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
+                    .Sum(i => i.Quantity);
+                var loss = se.ProcessLossQty > 0 ? se.ProcessLossQty : Math.Max(0, se.FgCompletedQty - fg);
+                return fg + loss;
+            });
+
+        var currentFg = entry.Items
+            .Where(i => i.ItemId == wo.ItemId && i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
+            .Sum(i => i.Quantity);
+        var currentLoss = entry.ProcessLossQty > 0 ? entry.ProcessLossQty : Math.Max(0, entry.FgCompletedQty - currentFg);
+        var currentManufactured = currentFg + currentLoss;
+
+        var totalManufactured = Math.Max(wo.ProducedQuantity + wo.ProcessLossQty, alreadyManufactured) + currentManufactured;
+
+        if (totalManufactured > allowedQty)
         {
-            var otherEntryNumbers = string.Join(", ", otherEntries.Select(e => e.EntryNumber));
-            throw new BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
-                .WithData("detail", $"Stock Entries already created for Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}: {otherEntryNumbers}");
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderOverproduction)
+                .WithData("maxAllowed", allowedQty)
+                .WithData("produced", Math.Max(wo.ProducedQuantity + wo.ProcessLossQty, alreadyManufactured))
+                .WithData("attempted", currentManufactured);
         }
     }
 
