@@ -606,6 +606,7 @@ export interface GetNotificationLogListDto extends PagedAndSortedResultRequestDt
 export interface GetPartyDetailsInput {
   partyId?: string;
   companyId?: string | null;
+  priceListId?: string | null;
 }
 
 export interface GetPartyTypeListDto extends PagedAndSortedResultRequestDto {
@@ -749,6 +750,9 @@ export interface PartyDetailsDto {
   customerGroupId?: string | null;
   territoryId?: string | null;
   companyCurrency?: string | null;
+  priceListId?: string | null;
+  priceListName?: string | null;
+  priceListCurrency?: string | null;
   creditLimit?: number;
   outstanding?: number;
 }

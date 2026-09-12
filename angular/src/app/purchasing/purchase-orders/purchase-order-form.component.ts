@@ -220,11 +220,14 @@ export class PurchaseOrderFormComponent implements OnInit {
 
     this.loadSupplierQuotations();
 
-    this.partyDetailsService.getSupplierDetails({ partyId: supplierId }).subscribe({
+    const companyId = this.form.get('companyId')?.value || undefined;
+    this.partyDetailsService.getSupplierDetails({ partyId: supplierId, companyId }).subscribe({
       next: (details: any) => {
         if (details?.tin) this.supplierTin.set(details.tin);
         const parts = [details?.addressLine1, details?.city, details?.state, details?.postalCode].filter(Boolean);
         if (parts.length > 0) this.supplierAddress.set(parts.join(', '));
+        // Price list fallback reset (ERPNext PR #58893)
+        this.form.patchValue({ priceListId: details?.priceListId ?? '' });
       },
       error: () => {}
     });

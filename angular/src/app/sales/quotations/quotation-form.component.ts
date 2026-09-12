@@ -9,6 +9,7 @@ import { TaxCalculationService, TaxCalculationResult } from '../../shared/servic
 import { QuotationService } from '../../proxy/sales/quotation.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { PriceListService } from '../../proxy/inventory/price-list.service';
+import { PartyDetailsService } from '../../proxy/core/party-details.service';
 
 import { AutoValidationDirective } from '../../shared/directives/auto-validation.directive';
 import { CompanyContextService } from '../../shared/services/company-context.service';
@@ -31,6 +32,7 @@ export class QuotationFormComponent implements OnInit {
   private customerService = inject(CustomerService);
   private companyContext = inject(CompanyContextService);
   private priceListService = inject(PriceListService);
+  private partyDetailsService = inject(PartyDetailsService);
 
   customers = signal<any[]>([]);
   priceLists = signal<any[]>([]);
@@ -110,6 +112,23 @@ export class QuotationFormComponent implements OnInit {
         this.recalculate();
       });
     }
+
+    this.form.get('customerId')?.valueChanges.subscribe(cid => {
+      if (cid && (!this.isEditMode || this.form.get('customerId')?.dirty)) {
+        this.resolveCustomerDetails(cid);
+      }
+    });
+  }
+
+  private resolveCustomerDetails(customerId: string): void {
+    const companyId = this.form.get('companyId')?.value || undefined;
+    this.partyDetailsService.getCustomerDetails({ partyId: customerId, companyId }).subscribe({
+      next: (details) => {
+        // Price list fallback reset (ERPNext PR #58893)
+        this.form.patchValue({ priceListId: details.priceListId ?? '' });
+      },
+      error: () => {},
+    });
   }
 
   recalculate(): void {

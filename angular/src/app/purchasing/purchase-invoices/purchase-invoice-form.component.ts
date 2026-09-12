@@ -390,7 +390,8 @@ export class PurchaseInvoiceFormComponent implements OnInit {
   }
 
   private resolveSupplierDetails(supplierId: string): void {
-    this.partyDetailsService.getSupplierDetails({ partyId: supplierId }).subscribe({
+    const companyId = this.form.get('companyId')?.value || undefined;
+    this.partyDetailsService.getSupplierDetails({ partyId: supplierId, companyId }).subscribe({
       next: (details: any) => {
         if (details.tin) {
           this.form.patchValue({ supplierTin: details.tin });
@@ -400,6 +401,9 @@ export class PurchaseInvoiceFormComponent implements OnInit {
           const parts = [addr.addressLine1, addr.city, addr.state, addr.postalCode].filter(Boolean);
           this.supplierAddress.set(parts.join(', '));
         }
+        // Price list fallback reset (ERPNext PR #58893)
+        this.form.patchValue({ priceListId: details.priceListId ?? '' });
+
         if (details.defaultPaymentTermsTemplateId && !this.form.get('paymentTermsTemplateId')?.value) {
           this.form.patchValue({ paymentTermsTemplateId: details.defaultPaymentTermsTemplateId });
         }

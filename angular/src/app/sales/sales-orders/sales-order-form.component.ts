@@ -17,6 +17,7 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { StockAvailabilityComponent } from '../../shared/components/stock-availability/stock-availability.component';
 import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-terms-template.service';
 import { PriceListService } from '../../proxy/inventory/price-list.service';
+import { PartyDetailsService } from '../../proxy/core/party-details.service';
 import { LinkPickerComponent } from '../../shared/components/link-picker/link-picker.component';
 import type { CustomerDto } from '../../proxy/sales/models';
 import { map, Observable } from 'rxjs';
@@ -42,6 +43,7 @@ export class SalesOrderFormComponent implements OnInit {
   private taxCategoryService = inject(TaxCategoryService);
   private taxRuleService = inject(TaxRuleService);
   private priceListService = inject(PriceListService);
+  private partyDetailsService = inject(PartyDetailsService);
 
   warehouses = signal<any[]>([]);
   paymentTermsTemplates = signal<any[]>([]);
@@ -123,6 +125,27 @@ export class SalesOrderFormComponent implements OnInit {
         this.recalculate();
       });
     }
+
+    this.form.get('customerId')?.valueChanges.subscribe(cid => {
+      if (cid && (!this.isEditMode || this.form.get('customerId')?.dirty)) {
+        this.resolveCustomerDetails(cid);
+      }
+    });
+  }
+
+  private resolveCustomerDetails(customerId: string): void {
+    const companyId = this.form.get('companyId')?.value || undefined;
+    this.partyDetailsService.getCustomerDetails({ partyId: customerId, companyId }).subscribe({
+      next: (details) => {
+        // Price list fallback reset (ERPNext PR #58893)
+        this.form.patchValue({ priceListId: details.priceListId ?? '' });
+
+        if (details.defaultPaymentTermsTemplateId && !this.form.get('paymentTermsTemplateId')?.value) {
+          this.form.patchValue({ paymentTermsTemplateId: details.defaultPaymentTermsTemplateId });
+        }
+      },
+      error: () => {},
+    });
   }
 
   get items(): FormArray { return this.form.get('items') as FormArray; }

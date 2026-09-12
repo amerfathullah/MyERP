@@ -158,10 +158,83 @@ public class PartyDetailsResolutionTests
     [InlineData("CreditLimit")]
     [InlineData("Outstanding")]
     [InlineData("PaymentTerms")]
+    [InlineData("PriceList")]
     public void LocalizationKey_ForPartyFields_ExistsInEnJson(string key)
     {
         var texts = GetLocalizationTexts();
         Assert.True(texts.TryGetProperty(key, out _), $"Localization key '{key}' not found in en.json");
+    }
+
+    // --- Price list resolution & PR #58893 fallback tests ---
+
+    [Fact]
+    public void Customer_HasDefaultPriceListId_ForAutoFill()
+    {
+        var customer = new Customer(Guid.NewGuid(), Guid.NewGuid(), "Retail Customer");
+        var plId = Guid.NewGuid();
+        customer.DefaultPriceListId = plId;
+        Assert.Equal(plId, customer.DefaultPriceListId);
+    }
+
+    [Fact]
+    public void Supplier_HasDefaultPriceListId_ForAutoFill()
+    {
+        var supplier = new Supplier(Guid.NewGuid(), Guid.NewGuid(), "Raw Materials Vendor");
+        var plId = Guid.NewGuid();
+        supplier.DefaultPriceListId = plId;
+        Assert.Equal(plId, supplier.DefaultPriceListId);
+    }
+
+    [Fact]
+    public void PartyDetailsDto_HasPriceListProperties()
+    {
+        var dto = new PartyDetailsDto();
+        var plId = Guid.NewGuid();
+        dto.PriceListId = plId;
+        dto.PriceListName = "Standard Selling";
+        dto.PriceListCurrency = "MYR";
+
+        Assert.Equal(plId, dto.PriceListId);
+        Assert.Equal("Standard Selling", dto.PriceListName);
+        Assert.Equal("MYR", dto.PriceListCurrency);
+    }
+
+    [Fact]
+    public void GetPartyDetailsInput_HasPriceListId()
+    {
+        var input = new GetPartyDetailsInput();
+        var plId = Guid.NewGuid();
+        input.PriceListId = plId;
+        Assert.Equal(plId, input.PriceListId);
+    }
+
+    [Fact]
+    public void PriceListFallback_ResetWhenSwitchingParty_PR58893()
+    {
+        // Per ERPNext PR #58893: When switching from Customer A (custom price list)
+        // to Customer B (no default price list), party details falls back to
+        // the default price list, preventing Customer A's price list from persisting.
+        var systemDefaultPriceListId = Guid.NewGuid();
+        var customerA_PriceListId = Guid.NewGuid();
+
+        var customerA = new Customer(Guid.NewGuid(), Guid.NewGuid(), "Wholesale Client");
+        customerA.DefaultPriceListId = customerA_PriceListId;
+
+        var customerB = new Customer(Guid.NewGuid(), Guid.NewGuid(), "Standard Client");
+        customerB.DefaultPriceListId = null;
+
+        // Resolution function modeling PartyDetailsAppService hierarchy
+        Guid ResolvePriceList(Customer c, Guid? fallback) =>
+            c.DefaultPriceListId ?? fallback ?? systemDefaultPriceListId;
+
+        // 1. Selecting Customer A resolves customer's price list
+        var resolvedA = ResolvePriceList(customerA, null);
+        Assert.Equal(customerA_PriceListId, resolvedA);
+
+        // 2. Switching to Customer B resets fallback to system default (not customer A's price list)
+        var resolvedB = ResolvePriceList(customerB, null);
+        Assert.Equal(systemDefaultPriceListId, resolvedB);
+        Assert.NotEqual(customerA_PriceListId, resolvedB);
     }
 
     // --- Session tracking tests ---

@@ -412,7 +412,8 @@ export class SalesInvoiceFormComponent implements OnInit {
   }
 
   private resolveCustomerDetails(customerId: string): void {
-    this.partyDetailsService.getCustomerDetails({ partyId: customerId }).subscribe({
+    const companyId = this.form.get('companyId')?.value || undefined;
+    this.partyDetailsService.getCustomerDetails({ partyId: customerId, companyId }).subscribe({
       next: (details: any) => {
         if (details.tin) {
           this.form.patchValue({ buyerTin: details.tin });
@@ -423,6 +424,9 @@ export class SalesInvoiceFormComponent implements OnInit {
           const parts = [addr.addressLine1, addr.city, addr.state, addr.postalCode].filter(Boolean);
           this.billingAddress.set(parts.join(', '));
         }
+        // Price list fallback reset (ERPNext PR #58893)
+        this.form.patchValue({ priceListId: details.priceListId ?? '' });
+
         // Credit exposure tracking
         this.customerOutstanding.set(details.outstandingAmount ?? 0);
         this.customerCreditLimit.set(details.creditLimit ?? 0);

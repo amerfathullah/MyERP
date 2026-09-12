@@ -6,6 +6,7 @@ using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
+using MyERP.Inventory.Entities;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using MyERP.Shared;
@@ -28,6 +29,8 @@ public class PartyDetailsAppService : ApplicationService, IPartyDetailsAppServic
     private readonly IRepository<Address, Guid> _addressRepo;
     private readonly IRepository<PaymentTermsTemplate, Guid> _paymentTermsRepo;
     private readonly IRepository<Company, Guid> _companyRepo;
+    private readonly IRepository<PriceList, Guid> _priceListRepo;
+    private readonly IRepository<CustomerGroup, Guid> _customerGroupRepo;
     private readonly PartyDefaultsService _partyDefaults;
 
     public PartyDetailsAppService(
@@ -36,6 +39,8 @@ public class PartyDetailsAppService : ApplicationService, IPartyDetailsAppServic
         IRepository<Address, Guid> addressRepo,
         IRepository<PaymentTermsTemplate, Guid> paymentTermsRepo,
         IRepository<Company, Guid> companyRepo,
+        IRepository<PriceList, Guid> priceListRepo,
+        IRepository<CustomerGroup, Guid> customerGroupRepo,
         PartyDefaultsService partyDefaults)
     {
         _customerRepo = customerRepo;
@@ -43,6 +48,8 @@ public class PartyDetailsAppService : ApplicationService, IPartyDetailsAppServic
         _addressRepo = addressRepo;
         _paymentTermsRepo = paymentTermsRepo;
         _companyRepo = companyRepo;
+        _priceListRepo = priceListRepo;
+        _customerGroupRepo = customerGroupRepo;
         _partyDefaults = partyDefaults;
     }
 
@@ -130,6 +137,15 @@ public class PartyDetailsAppService : ApplicationService, IPartyDetailsAppServic
         // Calculate current outstanding for credit display
         result.Outstanding = await GetCustomerOutstandingAsync(customer.Id, input.CompanyId);
 
+        // Resolve selling price list (per ERPNext party.py set_price_list / PR #58893)
+        var priceList = await ResolveSellingPriceListAsync(customer, input.CompanyId, input.PriceListId);
+        if (priceList != null)
+        {
+            result.PriceListId = priceList.Id;
+            result.PriceListName = priceList.Name;
+            result.PriceListCurrency = priceList.CurrencyCode;
+        }
+
         return result;
     }
 
@@ -195,7 +211,125 @@ public class PartyDetailsAppService : ApplicationService, IPartyDetailsAppServic
             result.CompanyCurrency = company.CurrencyCode ?? "MYR";
         }
 
+        // Resolve buying price list (per ERPNext party.py set_price_list / PR #58893)
+        var priceList = await ResolveBuyingPriceListAsync(supplier, input.CompanyId, input.PriceListId);
+        if (priceList != null)
+        {
+            result.PriceListId = priceList.Id;
+            result.PriceListName = priceList.Name;
+            result.PriceListCurrency = priceList.CurrencyCode;
+        }
+
         return result;
+    }
+
+    /// <summary>
+    /// Resolves the effective selling price list following ERPNext pricing hierarchy:
+    /// 1. Customer's explicit default price list (if active and selling)
+    /// 2. Customer Group default price list (if active and selling)
+    /// 3. Caller-supplied fallback (PR #58893: if valid, active, and selling)
+    /// 4. System / company default selling price list (IsDefault = true)
+    /// 5. First active selling price list
+    /// </summary>
+    private async Task<PriceList?> ResolveSellingPriceListAsync(Customer customer, Guid? companyId, Guid? givenPriceListId)
+    {
+        // 1. Customer's explicit default price list
+        if (customer.DefaultPriceListId.HasValue)
+        {
+            var pl = await _priceListRepo.FindAsync(customer.DefaultPriceListId.Value);
+            if (pl != null && pl.IsActive && pl.IsSelling)
+            {
+                return pl;
+            }
+        }
+
+        // 2. Customer Group default price list
+        if (customer.CustomerGroupId.HasValue)
+        {
+            var group = await _customerGroupRepo.FindAsync(customer.CustomerGroupId.Value);
+            if (group?.DefaultPriceListId.HasValue == true)
+            {
+                var pl = await _priceListRepo.FindAsync(group.DefaultPriceListId.Value);
+                if (pl != null && pl.IsActive && pl.IsSelling)
+                {
+                    return pl;
+                }
+            }
+        }
+
+        // 3. Caller-supplied fallback
+        if (givenPriceListId.HasValue)
+        {
+            var pl = await _priceListRepo.FindAsync(givenPriceListId.Value);
+            if (pl != null && pl.IsActive && pl.IsSelling)
+            {
+                return pl;
+            }
+        }
+
+        // 4. System / company default selling price list
+        var plQuery = await _priceListRepo.GetQueryableAsync();
+        var defaultPl = plQuery
+            .Where(p => p.IsSelling && p.IsActive && p.IsDefault && (p.CompanyId == null || p.CompanyId == companyId))
+            .FirstOrDefault();
+
+        if (defaultPl != null)
+        {
+            return defaultPl;
+        }
+
+        // 5. Any active selling price list
+        return plQuery
+            .Where(p => p.IsSelling && p.IsActive && (p.CompanyId == null || p.CompanyId == companyId))
+            .OrderBy(p => p.Name)
+            .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Resolves the effective buying price list following ERPNext pricing hierarchy:
+    /// 1. Supplier's explicit default price list (if active and buying)
+    /// 2. Caller-supplied fallback (PR #58893: if valid, active, and buying)
+    /// 3. System / company default buying price list (IsDefault = true)
+    /// 4. First active buying price list
+    /// </summary>
+    private async Task<PriceList?> ResolveBuyingPriceListAsync(Supplier supplier, Guid? companyId, Guid? givenPriceListId)
+    {
+        // 1. Supplier's explicit default price list
+        if (supplier.DefaultPriceListId.HasValue)
+        {
+            var pl = await _priceListRepo.FindAsync(supplier.DefaultPriceListId.Value);
+            if (pl != null && pl.IsActive && pl.IsBuying)
+            {
+                return pl;
+            }
+        }
+
+        // 2. Caller-supplied fallback
+        if (givenPriceListId.HasValue)
+        {
+            var pl = await _priceListRepo.FindAsync(givenPriceListId.Value);
+            if (pl != null && pl.IsActive && pl.IsBuying)
+            {
+                return pl;
+            }
+        }
+
+        // 3. System / company default buying price list
+        var plQuery = await _priceListRepo.GetQueryableAsync();
+        var defaultPl = plQuery
+            .Where(p => p.IsBuying && p.IsActive && p.IsDefault && (p.CompanyId == null || p.CompanyId == companyId))
+            .FirstOrDefault();
+
+        if (defaultPl != null)
+        {
+            return defaultPl;
+        }
+
+        // 4. Any active buying price list
+        return plQuery
+            .Where(p => p.IsBuying && p.IsActive && (p.CompanyId == null || p.CompanyId == companyId))
+            .OrderBy(p => p.Name)
+            .FirstOrDefault();
     }
 
     private async Task<decimal> GetCustomerOutstandingAsync(Guid customerId, Guid? companyId)

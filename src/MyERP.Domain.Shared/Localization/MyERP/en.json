@@ -2292,6 +2292,7 @@
     "Menu:ItemPrices": "Item Prices",
     "ItemPrices": "Item Prices",
     "NoItemPricesYet": "No item prices configured yet.",
+    "PriceList": "Price List",
     "AllPriceLists": "All Price Lists",
     "BulkUpdate": "Bulk Update",
     "PercentageChange": "% Change",

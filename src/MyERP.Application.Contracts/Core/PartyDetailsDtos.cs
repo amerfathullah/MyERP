@@ -6,6 +6,7 @@ public class GetPartyDetailsInput
 {
     public Guid PartyId { get; set; }
     public Guid? CompanyId { get; set; }
+    public Guid? PriceListId { get; set; }
 }
 
 public class PartyDetailsDto
@@ -48,6 +49,11 @@ public class PartyDetailsDto
     public Guid? CustomerGroupId { get; set; }
     public Guid? TerritoryId { get; set; }
     public string? CompanyCurrency { get; set; }
+
+    // Price list (per ERPNext party.py set_price_list / PR #58893)
+    public Guid? PriceListId { get; set; }
+    public string? PriceListName { get; set; }
+    public string? PriceListCurrency { get; set; }
 
     // Credit (Customer only)
     public decimal CreditLimit { get; set; }
