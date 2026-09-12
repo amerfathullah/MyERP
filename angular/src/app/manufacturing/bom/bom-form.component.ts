@@ -326,8 +326,8 @@ export class BomFormComponent implements OnInit {
     const row = this.secondaryItems.at(index);
     row.patchValue({
       itemName: item.itemName ?? item.itemCode ?? '',
-      stockUom: item.stockUom ?? 'Unit',
-      rate: item.valuationRate ?? 0,
+      stockUom: item.uom ?? 'Unit',
+      rate: item.standardBuyingPrice ?? 0,
     });
   }
 
