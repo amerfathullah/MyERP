@@ -195,6 +195,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             throw new BusinessException(MyERPDomainErrorCodes.SecondaryItemCostAllocationInvalid);
 
         bom.RecalculateCost();
+        bom.ValidateSecondaryItemsCost();
 
         await _bomRepository.InsertAsync(bom);
         return ObjectMapper.Map<BillOfMaterials, BomDto>(bom);
@@ -310,6 +311,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             throw new BusinessException(MyERPDomainErrorCodes.SecondaryItemCostAllocationInvalid);
 
         bom.RecalculateCost();
+        bom.ValidateSecondaryItemsCost();
         await _bomRepository.UpdateAsync(bom);
         return ObjectMapper.Map<BillOfMaterials, BomDto>(bom);
     }

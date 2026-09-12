@@ -211,13 +211,20 @@ public class CompanyRestrictionTests
     {
         // Critical transaction types must NOT be exempt (they need validation)
         var transactionTypes = new[] { "SalesOrder", "PurchaseOrder", "SalesInvoice", "PurchaseInvoice",
-            "DeliveryNote", "PurchaseReceipt", "StockEntry", "JournalEntry", "PaymentEntry" };
+            "DeliveryNote", "PurchaseReceipt", "StockEntry", "JournalEntry", "PaymentEntry", "ItemPrice" };
 
         foreach (var dt in transactionTypes)
         {
             Assert.False(CompanyRestrictionValidationService.IsExemptDocumentType(dt),
                 $"{dt} should not be exempt from company restriction validation");
         }
+    }
+
+    [Fact]
+    public void ItemPrice_NotExempt_FromCompanyRestriction()
+    {
+        // Per ERPNext PR #58948: Item Price inherits and validates company restriction
+        Assert.False(CompanyRestrictionValidationService.IsExemptDocumentType("ItemPrice"));
     }
 
     #endregion

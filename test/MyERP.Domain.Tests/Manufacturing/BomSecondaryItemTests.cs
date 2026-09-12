@@ -389,6 +389,48 @@ public class BomSecondaryItemTests
         bom.ScrapWarehouseId.ShouldBe(whId);
     }
 
+    // === BOM Secondary Items Cost Validation (PR #58979) ===
+
+    [Fact]
+    public void ValidateSecondaryItemsCost_WhenSecondaryCostExceedsMaterialCost_ThrowsBusinessException()
+    {
+        var bom = CreateBom();
+        // Add raw material item: qty 10 * rate 10 = 100
+        bom.AddItem(new BomItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), "RM-01", 10, 10));
+        bom.RecalculateCost();
+        bom.TotalMaterialCost.ShouldBe(100m);
+
+        // Add secondary item costing 120 (qty 2 * rate 60)
+        var scrap = new BomSecondaryItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), SecondaryItemType.Scrap, 2)
+        {
+            Rate = 60m
+        };
+        bom.AddSecondaryItem(scrap);
+
+        var ex = Should.Throw<BusinessException>(() => bom.ValidateSecondaryItemsCost());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void ValidateSecondaryItemsCost_WhenSecondaryCostWithinMaterialCost_Succeeds()
+    {
+        var bom = CreateBom();
+        // Add raw material item: qty 10 * rate 10 = 100
+        bom.AddItem(new BomItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), "RM-01", 10, 10));
+        bom.RecalculateCost();
+        bom.TotalMaterialCost.ShouldBe(100m);
+
+        // Add secondary item costing 40 (qty 2 * rate 20)
+        var scrap = new BomSecondaryItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), SecondaryItemType.Scrap, 2)
+        {
+            Rate = 20m
+        };
+        bom.AddSecondaryItem(scrap);
+
+        // Should not throw
+        Should.NotThrow(() => bom.ValidateSecondaryItemsCost());
+    }
+
     // === Work Order Process Loss Integration ===
 
     [Fact]
@@ -403,3 +445,4 @@ public class BomSecondaryItemTests
         wo.EffectiveFgQuantity.ShouldBe(93m); // 100 - 7 (uses qty, not percentage)
     }
 }
+

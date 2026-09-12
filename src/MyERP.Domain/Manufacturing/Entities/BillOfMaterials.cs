@@ -364,4 +364,22 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("detail", "Process loss percentage cannot be negative.");
         }
     }
+
+    /// <summary>
+    /// Validates that total cost of secondary items does not exceed total raw material cost.
+    /// Per ERPNext PR #58979 (commit 4d95a240bb / b9502c74cc):
+    /// "The cost of the secondary items cannot exceed the raw material cost of {0}."
+    /// </summary>
+    public void ValidateSecondaryItemsCost()
+    {
+        var secondaryItemsCost = SecondaryItems
+            .Where(si => !si.IsLegacy)
+            .Sum(si => si.EffectiveQuantity * si.Rate);
+
+        if (secondaryItemsCost > TotalMaterialCost && TotalMaterialCost > 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"The cost of the secondary items ({secondaryItemsCost:F2}) cannot exceed the raw material cost of {TotalMaterialCost:F2}.");
+        }
+    }
 }

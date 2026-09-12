@@ -209,8 +209,14 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             query = query.Where(x => x.OrderDate <= input.ToDate.Value);
 
         var totalCount = query.Count();
+        // Per ERPNext PR #59010 / commit 5dfd21cce6: list billable sales orders oldest first
+        Func<IQueryable<SalesOrder>, IOrderedQueryable<SalesOrder>> defaultSort =
+            input.Status?.Equals("ToBill", StringComparison.OrdinalIgnoreCase) == true
+                ? q => q.OrderBy(x => x.OrderDate).ThenBy(x => x.CreationTime)
+                : q => q.OrderByDescending(x => x.OrderDate);
+
         var sorted = SortingHelper.ApplySorting(query, input.Sorting,
-            q => q.OrderByDescending(x => x.OrderDate),
+            defaultSort,
             ("orderNumber", x => x.OrderNumber),
             ("orderDate", x => x.OrderDate),
             ("grandTotal", x => x.GrandTotal),

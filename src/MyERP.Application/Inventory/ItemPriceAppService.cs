@@ -56,12 +56,35 @@ public class ItemPriceAppService : ApplicationService, IItemPriceAppService
         // Per ERPNext PR #58948 / commit 4671d1a665: Item Price inherits company restriction from Item
         if (input.CompanyId.HasValue)
         {
+            var targetCompanyId = input.CompanyId.Value;
             var itemsQ = await _itemRepo.GetQueryableAsync();
-            var companyItemIds = itemsQ
-                .Where(i => i.CompanyId == input.CompanyId.Value)
+            var candidateItems = itemsQ
+                .Select(i => new { i.Id, i.CompanyId, i.RestrictToCompanies })
+                .ToList();
+
+            var unrestrictedIds = candidateItems
+                .Where(i => i.CompanyId == targetCompanyId && !i.RestrictToCompanies)
                 .Select(i => i.Id)
                 .ToList();
-            queryable = queryable.Where(p => companyItemIds.Contains(p.ItemId));
+
+            var restrictedCandidateIds = candidateItems
+                .Where(i => i.RestrictToCompanies)
+                .Select(i => i.Id)
+                .ToList();
+
+            var restrictionRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.CompanyRestrictionEntry, Guid>>();
+            var allowedRestrictedIds = new List<Guid>();
+            if (restrictionRepo != null && restrictedCandidateIds.Count > 0)
+            {
+                var reQ = await restrictionRepo.GetQueryableAsync();
+                allowedRestrictedIds = reQ
+                    .Where(r => r.ParentType == "Item" && r.CompanyId == targetCompanyId && restrictedCandidateIds.Contains(r.ParentId))
+                    .Select(r => r.ParentId)
+                    .ToList();
+            }
+
+            var allowedItemIds = unrestrictedIds.Concat(allowedRestrictedIds).Distinct().ToHashSet();
+            queryable = queryable.Where(p => allowedItemIds.Contains(p.ItemId));
         }
 
         if (!string.IsNullOrWhiteSpace(input.Filter))
@@ -200,8 +223,26 @@ public class ItemPriceAppService : ApplicationService, IItemPriceAppService
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
         }
 
-        var itemValidation = LazyServiceProvider.LazyGetRequiredService<ItemTransactionValidationService>();
-        await itemValidation.ValidateItemAsync(input.ItemId);
+        var itemValidation = LazyServiceProvider?.LazyGetService<ItemTransactionValidationService>();
+        if (itemValidation != null)
+        {
+            await itemValidation.ValidateItemAsync(input.ItemId);
+        }
+
+        var pl = await _priceListRepo.FindAsync(input.PriceListId);
+        if (pl?.CompanyId != null)
+        {
+            var companyRestriction = LazyServiceProvider?.LazyGetService<Core.DomainServices.CompanyRestrictionValidationService>();
+            if (companyRestriction != null)
+            {
+                await companyRestriction.ValidateTransactionCompanyAsync(
+                    "ItemPrice",
+                    pl.CompanyId.Value,
+                    itemIds: new[] { input.ItemId },
+                    customerIds: input.CustomerId.HasValue ? new[] { input.CustomerId.Value } : null,
+                    supplierIds: input.SupplierId.HasValue ? new[] { input.SupplierId.Value } : null);
+            }
+        }
 
         var price = new ItemPrice(
             GuidGenerator.Create(),
@@ -222,12 +263,15 @@ public class ItemPriceAppService : ApplicationService, IItemPriceAppService
 
         await _itemPriceRepo.InsertAsync(price);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "ItemPrice", price.Id,
-            "Created", Guid.Empty,
-            price.PriceListRate.ToString("F2"), "Draft", "Active", CurrentUser.Id,
-            $"Item price for item {input.ItemId.ToString()[..8]} created with rate {price.PriceListRate}", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "ItemPrice", price.Id,
+                "Created", Guid.Empty,
+                price.PriceListRate.ToString("F2"), "Draft", "Active", CurrentUser.Id,
+                $"Item price for item {input.ItemId.ToString()[..8]} created with rate {price.PriceListRate}", CurrentTenant.Id));
+        }
 
         return await GetAsync(price.Id);
     }
@@ -253,6 +297,21 @@ public class ItemPriceAppService : ApplicationService, IItemPriceAppService
         }
 
         var price = await _itemPriceRepo.GetAsync(id);
+
+        var pl = await _priceListRepo.FindAsync(input.PriceListId);
+        if (pl?.CompanyId != null)
+        {
+            var companyRestriction = LazyServiceProvider?.LazyGetService<Core.DomainServices.CompanyRestrictionValidationService>();
+            if (companyRestriction != null)
+            {
+                await companyRestriction.ValidateTransactionCompanyAsync(
+                    "ItemPrice",
+                    pl.CompanyId.Value,
+                    itemIds: new[] { input.ItemId },
+                    customerIds: input.CustomerId.HasValue ? new[] { input.CustomerId.Value } : null,
+                    supplierIds: input.SupplierId.HasValue ? new[] { input.SupplierId.Value } : null);
+            }
+        }
         price.PriceListRate = input.PriceListRate;
         price.MinQty = input.MinQty;
         price.ValidFrom = input.ValidFrom;
@@ -262,12 +321,15 @@ public class ItemPriceAppService : ApplicationService, IItemPriceAppService
         price.BatchNo = input.BatchNo;
         await _itemPriceRepo.UpdateAsync(price);
 
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
-        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-            GuidGenerator.Create(), "ItemPrice", price.Id,
-            "Updated", Guid.Empty,
-            price.PriceListRate.ToString("F2"), "Active", "Active", CurrentUser.Id,
-            $"Item price for item {price.ItemId.ToString()[..8]} updated with rate {price.PriceListRate}", CurrentTenant.Id));
+        var activityLogRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        if (activityLogRepo != null)
+        {
+            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+                GuidGenerator.Create(), "ItemPrice", price.Id,
+                "Updated", Guid.Empty,
+                price.PriceListRate.ToString("F2"), "Active", "Active", CurrentUser.Id,
+                $"Item price for item {price.ItemId.ToString()[..8]} updated with rate {price.PriceListRate}", CurrentTenant.Id));
+        }
 
         return await GetAsync(price.Id);
     }
