@@ -24,8 +24,16 @@ public class BomSecondaryItem : Entity<Guid>, IMultiTenant
     /// <summary>Type of secondary output: CoProduct, ByProduct, or Scrap.</summary>
     public SecondaryItemType SecondaryItemType { get; set; }
 
-    /// <summary>Valuation method for this secondary item (per ERPNext PR #58431).</summary>
-    public SecondaryItemValuationType ValuationType { get; set; } = SecondaryItemValuationType.ValuationRate;
+    private SecondaryItemValuationType? _valuationType;
+
+    /// <summary>Valuation method for this secondary item (per ERPNext PR #58431 / PR #59021).</summary>
+    public SecondaryItemValuationType ValuationType
+    {
+        get => _valuationType ?? (CostAllocationPercentage > 0
+            ? SecondaryItemValuationType.PercentageOfComponentCost
+            : SecondaryItemValuationType.ValuationRate);
+        set => _valuationType = value;
+    }
 
     /// <summary>Quantity produced per BOM quantity (before process loss).</summary>
     public decimal Quantity { get; set; }

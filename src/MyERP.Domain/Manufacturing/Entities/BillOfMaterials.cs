@@ -292,6 +292,10 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             item.CostAllocationPercentage = 0;
         }
+        else
+        {
+            item.ValuationType = SecondaryItemValuationType.PercentageOfComponentCost;
+        }
 
         SecondaryItems.Add(item);
     }

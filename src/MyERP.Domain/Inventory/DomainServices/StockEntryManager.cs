@@ -366,32 +366,22 @@ public class StockEntryManager : DomainService
 
         var allowedQty = wo.Quantity + (overproductionPercentage / 100m * wo.Quantity);
 
-        // Per ERPNext PR #58847: cumulative manufactured quantity includes process loss
-        var alreadyManufactured = otherEntries
-            .Where(se => se.Status == Core.DocumentStatus.Submitted)
-            .Sum(se =>
-            {
-                var fg = se.Items
-                    .Where(i => i.ItemId == wo.ItemId && i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
-                    .Sum(i => i.Quantity);
-                var loss = se.ProcessLossQty > 0 ? se.ProcessLossQty : Math.Max(0, se.FgCompletedQty - fg);
-                return fg + loss;
-            });
-
-        var currentFg = entry.Items
-            .Where(i => i.ItemId == wo.ItemId && i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
-            .Sum(i => i.Quantity);
-        var currentLoss = entry.ProcessLossQty > 0 ? entry.ProcessLossQty : Math.Max(0, entry.FgCompletedQty - currentFg);
-        var currentManufactured = currentFg + currentLoss;
-
-        var totalManufactured = Math.Max(wo.ProducedQuantity + wo.ProcessLossQty, alreadyManufactured) + currentManufactured;
-
-        if (totalManufactured > allowedQty)
+        // Per ERPNext PR #58004 / PR #58005 (commits 22fa520500, 492ee05727):
+        // Block duplicate manufacture entries when existing non-cancelled entries already cover the work order qty plus allowance.
+        var alreadyEnteredFgQty = otherEntries.Sum(se =>
         {
-            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderOverproduction)
-                .WithData("maxAllowed", allowedQty)
-                .WithData("produced", Math.Max(wo.ProducedQuantity + wo.ProcessLossQty, alreadyManufactured))
-                .WithData("attempted", currentManufactured);
+            var fg = se.Items
+                .Where(i => i.ItemId == wo.ItemId && i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
+                .Sum(i => i.Quantity);
+            var loss = se.ProcessLossQty > 0 ? se.ProcessLossQty : Math.Max(0, se.FgCompletedQty - fg);
+            return fg + loss;
+        });
+
+        if (alreadyEnteredFgQty >= allowedQty)
+        {
+            var otherEntryNumbers = string.Join(", ", otherEntries.Select(e => e.EntryNumber));
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
+                .WithData("detail", $"Stock Entries already created for Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}: {otherEntryNumbers}");
         }
     }
 
