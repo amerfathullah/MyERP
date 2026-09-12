@@ -705,6 +705,7 @@ export interface DeliveryNoteItemDto {
   taxAmount?: number;
   lineTotal?: number;
   billedQty?: number;
+  returnedQty?: number;
   packedQty?: number;
   isClosed?: boolean;
   salesOrderItemId?: string | null;

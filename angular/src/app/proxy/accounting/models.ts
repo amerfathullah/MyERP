@@ -157,6 +157,8 @@ export interface AgingDetailEntryDto {
   outstandingAmount?: number;
   ageDays?: number;
   bucketLabel?: string;
+  costCenterId?: string | null;
+  costCenterName?: string | null;
 }
 
 export interface AgingReportDto {
