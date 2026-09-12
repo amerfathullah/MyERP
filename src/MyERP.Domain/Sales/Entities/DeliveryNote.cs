@@ -110,8 +110,24 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     }
 
     /// <summary>
-    /// Delivery Note Billing Status indicator per ERPNext status updater (PR #51997 / commit 7767000ccf):
-    /// Draft -> To Bill (0%) -> Partially Billed (0-100%) -> Completed (100%) / Return / Cancelled / Closed
+    /// Percentage of delivered quantity returned.
+    /// Per ERPNext: SUM(returned_qty) / SUM(qty) * 100.
+    /// </summary>
+    public decimal PerReturned
+    {
+        get
+        {
+            if (!_items.Any()) return 0;
+            var totalQty = _items.Sum(i => Math.Abs(i.Quantity));
+            if (totalQty == 0) return 0;
+            var totalReturned = _items.Sum(i => Math.Abs(i.ReturnedQty));
+            return Math.Round(totalReturned / totalQty * 100m, 2);
+        }
+    }
+
+    /// <summary>
+    /// Delivery Note Billing Status indicator per ERPNext status updater (PR #58953, PR #58869, commit 8290a83591):
+    /// Draft -> To Bill (0%) -> Partially Billed (0-100%) -> Completed (100%) / Return / Return Issued (100% returned) / Cancelled / Closed
     /// </summary>
     public string BillingStatus
     {
@@ -123,6 +139,7 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             // Per ERPNext commit 8290a83591: Completed takes precedence over Return Issued when fully billed
             if (PerBilled >= 100m) return "Completed";
             if (IsReturn) return "Return";
+            if (PerReturned >= 100m) return "Return Issued";
             if (PerBilled > 0m || _items.Any(i => i.BilledQty > 0)) return "Partially Billed";
             return "To Bill";
         }
@@ -130,7 +147,7 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
 
     public void UpdateBillingStatus()
     {
-        // PerBilled is computed dynamically from item-level BilledQty
+        // PerBilled and PerReturned are computed dynamically from item-level BilledQty and ReturnedQty
     }
 
     protected DeliveryNote() { }

@@ -58,11 +58,30 @@ describe('StatusBadgeComponent', () => {
     expect(comp.config.badgeClass).toBe('bg-danger');
   });
 
+  it('should return correct config for Return Issued', () => {
+    const comp = createComponent('Return Issued');
+    expect(comp.config.badgeClass).toBe('bg-info');
+    expect(comp.config.icon).toBe('fa fa-undo');
+  });
+
+  it('should return correct config for Return', () => {
+    const comp = createComponent('Return');
+    expect(comp.config.badgeClass).toBe('bg-warning text-dark');
+    expect(comp.config.icon).toBe('fa fa-undo');
+  });
+
+  it('should return correct config for Partially Billed', () => {
+    const comp = createComponent('Partially Billed');
+    expect(comp.config.badgeClass).toBe('bg-warning text-dark');
+    expect(comp.config.icon).toBe('fa fa-clock');
+  });
+
   it('should handle all document statuses without error', () => {
     const statuses = [
       'Draft', 'Submitted', 'Approved', 'Posted', 'Cancelled', 'Rejected',
       'Overdue', 'Paid', 'PartiallyPaid', 'Active', 'Inactive',
-      'ToDeliverAndBill', 'ToDeliver', 'ToBill', 'Completed', 'Closed'
+      'ToDeliverAndBill', 'ToDeliver', 'ToBill', 'Completed', 'Closed',
+      'Return', 'Return Issued', 'Partially Billed'
     ];
     for (const status of statuses) {
       const comp = createComponent(status);

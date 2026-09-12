@@ -341,4 +341,46 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
         await Assert.ThrowsAsync<Volo.Abp.BusinessException>(
             () => _conversionService.ConvertSalesOrderToMaterialRequestAsync(salesOrder.Id));
     }
+
+    [Fact]
+    public async Task Should_Convert_DeliveryNote_With_Returned_Qty_Correctly()
+    {
+        var (companyId, customerId, warehouseId) = await SeedDataAsync();
+        var dnRepo = GetRequiredService<IRepository<DeliveryNote, Guid>>();
+
+        var dn = new DeliveryNote(Guid.NewGuid(), companyId, customerId, warehouseId, "DN-CONV-001", DateTime.Today);
+        dn.AddItem(Guid.NewGuid(), "Item Return Conv", 10m, 100m, 0m);
+        dn.Submit();
+
+        // 4 units returned
+        dn.Items[0].ReturnedQty = 4m;
+        await dnRepo.InsertAsync(dn, autoSave: true);
+
+        // Act: Convert DN to SI
+        var si = await _conversionService.ConvertDeliveryNoteToSalesInvoiceAsync(dn.Id);
+
+        // Assert: invoice only bills the unreturned 6 units (10 - 4)
+        si.Items.Count.ShouldBe(1);
+        si.Items[0].Quantity.ShouldBe(6m);
+    }
+
+    [Fact]
+    public async Task Should_Reject_Conversion_When_DeliveryNote_Fully_Returned()
+    {
+        var (companyId, customerId, warehouseId) = await SeedDataAsync();
+        var dnRepo = GetRequiredService<IRepository<DeliveryNote, Guid>>();
+
+        var dn = new DeliveryNote(Guid.NewGuid(), companyId, customerId, warehouseId, "DN-CONV-002", DateTime.Today);
+        dn.AddItem(Guid.NewGuid(), "Item Return Conv Full", 5m, 100m, 0m);
+        dn.Submit();
+
+        // All 5 units returned
+        dn.Items[0].ReturnedQty = 5m;
+        await dnRepo.InsertAsync(dn, autoSave: true);
+
+        // Act & Assert: conversion fails because all items returned
+        var ex = await Assert.ThrowsAsync<Volo.Abp.BusinessException>(
+            () => _conversionService.ConvertDeliveryNoteToSalesInvoiceAsync(dn.Id));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.DocumentAlreadyConverted);
+    }
 }

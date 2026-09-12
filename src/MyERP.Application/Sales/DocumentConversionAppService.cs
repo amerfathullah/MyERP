@@ -55,17 +55,22 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
     }
 
     /// <summary>
-    /// Per ERPNext get_returned_qty_map(): returns a map of {dn_detail_id: returned_qty}
-    /// from submitted return Delivery Notes referencing this DN.
-    /// Return DN items have negative qty; we use ABS for the returned amount.
+    /// Computes returned quantity per DN item across all submitted Return Delivery Notes referencing this DN.
+    /// Per ERPNext PR #58953 & PR #58869: enables accurate billable quantity calculation when converting DN to SI.
+    /// Maps directly to DeliveryNoteItem.Id using ReturnedQty on item and any linked return delivery note items.
     /// </summary>
-    private async Task<Dictionary<Guid, decimal>> GetReturnedQtyMapAsync(Guid deliveryNoteId)
+    private async Task<Dictionary<Guid, decimal>> GetReturnedQtyMapAsync(DeliveryNote deliveryNote)
     {
         var result = new Dictionary<Guid, decimal>();
 
+        foreach (var item in deliveryNote.Items)
+        {
+            result[item.Id] = Math.Abs(item.ReturnedQty);
+        }
+
         var queryable = await _deliveryNoteRepository.GetQueryableAsync();
         var returnDns = queryable
-            .Where(dn => dn.IsReturn && dn.ReturnAgainstId == deliveryNoteId
+            .Where(dn => dn.IsReturn && dn.ReturnAgainstId == deliveryNote.Id
                       && dn.Status != Core.DocumentStatus.Draft
                       && dn.Status != Core.DocumentStatus.Cancelled)
             .ToList();
@@ -74,14 +79,13 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         {
             foreach (var item in returnDn.Items)
             {
-                // Return items have negative qty; use absolute value for deduction
                 var absQty = Math.Abs(item.Quantity);
-                if (item.SalesOrderItemId.HasValue)
+                var origItem = deliveryNote.Items.FirstOrDefault(i =>
+                    (item.SalesOrderItemId.HasValue && i.SalesOrderItemId == item.SalesOrderItemId) ||
+                    (!item.SalesOrderItemId.HasValue && i.ItemId == item.ItemId));
+                if (origItem != null)
                 {
-                    // Map by the original DN item this return targets
-                    // Use SalesOrderItemId as proxy — in ERPNext uses dn_detail field
-                    var key = item.SalesOrderItemId.Value;
-                    result[key] = result.GetValueOrDefault(key, 0m) + absQty;
+                    result[origItem.Id] = Math.Max(result.GetValueOrDefault(origItem.Id, 0m), absQty);
                 }
             }
         }
@@ -370,7 +374,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         // Per ERPNext DN→SI mapper: pending = qty - invoiced_qty - returned_qty - draft_mapped_qty
         // Get returned qty per DN item (from return DNs referencing this DN)
-        var returnedQtyMap = await GetReturnedQtyMapAsync(deliveryNoteId);
+        var returnedQtyMap = await GetReturnedQtyMapAsync(deliveryNote);
 
         // Account for draft Sales Invoices in the system (per ERPNext PR #58617)
         var siQuery2 = await _salesInvoiceRepository.GetQueryableAsync();
@@ -388,9 +392,9 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         foreach (var item in deliveryNote.Items)
         {
             if (item.IsClosed) continue;
-            var returnedQty = returnedQtyMap.GetValueOrDefault(item.Id, 0m);
+            var returnedQty = Math.Max(item.ReturnedQty, returnedQtyMap.GetValueOrDefault(item.Id, 0m));
             var draftQty = draftMappedQtyByItem.GetValueOrDefault(item.Id, 0m);
-            var pendingQty = item.Quantity - item.BilledQty - returnedQty - draftQty;
+            var pendingQty = Math.Max(0, Math.Abs(item.Quantity) - Math.Abs(item.BilledQty) - returnedQty - draftQty);
             if (pendingQty > 0)
             {
                 hasConvertibleItems = true;
@@ -419,9 +423,9 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         {
             if (item.IsClosed) continue;
             // Per ERPNext: pending = qty - invoiced_qty - returned_qty - draft_qty
-            var returnedQty = returnedQtyMap.GetValueOrDefault(item.Id, 0m);
+            var returnedQty = Math.Max(item.ReturnedQty, returnedQtyMap.GetValueOrDefault(item.Id, 0m));
             var draftQty = draftMappedQtyByItem.GetValueOrDefault(item.Id, 0m);
-            var billingQty = item.Quantity - item.BilledQty - returnedQty - draftQty;
+            var billingQty = Math.Max(0, Math.Abs(item.Quantity) - Math.Abs(item.BilledQty) - returnedQty - draftQty);
             if (billingQty <= 0) continue;
 
             invoice.AddItem(item.ItemId, item.Description, billingQty, item.UnitPrice, item.TaxAmount, item.Uom);

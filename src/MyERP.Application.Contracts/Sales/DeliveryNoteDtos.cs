@@ -28,6 +28,8 @@ public class DeliveryNoteDto : EntityDto<Guid>
     public string Status { get; set; } = null!;
     /// <summary>Billing completion %. 0 = not billed, 100 = fully billed.</summary>
     public decimal PerBilled { get; set; }
+    /// <summary>Returned percentage %. 0 = none returned, 100 = fully returned.</summary>
+    public decimal PerReturned { get; set; }
     public string? BillingStatus { get; set; }
     public List<DeliveryNoteItemDto> Items { get; set; } = new();
 }

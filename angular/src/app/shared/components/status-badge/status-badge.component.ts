@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive' | 'ToDeliverAndBill' | 'ToDeliver' | 'ToBill' | 'Completed' | 'Closed' | 'NotApplicable' | 'Unfulfilled' | 'PartiallyFulfilled' | 'Fulfilled' | 'Lapsed';
+export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive' | 'ToDeliverAndBill' | 'ToDeliver' | 'ToBill' | 'Completed' | 'Closed' | 'NotApplicable' | 'Unfulfilled' | 'PartiallyFulfilled' | 'Fulfilled' | 'Lapsed' | 'Return' | 'ReturnIssued' | 'PartiallyBilled';
 
 interface StatusConfig {
   icon: string;
@@ -30,6 +30,9 @@ const STATUS_MAP: Record<DocumentStatus, StatusConfig> = {
   PartiallyFulfilled: { icon: 'fa fa-hourglass-half', badgeClass: 'bg-info' },
   Fulfilled: { icon: 'fa fa-check-double', badgeClass: 'bg-success' },
   Lapsed: { icon: 'fa fa-exclamation-triangle', badgeClass: 'bg-danger' },
+  Return: { icon: 'fa fa-undo', badgeClass: 'bg-warning text-dark' },
+  ReturnIssued: { icon: 'fa fa-undo', badgeClass: 'bg-info' },
+  PartiallyBilled: { icon: 'fa fa-clock', badgeClass: 'bg-warning text-dark' },
 };
 
 @Component({
@@ -43,6 +46,7 @@ export class StatusBadgeComponent {
   @Input({ required: true }) status!: string;
 
   get config(): StatusConfig {
-    return STATUS_MAP[this.status as DocumentStatus] ?? STATUS_MAP['Draft'];
+    const key = (this.status ? this.status.replace(/\s+/g, '') : 'Draft') as DocumentStatus;
+    return STATUS_MAP[key] ?? STATUS_MAP[this.status as DocumentStatus] ?? STATUS_MAP['Draft'];
   }
 }

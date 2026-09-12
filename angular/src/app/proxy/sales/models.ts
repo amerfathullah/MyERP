@@ -691,6 +691,7 @@ export interface DeliveryNoteDto extends EntityDto<string> {
   returnAgainstId?: string | null;
   status?: string;
   perBilled?: number;
+  perReturned?: number;
   billingStatus?: string | null;
   items?: DeliveryNoteItemDto[];
 }

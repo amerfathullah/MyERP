@@ -1201,5 +1201,32 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         }
         return results;
     }
+
+    /// <summary>
+    /// Recalculates billing status and PerBilled of Delivery Notes left open by returns.
+    /// Per ERPNext PR #58953 / patch recalculate_returned_delivery_note_billing_status:
+    /// Returning the uninvoiced qty of a Delivery Note recalculates the original Delivery Note's
+    /// billing status so completed notes become Completed (100%) and unbilled notes stay To Bill (0%).
+    /// </summary>
+    [Authorize(MyERPPermissions.DeliveryNotes.Default)]
+    public async Task<int> RecalculateReturnedDeliveryNotesBillingStatusAsync()
+    {
+        var query = await _repository.GetQueryableAsync();
+        var candidateDns = query
+            .Where(dn => dn.Status == Core.DocumentStatus.Submitted
+                      && !dn.IsReturn
+                      && dn.Items.Any(i => i.ReturnedQty > 0))
+            .ToList();
+
+        var updatedCount = 0;
+        foreach (var dn in candidateDns)
+        {
+            dn.UpdateBillingStatus();
+            await _repository.UpdateAsync(dn, autoSave: true);
+            updatedCount++;
+        }
+
+        return updatedCount;
+    }
 }
 
