@@ -29,6 +29,8 @@ export interface AvailableBatchItemDto {
   itemName?: string | null;
   warehouseId?: string;
   warehouseName?: string;
+  balanceQuantity?: number;
+  reservedQuantity?: number;
   availableQuantity?: number;
   expiryDate?: string | null;
   isExpired?: boolean;
@@ -133,6 +135,8 @@ export interface BatchStockBalanceDto {
   itemId?: string;
   totalQuantity?: number;
   totalValue?: number;
+  totalReservedQuantity?: number;
+  totalAvailableQuantity?: number;
   warehouseBalances?: BatchWarehouseBalanceDto[];
 }
 
@@ -155,6 +159,8 @@ export interface BatchWarehouseBalanceDto {
   quantity?: number;
   stockValue?: number;
   valuationRate?: number;
+  reservedQuantity?: number;
+  availableQuantity?: number;
 }
 
 export interface BatchWiseBalanceReportDto {
@@ -794,6 +800,7 @@ export interface GetAvailableBatchesDto {
   companyId?: string | null;
   itemId?: string | null;
   warehouseId?: string | null;
+  ignoreReservedStock?: boolean;
   sameDocumentBatchQuantities?: ExcludedBatchQtyDto[] | null;
 }
 

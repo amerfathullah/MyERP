@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
@@ -106,6 +107,7 @@ public class BatchAppService : ApplicationService, IBatchAppService
 
     /// <summary>
     /// Per-warehouse stock balance for a batch. Derived from SLE aggregation.
+    /// Incorporates active stock reservation entries per ERPNext PR #59008 / commit 000dcfc23d.
     /// ERPNext equivalent: Batch stock dashboard showing qty per warehouse with Move/Split actions.
     /// </summary>
     public async Task<BatchStockBalanceDto> GetStockBalanceAsync(Guid batchId)
@@ -129,22 +131,87 @@ public class BatchAppService : ApplicationService, IBatchAppService
             .ToList()
             .ToDictionary(w => w.Id, w => w.Name);
 
-        var entries = warehouseBalances.Select(w => new BatchWarehouseBalanceDto
+        // Query active reserved stock (PR #59008 / commit 000dcfc23d)
+        var reservedByWarehouse = new Dictionary<Guid, decimal>();
+        var sreRepo = LazyServiceProvider.LazyGetService<IRepository<StockReservationEntry, Guid>>();
+        if (sreRepo != null)
         {
-            WarehouseId = w.WarehouseId,
-            WarehouseName = warehouseNames.GetValueOrDefault(w.WarehouseId, "Unknown"),
-            Quantity = w.Qty,
-            StockValue = w.Value,
-            ValuationRate = w.Qty != 0 ? w.Value / w.Qty : 0,
+            var sreQuery = await sreRepo.GetQueryableAsync();
+            var activeSres = sreQuery
+                .Where(s => s.Status == DocumentStatus.Submitted
+                    && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
+                .ToList();
+
+            // 1) Direct batch reservations
+            foreach (var sre in activeSres.Where(s => s.BatchId == batchId))
+            {
+                var unfulfilled = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
+                reservedByWarehouse[sre.WarehouseId] = reservedByWarehouse.GetValueOrDefault(sre.WarehouseId, 0m) + unfulfilled;
+            }
+
+            // 2) Bundle-based reservations
+            var bundleIds = activeSres
+                .Where(s => s.SerialAndBatchBundleId.HasValue)
+                .Select(s => s.SerialAndBatchBundleId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (bundleIds.Count > 0)
+            {
+                var bundleRepo = LazyServiceProvider.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
+                if (bundleRepo != null)
+                {
+                    var bundleQuery = await bundleRepo.GetQueryableAsync();
+                    var bundles = bundleQuery.Where(b => bundleIds.Contains(b.Id) && !b.IsCancelled).ToList();
+                    var bundleLookup = bundles.ToDictionary(b => b.Id);
+
+                    foreach (var sre in activeSres.Where(s => s.SerialAndBatchBundleId.HasValue))
+                    {
+                        if (bundleLookup.TryGetValue(sre.SerialAndBatchBundleId!.Value, out var bundle))
+                        {
+                            var totalBundleQty = Math.Abs(bundle.TotalQty) > 0 ? Math.Abs(bundle.TotalQty) : bundle.Entries.Sum(e => e.Qty);
+                            var unfulfilledSre = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
+                            var ratio = totalBundleQty > 0 ? Math.Min(1m, unfulfilledSre / totalBundleQty) : 1m;
+
+                            foreach (var entry in bundle.Entries.Where(e => e.BatchId == batchId))
+                            {
+                                var whId = entry.WarehouseId ?? sre.WarehouseId;
+                                var entryReserved = entry.Qty * ratio;
+                                reservedByWarehouse[whId] = reservedByWarehouse.GetValueOrDefault(whId, 0m) + entryReserved;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        var entries = warehouseBalances.Select(w =>
+        {
+            var reserved = Math.Round(reservedByWarehouse.GetValueOrDefault(w.WarehouseId, 0m), 4);
+            return new BatchWarehouseBalanceDto
+            {
+                WarehouseId = w.WarehouseId,
+                WarehouseName = warehouseNames.GetValueOrDefault(w.WarehouseId, "Unknown"),
+                Quantity = w.Qty,
+                StockValue = w.Value,
+                ValuationRate = w.Qty != 0 ? w.Value / w.Qty : 0,
+                ReservedQuantity = reserved,
+                AvailableQuantity = Math.Max(0m, w.Qty - reserved),
+            };
         }).OrderByDescending(e => e.Quantity).ToList();
+
+        var totalQty = entries.Sum(e => e.Quantity);
+        var totalReserved = entries.Sum(e => e.ReservedQuantity);
 
         return new BatchStockBalanceDto
         {
             BatchId = batchId,
             BatchNo = batch.BatchNo,
             ItemId = batch.ItemId,
-            TotalQuantity = entries.Sum(e => e.Quantity),
+            TotalQuantity = totalQty,
             TotalValue = entries.Sum(e => e.StockValue),
+            TotalReservedQuantity = totalReserved,
+            TotalAvailableQuantity = Math.Max(0m, totalQty - totalReserved),
             WarehouseBalances = entries,
         };
     }
@@ -464,6 +531,7 @@ public class BatchAppService : ApplicationService, IBatchAppService
     /// <summary>
     /// Returns available batch stock filtered by company, item, and warehouse.
     /// Per ERPNext PR #58065 / #57995 (available_batch_report): filters strictly by company to prevent cross-company leakage.
+    /// Also incorporates active stock reservation entries per ERPNext PR #59008 / commit 000dcfc23d and auto-batch logic.
     /// </summary>
     public async Task<List<AvailableBatchItemDto>> GetAvailableBatchesAsync(GetAvailableBatchesDto input)
     {
@@ -516,12 +584,79 @@ public class BatchAppService : ApplicationService, IBatchAppService
             .Select(i => new { i.Id, i.ItemName })
             .ToDictionary(i => i.Id, i => i.ItemName);
 
+        // Query active reserved stock (PR #59008 / commit 000dcfc23d & serial_and_batch_bundle.get_reserved_batches_for_sre)
+        var reservedMap = new Dictionary<(Guid WarehouseId, Guid BatchId), decimal>();
+        if (!input.IgnoreReservedStock)
+        {
+            var sreRepo = LazyServiceProvider.LazyGetService<IRepository<StockReservationEntry, Guid>>();
+            if (sreRepo != null)
+            {
+                var sreQuery = await sreRepo.GetQueryableAsync();
+                sreQuery = sreQuery.Where(s => s.Status == DocumentStatus.Submitted
+                    && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0);
+
+                if (input.CompanyId.HasValue)
+                    sreQuery = sreQuery.Where(s => s.CompanyId == input.CompanyId.Value);
+                if (input.WarehouseId.HasValue)
+                    sreQuery = sreQuery.Where(s => s.WarehouseId == input.WarehouseId.Value);
+                if (input.ItemId.HasValue)
+                    sreQuery = sreQuery.Where(s => s.ItemId == input.ItemId.Value);
+
+                var sres = sreQuery.ToList();
+
+                // 1) Direct BatchId reservations
+                foreach (var sre in sres.Where(s => s.BatchId.HasValue && batchIds.Contains(s.BatchId!.Value)))
+                {
+                    var key = (sre.WarehouseId, sre.BatchId!.Value);
+                    var activeReserved = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
+                    reservedMap[key] = reservedMap.GetValueOrDefault(key, 0m) + activeReserved;
+                }
+
+                // 2) Bundle-based reservations
+                var bundleIds = sres
+                    .Where(s => s.SerialAndBatchBundleId.HasValue)
+                    .Select(s => s.SerialAndBatchBundleId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                if (bundleIds.Count > 0)
+                {
+                    var bundleRepo = LazyServiceProvider.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
+                    if (bundleRepo != null)
+                    {
+                        var bundleQuery = await bundleRepo.GetQueryableAsync();
+                        var bundles = bundleQuery.Where(b => bundleIds.Contains(b.Id) && !b.IsCancelled).ToList();
+                        var bundleLookup = bundles.ToDictionary(b => b.Id);
+
+                        foreach (var sre in sres.Where(s => s.SerialAndBatchBundleId.HasValue))
+                        {
+                            if (bundleLookup.TryGetValue(sre.SerialAndBatchBundleId!.Value, out var bundle))
+                            {
+                                var totalBundleQty = Math.Abs(bundle.TotalQty) > 0 ? Math.Abs(bundle.TotalQty) : bundle.Entries.Sum(e => e.Qty);
+                                var unfulfilledSre = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
+                                var ratio = totalBundleQty > 0 ? Math.Min(1m, unfulfilledSre / totalBundleQty) : 1m;
+
+                                foreach (var entry in bundle.Entries.Where(e => e.BatchId.HasValue && batchIds.Contains(e.BatchId!.Value)))
+                                {
+                                    var whId = entry.WarehouseId ?? sre.WarehouseId;
+                                    var key = (whId, entry.BatchId!.Value);
+                                    var entryReserved = entry.Qty * ratio;
+                                    reservedMap[key] = reservedMap.GetValueOrDefault(key, 0m) + entryReserved;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         var today = DateTime.UtcNow.Date;
         var list = batchBalances
             .Where(b => batches.ContainsKey(b.BatchId!.Value))
             .Select(b =>
             {
                 var batch = batches[b.BatchId!.Value];
+                var reserved = Math.Round(reservedMap.GetValueOrDefault((b.WarehouseId, b.BatchId!.Value), 0m), 4);
                 return new AvailableBatchItemDto
                 {
                     BatchId = b.BatchId!.Value,
@@ -530,11 +665,14 @@ public class BatchAppService : ApplicationService, IBatchAppService
                     ItemName = items.GetValueOrDefault(b.ItemId),
                     WarehouseId = b.WarehouseId,
                     WarehouseName = warehouses.GetValueOrDefault(b.WarehouseId, "Unknown"),
-                    AvailableQuantity = b.Qty,
+                    BalanceQuantity = b.Qty,
+                    ReservedQuantity = reserved,
+                    AvailableQuantity = Math.Max(0m, b.Qty - reserved),
                     ExpiryDate = batch.ExpiryDate,
                     IsExpired = batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < today,
                 };
             })
+            .Where(item => item.AvailableQuantity > 0)
             .ToList();
 
         // Per ERPNext commit 199cae9496:

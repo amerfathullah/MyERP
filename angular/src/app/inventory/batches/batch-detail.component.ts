@@ -92,6 +92,8 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
                   <thead><tr class="table-light">
                     <th>{{ 'Warehouse' | abpLocalization }}</th>
                     <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'ReservedQty' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'AvailableQty' | abpLocalization }}</th>
                     <th class="text-end">{{ 'ValuationRate' | abpLocalization }}</th>
                     <th class="text-end">{{ 'StockValue' | abpLocalization }}</th>
                     <th></th>
@@ -101,16 +103,18 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
                       <tr>
                         <td><i class="fas fa-warehouse text-muted me-1"></i>{{ wh.warehouseName }}</td>
                         <td class="text-end font-monospace fw-bold" [class.text-success]="(wh.quantity ?? 0) > 0" [class.text-danger]="(wh.quantity ?? 0) < 0">{{ wh.quantity | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace" [class.text-warning]="(wh.reservedQuantity ?? 0) > 0">{{ (wh.reservedQuantity ?? 0) | number:'1.2-2' }}</td>
+                        <td class="text-end font-monospace fw-bold" [class.text-success]="(wh.availableQuantity ?? 0) > 0">{{ (wh.availableQuantity ?? 0) | number:'1.2-2' }}</td>
                         <td class="text-end font-monospace">{{ wh.valuationRate | number:'1.2-2' }}</td>
                         <td class="text-end font-monospace">{{ wh.stockValue | number:'1.2-2' }}</td>
                         <td class="text-end">
                           <div class="btn-group">
-                            <button class="btn btn-outline-secondary btn-sm" [disabled]="(wh.quantity ?? 0) <= 0"
-                              (click)="openSplitDialog(wh.warehouseId!, wh.quantity ?? 0)" title="{{ 'SplitBatch' | abpLocalization }}">
+                            <button class="btn btn-outline-secondary btn-sm" [disabled]="(wh.availableQuantity ?? wh.quantity ?? 0) <= 0"
+                              (click)="openSplitDialog(wh.warehouseId!, wh.availableQuantity ?? wh.quantity ?? 0)" title="{{ 'SplitBatch' | abpLocalization }}">
                               <i class="fas fa-code-branch"></i>
                             </button>
-                            <button class="btn btn-outline-primary btn-sm" [disabled]="(wh.quantity ?? 0) <= 0"
-                              (click)="openMoveDialog(wh.warehouseId!, wh.quantity ?? 0)" title="{{ 'MoveBatch' | abpLocalization }}">
+                            <button class="btn btn-outline-primary btn-sm" [disabled]="(wh.availableQuantity ?? wh.quantity ?? 0) <= 0"
+                              (click)="openMoveDialog(wh.warehouseId!, wh.availableQuantity ?? wh.quantity ?? 0)" title="{{ 'MoveBatch' | abpLocalization }}">
                               <i class="fas fa-exchange-alt"></i>
                             </button>
                           </div>
@@ -121,6 +125,8 @@ import type { BatchDto, BatchStockBalanceDto, BatchMovementHistoryDto } from '..
                   <tfoot><tr class="table-light fw-bold">
                     <td>{{ 'Total' | abpLocalization }}</td>
                     <td class="text-end font-monospace">{{ sb.totalQuantity | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace text-warning">{{ (sb.totalReservedQuantity ?? 0) | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace text-success">{{ (sb.totalAvailableQuantity ?? 0) | number:'1.2-2' }}</td>
                     <td></td>
                     <td class="text-end font-monospace">{{ sb.totalValue | number:'1.2-2' }}</td>
                     <td></td>

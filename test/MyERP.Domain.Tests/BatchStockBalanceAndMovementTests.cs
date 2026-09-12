@@ -49,6 +49,70 @@ public class BatchStockBalanceAndMovementTests
     }
 
     [Fact]
+    public void BatchStockBalanceDto_CalculatesReservedAndAvailableQuantity()
+    {
+        // Per ERPNext PR #59008 / commit 000dcfc23d: show reserved stock in batch balance history
+        var balance1 = new BatchWarehouseBalanceDto
+        {
+            WarehouseId = Guid.NewGuid(),
+            WarehouseName = "Stores",
+            Quantity = 100m,
+            ReservedQuantity = 35m,
+            AvailableQuantity = 65m,
+            StockValue = 1000m,
+            ValuationRate = 10m
+        };
+        var balance2 = new BatchWarehouseBalanceDto
+        {
+            WarehouseId = Guid.NewGuid(),
+            WarehouseName = "Finished Goods",
+            Quantity = 50m,
+            ReservedQuantity = 10m,
+            AvailableQuantity = 40m,
+            StockValue = 500m,
+            ValuationRate = 10m
+        };
+
+        var dto = new BatchStockBalanceDto
+        {
+            BatchId = Guid.NewGuid(),
+            BatchNo = "BATCH-001",
+            ItemId = Guid.NewGuid(),
+            TotalQuantity = 150m,
+            TotalValue = 1500m,
+            TotalReservedQuantity = balance1.ReservedQuantity + balance2.ReservedQuantity,
+            TotalAvailableQuantity = balance1.AvailableQuantity + balance2.AvailableQuantity,
+            WarehouseBalances = new List<BatchWarehouseBalanceDto> { balance1, balance2 }
+        };
+
+        Assert.Equal(45m, dto.TotalReservedQuantity);
+        Assert.Equal(105m, dto.TotalAvailableQuantity);
+        Assert.Equal(65m, dto.WarehouseBalances[0].AvailableQuantity);
+        Assert.Equal(40m, dto.WarehouseBalances[1].AvailableQuantity);
+    }
+
+    [Fact]
+    public void AvailableBatchItemDto_WithReservedStock_TracksBalanceAndAvailability()
+    {
+        var item = new AvailableBatchItemDto
+        {
+            BatchId = Guid.NewGuid(),
+            BatchNo = "BATCH-002",
+            ItemId = Guid.NewGuid(),
+            WarehouseId = Guid.NewGuid(),
+            WarehouseName = "Stores",
+            BalanceQuantity = 100m,
+            ReservedQuantity = 25m,
+            AvailableQuantity = 75m,
+        };
+
+        Assert.Equal(100m, item.BalanceQuantity);
+        Assert.Equal(25m, item.ReservedQuantity);
+        Assert.Equal(75m, item.AvailableQuantity);
+        Assert.Equal(item.BalanceQuantity - item.ReservedQuantity, item.AvailableQuantity);
+    }
+
+    [Fact]
     public void BatchWarehouseBalanceDto_ValuationRateFromDivision()
     {
         var entry = new BatchWarehouseBalanceDto
@@ -181,6 +245,9 @@ public class BatchStockBalanceAndMovementTests
     [InlineData("NoMovementsRecorded")]
     [InlineData("StockBalance")]
     [InlineData("ValuationRate")]
+    [InlineData("ReservedQty")]
+    [InlineData("AvailableQty")]
+    [InlineData("TotalReservedStock")]
     public void LocalizationKey_Exists(string key)
     {
         var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src",

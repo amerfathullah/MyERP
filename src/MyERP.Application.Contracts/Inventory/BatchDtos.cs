@@ -48,6 +48,8 @@ public class BatchStockBalanceDto
     public Guid ItemId { get; set; }
     public decimal TotalQuantity { get; set; }
     public decimal TotalValue { get; set; }
+    public decimal TotalReservedQuantity { get; set; }
+    public decimal TotalAvailableQuantity { get; set; }
     public List<BatchWarehouseBalanceDto> WarehouseBalances { get; set; } = new();
 }
 
@@ -58,6 +60,8 @@ public class BatchWarehouseBalanceDto
     public decimal Quantity { get; set; }
     public decimal StockValue { get; set; }
     public decimal ValuationRate { get; set; }
+    public decimal ReservedQuantity { get; set; }
+    public decimal AvailableQuantity { get; set; }
 }
 
 public class BatchMovementHistoryDto
@@ -153,6 +157,7 @@ public class GetAvailableBatchesDto
     public Guid? CompanyId { get; set; }
     public Guid? ItemId { get; set; }
     public Guid? WarehouseId { get; set; }
+    public bool IgnoreReservedStock { get; set; }
 
     /// <summary>
     /// Quantities already consumed by other rows in the same document in stock UOM.
@@ -188,6 +193,8 @@ public class AvailableBatchItemDto
     public string? ItemName { get; set; }
     public Guid WarehouseId { get; set; }
     public string WarehouseName { get; set; } = null!;
+    public decimal BalanceQuantity { get; set; }
+    public decimal ReservedQuantity { get; set; }
     public decimal AvailableQuantity { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public bool IsExpired { get; set; }
