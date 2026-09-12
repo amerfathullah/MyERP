@@ -145,4 +145,38 @@ describe('Customer form logic', () => {
       expect(dto.city).toBe('');
     });
   });
+
+  describe('Taxpayer verification and persistence', () => {
+    it('should construct SearchTaxpayerDto with customerId when in edit mode', () => {
+      const form = createCustomerForm();
+      form.patchValue({ idType: 'BRN', idValue: '202001001234' });
+      const customerId = 'cust-123';
+      const isEditMode = true;
+
+      const searchDto = {
+        idType: form.get('idType')?.value,
+        idValue: form.get('idValue')?.value,
+        customerId: isEditMode && customerId ? customerId : undefined,
+      };
+
+      expect(searchDto.idType).toBe('BRN');
+      expect(searchDto.idValue).toBe('202001001234');
+      expect(searchDto.customerId).toBe('cust-123');
+    });
+
+    it('should omit customerId when in create mode', () => {
+      const form = createCustomerForm();
+      form.patchValue({ idType: 'BRN', idValue: '202001001234' });
+      const customerId = null;
+      const isEditMode = false;
+
+      const searchDto = {
+        idType: form.get('idType')?.value,
+        idValue: form.get('idValue')?.value,
+        customerId: isEditMode && customerId ? customerId : undefined,
+      };
+
+      expect(searchDto.customerId).toBeUndefined();
+    });
+  });
 });

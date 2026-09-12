@@ -21,8 +21,8 @@ public interface ILhdnApiClient
     /// <summary>Cancel a submitted document within 72-hour window.</summary>
     Task<LhdnCancelResponse> CancelDocumentAsync(string accessToken, string documentUuid, string reason, LhdnEnvironment environment);
 
-    /// <summary>Search for taxpayer TIN by ID type and value.</summary>
-    Task<LhdnTaxpayerSearchResponse> SearchTaxpayerAsync(string accessToken, string idType, string idValue, LhdnEnvironment environment);
+    /// <summary>Search for taxpayer TIN by ID type and value, or by taxpayer name.</summary>
+    Task<LhdnTaxpayerSearchResponse> SearchTaxpayerAsync(string accessToken, string? idType, string? idValue, LhdnEnvironment environment, string? taxpayerName = null);
 }
 
 public class LhdnSubmissionResponse

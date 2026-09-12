@@ -621,6 +621,12 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
+        if (string.IsNullOrWhiteSpace(invoice.SupplierTin))
+        {
+            var company = await _companyRepository.FindAsync(invoice.CompanyId);
+            invoice.SupplierTin = company?.TaxId;
+        }
+
         // Per ERPNext PR #46907 / commit 3de1b22480: validate if pos is opened before pos invoice creation
         if (input.IsPos && !input.IsConsolidated)
         {

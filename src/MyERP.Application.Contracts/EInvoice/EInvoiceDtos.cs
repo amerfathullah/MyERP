@@ -70,13 +70,20 @@ public class ConsolidateInvoicesDto
 
 public class SearchTaxpayerDto
 {
-    [Required]
     [StringLength(20)]
-    public string IdType { get; set; } = "BRN";
+    public string? IdType { get; set; } = "BRN";
 
-    [Required]
     [StringLength(50)]
-    public string IdValue { get; set; } = null!;
+    public string? IdValue { get; set; }
+
+    [StringLength(200)]
+    public string? TaxpayerName { get; set; }
+
+    public Guid? CustomerId { get; set; }
+    public Guid? SupplierId { get; set; }
+    public Guid? CompanyId { get; set; }
+    public Guid? SalesInvoiceId { get; set; }
+    public Guid? PurchaseInvoiceId { get; set; }
 }
 
 public class LhdnStatusReportRequestDto

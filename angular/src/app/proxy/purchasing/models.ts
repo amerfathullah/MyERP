@@ -48,6 +48,7 @@ export interface CreateCriterionDto {
 export interface CreatePurchaseInvoiceDto {
   companyId: string;
   supplierId: string;
+  supplierTin?: string | null;
   issueDate: string;
   dueDate?: string | null;
   paymentTermsTemplateId?: string | null;

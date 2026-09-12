@@ -145,10 +145,28 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
         };
     }
 
-    public async Task<LhdnTaxpayerSearchResponse> SearchTaxpayerAsync(string accessToken, string idType, string idValue, LhdnEnvironment environment)
+    public async Task<LhdnTaxpayerSearchResponse> SearchTaxpayerAsync(
+        string accessToken, string? idType, string? idValue, LhdnEnvironment environment, string? taxpayerName = null)
     {
         var client = _httpClientFactory.CreateClient("LhdnApi");
-        var url = $"{GetBaseUrl(environment)}/api/v1.0/taxpayer/search/tin?idType={Uri.EscapeDataString(idType)}&idValue={Uri.EscapeDataString(idValue)}";
+        string url;
+        if (!string.IsNullOrWhiteSpace(idType) && !string.IsNullOrWhiteSpace(idValue))
+        {
+            url = $"{GetBaseUrl(environment)}/api/v1.0/taxpayer/search/tin?idType={Uri.EscapeDataString(idType)}&idValue={Uri.EscapeDataString(idValue)}";
+        }
+        else if (!string.IsNullOrWhiteSpace(taxpayerName))
+        {
+            url = $"{GetBaseUrl(environment)}/api/v1.0/taxpayer/search/tin?taxpayerName={Uri.EscapeDataString(taxpayerName)}";
+        }
+        else
+        {
+            return new LhdnTaxpayerSearchResponse
+            {
+                IsFound = false,
+                StatusCode = 400,
+                ErrorMessage = "As per LHDN Regulations, either ID Type and Value or Taxpayer Name must be present."
+            };
+        }
 
         var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
@@ -168,12 +186,25 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
         using var doc = JsonDocument.Parse(rawJson);
         var root = doc.RootElement;
 
+        // Per Gotcha #3957 / myinvois search_taxpayer.py: tries data.tin then data.data.tin
+        string? tinVal = null;
+        if (root.TryGetProperty("tin", out var tinProp))
+            tinVal = tinProp.GetString();
+        else if (root.TryGetProperty("data", out var dataProp) && dataProp.TryGetProperty("tin", out var dataTinProp))
+            tinVal = dataTinProp.GetString();
+
+        string? nameVal = null;
+        if (root.TryGetProperty("name", out var nameProp))
+            nameVal = nameProp.GetString();
+        else if (root.TryGetProperty("data", out var dataNameProp) && dataNameProp.TryGetProperty("name", out var dataNameVal))
+            nameVal = dataNameVal.GetString();
+
         return new LhdnTaxpayerSearchResponse
         {
             IsFound = true,
             StatusCode = (int)response.StatusCode,
-            Tin = root.TryGetProperty("tin", out var tin) ? tin.GetString() : null,
-            TaxpayerName = root.TryGetProperty("name", out var name) ? name.GetString() : null,
+            Tin = tinVal,
+            TaxpayerName = nameVal,
             RawJson = rawJson
         };
     }

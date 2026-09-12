@@ -23,9 +23,9 @@ public class TaxpayerValidationService : ITransientDependency
 
     /// <summary>
     /// Validates a taxpayer's TIN against the LHDN database.
-    /// Uses the ID Type (e.g. BRN, NRIC, PASSPORT, ARMY) and ID Value.
+    /// Uses ID Type (e.g. BRN, NRIC, PASSPORT, ARMY) and ID Value, or Taxpayer Name.
     /// </summary>
-    public async Task<LhdnTaxpayerSearchResponse> ValidateTaxpayerAsync(string idType, string idValue)
+    public async Task<LhdnTaxpayerSearchResponse> ValidateTaxpayerAsync(string? idType, string? idValue, string? taxpayerName = null)
     {
         var accessToken = await _settingProvider.GetOrNullAsync("EInvoice.AccessToken");
         if (string.IsNullOrEmpty(accessToken))
@@ -36,6 +36,6 @@ public class TaxpayerValidationService : ITransientDependency
         var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
         var environment = Enum.Parse<LhdnEnvironment>(envString);
 
-        return await _lhdnApiClient.SearchTaxpayerAsync(accessToken, idType, idValue, environment);
+        return await _lhdnApiClient.SearchTaxpayerAsync(accessToken, idType, idValue, environment, taxpayerName);
     }
 }

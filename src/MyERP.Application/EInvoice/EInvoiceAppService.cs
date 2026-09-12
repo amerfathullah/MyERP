@@ -625,15 +625,180 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     {
         try
         {
-            var response = await _taxpayerValidationService.ValidateTaxpayerAsync(input.IdType, input.IdValue);
+            // Auto-resolve missing ID details from target entities (matching myinvois search_taxpayer.py)
+            if (input.CustomerId.HasValue)
+            {
+                var customer = await _customerRepository.FindAsync(input.CustomerId.Value);
+                if (customer != null)
+                {
+                    if (string.IsNullOrWhiteSpace(input.IdType)) input.IdType = customer.IdType ?? "BRN";
+                    if (string.IsNullOrWhiteSpace(input.IdValue)) input.IdValue = customer.IdValue ?? customer.RegistrationNumber;
+                    if (string.IsNullOrWhiteSpace(input.TaxpayerName)) input.TaxpayerName = customer.Name;
+                }
+            }
+            else if (input.SupplierId.HasValue)
+            {
+                var supplier = await _supplierRepository.FindAsync(input.SupplierId.Value);
+                if (supplier != null)
+                {
+                    if (string.IsNullOrWhiteSpace(input.IdType)) input.IdType = supplier.IdType ?? "BRN";
+                    if (string.IsNullOrWhiteSpace(input.IdValue)) input.IdValue = supplier.IdValue ?? supplier.RegistrationNumber;
+                    if (string.IsNullOrWhiteSpace(input.TaxpayerName)) input.TaxpayerName = supplier.Name;
+                }
+            }
+            else if (input.CompanyId.HasValue)
+            {
+                var company = await _companyRepository.FindAsync(input.CompanyId.Value);
+                if (company != null)
+                {
+                    if (string.IsNullOrWhiteSpace(input.IdType)) input.IdType = "BRN";
+                    if (string.IsNullOrWhiteSpace(input.IdValue)) input.IdValue = company.RegistrationNumber;
+                    if (string.IsNullOrWhiteSpace(input.TaxpayerName)) input.TaxpayerName = company.Name;
+                }
+            }
+            else if (input.SalesInvoiceId.HasValue)
+            {
+                var si = await _salesInvoiceRepository.FindAsync(input.SalesInvoiceId.Value);
+                if (si != null)
+                {
+                    var customer = await _customerRepository.FindAsync(si.CustomerId);
+                    if (customer != null)
+                    {
+                        if (string.IsNullOrWhiteSpace(input.IdType)) input.IdType = customer.IdType ?? "BRN";
+                        if (string.IsNullOrWhiteSpace(input.IdValue)) input.IdValue = customer.IdValue ?? customer.RegistrationNumber;
+                        if (string.IsNullOrWhiteSpace(input.TaxpayerName)) input.TaxpayerName = customer.Name;
+                    }
+                }
+            }
+            else if (input.PurchaseInvoiceId.HasValue)
+            {
+                var pi = await _purchaseInvoiceRepository.FindAsync(input.PurchaseInvoiceId.Value);
+                if (pi != null)
+                {
+                    var supplier = await _supplierRepository.FindAsync(pi.SupplierId);
+                    if (supplier != null)
+                    {
+                        if (string.IsNullOrWhiteSpace(input.IdType)) input.IdType = supplier.IdType ?? "BRN";
+                        if (string.IsNullOrWhiteSpace(input.IdValue)) input.IdValue = supplier.IdValue ?? supplier.RegistrationNumber;
+                        if (string.IsNullOrWhiteSpace(input.TaxpayerName)) input.TaxpayerName = supplier.Name;
+                    }
+                }
+            }
+
+            if ((string.IsNullOrWhiteSpace(input.IdType) || string.IsNullOrWhiteSpace(input.IdValue)) && string.IsNullOrWhiteSpace(input.TaxpayerName))
+            {
+                return new TaxpayerSearchResultDto
+                {
+                    IsSuccess = false,
+                    ErrorMessage = "As per LHDN Regulations, either ID Type and Value or Taxpayer Name must be present."
+                };
+            }
+
+            var response = await _taxpayerValidationService.ValidateTaxpayerAsync(input.IdType, input.IdValue, input.TaxpayerName);
+            if (!response.IsFound || string.IsNullOrWhiteSpace(response.Tin))
+            {
+                return new TaxpayerSearchResultDto
+                {
+                    IsSuccess = false,
+                    IdType = input.IdType,
+                    IdValue = input.IdValue,
+                    ErrorMessage = response.ErrorMessage ?? "Taxpayer not found"
+                };
+            }
+
+            bool isPersisted = false;
+            string? persistedTarget = null;
+
+            // Auto-persist TIN to specified target entity
+            if (input.CustomerId.HasValue)
+            {
+                var customer = await _customerRepository.FindAsync(input.CustomerId.Value);
+                if (customer != null)
+                {
+                    customer.Tin = response.Tin;
+                    if (string.IsNullOrWhiteSpace(customer.IdType) && !string.IsNullOrWhiteSpace(input.IdType))
+                        customer.IdType = input.IdType;
+                    if (string.IsNullOrWhiteSpace(customer.IdValue) && !string.IsNullOrWhiteSpace(input.IdValue))
+                        customer.IdValue = input.IdValue;
+                    await _customerRepository.UpdateAsync(customer);
+                    isPersisted = true;
+                    persistedTarget = "Customer";
+                }
+            }
+            else if (input.SupplierId.HasValue)
+            {
+                var supplier = await _supplierRepository.FindAsync(input.SupplierId.Value);
+                if (supplier != null)
+                {
+                    supplier.Tin = response.Tin;
+                    if (string.IsNullOrWhiteSpace(supplier.IdType) && !string.IsNullOrWhiteSpace(input.IdType))
+                        supplier.IdType = input.IdType;
+                    if (string.IsNullOrWhiteSpace(supplier.IdValue) && !string.IsNullOrWhiteSpace(input.IdValue))
+                        supplier.IdValue = input.IdValue;
+                    await _supplierRepository.UpdateAsync(supplier);
+                    isPersisted = true;
+                    persistedTarget = "Supplier";
+                }
+            }
+            else if (input.CompanyId.HasValue)
+            {
+                var company = await _companyRepository.FindAsync(input.CompanyId.Value);
+                if (company != null)
+                {
+                    company.TaxId = response.Tin;
+                    await _companyRepository.UpdateAsync(company);
+                    isPersisted = true;
+                    persistedTarget = "Company";
+                }
+            }
+            else if (input.SalesInvoiceId.HasValue)
+            {
+                var si = await _salesInvoiceRepository.FindAsync(input.SalesInvoiceId.Value);
+                if (si != null)
+                {
+                    si.BuyerTin = response.Tin;
+                    await _salesInvoiceRepository.UpdateAsync(si);
+                    isPersisted = true;
+                    persistedTarget = "SalesInvoice";
+
+                    // Per Gotcha #223 / search_taxpayer.py after_insert: backfill customer TIN if empty
+                    var customer = await _customerRepository.FindAsync(si.CustomerId);
+                    if (customer != null && string.IsNullOrWhiteSpace(customer.Tin))
+                    {
+                        customer.Tin = response.Tin;
+                        await _customerRepository.UpdateAsync(customer);
+                    }
+                }
+            }
+            else if (input.PurchaseInvoiceId.HasValue)
+            {
+                var pi = await _purchaseInvoiceRepository.FindAsync(input.PurchaseInvoiceId.Value);
+                if (pi != null)
+                {
+                    pi.SupplierTin = response.Tin;
+                    await _purchaseInvoiceRepository.UpdateAsync(pi);
+                    isPersisted = true;
+                    persistedTarget = "PurchaseInvoice";
+
+                    // Backfill supplier TIN if empty
+                    var supplier = await _supplierRepository.FindAsync(pi.SupplierId);
+                    if (supplier != null && string.IsNullOrWhiteSpace(supplier.Tin))
+                    {
+                        supplier.Tin = response.Tin;
+                        await _supplierRepository.UpdateAsync(supplier);
+                    }
+                }
+            }
+
             return new TaxpayerSearchResultDto
             {
-                IsSuccess = response.IsFound,
+                IsSuccess = true,
                 Tin = response.Tin,
                 Name = response.TaxpayerName,
                 IdType = input.IdType,
                 IdValue = input.IdValue,
-                ErrorMessage = response.IsFound ? null : "Taxpayer not found"
+                IsPersisted = isPersisted,
+                PersistedTarget = persistedTarget
             };
         }
         catch (Exception ex)

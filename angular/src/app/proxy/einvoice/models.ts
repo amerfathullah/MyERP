@@ -208,8 +208,14 @@ export interface SaveEInvoiceCredentialsDto {
 }
 
 export interface SearchTaxpayerDto {
-  idType: string;
-  idValue: string;
+  idType?: string | null;
+  idValue?: string | null;
+  taxpayerName?: string | null;
+  customerId?: string | null;
+  supplierId?: string | null;
+  companyId?: string | null;
+  salesInvoiceId?: string | null;
+  purchaseInvoiceId?: string | null;
 }
 
 export interface SubmitEInvoiceDto {
@@ -226,4 +232,6 @@ export interface TaxpayerSearchResultDto {
   name?: string | null;
   idType?: string | null;
   idValue?: string | null;
+  isPersisted?: boolean;
+  persistedTarget?: string | null;
 }

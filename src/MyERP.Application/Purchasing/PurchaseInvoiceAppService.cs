@@ -562,6 +562,25 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         }
 
         invoice.SupplierInvoiceNumber = input.SupplierInvoiceNumber;
+
+        // Sync supplier TIN with Supplier master
+        if (!string.IsNullOrWhiteSpace(input.SupplierTin))
+        {
+            invoice.SupplierTin = input.SupplierTin;
+            if (string.IsNullOrWhiteSpace(supplierForStatus.Tin))
+            {
+                supplierForStatus.Tin = input.SupplierTin;
+                await _supplierRepository.UpdateAsync(supplierForStatus);
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(supplierForStatus.Tin))
+        {
+            invoice.SupplierTin = supplierForStatus.Tin;
+        }
+
+        var company = await _companyRepository.FindAsync(input.CompanyId);
+        invoice.BuyerTin = company?.TaxId;
+
         invoice.Notes = input.Notes;
         invoice.IsOpening = input.IsOpening;
         invoice.IsReturn = input.IsReturn;
@@ -808,6 +827,29 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.DueDate = input.DueDate;
         invoice.PriceListId = input.PriceListId;
         invoice.SupplierInvoiceNumber = input.SupplierInvoiceNumber;
+
+        if (!string.IsNullOrWhiteSpace(input.SupplierTin))
+        {
+            invoice.SupplierTin = input.SupplierTin;
+            var supplier = await _supplierRepository.FindAsync(invoice.SupplierId);
+            if (supplier != null && string.IsNullOrWhiteSpace(supplier.Tin))
+            {
+                supplier.Tin = input.SupplierTin;
+                await _supplierRepository.UpdateAsync(supplier);
+            }
+        }
+        else
+        {
+            var supplier = await _supplierRepository.FindAsync(invoice.SupplierId);
+            if (supplier != null && !string.IsNullOrWhiteSpace(supplier.Tin))
+            {
+                invoice.SupplierTin = supplier.Tin;
+            }
+        }
+
+        var updateCompany = await _companyRepository.FindAsync(invoice.CompanyId);
+        invoice.BuyerTin = updateCompany?.TaxId;
+
         invoice.Notes = input.Notes;
         invoice.IsSubcontracted = input.IsSubcontracted;
         invoice.IsReturn = input.IsReturn;

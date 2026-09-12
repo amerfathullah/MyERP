@@ -71,4 +71,6 @@ public class TaxpayerSearchResultDto
     public string? Name { get; set; }
     public string? IdType { get; set; }
     public string? IdValue { get; set; }
+    public bool IsPersisted { get; set; }
+    public string? PersistedTarget { get; set; }
 }

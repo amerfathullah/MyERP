@@ -152,7 +152,8 @@ export class SupplierFormComponent implements OnInit {
       return;
     }
     this.searchingTaxpayer.set(true);
-    this.einvoiceService.searchTaxpayer({ idType, idValue }).subscribe({
+    const supplierId = this.isEditMode && this.entityId ? this.entityId : undefined;
+    this.einvoiceService.searchTaxpayer({ idType, idValue, supplierId }).subscribe({
       next: (res) => {
         this.searchingTaxpayer.set(false);
         if (res.isSuccess && res.tin) {
@@ -160,7 +161,8 @@ export class SupplierFormComponent implements OnInit {
           if (res.name && !this.form.get('name')?.value) {
             this.form.patchValue({ name: res.name });
           }
-          this.toaster.success(`TIN verified: ${res.tin}${res.name ? ' (' + res.name + ')' : ''}`);
+          const savedMsg = res.isPersisted ? ' (saved)' : '';
+          this.toaster.success(`TIN verified${savedMsg}: ${res.tin}${res.name ? ' (' + res.name + ')' : ''}`);
         } else {
           this.toaster.error(res.errorMessage || 'Taxpayer not found with given ID');
         }
