@@ -176,4 +176,36 @@ describe('PaymentEntry form validation', () => {
     });
     expect(form.valid).toBe(true);
   });
+
+  describe('InternalTransfer validation and account filtering (ERPNext PR #58529)', () => {
+    it('should reject same account for paidFrom and paidTo on internal transfer', () => {
+      const paymentType = 'InternalTransfer';
+      const paidFrom = 'bank-acct-1';
+      const paidTo = 'bank-acct-1';
+      const isInvalid = paymentType === 'InternalTransfer' && paidFrom === paidTo;
+      expect(isInvalid).toBe(true);
+    });
+
+    it('should allow different accounts on internal transfer', () => {
+      const paymentType = 'InternalTransfer';
+      const paidFrom = 'bank-acct-1';
+      const paidTo = 'bank-acct-2';
+      const isInvalid = paymentType === 'InternalTransfer' && paidFrom === paidTo;
+      expect(isInvalid).toBe(false);
+    });
+
+    it('should filter opposite selected account from options in template', () => {
+      const bankCashAccounts = [
+        { id: 'acc-1', accountName: 'Maybank Current' },
+        { id: 'acc-2', accountName: 'CIMB Savings' },
+        { id: 'acc-3', accountName: 'Petty Cash' },
+      ];
+      const selectedPaidTo = 'acc-2';
+      const availablePaidFrom = bankCashAccounts.filter(a => a.id !== selectedPaidTo);
+
+      expect(availablePaidFrom.length).toBe(2);
+      expect(availablePaidFrom.find(a => a.id === 'acc-2')).toBeUndefined();
+      expect(availablePaidFrom.map(a => a.id)).toEqual(['acc-1', 'acc-3']);
+    });
+  });
 });

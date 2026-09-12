@@ -46,6 +46,12 @@
                 @for (acct of receivableAccounts(); track acct.id) {
                   <option [value]="acct.id">{{ acct.accountCode }} — {{ acct.accountName }}</option>
                 }
+              } @else if (form.get('paymentType')?.value === 'InternalTransfer') {
+                @for (acct of bankCashAccounts(); track acct.id) {
+                  @if (acct.id !== form.get('paidToAccount')?.value) {
+                    <option [value]="acct.id">{{ acct.accountCode }} — {{ acct.accountName }}</option>
+                  }
+                }
               } @else {
                 @for (acct of bankCashAccounts(); track acct.id) {
                   <option [value]="acct.id">{{ acct.accountCode }} — {{ acct.accountName }}</option>
@@ -67,6 +73,12 @@
               @if (form.get('paymentType')?.value === 'Pay') {
                 @for (acct of payableAccounts(); track acct.id) {
                   <option [value]="acct.id">{{ acct.accountCode }} — {{ acct.accountName }}</option>
+                }
+              } @else if (form.get('paymentType')?.value === 'InternalTransfer') {
+                @for (acct of bankCashAccounts(); track acct.id) {
+                  @if (acct.id !== form.get('paidFromAccount')?.value) {
+                    <option [value]="acct.id">{{ acct.accountCode }} — {{ acct.accountName }}</option>
+                  }
                 }
               } @else {
                 @for (acct of bankCashAccounts(); track acct.id) {
