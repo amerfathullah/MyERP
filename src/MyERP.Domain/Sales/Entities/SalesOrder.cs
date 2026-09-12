@@ -114,7 +114,13 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
 
             var basisTotal = basis.Sum(i => i.LineTotal);
             if (basisTotal > 0)
-                return Math.Round(basis.Sum(i => i.BilledQty * i.UnitPrice) / basisTotal * 100, 2);
+            {
+                var percentage = Math.Round(basis.Sum(i => i.BilledQty * i.UnitPrice) / basisTotal * 100, 2);
+                // Per ERPNext PR #58816: if any row (e.g. zero-amount free item) still has pending billing qty, cap at 99.99
+                if (percentage >= 100m && basis.Any(i => i.PendingBillingQty > 0))
+                    return 99.99m;
+                return percentage;
+            }
 
             var totalQty = basis.Sum(i => i.Quantity);
             return totalQty > 0

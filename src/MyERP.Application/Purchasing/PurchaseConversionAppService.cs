@@ -133,8 +133,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         if (po.Status == Core.DocumentStatus.Draft || po.Status == Core.DocumentStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
-        // Per ERPNext PR #58966 / commit 5f216c5d55: exclude fully billed orders
-        if (po.PerBilled >= 100m)
+        // Per ERPNext PR #58966 / PR #58816: exclude fully billed orders
+        if (po.PerBilled >= 100m && po.Items.All(i => i.PendingBillingQty <= 0))
             throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
                 .WithData("documentType", "PurchaseOrder")
                 .WithData("documentNumber", po.OrderNumber)

@@ -1814,8 +1814,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var result = new List<UnbilledPurchaseOrderItemDto>();
         foreach (var po in orders)
         {
-            // Per ERPNext PR #58966 / commit 5f216c5d55: exclude fully billed orders
-            if (po.PerBilled >= 100m || po.Items.All(i => i.PendingBillingQty <= 0)) continue;
+            // Per ERPNext PR #58966 / PR #58816: exclude fully billed orders
+            if (po.PerBilled >= 100m && po.Items.All(i => i.PendingBillingQty <= 0)) continue;
 
             foreach (var item in po.Items)
             {

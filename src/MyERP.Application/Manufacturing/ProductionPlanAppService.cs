@@ -636,14 +636,20 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                     item.MinOrderQty,
                     plan.ConsiderMinimumOrderQty);
 
+                // Per ERPNext PR #58841: skip items where calculated qty to request <= 0
+                if (Math.Round(requestedQty, 4) <= 0) continue;
+
                 mr.AddItem(item.ItemId, item.ItemName, requestedQty, item.Uom ?? "Unit", item.WarehouseId);
                 item.MaterialRequestId = mr.Id;
             }
 
-            await _materialRequestRepository.InsertAsync(mr);
+            if (mr.Items.Count > 0)
+            {
+                await _materialRequestRepository.InsertAsync(mr);
+            }
         }
 
-        if (plan.Status == ProductionPlanStatus.Submitted)
+        if (plan.Status == ProductionPlanStatus.Submitted && plan.MaterialRequirements.Any(m => m.MaterialRequestId.HasValue))
             plan.MarkMaterialRequested();
 
         await _planRepository.UpdateAsync(plan);

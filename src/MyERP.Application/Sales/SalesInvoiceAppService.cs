@@ -1873,8 +1873,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var result = new List<UnbilledOrderItemDto>();
         foreach (var so in orders)
         {
-            // Per ERPNext PR #58966 / commit 5f216c5d55: exclude fully billed orders
-            if (so.PerBilled >= 100m || so.Items.All(i => i.PendingBillingQty <= 0)) continue;
+            // Per ERPNext PR #58966 / PR #58816: exclude fully billed orders
+            if (so.PerBilled >= 100m && so.Items.All(i => i.PendingBillingQty <= 0)) continue;
 
             foreach (var item in so.Items)
             {

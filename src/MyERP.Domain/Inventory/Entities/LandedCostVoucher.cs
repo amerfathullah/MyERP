@@ -90,9 +90,19 @@ public class LandedCostVoucher : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
             case LandedCostDistributionMethod.BasedOnAmount:
                 var totalAmt = _items.Sum(i => i.Amount);
-                if (totalAmt == 0) return;
-                foreach (var item in _items)
-                    item.ApplicableCharges = Math.Round(totalChargeAmount * item.Amount / totalAmt, 2);
+                if (totalAmt > 0)
+                {
+                    foreach (var item in _items)
+                        item.ApplicableCharges = Math.Round(totalChargeAmount * item.Amount / totalAmt, 2);
+                }
+                else
+                {
+                    // Fallback to quantity when total amount is zero (per ERPNext PR #58841 / #58842)
+                    var fallbackQty = _items.Sum(i => i.Quantity);
+                    if (fallbackQty <= 0) return;
+                    foreach (var item in _items)
+                        item.ApplicableCharges = Math.Round(totalChargeAmount * item.Quantity / fallbackQty, 2);
+                }
                 break;
 
             case LandedCostDistributionMethod.Manual:
