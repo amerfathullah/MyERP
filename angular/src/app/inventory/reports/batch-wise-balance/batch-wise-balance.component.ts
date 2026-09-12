@@ -17,6 +17,7 @@ interface BatchBalanceRow {
   warehouseName: string;
   balance: number;
   stockValue: number;
+  reservedStockQty: number;
   expiryDate: string | null;
   isExpired: boolean;
   isDisabled: boolean;
@@ -27,6 +28,7 @@ interface BatchBalanceReport {
   totalBatches: number;
   totalQuantity: number;
   totalStockValue: number;
+  totalReservedStock: number;
   expiredBatchCount: number;
 }
 
@@ -88,7 +90,7 @@ interface BatchBalanceReport {
       <!-- KPI Cards -->
       @if (report()) {
         <div class="row g-3 mb-3">
-          <div class="col-md-3">
+          <div class="col-md-2">
             <div class="card border-start border-primary border-3">
               <div class="card-body py-2">
                 <div class="text-muted small">{{ '::TotalBatches' | abpLocalization }}</div>
@@ -104,6 +106,14 @@ interface BatchBalanceReport {
               </div>
             </div>
           </div>
+          <div class="col-md-2">
+            <div class="card border-start border-warning border-3">
+              <div class="card-body py-2">
+                <div class="text-muted small">{{ '::TotalReservedStock' | abpLocalization }}</div>
+                <div class="h5 mb-0">{{ report()!.totalReservedStock | number:'1.2-2' }}</div>
+              </div>
+            </div>
+          </div>
           <div class="col-md-3">
             <div class="card border-start border-info border-3">
               <div class="card-body py-2">
@@ -112,7 +122,7 @@ interface BatchBalanceReport {
               </div>
             </div>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-2">
             <div class="card border-start border-danger border-3">
               <div class="card-body py-2">
                 <div class="text-muted small">{{ '::ExpiredBatches' | abpLocalization }}</div>
@@ -133,6 +143,7 @@ interface BatchBalanceReport {
                     <th>{{ '::BatchNo' | abpLocalization }}</th>
                     <th>{{ '::Warehouse' | abpLocalization }}</th>
                     <th class="text-end">{{ '::Balance' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ReservedStockCurrent' | abpLocalization }}</th>
                     <th class="text-end">{{ '::StockValue' | abpLocalization }}</th>
                     <th>{{ '::ExpiryDate' | abpLocalization }}</th>
                     <th>{{ '::Status' | abpLocalization }}</th>
@@ -145,6 +156,7 @@ interface BatchBalanceReport {
                       <td><code>{{ row.batchNo }}</code></td>
                       <td>{{ row.warehouseName }}</td>
                       <td class="text-end fw-bold">{{ row.balance | number:'1.2-2' }}</td>
+                      <td class="text-end text-muted">{{ row.reservedStockQty | number:'1.2-2' }}</td>
                       <td class="text-end">{{ row.stockValue | number:'1.2-2' }}</td>
                       <td>
                         @if (row.expiryDate) {
@@ -165,7 +177,7 @@ interface BatchBalanceReport {
                     </tr>
                   }
                   @if (report()!.rows.length === 0) {
-                    <tr><td colspan="7" class="text-center text-muted py-4">{{ '::NoBatchDataFound' | abpLocalization }}</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted py-4">{{ '::NoBatchDataFound' | abpLocalization }}</td></tr>
                   }
                 </tbody>
               </table>
@@ -240,11 +252,12 @@ export class BatchWiseBalanceComponent implements OnInit {
       'Batch No': row.batchNo,
       Warehouse: row.warehouseName,
       'Balance Qty': row.balance,
+      'Reserved Stock': row.reservedStockQty ?? 0,
       'Stock Value': row.stockValue,
       'Expiry Date': row.expiryDate ?? '',
       Expired: row.isExpired ? 'Yes' : 'No',
       Disabled: row.isDisabled ? 'Yes' : 'No',
     }));
-    exportToCsv('batch-wise-balance.csv', mapped, ['Item', 'Batch No', 'Warehouse', 'Balance Qty', 'Stock Value', 'Expiry Date', 'Expired', 'Disabled']);
+    exportToCsv('batch-wise-balance.csv', mapped, ['Item', 'Batch No', 'Warehouse', 'Balance Qty', 'Reserved Stock', 'Stock Value', 'Expiry Date', 'Expired', 'Disabled']);
   }
 }

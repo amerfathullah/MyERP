@@ -17,6 +17,9 @@ describe('WorkOrderFormComponent', () => {
       bomId: ['', Validators.required],
       quantity: [1, [Validators.required, Validators.min(1)]],
       salesOrderId: [''],
+      sourceWarehouseId: [''],
+      wipWarehouseId: [''],
+      fgWarehouseId: [''],
       plannedStartDate: [new Date().toISOString().split('T')[0]],
       plannedEndDate: [''],
       notes: [''],
@@ -179,12 +182,74 @@ describe('WorkOrderFormComponent', () => {
       expect(dto).toHaveProperty('notes');
     });
 
+    it('DTO includes warehouse properties', () => {
+      const dto = form.getRawValue();
+      expect(dto).toHaveProperty('sourceWarehouseId');
+      expect(dto).toHaveProperty('wipWarehouseId');
+      expect(dto).toHaveProperty('fgWarehouseId');
+    });
+
     it('empty optional fields sent as empty string', () => {
       form.patchValue({ companyId: 'c1', itemId: 'i1', bomId: 'b1', quantity: 10 });
       const dto = form.getRawValue();
       expect(dto.salesOrderId).toBe('');
+      expect(dto.sourceWarehouseId).toBe('');
+      expect(dto.wipWarehouseId).toBe('');
+      expect(dto.fgWarehouseId).toBe('');
       expect(dto.plannedEndDate).toBe('');
       expect(dto.notes).toBe('');
+    });
+  });
+
+  describe('Warehouse Selection & Company Defaults (PR #58969)', () => {
+    function applyCompanyWarehouseDefaults(
+      f: typeof form,
+      company: { defaultWipWarehouseId?: string; defaultFgWarehouseId?: string } | null
+    ) {
+      const companyId = f.get('companyId')?.value;
+      // Guard: avoid TypeError on new Work Order when company is not set (PR #58969 / commit d82c35aae9)
+      if (!companyId || !company) return;
+
+      const patch: any = {};
+      if (!f.get('wipWarehouseId')?.value && company.defaultWipWarehouseId) {
+        patch.wipWarehouseId = company.defaultWipWarehouseId;
+      }
+      if (!f.get('fgWarehouseId')?.value && company.defaultFgWarehouseId) {
+        patch.fgWarehouseId = company.defaultFgWarehouseId;
+      }
+      if (Object.keys(patch).length > 0) {
+        f.patchValue(patch);
+      }
+    }
+
+    it('gracefully handles unset/empty company without TypeError', () => {
+      form.patchValue({ companyId: '' });
+      expect(() => applyCompanyWarehouseDefaults(form, null)).not.toThrow();
+      expect(form.get('wipWarehouseId')?.value).toBe('');
+      expect(form.get('fgWarehouseId')?.value).toBe('');
+    });
+
+    it('auto-fills default WIP and FG warehouses from company', () => {
+      form.patchValue({ companyId: 'comp-1' });
+      applyCompanyWarehouseDefaults(form, {
+        defaultWipWarehouseId: 'wh-wip-1',
+        defaultFgWarehouseId: 'wh-fg-1',
+      });
+      expect(form.get('wipWarehouseId')?.value).toBe('wh-wip-1');
+      expect(form.get('fgWarehouseId')?.value).toBe('wh-fg-1');
+    });
+
+    it('preserves user-selected warehouse without overwriting', () => {
+      form.patchValue({
+        companyId: 'comp-1',
+        wipWarehouseId: 'custom-wip',
+      });
+      applyCompanyWarehouseDefaults(form, {
+        defaultWipWarehouseId: 'wh-wip-1',
+        defaultFgWarehouseId: 'wh-fg-1',
+      });
+      expect(form.get('wipWarehouseId')?.value).toBe('custom-wip');
+      expect(form.get('fgWarehouseId')?.value).toBe('wh-fg-1');
     });
   });
 });

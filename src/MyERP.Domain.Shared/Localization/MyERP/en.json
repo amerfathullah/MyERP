@@ -3043,6 +3043,7 @@
     "TemplateBody": "Template Body",
     "SourceWarehouse": "Source Warehouse",
     "TargetWarehouse": "Target Warehouse",
+    "WipWarehouse": "WIP Warehouse",
     "LoanSanctioned": "Loan sanctioned.",
     "LoanDisbursed": "Loan disbursed.",
     "RepaymentRecorded": "Repayment recorded.",

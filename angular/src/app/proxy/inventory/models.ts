@@ -162,6 +162,7 @@ export interface BatchWiseBalanceReportDto {
   totalBatches?: number;
   totalQuantity?: number;
   totalStockValue?: number;
+  totalReservedStock?: number;
   expiredBatchCount?: number;
 }
 
@@ -174,6 +175,7 @@ export interface BatchWiseBalanceRowDto {
   warehouseName?: string;
   balance?: number;
   stockValue?: number;
+  reservedStockQty?: number;
   expiryDate?: string | null;
   isExpired?: boolean;
   isDisabled?: boolean;
