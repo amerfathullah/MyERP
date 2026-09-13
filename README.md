@@ -23,12 +23,12 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 | **Sales** | Quotations → Sales Orders → Delivery Notes → Sales Invoices, POS (opening/closing/profiles), blanket orders, pricing rules, promotional schemes, coupon codes, shipping rules, dunning, loyalty programs, subscriptions, installation notes, product bundles, packing slips, proforma invoices, shipments, sales partners, sales persons, territories, party-specific items, SO tracking board, gross profit report |
 | **Purchasing** | Material Requests → RFQ → Supplier Quotation comparison → Purchase Orders → Purchase Receipts → Purchase Invoices, subcontracting (orders, BOMs, inward), supplier scorecards, scorecard variables, incoterms, procurement dashboard, PO tracking board |
 | **Inventory** | Items, item groups, brands, manufacturers, item attributes, item alternatives, item prices, item standard cost, item lead times, customs tariff numbers, warehouses, bins, stock entries (13 purpose types), stock ledger (FIFO/Moving Average/LIFO), stock reconciliation (allow zero valuation rate), stock reservation, pick lists, putaway rules, landed costs, quality inspections, quality management (goals, reviews, procedures, meetings, feedback, non-conformances), batch management, serial numbers, UOM categories, delivery trips, transit transfers, inventory aging report, stock reorder, repost item valuation, shipment parcel templates, secondary item valuation type, stock closing |
-| **Tax** | Configurable tax categories & rules, SST support, date-range effective rates, SST-02 filing |
+| **Tax** | Configurable tax categories & rules, item tax templates, tax charges templates, tax withholding categories/groups, lower deduction certificates, SST support, date-range effective rates, SST-02 filing, tax summary report |
 | **HR & Payroll** | Employees, departments, designations, employee groups, leave management (types, allocation, balance), attendance, shift assignments/types, holiday lists, expense claims, loans, salary components, salary structures, salary slips, payroll entry (EPF/SOCSO/EIS/PCB), PDPA field-level security |
 | **CRM** | Leads, opportunities, pipeline view, campaigns, email campaigns, contracts, contract templates, appointments, prospects, competitors, market segments, industry types, sales stages, opportunity types, CRM settings |
 | **Support** | Issues, issue types, issue priorities, service level agreements, support settings |
 | **Projects** | Projects, project templates, project types, project updates, tasks, task types, activity types, activity costs, timesheets, timesheet billing |
-| **Fixed Assets** | Asset categories, 3 depreciation methods (SL/DDB/WDV), asset repairs, capitalizations, sale/scrap lifecycle |
+| **Fixed Assets** | Asset categories, 3 depreciation methods (SL/DDB/WDV), asset repairs, capitalizations, asset movements, asset value adjustments, asset shift factors/allocations, asset maintenance logs/teams, locations, vehicles, drivers, driving license categories, sale/scrap lifecycle |
 | **Manufacturing** | Bills of Material (explosion, phantom items, cycle detection), BOM creators, work orders, job cards, operations, routings, workstation types, workstations, production plans (MRP), master production schedules, production schedule, sales forecasts, material shortage summary, downtime entries, plant floors, manufacturing dashboard, manufacturing settings |
 | **E-Invoice** | LHDN MyInvois integration (submit, validate, cancel), XAdES digital signing, dashboard, batch submit, submission logs, consolidation, reports, e-invoice settings |
 | **Maintenance** | Maintenance schedules, maintenance visits, warranty claims |
@@ -78,6 +78,12 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 Deploy MyERP on any server with Docker — no build tools required.
 
 ### Quick Start (One Command)
+
+```bash
+curl -sL https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy/install.sh | bash
+```
+
+Or manually:
 
 ```bash
 mkdir myerp && cd myerp
@@ -271,9 +277,12 @@ angular/                       → Angular 21 SPA (standalone components, NgRx S
 │   ├── support/               → Issues, Issue Types, Priorities, SLAs
 │   ├── projects/              → Projects, Templates, Tasks, Activity Types/Costs,
 │   │                            Timesheets, Timesheet Billing, Project Updates
-│   ├── assets/                → Fixed Assets, Repairs, Capitalizations
-│   ├── tax/                   → Tax Categories, SST-02 Filing, Tax Summary Report
-│   ├── workflow/              → Approval Rules, Pending Approvals
+│   ├── assets/                → Fixed Assets, Repairs, Capitalizations, Asset Movements,
+│   │                            Value Adjustments, Shift Factors/Allocations, Maintenance
+│   │                            Logs/Teams, Vehicles, Drivers, Locations
+│   ├── tax/                   → Tax Categories, Item Tax Templates, Tax Charges Templates,
+│   │                            Withholding Tax, Lower Deduction Certificates, SST-02 Filing
+│   ├── workflow/              → Approval Rules, Approval Inbox, Pending Approvals
 │   ├── automation/            → Automation Rules, Auto Repeat
 │   ├── maintenance/           → Maintenance Schedules, Visits, Warranty Claims
 │   ├── communication/         → Communication Media
@@ -382,13 +391,14 @@ See [docs/malaysia-compliance.md](docs/malaysia-compliance.md) for details.
 | [Testing](docs/testing.md) | Test strategy, coverage, patterns |
 | [API Reference](docs/api-reference.md) | REST endpoint documentation |
 | [Malaysia Compliance](docs/malaysia-compliance.md) | LHDN, SST, payroll, PDPA |
+| [Security](SECURITY.md) | Vulnerability reporting policy |
 
 ---
 
 ## Contributing
 
 1. Create a feature branch from `develop`
-2. Follow ABP DDD conventions (see `.github/copilot-instructions.md`)
+2. Follow ABP DDD conventions (see `.agents/AGENTS.md` and `.agents/skills/`)
 3. Ensure all tests pass: `dotnet test`
 4. Add tests for new domain logic
 5. Update localization files (`en.json` + `ms-MY.json` at minimum)
