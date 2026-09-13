@@ -301,6 +301,8 @@
     "ItemType": "Item Type",
     "ItemGroup": "Item Group",
     "SellingPrice": "Selling Price",
+    "SellingRate": "Selling Rate",
+    "AvgSellingRate": "Avg. Selling Rate",
     "BuyingPrice": "Buying Price",
     "MaintainStock": "Maintain Stock",
     "Barcode": "Barcode",

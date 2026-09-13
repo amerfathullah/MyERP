@@ -812,7 +812,17 @@ export interface GrossProfitLineDto {
   invoiceId?: string;
   invoiceNumber?: string;
   issueDate?: string;
+  customerId?: string;
   customerName?: string | null;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  itemGroup?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  quantity?: number;
+  sellingRate?: number;
+  valuationRate?: number;
   revenue?: number;
   cost?: number;
   grossProfit?: number;
@@ -831,6 +841,9 @@ export interface GrossProfitRequestDto {
   companyId?: string;
   fromDate?: string | null;
   toDate?: string | null;
+  groupBy?: string;
+  customerId?: string | null;
+  itemId?: string | null;
 }
 
 export interface InstallationNoteDto extends EntityDto<string> {

@@ -27,6 +27,7 @@ export class GrossProfitReportComponent implements OnInit {
     companyId: ['', Validators.required],
     fromDate: [new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], Validators.required],
     toDate: [new Date().toISOString().split('T')[0], Validators.required],
+    groupBy: ['Invoice', Validators.required],
   });
 
   companies = signal<CompanyDto[]>([]);
@@ -53,9 +54,14 @@ export class GrossProfitReportComponent implements OnInit {
       return;
     }
     this.isLoading.set(true);
-    const { companyId, fromDate, toDate } = this.filters.getRawValue();
+    const { companyId, fromDate, toDate, groupBy } = this.filters.getRawValue();
 
-    this.reportService.getReport({ companyId: companyId!, fromDate: fromDate!, toDate: toDate! }).subscribe({
+    this.reportService.getReport({
+      companyId: companyId!,
+      fromDate: fromDate!,
+      toDate: toDate!,
+      groupBy: groupBy!
+    }).subscribe({
       next: data => { this.report.set(data); this.isLoading.set(false); },
       error: () => this.isLoading.set(false),
     });
@@ -64,8 +70,19 @@ export class GrossProfitReportComponent implements OnInit {
   exportCsv(): void {
     const r = this.report();
     if (!r?.items?.length) return;
-    exportToCsv('gross-profit.csv', r.items, [
-      'invoiceNumber', 'issueDate', 'revenue', 'cost', 'grossProfit', 'grossProfitPercentage'
-    ]);
+
+    const groupBy = this.filters.get('groupBy')?.value || 'Invoice';
+    let columns: string[];
+
+    if (groupBy === 'Item') {
+      columns = ['itemCode', 'itemName', 'itemGroup', 'quantity', 'sellingRate', 'valuationRate', 'revenue', 'cost', 'grossProfit', 'grossProfitPercentage'];
+    } else if (groupBy === 'Customer') {
+      columns = ['customerName', 'quantity', 'revenue', 'cost', 'grossProfit', 'grossProfitPercentage'];
+    } else {
+      // Per ERPNext PR #58631: include item_name in export
+      columns = ['invoiceNumber', 'issueDate', 'customerName', 'itemCode', 'itemName', 'quantity', 'sellingRate', 'valuationRate', 'revenue', 'cost', 'grossProfit', 'grossProfitPercentage'];
+    }
+
+    exportToCsv(`gross-profit-${groupBy.toLowerCase()}.csv`, r.items, columns);
   }
 }

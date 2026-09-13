@@ -11,17 +11,28 @@
             }
           </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label">{{ 'FromDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="fromDate" />
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label">{{ 'ToDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="toDate" />
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
+          <label class="form-label">{{ 'GroupBy' | abpLocalization }}</label>
+          <select class="form-select" formControlName="groupBy">
+            <option value="Invoice">{{ 'Invoice' | abpLocalization }}</option>
+            <option value="Item">{{ 'Item' | abpLocalization }}</option>
+            <option value="Customer">{{ 'Customer' | abpLocalization }}</option>
+          </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
           <button type="submit" class="btn btn-primary" [disabled]="isLoading()">
             <i class="fa fa-chart-line me-1"></i>{{ 'Generate' | abpLocalization }}
+          </button>
+          <button type="button" class="btn btn-outline-secondary" (click)="exportCsv()" [disabled]="!report()?.items?.length">
+            <i class="fa fa-download me-1"></i>{{ 'Export' | abpLocalization }}
           </button>
         </div>
       </form>
@@ -80,47 +91,139 @@
             <p>{{ 'NoRecordsFound' | abpLocalization }}</p>
           </div>
         } @else {
-          <table class="table table-hover">
-            <thead>
-              <tr>
-                <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
-                <th>{{ 'Date' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
-                <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
-                <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
-                <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (item of r.items ?? []; track $index) {
-                <tr>
-                  <td>{{ item.invoiceNumber }}</td>
-                  <td>{{ item.issueDate | date:'dd/MM/yyyy' }}</td>
-                  <td class="text-end">{{ item.revenue | number:'1.2-2' }}</td>
-                  <td class="text-end">{{ item.cost | number:'1.2-2' }}</td>
-                  <td class="text-end" [class.text-success]="(item.grossProfit ?? 0) >= 0" [class.text-danger]="(item.grossProfit ?? 0) < 0">
-                    {{ item.grossProfit | number:'1.2-2' }}
-                  </td>
-                  <td class="text-end" [class.text-success]="(item.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(item.grossProfitPercentage ?? 0) < 0">
-                    {{ item.grossProfitPercentage | number:'1.1-1' }}%
-                  </td>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead>
+                @if (filters.get('groupBy')?.value === 'Item') {
+                  <tr>
+                    <th>{{ 'ItemCode' | abpLocalization }}</th>
+                    <th>{{ 'ItemName' | abpLocalization }}</th>
+                    <th>{{ 'ItemGroup' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'AvgSellingRate' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'ValuationRate' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+                  </tr>
+                } @else if (filters.get('groupBy')?.value === 'Customer') {
+                  <tr>
+                    <th>{{ 'Customer' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+                  </tr>
+                } @else {
+                  <tr>
+                    <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
+                    <th>{{ 'Date' | abpLocalization }}</th>
+                    <th>{{ 'Customer' | abpLocalization }}</th>
+                    <th>{{ 'ItemCode' | abpLocalization }}</th>
+                    <th>{{ 'ItemName' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'SellingRate' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'ValuationRate' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+                  </tr>
+                }
+              </thead>
+              <tbody>
+                @for (item of r.items ?? []; track $index) {
+                  @if (filters.get('groupBy')?.value === 'Item') {
+                    <tr>
+                      <td class="fw-semibold">{{ item.itemCode }}</td>
+                      <td>{{ item.itemName }}</td>
+                      <td><span class="badge bg-light text-dark border">{{ item.itemGroup }}</span></td>
+                      <td class="text-end">{{ item.quantity | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.sellingRate | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.valuationRate | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.revenue | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.cost | number:'1.2-2' }}</td>
+                      <td class="text-end fw-semibold" [class.text-success]="(item.grossProfit ?? 0) >= 0" [class.text-danger]="(item.grossProfit ?? 0) < 0">
+                        {{ item.grossProfit | number:'1.2-2' }}
+                      </td>
+                      <td class="text-end" [class.text-success]="(item.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(item.grossProfitPercentage ?? 0) < 0">
+                        {{ item.grossProfitPercentage | number:'1.1-1' }}%
+                      </td>
+                    </tr>
+                  } @else if (filters.get('groupBy')?.value === 'Customer') {
+                    <tr>
+                      <td class="fw-semibold">{{ item.customerName }}</td>
+                      <td class="text-end">{{ item.quantity | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.revenue | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.cost | number:'1.2-2' }}</td>
+                      <td class="text-end fw-semibold" [class.text-success]="(item.grossProfit ?? 0) >= 0" [class.text-danger]="(item.grossProfit ?? 0) < 0">
+                        {{ item.grossProfit | number:'1.2-2' }}
+                      </td>
+                      <td class="text-end" [class.text-success]="(item.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(item.grossProfitPercentage ?? 0) < 0">
+                        {{ item.grossProfitPercentage | number:'1.1-1' }}%
+                      </td>
+                    </tr>
+                  } @else {
+                    <tr>
+                      <td class="fw-semibold">{{ item.invoiceNumber }}</td>
+                      <td>{{ item.issueDate | date:'dd/MM/yyyy' }}</td>
+                      <td>{{ item.customerName }}</td>
+                      <td>{{ item.itemCode }}</td>
+                      <td>{{ item.itemName }}</td>
+                      <td class="text-end">{{ item.quantity | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.sellingRate | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.valuationRate | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.revenue | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.cost | number:'1.2-2' }}</td>
+                      <td class="text-end fw-semibold" [class.text-success]="(item.grossProfit ?? 0) >= 0" [class.text-danger]="(item.grossProfit ?? 0) < 0">
+                        {{ item.grossProfit | number:'1.2-2' }}
+                      </td>
+                      <td class="text-end" [class.text-success]="(item.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(item.grossProfitPercentage ?? 0) < 0">
+                        {{ item.grossProfitPercentage | number:'1.1-1' }}%
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+              <tfoot>
+                <tr class="fw-bold bg-light">
+                  @if (filters.get('groupBy')?.value === 'Item') {
+                    <td colspan="6">{{ 'Total' | abpLocalization }}</td>
+                    <td class="text-end">{{ r.totalRevenue | number:'1.2-2' }}</td>
+                    <td class="text-end">{{ r.totalCost | number:'1.2-2' }}</td>
+                    <td class="text-end" [class.text-success]="(r.grossProfit ?? 0) >= 0" [class.text-danger]="(r.grossProfit ?? 0) < 0">
+                      {{ r.grossProfit | number:'1.2-2' }}
+                    </td>
+                    <td class="text-end" [class.text-success]="(r.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(r.grossProfitPercentage ?? 0) < 0">
+                      {{ r.grossProfitPercentage | number:'1.1-1' }}%
+                    </td>
+                  } @else if (filters.get('groupBy')?.value === 'Customer') {
+                    <td colspan="2">{{ 'Total' | abpLocalization }}</td>
+                    <td class="text-end">{{ r.totalRevenue | number:'1.2-2' }}</td>
+                    <td class="text-end">{{ r.totalCost | number:'1.2-2' }}</td>
+                    <td class="text-end" [class.text-success]="(r.grossProfit ?? 0) >= 0" [class.text-danger]="(r.grossProfit ?? 0) < 0">
+                      {{ r.grossProfit | number:'1.2-2' }}
+                    </td>
+                    <td class="text-end" [class.text-success]="(r.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(r.grossProfitPercentage ?? 0) < 0">
+                      {{ r.grossProfitPercentage | number:'1.1-1' }}%
+                    </td>
+                  } @else {
+                    <td colspan="8">{{ 'Total' | abpLocalization }}</td>
+                    <td class="text-end">{{ r.totalRevenue | number:'1.2-2' }}</td>
+                    <td class="text-end">{{ r.totalCost | number:'1.2-2' }}</td>
+                    <td class="text-end" [class.text-success]="(r.grossProfit ?? 0) >= 0" [class.text-danger]="(r.grossProfit ?? 0) < 0">
+                      {{ r.grossProfit | number:'1.2-2' }}
+                    </td>
+                    <td class="text-end" [class.text-success]="(r.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(r.grossProfitPercentage ?? 0) < 0">
+                      {{ r.grossProfitPercentage | number:'1.1-1' }}%
+                    </td>
+                  }
                 </tr>
-              }
-            </tbody>
-            <tfoot>
-              <tr class="fw-bold">
-                <td colspan="2">{{ 'Total' | abpLocalization }}</td>
-                <td class="text-end">{{ r.totalRevenue | number:'1.2-2' }}</td>
-                <td class="text-end">{{ r.totalCost | number:'1.2-2' }}</td>
-                <td class="text-end" [class.text-success]="(r.grossProfit ?? 0) >= 0" [class.text-danger]="(r.grossProfit ?? 0) < 0">
-                  {{ r.grossProfit | number:'1.2-2' }}
-                </td>
-                <td class="text-end" [class.text-success]="(r.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(r.grossProfitPercentage ?? 0) < 0">
-                  {{ r.grossProfitPercentage | number:'1.1-1' }}%
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+              </tfoot>
+            </table>
+          </div>
         }
       </div>
     </div>
