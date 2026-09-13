@@ -262,4 +262,22 @@ public class BankReconciliationStatementTests
         Assert.True(bt.IsReconciled);
         // Reconciled transactions are excluded from the outstanding list
     }
+
+    [Fact]
+    public void BankStatementEntryDto_AccountCurrency_Settable()
+    {
+        // Per ERPNext PR #58692 / commit c412310eb5: use account currency in Bank Reconciliation Statement
+        var entry = new BankStatementEntryDto
+        {
+            PostingDate = DateTime.Today,
+            DocumentType = "Payment Entry",
+            DocumentNumber = "PE-2026-0001",
+            DocumentId = Guid.NewGuid(),
+            Debit = 1000m,
+            Credit = 0m,
+            AccountCurrency = "USD"
+        };
+
+        Assert.Equal("USD", entry.AccountCurrency);
+    }
 }

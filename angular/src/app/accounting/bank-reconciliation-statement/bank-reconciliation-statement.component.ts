@@ -18,6 +18,7 @@ interface BankStatementEntry {
   referenceNumber?: string;
   clearanceDate?: string;
   partyName?: string;
+  accountCurrency?: string;
 }
 
 interface ReconciliationStatement {
@@ -159,10 +160,10 @@ interface AccountOption {
                       <td class="fw-semibold">{{ entry.documentNumber }}</td>
                       <td class="text-muted">{{ entry.referenceNumber || '—' }}</td>
                       <td class="text-end" [class.fw-bold]="entry.debit > 0">
-                        {{ entry.debit > 0 ? (entry.debit | number:'1.2-2') : '' }}
+                        {{ entry.debit > 0 ? ((entry.accountCurrency || stmt.currencyCode) + ' ' + (entry.debit | number:'1.2-2')) : '' }}
                       </td>
                       <td class="text-end" [class.fw-bold]="entry.credit > 0">
-                        {{ entry.credit > 0 ? (entry.credit | number:'1.2-2') : '' }}
+                        {{ entry.credit > 0 ? ((entry.accountCurrency || stmt.currencyCode) + ' ' + (entry.credit | number:'1.2-2')) : '' }}
                       </td>
                     </tr>
                   }
@@ -256,17 +257,18 @@ export class BankReconciliationStatementComponent implements OnInit {
       'Document Type': e.documentType,
       'Document Number': e.documentNumber,
       'Reference #': e.referenceNumber || '',
+      'Currency': e.accountCurrency || stmt.currencyCode,
       'Debit': e.debit || '',
       'Credit': e.credit || ''
     }));
 
     // Add summary rows
-    rows.push({ 'Posting Date': '', 'Document Type': '', 'Document Number': 'GL Balance', 'Reference #': '', 'Debit': stmt.glBalance as any, 'Credit': '' });
-    rows.push({ 'Posting Date': '', 'Document Type': '', 'Document Number': 'Outstanding Deposits', 'Reference #': '', 'Debit': stmt.outstandingDeposits as any, 'Credit': '' });
-    rows.push({ 'Posting Date': '', 'Document Type': '', 'Document Number': 'Outstanding Payments', 'Reference #': '', 'Debit': '', 'Credit': stmt.outstandingPayments as any });
-    rows.push({ 'Posting Date': '', 'Document Type': '', 'Document Number': 'Calculated Bank Balance', 'Reference #': '', 'Debit': stmt.calculatedBankBalance as any, 'Credit': '' });
+    rows.push({ 'Posting Date': '', 'Document Type': '', 'Document Number': 'GL Balance', 'Reference #': '', 'Currency': stmt.currencyCode, 'Debit': stmt.glBalance as any, 'Credit': '' });
+    rows.push({ 'Posting Date': '', 'Document Type': '', 'Document Number': 'Outstanding Deposits', 'Reference #': '', 'Currency': stmt.currencyCode, 'Debit': stmt.outstandingDeposits as any, 'Credit': '' });
+    rows.push({ 'Posting Date': '', 'Document Type': '', 'Document Number': 'Outstanding Payments', 'Reference #': '', 'Currency': stmt.currencyCode, 'Debit': '', 'Credit': stmt.outstandingPayments as any });
+    rows.push({ 'Posting Date': '', 'Document Type': '', 'Document Number': 'Calculated Bank Balance', 'Reference #': '', 'Currency': stmt.currencyCode, 'Debit': stmt.calculatedBankBalance as any, 'Credit': '' });
 
     exportToCsv(`bank-reconciliation-statement-${this.reportDate}.csv`, rows,
-      ['Posting Date', 'Document Type', 'Document Number', 'Reference #', 'Debit', 'Credit']);
+      ['Posting Date', 'Document Type', 'Document Number', 'Reference #', 'Currency', 'Debit', 'Credit']);
   }
 }

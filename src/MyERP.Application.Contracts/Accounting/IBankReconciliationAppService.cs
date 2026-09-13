@@ -286,4 +286,6 @@ public class BankStatementEntryDto
     public string? ReferenceNumber { get; set; }
     public DateTime? ClearanceDate { get; set; }
     public string? PartyName { get; set; }
+    /// <summary>Account currency code (e.g. "USD", "MYR") per ERPNext PR #58692 / commit c412310eb5.</summary>
+    public string? AccountCurrency { get; set; }
 }

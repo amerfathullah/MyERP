@@ -571,7 +571,8 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
                 Credit = isDeposit ? 0 : amount,
                 ReferenceNumber = pe.ReferenceNumber,
                 ClearanceDate = pe.ClearanceDate,
-                PartyName = null
+                PartyName = null,
+                AccountCurrency = pe.CurrencyCode ?? account?.Currency ?? "MYR"
             });
         }
 
@@ -600,6 +601,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
                 var je = unclearedJEs.First(j => j.Id == group.Key);
                 var debit = group.Where(l => l.IsDebit).Sum(l => l.Amount);
                 var credit = group.Where(l => !l.IsDebit).Sum(l => l.Amount);
+                var lineCurrency = group.FirstOrDefault()?.AccountCurrency;
 
                 outstandingDeposits += debit;
                 outstandingPayments += credit;
@@ -614,7 +616,8 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
                     Credit = credit,
                     ReferenceNumber = je.ReferenceNumber,
                     ClearanceDate = je.ClearanceDate,
-                    PartyName = null
+                    PartyName = null,
+                    AccountCurrency = lineCurrency ?? account?.Currency ?? "MYR"
                 });
             }
         }

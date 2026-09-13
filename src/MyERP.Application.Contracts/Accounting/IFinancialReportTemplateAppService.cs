@@ -15,4 +15,5 @@ public interface IFinancialReportTemplateAppService : IApplicationService
     Task DeleteAsync(Guid id);
     Task<FinancialReportResultDto> ExecuteAsync(ExecuteReportDto input);
     Task<IReadOnlyList<string>> ValidateAsync(Guid id);
+    Task<List<FilteredAccountDto>> GetFilteredAccountsAsync(GetFilteredAccountsDto input);
 }

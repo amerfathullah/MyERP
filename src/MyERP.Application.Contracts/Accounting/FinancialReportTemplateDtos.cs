@@ -83,3 +83,29 @@ public class FinancialReportResultRowDto
     public string? ReferenceCode { get; set; }
     public string DataSource { get; set; } = null!;
 }
+
+public class GetFilteredAccountsDto
+{
+    public Guid CompanyId { get; set; }
+    public List<AccountFilterRowDto> AccountRows { get; set; } = new();
+}
+
+public class AccountFilterRowDto
+{
+    public string? Field { get; set; }
+    public string? Operator { get; set; }
+    public string? Value { get; set; }
+    public string? CalculationFormula { get; set; }
+}
+
+public class FilteredAccountDto
+{
+    public Guid Id { get; set; }
+    public string AccountCode { get; set; } = string.Empty;
+    public string AccountName { get; set; } = string.Empty;
+    public string AccountType { get; set; } = string.Empty;
+    public string RootType { get; set; } = string.Empty;
+    public string? AccountCategory { get; set; }
+    public string Currency { get; set; } = "MYR";
+    public bool IsGroup { get; set; }
+}
