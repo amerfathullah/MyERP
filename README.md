@@ -19,18 +19,18 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 
 | Module | Capabilities |
 |--------|-------------|
-| **Accounting** | General ledger, journal entries, payment entries, bank reconciliation, budgets, period closing, exchange rate revaluation, currency exchange, accounting dimensions, fiscal years, finance books, Trial Balance / P&L / Balance Sheet / Cash Flow / Financial Ratios reports, financial report templates |
-| **Sales** | Quotations → Sales Orders → Delivery Notes → Sales Invoices, POS invoicing, POS closing entries, blanket orders, pricing rules, shipping rules, dunning, loyalty programs, subscriptions, installation notes, product bundles, sales commissions, gross profit report |
-| **Purchasing** | Material Requests → RFQ → Supplier Quotations → Purchase Orders → Purchase Receipts → Purchase Invoices, subcontracting (orders & receipts), supplier scorecards |
-| **Inventory** | Items, item attributes, warehouses, bins, stock entries (13 purpose types), stock ledger (FIFO/Moving Average/LIFO), stock reconciliation (allow zero valuation rate), stock reservation, pick lists, putaway rules, landed cost vouchers, quality inspections, batch management, serial numbers, UOM conversions, secondary item valuation type, stock closing |
+| **Accounting** | General ledger, journal entries, payment entries, bank reconciliation, budgets, period closing, exchange rate revaluation, currency exchange, accounting dimensions, fiscal years, finance books, payment orders, batch payments, invoice discounting, GL repost, payment ledger repost, ledger health monitor, share management (shareholders, types, transfers), cashier closing, bank clearance, bank guarantees, bisect statements, party links, cash flow forecast, Trial Balance / P&L / Balance Sheet / Cash Flow / Financial Ratios / Aging / Budget Variance reports, financial report templates |
+| **Sales** | Quotations → Sales Orders → Delivery Notes → Sales Invoices, POS (opening/closing/profiles), blanket orders, pricing rules, promotional schemes, coupon codes, shipping rules, dunning, loyalty programs, subscriptions, installation notes, product bundles, packing slips, proforma invoices, shipments, sales partners, sales persons, territories, party-specific items, SO tracking board, gross profit report |
+| **Purchasing** | Material Requests → RFQ → Supplier Quotation comparison → Purchase Orders → Purchase Receipts → Purchase Invoices, subcontracting (orders, BOMs, inward), supplier scorecards, scorecard variables, incoterms, procurement dashboard, PO tracking board |
+| **Inventory** | Items, item groups, brands, manufacturers, item attributes, item alternatives, item prices, item standard cost, item lead times, customs tariff numbers, warehouses, bins, stock entries (13 purpose types), stock ledger (FIFO/Moving Average/LIFO), stock reconciliation (allow zero valuation rate), stock reservation, pick lists, putaway rules, landed costs, quality inspections, quality management (goals, reviews, procedures, meetings, feedback, non-conformances), batch management, serial numbers, UOM categories, delivery trips, transit transfers, inventory aging report, stock reorder, repost item valuation, shipment parcel templates, secondary item valuation type, stock closing |
 | **Tax** | Configurable tax categories & rules, SST support, date-range effective rates, SST-02 filing |
-| **HR & Payroll** | Employee management, leave management, leave allocation, holiday lists, expense claims, salary structures, salary slips, payroll entry (EPF/SOCSO/EIS/PCB), PDPA field-level security |
-| **CRM** | Lead lifecycle management, opportunity pipeline, conversion to customer |
-| **Support** | Issue tracking with SLA enforcement |
-| **Projects** | Project & task management, dependencies, 4 progress calculation methods, timesheets, timesheet billing |
+| **HR & Payroll** | Employees, departments, designations, employee groups, leave management (types, allocation, balance), attendance, shift assignments/types, holiday lists, expense claims, loans, salary components, salary structures, salary slips, payroll entry (EPF/SOCSO/EIS/PCB), PDPA field-level security |
+| **CRM** | Leads, opportunities, pipeline view, campaigns, email campaigns, contracts, contract templates, appointments, prospects, competitors, market segments, industry types, sales stages, opportunity types, CRM settings |
+| **Support** | Issues, issue types, issue priorities, service level agreements, support settings |
+| **Projects** | Projects, project templates, project types, project updates, tasks, task types, activity types, activity costs, timesheets, timesheet billing |
 | **Fixed Assets** | Asset categories, 3 depreciation methods (SL/DDB/WDV), asset repairs, capitalizations, sale/scrap lifecycle |
-| **Manufacturing** | Bills of Material (explosion, phantom items, cycle detection), work orders, job cards, operations, routings, workstations, production plans (MRP), manufacturing settings |
-| **E-Invoice** | LHDN MyInvois integration (submit, validate, cancel), XAdES digital signing, dashboard, submission logs, consolidation, reports |
+| **Manufacturing** | Bills of Material (explosion, phantom items, cycle detection), BOM creators, work orders, job cards, operations, routings, workstation types, workstations, production plans (MRP), master production schedules, production schedule, sales forecasts, material shortage summary, downtime entries, plant floors, manufacturing dashboard, manufacturing settings |
+| **E-Invoice** | LHDN MyInvois integration (submit, validate, cancel), XAdES digital signing, dashboard, batch submit, submission logs, consolidation, reports, e-invoice settings |
 | **Maintenance** | Maintenance schedules, maintenance visits, warranty claims |
 | **Telephony** | Call logs, call types, telephony settings |
 | **EDI** | Electronic data interchange code lists and common codes |
@@ -38,7 +38,8 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 ### Enterprise Features
 - **Approval Workflows** — configurable multi-level approvals with amount thresholds and authorization rules
 - **Automation Rules** — event-triggered actions (email, field updates, status changes)
-- **Notifications** — in-app notification system with bell widget and email templates
+- **Auto Repeat** — recurring document generation on schedule
+- **Notifications** — in-app notification system with bell widget, email digest, and email templates
 - **Import/Export** — CSV import (customers, items, suppliers) and export
 - **POS** — Point of Sale interface with closing entries and consolidation
 - **Audit Logging** — full audit trail on all entities (ABP built-in)
@@ -46,6 +47,9 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 - **Payment Reconciliation** — batch payment reconciliation with outstanding invoice matching
 - **Statement of Accounts** — customer/supplier statement generation
 - **Opening Balances** — streamlined opening balance entry for go-live
+- **Document Series** — configurable naming series per document type
+- **Print Formats** — customizable print templates with letter heads
+- **Settings** — granular module settings (accounts, buying, selling, stock, global)
 
 ---
 
@@ -236,31 +240,48 @@ src/
 
 angular/                       → Angular 21 SPA (standalone components, NgRx SignalStore)
 ├── src/app/
-│   ├── accounting/            → Chart of Accounts, Journal Entries, Payments, Bank Reconciliation,
-│   │                            Budgets, Period Closing, Dimensions, Reports
+│   ├── accounting/            → GL, Journal Entries, Payments, Payment Orders, Bank Reconciliation,
+│   │                            Budgets, Period Closing, Dimensions, Shares, Invoice Discounting,
+│   │                            Cash Flow Forecast, Ledger Health, Reports
 │   ├── sales/                 → Quotations, Sales Orders, Delivery Notes, Invoices, POS,
-│   │                            Pricing Rules, Blanket Orders, Dunnings, Subscriptions
-│   ├── purchasing/            → Material Requests, RFQ, Supplier Quotations, Purchase Orders,
-│   │                            Receipts, Invoices, Subcontracting, Scorecards
-│   ├── inventory/             → Items, Warehouses, Stock Entries, Stock Reconciliation,
-│   │                            Stock Reservations, Landed Costs, Quality Inspections, Batches, Serials
-│   ├── manufacturing/         → BOMs, Work Orders, Job Cards, Production Plans, Workstations
+│   │                            Pricing Rules, Promotional Schemes, Coupon Codes, Blanket Orders,
+│   │                            Dunnings, Subscriptions, Proforma Invoices, Shipments, Sales Partners,
+│   │                            SO Tracking Board, Reports
+│   ├── purchasing/            → Material Requests, RFQ, SQ Comparison, Purchase Orders,
+│   │                            Receipts, Invoices, Subcontracting, Scorecards, Incoterms,
+│   │                            Procurement Dashboard, Reports
+│   ├── inventory/             → Items, Item Groups, Brands, Item Prices, Item Alternatives,
+│   │                            Warehouses, Stock Entries, Stock Reconciliation, Stock Reservations,
+│   │                            Pick Lists, Putaway Rules, Landed Costs, Quality Management
+│   │                            (Inspections, Goals, Reviews, Procedures, Meetings, Feedback,
+│   │                            Non-Conformances), Batches, Serials, Delivery Trips, Transit Transfers,
+│   │                            Inventory Aging, Stock Reorder, Reports
+│   ├── manufacturing/         → BOMs, BOM Creators, Work Orders, Job Cards, Operations, Routings,
+│   │                            Workstations, Production Plans, Master Production Schedules,
+│   │                            Sales Forecasts, Material Shortage Summary, Downtime Entries,
+│   │                            Plant Floors, Manufacturing Dashboard, Reports
 │   ├── e-invoice/             → LHDN Dashboard, Submission Logs, Reports, Consolidation
 │   ├── einvoice/              → E-Invoice batch submit, list, settings (standalone components)
-│   ├── hr/                    → Employees, Leave, Expense Claims, Payroll, Salary Structures
-│   ├── crm/                   → Leads, Opportunities
-│   ├── support/               → Issues (with SLA)
-│   ├── projects/              → Projects, Timesheets, Timesheet Billing
+│   ├── hr/                    → Employees, Departments, Designations, Employee Groups, Leave
+│   │                            (Types/Allocation/Balance), Attendance, Shifts, Holiday Lists,
+│   │                            Expense Claims, Loans, Salary Components, Salary Structures,
+│   │                            Salary Slips, Payroll
+│   ├── crm/                   → Leads, Opportunities, Pipeline, Campaigns, Email Campaigns,
+│   │                            Contracts, Appointments, Prospects, Competitors
+│   ├── support/               → Issues, Issue Types, Priorities, SLAs
+│   ├── projects/              → Projects, Templates, Tasks, Activity Types/Costs,
+│   │                            Timesheets, Timesheet Billing, Project Updates
 │   ├── assets/                → Fixed Assets, Repairs, Capitalizations
 │   ├── tax/                   → Tax Categories, SST-02 Filing, Tax Summary Report
 │   ├── workflow/              → Approval Rules, Pending Approvals
-│   ├── automation/            → Automation Rules
+│   ├── automation/            → Automation Rules, Auto Repeat
 │   ├── maintenance/           → Maintenance Schedules, Visits, Warranty Claims
 │   ├── communication/         → Communication Media
 │   ├── telephony/             → Call Logs, Call Types
 │   ├── edi/                   → EDI Code Lists, Common Codes
 │   ├── utilities/             → Utility Videos, Settings
-│   ├── settings/              → Company Settings, Authorization Rules, Email Templates, Notifications
+│   ├── settings/              → Company Settings, Module Settings, Document Series,
+│   │                            Authorization Rules, Email Templates, Print Formats, Notifications
 │   ├── import-export/         → CSV Import/Export
 │   ├── companies/             → Company management
 │   ├── customers/             → Customer management
