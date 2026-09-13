@@ -499,6 +499,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Accounts',
       },
       {
+        path: '/accounting/reports/financial-ratios',
+        name: '::Menu:FinancialRatios',
+        parentName: '::Menu:Accounting',
+        iconClass: 'fas fa-percent',
+        order: 14,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Accounts',
+      },
+      {
         path: '/accounting/bank-reconciliation',
         name: '::Menu:BankReconciliation',
         parentName: '::Menu:Accounting',

@@ -2754,3 +2754,30 @@ export interface VoucherLedgerEntryDto {
   description?: string | null;
   financeBook?: string | null;
 }
+
+export interface FinancialRatiosRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  includeComparison?: boolean;
+}
+
+export interface FinancialRatioRowDto {
+  category?: string;
+  ratioName?: string;
+  value?: number | null;
+  previousValue?: number | null;
+  changePercentage?: number | null;
+  formula?: string;
+  description?: string;
+  unit?: string;
+}
+
+export interface FinancialRatiosReportDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  previousFromDate?: string | null;
+  previousToDate?: string | null;
+  rows?: FinancialRatioRowDto[];
+}

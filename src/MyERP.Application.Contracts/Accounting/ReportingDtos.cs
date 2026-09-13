@@ -191,6 +191,37 @@ public class PartyTrialBalanceReportDto
     public decimal TotalClosingCredit { get; set; }
 }
 
+// --- Financial Ratios Report (ERPNext accounts/report/financial_ratios) ---
+public class FinancialRatiosRequestDto
+{
+    [Required] public Guid CompanyId { get; set; }
+    [Required] public DateTime FromDate { get; set; }
+    [Required] public DateTime ToDate { get; set; }
+    public bool IncludeComparison { get; set; } = true;
+}
+
+public class FinancialRatioRowDto
+{
+    public string Category { get; set; } = string.Empty;
+    public string RatioName { get; set; } = string.Empty;
+    public decimal? Value { get; set; }
+    public decimal? PreviousValue { get; set; }
+    public decimal? ChangePercentage { get; set; }
+    public string Formula { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Unit { get; set; } = string.Empty; // "ratio", "%", "times"
+}
+
+public class FinancialRatiosReportDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public DateTime? PreviousFromDate { get; set; }
+    public DateTime? PreviousToDate { get; set; }
+    public List<FinancialRatioRowDto> Rows { get; set; } = new();
+}
+
 // --- Service Interface ---
 public interface IReportingAppService : IApplicationService
 {
@@ -199,5 +230,6 @@ public interface IReportingAppService : IApplicationService
     Task<BalanceSheetReportDto> GetBalanceSheetAsync(BalanceSheetRequestDto input);
     Task<MonthlyProfitLossReportDto> GetMonthlyProfitLossAsync(MonthlyProfitLossRequestDto input);
     Task<PartyTrialBalanceReportDto> GetTrialBalanceForPartyAsync(PartyTrialBalanceRequestDto input);
+    Task<FinancialRatiosReportDto> GetFinancialRatiosAsync(FinancialRatiosRequestDto input);
 }
 

@@ -526,5 +526,276 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             return (0m, Math.Round(credit - debit, 2));
         }
     }
+
+    // --- Financial Ratios Report (ERPNext accounts/report/financial_ratios) ---
+
+    public async Task<FinancialRatiosReportDto> GetFinancialRatiosAsync(FinancialRatiosRequestDto input)
+    {
+        var currentRatios = await CalculateFinancialRatiosForPeriodAsync(input.CompanyId, input.FromDate, input.ToDate);
+
+        DateTime? prevFrom = null;
+        DateTime? prevTo = null;
+        Dictionary<string, decimal?>? prevRatios = null;
+
+        if (input.IncludeComparison)
+        {
+            var duration = input.ToDate - input.FromDate;
+            prevTo = input.FromDate.AddDays(-1);
+            prevFrom = prevTo.Value - duration;
+
+            prevRatios = await CalculateFinancialRatiosForPeriodAsync(input.CompanyId, prevFrom.Value, prevTo.Value);
+        }
+
+        var rows = BuildFinancialRatioRows(currentRatios, prevRatios);
+
+        return new FinancialRatiosReportDto
+        {
+            CompanyId = input.CompanyId,
+            FromDate = input.FromDate,
+            ToDate = input.ToDate,
+            PreviousFromDate = prevFrom,
+            PreviousToDate = prevTo,
+            Rows = rows,
+        };
+    }
+
+    private async Task<Dictionary<string, decimal?>> CalculateFinancialRatiosForPeriodAsync(
+        Guid companyId, DateTime fromDate, DateTime toDate)
+    {
+        var accounts = await _accountRepository.GetListAsync(a => a.CompanyId == companyId && !a.IsGroup);
+        var journalEntries = await _journalEntryRepository.GetListAsync(
+            je => je.CompanyId == companyId
+                && je.Status == DocumentStatus.Posted
+                && je.PostingDate <= toDate);
+
+        var allLines = journalEntries.SelectMany(je => je.Lines).ToList();
+
+        // Lines grouped by account as of toDate
+        var linesUpToClosing = allLines.GroupBy(l => l.AccountId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Lines within period [fromDate, toDate]
+        var periodEntries = journalEntries.Where(je => je.PostingDate >= fromDate).ToList();
+        var linesInPeriod = periodEntries.SelectMany(je => je.Lines)
+            .GroupBy(l => l.AccountId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Lines up to opening date (fromDate - 1 day)
+        var openingDate = fromDate.AddDays(-1);
+        var linesUpToOpening = journalEntries.Where(je => je.PostingDate <= openingDate)
+            .SelectMany(je => je.Lines)
+            .GroupBy(l => l.AccountId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Helper to get closing balance as of toDate
+        decimal GetClosingBalance(Account a)
+        {
+            var lines = linesUpToClosing.GetValueOrDefault(a.Id) ?? new List<JournalEntryLine>();
+            var debit = lines.Where(l => l.IsDebit).Sum(l => l.Amount);
+            var credit = lines.Where(l => !l.IsDebit).Sum(l => l.Amount);
+            return a.AccountType == AccountType.Asset ? debit - credit : credit - debit;
+        }
+
+        // Helper to get opening balance as of fromDate - 1
+        decimal GetOpeningBalance(Account a)
+        {
+            var lines = linesUpToOpening.GetValueOrDefault(a.Id) ?? new List<JournalEntryLine>();
+            var debit = lines.Where(l => l.IsDebit).Sum(l => l.Amount);
+            var credit = lines.Where(l => !l.IsDebit).Sum(l => l.Amount);
+            return a.AccountType == AccountType.Asset ? debit - credit : credit - debit;
+        }
+
+        // Helper to get period flow (Revenue = credit - debit; Expense = debit - credit)
+        decimal GetPeriodAmount(Account a)
+        {
+            var lines = linesInPeriod.GetValueOrDefault(a.Id) ?? new List<JournalEntryLine>();
+            var debit = lines.Where(l => l.IsDebit).Sum(l => l.Amount);
+            var credit = lines.Where(l => !l.IsDebit).Sum(l => l.Amount);
+            return a.AccountType == AccountType.Revenue ? credit - debit : debit - credit;
+        }
+
+        // Account classification
+        var currentAssetAccounts = accounts.Where(a => a.AccountType == AccountType.Asset &&
+            (a.AccountSubType == AccountSubType.CurrentAsset ||
+             a.AccountSubType == AccountSubType.BankAccount ||
+             a.AccountSubType == AccountSubType.CashAccount ||
+             a.AccountSubType == AccountSubType.AccountsReceivable ||
+             a.AccountSubType == AccountSubType.Stock)).ToList();
+
+        var quickAssetAccounts = accounts.Where(a => a.AccountType == AccountType.Asset &&
+            (a.AccountSubType == AccountSubType.BankAccount ||
+             a.AccountSubType == AccountSubType.CashAccount ||
+             a.AccountSubType == AccountSubType.AccountsReceivable)).ToList();
+
+        var fixedAssetAccounts = accounts.Where(a => a.AccountType == AccountType.Asset &&
+            (a.AccountSubType == AccountSubType.FixedAsset ||
+             a.AccountSubType == AccountSubType.AccumulatedDepreciation ||
+             a.AccountSubType == AccountSubType.CapitalWorkInProgress)).ToList();
+
+        var allAssetAccounts = accounts.Where(a => a.AccountType == AccountType.Asset).ToList();
+
+        var currentLiabilityAccounts = accounts.Where(a => a.AccountType == AccountType.Liability &&
+            (a.AccountSubType == AccountSubType.CurrentLiability ||
+             a.AccountSubType == AccountSubType.AccountsPayable ||
+             a.AccountSubType == AccountSubType.TaxPayable)).ToList();
+
+        var allLiabilityAccounts = accounts.Where(a => a.AccountType == AccountType.Liability).ToList();
+
+        var receivableAccounts = accounts.Where(a => a.AccountType == AccountType.Asset &&
+            a.AccountSubType == AccountSubType.AccountsReceivable).ToList();
+
+        var payableAccounts = accounts.Where(a => a.AccountType == AccountType.Liability &&
+            a.AccountSubType == AccountSubType.AccountsPayable).ToList();
+
+        var stockAccounts = accounts.Where(a => a.AccountType == AccountType.Asset &&
+            a.AccountSubType == AccountSubType.Stock).ToList();
+
+        var revenueAccounts = accounts.Where(a => a.AccountType == AccountType.Revenue).ToList();
+        var expenseAccounts = accounts.Where(a => a.AccountType == AccountType.Expense).ToList();
+        var cogsAccounts = expenseAccounts.Where(a => a.AccountSubType == AccountSubType.CostOfGoodsSold ||
+            a.AccountName.Contains("Cost of Goods", StringComparison.OrdinalIgnoreCase) ||
+            a.AccountName.Contains("COGS", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        // 1. Balance Sheet totals
+        var currentAssets = currentAssetAccounts.Sum(GetClosingBalance);
+        var quickAssets = quickAssetAccounts.Sum(GetClosingBalance);
+        var fixedAssets = fixedAssetAccounts.Sum(GetClosingBalance);
+        var totalAssets = allAssetAccounts.Sum(GetClosingBalance);
+
+        var currentLiabilities = currentLiabilityAccounts.Sum(GetClosingBalance);
+        var totalLiabilities = allLiabilityAccounts.Sum(GetClosingBalance);
+        var shareholderFund = totalAssets - totalLiabilities;
+
+        // 2. P&L totals for the period
+        var netSales = revenueAccounts.Sum(GetPeriodAmount);
+        var totalExpense = expenseAccounts.Sum(GetPeriodAmount);
+        var cogs = cogsAccounts.Sum(GetPeriodAmount);
+        var netProfit = netSales - totalExpense;
+
+        // 3. Average balances
+        var closingDebtors = receivableAccounts.Sum(GetClosingBalance);
+        var openingDebtors = receivableAccounts.Sum(GetOpeningBalance);
+        var avgDebtors = (closingDebtors + openingDebtors) / 2m;
+
+        var closingCreditors = payableAccounts.Sum(GetClosingBalance);
+        var openingCreditors = payableAccounts.Sum(GetOpeningBalance);
+        var avgCreditors = (closingCreditors + openingCreditors) / 2m;
+
+        var closingStock = stockAccounts.Sum(GetClosingBalance);
+        var openingStock = stockAccounts.Sum(GetOpeningBalance);
+        var avgStock = (closingStock + openingStock) / 2m;
+
+        // 4. Calculate 11 canonical ratios
+        var ratios = new Dictionary<string, decimal?>
+        {
+            // Liquidity
+            ["CurrentRatio"] = SafeDivide(currentAssets, currentLiabilities),
+            ["QuickRatio"] = SafeDivide(quickAssets, currentLiabilities),
+
+            // Solvency & Profitability
+            ["DebtEquityRatio"] = SafeDivide(totalLiabilities, shareholderFund),
+            ["GrossProfitMargin"] = SafeDivide((netSales - cogs) * 100m, netSales),
+            ["NetProfitMargin"] = SafeDivide(netProfit * 100m, netSales),
+            ["ReturnOnAssets"] = SafeDivide(netProfit * 100m, totalAssets),
+            ["ReturnOnEquity"] = SafeDivide(netProfit * 100m, shareholderFund),
+
+            // Turnover
+            ["FixedAssetTurnover"] = SafeDivide(netSales, fixedAssets > 0 ? fixedAssets : totalAssets),
+            ["DebtorTurnover"] = SafeDivide(netSales, avgDebtors > 0 ? avgDebtors : closingDebtors),
+            ["CreditorTurnover"] = SafeDivide(totalExpense > 0 ? totalExpense : cogs, avgCreditors > 0 ? avgCreditors : closingCreditors),
+            ["InventoryTurnover"] = SafeDivide(cogs > 0 ? cogs : totalExpense, avgStock > 0 ? avgStock : closingStock),
+        };
+
+        return ratios;
+    }
+
+    private static decimal? SafeDivide(decimal numerator, decimal denominator, int decimals = 2)
+    {
+        if (denominator == 0) return null;
+        return Math.Round(numerator / denominator, decimals);
+    }
+
+    private static List<FinancialRatioRowDto> BuildFinancialRatioRows(
+        Dictionary<string, decimal?> current,
+        Dictionary<string, decimal?>? previous)
+    {
+        var definitions = new[]
+        {
+            // Category, Key, Name, Formula, Description, Unit
+            ("Liquidity Ratios", "CurrentRatio", "Current Ratio",
+             "Current Assets / Current Liabilities",
+             "Measures ability to pay short-term debt with short-term assets (ideal > 1.5).", "ratio"),
+
+            ("Liquidity Ratios", "QuickRatio", "Quick Ratio (Acid-Test)",
+             "(Bank + Cash + Receivables) / Current Liabilities",
+             "Measures instant liquidity excluding inventory and prepayments (ideal > 1.0).", "ratio"),
+
+            ("Solvency & Profitability", "DebtEquityRatio", "Debt to Equity Ratio",
+             "Total Liabilities / Total Equity",
+             "Proportion of equity and debt used to finance assets.", "ratio"),
+
+            ("Solvency & Profitability", "GrossProfitMargin", "Gross Profit Margin",
+             "((Net Sales - COGS) / Net Sales) * 100",
+             "Percentage of revenue left after paying cost of goods sold.", "%"),
+
+            ("Solvency & Profitability", "NetProfitMargin", "Net Profit Margin",
+             "(Net Profit / Net Sales) * 100",
+             "Percentage of revenue remaining as net profit after all expenses.", "%"),
+
+            ("Solvency & Profitability", "ReturnOnAssets", "Return on Assets (ROA)",
+             "(Net Profit / Total Assets) * 100",
+             "Efficiency at using assets to generate net earnings.", "%"),
+
+            ("Solvency & Profitability", "ReturnOnEquity", "Return on Equity (ROE)",
+             "(Net Profit / Shareholder Equity) * 100",
+             "Profitability generated on shareholder invested capital.", "%"),
+
+            ("Turnover Ratios", "FixedAssetTurnover", "Fixed Asset Turnover",
+             "Net Sales / Fixed Assets",
+             "How efficiently sales are generated from fixed asset investments.", "times"),
+
+            ("Turnover Ratios", "DebtorTurnover", "Debtor (Receivables) Turnover",
+             "Net Sales / Average Receivables",
+             "How quickly customer credit is collected into cash.", "times"),
+
+            ("Turnover Ratios", "CreditorTurnover", "Creditor (Payables) Turnover",
+             "Total Expenses / Average Payables",
+             "Frequency of paying supplier invoices during the period.", "times"),
+
+            ("Turnover Ratios", "InventoryTurnover", "Inventory Turnover",
+             "COGS / Average Inventory",
+             "Number of times inventory is sold and replaced over the period.", "times"),
+        };
+
+        var result = new List<FinancialRatioRowDto>();
+
+        foreach (var (category, key, name, formula, desc, unit) in definitions)
+        {
+            current.TryGetValue(key, out var val);
+            decimal? prevVal = null;
+            if (previous != null)
+                previous.TryGetValue(key, out prevVal);
+
+            decimal? change = null;
+            if (val.HasValue && prevVal.HasValue && prevVal.Value != 0)
+            {
+                change = Math.Round((val.Value - prevVal.Value) / Math.Abs(prevVal.Value) * 100m, 1);
+            }
+
+            result.Add(new FinancialRatioRowDto
+            {
+                Category = category,
+                RatioName = name,
+                Value = val,
+                PreviousValue = prevVal,
+                ChangePercentage = change,
+                Formula = formula,
+                Description = desc,
+                Unit = unit,
+            });
+        }
+
+        return result;
+    }
 }
 

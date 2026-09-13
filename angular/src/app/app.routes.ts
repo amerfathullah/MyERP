@@ -556,6 +556,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Accounts' },
   },
   {
+    path: 'accounting/reports/financial-ratios',
+    loadComponent: () => import('./accounting/reports/financial-ratios/financial-ratios.component').then(c => c.FinancialRatiosComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Accounts' },
+  },
+  {
     path: 'accounting/reports/aging',
     loadComponent: () => import('./accounting/reports/aging-report/aging-report.component').then(c => c.AgingReportComponent),
     canActivate: [authGuard, permissionGuard],
