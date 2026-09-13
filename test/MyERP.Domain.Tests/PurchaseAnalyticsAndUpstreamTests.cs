@@ -97,11 +97,23 @@ public class PurchaseAnalyticsAndUpstreamTests
         Assert.Equal(0m, pi.GrandTotal);
     }
 
+    [Fact]
+    public void PurchaseAnalyticsRequestDto_EntityIds_SupportsFiltering()
+    {
+        var dto = new PurchaseAnalyticsRequestDto
+        {
+            EntityIds = new() { "SUP-001", "SUP-002" }
+        };
+        Assert.NotNull(dto.EntityIds);
+        Assert.Equal(2, dto.EntityIds.Count);
+    }
+
     [Theory]
     [InlineData("Menu:PurchaseAnalytics")]
     [InlineData("PurchaseAnalytics")]
     [InlineData("TopSupplierShare")]
     [InlineData("Periods")]
+    [InlineData("FilterByEntity")]
     public void Localization_PurchaseAnalyticsKeysExist(string key)
     {
         var jsonPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src",

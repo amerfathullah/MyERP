@@ -228,7 +228,7 @@ export class SubcontractingInwardDetailComponent implements OnInit {
 
   // Receipt dialog state
   showReceiptDialog = signal(false);
-  receiptItems = signal<{ itemId: string; orderedQty: number; receivedQty: number; pendingQty: number; receiveQty: number }[]>([]);
+  receiptItems = signal<{ subcontractingInwardOrderItemId?: string; itemId: string; orderedQty: number; receivedQty: number; pendingQty: number; receiveQty: number }[]>([]);
   isCreatingReceipt = signal(false);
 
   private statusNames = ['Draft', 'Open', 'Partially Received', 'Completed', 'Closed', 'Cancelled'];

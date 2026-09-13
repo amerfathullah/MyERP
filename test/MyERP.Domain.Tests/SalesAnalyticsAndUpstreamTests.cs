@@ -192,6 +192,19 @@ public class SalesAnalyticsAndUpstreamTests
         Assert.True(true);
     }
 
+    [Fact]
+    public void SalesAnalyticsRequestDto_EntityIds_SupportsFiltering()
+    {
+        var request = new SalesAnalyticsRequestDto
+        {
+            EntityIds = new List<string> { "cust-1", "cust-2" },
+            GroupBy = AnalyticsGroupBy.ItemGroup
+        };
+        Assert.NotNull(request.EntityIds);
+        Assert.Equal(2, request.EntityIds.Count);
+        Assert.Equal(AnalyticsGroupBy.ItemGroup, request.GroupBy);
+    }
+
     [Theory]
     [InlineData("Menu:SalesAnalytics")]
     [InlineData("SalesAnalytics")]
@@ -201,6 +214,7 @@ public class SalesAnalyticsAndUpstreamTests
     [InlineData("Entities")]
     [InlineData("Periods")]
     [InlineData("Entity")]
+    [InlineData("FilterByEntity")]
     public void Localization_SalesAnalyticsKeys_ExistInEnJson(string key)
     {
         var json = System.IO.File.ReadAllText(

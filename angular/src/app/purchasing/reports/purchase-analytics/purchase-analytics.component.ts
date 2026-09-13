@@ -29,11 +29,15 @@ import type { PurchaseAnalyticsReportDto, PurchaseAnalyticsRowDto } from '../../
           <div class="row g-2 mb-3">
             <div class="col-md-2">
               <label class="form-label small">{{ '::GroupBy' | abpLocalization }}</label>
-              <select class="form-select form-select-sm" [(ngModel)]="groupBy" (ngModelChange)="loadReport()">
+              <select class="form-select form-select-sm" [(ngModel)]="groupBy" (ngModelChange)="onGroupByChange()">
                 <option [value]="0">{{ '::Supplier' | abpLocalization }}</option>
                 <option [value]="1">{{ '::Item' | abpLocalization }}</option>
                 <option [value]="4">{{ '::ItemGroup' | abpLocalization }}</option>
               </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small">{{ getGroupLabel() | abpLocalization }}</label>
+              <input type="text" class="form-control form-control-sm" [(ngModel)]="entityFilter" [placeholder]="'::FilterByEntity' | abpLocalization" (change)="loadReport()" />
             </div>
             <div class="col-md-2">
               <label class="form-label small">{{ '::Period' | abpLocalization }}</label>
@@ -172,6 +176,12 @@ export class PurchaseAnalyticsComponent implements OnInit {
   valueField = 'Amount';
   fromDate = '';
   toDate = '';
+  entityFilter = '';
+
+  onGroupByChange(): void {
+    this.entityFilter = '';
+    this.loadReport();
+  }
 
   ngOnInit(): void {
     const now = new Date();
@@ -185,6 +195,10 @@ export class PurchaseAnalyticsComponent implements OnInit {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId || !this.fromDate || !this.toDate) return;
 
+    const entityIds = this.entityFilter
+      ? this.entityFilter.split(',').map(s => s.trim()).filter(Boolean)
+      : undefined;
+
     this.isLoading.set(true);
     this.service.getReport({
       companyId,
@@ -193,6 +207,7 @@ export class PurchaseAnalyticsComponent implements OnInit {
       groupBy: this.groupBy,
       periodType: this.periodType,
       valueField: this.valueField,
+      entityIds: entityIds && entityIds.length > 0 ? entityIds : undefined,
     }).subscribe({
       next: (r) => { this.report.set(r); this.isLoading.set(false); },
       error: () => { this.isLoading.set(false); this.toaster.error('::FailedToGenerateReport'); },

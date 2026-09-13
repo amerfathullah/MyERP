@@ -110,6 +110,47 @@ public class PurchaseAnalyticsAppService : ApplicationService, IPurchaseAnalytic
                 });
             }
         }
+        else if (input.GroupBy == AnalyticsGroupBy.ItemGroup)
+        {
+            var allItemIds = invoices.SelectMany(pi => pi.Items).Select(i => i.ItemId).Distinct().ToList();
+            var itemGroupMap = new Dictionary<Guid, string>();
+            if (allItemIds.Count > 0)
+            {
+                var items = (await _itemRepo.GetQueryableAsync())
+                    .Where(i => allItemIds.Contains(i.Id))
+                    .Select(i => new { i.Id, ItemGroup = !string.IsNullOrEmpty(i.ItemGroup) ? i.ItemGroup : "All Item Groups" })
+                    .ToList();
+                itemGroupMap = items.ToDictionary(i => i.Id, i => i.ItemGroup);
+            }
+
+            var itemGroups = invoices
+                .SelectMany(pi => pi.Items.Select(item => new
+                {
+                    pi.IssueDate,
+                    ItemGroup = itemGroupMap.GetValueOrDefault(item.ItemId, "All Item Groups"),
+                    item.Quantity,
+                    Amount = item.Quantity * item.UnitPrice,
+                }))
+                .GroupBy(x => x.ItemGroup);
+
+            foreach (var g in itemGroups)
+            {
+                var periodValues = new List<decimal>();
+                foreach (var period in periods)
+                {
+                    var periodItems = g.Where(x => x.IssueDate >= period.From && x.IssueDate <= period.To);
+                    periodValues.Add(useQty ? periodItems.Sum(x => x.Quantity) : periodItems.Sum(x => x.Amount));
+                }
+                rows.Add(new PurchaseAnalyticsRowDto
+                {
+                    EntityId = g.Key,
+                    EntityName = g.Key,
+                    PeriodValues = periodValues,
+                    Total = periodValues.Sum(),
+                    Growth = CalculateGrowth(periodValues),
+                });
+            }
+        }
         else
         {
             var grouped = invoices.GroupBy(pi => pi.SupplierId);
@@ -124,8 +165,8 @@ public class PurchaseAnalyticsAppService : ApplicationService, IPurchaseAnalytic
         // Filter by entity IDs if specified (ERPNext commit 3f29cdf8d2)
         if (input.EntityIds != null && input.EntityIds.Count > 0)
         {
-            var entitySet = input.EntityIds.ToHashSet();
-            rows = rows.Where(r => entitySet.Contains(r.EntityId)).ToList();
+            var entitySet = input.EntityIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            rows = rows.Where(r => entitySet.Contains(r.EntityId) || entitySet.Contains(r.EntityName)).ToList();
         }
 
         rows = rows.OrderByDescending(r => r.Total).ToList();

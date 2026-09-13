@@ -113,9 +113,52 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
                 });
             }
         }
+        else if (input.GroupBy == AnalyticsGroupBy.ItemGroup)
+        {
+            var allItemIds = invoices.SelectMany(si => si.Items).Select(i => i.ItemId).Distinct().ToList();
+            var itemGroupMap = new Dictionary<Guid, string>();
+            if (allItemIds.Count > 0)
+            {
+                var items = (await _itemRepo.GetQueryableAsync())
+                    .Where(i => allItemIds.Contains(i.Id))
+                    .Select(i => new { i.Id, ItemGroup = !string.IsNullOrEmpty(i.ItemGroup) ? i.ItemGroup : "All Item Groups" })
+                    .ToList();
+                itemGroupMap = items.ToDictionary(i => i.Id, i => i.ItemGroup);
+            }
+
+            var itemGroups = invoices
+                .SelectMany(si => si.Items.Select(item => new
+                {
+                    si.IssueDate,
+                    ItemGroup = itemGroupMap.GetValueOrDefault(item.ItemId, "All Item Groups"),
+                    item.Quantity,
+                    Amount = item.Quantity * item.UnitPrice,
+                }))
+                .GroupBy(x => x.ItemGroup);
+
+            foreach (var g in itemGroups)
+            {
+                var periodValues = new List<decimal>();
+                foreach (var period in periods)
+                {
+                    var periodItems = g.Where(x => x.IssueDate >= period.From && x.IssueDate <= period.To);
+                    periodValues.Add(useQty ? periodItems.Sum(x => x.Quantity) : periodItems.Sum(x => x.Amount));
+                }
+                var total = periodValues.Sum();
+                var growth = CalculateGrowth(periodValues);
+                rows.Add(new SalesAnalyticsRowDto
+                {
+                    EntityId = g.Key,
+                    EntityName = g.Key,
+                    PeriodValues = periodValues,
+                    Total = total,
+                    Growth = growth,
+                });
+            }
+        }
         else
         {
-            // Territory/SalesPerson/ItemGroup: group by customer as fallback
+            // Territory/SalesPerson: group by customer as fallback
             var grouped = invoices.GroupBy(si => si.CustomerId);
             foreach (var g in grouped)
             {
@@ -128,8 +171,8 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
         // Filter by entity IDs if specified (ERPNext commit 3f29cdf8d2)
         if (input.EntityIds != null && input.EntityIds.Count > 0)
         {
-            var entitySet = input.EntityIds.ToHashSet();
-            rows = rows.Where(r => entitySet.Contains(r.EntityId)).ToList();
+            var entitySet = input.EntityIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            rows = rows.Where(r => entitySet.Contains(r.EntityId) || entitySet.Contains(r.EntityName)).ToList();
         }
 
         // Sort by total descending (top revenue first)

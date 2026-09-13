@@ -289,4 +289,49 @@ public class UpstreamBatch58924To58949Tests
         inserted.Items.First().Description.ShouldBe("Widget Alpha Master");
         result.Items.First().Description.ShouldBe("Widget Alpha Master");
     }
+
+    // --- PR #58926 / commit fd492100b0: Inactive price list rate lookup returns 0 ---
+
+    [Fact]
+    public async Task PricingAppService_GetItemRateAsync_DisabledPriceList_ReturnsZeroRate()
+    {
+        var plRepo = Substitute.For<IRepository<PriceList, Guid>>();
+        var ipRepo = Substitute.For<IRepository<ItemPrice, Guid>>();
+
+        var disabledPlId = Guid.NewGuid();
+        var disabledPl = new PriceList(disabledPlId, "Disabled PL", "MYR", true, false)
+        {
+            IsActive = false
+        };
+        plRepo.FindAsync(disabledPlId).Returns(disabledPl);
+
+        var pricingService = new PricingAppService(plRepo, ipRepo);
+        var rate = await pricingService.GetItemRateAsync(new GetItemRateRequestDto
+        {
+            ItemId = Guid.NewGuid(),
+            PriceListId = disabledPlId,
+            Qty = 1
+        });
+
+        rate.ShouldNotBeNull();
+        rate.Rate.ShouldBe(0);
+        rate.Source.ShouldBe("None");
+    }
+
+    // --- PR #58939 / commit 33a066d568: BOM CostAllocationPercentage recalculated from secondary items ---
+
+    [Fact]
+    public void BillOfMaterials_RecalculateCost_SetsCostAllocationPercentage()
+    {
+        var bom = new BillOfMaterials(Guid.NewGuid(), Guid.NewGuid(), "BOM-004", Guid.NewGuid());
+        bom.SecondaryItems.Add(new BomSecondaryItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), SecondaryItemType.CoProduct, 2m)
+        {
+            ValuationType = SecondaryItemValuationType.PercentageOfComponentCost,
+            CostAllocationPercentage = 30m
+        });
+
+        bom.RecalculateCost();
+
+        bom.CostAllocationPercentage.ShouldBe(70m);
+    }
 }

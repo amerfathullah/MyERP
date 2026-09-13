@@ -40,11 +40,15 @@ interface AnalyticsReport {
         <div class="row g-2 mb-4">
           <div class="col-md-2">
             <label class="form-label small text-muted">{{ '::GroupBy' | abpLocalization }}</label>
-            <select class="form-select form-select-sm" [(ngModel)]="groupBy" (change)="generate()">
+            <select class="form-select form-select-sm" [(ngModel)]="groupBy" (change)="onGroupByChange()">
               <option value="0">{{ '::Customer' | abpLocalization }}</option>
               <option value="1">{{ '::Item' | abpLocalization }}</option>
               <option value="4">{{ '::ItemGroup' | abpLocalization }}</option>
             </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small text-muted">{{ entityFilterLabel | abpLocalization }}</label>
+            <input type="text" class="form-control form-control-sm" [(ngModel)]="entityFilter" [placeholder]="'::FilterByEntity' | abpLocalization" (change)="generate()" />
           </div>
           <div class="col-md-2">
             <label class="form-label small text-muted">{{ '::Period' | abpLocalization }}</label>
@@ -181,6 +185,20 @@ export class SalesAnalyticsComponent implements OnInit {
   valueField = 'Amount';
   fromDate = '';
   toDate = '';
+  entityFilter = '';
+
+  get entityFilterLabel(): string {
+    switch (this.groupBy) {
+      case '1': return '::Item';
+      case '4': return '::ItemGroup';
+      default: return '::Customer';
+    }
+  }
+
+  onGroupByChange(): void {
+    this.entityFilter = '';
+    this.generate();
+  }
 
   ngOnInit() {
     const now = new Date();
@@ -194,6 +212,10 @@ export class SalesAnalyticsComponent implements OnInit {
     const companyId = this.companyContext.currentCompanyId();
     if (!companyId || !this.fromDate || !this.toDate) return;
 
+    const entityIds = this.entityFilter
+      ? this.entityFilter.split(',').map(s => s.trim()).filter(Boolean)
+      : undefined;
+
     this.loading.set(true);
     this.analyticsService.getReport({
       companyId,
@@ -202,6 +224,7 @@ export class SalesAnalyticsComponent implements OnInit {
       groupBy: this.groupBy,
       periodType: this.periodType,
       valueField: this.valueField,
+      entityIds: entityIds && entityIds.length > 0 ? entityIds : undefined,
     } as any).subscribe({
       next: data => { this.report.set(data as any); this.loading.set(false); },
       error: () => this.loading.set(false),

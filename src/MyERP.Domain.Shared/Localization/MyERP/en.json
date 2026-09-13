@@ -2114,6 +2114,7 @@
     "Value": "Value",
     "Entities": "Entities",
     "Entity": "Entity",
+    "FilterByEntity": "Filter by Entity",
     "ItemSalesSummary": "Item Sales Summary",
     "TotalRevenue": "Total Revenue",
     "TotalExpenses": "Total Expenses",

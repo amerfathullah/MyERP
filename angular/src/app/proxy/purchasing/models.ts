@@ -688,6 +688,7 @@ export interface RmTransferResultDto {
 export interface ScioReceiveItemDto {
   itemId: string;
   qty?: number;
+  subcontractingInwardOrderItemId?: string | null;
 }
 
 export interface ScioReceiveItemsDto {

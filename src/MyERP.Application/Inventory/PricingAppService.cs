@@ -139,6 +139,11 @@ public class PricingAppService : ApplicationService, IPricingAppService
     /// </summary>
     public async Task<ItemRateResultDto> GetItemRateAsync(GetItemRateRequestDto input)
     {
+        // Per ERPNext PR #58926 / commit fd492100b0: ignore disabled price lists
+        var priceList = await _priceListRepository.FindAsync(input.PriceListId);
+        if (priceList == null || !priceList.IsActive)
+            return new ItemRateResultDto { Rate = 0, Source = "None" };
+
         var query = await _itemPriceRepository.GetQueryableAsync();
         var date = input.TransactionDate ?? DateTime.UtcNow;
 

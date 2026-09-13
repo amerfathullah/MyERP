@@ -82,6 +82,12 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Set component quantities based on percentage formulation (ERPNext commit d07f4bb857).</summary>
     public bool SetQtyBasedOnPercentage { get; set; }
 
+    /// <summary>
+    /// Finished good cost allocation percentage. Maps to ERPNext bom.py cost_allocation_per.
+    /// Derived as 100 - sum(SecondaryItems.CostAllocationPercentage) per PR #58939 / commit 33a066d568.
+    /// </summary>
+    public decimal CostAllocationPercentage { get; set; } = 100m;
+
     public List<BomItem> Items { get; private set; } = new();
     public List<BomOperation> Operations { get; private set; } = new();
     public List<BomSecondaryItem> SecondaryItems { get; private set; } = new();
@@ -190,6 +196,11 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
                     si.Rate = allocatedCost / si.EffectiveQuantity;
             }
         }
+
+        var totalSecondaryAllocation = SecondaryItems
+            .Where(s => !s.IsLegacy && s.ValuationType == SecondaryItemValuationType.PercentageOfComponentCost)
+            .Sum(s => s.CostAllocationPercentage);
+        CostAllocationPercentage = Math.Max(0, 100m - totalSecondaryAllocation);
     }
 
     /// <summary>
