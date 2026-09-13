@@ -1,4 +1,5 @@
 using System;
+using MyERP.Manufacturing;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
 
@@ -34,6 +35,12 @@ public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
 
     /// <summary>For secondary items: CoProduct, ByProduct, Scrap.</summary>
     public string? SecondaryItemType { get; set; }
+
+    /// <summary>Valuation method for secondary item (PR #59021 / commit bec627c3eb).</summary>
+    public SecondaryItemValuationType? ValuationType { get; set; }
+
+    /// <summary>BOM Secondary Item reference when created from a BOM secondary item (PR #59021).</summary>
+    public Guid? BomSecondaryItemId { get; set; }
 
     /// <summary>Per-item process loss percentage for secondary items.</summary>
     public decimal ProcessLossPercentage { get; set; }

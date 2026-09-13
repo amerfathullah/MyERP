@@ -13,6 +13,7 @@ import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 import type { NonConformanceStatus } from './non-conformance-status.enum';
 import type { QualityActionStatus } from './quality-action-status.enum';
 import type { QualityMeetingStatus } from './quality-meeting-status.enum';
+import type { SecondaryItemValuationType } from '../manufacturing/secondary-item-valuation-type.enum';
 
 export interface AutoPickBatchDto {
   companyId?: string | null;
@@ -416,6 +417,9 @@ export interface CreateStockEntryItemDto {
   materialRequestItemId?: string | null;
   conversionFactor?: number;
   stockUom?: string | null;
+  secondaryItemType?: string | null;
+  valuationType?: SecondaryItemValuationType | null;
+  bomSecondaryItemId?: string | null;
 }
 
 export interface CreateStockReservationDto {
@@ -1814,6 +1818,9 @@ export interface StockEntryItemDto {
   conversionFactor?: number;
   stockUom?: string | null;
   stockQty?: number;
+  secondaryItemType?: string | null;
+  valuationType?: SecondaryItemValuationType | null;
+  bomSecondaryItemId?: string | null;
 }
 
 export interface StockGlComparisonDto {

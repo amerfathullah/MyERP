@@ -470,7 +470,11 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 WarehouseId = item.WarehouseId,
                 CostCenterId = item.CostCenterId,
                 ExpenseAccountId = item.ExpenseAccountId,
-                ServiceExpenseAccountId = item.ServiceExpenseAccountId
+                ServiceExpenseAccountId = item.ServiceExpenseAccountId,
+                SecondaryItemType = item.SecondaryItemType,
+                ValuationType = item.ValuationType,
+                CostAllocationPercentage = item.CostAllocationPercentage,
+                BomSecondaryItemId = item.BomSecondaryItemId
             });
         }
 
@@ -728,6 +732,10 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 ExpenseAccountId = i.ExpenseAccountId,
                 ServiceExpenseAccountId = i.ServiceExpenseAccountId,
                 CostCenterId = i.CostCenterId,
+                SecondaryItemType = i.SecondaryItemType,
+                ValuationType = i.ValuationType,
+                CostAllocationPercentage = i.CostAllocationPercentage,
+                BomSecondaryItemId = i.BomSecondaryItemId,
             }).ToList()
         };
     }
@@ -768,6 +776,10 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 ExpenseAccountId = i.ExpenseAccountId,
                 ServiceExpenseAccountId = i.ServiceExpenseAccountId,
                 CostCenterId = i.CostCenterId,
+                SecondaryItemType = i.SecondaryItemType,
+                ValuationType = i.ValuationType,
+                CostAllocationPercentage = i.CostAllocationPercentage,
+                BomSecondaryItemId = i.BomSecondaryItemId,
             }).ToList()
         }).ToList();
     }

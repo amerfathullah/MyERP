@@ -1499,6 +1499,9 @@ public class MyERPDbContext :
             b.Property(x => x.ItemName).IsRequired().HasMaxLength(200);
             b.Property(x => x.Qty).HasColumnType("decimal(18,4)");
             b.Property(x => x.Rate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.SecondaryItemType).HasMaxLength(50);
+            b.Property(x => x.CostAllocationPercentage).HasColumnType("decimal(18,4)");
+            b.HasIndex(x => x.BomSecondaryItemId);
         });
 
         builder.Entity<SubcontractingInwardOrder>(b =>
@@ -2133,7 +2136,9 @@ public class MyERPDbContext :
             b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.ValuationRate).HasColumnType("decimal(18,4)");
             b.Property(x => x.AdditionalCost).HasColumnType("decimal(18,4)");
+            b.Property(x => x.SecondaryItemType).HasMaxLength(50);
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
+            b.HasIndex(x => x.BomSecondaryItemId);
         });
 
         builder.Entity<StockLedgerEntry>(b =>

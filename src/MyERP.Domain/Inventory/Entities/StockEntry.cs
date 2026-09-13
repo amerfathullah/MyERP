@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MyERP.Accounting.DomainServices;
 using MyERP.Core;
+using MyERP.Manufacturing;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
@@ -123,10 +124,11 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     }
 
     public void AddItem(
-        Guid itemId, decimal quantity, Guid? sourceWarehouseId, Guid? targetWarehouseId,
+        Guid itemId, decimal quantity, Guid? sourceWarehouseId = null, Guid? targetWarehouseId = null,
         decimal? valuationRate = null, bool isFinishedItem = false, Guid? batchId = null,
         string? secondaryItemType = null, decimal processLossPercentage = 0,
-        decimal conversionFactor = 1m, string stockUom = "Unit")
+        decimal conversionFactor = 1m, string stockUom = "Unit",
+        SecondaryItemValuationType? valuationType = null, Guid? bomSecondaryItemId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -139,7 +141,9 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
             SecondaryItemType = secondaryItemType,
             ProcessLossPercentage = processLossPercentage,
             ConversionFactor = conversionFactor > 0 ? conversionFactor : 1m,
-            StockUom = stockUom
+            StockUom = stockUom,
+            ValuationType = valuationType,
+            BomSecondaryItemId = bomSecondaryItemId
         };
         _items.Add(item);
     }
@@ -152,12 +156,45 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
         _items.Clear();
     }
 
+    /// <summary>
+    /// Secondary rows without a BOM link choose their own costing: valuation rate or manual.
+    /// There is no percentage to allocate without a BOM row, so % of Component Cost is rejected.
+    /// Per ERPNext PR #59021 / commit bec627c3eb.
+    /// </summary>
+    public void SetBomlessSecondaryValuationTypes()
+    {
+        for (int i = 0; i < _items.Count; i++)
+        {
+            var d = _items[i];
+            if (d.BomSecondaryItemId.HasValue)
+                continue;
+
+            if (string.IsNullOrWhiteSpace(d.SecondaryItemType))
+            {
+                if (d.ValuationType.HasValue)
+                {
+                    d.ValuationType = null;
+                    d.SetBasicRateManually = false;
+                }
+                continue;
+            }
+
+            if (d.ValuationType == SecondaryItemValuationType.PercentageOfComponentCost)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{i + 1}: % of Component Cost needs a BOM secondary item. Choose Valuation Rate or Manual.");
+            }
+        }
+    }
+
     public void Submit()
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         if (!_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        SetBomlessSecondaryValuationTypes();
 
         // Validate source and target warehouses cannot be identical (gotcha #6179)
         foreach (var item in _items)

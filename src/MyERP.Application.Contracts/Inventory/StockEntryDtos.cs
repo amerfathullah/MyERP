@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using MyERP.Manufacturing;
 using Volo.Abp.Application.Dtos;
 
 namespace MyERP.Inventory;
@@ -42,6 +43,9 @@ public class StockEntryItemDto
     public decimal? ValuationRate { get; set; }
     public decimal AdditionalCost { get; set; }
     public bool IsFinishedItem { get; set; }
+    public string? SecondaryItemType { get; set; }
+    public SecondaryItemValuationType? ValuationType { get; set; }
+    public Guid? BomSecondaryItemId { get; set; }
     public Guid? CostCenterId { get; set; }
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ProjectId { get; set; }
@@ -105,6 +109,10 @@ public class CreateStockEntryItemDto
     public decimal AdditionalCost { get; set; }
 
     public bool IsFinishedItem { get; set; }
+
+    public string? SecondaryItemType { get; set; }
+    public SecondaryItemValuationType? ValuationType { get; set; }
+    public Guid? BomSecondaryItemId { get; set; }
 
     public Guid? BatchId { get; set; }
 

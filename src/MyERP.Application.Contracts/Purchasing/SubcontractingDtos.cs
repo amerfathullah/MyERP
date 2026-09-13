@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using MyERP.Manufacturing;
 using Volo.Abp.Application.Dtos;
 
 namespace MyERP.Purchasing;
@@ -99,6 +100,10 @@ public class SubcontractingReceiptItemDto : EntityDto<Guid>
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ServiceExpenseAccountId { get; set; }
     public Guid? CostCenterId { get; set; }
+    public string? SecondaryItemType { get; set; }
+    public SecondaryItemValuationType? ValuationType { get; set; }
+    public decimal? CostAllocationPercentage { get; set; }
+    public Guid? BomSecondaryItemId { get; set; }
 }
 
 public class CreateSubcontractingReceiptDto
@@ -121,6 +126,10 @@ public class CreateScrItemDto
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ServiceExpenseAccountId { get; set; }
     public Guid? CostCenterId { get; set; }
+    public string? SecondaryItemType { get; set; }
+    public SecondaryItemValuationType? ValuationType { get; set; }
+    public decimal? CostAllocationPercentage { get; set; }
+    public Guid? BomSecondaryItemId { get; set; }
 }
 
 public class CreateSubcontractingReceiptReturnDto

@@ -168,8 +168,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             entry.AddItem(
                 item.ItemId, item.Quantity, item.SourceWarehouseId, item.TargetWarehouseId,
                 item.ValuationRate, item.IsFinishedItem, item.BatchId,
+                secondaryItemType: item.SecondaryItemType,
                 conversionFactor: item.ConversionFactor > 0 ? item.ConversionFactor : 1m,
-                stockUom: item.StockUom ?? "Unit");
+                stockUom: item.StockUom ?? "Unit",
+                valuationType: item.ValuationType,
+                bomSecondaryItemId: item.BomSecondaryItemId);
             if (item.CostCenterId.HasValue || input.CostCenterId.HasValue)
                 entry.Items[^1].CostCenterId = item.CostCenterId ?? input.CostCenterId;
             if (item.ExpenseAccountId.HasValue)

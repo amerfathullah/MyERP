@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MyERP.Accounting.DomainServices;
+using MyERP.Manufacturing;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Entities.Auditing;
@@ -93,6 +94,18 @@ public class SubcontractingReceiptItem : Entity<Guid>
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ServiceExpenseAccountId { get; set; }
     public Guid? CostCenterId { get; set; }
+
+    /// <summary>For secondary items: Co-Product, By-Product, Scrap, Additional Finished Good (PR #59021).</summary>
+    public string? SecondaryItemType { get; set; }
+
+    /// <summary>Valuation method for secondary item (PR #59021 / commit bec627c3eb).</summary>
+    public SecondaryItemValuationType? ValuationType { get; set; }
+
+    /// <summary>Cost allocation percentage when ValuationType is PercentageOfComponentCost (PR #59021).</summary>
+    public decimal? CostAllocationPercentage { get; set; }
+
+    /// <summary>BOM Secondary Item reference when created from a BOM secondary item (PR #59021).</summary>
+    public Guid? BomSecondaryItemId { get; set; }
 
     protected SubcontractingReceiptItem() { }
     public SubcontractingReceiptItem(Guid id, Guid scrId, Guid itemId, string itemName, decimal qty, decimal rate)

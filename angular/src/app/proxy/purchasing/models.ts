@@ -7,6 +7,7 @@ import type { AnalyticsGroupBy } from '../sales/analytics-group-by.enum';
 import type { AnalyticsPeriodType } from '../sales/analytics-period-type.enum';
 import type { SubcontractingInwardOrderStatus } from './subcontracting-inward-order-status.enum';
 import type { SubcontractingReceiptStatus } from './subcontracting-receipt-status.enum';
+import type { SecondaryItemValuationType } from '../manufacturing/secondary-item-valuation-type.enum';
 
 export interface ComparisonItemDto {
   itemId?: string;
@@ -215,6 +216,10 @@ export interface CreateScrItemDto {
   expenseAccountId?: string | null;
   serviceExpenseAccountId?: string | null;
   costCenterId?: string | null;
+  secondaryItemType?: string | null;
+  valuationType?: SecondaryItemValuationType | null;
+  costAllocationPercentage?: number;
+  bomSecondaryItemId?: string | null;
 }
 
 export interface CreateScrReturnItemDto {
@@ -831,6 +836,10 @@ export interface SubcontractingReceiptItemDto extends EntityDto<string> {
   expenseAccountId?: string | null;
   serviceExpenseAccountId?: string | null;
   costCenterId?: string | null;
+  secondaryItemType?: string | null;
+  valuationType?: SecondaryItemValuationType | null;
+  costAllocationPercentage?: number;
+  bomSecondaryItemId?: string | null;
 }
 
 export interface SubcontractingReceiptSummaryDto {
