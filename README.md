@@ -19,10 +19,10 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 
 | Module | Capabilities |
 |--------|-------------|
-| **Accounting** | General ledger, journal entries, payment entries, bank reconciliation, budgets, period closing, exchange rate revaluation, currency exchange, accounting dimensions, fiscal years, finance books, Trial Balance / P&L / Balance Sheet reports |
-| **Sales** | Quotations → Sales Orders → Delivery Notes → Sales Invoices, POS invoicing, POS closing entries, blanket orders, pricing rules, shipping rules, dunning, loyalty programs, subscriptions, installation notes, product bundles, sales commissions |
+| **Accounting** | General ledger, journal entries, payment entries, bank reconciliation, budgets, period closing, exchange rate revaluation, currency exchange, accounting dimensions, fiscal years, finance books, Trial Balance / P&L / Balance Sheet / Cash Flow / Financial Ratios reports, financial report templates |
+| **Sales** | Quotations → Sales Orders → Delivery Notes → Sales Invoices, POS invoicing, POS closing entries, blanket orders, pricing rules, shipping rules, dunning, loyalty programs, subscriptions, installation notes, product bundles, sales commissions, gross profit report |
 | **Purchasing** | Material Requests → RFQ → Supplier Quotations → Purchase Orders → Purchase Receipts → Purchase Invoices, subcontracting (orders & receipts), supplier scorecards |
-| **Inventory** | Items, item attributes, warehouses, bins, stock entries (13 purpose types), stock ledger (FIFO/Moving Average/LIFO), stock reconciliation, stock reservation, pick lists, putaway rules, landed cost vouchers, quality inspections, batch management, serial numbers, UOM conversions, stock closing |
+| **Inventory** | Items, item attributes, warehouses, bins, stock entries (13 purpose types), stock ledger (FIFO/Moving Average/LIFO), stock reconciliation (allow zero valuation rate), stock reservation, pick lists, putaway rules, landed cost vouchers, quality inspections, batch management, serial numbers, UOM conversions, secondary item valuation type, stock closing |
 | **Tax** | Configurable tax categories & rules, SST support, date-range effective rates, SST-02 filing |
 | **HR & Payroll** | Employee management, leave management, leave allocation, holiday lists, expense claims, salary structures, salary slips, payroll entry (EPF/SOCSO/EIS/PCB), PDPA field-level security |
 | **CRM** | Lead lifecycle management, opportunity pipeline, conversion to customer |
@@ -30,7 +30,10 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 | **Projects** | Project & task management, dependencies, 4 progress calculation methods, timesheets, timesheet billing |
 | **Fixed Assets** | Asset categories, 3 depreciation methods (SL/DDB/WDV), asset repairs, capitalizations, sale/scrap lifecycle |
 | **Manufacturing** | Bills of Material (explosion, phantom items, cycle detection), work orders, job cards, operations, routings, workstations, production plans (MRP), manufacturing settings |
-| **E-Invoice** | LHDN MyInvois integration (submit, validate, cancel), XAdES digital signing, dashboard, submission logs, reports |
+| **E-Invoice** | LHDN MyInvois integration (submit, validate, cancel), XAdES digital signing, dashboard, submission logs, consolidation, reports |
+| **Maintenance** | Maintenance schedules, maintenance visits, warranty claims |
+| **Telephony** | Call logs, call types, telephony settings |
+| **EDI** | Electronic data interchange code lists and common codes |
 
 ### Enterprise Features
 - **Approval Workflows** — configurable multi-level approvals with amount thresholds and authorization rules
@@ -56,7 +59,7 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 | Cache | Redis 7 |
 | Auth | OpenIddict (OAuth 2.0 / OIDC) |
 | Frontend | Angular 21.2, NgRx SignalStore 21, Bootstrap 5 (LeptonX Lite) |
-| Unit Tests | xUnit (backend), Vitest 4 (frontend) |
+| Unit Tests | xUnit (backend), Vitest 5 (frontend) |
 | E2E Tests | Playwright |
 | Charts | Chart.js 4 |
 | TypeScript | 5.9 |
@@ -224,7 +227,7 @@ src/
 ├── MyERP.Domain.Shared        → Constants, enums, error codes, localization
 ├── MyERP.Domain               → Entities, domain services, repository interfaces, events
 ├── MyERP.Application.Contracts → DTOs, application service interfaces, permissions
-├── MyERP.Application          → Application service implementations, AutoMapper profiles
+├── MyERP.Application          → Application service implementations, Mapperly mapping profiles
 ├── MyERP.EntityFrameworkCore  → DbContext, migrations, repository implementations
 ├── MyERP.HttpApi              → API controllers
 ├── MyERP.HttpApi.Host         → Host application (startup, middleware, configuration)
@@ -242,7 +245,8 @@ angular/                       → Angular 21 SPA (standalone components, NgRx S
 │   ├── inventory/             → Items, Warehouses, Stock Entries, Stock Reconciliation,
 │   │                            Stock Reservations, Landed Costs, Quality Inspections, Batches, Serials
 │   ├── manufacturing/         → BOMs, Work Orders, Job Cards, Production Plans, Workstations
-│   ├── e-invoice/             → LHDN Dashboard, Submission Logs, Reports
+│   ├── e-invoice/             → LHDN Dashboard, Submission Logs, Reports, Consolidation
+│   ├── einvoice/              → E-Invoice batch submit, list, settings (standalone components)
 │   ├── hr/                    → Employees, Leave, Expense Claims, Payroll, Salary Structures
 │   ├── crm/                   → Leads, Opportunities
 │   ├── support/               → Issues (with SLA)
