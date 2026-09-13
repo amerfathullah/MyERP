@@ -219,8 +219,8 @@ pnpm start
 | Service | URL |
 |---------|-----|
 | Angular App | http://localhost:4200 |
-| API | http://localhost:5000 |
-| Swagger UI | http://localhost:5000/swagger |
+| API | https://localhost:44340 |
+| Swagger UI | https://localhost:44340/swagger |
 
 **Default Login:** `admin` / `1q2w3E*`
 
@@ -307,7 +307,9 @@ angular/                       → Angular 21 SPA (standalone components, NgRx S
 test/
 ├── MyERP.Domain.Tests         → 11,500+ unit tests (entities, domain services, business rules)
 ├── MyERP.Application.Tests    → Integration tests (app services, conversion flows)
-└── MyERP.EntityFrameworkCore.Tests → Repository/query tests
+├── MyERP.EntityFrameworkCore.Tests → Repository/query tests
+├── MyERP.TestBase             → Shared test fixtures and base classes
+└── MyERP.HttpApi.Client.ConsoleTestApp → HTTP client smoke tests
 
 docs/
 ├── architecture.md            → System architecture & module map
@@ -315,6 +317,11 @@ docs/
 ├── testing.md                 → Testing strategy & coverage
 ├── api-reference.md           → REST API endpoint reference
 └── malaysia-compliance.md     → LHDN, SST, EPF/SOCSO/EIS, PDPA compliance
+
+etc/
+├── abp-studio/                → ABP Studio run profiles
+├── scripts/                   → Utility scripts
+└── run-profiles/              → Launch profiles (initialize-solution.ps1, migrate-database.ps1)
 ```
 
 ---
@@ -350,15 +357,19 @@ pnpm test:e2e
 ### Production (Docker Compose + Traefik)
 
 ```bash
-# Copy and configure environment
-cp .env.example .env
-# Edit .env with production values
+# Download and configure
+curl -sL https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy/docker-compose.yml -o docker-compose.yml
+curl -sL https://raw.githubusercontent.com/amerfathullah/MyERP/main/deploy/.env.example -o .env
+nano .env   # set DB_PASSWORD, CERT_PASSPHRASE, APP_URL, WEB_URL, etc.
 
-# Deploy
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml run --rm migrator
-docker compose -f docker-compose.prod.yml up -d
+# Deploy (includes PostgreSQL, Redis, migrator, API, web frontend)
+docker compose up -d
+
+# With HTTPS + Traefik (set DOMAIN and ACME_EMAIL in .env first)
+docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
 ```
+
+> **Production stack** (`docker-compose.prod.yml` at repo root) also available — includes Traefik reverse proxy (`myerp-traefik`) with automatic TLS.
 
 See [docs/deployment.md](docs/deployment.md) for full production setup guide.
 
