@@ -139,7 +139,7 @@ import type { FinancialRatiosReportDto, FinancialRatioRowDto } from '../../../pr
                               {{ formatRatio(row.previousValue, row.unit) }}
                             </td>
                             <td class="text-end">
-                              @if (row.changePercentage != null) {
+                              @if (row.changePercentage !== null) {
                                 @if (row.changePercentage > 0) {
                                   <span class="badge bg-success-subtle text-success">
                                     <i class="fas fa-arrow-up me-1"></i>{{ row.changePercentage }}%
