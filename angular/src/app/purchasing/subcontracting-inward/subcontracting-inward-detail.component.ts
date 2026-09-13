@@ -172,7 +172,7 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
                   </tr>
                 </thead>
                 <tbody>
-                  @for (item of receiptItems(); track item.itemId) {
+                  @for (item of receiptItems(); track (item.subcontractingInwardOrderItemId || item.itemId)) {
                     <tr>
                       <td>{{ getItemName(item.itemId) }}</td>
                       <td class="text-end">{{ item.orderedQty | number:'1.0-2' }}</td>
@@ -323,6 +323,7 @@ export class SubcontractingInwardDetailComponent implements OnInit {
     if (!o?.items?.length) return;
     const items = (o.items as any[]).filter(i => (i.pendingReceiptQty ?? (i.quantity - (i.receivedQty ?? 0))) > 0)
       .map(i => ({
+        subcontractingInwardOrderItemId: i.id,
         itemId: i.itemId,
         orderedQty: i.quantity ?? 0,
         receivedQty: i.receivedQty ?? 0,
@@ -344,6 +345,7 @@ export class SubcontractingInwardDetailComponent implements OnInit {
     this.scioService.receiveItems(this.orderId, {
       postingDate: new Date().toISOString().split('T')[0],
       items: items.map(i => ({
+        subcontractingInwardOrderItemId: i.subcontractingInwardOrderItemId,
         itemId: i.itemId,
         qty: i.receiveQty,
       })),
