@@ -70,24 +70,45 @@ public class StockValuationService : DomainService
         decimal newBalanceValue;
         string? stockQueue = null;
 
-        switch (item.ValuationMethod)
+        if (voucherType == "StockReconciliation")
         {
-            case ValuationMethod.FIFO:
-            case ValuationMethod.LIFO:
-                (valuationRate, newBalanceQty, newBalanceValue, stockQueue) =
-                    CalculateFifoLifo(previousSle, quantityChange, incomingRate, item.ValuationMethod == ValuationMethod.LIFO);
-                break;
+            // Per ERPNext stock_ledger.py lines 1016-1024 / PR #58800:
+            // Stock Reconciliation directly sets valuation rate and resets balance / queue.
+            // An explicit zero rate is a valid revaluation (not fallback to existing rate).
+            valuationRate = incomingRate;
+            newBalanceQty = (previousSle?.BalanceQuantity ?? 0) + quantityChange;
+            newBalanceValue = Math.Max(0, newBalanceQty * valuationRate);
+            if (item.ValuationMethod == ValuationMethod.FIFO || item.ValuationMethod == ValuationMethod.LIFO)
+            {
+                var queue = new FifoValuation(isLifo: item.ValuationMethod == ValuationMethod.LIFO);
+                if (newBalanceQty > 0)
+                {
+                    queue.AddStock(newBalanceQty, valuationRate);
+                }
+                stockQueue = queue.Serialize();
+            }
+        }
+        else
+        {
+            switch (item.ValuationMethod)
+            {
+                case ValuationMethod.FIFO:
+                case ValuationMethod.LIFO:
+                    (valuationRate, newBalanceQty, newBalanceValue, stockQueue) =
+                        CalculateFifoLifo(previousSle, quantityChange, incomingRate, item.ValuationMethod == ValuationMethod.LIFO);
+                    break;
 
-            case ValuationMethod.StandardCost:
-                (valuationRate, newBalanceQty, newBalanceValue) =
-                    CalculateStandardCost(previousSle, quantityChange, item.StandardBuyingPrice ?? 0);
-                break;
+                case ValuationMethod.StandardCost:
+                    (valuationRate, newBalanceQty, newBalanceValue) =
+                        CalculateStandardCost(previousSle, quantityChange, item.StandardBuyingPrice ?? 0);
+                    break;
 
-            case ValuationMethod.WeightedAverage:
-            default:
-                (valuationRate, newBalanceQty, newBalanceValue) =
-                    CalculateMovingAverage(previousSle, quantityChange, incomingRate);
-                break;
+                case ValuationMethod.WeightedAverage:
+                default:
+                    (valuationRate, newBalanceQty, newBalanceValue) =
+                        CalculateMovingAverage(previousSle, quantityChange, incomingRate);
+                    break;
+            }
         }
 
         // Per ERPNext stock_ledger.py get_valuation_rate:
@@ -135,6 +156,7 @@ public class StockValuationService : DomainService
             VoucherId = voucherId,
             StockQueue = stockQueue,
             BatchId = batchId,
+            StockValueDifference = Math.Round(newBalanceValue - (previousSle?.BalanceValue ?? 0), 2),
         };
 
         await _ledgerRepository.InsertAsync(entry);
@@ -408,6 +430,23 @@ public class StockValuationService : DomainService
 
         foreach (var entry in entries)
         {
+            var valueBefore = queue.TotalValue;
+            if (entry.VoucherType == "StockReconciliation")
+            {
+                var newQty = queue.TotalQty + entry.QuantityChange;
+                queue = new FifoValuation(isLifo: isLifo);
+                if (newQty > 0)
+                {
+                    queue.AddStock(newQty, entry.ValuationRate);
+                }
+                entry.StockValue = entry.QuantityChange * entry.ValuationRate;
+                entry.BalanceQuantity = Math.Round(queue.TotalQty, 4);
+                entry.BalanceValue = Math.Round(queue.TotalValue, 2);
+                entry.StockValueDifference = Math.Round(entry.BalanceValue - valueBefore, 2);
+                entry.StockQueue = queue.Serialize();
+                continue;
+            }
+
             if (entry.QuantityChange > 0)
             {
                 queue.AddStock(entry.QuantityChange, entry.ValuationRate);
@@ -421,6 +460,7 @@ public class StockValuationService : DomainService
 
             entry.BalanceQuantity = Math.Round(queue.TotalQty, 4);
             entry.BalanceValue = Math.Round(queue.TotalValue, 2);
+            entry.StockValueDifference = Math.Round(entry.BalanceValue - valueBefore, 2);
             entry.StockQueue = queue.Serialize();
         }
     }
@@ -432,6 +472,18 @@ public class StockValuationService : DomainService
 
         foreach (var entry in entries)
         {
+            var valueBefore = runningValue;
+            if (entry.VoucherType == "StockReconciliation")
+            {
+                runningQty += entry.QuantityChange;
+                runningValue = Math.Max(0, runningQty * entry.ValuationRate);
+                entry.StockValue = entry.QuantityChange * entry.ValuationRate;
+                entry.BalanceQuantity = Math.Round(runningQty, 4);
+                entry.BalanceValue = Math.Round(runningValue, 2);
+                entry.StockValueDifference = Math.Round(runningValue - valueBefore, 2);
+                continue;
+            }
+
             if (entry.QuantityChange > 0)
             {
                 if (runningQty <= 0)
@@ -462,6 +514,7 @@ public class StockValuationService : DomainService
 
             entry.BalanceQuantity = Math.Round(runningQty, 4);
             entry.BalanceValue = Math.Max(0, Math.Round(runningValue, 2));
+            entry.StockValueDifference = Math.Round(entry.BalanceValue - valueBefore, 2);
         }
     }
 

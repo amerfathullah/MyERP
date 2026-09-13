@@ -25,6 +25,9 @@ public class StockReconciliationItem : FullAuditedEntity<Guid>
     /// <summary>Serial & Batch Bundle for current/existing stock.</summary>
     public Guid? CurrentSerialAndBatchBundleId { get; set; }
 
+    /// <summary>Allows explicit zero valuation rate (per ERPNext PR #58800).</summary>
+    public bool AllowZeroValuationRate { get; set; }
+
     /// <summary>Qty difference: NewQuantity - CurrentQuantity.</summary>
     public decimal QuantityDifference => NewQuantity - CurrentQuantity;
 
@@ -39,7 +42,8 @@ public class StockReconciliationItem : FullAuditedEntity<Guid>
         decimal currentQuantity = 0, decimal currentValuationRate = 0,
         string? stockUom = null,
         Guid? serialAndBatchBundleId = null,
-        Guid? currentSerialAndBatchBundleId = null)
+        Guid? currentSerialAndBatchBundleId = null,
+        bool allowZeroValuationRate = false)
         : base(id)
     {
         StockReconciliationId = stockReconciliationId;
@@ -52,5 +56,6 @@ public class StockReconciliationItem : FullAuditedEntity<Guid>
         StockUom = stockUom;
         SerialAndBatchBundleId = serialAndBatchBundleId;
         CurrentSerialAndBatchBundleId = currentSerialAndBatchBundleId;
+        AllowZeroValuationRate = allowZeroValuationRate;
     }
 }

@@ -191,6 +191,9 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
             if (item.NewValuationRate < 0)
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", "Negative valuation rate is not allowed.");
+            if (item.NewQuantity > 0 && item.NewValuationRate == 0 && !item.AllowZeroValuationRate)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Valuation Rate required for Item {item.ItemId}. Set Allow Zero Valuation Rate if intended.");
             if (!seenCombinations.Add((item.ItemId, item.WarehouseId)))
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", "Same item and warehouse combination already entered.");
@@ -227,7 +230,8 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
 
             sr.AddItem(item.ItemId, item.WarehouseId, item.NewQuantity, item.NewValuationRate,
                 item.CurrentQuantity, item.CurrentValuationRate, uom,
-                item.SerialAndBatchBundleId, item.CurrentSerialAndBatchBundleId);
+                item.SerialAndBatchBundleId, item.CurrentSerialAndBatchBundleId,
+                item.AllowZeroValuationRate);
         }
 
         await _repository.InsertAsync(sr);

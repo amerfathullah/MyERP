@@ -2390,6 +2390,7 @@ public class MyERPDbContext :
             b.Property(x => x.CurrentValuationRate).HasColumnType("decimal(18,4)");
             b.Property(x => x.NewQuantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.NewValuationRate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.AllowZeroValuationRate).HasDefaultValue(false);
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
             b.HasOne<Warehouse>().WithMany().HasForeignKey(x => x.WarehouseId).IsRequired();
         });
