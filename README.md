@@ -1,6 +1,6 @@
 # MyERP
 
-A full-featured, modular Enterprise Resource Planning system built with [ABP Framework](https://abp.io/) 10.5, .NET 10, Angular 21, and PostgreSQL. Designed for Malaysian businesses with built-in LHDN e-Invoice (MyInvois) integration, SST tax engine, and payroll compliance (EPF, SOCSO, EIS, PCB).
+A full-featured, modular Enterprise Resource Planning system built with [ABP Framework](https://abp.io/) 10.6, .NET 10, Angular 21, and PostgreSQL. Designed for Malaysian businesses with built-in LHDN e-Invoice (MyInvois) integration, SST tax engine, and payroll compliance (EPF, SOCSO, EIS, PCB).
 
 [![CI](https://github.com/amerfathullah/myerp/actions/workflows/ci.yml/badge.svg)](https://github.com/amerfathullah/myerp/actions/workflows/ci.yml)
 
@@ -51,7 +51,7 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 | Layer | Technology |
 |-------|-----------|
 | Runtime | .NET 10, C# 13 |
-| Framework | ABP.IO 10.5 (DDD, multi-tenancy, permissions, audit) |
+| Framework | ABP.IO 10.6 (DDD, multi-tenancy, permissions, audit) |
 | Database | PostgreSQL 16 + Entity Framework Core |
 | Cache | Redis 7 |
 | Auth | OpenIddict (OAuth 2.0 / OIDC) |
@@ -251,6 +251,11 @@ angular/                       → Angular 21 SPA (standalone components, NgRx S
 │   ├── tax/                   → Tax Categories, SST-02 Filing, Tax Summary Report
 │   ├── workflow/              → Approval Rules, Pending Approvals
 │   ├── automation/            → Automation Rules
+│   ├── maintenance/           → Maintenance Schedules, Visits, Warranty Claims
+│   ├── communication/         → Communication Media
+│   ├── telephony/             → Call Logs, Call Types
+│   ├── edi/                   → EDI Code Lists, Common Codes
+│   ├── utilities/             → Utility Videos, Settings
 │   ├── settings/              → Company Settings, Authorization Rules, Email Templates, Notifications
 │   ├── import-export/         → CSV Import/Export
 │   ├── companies/             → Company management
@@ -260,7 +265,7 @@ angular/                       → Angular 21 SPA (standalone components, NgRx S
 ├── e2e/                       → Playwright E2E tests
 
 test/
-├── MyERP.Domain.Tests         → 2,900+ unit tests (entities, domain services, business rules)
+├── MyERP.Domain.Tests         → 11,500+ unit tests (entities, domain services, business rules)
 ├── MyERP.Application.Tests    → Integration tests (app services, conversion flows)
 └── MyERP.EntityFrameworkCore.Tests → Repository/query tests
 
@@ -282,7 +287,7 @@ docs/
 dotnet test
 ```
 
-Runs 2,900+ unit tests covering domain entities, value objects, domain services, and business rule validation.
+Runs 11,500+ unit tests covering domain entities, value objects, domain services, and business rule validation.
 
 ### Frontend Unit Tests
 
