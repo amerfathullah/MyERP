@@ -121,11 +121,17 @@ Key `.env` settings:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB_PASSWORD` | `myerp_secret_2026` | PostgreSQL password (change this!) |
-| `APP_URL` | `http://localhost:5000` | Public API URL |
+| `DB_PASSWORD` | `change_me_to_a_strong_password` | PostgreSQL password (**change this!**) |
+| `DB_USER` | `myerp` | PostgreSQL username |
+| `DB_NAME` | `MyERP` | Database name |
+| `APP_URL` | `http://localhost:5000` | Public API URL (OAuth issuer & CORS) |
 | `WEB_URL` | `http://localhost` | Public frontend URL |
-| `HTTP_PORT` | `80` | Port for the web app |
-| `MYERP_VERSION` | `latest` | Pin to a specific release tag |
+| `HTTP_PORT` | `80` | Host port for the web frontend |
+| `API_PORT` | `5000` | Host port for the API |
+| `MYERP_VERSION` | `latest` | Image tag — pin to a release (e.g. `1.0.0`) |
+| `MYERP_IMAGE_PREFIX` | `amerfathullah` | Docker Hub username or org |
+| `CERT_PASSPHRASE` | `change_me_to_a_strong_passphrase` | OAuth signing certificate passphrase |
+| `REQUIRE_HTTPS` | `false` | Set `true` when behind a TLS reverse proxy |
 
 ### HTTPS (Custom Domain)
 
@@ -164,8 +170,8 @@ See [deploy/README.md](deploy/README.md) for full self-hosting documentation (sc
 ### Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Node.js 22 LTS](https://nodejs.org/)
-- [pnpm](https://pnpm.io/) (`corepack enable && corepack prepare pnpm@10 --activate`)
+- [Node.js 24](https://nodejs.org/)
+- [pnpm](https://pnpm.io/) (`corepack enable && corepack prepare pnpm@11 --activate`)
 - [Docker](https://www.docker.com/) (for PostgreSQL + Redis)
 
 ---
@@ -359,8 +365,11 @@ See [docs/deployment.md](docs/deployment.md) for full production setup guide.
 ### CI/CD
 
 GitHub Actions workflows:
-- **CI** (`ci.yml`): Build, lint, test on every push/PR
-- **Deploy** (`deploy.yml`): Build images → push to GHCR → deploy (on tag or manual trigger)
+- **CI** (`ci.yml`): Runs on every push/PR to `main`/`develop`
+  - **Backend**: restore, build (`-warnaserror`), test
+  - **Frontend**: install, lint, type-check, unit tests, production build
+  - **Docker Build** (on push to `main`): validates Dockerfile builds
+- **Deploy** (`deploy.yml`): On tag push — build images → push to Docker Hub → deploy
 
 ---
 
