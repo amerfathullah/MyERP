@@ -206,21 +206,33 @@ pnpm install
 pnpm start
 ```
 
-### All-in-One (PowerShell)
+### Setup Script (PowerShell)
 
 ```powershell
 ./setup-dev.ps1
 ```
 
+Runs DB migrations and generates Angular proxy services. Then manually start API and frontend per steps above.
+
 ---
 
 ## URLs
+
+### Local Development (`dotnet run`)
 
 | Service | URL |
 |---------|-----|
 | Angular App | http://localhost:4200 |
 | API | https://localhost:44340 |
 | Swagger UI | https://localhost:44340/swagger |
+
+### Docker Full Stack (`docker compose up -d`)
+
+| Service | URL |
+|---------|-----|
+| Angular App | http://localhost:4200 |
+| API | http://localhost:5000 |
+| Swagger UI | http://localhost:5000/swagger |
 
 **Default Login:** `admin` / `1q2w3E*`
 
@@ -232,7 +244,7 @@ pnpm start
 docker compose up -d
 ```
 
-Starts PostgreSQL, Redis, API, and Angular at `http://localhost:4200`.
+Starts PostgreSQL, Redis, API (`:5000`), and Angular (`:4200`).
 
 ---
 
@@ -417,12 +429,12 @@ See [docs/malaysia-compliance.md](docs/malaysia-compliance.md) for details.
 
 ## Contributing
 
-1. Create a feature branch from `develop`
+1. Create a feature branch from `main`
 2. Follow ABP DDD conventions (see `.agents/AGENTS.md` and `.agents/skills/`)
 3. Ensure all tests pass: `dotnet test`
 4. Add tests for new domain logic
-5. Update localization files (`en.json` + `ms-MY.json` at minimum)
-6. Submit a PR to `develop`
+5. Update localization files (`en.json` + `ms-MY.json` at minimum; 21 locales supported)
+6. Submit a PR to `main`
 
 ---
 
