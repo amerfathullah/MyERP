@@ -19,7 +19,7 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 
 | Module | Capabilities |
 |--------|-------------|
-| **Accounting** | General ledger, journal entries, payment entries, bank reconciliation, budgets, period closing, exchange rate revaluation, currency exchange, accounting dimensions, fiscal years, finance books, payment orders, batch payments, invoice discounting, GL repost, payment ledger repost, ledger health monitor, share management (shareholders, types, transfers), cashier closing, bank clearance, bank guarantees, bisect statements, party links, cash flow forecast, Trial Balance / P&L / Balance Sheet / Cash Flow / Financial Ratios / Aging / Budget Variance reports, financial report templates |
+| **Accounting** | General ledger, journal entries, payment entries, bank reconciliation, budgets, period closing, month-end close, exchange rate revaluation, currency exchange, accounting dimensions, fiscal years, finance books, payment orders, batch payments, invoice discounting, GL repost, payment ledger repost, unreconcile payments, process deferred accounting, ledger health monitor, share management (shareholders, types, transfers), cashier closing, bank clearance, bank guarantees, bisect statements, party links, cash flow forecast, Trial Balance / P&L / Balance Sheet / Cash Flow / Financial Ratios / Aging / Budget Variance reports, financial report templates |
 | **Sales** | Quotations → Sales Orders → Delivery Notes → Sales Invoices, POS (opening/closing/profiles), blanket orders, pricing rules, promotional schemes, coupon codes, shipping rules, dunning, loyalty programs, subscriptions, installation notes, product bundles, packing slips, proforma invoices, shipments, sales partners, sales persons, territories, party-specific items, SO tracking board, gross profit report |
 | **Purchasing** | Material Requests → RFQ → Supplier Quotation comparison → Purchase Orders → Purchase Receipts → Purchase Invoices, subcontracting (orders, BOMs, inward), supplier scorecards, scorecard variables, incoterms, procurement dashboard, PO tracking board |
 | **Inventory** | Items, item groups, brands, manufacturers, item attributes, item alternatives, item prices, item standard cost, item lead times, customs tariff numbers, warehouses, bins, stock entries (13 purpose types), stock ledger (FIFO/Moving Average/LIFO), stock reconciliation (allow zero valuation rate), stock reservation, pick lists, putaway rules, landed costs, quality inspections, quality management (goals, reviews, procedures, meetings, feedback, non-conformances), batch management, serial numbers, UOM categories, delivery trips, transit transfers, inventory aging report, stock reorder, repost item valuation, shipment parcel templates, secondary item valuation type, stock closing |
@@ -324,11 +324,12 @@ angular/                       → Angular 21 SPA (standalone components, NgRx S
 │   ├── settings/              → Company Settings, Module Settings, Document Series,
 │   │                            Authorization Rules, Email Templates, Print Formats, Notifications
 │   ├── import-export/         → CSV Import/Export
-│   ├── companies/             → Company management
-│   ├── customers/             → Customer management
-│   ├── suppliers/             → Supplier management
+│   ├── companies/             → Company list, form, multi-company management
+│   ├── customers/             → Customer list, form, detail, customer groups (tree)
+│   ├── suppliers/             → Supplier list, form, detail, supplier groups (tree)
 │   └── shared/                → Shared components, directives, pipes, guards, services, store
-├── e2e/                       → Playwright E2E tests
+├── e2e/                       → Playwright E2E tests (auth setup, home, navigation, modules,
+│                                sales-invoices, accounting+inventory) — Chromium + Firefox
 
 test/
 ├── MyERP.Domain.Tests         → 11,500+ unit tests (entities, domain services, business rules)
