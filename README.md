@@ -214,6 +214,20 @@ pnpm start
 
 Runs DB migrations and generates Angular proxy services. Then manually start API and frontend per steps above.
 
+### Developer Utilities
+
+```bash
+# Regenerate Angular API proxy services (after backend DTO changes)
+cd angular && npx abp generate-proxy -t ng
+
+# Symlink shared packages for local ABP package development
+cd angular && pnpm symlinks:setup
+cd angular && pnpm symlinks:remove
+
+# Audit HttpClient usage (enforce proxy-service pattern)
+cd angular/scripts && pwsh ./audit-httpclient-usage.ps1
+```
+
 ---
 
 ## URLs
@@ -346,20 +360,24 @@ etc/
 dotnet test
 ```
 
-Runs 11,500+ unit tests covering domain entities, value objects, domain services, and business rule validation.
+Runs 11,900+ tests across all test projects (domain unit tests, application integration tests, EF repository tests).
 
 ### Frontend Unit Tests
 
 ```bash
-cd angular && pnpm test
+cd angular && pnpm test          # one-shot
+cd angular && pnpm test:watch    # interactive watch mode
 ```
 
 ### E2E Tests (Playwright)
 
+Runs against Chromium and Firefox:
+
 ```bash
 cd angular
 npx playwright install --with-deps
-pnpm test:e2e
+pnpm test:e2e           # headless
+pnpm test:e2e:ui        # interactive UI mode
 ```
 
 ---
