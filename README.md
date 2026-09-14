@@ -274,7 +274,7 @@ src/
 ├── MyERP.Domain               → Entities, domain services, repository interfaces, events
 ├── MyERP.Application.Contracts → DTOs, application service interfaces, permissions
 ├── MyERP.Application          → Application service implementations, Mapperly mapping profiles
-├── MyERP.EntityFrameworkCore  → DbContext, migrations, repository implementations
+├── MyERP.EntityFrameworkCore  → DbContext, migrations (443), repository implementations
 ├── MyERP.HttpApi              → API controllers
 ├── MyERP.HttpApi.Host         → Host application (startup, middleware, configuration)
 ├── MyERP.HttpApi.Client       → HTTP client proxies for service-to-service calls
@@ -289,48 +289,58 @@ angular/                       → Angular 21 SPA (standalone components, NgRx S
 │   │                            Account Categories, Cheque Print Templates, Dimensions, Shares,
 │   │                            Invoice Discounting, Party Ledger, Outstanding Invoices,
 │   │                            Cash Flow Forecast, Ledger Health, Reports, Report Templates
-│   ├── sales/                 → Quotations, Sales Orders, Delivery Notes, Invoices, POS,
-│   │                            Pricing Rules, Promotional Schemes, Coupon Codes, Blanket Orders,
-│   │                            Dunnings, Subscriptions, Proforma Invoices, Shipments, Sales Partners,
-│   │                            SO Tracking Board, Reports
+│   ├── sales/                 → Quotations, Sales Orders, Delivery Notes, Invoices, POS
+│   │                            (Opening/Closing/Profiles), Pricing Rules, Promotional Schemes,
+│   │                            Coupon Codes, Blanket Orders, Dunnings (Types), Subscriptions,
+│   │                            Proforma Invoices, Shipments, Sales Partners (Types), Sales Persons,
+│   │                            Territories, Party-Specific Items, Pending Delivery,
+│   │                            SO Tracking Board, Quotation Lost Reasons, Reports
 │   ├── purchasing/            → Material Requests, RFQ, SQ Comparison, Purchase Orders,
 │   │                            Receipts, Invoices, Subcontracting, Scorecards, Incoterms,
-│   │                            Procurement Dashboard, Reports
-│   ├── inventory/             → Items, Item Groups, Brands, Item Prices, Item Alternatives,
-│   │                            Warehouses, Stock Entries, Stock Reconciliation, Stock Reservations,
-│   │                            Pick Lists, Putaway Rules, Landed Costs, Quality Management
-│   │                            (Inspections, Goals, Reviews, Procedures, Meetings, Feedback,
-│   │                            Non-Conformances), Batches, Serials, Delivery Trips, Transit Transfers,
-│   │                            Inventory Aging, Stock Reorder, Reports
+│   │                            Procurement Dashboard, PO Tracking Board, Reports
+│   ├── inventory/             → Items, Item Groups, Brands, Manufacturers, Item Prices,
+│   │                            Item Alternatives, Item Attributes, Item Lead Times, Item Standard
+│   │                            Cost, Customs Tariff Numbers, Warehouses, Stock Entries, Stock
+│   │                            Reconciliation, Stock Reservations, Pick Lists, Putaway Rules,
+│   │                            Landed Costs, Quality Inspections (Templates, Parameter Groups),
+│   │                            Quality Actions, Quality Management (Goals, Reviews, Procedures,
+│   │                            Meetings, Feedback/Templates, Non-Conformances), Batches, Serials,
+│   │                            Delivery Trips, Transit Transfers, Inventory Aging, Stock Reorder,
+│   │                            Shipment Parcel Templates, Reports
 │   ├── manufacturing/         → BOMs, BOM Creators, Work Orders, Job Cards, Operations, Routings,
-│   │                            Workstations, Production Plans, Master Production Schedules,
-│   │                            Sales Forecasts, Material Shortage Summary, Downtime Entries,
-│   │                            Plant Floors, Manufacturing Dashboard, Reports
-│   ├── e-invoice/             → LHDN Dashboard, Submission Logs, Reports, Consolidation
+│   │                            Workstations (Types), Production Plans, Master Production Schedules,
+│   │                            Production Schedule, Sales Forecasts, Material Shortage Summary,
+│   │                            Downtime Entries, Plant Floors, Manufacturing Dashboard, Reports
+│   ├── e-invoice/             → LHDN Dashboard, Submission Logs, Reports, Consolidation, Store
 │   ├── einvoice/              → E-Invoice batch submit, list, settings (standalone components)
 │   ├── hr/                    → Employees, Departments, Designations, Employee Groups, Leave
-│   │                            (Types/Allocation/Balance), Attendance, Shifts, Holiday Lists,
-│   │                            Expense Claims, Loans, Salary Components, Salary Structures,
-│   │                            Salary Slips, Payroll
+│   │                            (Types/Allocation/Balance), Attendance, Shift Types/Assignments,
+│   │                            Holiday Lists, Expense Claims, Loans, Salary Components,
+│   │                            Salary Structures, Salary Slips, Payroll
 │   ├── crm/                   → Leads, Opportunities, Pipeline, Campaigns, Email Campaigns,
-│   │                            Contracts, Appointments, Prospects, Competitors
-│   ├── support/               → Issues, Issue Types, Priorities, SLAs
-│   ├── projects/              → Projects, Templates, Tasks, Activity Types/Costs,
-│   │                            Timesheets, Timesheet Billing, Project Updates
+│   │                            Contracts (Templates), Appointments (Settings), Prospects,
+│   │                            Competitors, Market Segments, Industry Types, Sales Stages,
+│   │                            Opportunity Types/Lost Reasons, CRM Settings
+│   ├── support/               → Issues, Issue Types, Priorities, SLAs, Settings
+│   ├── projects/              → Projects, Templates, Types, Updates, Tasks, Task Types,
+│   │                            Activity Types/Costs, Timesheets, Timesheet Billing
 │   ├── assets/                → Fixed Assets, Repairs, Capitalizations, Asset Movements,
 │   │                            Value Adjustments, Shift Factors/Allocations, Maintenance
 │   │                            Logs/Teams, Vehicles, Drivers, Locations
 │   ├── tax/                   → Tax Categories, Item Tax Templates, Tax Charges Templates,
 │   │                            Withholding Tax, Lower Deduction Certificates, SST-02 Filing
 │   ├── workflow/              → Approval Rules, Approval Inbox, Pending Approvals
-│   ├── automation/            → Automation Rules, Auto Repeat
+│   ├── automation/            → Automation Rules, Bulk Transactions, Auto Repeat
 │   ├── maintenance/           → Maintenance Schedules, Visits, Warranty Claims
 │   ├── communication/         → Communication Media
-│   ├── telephony/             → Call Logs, Call Types
+│   ├── telephony/             → Call Logs, Call Types, Settings
 │   ├── edi/                   → EDI Code Lists, Common Codes
-│   ├── utilities/             → Utility Videos, Settings
-│   ├── settings/              → Company Settings, Module Settings, Document Series,
-│   │                            Authorization Rules, Email Templates, Print Formats, Notifications
+│   ├── utilities/             → Videos, Settings
+│   ├── settings/              → Accounts/Buying/Selling/Stock/Global Settings, Company Settings,
+│   │                            Customer Groups, Supplier Groups, Territories, Document Series,
+│   │                            Authorization Rules, Letter Heads, Email Templates, Email Digest,
+│   │                            Print Formats, Party Types, Payment Terms Templates,
+│   │                            Terms & Conditions, E-Invoice Settings, Notification Logs
 │   ├── import-export/         → CSV Import/Export
 │   ├── companies/             → Company list, form, multi-company management
 │   ├── customers/             → Customer list, form, detail, customer groups (tree)
