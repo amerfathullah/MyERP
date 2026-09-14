@@ -19,7 +19,7 @@ A full-featured, modular Enterprise Resource Planning system built with [ABP Fra
 
 | Module | Capabilities |
 |--------|-------------|
-| **Accounting** | General ledger, journal entries, payment entries, bank reconciliation, budgets, period closing, month-end close, exchange rate revaluation, currency exchange, accounting dimensions, fiscal years, finance books, payment orders, batch payments, invoice discounting, GL repost, payment ledger repost, unreconcile payments, process deferred accounting, ledger health monitor, share management (shareholders, types, transfers), cashier closing, bank clearance, bank guarantees, bisect statements, party links, cash flow forecast, Trial Balance / P&L / Balance Sheet / Cash Flow / Financial Ratios / Aging / Budget Variance reports, financial report templates |
+| **Accounting** | General ledger, journal entries, journal entry templates, payment entries, payment requests, bank reconciliation, bank reconciliation statement, bank statement import, bank transaction rules, banks, bank accounts (types/subtypes/balances), budgets, period closing, month-end close, accounting periods, account categories, account closing balance, exchange rate revaluation, currency exchange, accounting dimensions, cost centers, cost center allocations, monthly distributions, fiscal years, finance books, payment orders, batch payments, invoice discounting, GL repost, repost accounting ledger, payment ledger repost, payment reconciliation, process payment reconciliation, unreconcile payments, process deferred accounting, ledger health monitor, outstanding invoices, party ledger, share management (shareholders, types, transfers), cashier closing, bank clearance, bank guarantees, cheque print templates, bisect statements, party links, cash flow forecast, opening balance, statement of accounts, Trial Balance / P&L / Balance Sheet / Cash Flow / Financial Ratios / Aging / Budget Variance reports, financial report templates, report templates |
 | **Sales** | Quotations → Sales Orders → Delivery Notes → Sales Invoices, POS (opening/closing/profiles), blanket orders, pricing rules, promotional schemes, coupon codes, shipping rules, dunning, loyalty programs, subscriptions, installation notes, product bundles, packing slips, proforma invoices, shipments, sales partners, sales persons, territories, party-specific items, SO tracking board, gross profit report |
 | **Purchasing** | Material Requests → RFQ → Supplier Quotation comparison → Purchase Orders → Purchase Receipts → Purchase Invoices, subcontracting (orders, BOMs, inward), supplier scorecards, scorecard variables, incoterms, procurement dashboard, PO tracking board |
 | **Inventory** | Items, item groups, brands, manufacturers, item attributes, item alternatives, item prices, item standard cost, item lead times, customs tariff numbers, warehouses, bins, stock entries (13 purpose types), stock ledger (FIFO/Moving Average/LIFO), stock reconciliation (allow zero valuation rate), stock reservation, pick lists, putaway rules, landed costs, quality inspections, quality management (goals, reviews, procedures, meetings, feedback, non-conformances), batch management, serial numbers, UOM categories, delivery trips, transit transfers, inventory aging report, stock reorder, repost item valuation, shipment parcel templates, secondary item valuation type, stock closing |
@@ -278,9 +278,13 @@ src/
 
 angular/                       → Angular 21 SPA (standalone components, NgRx SignalStore)
 ├── src/app/
-│   ├── accounting/            → GL, Journal Entries, Payments, Payment Orders, Bank Reconciliation,
-│   │                            Budgets, Period Closing, Dimensions, Shares, Invoice Discounting,
-│   │                            Cash Flow Forecast, Ledger Health, Reports
+│   ├── accounting/            → GL, Journal Entries/Templates, Payments, Payment Requests,
+│   │                            Payment Orders, Bank Reconciliation, Bank Statement Import,
+│   │                            Bank Transaction Rules, Banks, Bank Accounts, Cost Centers,
+│   │                            Cost Center Allocations, Budgets, Period Closing, Month-End Close,
+│   │                            Account Categories, Cheque Print Templates, Dimensions, Shares,
+│   │                            Invoice Discounting, Party Ledger, Outstanding Invoices,
+│   │                            Cash Flow Forecast, Ledger Health, Reports, Report Templates
 │   ├── sales/                 → Quotations, Sales Orders, Delivery Notes, Invoices, POS,
 │   │                            Pricing Rules, Promotional Schemes, Coupon Codes, Blanket Orders,
 │   │                            Dunnings, Subscriptions, Proforma Invoices, Shipments, Sales Partners,
