@@ -410,7 +410,9 @@ GitHub Actions workflows:
   - **Backend**: restore, build (`-warnaserror`), test
   - **Frontend**: install, lint, type-check, unit tests, production build
   - **Docker Build** (on push to `main`): validates Dockerfile builds
-- **Deploy** (`deploy.yml`): On tag push — build images → push to Docker Hub → deploy
+- **Deploy** (`deploy.yml`): Triggered on `v*` tag push
+  - Builds and pushes 3 images to Docker Hub (`myerp-api`, `myerp-migrator`, `myerp-web`), each tagged with version + `latest`
+  - Deploys to production via SSH (`/opt/myerp`) with `docker compose pull && up -d` (requires `production` environment approval)
 
 ---
 
@@ -453,6 +455,18 @@ See [docs/malaysia-compliance.md](docs/malaysia-compliance.md) for details.
 4. Add tests for new domain logic
 5. Update localization files (`en.json` + `ms-MY.json` at minimum; 21 locales supported)
 6. Submit a PR to `main`
+
+Use the [bug report](.github/ISSUE_TEMPLATE/bug_report.md) or [feature request](.github/ISSUE_TEMPLATE/feature_request.md) templates when opening issues.
+
+---
+
+## Sponsorship
+
+If MyERP saves you time, consider supporting development:
+
+- **GitHub Sponsors**: [@amerfathullah](https://github.com/sponsors/amerfathullah)
+- **Patreon**: [patreon.com/amerfathullah](https://patreon.com/amerfathullah)
+- **Ko-fi**: [ko-fi.com/amerfathullah](https://ko-fi.com/amerfathullah)
 
 ---
 
