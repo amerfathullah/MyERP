@@ -141,7 +141,8 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>
     /// Computes process loss quantity when completed quantity is less than for_quantity.
-    /// Per ERPNext PR #59104: applies when completed_qty > 0 or process_loss_qty is already recorded.
+    /// Per ERPNext PR #59104 & #58466: applies when completed_qty > 0 or process_loss_qty is already recorded,
+    /// deducting both completed_qty and pending_qty from for_quantity.
     /// </summary>
     public void SetProcessLoss()
     {
@@ -149,7 +150,7 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
         ProcessLossQty = 0m;
         if (shouldSet && ForQuantity > CompletedQty)
         {
-            ProcessLossQty = Math.Round(ForQuantity - CompletedQty, 4);
+            ProcessLossQty = Math.Max(0m, Math.Round(ForQuantity - CompletedQty - PendingQty, 4));
         }
     }
 
@@ -167,6 +168,8 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
                     .WithData("detail", "From Time and To Time fields are required and To Time must be after From Time.");
             }
         }
+
+        SetProcessLoss();
 
         // Per ERPNext PR #59104: Completed, Process Loss or Pending Qty is required before submission
         if (CompletedQty <= 0 && ProcessLossQty <= 0 && PendingQty <= 0)

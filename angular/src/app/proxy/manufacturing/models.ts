@@ -233,6 +233,7 @@ export interface JobCardDto extends EntityDto<string> {
   forQuantity?: number;
   completedQty?: number;
   pendingQty?: number;
+  processLossQty?: number;
   totalTimeInMins?: number;
   plannedTimeInMins?: number;
   sequenceId?: number;

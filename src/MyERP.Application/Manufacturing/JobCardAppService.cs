@@ -210,7 +210,7 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         var existingQty = jcQuery
             .Where(j => j.WorkOrderId == workOrderId && j.OperationId == operationId && j.Status != JobCardStatus.Cancelled)
             .Where(j => !excludeJobCardId.HasValue || j.Id != excludeJobCardId.Value)
-            .Sum(j => (decimal?)j.ForQuantity) ?? 0m;
+            .Sum(j => (decimal?)(j.ForQuantity - j.PendingQty)) ?? 0m;
 
         if (existingQty + forQuantity > allowedQty)
         {

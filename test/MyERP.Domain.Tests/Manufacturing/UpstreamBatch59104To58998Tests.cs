@@ -26,7 +26,7 @@ public class UpstreamBatch59104To58998Tests
     [Fact]
     public void JobCard_Complete_AllowsZeroCompletedQty_WhenProcessLossIsPositive()
     {
-        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), forQuantity: 10, sequenceId: 1);
+        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), forQuantity: 5, sequenceId: 1);
         jc.Start();
         jc.SetProcessLossQty(5);
 
@@ -85,6 +85,41 @@ public class UpstreamBatch59104To58998Tests
         jc.ProcessLossQty.ShouldBe(4); // 10 - 6 = 4
 
         jc.Complete();
+        jc.Status.ShouldBe(JobCardStatus.Completed);
+    }
+
+    [Fact]
+    public void JobCard_SetProcessLoss_DeductsPendingQty()
+    {
+        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), forQuantity: 10, sequenceId: 1);
+        jc.Start();
+        // Completed 6, pending 4 -> process loss should be 0 (10 - 6 - 4 = 0)
+        jc.AddTimeLog(DateTime.UtcNow.AddMinutes(-30), DateTime.UtcNow, completedQty: 6);
+        jc.SetPendingQty(4);
+        jc.SetProcessLoss();
+
+        jc.CompletedQty.ShouldBe(6);
+        jc.PendingQty.ShouldBe(4);
+        jc.ProcessLossQty.ShouldBe(0);
+
+        jc.Complete();
+        jc.Status.ShouldBe(JobCardStatus.Completed);
+    }
+
+    [Fact]
+    public void JobCard_Complete_AutoCalculatesProcessLoss_WhenNotExplicitlyCalled()
+    {
+        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), forQuantity: 10, sequenceId: 1);
+        jc.Start();
+        jc.AddTimeLog(DateTime.UtcNow.AddMinutes(-30), DateTime.UtcNow, completedQty: 7);
+        jc.SetPendingQty(2);
+
+        // Complete() should automatically invoke SetProcessLoss() -> 10 - 7 - 2 = 1
+        jc.Complete();
+
+        jc.CompletedQty.ShouldBe(7);
+        jc.PendingQty.ShouldBe(2);
+        jc.ProcessLossQty.ShouldBe(1);
         jc.Status.ShouldBe(JobCardStatus.Completed);
     }
 

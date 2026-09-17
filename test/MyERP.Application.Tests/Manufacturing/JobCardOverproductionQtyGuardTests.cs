@@ -132,4 +132,55 @@ public abstract class JobCardOverproductionQtyGuardTests<TStartupModule> : MyERP
                 }));
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_SecondJobCardAllowedWhenFirstHasPendingQty()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var woRepository = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var jcRepository = GetRequiredService<IRepository<JobCard, Guid>>();
+            var jobCardAppService = GetRequiredService<IJobCardAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "JC Pending Qty Co"), autoSave: true);
+            var fgItem = await itemRepository.InsertAsync(
+                new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "FG-JCP1", "Widget", MyERP.Inventory.ItemType.Goods), autoSave: true);
+            var bom = await bomRepository.InsertAsync(
+                new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-JCP1", fgItem.Id), autoSave: true);
+
+            var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-JCP1", fgItem.Id, bom.Id, quantity: 100m);
+            wo.Submit();
+            await woRepository.InsertAsync(wo, autoSave: true);
+
+            var operationId = Guid.NewGuid();
+
+            var firstJcDto = await jobCardAppService.CreateAsync(new CreateJobCardDto
+            {
+                CompanyId = company.Id,
+                WorkOrderId = wo.Id,
+                OperationId = operationId,
+                ForQuantity = 60m,
+            });
+
+            // Mark 40 units pending on first job card (so only 60 - 40 = 20 units count against allowance)
+            var firstJc = await jcRepository.GetAsync(firstJcDto.Id);
+            firstJc.SetPendingQty(40m);
+            await jcRepository.UpdateAsync(firstJc, autoSave: true);
+
+            // Creating second Job Card with 60 units now succeeds: 20 + 60 = 80 <= 105 (ERPNext PR #58466)
+            var secondJcDto = await jobCardAppService.CreateAsync(new CreateJobCardDto
+            {
+                CompanyId = company.Id,
+                WorkOrderId = wo.Id,
+                OperationId = operationId,
+                ForQuantity = 60m,
+            });
+
+            secondJcDto.ForQuantity.ShouldBe(60m);
+        });
+    }
 }
+
