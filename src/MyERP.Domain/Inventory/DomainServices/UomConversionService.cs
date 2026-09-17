@@ -85,7 +85,7 @@ public class UomConversionService : DomainService
                 && c.FromUom == stockUom && c.ToUom == transactionUom);
 
         if (reverseGlobal != null && reverseGlobal.ConversionFactor != 0)
-            return 1m / reverseGlobal.ConversionFactor;
+            return Math.Round(1m / reverseGlobal.ConversionFactor, 9);
 
         // Priority 3: Intermediate conversion via shared source UOM (per PR #58305)
         // e.g. Kg -> mg (1,000,000) and Kg -> g (1,000) => g -> mg = 1,000,000 / 1,000 = 1,000
@@ -93,7 +93,7 @@ public class UomConversionService : DomainService
             from first in query.Where(c => c.ItemId == null && c.ToUom == stockUom)
             join second in query.Where(c => c.ItemId == null && c.ToUom == transactionUom && c.ConversionFactor != 0)
                 on first.FromUom equals second.FromUom
-            select first.ConversionFactor / second.ConversionFactor
+            select Math.Round(first.ConversionFactor / second.ConversionFactor, 9)
         ).FirstOrDefault();
 
         if (sharedSource != 0)
@@ -105,7 +105,7 @@ public class UomConversionService : DomainService
             from first in query.Where(c => c.ItemId == null && c.FromUom == transactionUom)
             join second in query.Where(c => c.ItemId == null && c.FromUom == stockUom && c.ConversionFactor != 0)
                 on first.ToUom equals second.ToUom
-            select first.ConversionFactor / second.ConversionFactor
+            select Math.Round(first.ConversionFactor / second.ConversionFactor, 9)
         ).FirstOrDefault();
 
         if (sharedTarget != 0)
