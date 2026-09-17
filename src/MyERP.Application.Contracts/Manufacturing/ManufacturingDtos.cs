@@ -178,6 +178,9 @@ public class WorkOrderDto : AuditedEntityDto<Guid>
     public Guid CompanyId { get; set; }
     public Guid? SalesOrderId { get; set; }
     public Guid? SalesOrderItemId { get; set; }
+    public Guid? ProductionPlanId { get; set; }
+    public Guid? ProductionPlanItemId { get; set; }
+    public Guid? ProductionPlanSubAssemblyItemId { get; set; }
     public DateTime? PlannedStartDate { get; set; }
     public DateTime? PlannedEndDate { get; set; }
     public DateTime? ActualStartDate { get; set; }
@@ -212,6 +215,9 @@ public class CreateWorkOrderDto
     [Required] public Guid CompanyId { get; set; }
     public Guid? SalesOrderId { get; set; }
     public Guid? SalesOrderItemId { get; set; }
+    public Guid? ProductionPlanId { get; set; }
+    public Guid? ProductionPlanItemId { get; set; }
+    public Guid? ProductionPlanSubAssemblyItemId { get; set; }
     public Guid? SourceWarehouseId { get; set; }
     public Guid? WipWarehouseId { get; set; }
     public Guid? FgWarehouseId { get; set; }

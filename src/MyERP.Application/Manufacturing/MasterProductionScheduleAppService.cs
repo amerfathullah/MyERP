@@ -217,7 +217,7 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         var scheduleItems = new List<MasterProductionScheduleItem>();
         foreach (var (key, value) in demand)
         {
-            var leadTimeDays = await _leadTimeService.GetCumulativeLeadTimeDaysAsync(key.ItemId);
+            var leadTimeDays = await _leadTimeService.GetCumulativeLeadTimeDaysAsync(key.ItemId, null, value.Qty);
             scheduleItems.Add(new MasterProductionScheduleItem(
                 GuidGenerator.Create(), schedule.Id, key.ItemId,
                 itemNames.GetValueOrDefault(key.ItemId, value.ItemName), key.DeliveryDate, value.Qty, leadTimeDays)

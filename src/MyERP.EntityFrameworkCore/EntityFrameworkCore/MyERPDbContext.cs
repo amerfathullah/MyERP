@@ -3172,6 +3172,7 @@ public class MyERPDbContext :
             b.Navigation(x => x.RequiredItems).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.WorkOrderNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.ProductionPlanId });
         });
 
         builder.Entity<WorkOrderItem>(b =>

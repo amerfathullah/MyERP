@@ -556,6 +556,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         {
             SalesOrderId = input.SalesOrderId,
             SalesOrderItemId = input.SalesOrderItemId,
+            ProductionPlanId = input.ProductionPlanId,
+            ProductionPlanItemId = input.ProductionPlanItemId,
+            ProductionPlanSubAssemblyItemId = input.ProductionPlanSubAssemblyItemId,
             SourceWarehouseId = sourceWarehouseId,
             WipWarehouseId = wipWarehouseId,
             FgWarehouseId = fgWarehouseId,
@@ -677,6 +680,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.Quantity = input.Quantity;
         wo.SalesOrderId = input.SalesOrderId;
         wo.SalesOrderItemId = input.SalesOrderItemId;
+        wo.ProductionPlanId = input.ProductionPlanId;
+        wo.ProductionPlanItemId = input.ProductionPlanItemId;
+        wo.ProductionPlanSubAssemblyItemId = input.ProductionPlanSubAssemblyItemId;
         wo.SourceWarehouseId = sourceWarehouseId;
         wo.WipWarehouseId = wipWarehouseId;
         wo.FgWarehouseId = fgWarehouseId;
@@ -914,6 +920,16 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
         var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
         woManager.ValidateMandatoryWarehouses(wo, wo.SkipTransfer);
+
+        if (wo.ProductionPlanId.HasValue)
+        {
+            var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+            var settings = await settingsRepo.FindAsync(s => s.CompanyId == wo.CompanyId);
+            var overproductionPct = settings?.OverproductionPercentage ?? 5m;
+            var planRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ProductionPlan, Guid>>();
+            await woManager.ValidateProductionPlanQuantityAsync(wo, planRepo, _workOrderRepository, overproductionPct);
+        }
+
         wo.Submit();
         await _workOrderRepository.UpdateAsync(wo);
 

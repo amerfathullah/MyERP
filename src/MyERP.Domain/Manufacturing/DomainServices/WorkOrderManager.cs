@@ -256,6 +256,88 @@ public class WorkOrderManager : DomainService
                 .WithData("detail", "Target Warehouse is required before submit.");
         }
     }
+
+    /// <summary>
+    /// Validates Work Order quantity against linked Production Plan planned quantity with overproduction tolerance and process loss headroom.
+    /// Per ERPNext PR #58799 & #58847.
+    /// </summary>
+    public async Task ValidateProductionPlanQuantityAsync(
+        WorkOrder wo,
+        IRepository<ProductionPlan, Guid> planRepository,
+        IRepository<WorkOrder, Guid> workOrderRepository,
+        decimal overproductionPercentage)
+    {
+        if (!wo.ProductionPlanId.HasValue)
+            return;
+
+        if (wo.ProductionPlanItemId.HasValue && wo.ProductionPlanSubAssemblyItemId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Work Order must reference only one Production Plan row.");
+        }
+
+        if (!wo.ProductionPlanItemId.HasValue && !wo.ProductionPlanSubAssemblyItemId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Work Order with Production Plan must reference a plan item or sub-assembly item.");
+        }
+
+        var plan = await planRepository.GetAsync(wo.ProductionPlanId.Value, includeDetails: true);
+
+        decimal plannedQty;
+        if (wo.ProductionPlanItemId.HasValue)
+        {
+            var planItem = plan.PlannedItems.FirstOrDefault(i => i.Id == wo.ProductionPlanItemId.Value);
+            if (planItem == null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Work Order references missing Production Plan Item {wo.ProductionPlanItemId.Value}.");
+            }
+            plannedQty = planItem.PlannedQty;
+        }
+        else
+        {
+            var mrItem = plan.MaterialRequirements.FirstOrDefault(i => i.Id == wo.ProductionPlanSubAssemblyItemId!.Value);
+            if (mrItem == null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Work Order references missing Production Plan Sub Assembly Item {wo.ProductionPlanSubAssemblyItemId!.Value}.");
+            }
+            plannedQty = mrItem.PlannedQty > 0 ? mrItem.PlannedQty : mrItem.RequiredQty;
+        }
+
+        var woQuery = await workOrderRepository.GetQueryableAsync();
+        var otherWos = woQuery.Where(w => w.ProductionPlanId == wo.ProductionPlanId.Value
+            && w.Id != wo.Id
+            && w.Status != WorkOrderStatus.Draft
+            && w.Status != WorkOrderStatus.Cancelled)
+            .ToList();
+
+        decimal committedQty = 0m;
+        if (wo.ProductionPlanItemId.HasValue)
+        {
+            committedQty = otherWos
+                .Where(w => w.ProductionPlanItemId == wo.ProductionPlanItemId.Value)
+                .Sum(w => w.Quantity - w.ProcessLossQty);
+        }
+        else
+        {
+            committedQty = otherWos
+                .Where(w => w.ProductionPlanSubAssemblyItemId == wo.ProductionPlanSubAssemblyItemId!.Value)
+                .Sum(w => w.Quantity - w.ProcessLossQty);
+        }
+
+        var maxAllowedQty = Math.Round(plannedQty * (1m + overproductionPercentage / 100m) - committedQty + wo.ProcessLossQty, 4);
+        if (wo.Quantity > maxAllowedQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ProductionPlanQuantityExceeded)
+                .WithData("workOrderQty", wo.Quantity)
+                .WithData("maxAllowedQty", Math.Max(0, maxAllowedQty))
+                .WithData("plannedQty", plannedQty)
+                .WithData("committedQty", committedQty)
+                .WithData("processLossQty", wo.ProcessLossQty);
+        }
+    }
 }
 
 /// <summary>

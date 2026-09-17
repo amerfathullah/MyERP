@@ -68,7 +68,16 @@ public class AccountingDimension : FullAuditedAggregateRoot<Guid>, IMultiTenant
             trimmed.EndsWith("Row", StringComparison.OrdinalIgnoreCase) ||
             trimmed.EndsWith("ScheduleEntry", StringComparison.OrdinalIgnoreCase) ||
             trimmed.EndsWith("Tax", StringComparison.OrdinalIgnoreCase) ||
-            trimmed.EndsWith("Charge", StringComparison.OrdinalIgnoreCase))
+            trimmed.EndsWith("Charge", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Team", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Stop", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Allocation", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Member", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Settings", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Setting", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Config", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Configuration", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.EndsWith("Setup", StringComparison.OrdinalIgnoreCase))
         {
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"{trimmed} cannot be used as an accounting dimension as it is not a standalone document type.");

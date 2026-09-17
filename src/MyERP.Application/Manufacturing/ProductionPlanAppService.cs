@@ -613,6 +613,8 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 GuidGenerator.Create(), plan.CompanyId, woNumber,
                 item.ItemId, item.BomId, item.PlannedQty, CurrentTenant.Id)
             {
+                ProductionPlanId = plan.Id,
+                ProductionPlanItemId = item.Id,
                 SalesOrderId = item.SalesOrderId,
                 SourceWarehouseId = bom.SourceWarehouseId,
                 FgWarehouseId = item.WarehouseId ?? bom.TargetWarehouseId,

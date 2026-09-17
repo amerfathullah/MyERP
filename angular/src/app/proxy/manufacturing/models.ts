@@ -746,6 +746,9 @@ export interface CreateWorkOrderDto {
   companyId: string;
   salesOrderId?: string | null;
   salesOrderItemId?: string | null;
+  productionPlanId?: string | null;
+  productionPlanItemId?: string | null;
+  productionPlanSubAssemblyItemId?: string | null;
   sourceWarehouseId?: string | null;
   wipWarehouseId?: string | null;
   fgWarehouseId?: string | null;
@@ -969,6 +972,9 @@ export interface WorkOrderDto extends AuditedEntityDto<string> {
   companyId?: string;
   salesOrderId?: string | null;
   salesOrderItemId?: string | null;
+  productionPlanId?: string | null;
+  productionPlanItemId?: string | null;
+  productionPlanSubAssemblyItemId?: string | null;
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
   actualStartDate?: string | null;

@@ -2452,6 +2452,7 @@
     "MyERP:10011": "BOM '{bomNumber}' is inactive and cannot be used for production.",
     "MyERP:10012": "Workstation '{workstationName}' capacity exceeded. Available: {availableCapacity}, Required: {requiredCapacity}",
     "MyERP:10031": "This Job Card requires at least one time log before it can be completed. Enforced by Manufacturing Settings.",
+    "MyERP:10032": "Work Order quantity {workOrderQty} exceeds the allowed Production Plan quantity {maxAllowedQty} (planned: {plannedQty}, committed: {committedQty}, process loss: {processLossQty}).",
     "MyERP:00004": "This master record is restricted from being used with the selected company.",
     "MyERP:00005": "A duplicate record already exists.",
     "MyERP:03023": "Commission rate must be between 0 and 100 (got {rate}%).",
