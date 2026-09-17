@@ -103,4 +103,49 @@ public class AgingBucketAndFiscalYearTests
     {
         MyERPDomainErrorCodes.PriorFiscalYearNotClosed.ShouldBe("MyERP:02011");
     }
+
+    [Fact]
+    public void AgingDetailEntry_SupportsPartyGroup()
+    {
+        var groupId = Guid.NewGuid();
+        var entry = new AgingDetailEntry
+        {
+            PartyId = Guid.NewGuid(),
+            PartyName = "ACME Corp",
+            PartyGroupId = groupId,
+            PartyGroupName = "Commercial Clients",
+            DocumentId = Guid.NewGuid(),
+            DocumentNumber = "SI-001",
+            PostingDate = DateTime.Today,
+            DueDate = DateTime.Today,
+            OutstandingAmount = 1000m,
+            AgeDays = 5,
+            BucketIndex = 0,
+            BucketLabel = "0-30"
+        };
+
+        entry.PartyGroupId.ShouldBe(groupId);
+        entry.PartyGroupName.ShouldBe("Commercial Clients");
+    }
+
+    [Fact]
+    public void AgingItem_SupportsPartyGroup()
+    {
+        var groupId = Guid.NewGuid();
+        var item = new AgingItem
+        {
+            PartyId = Guid.NewGuid(),
+            PartyName = "Global Logistics",
+            PartyGroupId = groupId,
+            PartyGroupName = "Key Suppliers",
+            DocumentId = Guid.NewGuid(),
+            DocumentNumber = "PI-001",
+            PostingDate = DateTime.Today,
+            DueDate = DateTime.Today,
+            OutstandingAmount = 2500m
+        };
+
+        item.PartyGroupId.ShouldBe(groupId);
+        item.PartyGroupName.ShouldBe("Key Suppliers");
+    }
 }

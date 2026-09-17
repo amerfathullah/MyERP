@@ -44,7 +44,8 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
             ageingBasedOn: ageingBasedOn,
             partyId: input.PartyId,
             fromDate: input.FromDate,
-            toDate: input.ToDate);
+            toDate: input.ToDate,
+            partyGroupId: input.PartyGroupId);
         return MapToDto(report);
     }
 
@@ -67,7 +68,8 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
             ageingBasedOn: ageingBasedOn,
             partyId: input.PartyId,
             fromDate: input.FromDate,
-            toDate: input.ToDate);
+            toDate: input.ToDate,
+            partyGroupId: input.PartyGroupId);
         return MapToDto(report);
     }
 
@@ -96,6 +98,8 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
             {
                 PartyId = d.PartyId,
                 PartyName = d.PartyName,
+                PartyGroupId = d.PartyGroupId,
+                PartyGroupName = d.PartyGroupName,
                 DocumentId = d.DocumentId,
                 DocumentNumber = d.DocumentNumber,
                 PostingDate = d.PostingDate,

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
+using MyERP.Core.Entities;
 using MyERP.Sales.Entities;
 using MyERP.Purchasing.Entities;
 using Volo.Abp.Domain.Repositories;
@@ -49,7 +50,8 @@ public class AgingBucketService : DomainService
         string ageingBasedOn = "Due Date",
         Guid? partyId = null,
         DateTime? fromDate = null,
-        DateTime? toDate = null)
+        DateTime? toDate = null,
+        Guid? partyGroupId = null)
     {
         bucketDays ??= new[] { 30, 60, 90, 120 };
 
@@ -63,6 +65,15 @@ public class AgingBucketService : DomainService
         {
             query = query.Where(si => si.CustomerId == partyId.Value);
         }
+        if (partyGroupId.HasValue)
+        {
+            var custQuery = await _customerRepository.GetQueryableAsync();
+            var customerIdsInGroup = custQuery
+                .Where(c => c.CompanyId == companyId && c.CustomerGroupId == partyGroupId.Value)
+                .Select(c => c.Id)
+                .ToList();
+            query = query.Where(si => customerIdsInGroup.Contains(si.CustomerId));
+        }
         if (fromDate.HasValue)
         {
             query = query.Where(si => si.IssueDate >= fromDate.Value);
@@ -74,13 +85,38 @@ public class AgingBucketService : DomainService
 
         var outstandingInvoices = query.ToList();
 
-        // Resolve customer names for detailed report
+        // Resolve customer names and customer group names for detailed report
         var customerIds = outstandingInvoices.Select(si => si.CustomerId).Distinct().ToList();
         var customerQuery = await _customerRepository.GetQueryableAsync();
-        var customerNames = customerQuery
+        var customerData = customerQuery
             .Where(c => customerIds.Contains(c.Id))
-            .Select(c => new { c.Id, c.Name })
-            .ToDictionary(c => c.Id, c => c.Name);
+            .Select(c => new { c.Id, c.Name, c.CustomerGroupId })
+            .ToList();
+        var customerNames = customerData.ToDictionary(c => c.Id, c => c.Name);
+        var customerGroupIds = customerData
+            .Where(c => c.CustomerGroupId.HasValue)
+            .Select(c => c.CustomerGroupId!.Value)
+            .Distinct()
+            .ToList();
+        var customerGroupNames = new Dictionary<Guid, string>();
+        if (customerGroupIds.Count > 0)
+        {
+            var groupRepo = LazyServiceProvider.LazyGetService<IRepository<CustomerGroup, Guid>>();
+            if (groupRepo != null)
+            {
+                var groupQuery = await groupRepo.GetQueryableAsync();
+                customerGroupNames = groupQuery
+                    .Where(g => customerGroupIds.Contains(g.Id))
+                    .Select(g => new { g.Id, g.Name })
+                    .ToDictionary(g => g.Id, g => g.Name);
+            }
+        }
+        var customerGroupMap = customerData.ToDictionary(
+            c => c.Id,
+            c => (
+                GroupId: c.CustomerGroupId,
+                GroupName: c.CustomerGroupId.HasValue ? customerGroupNames.GetValueOrDefault(c.CustomerGroupId.Value) : null
+            ));
 
         // Resolve cost center names for detailed report (per ERPNext PR #58453)
         var costCenterIds = outstandingInvoices
@@ -102,6 +138,8 @@ public class AgingBucketService : DomainService
         {
             PartyId = si.CustomerId,
             PartyName = customerNames.GetValueOrDefault(si.CustomerId),
+            PartyGroupId = customerGroupMap.TryGetValue(si.CustomerId, out var cg) ? cg.GroupId : null,
+            PartyGroupName = customerGroupMap.TryGetValue(si.CustomerId, out var cg2) ? cg2.GroupName : null,
             DocumentId = si.Id,
             DocumentNumber = si.InvoiceNumber,
             PostingDate = si.IssueDate,
@@ -125,7 +163,8 @@ public class AgingBucketService : DomainService
         string ageingBasedOn = "Due Date",
         Guid? partyId = null,
         DateTime? fromDate = null,
-        DateTime? toDate = null)
+        DateTime? toDate = null,
+        Guid? partyGroupId = null)
     {
         bucketDays ??= new[] { 30, 60, 90, 120 };
 
@@ -139,6 +178,15 @@ public class AgingBucketService : DomainService
         {
             query = query.Where(pi => pi.SupplierId == partyId.Value);
         }
+        if (partyGroupId.HasValue)
+        {
+            var suppQuery = await _supplierRepository.GetQueryableAsync();
+            var supplierIdsInGroup = suppQuery
+                .Where(s => s.CompanyId == companyId && s.SupplierGroupId == partyGroupId.Value)
+                .Select(s => s.Id)
+                .ToList();
+            query = query.Where(pi => supplierIdsInGroup.Contains(pi.SupplierId));
+        }
         if (fromDate.HasValue)
         {
             query = query.Where(pi => pi.IssueDate >= fromDate.Value);
@@ -150,13 +198,38 @@ public class AgingBucketService : DomainService
 
         var outstandingInvoices = query.ToList();
 
-        // Resolve supplier names for detailed report
+        // Resolve supplier names and supplier group names for detailed report
         var supplierIds = outstandingInvoices.Select(pi => pi.SupplierId).Distinct().ToList();
         var supplierQuery = await _supplierRepository.GetQueryableAsync();
-        var supplierNames = supplierQuery
+        var supplierData = supplierQuery
             .Where(s => supplierIds.Contains(s.Id))
-            .Select(s => new { s.Id, s.Name })
-            .ToDictionary(s => s.Id, s => s.Name);
+            .Select(s => new { s.Id, s.Name, s.SupplierGroupId })
+            .ToList();
+        var supplierNames = supplierData.ToDictionary(s => s.Id, s => s.Name);
+        var supplierGroupIds = supplierData
+            .Where(s => s.SupplierGroupId.HasValue)
+            .Select(s => s.SupplierGroupId!.Value)
+            .Distinct()
+            .ToList();
+        var supplierGroupNames = new Dictionary<Guid, string>();
+        if (supplierGroupIds.Count > 0)
+        {
+            var groupRepo = LazyServiceProvider.LazyGetService<IRepository<SupplierGroup, Guid>>();
+            if (groupRepo != null)
+            {
+                var groupQuery = await groupRepo.GetQueryableAsync();
+                supplierGroupNames = groupQuery
+                    .Where(g => supplierGroupIds.Contains(g.Id))
+                    .Select(g => new { g.Id, g.Name })
+                    .ToDictionary(g => g.Id, g => g.Name);
+            }
+        }
+        var supplierGroupMap = supplierData.ToDictionary(
+            s => s.Id,
+            s => (
+                GroupId: s.SupplierGroupId,
+                GroupName: s.SupplierGroupId.HasValue ? supplierGroupNames.GetValueOrDefault(s.SupplierGroupId.Value) : null
+            ));
 
         // Resolve cost center names for detailed report (per ERPNext PR #58453)
         var costCenterIds = outstandingInvoices
@@ -178,6 +251,8 @@ public class AgingBucketService : DomainService
         {
             PartyId = pi.SupplierId,
             PartyName = supplierNames.GetValueOrDefault(pi.SupplierId),
+            PartyGroupId = supplierGroupMap.TryGetValue(pi.SupplierId, out var sg) ? sg.GroupId : null,
+            PartyGroupName = supplierGroupMap.TryGetValue(pi.SupplierId, out var sg2) ? sg2.GroupName : null,
             DocumentId = pi.Id,
             DocumentNumber = pi.InvoiceNumber,
             PostingDate = pi.IssueDate,
@@ -226,6 +301,8 @@ public class AgingBucketService : DomainService
             {
                 PartyId = item.PartyId,
                 PartyName = item.PartyName,
+                PartyGroupId = item.PartyGroupId,
+                PartyGroupName = item.PartyGroupName,
                 DocumentId = item.DocumentId,
                 DocumentNumber = item.DocumentNumber,
                 PostingDate = item.PostingDate,
@@ -284,6 +361,8 @@ public class AgingDetailEntry
 {
     public Guid PartyId { get; set; }
     public string? PartyName { get; set; }
+    public Guid? PartyGroupId { get; set; }
+    public string? PartyGroupName { get; set; }
     public Guid DocumentId { get; set; }
     public string DocumentNumber { get; set; } = null!;
     public DateTime PostingDate { get; set; }
@@ -300,6 +379,8 @@ public class AgingItem
 {
     public Guid PartyId { get; set; }
     public string? PartyName { get; set; }
+    public Guid? PartyGroupId { get; set; }
+    public string? PartyGroupName { get; set; }
     public Guid DocumentId { get; set; }
     public string DocumentNumber { get; set; } = null!;
     public DateTime PostingDate { get; set; }

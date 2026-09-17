@@ -19,6 +19,8 @@ public class AgingDetailEntryDto
 {
     public Guid PartyId { get; set; }
     public string? PartyName { get; set; }
+    public Guid? PartyGroupId { get; set; }
+    public string? PartyGroupName { get; set; }
     public Guid DocumentId { get; set; }
     public string DocumentNumber { get; set; } = null!;
     public DateTime PostingDate { get; set; }
@@ -46,6 +48,11 @@ public class AgingReportRequestDto
 
     /// <summary>Optional party filter (Customer for AR, Supplier for AP).</summary>
     public Guid? PartyId { get; set; }
+
+    /// <summary>
+    /// Optional party group filter (CustomerGroup for AR, SupplierGroup for AP per ERPNext PR #58179).
+    /// </summary>
+    public Guid? PartyGroupId { get; set; }
 
     /// <summary>Optional invoice posting date range filter.</summary>
     public DateTime? FromDate { get; set; }

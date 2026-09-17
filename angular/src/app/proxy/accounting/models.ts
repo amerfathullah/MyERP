@@ -150,6 +150,8 @@ export interface AgingBucketDto {
 export interface AgingDetailEntryDto {
   partyId?: string;
   partyName?: string | null;
+  partyGroupId?: string | null;
+  partyGroupName?: string | null;
   documentId?: string;
   documentNumber?: string;
   postingDate?: string;
@@ -179,6 +181,7 @@ export interface AgingReportRequestDto {
   calculateAgeingWith?: string | null;
   ageingBasedOn?: string | null;
   partyId?: string | null;
+  partyGroupId?: string | null;
   fromDate?: string | null;
   toDate?: string | null;
 }
