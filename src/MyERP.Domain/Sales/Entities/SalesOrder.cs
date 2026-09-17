@@ -250,6 +250,12 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         if (Status == DocumentStatus.Cancelled || Status == DocumentStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
+
+        // Per ERPNext PR #59120 (commit ded6df3614): reset ordered_qty when a Sales Order is cancelled
+        foreach (var item in _items)
+        {
+            item.OrderedQty = 0;
+        }
     }
 
     /// <summary>

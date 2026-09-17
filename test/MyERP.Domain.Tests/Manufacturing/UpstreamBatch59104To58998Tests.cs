@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyERP.Accounting;
+using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Inventory;
@@ -222,6 +223,86 @@ public class UpstreamBatch59104To58998Tests
         // Fully billed: no headroom left (0 pending) per PR #58816
         freeItem.BilledQty = 5;
         SalesOrderManager.HasPotentiallyBillableItems(so).ShouldBeFalse();
+    }
+
+    // --- PR #59084 / commit 4e3e301c90: Financial Report Template formula evaluation and reference validation ---
+
+    [Fact]
+    public void FinancialReportTemplate_ValidReferenceCodes_PassValidation()
+    {
+        var template = new FinancialReportTemplate(Guid.NewGuid(), "Test Template", FinancialReportType.BalanceSheet);
+        template.AddRow("Revenue", FinancialReportDataSource.AccountData, 1, "REV");
+        template.AddRow("Current Assets", FinancialReportDataSource.AccountData, 2, "CA100");
+        template.AddRow("Cash Flow 2", FinancialReportDataSource.AccountData, 3, "cash_flow_2");
+
+        var errors = template.ValidateFormulas();
+        errors.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("REV-COGS", "Invalid line reference format")]
+    [InlineData("123REV", "Invalid line reference format")]
+    [InlineData("REV COGS", "Invalid line reference format")]
+    [InlineData("abs", "is a reserved name")]
+    [InlineData("sum", "is a reserved name")]
+    [InlineData("round", "is a reserved name")]
+    [InlineData("class", "is a reserved name")]
+    [InlineData("if", "is a reserved name")]
+    public void FinancialReportTemplate_HyphenAndReservedWords_Rejected(string referenceCode, string expectedErrorSubstring)
+    {
+        var template = new FinancialReportTemplate(Guid.NewGuid(), "Invalid Template", FinancialReportType.ProfitAndLoss);
+        template.AddRow("Row", FinancialReportDataSource.AccountData, 1, referenceCode);
+
+        var errors = template.ValidateFormulas();
+        errors.ShouldContain(e => e.Contains(expectedErrorSubstring));
+    }
+
+    [Fact]
+    public void FinancialReportFormulaEngine_EvaluatesFunctions_AndTrimsFormula()
+    {
+        var refs = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["A"] = 16m,
+            ["B"] = 4m,
+            ["C"] = 2m
+        };
+
+        // Trimming + sqrt
+        FinancialReportFormulaEngine.EvaluateFormula("  sqrt(A)  ", refs).ShouldBe(4m);
+
+        // min, max, sum
+        FinancialReportFormulaEngine.EvaluateFormula("min(A, B, C)", refs).ShouldBe(2m);
+        FinancialReportFormulaEngine.EvaluateFormula("max(A, B, C)", refs).ShouldBe(16m);
+        FinancialReportFormulaEngine.EvaluateFormula("sum(A, B, C)", refs).ShouldBe(22m);
+
+        // pow
+        FinancialReportFormulaEngine.EvaluateFormula("pow(B, C)", refs).ShouldBe(16m);
+
+        // Division by zero returns 0 without crashing
+        FinancialReportFormulaEngine.EvaluateFormula("A / 0", refs).ShouldBe(0m);
+    }
+
+    // --- PR #59120 / commit ded6df3614: reset ordered_qty when Sales Order is cancelled ---
+
+    [Fact]
+    public void SalesOrder_Cancel_ResetsOrderedQtyOnItems()
+    {
+        var soId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var so = new SalesOrder(soId, companyId, customerId, "SO-2026-RESET", DateTime.UtcNow);
+        so.AddItem(itemId, "Item 1", quantity: 10, unitPrice: 100m, taxAmount: 0m, uom: "Unit");
+        so.Submit();
+
+        var line = so.Items[0];
+        line.OrderedQty = 10m; // Simulating PO created for this SO line
+
+        so.Cancel();
+
+        so.Status.ShouldBe(DocumentStatus.Cancelled);
+        line.OrderedQty.ShouldBe(0m);
     }
 }
 

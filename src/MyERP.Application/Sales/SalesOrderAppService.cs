@@ -785,6 +785,16 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
         }
 
+        // Per ERPNext PR #59120 (commit ded6df3614): unlink any Purchase Orders created against this Sales Order
+        var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+        var poQuery = await poRepo.GetQueryableAsync();
+        var linkedPos = poQuery.Where(po => po.InterCompanySalesOrderId == order.Id && po.Status != Core.DocumentStatus.Cancelled).ToList();
+        foreach (var linkedPo in linkedPos)
+        {
+            linkedPo.InterCompanySalesOrderId = null;
+            await poRepo.UpdateAsync(linkedPo, autoSave: true);
+        }
+
         await _repository.UpdateAsync(order, autoSave: true);
         var cancelDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
         cancelDto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
