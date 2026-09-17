@@ -308,22 +308,26 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
                 }
             }
 
-            if (bomId.HasValue && bomId.Value != Guid.Empty)
+            if (!bomId.HasValue || bomId.Value == Guid.Empty)
             {
-                var planItem = new ProductionPlanItem(
-                    Guid.NewGuid(),
-                    plan.Id,
-                    item.ItemId,
-                    item.ItemName,
-                    bomId.Value,
-                    item.PlannedQty)
-                {
-                    WarehouseId = item.WarehouseId ?? schedule.ParentWarehouseId,
-                    PlannedStartDate = item.OrderReleaseDate
-                };
-
-                plan.AddPlannedItem(planItem);
+                // Per ERPNext PR #58511: prompt/throw when manufactured item has no BOM
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Default BOM for item '{item.ItemName}' not found. Please assign a default BOM before creating a Production Plan from MPS.");
             }
+
+            var planItem = new ProductionPlanItem(
+                Guid.NewGuid(),
+                plan.Id,
+                item.ItemId,
+                item.ItemName,
+                bomId.Value,
+                item.PlannedQty)
+            {
+                WarehouseId = item.WarehouseId ?? schedule.ParentWarehouseId,
+                PlannedStartDate = item.OrderReleaseDate
+            };
+
+            plan.AddPlannedItem(planItem);
         }
 
         await _productionPlanRepository.InsertAsync(plan, autoSave: true);

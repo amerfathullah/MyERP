@@ -156,8 +156,9 @@ public class SupplierQuotationComparisonAppService : ApplicationService, ISuppli
 
     /// <summary>
     /// Gets a comparison for manually selected supplier quotations (not RFQ-linked).
+    /// Supports status filtering (Draft, Submitted, or all non-cancelled).
     /// </summary>
-    public async Task<SupplierQuotationComparisonDto> GetComparisonByIdsAsync(List<Guid> quotationIds)
+    public async Task<SupplierQuotationComparisonDto> GetComparisonByIdsAsync(List<Guid> quotationIds, string? status = null)
     {
         if (quotationIds == null || quotationIds.Count < 2)
             throw new Volo.Abp.BusinessException("MyERP:04050")
@@ -166,9 +167,16 @@ public class SupplierQuotationComparisonAppService : ApplicationService, ISuppli
         var sqQueryable = await _sqRepository.GetQueryableAsync();
         var supplierQueryable = await _supplierRepository.GetQueryableAsync();
 
-        var quotations = sqQueryable
-            .Where(sq => quotationIds.Contains(sq.Id))
-            .ToList();
+        var query = sqQueryable.Where(sq => quotationIds.Contains(sq.Id));
+
+        if (string.Equals(status, "Draft", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(sq => sq.Status == DocumentStatus.Draft);
+        else if (string.Equals(status, "Submitted", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(sq => sq.Status == DocumentStatus.Submitted || sq.Status == DocumentStatus.ToDeliverAndBill || sq.Status == DocumentStatus.Completed);
+        else
+            query = query.Where(sq => sq.Status != DocumentStatus.Cancelled);
+
+        var quotations = query.ToList();
 
         if (quotations.Count < 2)
             throw new Volo.Abp.BusinessException("MyERP:04050")

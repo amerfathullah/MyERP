@@ -94,6 +94,26 @@ public class MasterProductionScheduleWorkflowTests
     }
 
     [Fact]
+    public async Task MakeProductionPlanAsync_MissingBom_ThrowsValidationException()
+    {
+        var scheduleId = Guid.NewGuid();
+        var schedule = new MasterProductionSchedule(scheduleId, _companyId, "MPS-2026-00001", new DateTime(2026, 6, 1), new DateTime(2026, 6, 1));
+        var item = new MasterProductionScheduleItem(
+            Guid.NewGuid(), scheduleId, _itemId, "Finished Widget", new DateTime(2026, 6, 20), 50m, 5)
+        {
+            BomId = null
+        };
+        schedule.SetItems(new List<MasterProductionScheduleItem> { item });
+
+        _mpsRepo.GetAsync(scheduleId, includeDetails: true).Returns(Task.FromResult(schedule));
+        _bomRepo.GetQueryableAsync().Returns(Task.FromResult(new List<BillOfMaterials>().AsQueryable()));
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => _appService.MakeProductionPlanAsync(scheduleId));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("Default BOM for item 'Finished Widget' not found", ex.Data["detail"]?.ToString());
+    }
+
+    [Fact]
     public async Task GetSummaryAsync_ReturnsAccurateMetrics()
     {
         var scheduleId = Guid.NewGuid();
