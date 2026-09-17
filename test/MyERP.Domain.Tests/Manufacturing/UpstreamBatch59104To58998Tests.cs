@@ -198,4 +198,30 @@ public class UpstreamBatch59104To58998Tests
         SalesOrderManager.HasPotentiallyBillableItems(so, itemAllowances, globalOverBillingAllowance: 20m)
             .ShouldBeFalse();
     }
+
+    [Fact]
+    public void SalesOrderManager_ZeroAmountRow_HeadroomBasedOnPendingBillingQty()
+    {
+        var soId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var freeItemId = Guid.NewGuid();
+
+        var so = new SalesOrder(soId, companyId, customerId, "SO-2026-FREE", DateTime.UtcNow);
+        so.AddItem(freeItemId, "Free Sample Item", quantity: 5, unitPrice: 0m, taxAmount: 0m, uom: "Unit");
+        so.Submit();
+
+        var freeItem = so.Items[0];
+        // Unbilled: has headroom (5 pending)
+        SalesOrderManager.HasPotentiallyBillableItems(so).ShouldBeTrue();
+
+        // Partially billed: still has headroom (2 pending)
+        freeItem.BilledQty = 3;
+        SalesOrderManager.HasPotentiallyBillableItems(so).ShouldBeTrue();
+
+        // Fully billed: no headroom left (0 pending) per PR #58816
+        freeItem.BilledQty = 5;
+        SalesOrderManager.HasPotentiallyBillableItems(so).ShouldBeFalse();
+    }
 }
+

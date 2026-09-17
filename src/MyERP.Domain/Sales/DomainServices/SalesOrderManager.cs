@@ -148,8 +148,10 @@ public class SalesOrderManager : DomainService
 
             var itemAmount = line.LineTotal;
             var billedAmount = line.BilledQty * line.UnitPrice;
-            var hasAmountHeadroom = itemAmount == 0 ||
-                Math.Abs(billedAmount) < Math.Abs(itemAmount) * (1m + allowance / 100m);
+            // Per ERPNext PR #58816: for zero-amount rows (free items), headroom is based on pending billing quantity
+            var hasAmountHeadroom = itemAmount == 0
+                ? line.PendingBillingQty > 0
+                : Math.Abs(billedAmount) < Math.Abs(itemAmount) * (1m + allowance / 100m);
 
             if (line.Quantity != 0 && hasAmountHeadroom)
                 return true;
