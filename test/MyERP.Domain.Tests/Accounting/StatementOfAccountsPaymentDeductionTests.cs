@@ -347,4 +347,105 @@ public class StatementOfAccountsPaymentDeductionTests
         Assert.Equal(0m, line2.Credit);
         Assert.Equal(800m, line2.Balance); // 2000 - 1200
     }
+
+    [Fact]
+    public async Task SalesRegister_WithPosInvoiceAndLoyalty_ReflectsInInvoiceCredit()
+    {
+        var fromDate = new DateTime(2026, 8, 1);
+        var toDate = new DateTime(2026, 8, 31);
+
+        // POS Invoice: GrandTotal 200, AmountPaid 180, LoyaltyRedemptionAmount 20
+        var posSi = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "SINV-POS-001", new DateTime(2026, 8, 10))
+        {
+            IsPos = true,
+            AmountPaid = 180m,
+            LoyaltyRedemptionAmount = 20m
+        };
+        posSi.AddItem(Guid.NewGuid(), "POS Item", 1m, 200m, 0m);
+        posSi.Submit();
+        posSi.Post();
+
+        _siRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SalesInvoice> { posSi }.AsQueryable()));
+        SetupPaymentRepo(new List<PaymentEntry>());
+
+        var filter = new RegisterFilterDto
+        {
+            CompanyId = _companyId,
+            CustomerId = _customerId,
+            FromDate = fromDate,
+            ToDate = toDate,
+            IncludePayments = true
+        };
+
+        var result = await _salesRegisterAppService.GetReportAsync(filter);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Items.Count); // Opening + POS invoice
+
+        var posLine = result.Items[1];
+        Assert.Equal("Sales Invoice", posLine.VoucherType);
+        Assert.Equal(200m, posLine.Debit);
+        Assert.Equal(200m, posLine.Credit); // 180 paid + 20 loyalty = 200 credit
+        Assert.Equal(0m, posLine.Balance);  // fully settled in-invoice
+    }
+
+    [Fact]
+    public async Task StatementOfAccounts_WithPosInvoice_ReflectsInInvoiceCredit()
+    {
+        var fromDate = new DateTime(2026, 8, 1);
+        var toDate = new DateTime(2026, 8, 31);
+
+        // Prior POS Invoice in July: GrandTotal 150, fully paid at POS
+        var priorPos = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "SINV-POS-JULY", new DateTime(2026, 7, 15))
+        {
+            IsPos = true,
+            AmountPaid = 150m
+        };
+        priorPos.AddItem(Guid.NewGuid(), "Prior Item", 1m, 150m, 0m);
+        priorPos.Submit();
+        priorPos.Post();
+
+        // Period POS Invoice in August: GrandTotal 250, AmountPaid 200, WriteOff 50
+        var periodPos = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "SINV-POS-AUG", new DateTime(2026, 8, 5))
+        {
+            IsPos = true,
+            AmountPaid = 200m,
+            WriteOffAmount = 50m
+        };
+        periodPos.AddItem(Guid.NewGuid(), "Period Item", 1m, 250m, 0m);
+        periodPos.Submit();
+        periodPos.Post();
+
+        _siRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SalesInvoice> { priorPos, periodPos }.AsQueryable()));
+        SetupPaymentRepo(new List<PaymentEntry>());
+
+        var customer = new Customer(_customerId, _companyId, "Test Customer");
+        _customerRepo.FindAsync(_customerId).Returns(Task.FromResult<Customer?>(customer));
+
+        var result = await _soaAppService.GetCustomerStatementAsync(_customerId, _companyId, fromDate, toDate);
+
+        Assert.NotNull(result);
+        Assert.Equal(0m, result.OpeningBalance); // Prior POS was 150 debit and 150 credit -> 0 opening
+
+        Assert.Single(result.Entries);
+        var entry = result.Entries[0];
+        Assert.Equal(250m, entry.DebitAmount);
+        Assert.Equal(250m, entry.CreditAmount); // 200 paid + 50 write-off = 250 credit
+        Assert.Equal(0m, entry.RunningBalance);
+    }
+
+    [Fact]
+    public void SalesOrder_PendingDeliveryAndBillingQty_ClampsToFourDecimals()
+    {
+        var so = new SalesOrder(Guid.NewGuid(), _companyId, _customerId, "SO-001", DateTime.UtcNow);
+        so.AddItem(Guid.NewGuid(), "Item 1", 10.00004m, 100m, 0m);
+        var item = so.Items[0];
+        item.DeliveredQty = 3.00001m;
+        item.BilledQty = 5.00002m;
+
+        // PendingDeliveryQty: 10.00004 - 3.00001 = 7.00003 rounded to 4 decimals = 7.0000m
+        Assert.Equal(7.0000m, item.PendingDeliveryQty);
+        // PendingBillingQty: 10.00004 - 5.00002 = 5.00002 rounded to 4 decimals = 5.0000m
+        Assert.Equal(5.0000m, item.PendingBillingQty);
+    }
 }

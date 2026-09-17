@@ -84,7 +84,7 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
 
             decimal priorDebits = priorInvoices.Sum(si => si.IsReturn ? 0 : si.GrandTotal)
                 + priorPayments.Where(pe => pe.PaymentType == PaymentType.Pay).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
-            decimal priorCredits = priorInvoices.Sum(si => si.IsReturn ? si.GrandTotal : 0)
+            decimal priorCredits = priorInvoices.Sum(si => (si.IsReturn ? si.GrandTotal : 0) + GetInInvoiceReceivableCredit(si))
                 + priorPayments.Where(pe => pe.PaymentType != PaymentType.Pay).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
             decimal openingBalance = priorDebits - priorCredits;
 
@@ -111,11 +111,12 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
                 Balance = openingBalance
             });
 
-            // Invoice rows
+            // Invoice rows (per ERPNext PR #57927 / commit 40c356d166: include in-invoice settlements)
             foreach (var si in invoices)
             {
+                decimal inInvoiceCredit = GetInInvoiceReceivableCredit(si);
                 decimal debit = si.IsReturn ? 0 : si.GrandTotal;
-                decimal credit = si.IsReturn ? Math.Abs(si.GrandTotal) : 0;
+                decimal credit = (si.IsReturn ? Math.Abs(si.GrandTotal) : 0) + inInvoiceCredit;
                 lines.Add(new SalesRegisterLineDto
                 {
                     VoucherType = si.IsReturn ? "Credit Note" : "Sales Invoice",
@@ -198,11 +199,27 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
                 Outstanding = si.OutstandingAmount,
                 IsReturn = si.IsReturn,
                 Debit = si.IsReturn ? 0 : si.GrandTotal,
-                Credit = si.IsReturn ? Math.Abs(si.GrandTotal) : 0,
+                Credit = (si.IsReturn ? Math.Abs(si.GrandTotal) : 0) + GetInInvoiceReceivableCredit(si),
             }).ToList(),
             TotalNet = sortedInvoices.Sum(si => si.NetTotal),
             TotalTax = sortedInvoices.Sum(si => si.TaxAmount),
             TotalGrand = sortedInvoices.Sum(si => si.GrandTotal),
         };
+    }
+
+    /// <summary>
+    /// Credits that the invoice itself posts to the receivable (mirrors its GL entries).
+    /// Per ERPNext PR #57927 / commit 40c356d166:
+    /// - Loyalty redemption credits the receivable on all invoices.
+    /// - POS payments and write-offs credit the receivable on POS invoices.
+    /// </summary>
+    private static decimal GetInInvoiceReceivableCredit(SalesInvoice si)
+    {
+        decimal credit = si.LoyaltyRedemptionAmount;
+        if (si.IsPos)
+        {
+            credit += si.AmountPaid + si.WriteOffAmount;
+        }
+        return credit;
     }
 }

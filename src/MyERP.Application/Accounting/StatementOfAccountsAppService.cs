@@ -73,7 +73,19 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
                 && si.Status == Core.DocumentStatus.Posted
                 && si.IssueDate >= fromDate && si.IssueDate <= toDate)
             .OrderBy(si => si.IssueDate)
-            .Select(si => new { si.Id, si.InvoiceNumber, si.IssueDate, si.GrandTotal, si.AmountPaid, si.IsReturn, si.CurrencyCode })
+            .Select(si => new
+            {
+                si.Id,
+                si.InvoiceNumber,
+                si.IssueDate,
+                si.GrandTotal,
+                si.AmountPaid,
+                si.WriteOffAmount,
+                si.LoyaltyRedemptionAmount,
+                si.IsPos,
+                si.IsReturn,
+                si.CurrencyCode
+            })
             .ToList();
 
         // Get all posted payments for this customer in the date range
@@ -104,7 +116,7 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
 
         decimal priorDebits = priorInvoices.Sum(si => si.IsReturn ? 0 : si.GrandTotal)
             + priorPayments.Where(pe => pe.PaymentType == PaymentType.Pay).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
-        decimal priorCredits = priorInvoices.Sum(si => si.IsReturn ? si.GrandTotal : 0)
+        decimal priorCredits = priorInvoices.Sum(si => (si.IsReturn ? si.GrandTotal : 0) + GetInInvoiceReceivableCredit(si.IsPos, si.AmountPaid, si.WriteOffAmount, si.LoyaltyRedemptionAmount))
             + priorPayments.Where(pe => pe.PaymentType != PaymentType.Pay).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
         decimal openingBalance = priorDebits - priorCredits;
 
@@ -112,19 +124,21 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
         var entries = new List<StatementEntryDto>();
         decimal runningBalance = openingBalance;
 
-        // Add invoices
+        // Add invoices (per ERPNext PR #57927 / commit 40c356d166: include in-invoice settlements)
         foreach (var inv in invoices)
         {
-            decimal amount = inv.IsReturn ? -inv.GrandTotal : inv.GrandTotal;
-            runningBalance += amount;
+            decimal inInvoiceCredit = GetInInvoiceReceivableCredit(inv.IsPos, inv.AmountPaid, inv.WriteOffAmount, inv.LoyaltyRedemptionAmount);
+            decimal debit = inv.IsReturn ? 0 : inv.GrandTotal;
+            decimal credit = (inv.IsReturn ? Math.Abs(inv.GrandTotal) : 0) + inInvoiceCredit;
+            runningBalance += (debit - credit);
             entries.Add(new StatementEntryDto
             {
                 Date = inv.IssueDate,
                 DocumentType = inv.IsReturn ? "Credit Note" : "Sales Invoice",
                 DocumentNumber = inv.InvoiceNumber,
                 DocumentId = inv.Id,
-                DebitAmount = inv.IsReturn ? 0 : inv.GrandTotal,
-                CreditAmount = inv.IsReturn ? Math.Abs(inv.GrandTotal) : 0,
+                DebitAmount = debit,
+                CreditAmount = credit,
                 RunningBalance = runningBalance
             });
         }
@@ -467,6 +481,22 @@ public class StatementOfAccountsAppService : ApplicationService, IStatementOfAcc
             aging.TotalOutstanding += outstanding;
         }
         return aging;
+    }
+
+    /// <summary>
+    /// Credits that the invoice itself posts to the receivable (mirrors its GL entries).
+    /// Per ERPNext PR #57927 / commit 40c356d166:
+    /// - Loyalty redemption credits the receivable on all invoices.
+    /// - POS payments and write-offs credit the receivable on POS invoices.
+    /// </summary>
+    private static decimal GetInInvoiceReceivableCredit(bool isPos, decimal amountPaid, decimal writeOffAmount, decimal loyaltyRedemptionAmount)
+    {
+        decimal credit = loyaltyRedemptionAmount;
+        if (isPos)
+        {
+            credit += amountPaid + writeOffAmount;
+        }
+        return credit;
     }
 }
 

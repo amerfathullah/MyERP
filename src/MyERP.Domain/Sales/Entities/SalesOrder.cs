@@ -397,10 +397,10 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     public bool SkipDelivery { get; set; }
 
     /// <summary>Remaining qty to deliver.</summary>
-    public decimal PendingDeliveryQty => (SkipDelivery || IsClosed) ? 0 : Math.Max(0, Quantity - DeliveredQty);
+    public decimal PendingDeliveryQty => (SkipDelivery || IsClosed) ? 0 : Math.Max(0, Math.Round(Quantity - DeliveredQty, 4));
 
     /// <summary>Remaining qty to bill accounting for returns and re-deliveries.</summary>
-    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, BillableQty - BilledQty);
+    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, Math.Round(BillableQty - BilledQty, 4));
 
     /// <summary>Target warehouse for this item (for stock reservation).</summary>
     public Guid? WarehouseId { get; set; }

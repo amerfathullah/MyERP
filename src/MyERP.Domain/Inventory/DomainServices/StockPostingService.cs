@@ -51,6 +51,10 @@ public class StockPostingService : DomainService
 
         foreach (var item in stockEntry.Items)
         {
+            // Skip zero-quantity rows (per ERPNext PR #57980 / commit e4f9c664a8)
+            if (item.Quantity <= 0)
+                continue;
+
             // Skip non-stock items (service items don't create SLE entries)
             var itemEntity = await _itemRepository.FindAsync(item.ItemId);
             if (itemEntity != null && !itemEntity.MaintainStock)
