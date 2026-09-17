@@ -409,6 +409,67 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Validates that operations (Job Cards) for a Work Order have completed sufficient quantity
+    /// before allowing a Manufacture or Material Consumption for Manufacture Stock Entry.
+    /// Per ERPNext PR #58000 / commit 401eb30963 & 26a05044c0:
+    /// Gated to work orders without track_semi_finished_goods.
+    /// Non-corrective, non-cancelled job cards are evaluated per operation.
+    /// Total completed qty (entry.FgCompletedQty + wo.ProducedQuantity) must not exceed
+    /// allowed qty: opCompletedQty + opProcessLossQty + (allowancePct / 100 * opCompletedQty).
+    /// </summary>
+    public async Task ValidateOperationsCompletedAsync(
+        StockEntry entry,
+        IRepository<Manufacturing.Entities.WorkOrder, Guid> woRepository,
+        IRepository<Manufacturing.Entities.JobCard, Guid> jobCardRepository,
+        decimal overproductionPercentage = 0m)
+    {
+        if (!entry.WorkOrderId.HasValue)
+            return;
+
+        if (entry.EntryType != StockEntryType.Manufacture &&
+            entry.EntryType != StockEntryType.MaterialConsumptionForManufacture)
+            return;
+
+        var wo = await woRepository.FindAsync(entry.WorkOrderId.Value);
+        if (wo == null || wo.TrackSemiFinishedGoods)
+            return;
+
+        var jcQuery = await jobCardRepository.GetQueryableAsync();
+        var jobCards = jcQuery
+            .Where(jc => jc.WorkOrderId == entry.WorkOrderId.Value &&
+                         jc.Status != Manufacturing.JobCardStatus.Cancelled &&
+                         !jc.IsCorrective)
+            .ToList();
+
+        if (!jobCards.Any())
+            return;
+
+        var totalCompletedQty = Math.Round(entry.FgCompletedQty + wo.ProducedQuantity, 4);
+
+        // Group job cards by operation
+        var opGroups = jobCards.GroupBy(jc => jc.BomOperationId ?? jc.OperationId);
+
+        foreach (var group in opGroups)
+        {
+            var opCompletedQty = group.Sum(jc => jc.CompletedQty);
+            var opProcessLossQty = group.Sum(jc => jc.ProcessLossQty);
+            var allowedQty = Math.Round(
+                opCompletedQty + opProcessLossQty + (overproductionPercentage / 100m * opCompletedQty), 4);
+
+            if (totalCompletedQty > allowedQty)
+            {
+                var activeJc = group.FirstOrDefault();
+                throw new BusinessException(MyERPDomainErrorCodes.OperationsNotComplete)
+                    .WithData("workOrder", wo.WorkOrderNumber ?? wo.Id.ToString())
+                    .WithData("totalCompletedQty", totalCompletedQty)
+                    .WithData("allowedQty", allowedQty)
+                    .WithData("jobCardId", activeJc?.Id.ToString() ?? string.Empty)
+                    .WithData("detail", $"Operation is not completed for {totalCompletedQty} qty of finished goods in Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}. Please update operation status via Job Card {activeJc?.Id}.");
+            }
+        }
+    }
+
+    /// <summary>
     /// Calculates valuation rate for Repack FG items.
     /// Single FG: rate = total_outgoing_cost / fg_qty
     /// Multiple FGs: each must have rate set manually (validated separately).

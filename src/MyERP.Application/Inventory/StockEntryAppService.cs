@@ -213,6 +213,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         var overproductionPct = mfgSettings?.OverproductionPercentage ?? 5m;
         await seManager.ValidateDuplicateManufactureEntryAsync(entry, woRepo, _repository, overproductionPct);
 
+        var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
+        await seManager.ValidateOperationsCompletedAsync(entry, woRepo, jcRepo, overproductionPct);
+
         await _repository.InsertAsync(entry, autoSave: true);
         return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
     }
@@ -248,42 +251,26 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             await batchSplitManager.ProcessBatchSplitAsync(entry);
         }
 
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
+        var mfgSettings = await mfgSettingsRepo.FindAsync(s => s.CompanyId == entry.CompanyId);
+        var overproductionPct = mfgSettings?.OverproductionPercentage ?? 5m;
+
         if (entry.IsFgConversion)
         {
-            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
             var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
-            var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
             await seManager.ValidateFgConversionAsync(entry, woRepo, altRepo, _repository, mfgSettingsRepo);
         }
 
-        // Operations completion check (per ERPNext PR #58000 / commit 401eb30963)
-        if (entry.WorkOrderId.HasValue
-            && (entry.EntryType == StockEntryType.Manufacture || entry.EntryType == StockEntryType.MaterialConsumptionForManufacture))
-        {
-            var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
-            var jcQuery = await jcRepo.GetQueryableAsync();
-            var jobCards = jcQuery.Where(jc => jc.WorkOrderId == entry.WorkOrderId.Value).ToList();
-            if (jobCards.Any())
-            {
-                var uncompleted = jobCards.Where(jc => jc.Status != JobCardStatus.Completed && jc.Status != JobCardStatus.Cancelled).ToList();
-                if (uncompleted.Any())
-                {
-                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", $"Operations are not completed for Work Order. Please complete active Job Cards before submitting manufacture entry.");
-                }
-            }
-        }
+        // Operations completion check (per ERPNext PR #58000 / commit 401eb30963 & 26a05044c0)
+        var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
+        await seManager.ValidateOperationsCompletedAsync(entry, woRepo, jcRepo, overproductionPct);
 
         // Mandatory manufactured qty (PR #58005) & duplicate manufacture check (PR #58004)
         if (entry.WorkOrderId.HasValue && entry.EntryType == StockEntryType.Manufacture)
         {
-            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
             var wo = await woRepo.FindAsync(entry.WorkOrderId.Value);
             seManager.ValidateManufacturedQty(entry, wo);
-
-            var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
-            var mfgSettings = await mfgSettingsRepo.FindAsync(s => s.CompanyId == entry.CompanyId);
-            var overproductionPct = mfgSettings?.OverproductionPercentage ?? 5m;
             await seManager.ValidateDuplicateManufactureEntryAsync(entry, woRepo, _repository, overproductionPct);
         }
 

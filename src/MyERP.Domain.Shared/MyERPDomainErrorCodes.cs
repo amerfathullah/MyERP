@@ -164,6 +164,7 @@ public static class MyERPDomainErrorCodes
     public const string WorkOrderOverproduction = "MyERP:10006";
     public const string BomCycleDetected = "MyERP:10007";
     public const string ProductionPlanQuantityExceeded = "MyERP:10032";
+    public const string OperationsNotComplete = "MyERP:10033";
 
     // Projects
     public const string CircularDependencyDetected = "MyERP:13001";

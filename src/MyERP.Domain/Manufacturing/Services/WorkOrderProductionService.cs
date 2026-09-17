@@ -23,10 +23,14 @@ namespace MyERP.Manufacturing.Services;
 public class WorkOrderProductionService : DomainService
 {
     private readonly IRepository<WorkOrder, Guid> _workOrderRepository;
+    private readonly IRepository<JobCard, Guid>? _jobCardRepository;
 
-    public WorkOrderProductionService(IRepository<WorkOrder, Guid> workOrderRepository)
+    public WorkOrderProductionService(
+        IRepository<WorkOrder, Guid> workOrderRepository,
+        IRepository<JobCard, Guid>? jobCardRepository = null)
     {
         _workOrderRepository = workOrderRepository;
+        _jobCardRepository = jobCardRepository;
     }
 
     /// <summary>
@@ -120,6 +124,23 @@ public class WorkOrderProductionService : DomainService
     /// </summary>
     public async Task<decimal> GetWorkOrderCompletedQtyAsync(Guid workOrderId)
     {
+        if (_jobCardRepository != null)
+        {
+            var jcQuery = await _jobCardRepository.GetQueryableAsync();
+            var perOperationQty = jcQuery
+                .Where(jc => jc.WorkOrderId == workOrderId
+                    && jc.Status != JobCardStatus.Cancelled
+                    && !jc.IsCorrective)
+                .GroupBy(jc => jc.BomOperationId ?? jc.OperationId)
+                .Select(g => g.Sum(jc => jc.CompletedQty))
+                .ToList();
+
+            if (perOperationQty.Count > 0)
+            {
+                return perOperationQty.Min();
+            }
+        }
+
         var wo = await _workOrderRepository.GetAsync(workOrderId);
         return wo.ProducedQuantity;
     }
