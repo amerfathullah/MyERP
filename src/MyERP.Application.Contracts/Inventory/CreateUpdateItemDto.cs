@@ -113,6 +113,9 @@ public class CreateUpdateItemDto
     [Range(0, 100)]
     public decimal? MaxDiscount { get; set; }
 
+    [Range(0, double.MaxValue)]
+    public decimal OverBillingAllowance { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     // Reorder settings

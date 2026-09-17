@@ -333,9 +333,11 @@ public class StockValuationService : DomainService
         var item = await _itemRepository.GetAsync(itemId);
         var query = await _ledgerRepository.GetQueryableAsync();
 
+        // Per ERPNext PR #58998 / commit 6cee9c330c: use stored PostingDateTime boundary so entries whose
+        // stored timestamp diverges from posting_date are accurately included in the replay window.
         var entries = query
-            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && e.PostingDate >= fromDate && !e.IsCancelled)
-            .OrderBy(e => e.PostingDate)
+            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && (e.PostingDateTime >= fromDate || e.PostingDate >= fromDate) && !e.IsCancelled)
+            .OrderBy(e => e.PostingDateTime)
             .ThenBy(e => e.CreationTime)
             .ToList();
 
@@ -343,8 +345,8 @@ public class StockValuationService : DomainService
 
         // Get the SLE just before the revaluation start
         var priorEntry = query
-            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && e.PostingDate < fromDate && !e.IsCancelled)
-            .OrderByDescending(e => e.PostingDate)
+            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && (e.PostingDateTime < fromDate && e.PostingDate < fromDate) && !e.IsCancelled)
+            .OrderByDescending(e => e.PostingDateTime)
             .ThenByDescending(e => e.CreationTime)
             .FirstOrDefault();
 

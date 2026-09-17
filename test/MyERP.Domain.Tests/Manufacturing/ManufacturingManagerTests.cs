@@ -103,6 +103,7 @@ public class ManufacturingManagerTests
     {
         var jc = CreateJobCard();
         jc.Start();
+        jc.AddTimeLog(DateTime.UtcNow.AddMinutes(-30), DateTime.UtcNow.AddMinutes(-10), 10m);
         jc.Complete();
         Should.Throw<BusinessException>(() =>
             jc.AddTimeLog(DateTime.UtcNow.AddMinutes(-10), DateTime.UtcNow, 5));
@@ -113,6 +114,7 @@ public class ManufacturingManagerTests
     {
         var jc = CreateJobCard();
         jc.Start();
+        jc.AddTimeLog(DateTime.UtcNow.AddMinutes(-30), DateTime.UtcNow, 10m);
         jc.Complete();
         jc.Status.ShouldBe(JobCardStatus.Completed);
         jc.CompletedAt.ShouldNotBeNull();

@@ -25,9 +25,18 @@ public class ItemGroupAppService : ApplicationService, IItemGroupAppService
         return new PagedResultDto<ItemGroupDto>(totalCount, items.Select(ObjectMapper.Map<ItemGroup, ItemGroupDto>).ToList());
     }
 
+    [Authorize(MyERPPermissions.Items.Default)]
+    public async Task<ItemGroupDto> GetAsync(Guid id)
+    {
+        var ig = await _repository.GetAsync(id);
+        return ObjectMapper.Map<ItemGroup, ItemGroupDto>(ig);
+    }
+
     [Authorize(MyERPPermissions.Items.Create)]
     public async Task<ItemGroupDto> CreateAsync(CreateItemGroupDto input)
     {
+        await ValidateDefaultsAsync(input.DefaultWarehouseId, input.DefaultInventoryAccountId);
+
         var ig = new ItemGroup(GuidGenerator.Create(), input.Name, input.IsGroup, CurrentTenant.Id)
         {
             ParentId = input.ParentId,
@@ -44,5 +53,60 @@ public class ItemGroupAppService : ApplicationService, IItemGroupAppService
             $"Item group '{ig.Name}' created", CurrentTenant.Id));
 
         return ObjectMapper.Map<ItemGroup, ItemGroupDto>(ig);
+    }
+
+    [Authorize(MyERPPermissions.Items.Edit)]
+    public async Task<ItemGroupDto> UpdateAsync(Guid id, CreateItemGroupDto input)
+    {
+        await ValidateDefaultsAsync(input.DefaultWarehouseId, input.DefaultInventoryAccountId);
+
+        var ig = await _repository.GetAsync(id);
+        ig.Name = input.Name;
+        ig.IsGroup = input.IsGroup;
+        ig.ParentId = input.ParentId;
+        ig.DefaultWarehouseId = input.DefaultWarehouseId;
+        ig.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
+
+        await _repository.UpdateAsync(ig);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "ItemGroup", ig.Id,
+            "Updated", Guid.Empty,
+            ig.Name, "Active", "Active", CurrentUser.Id,
+            $"Item group '{ig.Name}' updated", CurrentTenant.Id));
+
+        return ObjectMapper.Map<ItemGroup, ItemGroupDto>(ig);
+    }
+
+    [Authorize(MyERPPermissions.Items.Delete)]
+    public async Task DeleteAsync(Guid id)
+    {
+        await _repository.DeleteAsync(id);
+    }
+
+    private async Task ValidateDefaultsAsync(Guid? defaultWarehouseId, Guid? defaultInventoryAccountId)
+    {
+        if (defaultWarehouseId.HasValue)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+            var wh = await whRepo.FindAsync(defaultWarehouseId.Value);
+            if (wh != null && wh.IsGroup)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.GroupWarehouseCannotReceiveStock)
+                    .WithData("detail", $"Warehouse '{wh.Name}' is a group warehouse. Default warehouse must be a leaf warehouse.");
+            }
+        }
+
+        if (defaultInventoryAccountId.HasValue)
+        {
+            var accRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
+            var acc = await accRepo.FindAsync(defaultInventoryAccountId.Value);
+            if (acc != null && acc.IsGroup)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+                    .WithData("detail", $"Account '{acc.AccountName}' is a group account. Default inventory account must be a leaf account.");
+            }
+        }
     }
 }

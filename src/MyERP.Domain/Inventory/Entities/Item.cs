@@ -115,6 +115,13 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public decimal? MaxDiscount { get; set; }
 
+    /// <summary>
+    /// Percentage by which over-billing is allowed against a Sales/Purchase Order for this item.
+    /// If 0, value from Accounts Settings / Company will be used.
+    /// Maps to ERPNext stock/doctype/item: over_billing_allowance (PR #58751).
+    /// </summary>
+    public decimal OverBillingAllowance { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     // Reorder settings

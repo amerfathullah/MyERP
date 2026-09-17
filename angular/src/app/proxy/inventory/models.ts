@@ -542,6 +542,7 @@ export interface CreateUpdateItemDto {
   allowAlternativeItem?: boolean;
   defaultManufacturerId?: string | null;
   defaultManufacturerPartNo?: string | null;
+  overBillingAllowance?: number;
   barcodes?: CreateItemBarcodeDto[];
   suppliers?: CreateItemSupplierDto[];
   customerDetails?: CreateItemCustomerDetailDto[];
@@ -1111,6 +1112,7 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   allowAlternativeItem?: boolean;
   defaultManufacturerId?: string | null;
   defaultManufacturerPartNo?: string | null;
+  overBillingAllowance?: number;
   totalStockQty?: number;
   isLowStock?: boolean;
   hasSerialNo?: boolean;

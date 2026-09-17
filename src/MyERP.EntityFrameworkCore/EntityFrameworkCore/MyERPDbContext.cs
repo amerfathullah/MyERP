@@ -883,6 +883,7 @@ public class MyERPDbContext :
             b.Property(x => x.Uom).IsRequired().HasMaxLength(ItemConsts.MaxUomLength);
             b.Property(x => x.StandardSellingPrice).HasColumnType("decimal(18,4)");
             b.Property(x => x.StandardBuyingPrice).HasColumnType("decimal(18,4)");
+            b.Property(x => x.OverBillingAllowance).HasPrecision(6, 2);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.ItemCode }).IsUnique();
             // AutoInclude required — without it, GetAsync/GetListAsync silently return these

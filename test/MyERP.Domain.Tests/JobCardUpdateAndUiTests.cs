@@ -51,6 +51,7 @@ public class JobCardUpdateAndUiTests
     {
         var jc = CreateJC();
         jc.Start();
+        jc.AddTimeLog(DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, 10m);
         jc.Complete();
         jc.Status.ShouldBe(JobCardStatus.Completed);
     }
@@ -174,6 +175,7 @@ public class JobCardUpdateAndUiTests
         jc.Status.ShouldBe(JobCardStatus.OnHold);
         jc.Resume();
         jc.Status.ShouldBe(JobCardStatus.WorkInProgress);
+        jc.AddTimeLog(DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, 10m);
         jc.Complete();
         jc.Status.ShouldBe(JobCardStatus.Completed);
     }

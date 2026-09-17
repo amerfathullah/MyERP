@@ -1583,6 +1583,53 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         result.TotalOrders = orders.Count;
         return result;
     }
+
+    public async Task<List<SalesOrderDto>> GetBillableSalesOrdersAsync(Guid? customerId = null, Guid? companyId = null)
+    {
+        var query = await _repository.GetQueryableAsync();
+        query = query.Where(o => o.Status != Core.DocumentStatus.Draft
+                              && o.Status != Core.DocumentStatus.Cancelled
+                              && o.Status != Core.DocumentStatus.Closed);
+
+        if (customerId.HasValue)
+        {
+            query = query.Where(o => o.CustomerId == customerId.Value);
+        }
+
+        if (companyId.HasValue)
+        {
+            query = query.Where(o => o.CompanyId == companyId.Value);
+        }
+
+        var orders = query.ToList();
+        if (orders.Count == 0)
+        {
+            return new List<SalesOrderDto>();
+        }
+
+        var allItemIds = orders.SelectMany(o => o.Items).Select(i => i.ItemId).Distinct().ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var itemAllowances = itemQuery.Where(i => allItemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.OverBillingAllowance })
+            .ToDictionary(i => i.Id, i => i.OverBillingAllowance);
+
+        var accountsSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.AccountsSettings, Guid>>();
+        var accountsSettings = await accountsSettingsRepo.FirstOrDefaultAsync();
+        var globalAllowance = accountsSettings?.OverBillingAllowance ?? 0m;
+
+        var billableOrders = orders
+            .Where(o => SalesOrderManager.HasPotentiallyBillableItems(o, itemAllowances, globalAllowance))
+            .Select(ObjectMapper.Map<SalesOrder, SalesOrderDto>)
+            .ToList();
+
+        foreach (var dto in billableOrders)
+        {
+            dto.CustomerName = await ResolveCustomerNameAsync(dto.CustomerId);
+        }
+
+        return billableOrders;
+    }
 }
 
 public class SalesOrderTrackingBoardDto

@@ -302,6 +302,7 @@ public class ItemAppService :
         entity.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
         entity.GrantCommission = input.GrantCommission;
         entity.MaxDiscount = input.MaxDiscount;
+        entity.OverBillingAllowance = input.OverBillingAllowance;
         entity.IsActive = input.IsActive;
         entity.ReorderLevel = input.ReorderLevel;
         entity.ReorderQty = input.ReorderQty;

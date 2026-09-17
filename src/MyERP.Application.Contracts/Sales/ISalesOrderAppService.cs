@@ -29,4 +29,10 @@ public interface ISalesOrderAppService : IApplicationService
     /// Per ERPNext update_child_qty_rate: guards against qty below delivered, rate below billed.
     /// </summary>
     Task<UpdateOrderItemsResultDto> UpdateItemsAsync(Guid id, UpdateOrderItemsDto input);
+
+    /// <summary>
+    /// Returns submitted sales orders that have potentially billable items,
+    /// factoring in item-level and global OverBillingAllowance.
+    /// </summary>
+    Task<List<SalesOrderDto>> GetBillableSalesOrdersAsync(Guid? customerId = null, Guid? companyId = null);
 }

@@ -123,6 +123,36 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
             Status = JobCardStatus.WorkInProgress;
     }
 
+    public void SetPendingQty(decimal pendingQty)
+    {
+        if (pendingQty < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(pendingQty));
+        PendingQty = pendingQty;
+    }
+
+    public void SetProcessLossQty(decimal processLossQty)
+    {
+        if (processLossQty < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(processLossQty));
+        ProcessLossQty = processLossQty;
+    }
+
+    /// <summary>
+    /// Computes process loss quantity when completed quantity is less than for_quantity.
+    /// Per ERPNext PR #59104: applies when completed_qty > 0 or process_loss_qty is already recorded.
+    /// </summary>
+    public void SetProcessLoss()
+    {
+        var shouldSet = CompletedQty > 0 || ProcessLossQty > 0;
+        ProcessLossQty = 0m;
+        if (shouldSet && ForQuantity > CompletedQty)
+        {
+            ProcessLossQty = Math.Round(ForQuantity - CompletedQty, 4);
+        }
+    }
+
     public void Complete()
     {
         if (Status is not (JobCardStatus.WorkInProgress or JobCardStatus.MaterialTransferred or JobCardStatus.PartiallyTransferred))
@@ -136,6 +166,13 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", "From Time and To Time fields are required and To Time must be after From Time.");
             }
+        }
+
+        // Per ERPNext PR #59104: Completed, Process Loss or Pending Qty is required before submission
+        if (CompletedQty <= 0 && ProcessLossQty <= 0 && PendingQty <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Completed, Process Loss or Pending Qty is required for Job Card {Id}, please start and complete the job card before submission.");
         }
 
         Status = JobCardStatus.Completed;

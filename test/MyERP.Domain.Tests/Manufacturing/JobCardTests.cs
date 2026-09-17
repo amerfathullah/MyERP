@@ -72,6 +72,7 @@ public class JobCardTests
     {
         var jc = CreateJobCard();
         jc.Start();
+        jc.AddTimeLog(DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, 100m);
         jc.Complete();
         jc.Status.ShouldBe(JobCardStatus.Completed);
         jc.CompletedAt.ShouldNotBeNull();
@@ -109,6 +110,7 @@ public class JobCardTests
     {
         var jc = CreateJobCard();
         jc.Start();
+        jc.AddTimeLog(DateTime.UtcNow.AddHours(-2), DateTime.UtcNow.AddHours(-1), 100m);
         jc.Complete();
         Should.Throw<BusinessException>(() =>
             jc.AddTimeLog(DateTime.UtcNow, DateTime.UtcNow.AddHours(1), 10m));

@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core;
 using MyERP.Sales.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -114,5 +116,45 @@ public class SalesOrderManager : DomainService
         soItem.DeliveredQty = Math.Max(0, soItem.DeliveredQty + qtyDelta);
         order.UpdateFulfillmentStatus();
         await _orderRepository.UpdateAsync(order);
+    }
+
+    /// <summary>
+    /// Checks whether a Sales Order has any line items with billing amount headroom.
+    /// Per ERPNext PR #58751 / commit 683f033c34:
+    /// Closed rows are excluded. A row has headroom if Amount == 0 (e.g. zero-amount service) or
+    /// |BilledAmount| &lt; |Amount| * (1 + allowance / 100).
+    /// Item-level OverBillingAllowance takes precedence over global allowance when non-zero.
+    /// </summary>
+    public static bool HasPotentiallyBillableItems(
+        SalesOrder so,
+        IReadOnlyDictionary<Guid, decimal>? itemOverBillingAllowances = null,
+        decimal globalOverBillingAllowance = 0m)
+    {
+        if (so.Status is DocumentStatus.Closed or DocumentStatus.Draft or DocumentStatus.Cancelled)
+            return false;
+
+        foreach (var line in so.Items)
+        {
+            if (line.IsClosed)
+                continue;
+
+            decimal allowance = globalOverBillingAllowance;
+            if (itemOverBillingAllowances != null &&
+                itemOverBillingAllowances.TryGetValue(line.ItemId, out var itemAllowance) &&
+                itemAllowance > 0)
+            {
+                allowance = itemAllowance;
+            }
+
+            var itemAmount = line.LineTotal;
+            var billedAmount = line.BilledQty * line.UnitPrice;
+            var hasAmountHeadroom = itemAmount == 0 ||
+                Math.Abs(billedAmount) < Math.Abs(itemAmount) * (1m + allowance / 100m);
+
+            if (line.Quantity != 0 && hasAmountHeadroom)
+                return true;
+        }
+
+        return false;
     }
 }
