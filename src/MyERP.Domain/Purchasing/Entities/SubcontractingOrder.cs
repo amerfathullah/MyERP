@@ -40,6 +40,9 @@ public class SubcontractingOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Warehouse where RM is sent to the subcontractor. Per ERPNext: supplier_warehouse.</summary>
     public Guid? SupplierWarehouseId { get; set; }
 
+    /// <summary>Linked Project (propagated from PO and enforced across subcontracting flow per PR #58965).</summary>
+    public Guid? ProjectId { get; set; }
+
     private readonly List<SubcontractingOrderItem> _items = new();
     public IReadOnlyList<SubcontractingOrderItem> Items => _items.AsReadOnly();
 
@@ -144,12 +147,13 @@ public class SubcontractingOrderItem : Entity<Guid>
     public decimal ReceivedQty { get; set; }
     public Guid? BomId { get; set; }
     public Guid? WarehouseId { get; set; }
+    public Guid? ProjectId { get; set; }
 
     protected SubcontractingOrderItem() { }
-    public SubcontractingOrderItem(Guid id, Guid scoId, Guid itemId, string itemName, decimal qty, decimal rate)
+    public SubcontractingOrderItem(Guid id, Guid scoId, Guid itemId, string itemName, decimal qty, decimal rate, Guid? projectId = null)
         : base(id)
     {
-        SubcontractingOrderId = scoId; ItemId = itemId; ItemName = itemName; Qty = qty; Rate = rate;
+        SubcontractingOrderId = scoId; ItemId = itemId; ItemName = itemName; Qty = qty; Rate = rate; ProjectId = projectId;
     }
 }
 

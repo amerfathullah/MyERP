@@ -15,7 +15,7 @@ public interface IBankReconciliationAppService : IApplicationService
     Task<BankTransactionDto> ImportTransactionAsync(ImportBankTransactionDto input);
     Task<AutoMatchResultDto> AutoMatchAsync(Guid bankAccountId, Guid companyId);
     Task<BankReconciliationSummaryDto> GetSummaryAsync(Guid bankAccountId);
-    Task<List<MatchCandidateDto>> GetMatchCandidatesAsync(Guid bankTransactionId, Guid companyId);
+    Task<List<MatchCandidateDto>> GetMatchCandidatesAsync(Guid bankTransactionId, Guid companyId, IEnumerable<string>? documentTypes = null);
     Task<MirrorTransactionDto?> SearchForMirrorTransactionAsync(Guid transactionId);
     Task<InternalTransferResultDto> CreateInternalTransferAsync(CreateInternalTransferDto input);
     Task<VoucherCreatedResultDto> CreatePaymentEntryFromTransactionAsync(CreatePEFromTransactionDto input);

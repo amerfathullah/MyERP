@@ -155,14 +155,14 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", Guid? warehouseId = null, Guid? expenseAccountId = null)
+    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", Guid? warehouseId = null, Guid? expenseAccountId = null, Guid? projectId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Check.NotDefaultOrNull<Guid>(itemId, nameof(itemId));
         if (quantity <= 0)
             throw new ArgumentException("Quantity must be greater than zero.", nameof(quantity));
-        var item = new PurchaseOrderItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom)
+        var item = new PurchaseOrderItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, projectId ?? ProjectId)
         {
             WarehouseId = warehouseId,
             ExpenseAccountId = expenseAccountId
@@ -344,6 +344,7 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal => Quantity * UnitPrice;
+    public Guid? ProjectId { get; set; }
 
     /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
     public bool IsClosed { get; set; }
@@ -441,10 +442,11 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     }
 
     protected PurchaseOrderItem() { }
-    public PurchaseOrderItem(Guid id, Guid purchaseOrderId, Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom)
+    public PurchaseOrderItem(Guid id, Guid purchaseOrderId, Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom, Guid? projectId = null)
         : base(id)
     {
         PurchaseOrderId = purchaseOrderId; ItemId = itemId; Description = description;
         Quantity = quantity; UnitPrice = unitPrice; TaxAmount = taxAmount; Uom = uom;
+        ProjectId = projectId;
     }
 }

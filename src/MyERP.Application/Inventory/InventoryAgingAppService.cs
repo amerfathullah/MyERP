@@ -71,14 +71,29 @@ public class InventoryAgingAppService : ApplicationService, IInventoryAgingAppSe
         var lastMovementLookup = new Dictionary<(Guid, Guid), DateTime>();
         var itemIds = stockBins.Select(b => b.ItemId).Distinct().ToList();
 
-        var recentSles = sleQuery
-            .Where(s => itemIds.Contains(s.ItemId) && companyWarehouseIds.Contains(s.WarehouseId) && !s.IsCancelled)
+        // Per ERPNext PR #59058: scope stock ageing to the warehouse holding the stock.
+        // Age is measured from the incoming receipt/transfer into that specific warehouse.
+        var incomingSles = sleQuery
+            .Where(s => itemIds.Contains(s.ItemId) && companyWarehouseIds.Contains(s.WarehouseId) && !s.IsCancelled && s.QuantityChange > 0)
             .GroupBy(s => new { s.ItemId, s.WarehouseId })
             .Select(g => new { g.Key.ItemId, g.Key.WarehouseId, LastDate = g.Max(s => s.PostingDate) })
             .ToList();
 
-        foreach (var sle in recentSles)
+        foreach (var sle in incomingSles)
             lastMovementLookup[(sle.ItemId, sle.WarehouseId)] = sle.LastDate;
+
+        // Fallback for any bin without positive SLE (e.g., opening balance adjustments): use any non-cancelled SLE
+        var missingPairs = stockBins.Where(b => !lastMovementLookup.ContainsKey((b.ItemId, b.WarehouseId))).ToList();
+        if (missingPairs.Any())
+        {
+            var fallbackSles = sleQuery
+                .Where(s => itemIds.Contains(s.ItemId) && companyWarehouseIds.Contains(s.WarehouseId) && !s.IsCancelled)
+                .GroupBy(s => new { s.ItemId, s.WarehouseId })
+                .Select(g => new { g.Key.ItemId, g.Key.WarehouseId, LastDate = g.Max(s => s.PostingDate) })
+                .ToList();
+            foreach (var sle in fallbackSles)
+                lastMovementLookup.TryAdd((sle.ItemId, sle.WarehouseId), sle.LastDate);
+        }
 
         // Resolve item + warehouse names
         var itemQuery = await _itemRepository.GetQueryableAsync();

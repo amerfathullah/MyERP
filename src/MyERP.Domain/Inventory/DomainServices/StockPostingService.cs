@@ -99,7 +99,9 @@ public class StockPostingService : DomainService
                 {
                     rate = await _valuationService.GetValuationRateAsync(
                         item.ItemId, item.SourceWarehouseId.Value, item.BatchId,
-                        asOfDate: stockEntry.PostingDate, excludeVoucherId: stockEntry.Id);
+                        asOfDate: stockEntry.PostingDate,
+                        excludeVoucherId: stockEntry.Id,
+                        postingDateTime: stockEntry.PostingDate);
                 }
 
                 var sle = await _valuationService.CreateLedgerEntryAsync(

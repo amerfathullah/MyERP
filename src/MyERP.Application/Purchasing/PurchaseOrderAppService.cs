@@ -286,7 +286,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
 
         foreach (var item in input.Items)
         {
-            po.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.WarehouseId, item.ExpenseAccountId);
+            po.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.WarehouseId, item.ExpenseAccountId, item.ProjectId);
             po.Items[^1].DeliveredBySupplier = item.DeliveredBySupplier;
             if (item.BlanketOrderId.HasValue)
                 po.Items[^1].BlanketOrderId = item.BlanketOrderId;
@@ -852,7 +852,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         order.ClearItems();
         foreach (var item in input.Items)
         {
-            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.WarehouseId, item.ExpenseAccountId);
+            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.WarehouseId, item.ExpenseAccountId, item.ProjectId);
             if (item.BlanketOrderId.HasValue)
                 order.Items[^1].BlanketOrderId = item.BlanketOrderId;
             if (item.MaterialRequestItemId.HasValue)

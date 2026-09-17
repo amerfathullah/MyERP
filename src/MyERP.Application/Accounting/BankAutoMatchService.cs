@@ -144,52 +144,64 @@ public class BankAutoMatchService : ApplicationService
     /// Payment Entries and bank-touching Journal Entries.
     /// Returns candidates sorted by match quality (highest rank first).
     /// Per ERPNext check_matching: rank = ref_rank + amount_rank (+ date proximity here).
+    /// Handles missing/empty document types gracefully per PR #58688.
     /// </summary>
     public async Task<List<MatchCandidate>> GetMatchCandidatesAsync(
-        Guid bankTransactionId, Guid companyId)
+        Guid bankTransactionId, Guid companyId, IEnumerable<string>? documentTypes = null)
     {
+        var docTypesList = documentTypes?.ToList() ?? new List<string>();
+        var filterByDocType = docTypesList.Any();
+        var includePe = !filterByDocType || docTypesList.Contains("PaymentEntry", StringComparer.OrdinalIgnoreCase);
+        var includeJe = !filterByDocType || docTypesList.Contains("JournalEntry", StringComparer.OrdinalIgnoreCase);
+
         var tx = await _transactionRepository.GetAsync(bankTransactionId);
-
-        var peQuery = await _paymentRepository.GetQueryableAsync();
-        var peCandidates = peQuery
-            .Where(p => p.CompanyId == companyId
-                     && p.Status == Core.DocumentStatus.Posted)
-            .ToList();
-
+        var results = new List<MatchCandidate>();
         var txQuery = await _transactionRepository.GetQueryableAsync();
-        var reconciledPeIds = txQuery
-            .Where(t => t.PaymentEntryId.HasValue && t.IsReconciled)
-            .Select(t => t.PaymentEntryId!.Value)
-            .ToHashSet();
 
-        var results = peCandidates
-            .Where(p => !reconciledPeIds.Contains(p.Id))
-            .Where(p => AmountsMatch(tx, p))
-            .Select(p => new MatchCandidate
-            {
-                VoucherType = "PaymentEntry",
-                PaymentEntryId = p.Id,
-                PaymentNumber = p.PaymentNumber,
-                Amount = GetPeBankAmount(tx, p),
-                PostingDate = p.PostingDate,
-                ReferenceNumber = p.ReferenceNumber,
-                Rank = CalculateRank(tx, p.ReferenceNumber, p.PostingDate, ExactAmountMatch(tx, p)),
-            })
-            .ToList();
+        if (includePe)
+        {
+            var peQuery = await _paymentRepository.GetQueryableAsync();
+            var peCandidates = peQuery
+                .Where(p => p.CompanyId == companyId
+                         && p.Status == Core.DocumentStatus.Posted)
+                .ToList();
 
-        var unmatchedJes = await GetUnmatchedBankJournalEntriesAsync(tx.BankAccountId, companyId, txQuery);
-        results.AddRange(unmatchedJes
-            .Where(j => JeAmountsMatch(tx, j))
-            .Select(j => new MatchCandidate
-            {
-                VoucherType = "JournalEntry",
-                JournalEntryId = j.Entry.Id,
-                PaymentNumber = j.Entry.EntryNumber,
-                Amount = j.BankAmount,
-                PostingDate = j.Entry.PostingDate,
-                ReferenceNumber = j.Entry.ReferenceNumber,
-                Rank = CalculateRank(tx, j.Entry.ReferenceNumber, j.Entry.PostingDate, JeExactAmountMatch(tx, j)),
-            }));
+            var reconciledPeIds = txQuery
+                .Where(t => t.PaymentEntryId.HasValue && t.IsReconciled)
+                .Select(t => t.PaymentEntryId!.Value)
+                .ToHashSet();
+
+            results.AddRange(peCandidates
+                .Where(p => !reconciledPeIds.Contains(p.Id))
+                .Where(p => AmountsMatch(tx, p))
+                .Select(p => new MatchCandidate
+                {
+                    VoucherType = "PaymentEntry",
+                    PaymentEntryId = p.Id,
+                    PaymentNumber = p.PaymentNumber,
+                    Amount = GetPeBankAmount(tx, p),
+                    PostingDate = p.PostingDate,
+                    ReferenceNumber = p.ReferenceNumber,
+                    Rank = CalculateRank(tx, p.ReferenceNumber, p.PostingDate, ExactAmountMatch(tx, p)),
+                }));
+        }
+
+        if (includeJe)
+        {
+            var unmatchedJes = await GetUnmatchedBankJournalEntriesAsync(tx.BankAccountId, companyId, txQuery);
+            results.AddRange(unmatchedJes
+                .Where(j => JeAmountsMatch(tx, j))
+                .Select(j => new MatchCandidate
+                {
+                    VoucherType = "JournalEntry",
+                    JournalEntryId = j.Entry.Id,
+                    PaymentNumber = j.Entry.EntryNumber,
+                    Amount = j.BankAmount,
+                    PostingDate = j.Entry.PostingDate,
+                    ReferenceNumber = j.Entry.ReferenceNumber,
+                    Rank = CalculateRank(tx, j.Entry.ReferenceNumber, j.Entry.PostingDate, JeExactAmountMatch(tx, j)),
+                }));
+        }
 
         return results.OrderByDescending(c => c.Rank).ToList();
     }

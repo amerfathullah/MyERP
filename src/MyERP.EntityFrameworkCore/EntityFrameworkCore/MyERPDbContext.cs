@@ -1334,6 +1334,7 @@ public class MyERPDbContext :
             b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.ReceivedQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.BilledQty).HasColumnType("decimal(18,4)");
+            b.HasIndex(x => x.ProjectId);
         });
 
         // Purchase Invoices
@@ -1458,6 +1459,7 @@ public class MyERPDbContext :
             b.HasMany(x => x.SuppliedItems).WithOne().HasForeignKey(x => x.SubcontractingOrderId).IsRequired();
             b.Navigation(x => x.SuppliedItems).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.OrderNumber }).IsUnique();
+            b.HasIndex(x => x.ProjectId);
         });
 
         builder.Entity<SubcontractingOrderItem>(b =>
@@ -1468,6 +1470,7 @@ public class MyERPDbContext :
             b.Property(x => x.Qty).HasColumnType("decimal(18,4)");
             b.Property(x => x.Rate).HasColumnType("decimal(18,4)");
             b.Property(x => x.ReceivedQty).HasColumnType("decimal(18,4)");
+            b.HasIndex(x => x.ProjectId);
         });
 
         builder.Entity<SubcontractingOrderSuppliedItem>(b =>
@@ -1490,6 +1493,7 @@ public class MyERPDbContext :
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.SubcontractingReceiptId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.ReceiptNumber }).IsUnique();
+            b.HasIndex(x => x.ProjectId);
         });
 
         builder.Entity<SubcontractingReceiptItem>(b =>
@@ -1502,6 +1506,7 @@ public class MyERPDbContext :
             b.Property(x => x.SecondaryItemType).HasMaxLength(50);
             b.Property(x => x.CostAllocationPercentage).HasColumnType("decimal(18,4)");
             b.HasIndex(x => x.BomSecondaryItemId);
+            b.HasIndex(x => x.ProjectId);
         });
 
         builder.Entity<SubcontractingInwardOrder>(b =>

@@ -191,9 +191,9 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
     /// Returns ranked match candidates for manual reconciliation.
     /// Per ERPNext: manual matching shows all candidates sorted by composite rank.
     /// </summary>
-    public async Task<List<MatchCandidateDto>> GetMatchCandidatesAsync(Guid bankTransactionId, Guid companyId)
+    public async Task<List<MatchCandidateDto>> GetMatchCandidatesAsync(Guid bankTransactionId, Guid companyId, IEnumerable<string>? documentTypes = null)
     {
-        var candidates = await _autoMatchService.GetMatchCandidatesAsync(bankTransactionId, companyId);
+        var candidates = await _autoMatchService.GetMatchCandidatesAsync(bankTransactionId, companyId, documentTypes);
         return candidates.Select(c => new MatchCandidateDto
         {
             VoucherType = c.VoucherType,

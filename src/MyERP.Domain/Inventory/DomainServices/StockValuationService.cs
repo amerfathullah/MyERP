@@ -140,6 +140,13 @@ public class StockValuationService : DomainService
                 .WithData("available", previousSle?.BalanceQuantity ?? 0);
         }
 
+        // ERPNext PR #58899: clear stock value for zero-quantity balances
+        if (Math.Round(newBalanceQty, 4) == 0m)
+        {
+            newBalanceQty = 0m;
+            newBalanceValue = 0m;
+        }
+
         var entry = new StockLedgerEntry(
             GuidGenerator.Create(),
             companyId,
@@ -208,7 +215,9 @@ public class StockValuationService : DomainService
         Guid? batchId = null,
         Guid? serialAndBatchBundleId = null,
         DateTime? asOfDate = null,
-        Guid? excludeVoucherId = null)
+        Guid? excludeVoucherId = null,
+        DateTime? postingDateTime = null,
+        DateTime? creationTime = null)
     {
         // 1. Batch-wise valuation
         if (batchId.HasValue)
@@ -226,8 +235,18 @@ public class StockValuationService : DomainService
                             && s.BatchId == batchId.Value
                             && !s.IsCancelled);
 
-                    if (asOfDate.HasValue)
+                    if (postingDateTime.HasValue)
+                    {
+                        if (creationTime.HasValue)
+                            batchEntries = batchEntries.Where(s => s.PostingDateTime < postingDateTime.Value || (s.PostingDateTime == postingDateTime.Value && s.CreationTime < creationTime.Value));
+                        else
+                            batchEntries = batchEntries.Where(s => s.PostingDateTime <= postingDateTime.Value);
+                    }
+                    else if (asOfDate.HasValue)
+                    {
                         batchEntries = batchEntries.Where(s => s.PostingDate <= asOfDate.Value);
+                    }
+
                     if (excludeVoucherId.HasValue)
                         batchEntries = batchEntries.Where(s => s.VoucherId != excludeVoucherId.Value);
 
@@ -278,13 +297,23 @@ public class StockValuationService : DomainService
         var fallbackQuery = sleQ
             .Where(s => s.ItemId == itemId && s.WarehouseId == warehouseId && !s.IsCancelled);
 
-        if (asOfDate.HasValue)
+        if (postingDateTime.HasValue)
+        {
+            if (creationTime.HasValue)
+                fallbackQuery = fallbackQuery.Where(s => s.PostingDateTime < postingDateTime.Value || (s.PostingDateTime == postingDateTime.Value && s.CreationTime < creationTime.Value));
+            else
+                fallbackQuery = fallbackQuery.Where(s => s.PostingDateTime <= postingDateTime.Value);
+        }
+        else if (asOfDate.HasValue)
+        {
             fallbackQuery = fallbackQuery.Where(s => s.PostingDate <= asOfDate.Value);
+        }
+
         if (excludeVoucherId.HasValue)
             fallbackQuery = fallbackQuery.Where(s => s.VoucherId != excludeVoucherId.Value);
 
         var lastSle = fallbackQuery
-            .OrderByDescending(s => s.PostingDate)
+            .OrderByDescending(s => s.PostingDateTime)
             .ThenByDescending(s => s.CreationTime)
             .FirstOrDefault();
 
@@ -338,8 +367,8 @@ public class StockValuationService : DomainService
     {
         var query = await _ledgerRepository.GetQueryableAsync();
         return query
-            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && e.PostingDate <= postingDate && !e.IsCancelled)
-            .OrderByDescending(e => e.PostingDate)
+            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && (e.PostingDateTime <= postingDate || e.PostingDate <= postingDate) && !e.IsCancelled)
+            .OrderByDescending(e => e.PostingDateTime)
             .ThenByDescending(e => e.CreationTime)
             .FirstOrDefault();
     }
@@ -394,6 +423,11 @@ public class StockValuationService : DomainService
                 newBalanceValue = (existingQty * existingRate) + (quantityChange * incomingRate);
                 newBalanceQty = existingQty + quantityChange;
                 valuationRate = newBalanceQty > 0 ? newBalanceValue / newBalanceQty : incomingRate;
+                if (Math.Round(newBalanceQty, 4) == 0m)
+                {
+                    newBalanceQty = 0m;
+                    newBalanceValue = 0m;
+                }
                 return (valuationRate, newBalanceQty, newBalanceValue);
             }
 
@@ -419,6 +453,13 @@ public class StockValuationService : DomainService
             {
                 valuationRate = incomingRate;
             }
+        }
+
+        // ERPNext PR #58899: clear stock value for zero-quantity balances
+        if (Math.Round(newBalanceQty, 4) == 0m)
+        {
+            newBalanceQty = 0m;
+            newBalanceValue = 0m;
         }
 
         return (valuationRate, newBalanceQty, newBalanceValue);
@@ -459,7 +500,7 @@ public class StockValuationService : DomainService
             }
 
             entry.BalanceQuantity = Math.Round(queue.TotalQty, 4);
-            entry.BalanceValue = Math.Round(queue.TotalValue, 2);
+            entry.BalanceValue = entry.BalanceQuantity == 0m ? 0m : Math.Round(queue.TotalValue, 2);
             entry.StockValueDifference = Math.Round(entry.BalanceValue - valueBefore, 2);
             entry.StockQueue = queue.Serialize();
         }
@@ -510,6 +551,13 @@ public class StockValuationService : DomainService
                     avgRate = Math.Round(runningValue, 2) / runningQty;
                 }
                 entry.ValuationRate = Math.Round(avgRate, 4);
+            }
+
+            // ERPNext PR #58899: clear stock value for zero-quantity balances
+            if (Math.Round(runningQty, 4) == 0m)
+            {
+                runningQty = 0m;
+                runningValue = 0m;
             }
 
             entry.BalanceQuantity = Math.Round(runningQty, 4);

@@ -26,7 +26,7 @@ public class FifoValuation
     public decimal TotalQty => RoundNearZero(_queue.Sum(b => b.Qty));
 
     /// <summary>Total value across all bins.</summary>
-    public decimal TotalValue => RoundNearZero(_queue.Sum(b => b.Qty * b.Rate));
+    public decimal TotalValue => TotalQty == 0 ? 0 : RoundNearZero(_queue.Sum(b => b.Qty * b.Rate));
 
     /// <summary>Current valuation rate (weighted average of queue).</summary>
     public decimal ValuationRate => TotalQty > 0 ? TotalValue / TotalQty : 0;

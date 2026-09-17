@@ -80,16 +80,25 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
         }
 
+        PurchaseOrder? po = null;
         if (input.PurchaseOrderId.HasValue)
         {
             var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
-            var po = await poRepo.FindAsync(input.PurchaseOrderId.Value);
+            po = await poRepo.FindAsync(input.PurchaseOrderId.Value, includeDetails: true);
             if (po != null && po.CompanyId != input.CompanyId)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
                     .WithData("purchaseOrderCompany", po.CompanyId)
                     .WithData("orderCompany", input.CompanyId);
             }
+        }
+
+        // Per ERPNext PR #58965: Project is carried over from Purchase Order and cannot differ
+        var projectId = input.ProjectId ?? po?.ProjectId;
+        if (po != null && po.ProjectId.HasValue && input.ProjectId.HasValue && input.ProjectId.Value != po.ProjectId.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Subcontracting Order Project cannot differ from Purchase Order Project.");
         }
 
         var bomIds = input.Items.Where(i => i.BomId.HasValue).Select(i => i.BomId!.Value).Distinct().ToList();
@@ -140,12 +149,24 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var number = await _numberGenerator.GenerateAsync("SCO", input.CompanyId);
         var sco = new SubcontractingOrder(GuidGenerator.Create(), input.CompanyId, number,
             input.OrderDate, input.SupplierId, CurrentTenant.Id)
-        { PurchaseOrderId = input.PurchaseOrderId, Notes = input.Notes };
+        {
+            PurchaseOrderId = input.PurchaseOrderId,
+            ProjectId = projectId,
+            Notes = input.Notes
+        };
 
         foreach (var item in input.Items)
         {
+            var poItem = po?.Items.FirstOrDefault(p => p.ItemId == item.ItemId);
+            var itemProjectId = item.ProjectId ?? poItem?.ProjectId ?? projectId;
+            if (poItem != null && poItem.ProjectId.HasValue && item.ProjectId.HasValue && item.ProjectId.Value != poItem.ProjectId.Value)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Subcontracting Order Item Project cannot differ from Purchase Order Item Project.");
+            }
+
             sco.AddItem(new SubcontractingOrderItem(
-                GuidGenerator.Create(), sco.Id, item.ItemId, item.ItemName, item.Qty, item.Rate)
+                GuidGenerator.Create(), sco.Id, item.ItemId, item.ItemName, item.Qty, item.Rate, itemProjectId)
             { BomId = item.BomId, WarehouseId = item.WarehouseId });
         }
 
@@ -378,15 +399,24 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             throw new BusinessException(MyERPDomainErrorCodes.PartyCannotRepresentOwnCompany);
         }
 
+        SubcontractingOrder? sco = null;
         if (input.SubcontractingOrderId != Guid.Empty)
         {
-            var sco = await _scoRepository.FindAsync(input.SubcontractingOrderId);
+            sco = await _scoRepository.FindAsync(input.SubcontractingOrderId, includeDetails: true);
             if (sco != null && sco.CompanyId != input.CompanyId)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
                     .WithData("subcontractingOrderCompany", sco.CompanyId)
                     .WithData("receiptCompany", input.CompanyId);
             }
+        }
+
+        // Per ERPNext PR #58965: Project is carried over from Subcontracting Order and cannot differ
+        var projectId = input.ProjectId ?? sco?.ProjectId;
+        if (sco != null && sco.ProjectId.HasValue && input.ProjectId.HasValue && input.ProjectId.Value != sco.ProjectId.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Subcontracting Receipt Project cannot differ from Subcontracting Order Project.");
         }
 
         var receiptWarehouseIds = input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value)
@@ -460,12 +490,23 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var number = await _numberGenerator.GenerateAsync("SCR", input.CompanyId);
         var scr = new SubcontractingReceipt(GuidGenerator.Create(), input.CompanyId, number,
             input.PostingDate, input.SupplierId, input.SubcontractingOrderId, CurrentTenant.Id)
-        { WarehouseId = input.WarehouseId };
+        {
+            WarehouseId = input.WarehouseId,
+            ProjectId = projectId
+        };
 
         foreach (var item in input.Items)
         {
+            var scoItem = sco?.Items.FirstOrDefault(s => s.ItemId == item.ItemId);
+            var itemProjectId = item.ProjectId ?? scoItem?.ProjectId ?? projectId;
+            if (scoItem != null && scoItem.ProjectId.HasValue && item.ProjectId.HasValue && item.ProjectId.Value != scoItem.ProjectId.Value)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Subcontracting Receipt Item Project cannot differ from Subcontracting Order Item Project.");
+            }
+
             scr.AddItem(new SubcontractingReceiptItem(
-                GuidGenerator.Create(), scr.Id, item.ItemId, item.ItemName, item.Qty, item.Rate)
+                GuidGenerator.Create(), scr.Id, item.ItemId, item.ItemName, item.Qty, item.Rate, itemProjectId)
             {
                 WarehouseId = item.WarehouseId,
                 CostCenterId = item.CostCenterId,

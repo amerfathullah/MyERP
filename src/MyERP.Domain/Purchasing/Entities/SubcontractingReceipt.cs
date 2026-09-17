@@ -42,6 +42,9 @@ public class SubcontractingReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenan
     public bool IsReturn { get; set; }
     public Guid? ReturnAgainstReceiptId { get; set; }
 
+    /// <summary>Linked Project (propagated from SCO and enforced per PR #58965).</summary>
+    public Guid? ProjectId { get; set; }
+
     private readonly List<SubcontractingReceiptItem> _items = new();
     public IReadOnlyList<SubcontractingReceiptItem> Items => _items.AsReadOnly();
 
@@ -94,6 +97,7 @@ public class SubcontractingReceiptItem : Entity<Guid>
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ServiceExpenseAccountId { get; set; }
     public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
 
     /// <summary>For secondary items: Co-Product, By-Product, Scrap, Additional Finished Good (PR #59021).</summary>
     public string? SecondaryItemType { get; set; }
@@ -108,9 +112,9 @@ public class SubcontractingReceiptItem : Entity<Guid>
     public Guid? BomSecondaryItemId { get; set; }
 
     protected SubcontractingReceiptItem() { }
-    public SubcontractingReceiptItem(Guid id, Guid scrId, Guid itemId, string itemName, decimal qty, decimal rate)
+    public SubcontractingReceiptItem(Guid id, Guid scrId, Guid itemId, string itemName, decimal qty, decimal rate, Guid? projectId = null)
         : base(id)
     {
-        SubcontractingReceiptId = scrId; ItemId = itemId; ItemName = itemName; Qty = qty; Rate = rate;
+        SubcontractingReceiptId = scrId; ItemId = itemId; ItemName = itemName; Qty = qty; Rate = rate; ProjectId = projectId;
     }
 }

@@ -60,6 +60,7 @@ public class PurchaseOrderItemDto
 
     /// <summary>Blanket Order this line draws from (null if not linked to one).</summary>
     public Guid? BlanketOrderId { get; set; }
+    public Guid? ProjectId { get; set; }
 }
 
 public class CreatePurchaseOrderDto
@@ -97,6 +98,7 @@ public class CreatePurchaseOrderItemDto
 
     /// <summary>Link to Supplier Quotation item (for SQ fulfillment tracking).</summary>
     public Guid? SupplierQuotationItemId { get; set; }
+    public Guid? ProjectId { get; set; }
 }
 
 /// <summary>

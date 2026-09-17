@@ -273,17 +273,31 @@ public class JobCardManager : DomainService
 
     /// <summary>
     /// Validates that a completion split adds up correctly.
-    /// Per ERPNext PR #57687: total of split quantities must equal the job card's for_quantity.
+    /// Per ERPNext PR #57687 / PR #59104: total of split quantities must equal the job card's for_quantity.
+    /// Completed qty can be 0 when process loss or pending qty is present.
     /// </summary>
-    public static void ValidateCompletionSplit(decimal forQuantity, decimal completedQty, decimal processLossQty)
+    public static void ValidateCompletionSplit(decimal forQuantity, decimal completedQty, decimal processLossQty, decimal pendingQty = 0m)
     {
-        var total = completedQty + processLossQty;
+        if (completedQty < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(completedQty));
+
+        if (pendingQty < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(pendingQty));
+
+        if (processLossQty < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(processLossQty));
+
+        var total = completedQty + processLossQty + pendingQty;
         if (Math.Abs(total - forQuantity) > 0.001m)
         {
             throw new BusinessException("MyERP:10021")
                 .WithData("forQuantity", forQuantity)
                 .WithData("completedQty", completedQty)
                 .WithData("processLossQty", processLossQty)
+                .WithData("pendingQty", pendingQty)
                 .WithData("total", total);
         }
     }

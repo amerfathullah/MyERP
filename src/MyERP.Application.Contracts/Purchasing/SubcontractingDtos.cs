@@ -20,6 +20,7 @@ public class SubcontractingOrderDto : AuditedEntityDto<Guid>
     public SubcontractingOrderStatus Status { get; set; }
     public decimal PerReceived { get; set; }
     public Guid? SupplierWarehouseId { get; set; }
+    public Guid? ProjectId { get; set; }
     public List<ScoItemDto> Items { get; set; } = new();
 }
 
@@ -30,6 +31,7 @@ public class ScoItemDto : EntityDto<Guid>
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
     public decimal ReceivedQty { get; set; }
+    public Guid? ProjectId { get; set; }
 }
 
 public class CreateSubcontractingOrderDto
@@ -38,6 +40,7 @@ public class CreateSubcontractingOrderDto
     [Required] public Guid SupplierId { get; set; }
     [Required] public DateTime OrderDate { get; set; }
     public Guid? PurchaseOrderId { get; set; }
+    public Guid? ProjectId { get; set; }
     public string? Notes { get; set; }
     public List<CreateScoItemDto> Items { get; set; } = new();
 }
@@ -50,6 +53,7 @@ public class CreateScoItemDto
     public decimal Rate { get; set; }
     public Guid? BomId { get; set; }
     public Guid? WarehouseId { get; set; }
+    public Guid? ProjectId { get; set; }
 }
 
 public class GetScoListDto : PagedAndSortedResultRequestDto
@@ -86,6 +90,7 @@ public class SubcontractingReceiptDto : AuditedEntityDto<Guid>
     public SubcontractingReceiptStatus Status { get; set; }
     public bool IsReturn { get; set; }
     public Guid? ReturnAgainstReceiptId { get; set; }
+    public Guid? ProjectId { get; set; }
     public List<SubcontractingReceiptItemDto> Items { get; set; } = new();
 }
 
@@ -100,6 +105,7 @@ public class SubcontractingReceiptItemDto : EntityDto<Guid>
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ServiceExpenseAccountId { get; set; }
     public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
     public string? SecondaryItemType { get; set; }
     public SecondaryItemValuationType? ValuationType { get; set; }
     public decimal? CostAllocationPercentage { get; set; }
@@ -113,6 +119,7 @@ public class CreateSubcontractingReceiptDto
     [Required] public Guid SubcontractingOrderId { get; set; }
     [Required] public DateTime PostingDate { get; set; }
     public Guid? WarehouseId { get; set; }
+    public Guid? ProjectId { get; set; }
     public List<CreateScrItemDto> Items { get; set; } = new();
 }
 
@@ -126,6 +133,7 @@ public class CreateScrItemDto
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ServiceExpenseAccountId { get; set; }
     public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
     public string? SecondaryItemType { get; set; }
     public SecondaryItemValuationType? ValuationType { get; set; }
     public decimal? CostAllocationPercentage { get; set; }
