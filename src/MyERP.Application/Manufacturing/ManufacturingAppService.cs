@@ -2160,6 +2160,10 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                     && se.EntryType == Inventory.StockEntryType.Manufacture
                     && se.Status != Core.DocumentStatus.Draft
                     && se.Status != Core.DocumentStatus.Cancelled)
+                .ToList()
+                .OrderBy(se => se.CreationTime)
+                .ThenBy(se => (se.EntryNumber ?? string.Empty).ToLowerInvariant(), StringComparer.Ordinal)
+                .ThenBy(se => se.EntryNumber ?? string.Empty, StringComparer.Ordinal)
                 .ToList();
 
             if (manufactureEntries.Count == 1)
@@ -2183,15 +2187,25 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         else if (aggregateSourceEntries != null)
         {
             sourceFgQty = aggregateSourceEntries.Sum(se => se.FgCompletedQty);
-            rmSourceItems = aggregateSourceEntries
-                .SelectMany(se => se.Items.Where(i => i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue))
-                .GroupBy(i => i.ItemId)
+            // Representative line ordered by entry precedence (CreationTime, EntryNumber casefolded), then item index (ERPNext PR #59131)
+            var orderedLines = aggregateSourceEntries
+                .SelectMany(se => se.Items.Where(i => i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue)
+                    .Select((item, idx) => new { Entry = se, Item = item, Idx = idx }))
+                .OrderBy(x => x.Entry.CreationTime)
+                .ThenBy(x => (x.Entry.EntryNumber ?? string.Empty).ToLowerInvariant(), StringComparer.Ordinal)
+                .ThenBy(x => x.Entry.EntryNumber ?? string.Empty, StringComparer.Ordinal)
+                .ThenBy(x => x.Idx)
+                .ToList();
+
+            rmSourceItems = orderedLines
+                .GroupBy(x => x.Item.ItemId)
                 .Select(g =>
                 {
-                    var totalQty = g.Sum(i => i.Quantity);
+                    var totalQty = g.Sum(x => x.Item.Quantity);
                     // Qty-weighted average rate across all contributing entries.
-                    var avgRate = totalQty > 0 ? g.Sum(i => i.Quantity * (i.ValuationRate ?? 0m)) / totalQty : 0m;
-                    return (g.Key, totalQty, (decimal?)avgRate, g.First().SourceWarehouseId!.Value);
+                    var avgRate = totalQty > 0 ? g.Sum(x => x.Item.Quantity * (x.Item.ValuationRate ?? 0m)) / totalQty : 0m;
+                    var representativeWarehouse = g.First().Item.SourceWarehouseId!.Value;
+                    return (g.Key, totalQty, (decimal?)avgRate, representativeWarehouse);
                 })
                 .ToList();
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
@@ -365,6 +366,83 @@ public class StockReservationManager : DomainService
 
             remaining -= transferQty;
         }
+    }
+
+    /// <summary>
+    /// Creates a new Stock Reservation Entry originating from a Pick List (per ERPNext PR #59134).
+    /// Links VoucherType = SalesOrder, FromVoucherType = Pick List, and updates Bin reserved qty.
+    /// </summary>
+    public async Task<StockReservationEntry> ReserveStockFromPickListAsync(
+        Guid itemId, Guid warehouseId, Guid companyId,
+        decimal qty, string voucherType, Guid voucherId,
+        string fromVoucherType, Guid fromVoucherId,
+        Guid? batchId = null, Guid? voucherDetailId = null,
+        Guid? fromVoucherDetailId = null, Guid? tenantId = null)
+    {
+        qty = Math.Round(qty, 4);
+        if (qty <= 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive).WithData("field", nameof(qty));
+
+        await ValidateAvailabilityAsync(itemId, warehouseId, qty, batchId);
+
+        var sre = new StockReservationEntry(
+            GuidGenerator.Create(), companyId, itemId, warehouseId,
+            voucherType, voucherId, qty, voucherQty: qty, tenantId: tenantId)
+        {
+            BatchId = batchId,
+            VoucherDetailId = voucherDetailId,
+            FromVoucherType = fromVoucherType,
+            FromVoucherId = fromVoucherId,
+            FromVoucherDetailId = fromVoucherDetailId
+        };
+
+        sre.Submit();
+        await _sreRepository.InsertAsync(sre);
+
+        var binQueryable = await _binRepository.GetQueryableAsync();
+        var bin = binQueryable.FirstOrDefault(b => b.ItemId == itemId && b.WarehouseId == warehouseId);
+        if (bin != null)
+        {
+            bin.ReservedQty += qty;
+            await _binRepository.UpdateAsync(bin);
+        }
+
+        return sre;
+    }
+
+    /// <summary>
+    /// Cancels all active reservations originating from a specific source voucher (e.g. Pick List).
+    /// Per ERPNext PR #59134: unreserving from a Pick List releases reserved stock and restores bin reserved qty.
+    /// </summary>
+    public async Task<List<StockReservationEntry>> CancelReservationsFromVoucherAsync(string fromVoucherType, Guid fromVoucherId)
+    {
+        var queryable = await _sreRepository.GetQueryableAsync();
+        var activeSres = queryable
+            .Where(s => s.FromVoucherType == fromVoucherType
+                && s.FromVoucherId == fromVoucherId
+                && s.Status == DocumentStatus.Submitted)
+            .ToList();
+
+        var binQueryable = await _binRepository.GetQueryableAsync();
+
+        foreach (var sre in activeSres)
+        {
+            var unreservedQty = sre.AvailableQty;
+            sre.Cancel();
+            await _sreRepository.UpdateAsync(sre);
+
+            if (unreservedQty > 0)
+            {
+                var bin = binQueryable.FirstOrDefault(b => b.ItemId == sre.ItemId && b.WarehouseId == sre.WarehouseId);
+                if (bin != null)
+                {
+                    bin.ReservedQty = Math.Max(0m, bin.ReservedQty - unreservedQty);
+                    await _binRepository.UpdateAsync(bin);
+                }
+            }
+        }
+
+        return activeSres;
     }
 }
 

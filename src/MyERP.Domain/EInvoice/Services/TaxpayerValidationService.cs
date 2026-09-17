@@ -36,6 +36,12 @@ public class TaxpayerValidationService : ITransientDependency
         var envString = await _settingProvider.GetOrNullAsync("EInvoice.Environment") ?? "Sandbox";
         var environment = Enum.Parse<LhdnEnvironment>(envString);
 
-        return await _lhdnApiClient.SearchTaxpayerAsync(accessToken, idType, idValue, environment, taxpayerName);
+        var result = await _lhdnApiClient.SearchTaxpayerAsync(accessToken, idType, idValue, environment, taxpayerName);
+        if (!result.IsFound && !string.IsNullOrEmpty(result.ErrorMessage))
+        {
+            throw new Volo.Abp.UserFriendlyException($"API request failed: {result.ErrorMessage}");
+        }
+
+        return result;
     }
 }

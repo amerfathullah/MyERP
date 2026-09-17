@@ -54,6 +54,9 @@ public class PickListItemDto
     public decimal Qty { get; set; }
     public decimal TransferredQty { get; set; }
     public decimal PendingQty { get; set; }
+    public decimal StockReservedQty { get; set; }
+    public Guid? ProductBundleItemId { get; set; }
+    public Guid? SourceDocumentItemId { get; set; }
 }
 
 public class CreatePickListDto
@@ -74,6 +77,8 @@ public class CreatePickListItemDto
     public Guid WarehouseId { get; set; }
     public decimal Qty { get; set; }
     public Guid? BatchId { get; set; }
+    public Guid? ProductBundleItemId { get; set; }
+    public Guid? SourceDocumentItemId { get; set; }
 }
 
 public class PickAllocationResultDto

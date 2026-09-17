@@ -299,6 +299,8 @@ export interface CreatePickListItemDto {
   warehouseId?: string;
   qty?: number;
   batchId?: string | null;
+  productBundleItemId?: string | null;
+  sourceDocumentItemId?: string | null;
 }
 
 export interface CreateQiTemplateDto {
@@ -1436,6 +1438,9 @@ export interface PickListItemDto {
   qty?: number;
   transferredQty?: number;
   pendingQty?: number;
+  stockReservedQty?: number;
+  productBundleItemId?: string | null;
+  sourceDocumentItemId?: string | null;
 }
 
 export interface PriceListDto extends AuditedEntityDto<string> {

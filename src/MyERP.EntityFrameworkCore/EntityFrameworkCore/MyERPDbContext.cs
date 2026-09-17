@@ -4061,6 +4061,8 @@ public class MyERPDbContext :
             b.Property(x => x.Qty).HasColumnType("decimal(18,4)");
             b.Property(x => x.StockQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.TransferredQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.DeliveredQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.StockReservedQty).HasColumnType("decimal(18,4)");
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
             b.HasOne<Warehouse>().WithMany().HasForeignKey(x => x.WarehouseId).IsRequired();
         });

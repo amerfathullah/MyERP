@@ -50,11 +50,15 @@ public class PickList : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     public void AddItem(Guid itemId, Guid warehouseId, decimal qty,
-        decimal stockQty = 0, string? itemName = null, Guid? batchId = null)
+        decimal stockQty = 0, string? itemName = null, Guid? batchId = null,
+        Guid? productBundleItemId = null, Guid? sourceDocumentItemId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        _items.Add(new PickListItem(Guid.NewGuid(), Id, itemId, warehouseId, qty, stockQty, itemName, batchId));
+        var item = new PickListItem(Guid.NewGuid(), Id, itemId, warehouseId, qty, stockQty, itemName, batchId, productBundleItemId);
+        if (sourceDocumentItemId.HasValue)
+            item.SourceDocumentItemId = sourceDocumentItemId.Value;
+        _items.Add(item);
     }
 
     public void Submit()
@@ -70,10 +74,10 @@ public class PickList : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        // Cannot cancel if any item has been transferred or delivered
-        if (_items.Any(i => i.TransferredQty > 0 || i.DeliveredQty > 0))
+        // Cannot cancel if any item has been transferred, delivered, or has active stock reservations
+        if (_items.Any(i => i.TransferredQty > 0 || i.DeliveredQty > 0 || i.StockReservedQty > 0))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("detail", "Cannot cancel: items already transferred or delivered");
+                .WithData("detail", "Cannot cancel: items already transferred, delivered, or reserved. Cancel reservations first.");
         Status = DocumentStatus.Cancelled;
     }
 
@@ -114,6 +118,12 @@ public class PickListItem : FullAuditedEntity<Guid>
     /// <summary>Qty already delivered via Delivery Note / Sales Invoice (supports partial & product bundles).</summary>
     public decimal DeliveredQty { get; set; }
 
+    /// <summary>Qty reserved via Stock Reservation Entry from this Pick List (supports product bundles and standard items, per ERPNext PR #59134).</summary>
+    public decimal StockReservedQty { get; set; }
+
+    /// <summary>Link to parent product bundle item or packed item ID if this picked item is a bundle component.</summary>
+    public Guid? ProductBundleItemId { get; set; }
+
     /// <summary>Pending = Qty - TransferredQty (for next SE creation).</summary>
     public decimal PendingQty => Qty - TransferredQty;
 
@@ -123,7 +133,7 @@ public class PickListItem : FullAuditedEntity<Guid>
     protected PickListItem() { }
 
     public PickListItem(Guid id, Guid pickListId, Guid itemId, Guid warehouseId,
-        decimal qty, decimal stockQty, string? itemName, Guid? batchId) : base(id)
+        decimal qty, decimal stockQty, string? itemName, Guid? batchId, Guid? productBundleItemId = null) : base(id)
     {
         PickListId = pickListId;
         ItemId = itemId;
@@ -132,6 +142,7 @@ public class PickListItem : FullAuditedEntity<Guid>
         StockQty = stockQty > 0 ? stockQty : qty;
         ItemName = itemName;
         BatchId = batchId;
+        ProductBundleItemId = productBundleItemId;
     }
 
     public void RecordTransfer(decimal qty)
@@ -147,5 +158,11 @@ public class PickListItem : FullAuditedEntity<Guid>
     {
         if (qty <= 0) throw new ArgumentException("Qty must be positive.");
         DeliveredQty += qty;
+    }
+
+    public void SetStockReservedQty(decimal qty)
+    {
+        if (qty < 0) throw new ArgumentException("Reserved qty cannot be negative.");
+        StockReservedQty = qty;
     }
 }

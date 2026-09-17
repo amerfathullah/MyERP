@@ -140,9 +140,9 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         if (input.ItemId.HasValue)
             soQuery = soQuery.Where(so => so.Items.Any(i => i.ItemId == input.ItemId.Value));
         if (input.FromDate.HasValue)
-            soQuery = soQuery.Where(so => so.OrderDate >= input.FromDate.Value);
+            soQuery = soQuery.Where(so => so.OrderDate.Date >= input.FromDate.Value.Date);
         if (input.ToDate.HasValue)
-            soQuery = soQuery.Where(so => so.OrderDate <= input.ToDate.Value);
+            soQuery = soQuery.Where(so => so.OrderDate.Date <= input.ToDate.Value.Date);
 
         var orders = soQuery.OrderBy(so => so.DeliveryDate).ToList();
         schedule.SetSalesOrders(orders.Select(so => new MpsSalesOrderRef(
@@ -160,9 +160,9 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         var query = await _materialRequestRepository.GetQueryableAsync();
         query = query.Where(mr => mr.CompanyId == schedule.CompanyId && mr.Status == DocumentStatus.Submitted);
         if (input.FromDate.HasValue)
-            query = query.Where(mr => mr.RequestDate >= input.FromDate.Value);
+            query = query.Where(mr => mr.RequestDate.Date >= input.FromDate.Value.Date);
         if (input.ToDate.HasValue)
-            query = query.Where(mr => mr.RequestDate <= input.ToDate.Value);
+            query = query.Where(mr => mr.RequestDate.Date <= input.ToDate.Value.Date);
 
         var requests = query.OrderBy(mr => mr.RequestDate).ToList();
         schedule.SetMaterialRequests(requests.Select(mr => new MpsMaterialRequestRef(

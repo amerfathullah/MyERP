@@ -48,6 +48,7 @@ public class PartyDetailsDto
     public Guid? DefaultPayableAccountId { get; set; }
     public Guid? CustomerGroupId { get; set; }
     public Guid? TerritoryId { get; set; }
+    public string? TerritoryName { get; set; }
     public string? CompanyCurrency { get; set; }
 
     // Price list (per ERPNext party.py set_price_list / PR #58893)

@@ -93,7 +93,8 @@ public class PickListAppService : ApplicationService, IPickListAppService
             CustomerId = input.CustomerId,
         };
         foreach (var item in input.Items)
-            pl.AddItem(item.ItemId, item.WarehouseId, item.Qty, itemName: item.ItemName, batchId: item.BatchId);
+            pl.AddItem(item.ItemId, item.WarehouseId, item.Qty, itemName: item.ItemName, batchId: item.BatchId,
+                productBundleItemId: item.ProductBundleItemId, sourceDocumentItemId: item.SourceDocumentItemId);
         await _repository.InsertAsync(pl);
         return ObjectMapper.Map<PickList, PickListDto>(pl);
     }
@@ -269,6 +270,81 @@ public class PickListAppService : ApplicationService, IPickListAppService
 
         await dnRepo.InsertAsync(dn, autoSave: true);
         return dn.Id;
+    }
+
+    /// <summary>
+    /// Creates Stock Reservation Entries for Sales Order Items against this Pick List.
+    /// Per ERPNext PR #59134: bundle components reserve against their Packed Item,
+    /// because the bundle itself is a non-stock Sales Order Item and cannot hold reserved stock.
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Submit)]
+    [Volo.Abp.Uow.UnitOfWork]
+    public async Task<PickListDto> CreateStockReservationEntriesAsync(Guid id)
+    {
+        var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
+
+        if (pl.Status != DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion)
+                .WithData("detail", "Pick List must be submitted to create stock reservations.");
+
+        if (!pl.SalesOrderId.HasValue)
+            throw new BusinessException("MyERP:01007")
+                .WithData("documentType", "Pick List must be linked to a Sales Order to reserve stock");
+
+        var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+
+        foreach (var item in pl.Items)
+        {
+            var qtyToReserve = item.Qty - item.StockReservedQty;
+            if (qtyToReserve <= 0) continue;
+
+            // Per PR #59134: product_bundle_item or sales_order_item
+            var voucherDetailId = item.ProductBundleItemId ?? item.SourceDocumentItemId;
+
+            await sreManager.ReserveStockFromPickListAsync(
+                item.ItemId,
+                item.WarehouseId,
+                pl.CompanyId,
+                qtyToReserve,
+                voucherType: "SalesOrder",
+                voucherId: pl.SalesOrderId.Value,
+                fromVoucherType: "Pick List",
+                fromVoucherId: pl.Id,
+                batchId: item.BatchId,
+                voucherDetailId: voucherDetailId,
+                fromVoucherDetailId: item.Id,
+                tenantId: pl.TenantId);
+
+            item.SetStockReservedQty(item.StockReservedQty + qtyToReserve);
+        }
+
+        await _repository.UpdateAsync(pl);
+        return ObjectMapper.Map<PickList, PickListDto>(pl);
+    }
+
+    /// <summary>
+    /// Cancels stock reservations originating from this Pick List (per ERPNext PR #59134).
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Cancel)]
+    [Volo.Abp.Uow.UnitOfWork]
+    public async Task<PickListDto> CancelStockReservationEntriesAsync(Guid id)
+    {
+        var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
+
+        if (pl.Status != DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Pick List must be submitted to cancel its stock reservations.");
+
+        var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+        await sreManager.CancelReservationsFromVoucherAsync("Pick List", pl.Id);
+
+        foreach (var item in pl.Items)
+        {
+            item.SetStockReservedQty(0m);
+        }
+
+        await _repository.UpdateAsync(pl);
+        return ObjectMapper.Map<PickList, PickListDto>(pl);
     }
 }
 

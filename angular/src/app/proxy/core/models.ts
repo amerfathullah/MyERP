@@ -749,6 +749,7 @@ export interface PartyDetailsDto {
   defaultPayableAccountId?: string | null;
   customerGroupId?: string | null;
   territoryId?: string | null;
+  territoryName?: string | null;
   companyCurrency?: string | null;
   priceListId?: string | null;
   priceListName?: string | null;

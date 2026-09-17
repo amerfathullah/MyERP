@@ -7,4 +7,5 @@ public interface IPartyDetailsAppService : IApplicationService
 {
     Task<PartyDetailsDto> GetCustomerDetailsAsync(GetPartyDetailsInput input);
     Task<PartyDetailsDto> GetSupplierDetailsAsync(GetPartyDetailsInput input);
+    Task<PartyDetailsDto> GetProspectDetailsAsync(GetPartyDetailsInput input);
 }

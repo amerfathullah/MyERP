@@ -349,6 +349,49 @@ public class PartyDetailsAppService : ApplicationService, IPartyDetailsAppServic
         return query.Sum(i => i.GrandTotal - i.AmountPaid);
     }
 
+    /// <summary>
+    /// Resolves defaults for a Prospect in the context of CRM / Selling transactions (Quotation, Opportunity).
+    /// Per ERPNext PR #59133: resolves territory from Prospect master so quotations/reports don't leave it blank.
+    /// </summary>
+    public async Task<PartyDetailsDto> GetProspectDetailsAsync(GetPartyDetailsInput input)
+    {
+        var prospectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.CRM.Entities.Prospect, Guid>>();
+        var prospect = await prospectRepo.GetAsync(input.PartyId);
+
+        var company = input.CompanyId.HasValue
+            ? await _companyRepo.GetAsync(input.CompanyId.Value)
+            : null;
+
+        var result = new PartyDetailsDto
+        {
+            PartyId = prospect.Id,
+            PartyName = prospect.CompanyName ?? prospect.ProspectName,
+            PartyType = "Prospect",
+            TerritoryName = prospect.Territory,
+            CompanyCurrency = company?.CurrencyCode ?? "MYR"
+        };
+
+        if (prospect.Leads.Any())
+        {
+            var lead = prospect.Leads.FirstOrDefault();
+            result.ContactPerson = lead?.LeadName;
+            result.Email = lead?.Email;
+        }
+
+        var billingAddress = await _partyDefaults.GetPrimaryAddressAsync("Prospect", prospect.Id);
+        if (billingAddress != null)
+        {
+            result.BillingAddressId = billingAddress.Id;
+            result.BillingAddress = FormatAddress(billingAddress);
+            result.BillingCity = billingAddress.City;
+            result.BillingState = billingAddress.State;
+            result.BillingPostalCode = billingAddress.PostalCode;
+            result.BillingCountry = billingAddress.Country;
+        }
+
+        return result;
+    }
+
     private static string FormatAddress(Address addr)
     {
         var parts = new[]
