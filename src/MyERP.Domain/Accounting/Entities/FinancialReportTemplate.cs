@@ -83,6 +83,15 @@ public class FinancialReportTemplate : FullAuditedAggregateRoot<Guid>, IMultiTen
     public void Enable() => IsEnabled = true;
     public void Disable() => IsEnabled = false;
 
+    private static readonly System.Text.RegularExpressions.Regex ValidReferenceCodeRegex =
+        new(@"^[A-Za-z][A-Za-z0-9_]*$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static readonly HashSet<string> ReservedReferenceNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "abs", "round", "min", "max", "sum", "sqrt", "pow", "ceil", "floor",
+        "if", "else", "elif", "for", "while", "class", "def", "return", "none", "true", "false", "and", "or", "not", "in", "is"
+    };
+
     /// <summary>
     /// Validates formula dependencies for circular references using Kahn's algorithm (topological sort).
     /// Returns list of error messages (empty = valid).
@@ -94,13 +103,27 @@ public class FinancialReportTemplate : FullAuditedAggregateRoot<Guid>, IMultiTen
         // Per ERPNext commit 19aa3b20e0 & 1b7da82669: validate duplicate reference codes
         var duplicateCodes = Rows
             .Where(r => !string.IsNullOrWhiteSpace(r.ReferenceCode))
-            .GroupBy(r => r.ReferenceCode!, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(r => r.ReferenceCode!.Trim(), StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Count() > 1)
             .Select(g => g.Key)
             .ToList();
         if (duplicateCodes.Any())
         {
             errors.Add($"Duplicate reference code(s) detected: {string.Join(", ", duplicateCodes)}.");
+        }
+
+        // Per ERPNext PR #59084: validate line reference format and reserved names
+        foreach (var row in Rows.Where(r => !string.IsNullOrWhiteSpace(r.ReferenceCode)))
+        {
+            var refCode = row.ReferenceCode!.Trim();
+            if (!ValidReferenceCodeRegex.IsMatch(refCode))
+            {
+                errors.Add($"Invalid line reference format: '{refCode}'. Must start with a letter and contain only letters, numbers and underscores.");
+            }
+            else if (ReservedReferenceNames.Contains(refCode))
+            {
+                errors.Add($"'{refCode}' is a reserved name and cannot be used as a line reference.");
+            }
         }
 
         // Per ERPNext commit 19aa3b20e0: improve validation in financial report template
@@ -274,8 +297,8 @@ public class FinancialReportRow : FullAuditedEntity<Guid>, IMultiTenant
         Label = label;
         DataSource = dataSource;
         SortOrder = sortOrder;
-        ReferenceCode = referenceCode;
-        CalculationFormula = calculationFormula;
+        ReferenceCode = referenceCode?.Trim();
+        CalculationFormula = calculationFormula?.Trim();
         AccountCategoryFilter = accountCategoryFilter;
         CustomApiPath = customApiPath;
         HideWhenEmpty = hideWhenEmpty;

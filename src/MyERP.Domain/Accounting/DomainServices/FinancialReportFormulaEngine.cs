@@ -196,12 +196,17 @@ public class FinancialReportFormulaEngine : DomainService
     internal static decimal EvaluateFormula(string formula, Dictionary<string, decimal> references)
     {
         if (string.IsNullOrWhiteSpace(formula)) return 0;
+        formula = formula.Trim();
 
-        // Replace reference codes with their values
+        // Replace reference codes with their values (using word boundary so 'A' doesn't replace 'a' inside 'max')
         var expression = formula;
         foreach (var (code, value) in references.OrderByDescending(kv => kv.Key.Length))
         {
-            expression = expression.Replace(code, value.ToString("G"), StringComparison.OrdinalIgnoreCase);
+            expression = System.Text.RegularExpressions.Regex.Replace(
+                expression,
+                $@"\b{System.Text.RegularExpressions.Regex.Escape(code)}\b",
+                value.ToString("G"),
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
 
         // Simple expression evaluator for financial formulas
@@ -215,13 +220,13 @@ public class FinancialReportFormulaEngine : DomainService
         }
     }
 
-    /// <summary>Simple recursive-descent expression evaluator supporting +, -, *, /.</summary>
+    /// <summary>Simple recursive-descent expression evaluator supporting +, -, *, / and formula functions.</summary>
     private static decimal EvaluateExpression(string expr)
     {
         expr = expr.Trim();
         if (string.IsNullOrEmpty(expr)) return 0;
 
-        // Handle built-in functions
+        // Handle built-in functions per ERPNext PR #59084 (FORMULA_FUNCTIONS)
         if (expr.StartsWith("abs(", StringComparison.OrdinalIgnoreCase) && expr.EndsWith(")"))
             return Math.Abs(EvaluateExpression(expr[4..^1]));
         if (expr.StartsWith("round(", StringComparison.OrdinalIgnoreCase) && expr.EndsWith(")"))
@@ -230,6 +235,38 @@ public class FinancialReportFormulaEngine : DomainService
             return Math.Floor(EvaluateExpression(expr[6..^1]));
         if (expr.StartsWith("ceil(", StringComparison.OrdinalIgnoreCase) && expr.EndsWith(")"))
             return Math.Ceiling(EvaluateExpression(expr[5..^1]));
+        if (expr.StartsWith("sqrt(", StringComparison.OrdinalIgnoreCase) && expr.EndsWith(")"))
+        {
+            var val = EvaluateExpression(expr[5..^1]);
+            return val < 0 ? 0 : (decimal)Math.Sqrt((double)val);
+        }
+        if (expr.StartsWith("min(", StringComparison.OrdinalIgnoreCase) && expr.EndsWith(")"))
+        {
+            var args = SplitArguments(expr[4..^1]);
+            return args.Count > 0 ? args.Select(EvaluateExpression).Min() : 0;
+        }
+        if (expr.StartsWith("max(", StringComparison.OrdinalIgnoreCase) && expr.EndsWith(")"))
+        {
+            var args = SplitArguments(expr[4..^1]);
+            return args.Count > 0 ? args.Select(EvaluateExpression).Max() : 0;
+        }
+        if (expr.StartsWith("sum(", StringComparison.OrdinalIgnoreCase) && expr.EndsWith(")"))
+        {
+            var args = SplitArguments(expr[4..^1]);
+            return args.Sum(EvaluateExpression);
+        }
+        if (expr.StartsWith("pow(", StringComparison.OrdinalIgnoreCase) && expr.EndsWith(")"))
+        {
+            var args = SplitArguments(expr[4..^1]);
+            if (args.Count >= 2)
+            {
+                var x = (double)EvaluateExpression(args[0]);
+                var y = (double)EvaluateExpression(args[1]);
+                var res = Math.Pow(x, y);
+                return double.IsNaN(res) || double.IsInfinity(res) ? 0 : (decimal)res;
+            }
+            return 0;
+        }
 
         // Find the last + or - not inside parentheses (lowest precedence)
         var depth = 0;
@@ -270,6 +307,30 @@ public class FinancialReportFormulaEngine : DomainService
 
         // Try parse as number
         return decimal.TryParse(expr, out var num) ? num : 0;
+    }
+
+    private static List<string> SplitArguments(string argsExpr)
+    {
+        var args = new List<string>();
+        var depth = 0;
+        var start = 0;
+        for (int i = 0; i < argsExpr.Length; i++)
+        {
+            if (argsExpr[i] == '(') depth++;
+            else if (argsExpr[i] == ')') depth--;
+            else if (argsExpr[i] == ',' && depth == 0)
+            {
+                args.Add(argsExpr[start..i].Trim());
+                start = i + 1;
+            }
+        }
+        if (start < argsExpr.Length)
+        {
+            var last = argsExpr[start..].Trim();
+            if (!string.IsNullOrEmpty(last))
+                args.Add(last);
+        }
+        return args;
     }
 
     private async Task<decimal> GetAccountDataValueAsync(
