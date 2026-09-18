@@ -101,22 +101,29 @@ public class ItemLeadTime : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void ClearSuppliers() => _suppliers.Clear();
 
     /// <summary>
-    /// Computes lead time in days per ERPNext PR #59007 / commit 2ad4a8c4a4.
-    /// For manufacturing: scales manufacturing time by qty (over 1440 min/day) and adds buffer time.
-    /// For purchasing: returns purchase time days + buffer time days.
+    /// Computes fractional lead time in days per ERPNext PR #59007 / commit 2ad4a8c4a4.
+    /// Retains fractional days without premature rounding.
     /// </summary>
-    public int CalculateLeadTimeDays(decimal qty = 1, bool isManufacture = true)
+    public double GetLeadTimeInDays(decimal qty = 1, bool isManufacture = true)
     {
         if (isManufacture)
         {
             if (qty <= 0) return 0;
             var timeInDays = Math.Max(ManufacturingTimeInMins, 0) * (double)qty / 1440.0;
-            return (int)Math.Ceiling(timeInDays + BufferTimeDays);
+            return timeInDays + BufferTimeDays;
         }
         else
         {
             return PurchaseTimeDays + BufferTimeDays;
         }
+    }
+
+    /// <summary>
+    /// Computes lead time in days per ERPNext PR #59007 / commit 2ad4a8c4a4 (rounded up to nearest day).
+    /// </summary>
+    public int CalculateLeadTimeDays(decimal qty = 1, bool isManufacture = true)
+    {
+        return (int)Math.Ceiling(GetLeadTimeInDays(qty, isManufacture));
     }
 }
 

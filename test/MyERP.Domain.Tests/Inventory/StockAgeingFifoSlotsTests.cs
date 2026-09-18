@@ -389,4 +389,81 @@ public class StockAgeingFifoSlotsTests
         result.Buckets[4].Label.ShouldBe(">120d");
         result.Buckets[4].Qty.ShouldBe(10m);
     }
+
+    [Fact]
+    public void Second_Negative_Batch_Slot_Survives_A_Partial_Refill_PR59061()
+    {
+        // Per ERPNext PR #59061 (commit 0e31182dca):
+        // Two issues against no stock, then two receipts.
+        // The first receipt clears only the first negative slot, so the second receipt
+        // must still find and clear the one left behind.
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        var entries = new List<FifoSlotsSimulator.SimulationEntry>
+        {
+            new()
+            {
+                ItemId = itemId,
+                WarehouseId = warehouseId,
+                BatchId = batchId,
+                HasBatchNo = true,
+                UseBatchwiseValuation = true,
+                PostingDate = new DateTime(2021, 12, 1),
+                CreationTime = new DateTime(2021, 12, 1, 10, 0, 0),
+                ActualQty = -10m,
+                StockValueDifference = -100m,
+                ValuationRate = 10m,
+                ValuationMethod = "FIFO"
+            },
+            new()
+            {
+                ItemId = itemId,
+                WarehouseId = warehouseId,
+                BatchId = batchId,
+                HasBatchNo = true,
+                UseBatchwiseValuation = true,
+                PostingDate = new DateTime(2021, 12, 2),
+                CreationTime = new DateTime(2021, 12, 2, 10, 0, 0),
+                ActualQty = -5m,
+                StockValueDifference = -50m,
+                ValuationRate = 10m,
+                ValuationMethod = "FIFO"
+            },
+            new()
+            {
+                ItemId = itemId,
+                WarehouseId = warehouseId,
+                BatchId = batchId,
+                HasBatchNo = true,
+                UseBatchwiseValuation = true,
+                PostingDate = new DateTime(2021, 12, 3),
+                CreationTime = new DateTime(2021, 12, 3, 10, 0, 0),
+                ActualQty = 10m,
+                StockValueDifference = 100m,
+                ValuationRate = 10m,
+                ValuationMethod = "FIFO"
+            },
+            new()
+            {
+                ItemId = itemId,
+                WarehouseId = warehouseId,
+                BatchId = batchId,
+                HasBatchNo = true,
+                UseBatchwiseValuation = true,
+                PostingDate = new DateTime(2021, 12, 4),
+                CreationTime = new DateTime(2021, 12, 4, 10, 0, 0),
+                ActualQty = 5m,
+                StockValueDifference = 50m,
+                ValuationRate = 10m,
+                ValuationMethod = "FIFO"
+            }
+        };
+
+        var results = FifoSlotsSimulator.Simulate(entries, new DateTime(2021, 12, 10));
+
+        // Queue completely cleared, no remaining slots or stock
+        results.Count.ShouldBe(0);
+    }
 }

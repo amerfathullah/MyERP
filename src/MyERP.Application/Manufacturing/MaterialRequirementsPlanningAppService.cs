@@ -4,11 +4,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Core;
+using MyERP.Core.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Manufacturing.DomainServices;
 using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
+using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -29,6 +32,8 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
     private readonly IRepository<WorkOrder, Guid> _workOrderRepository;
     private readonly IRepository<PurchaseOrder, Guid> _purchaseOrderRepository;
     private readonly IRepository<Bin, Guid> _binRepository;
+    private readonly IDocumentNumberGenerator _numberGenerator;
+    private readonly MasterProductionScheduleService _leadTimeService;
 
     public MaterialRequirementsPlanningAppService(
         IRepository<Item, Guid> itemRepository,
@@ -37,7 +42,9 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
         IRepository<SalesOrder, Guid> salesOrderRepository,
         IRepository<WorkOrder, Guid> workOrderRepository,
         IRepository<PurchaseOrder, Guid> purchaseOrderRepository,
-        IRepository<Bin, Guid> binRepository)
+        IRepository<Bin, Guid> binRepository,
+        IDocumentNumberGenerator numberGenerator,
+        MasterProductionScheduleService leadTimeService)
     {
         _itemRepository = itemRepository;
         _bomRepository = bomRepository;
@@ -46,6 +53,8 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
         _workOrderRepository = workOrderRepository;
         _purchaseOrderRepository = purchaseOrderRepository;
         _binRepository = binRepository;
+        _numberGenerator = numberGenerator;
+        _leadTimeService = leadTimeService;
     }
 
     /// <summary>
@@ -335,10 +344,234 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
             }
         }
 
+        // 7. Build Planned Order Requirements (PR #58510 & PR #59007)
+        var requirements = new List<MrpPlannedOrderRequirementDto>();
+        var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>();
+        var suppliers = (await supplierRepo.GetQueryableAsync())
+            .Where(s => s.CompanyId == input.CompanyId && s.IsActive)
+            .ToList();
+        var supplierMap = suppliers.ToDictionary(s => s.Id);
+
+        var itemLeadTimeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemLeadTime, Guid>>();
+        var itemLeadTimes = (await itemLeadTimeRepo.WithDetailsAsync(lt => lt.Suppliers)).ToList();
+        var itemLeadTimeMap = itemLeadTimes.ToDictionary(lt => lt.ItemId);
+
+        foreach (var itemRow in rows)
+        {
+            var item = itemMap[itemRow.ItemId];
+            var hasBom = itemBomMap.TryGetValue(item.Id, out var bom);
+
+            Guid? defaultSupplierId = null;
+            string? defaultSupplierName = null;
+            if (itemLeadTimeMap.TryGetValue(item.Id, out var itemLeadTime))
+            {
+                var defaultSup = itemLeadTime.Suppliers.FirstOrDefault(s => s.IsDefault)
+                    ?? itemLeadTime.Suppliers.FirstOrDefault();
+                if (defaultSup != null)
+                {
+                    defaultSupplierId = defaultSup.SupplierId;
+                    defaultSupplierName = supplierMap.GetValueOrDefault(defaultSup.SupplierId)?.Name;
+                }
+            }
+
+            foreach (var b in itemRow.Buckets)
+            {
+                if (b.PlannedOrders > 0)
+                {
+                    var leadTimeDays = await _leadTimeService.GetCumulativeLeadTimeDaysAsync(item.Id, bom?.Id, b.PlannedOrders);
+                    var deliveryDate = b.BucketFromDate;
+                    var releaseDate = deliveryDate.AddDays(-leadTimeDays);
+
+                    requirements.Add(new MrpPlannedOrderRequirementDto
+                    {
+                        ItemId = item.Id,
+                        ItemCode = item.ItemCode,
+                        ItemName = item.ItemName,
+                        Uom = item.Uom,
+                        TypeOfMaterial = hasBom ? "Manufacture" : "Purchase",
+                        BomId = bom?.Id,
+                        BomNo = bom?.BomNumber,
+                        RequiredQty = b.PlannedOrders,
+                        PlannedQty = b.PlannedOrders,
+                        ProjectedQty = b.ProjectedAvailableBalance,
+                        SafetyStock = itemRow.SafetyStock,
+                        LeadTimeDays = leadTimeDays,
+                        DeliveryDate = deliveryDate,
+                        ReleaseDate = releaseDate,
+                        DefaultSupplierId = defaultSupplierId,
+                        DefaultSupplierName = defaultSupplierName,
+                        WarehouseId = input.WarehouseId
+                    });
+                }
+            }
+        }
+
         return new MaterialRequirementsPlanningReportDto
         {
             Buckets = buckets,
-            Rows = rows.OrderBy(r => r.IsRawMaterial).ThenBy(r => r.ItemCode).ToList()
+            Rows = rows.OrderBy(r => r.IsRawMaterial).ThenBy(r => r.ItemCode).ToList(),
+            Requirements = requirements.OrderBy(r => r.ReleaseDate).ThenBy(r => r.ItemCode).ToList()
+        };
+    }
+
+    /// <summary>
+    /// Creates draft Purchase Orders and Work Orders directly from MRP planned order rows (PR #58510 & PR #58511).
+    /// Grouped by supplier/release date for purchasing, and guarded with mandatory BOM check for manufacturing.
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Create)]
+    public async Task<MrpOrdersCreatedDto> CreateOrdersAsync(CreateOrdersFromMrpInput input)
+    {
+        if (input.SelectedRows == null || input.SelectedRows.Count == 0)
+        {
+            return new MrpOrdersCreatedDto { Message = "No rows selected." };
+        }
+
+        var purchaseRows = input.SelectedRows
+            .Where(r => string.Equals(r.TypeOfMaterial, "Purchase", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var manufactureRows = input.SelectedRows
+            .Where(r => string.Equals(r.TypeOfMaterial, "Manufacture", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var bomQuery = await _bomRepository.WithDetailsAsync(b => b.Items);
+        var activeBoms = bomQuery
+            .Where(b => b.CompanyId == input.CompanyId && b.IsActive)
+            .ToList();
+
+        // PR #58510 & #58511: prompt/throw when manufactured item has no BOM
+        var missingBoms = new List<string>();
+        foreach (var row in manufactureRows)
+        {
+            if (!row.BomId.HasValue || row.BomId.Value == Guid.Empty)
+            {
+                var defaultBom = activeBoms.FirstOrDefault(b => b.ItemId == row.ItemId && b.IsDefault)
+                    ?? activeBoms.FirstOrDefault(b => b.ItemId == row.ItemId);
+                if (defaultBom != null)
+                {
+                    row.BomId = defaultBom.Id;
+                }
+                else
+                {
+                    missingBoms.Add(row.ItemCode);
+                }
+            }
+        }
+
+        if (missingBoms.Count > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Default BOM for {string.Join(", ", missingBoms.Distinct())} not found");
+        }
+
+        var createdWorkOrderIds = new List<Guid>();
+        foreach (var row in manufactureRows)
+        {
+            var woNumber = await _numberGenerator.GenerateAsync("WO", input.CompanyId);
+            var plannedStart = row.ReleaseDate ?? row.DeliveryDate;
+            var plannedEnd = row.DeliveryDate;
+            if (plannedStart > plannedEnd) plannedStart = plannedEnd;
+
+            var wo = new WorkOrder(
+                GuidGenerator.Create(),
+                input.CompanyId,
+                woNumber,
+                row.ItemId,
+                row.BomId!.Value,
+                row.Quantity,
+                CurrentTenant.Id)
+            {
+                FgWarehouseId = row.WarehouseId ?? input.WarehouseId,
+                Notes = input.MpsId.HasValue ? $"Created from MRP / MPS {input.MpsId.Value}" : "Created from MRP Report"
+            };
+            wo.SetPlannedDates(plannedStart, plannedEnd);
+
+            var bom = activeBoms.FirstOrDefault(b => b.Id == row.BomId.Value);
+            if (bom != null)
+            {
+                var multiplier = bom.Quantity > 0 ? row.Quantity / bom.Quantity : row.Quantity;
+                foreach (var bi in bom.Items)
+                {
+                    var rawWarehouse = bi.SourceWarehouseId ?? row.WarehouseId ?? input.WarehouseId;
+                    var itemEntity = await _itemRepository.FindAsync(bi.ItemId);
+                    var itemName = itemEntity?.ItemName ?? bi.ItemName ?? "Item";
+                    var woItem = new WorkOrderItem(
+                        GuidGenerator.Create(),
+                        wo.Id,
+                        bi.ItemId,
+                        itemName,
+                        bi.Quantity * multiplier)
+                    {
+                        SourceWarehouseId = rawWarehouse
+                    };
+                    wo.RequiredItems.Add(woItem);
+                }
+            }
+
+            await _workOrderRepository.InsertAsync(wo);
+            createdWorkOrderIds.Add(wo.Id);
+        }
+
+        var createdPurchaseOrderIds = new List<Guid>();
+        if (purchaseRows.Count > 0)
+        {
+            var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>();
+            var suppliers = (await supplierRepo.GetQueryableAsync())
+                .Where(s => s.CompanyId == input.CompanyId && s.IsActive)
+                .ToList();
+
+            var itemIds = purchaseRows.Select(r => r.ItemId).Distinct().ToList();
+            var items = (await _itemRepository.GetQueryableAsync())
+                .Where(i => itemIds.Contains(i.Id))
+                .ToList();
+            var itemMap = items.ToDictionary(i => i.Id);
+
+            var groupedPurchases = purchaseRows.GroupBy(r =>
+            {
+                var supId = r.DefaultSupplierId ?? suppliers.FirstOrDefault()?.Id ?? Guid.Empty;
+                var releaseDate = (r.ReleaseDate ?? r.DeliveryDate).Date;
+                return (SupplierId: supId, ReleaseDate: releaseDate);
+            });
+
+            foreach (var grp in groupedPurchases)
+            {
+                if (grp.Key.SupplierId == Guid.Empty) continue;
+
+                var poNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", input.CompanyId);
+                var po = new PurchaseOrder(
+                    GuidGenerator.Create(),
+                    input.CompanyId,
+                    grp.Key.SupplierId,
+                    poNumber,
+                    grp.Key.ReleaseDate)
+                {
+                    ExpectedDeliveryDate = grp.Max(r => r.DeliveryDate)
+                };
+
+                foreach (var row in grp)
+                {
+                    var itemEntity = itemMap.GetValueOrDefault(row.ItemId);
+                    var uom = itemEntity?.Uom ?? "Nos";
+                    var warehouse = row.WarehouseId ?? input.WarehouseId;
+                    po.AddItem(
+                        row.ItemId,
+                        row.ItemName ?? itemEntity?.ItemName ?? row.ItemCode,
+                        row.Quantity,
+                        itemEntity?.StandardBuyingPrice ?? 0m,
+                        0m,
+                        uom,
+                        warehouse);
+                }
+
+                await _purchaseOrderRepository.InsertAsync(po);
+                createdPurchaseOrderIds.Add(po.Id);
+            }
+        }
+
+        return new MrpOrdersCreatedDto
+        {
+            PurchaseOrderIds = createdPurchaseOrderIds,
+            WorkOrderIds = createdWorkOrderIds,
+            Message = $"Created {createdPurchaseOrderIds.Count} Purchase Order(s) and {createdWorkOrderIds.Count} Work Order(s)."
         };
     }
 }

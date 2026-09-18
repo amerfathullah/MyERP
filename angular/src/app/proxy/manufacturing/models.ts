@@ -1128,7 +1128,57 @@ export interface MrpItemRowDto {
   buckets?: MrpItemBucketDataDto[];
 }
 
+export interface MrpPlannedOrderRequirementDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  uom?: string;
+  typeOfMaterial?: string;
+  bomId?: string | null;
+  bomNo?: string | null;
+  requiredQty?: number;
+  plannedQty?: number;
+  projectedQty?: number;
+  minOrderQty?: number;
+  safetyStock?: number;
+  leadTimeDays?: number;
+  deliveryDate?: string;
+  releaseDate?: string;
+  defaultSupplierId?: string | null;
+  defaultSupplierName?: string | null;
+  warehouseId?: string | null;
+}
+
 export interface MaterialRequirementsPlanningReportDto {
   buckets?: MrpPeriodBucketDto[];
   rows?: MrpItemRowDto[];
+  requirements?: MrpPlannedOrderRequirementDto[];
+}
+
+export interface MrpOrderRowInputDto {
+  itemId: string;
+  itemCode: string;
+  itemName?: string | null;
+  typeOfMaterial: string;
+  bomId?: string | null;
+  quantity: number;
+  deliveryDate: string;
+  releaseDate?: string | null;
+  defaultSupplierId?: string | null;
+  warehouseId?: string | null;
+}
+
+export interface CreateOrdersFromMrpInput {
+  companyId: string;
+  warehouseId?: string | null;
+  mpsId?: string | null;
+  selectedRows: MrpOrderRowInputDto[];
+}
+
+export interface MrpOrdersCreatedDto {
+  purchaseOrderIds?: string[];
+  workOrderIds?: string[];
+  purchaseOrdersCount?: number;
+  workOrdersCount?: number;
+  message?: string;
 }

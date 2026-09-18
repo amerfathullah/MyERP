@@ -200,4 +200,8 @@ public class ManufacturingController : MyERPController
     [HttpGet("mrp-report")]
     public Task<MaterialRequirementsPlanningReportDto> GetMrpReportAsync([FromQuery] MaterialRequirementsPlanningFilterDto input)
         => _mrpService.GetReportAsync(input);
+
+    [HttpPost("mrp/create-orders")]
+    public Task<MrpOrdersCreatedDto> CreateOrdersAsync([FromBody] CreateOrdersFromMrpInput input)
+        => _mrpService.CreateOrdersAsync(input);
 }

@@ -11,4 +11,5 @@ namespace MyERP.Manufacturing;
 public interface IMaterialRequirementsPlanningAppService : IApplicationService
 {
     Task<MaterialRequirementsPlanningReportDto> GetReportAsync(MaterialRequirementsPlanningFilterDto input);
+    Task<MrpOrdersCreatedDto> CreateOrdersAsync(CreateOrdersFromMrpInput input);
 }

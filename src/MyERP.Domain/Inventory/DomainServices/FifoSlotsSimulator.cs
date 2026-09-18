@@ -113,6 +113,8 @@ public class FifoSlotsSimulator
         // PR #59058: scope batch and serial receipt dates to the warehouse
         var batchDateLookup = new Dictionary<(Guid BatchId, Guid WarehouseId), DateTime>();
         var serialDateLookup = new Dictionary<(string SerialNo, Guid WarehouseId), DateTime>();
+        // PR #59061: track (batch_id, warehouse) with negative slots to skip scan when nothing negative
+        var batchesWithNegativeSlots = new HashSet<(Guid BatchId, Guid WarehouseId)>();
 
         foreach (var group in groupedEntries)
         {
@@ -134,12 +136,12 @@ public class FifoSlotsSimulator
                 if (entry.ActualQty > 0)
                 {
                     // Inward stock
-                    AddInward(entry, queue, batchDateLookup, serialDateLookup);
+                    AddInward(entry, queue, batchDateLookup, serialDateLookup, batchesWithNegativeSlots);
                 }
                 else if (entry.ActualQty < 0)
                 {
                     // Outward stock
-                    ConsumeOutward(entry, queue, isLifo);
+                    ConsumeOutward(entry, queue, isLifo, batchesWithNegativeSlots);
                 }
                 else if (entry.StockValueDifference != 0 && queue.Count > 0)
                 {
@@ -234,7 +236,8 @@ public class FifoSlotsSimulator
         SimulationEntry entry,
         List<StockSlot> queue,
         Dictionary<(Guid BatchId, Guid WarehouseId), DateTime> batchDateLookup,
-        Dictionary<(string SerialNo, Guid WarehouseId), DateTime> serialDateLookup)
+        Dictionary<(string SerialNo, Guid WarehouseId), DateTime> serialDateLookup,
+        HashSet<(Guid BatchId, Guid WarehouseId)> batchesWithNegativeSlots)
     {
         var incomingQty = entry.ActualQty;
         var incomingValue = Math.Abs(entry.StockValueDifference);
@@ -243,10 +246,61 @@ public class FifoSlotsSimulator
             incomingValue = incomingQty * entry.ValuationRate;
         }
 
-        // Absorb negative stock slots first if present
+        // PR #59061: Skip negative batch scan when nothing is negative for this (batch, warehouse)
+        if (entry.BatchId.HasValue && batchesWithNegativeSlots.Contains((entry.BatchId.Value, entry.WarehouseId)))
+        {
+            var negativeSlotMayRemain = false;
+
+            for (int i = 0; i < queue.Count && incomingQty > 0; i++)
+            {
+                var slot = queue[i];
+                if (slot.Qty < 0 && slot.BatchId == entry.BatchId.Value && slot.UseBatchwiseValuation == entry.UseBatchwiseValuation)
+                {
+                    var absNeg = Math.Abs(slot.Qty);
+                    var qtyToAdjust = Math.Min(incomingQty, absNeg);
+                    var valueToAdjust = incomingQty > 0 && incomingValue > 0
+                        ? (qtyToAdjust == incomingQty ? incomingValue : incomingValue * (qtyToAdjust / incomingQty))
+                        : 0m;
+
+                    slot.Qty += qtyToAdjust;
+                    slot.Date = entry.PostingDate;
+                    slot.StockValue += valueToAdjust;
+
+                    incomingQty -= qtyToAdjust;
+                    incomingValue -= valueToAdjust;
+
+                    if (slot.Qty == 0)
+                    {
+                        queue.RemoveAt(i);
+                        i--;
+                    }
+                    else if (slot.Qty < 0)
+                    {
+                        negativeSlotMayRemain = true;
+                    }
+
+                    if (incomingQty <= 0)
+                    {
+                        // Check if any negative slot remains further in the queue
+                        if (queue.Any(s => s.Qty < 0 && s.BatchId == entry.BatchId.Value && s.UseBatchwiseValuation == entry.UseBatchwiseValuation))
+                        {
+                            negativeSlotMayRemain = true;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (!negativeSlotMayRemain)
+            {
+                batchesWithNegativeSlots.Remove((entry.BatchId.Value, entry.WarehouseId));
+            }
+        }
+
+        // Absorb general/non-batch negative stock slots if incomingQty remains
         for (int i = 0; i < queue.Count && incomingQty > 0; i++)
         {
-            if (queue[i].Qty < 0)
+            if (queue[i].Qty < 0 && !queue[i].BatchId.HasValue)
             {
                 var absNeg = Math.Abs(queue[i].Qty);
                 if (incomingQty >= absNeg)
@@ -300,7 +354,8 @@ public class FifoSlotsSimulator
     private static void ConsumeOutward(
         SimulationEntry entry,
         List<StockSlot> queue,
-        bool isLifo)
+        bool isLifo,
+        HashSet<(Guid BatchId, Guid WarehouseId)> batchesWithNegativeSlots)
     {
         var neededQty = Math.Abs(entry.ActualQty);
 
@@ -342,7 +397,7 @@ public class FifoSlotsSimulator
                 neededQty -= consume;
             }
 
-            queue.RemoveAll(s => s.Qty <= 0 && s.BatchId == entry.BatchId.Value);
+            queue.RemoveAll(s => s.Qty == 0 && s.BatchId == entry.BatchId.Value);
             if (neededQty <= 0) return;
         }
 
@@ -368,14 +423,25 @@ public class FifoSlotsSimulator
         // 4. If negative stock remains, record negative buffer slot
         if (neededQty > 0)
         {
+            var negValDiff = entry.StockValueDifference != 0
+                ? -Math.Abs(entry.StockValueDifference)
+                : (entry.ValuationRate > 0 ? -neededQty * entry.ValuationRate : 0m);
+
             queue.Insert(0, new StockSlot
             {
                 Qty = -neededQty,
                 Date = entry.PostingDate,
-                StockValue = 0m,
+                StockValue = negValDiff,
                 BatchId = entry.BatchId,
-                SerialNo = entry.SerialNo
+                SerialNo = entry.SerialNo,
+                UseBatchwiseValuation = entry.UseBatchwiseValuation
             });
+
+            // PR #59061: record warehouse owes stock on that batch
+            if (entry.BatchId.HasValue)
+            {
+                batchesWithNegativeSlots.Add((entry.BatchId.Value, entry.WarehouseId));
+            }
         }
     }
 
