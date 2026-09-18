@@ -211,23 +211,22 @@ public class UpstreamBatch59104To58998Tests
         var soItem = so.Items[0];
         soItem.BilledQty = 10; // fully billed: billedAmt = 1000, amount = 1000
 
-        // With 0% allowance: no headroom
+        // Per ERPNext PR #58966: fully billed order (qty=10, billed=10) has no pending qty,
+        // so it must NOT be offered in the invoice picker even with 20% allowance.
         SalesOrderManager.HasPotentiallyBillableItems(so, null, globalOverBillingAllowance: 0m)
             .ShouldBeFalse();
+        SalesOrderManager.HasPotentiallyBillableItems(so, null, globalOverBillingAllowance: 20m)
+            .ShouldBeFalse();
 
-        // With global allowance 20%: headroom exists (1000 < 1000 * 1.2 = 1200)
+        // When partially billed (e.g. 9 of 10), pending qty > 0 and headroom exists:
+        soItem.BilledQty = 9m;
         SalesOrderManager.HasPotentiallyBillableItems(so, null, globalOverBillingAllowance: 20m)
             .ShouldBeTrue();
 
-        // With global allowance 0%, but item-level allowance 50%: headroom exists
+        // With item-level allowance 50%: headroom exists when partially billed
         var itemAllowances = new Dictionary<Guid, decimal> { [itemId] = 50m };
         SalesOrderManager.HasPotentiallyBillableItems(so, itemAllowances, globalOverBillingAllowance: 0m)
             .ShouldBeTrue();
-
-        // With item-level allowance 0% overriding global 20%? No, item allowance > 0 takes precedence; if 0, global is used.
-        var zeroItemAllowance = new Dictionary<Guid, decimal> { [itemId] = 0m };
-        SalesOrderManager.HasPotentiallyBillableItems(so, zeroItemAllowance, globalOverBillingAllowance: 0m)
-            .ShouldBeFalse();
 
         // Closed line is skipped
         soItem.IsClosed = true;

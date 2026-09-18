@@ -54,6 +54,8 @@
               <tr>
                 <th>{{ 'Item' | abpLocalization }}</th>
                 <th class="text-end">{{ 'PlannedQty' | abpLocalization }}</th>
+                <th class="text-end">{{ 'OrderedQty' | abpLocalization }}</th>
+                <th class="text-end">{{ 'PendingQty' | abpLocalization }}</th>
                 <th style="width: 160px;">{{ 'Manufacturing:Progress' | abpLocalization }}</th>
                 <th>{{ '::WorkOrder' | abpLocalization }}</th>
               </tr>
@@ -65,6 +67,8 @@
                     <a [routerLink]="['/inventory/items', item.itemId]" class="text-decoration-none">{{ item.itemName }}</a>
                   </td>
                   <td class="text-end font-monospace">{{ item.plannedQty | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace text-primary">{{ item.orderedQty ?? 0 | number:'1.2-2' }}</td>
+                  <td class="text-end font-monospace text-warning">{{ item.pendingQty ?? 0 | number:'1.2-2' }}</td>
                   <td>
                     <div class="d-flex align-items-center gap-1">
                       <div class="progress flex-grow-1" style="height: 5px;">

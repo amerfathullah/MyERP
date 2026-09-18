@@ -35,6 +35,8 @@ public class ProductionPlanItemDto
     public string ItemName { get; set; } = null!;
     public Guid BomId { get; set; }
     public decimal PlannedQty { get; set; }
+    public decimal OrderedQty { get; set; }
+    public decimal PendingQty { get; set; }
     public decimal ProducedQty { get; set; }
     public Guid? WarehouseId { get; set; }
     public DateTime? PlannedStartDate { get; set; }

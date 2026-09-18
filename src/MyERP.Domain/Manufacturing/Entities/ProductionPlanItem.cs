@@ -15,7 +15,12 @@ public class ProductionPlanItem : Entity<Guid>
     public Guid BomId { get; set; }
 
     public decimal PlannedQty { get; set; }
+    /// <summary>Total quantity ordered into Work Orders against this planned item (PR #58799 & #58847).</summary>
+    public decimal OrderedQty { get; set; }
     public decimal ProducedQty { get; set; }
+
+    /// <summary>Remaining quantity to order into Work Orders.</summary>
+    public decimal PendingQty => Math.Max(0, Math.Round(PlannedQty - OrderedQty, 4));
 
     public Guid? WarehouseId { get; set; }
     public DateTime? PlannedStartDate { get; set; }

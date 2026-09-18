@@ -153,7 +153,14 @@ public class SalesOrderManager : DomainService
                 ? line.PendingBillingQty > 0
                 : Math.Abs(billedAmount) < Math.Abs(itemAmount) * (1m + allowance / 100m);
 
-            if (line.Quantity != 0 && hasAmountHeadroom)
+            // Per ERPNext PR #58966: row must also have pending quantity.
+            // When an order is fully billed, allowance headroom alone should not offer it in the invoice picker.
+            var hasUnbilledOrderedQty = Math.Round(line.Quantity - line.BilledQty, 4) > 0;
+            var hasUnbilledDeliveredQty = Math.Round(line.Quantity - line.ReturnedQty - line.BilledQty, 4) > 0
+                || Math.Round(line.DeliveredQty - line.BilledQty, 4) > 0;
+            var hasPendingQty = hasUnbilledOrderedQty && hasUnbilledDeliveredQty;
+
+            if (line.Quantity != 0 && hasAmountHeadroom && hasPendingQty)
                 return true;
         }
 

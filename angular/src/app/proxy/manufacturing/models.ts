@@ -397,6 +397,8 @@ export interface ProductionPlanItemDto {
   itemName?: string;
   bomId?: string;
   plannedQty?: number;
+  orderedQty?: number;
+  pendingQty?: number;
   producedQty?: number;
   warehouseId?: string | null;
   plannedStartDate?: string | null;

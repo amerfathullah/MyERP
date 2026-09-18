@@ -46,6 +46,21 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
     public async Task<ProductionPlanDto> GetAsync(Guid id)
     {
         var plan = await _planRepository.GetAsync(id, includeDetails: true);
+
+        // Per ERPNext PR #58799 & #58847: calculate committed OrderedQty per planned item accounting for process loss
+        var woQueryable = await _workOrderRepository.GetQueryableAsync();
+        var existingWos = woQueryable
+            .Where(w => w.ProductionPlanId == plan.Id && w.Status != WorkOrderStatus.Cancelled)
+            .ToList();
+
+        foreach (var item in plan.PlannedItems)
+        {
+            var committed = existingWos
+                .Where(w => w.ProductionPlanItemId == item.Id || (!w.ProductionPlanItemId.HasValue && item.WorkOrderId == w.Id))
+                .Sum(w => w.Quantity - w.ProcessLossQty);
+            item.OrderedQty = committed;
+        }
+
         return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
     }
 
@@ -588,10 +603,30 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         // Check that WOs haven't already been generated for all items
-        // Per ERPNext PR #58249 (commit 1fa057b943): skip covered rows (PlannedQty <= 0) when ordering from MRP/plan
-        var itemsNeedingWo = plan.PlannedItems
-            .Where(i => !i.WorkOrderId.HasValue && Math.Round(i.PlannedQty, 4) > 0)
+        // Per ERPNext PR #58799 & #58847:
+        // Query existing Work Orders for this plan to determine committed quantities:
+        // committed = sum(wo.Quantity - wo.ProcessLossQty) for non-cancelled work orders
+        // pending = max(0, planned_qty - committed)
+        var woQueryable = await _workOrderRepository.GetQueryableAsync();
+        var existingWos = woQueryable
+            .Where(w => w.ProductionPlanId == plan.Id && w.Status != WorkOrderStatus.Cancelled)
             .ToList();
+
+        var itemsNeedingWo = new List<(ProductionPlanItem Item, decimal QtyToOrder)>();
+        foreach (var item in plan.PlannedItems)
+        {
+            if (Math.Round(item.PlannedQty, 4) <= 0) continue;
+            var committed = existingWos
+                .Where(w => w.ProductionPlanItemId == item.Id || (!w.ProductionPlanItemId.HasValue && item.WorkOrderId == w.Id))
+                .Sum(w => w.Quantity - w.ProcessLossQty);
+            item.OrderedQty = committed;
+            var pending = Math.Max(0, Math.Round(item.PlannedQty - committed, 4));
+            if (pending > 0)
+            {
+                itemsNeedingWo.Add((item, pending));
+            }
+        }
+
         if (!itemsNeedingWo.Any())
             throw new BusinessException(MyERPDomainErrorCodes.ProductionPlanWorkOrdersAlreadyGenerated);
 
@@ -599,11 +634,11 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var company = await companyRepo.FindAsync(plan.CompanyId);
 
         // Batch load BOMs to prevent N+1 queries during bulk Work Order generation (ERPNext PR #57154)
-        var bomIds = itemsNeedingWo.Select(i => i.BomId).Distinct().ToList();
+        var bomIds = itemsNeedingWo.Select(i => i.Item.BomId).Distinct().ToList();
         var bomQuery = await _bomRepository.WithDetailsAsync();
         var bomMap = bomQuery.Where(b => bomIds.Contains(b.Id)).ToList().ToDictionary(b => b.Id);
 
-        foreach (var item in itemsNeedingWo)
+        foreach (var (item, qtyToOrder) in itemsNeedingWo)
         {
             if (!bomMap.TryGetValue(item.BomId, out var bom))
                 continue;
@@ -611,7 +646,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             var woNumber = await _numberGenerator.GenerateAsync("WO", plan.CompanyId);
             var wo = new WorkOrder(
                 GuidGenerator.Create(), plan.CompanyId, woNumber,
-                item.ItemId, item.BomId, item.PlannedQty, CurrentTenant.Id)
+                item.ItemId, item.BomId, qtyToOrder, CurrentTenant.Id)
             {
                 ProductionPlanId = plan.Id,
                 ProductionPlanItemId = item.Id,
@@ -626,7 +661,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
             // Populate required items from BOM (ERPNext PR #58663)
             var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
-            var multiplier = item.PlannedQty / (bom.Quantity > 0 ? bom.Quantity : 1);
+            var multiplier = qtyToOrder / (bom.Quantity > 0 ? bom.Quantity : 1);
             foreach (var bi in bom.Items)
             {
                 var rawWarehouseId = bi.SourceWarehouseId
@@ -640,6 +675,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
             await _workOrderRepository.InsertAsync(wo);
             item.WorkOrderId = wo.Id;
+            item.OrderedQty += qtyToOrder;
 
             // Transfer stock reservations from Production Plan to Work Order (ERPNext commit 0bc3cfe29d)
             var sreManager = LazyServiceProvider.LazyGetService<MyERP.Inventory.DomainServices.StockReservationManager>();

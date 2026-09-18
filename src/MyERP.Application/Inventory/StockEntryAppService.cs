@@ -448,6 +448,14 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
                 var mfgSettings = await mfgSettingsRepo.FindAsync(s => s.CompanyId == entry.CompanyId);
                 var overproductionPct = mfgSettings?.OverproductionPercentage ?? 0m;
+
+                if (wo.ProductionPlanId.HasValue)
+                {
+                    var planRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ProductionPlan, Guid>>();
+                    var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+                    await woManager.ValidateProductionPlanQuantityAsync(wo, planRepo, woRepo, overproductionPct);
+                }
+
                 wo.RecordProduction(fgQty, overproductionPercentage: overproductionPct, processLoss: processLoss);
                 await woRepo.UpdateAsync(wo, autoSave: true);
 
@@ -455,7 +463,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 if (planItemRepo != null)
                 {
                     var planItemQuery = await planItemRepo.GetQueryableAsync();
-                    var linkedPlanItem = planItemQuery.FirstOrDefault(p => p.WorkOrderId == wo.Id);
+                    var linkedPlanItem = planItemQuery.FirstOrDefault(p => (wo.ProductionPlanItemId.HasValue && p.Id == wo.ProductionPlanItemId.Value) || p.WorkOrderId == wo.Id);
                     if (linkedPlanItem != null)
                     {
                         linkedPlanItem.ProducedQty = wo.ProducedQuantity;

@@ -3207,6 +3207,7 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.ItemName).IsRequired().HasMaxLength(ProductionPlanConsts.MaxItemNameLength);
             b.Property(x => x.PlannedQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.OrderedQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.ProducedQty).HasColumnType("decimal(18,4)");
         });
 
