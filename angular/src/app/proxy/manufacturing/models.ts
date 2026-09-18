@@ -1086,3 +1086,49 @@ export interface WorkstationWorkingHourDto extends EntityDto<string> {
   startTime?: string;
   endTime?: string;
 }
+
+export enum MrpBucketSize {
+  Daily = 0,
+  Weekly = 1,
+  Monthly = 2,
+}
+
+export interface MaterialRequirementsPlanningFilterDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  bucketSize?: MrpBucketSize;
+  itemId?: string;
+  warehouseId?: string;
+  includeSafetyStock?: boolean;
+}
+
+export interface MrpPeriodBucketDto {
+  fromDate?: string;
+  toDate?: string;
+  label?: string;
+}
+
+export interface MrpItemBucketDataDto {
+  bucketFromDate?: string;
+  grossRequirements?: number;
+  scheduledReceipts?: number;
+  projectedAvailableBalance?: number;
+  plannedOrders?: number;
+}
+
+export interface MrpItemRowDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  uom?: string;
+  isRawMaterial?: boolean;
+  safetyStock?: number;
+  currentStock?: number;
+  buckets?: MrpItemBucketDataDto[];
+}
+
+export interface MaterialRequirementsPlanningReportDto {
+  buckets?: MrpPeriodBucketDto[];
+  rows?: MrpItemRowDto[];
+}

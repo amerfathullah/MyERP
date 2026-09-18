@@ -5,6 +5,7 @@ export * from './job-card-status.enum';
 export * from './job-card.service';
 export * from './manufacturing-settings.service';
 export * from './master-production-schedule.service';
+export * from './material-requirements-planning.service';
 export * from './models';
 export * from './plant-floor.service';
 export * from './production-analytics.service';

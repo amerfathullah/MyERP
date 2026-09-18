@@ -15,17 +15,20 @@ public class ManufacturingController : MyERPController
     private readonly IWorkstationAppService _workstationService;
     private readonly IOperationAppService _operationService;
     private readonly IRoutingAppService _routingService;
+    private readonly IMaterialRequirementsPlanningAppService _mrpService;
 
     public ManufacturingController(
         IManufacturingAppService service,
         IWorkstationAppService workstationService,
         IOperationAppService operationService,
-        IRoutingAppService routingService)
+        IRoutingAppService routingService,
+        IMaterialRequirementsPlanningAppService mrpService)
     {
         _service = service;
         _workstationService = workstationService;
         _operationService = operationService;
         _routingService = routingService;
+        _mrpService = mrpService;
     }
 
     // Operations
@@ -192,4 +195,9 @@ public class ManufacturingController : MyERPController
     [HttpPost("work-order/fg-conversion")]
     public Task<StockEntryResultDto> CreateFgConversionEntryAsync([FromBody] CreateFgConversionEntryDto input)
         => _service.CreateFgConversionEntryAsync(input);
+
+    // Material Requirements Planning (MRP) Report
+    [HttpGet("mrp-report")]
+    public Task<MaterialRequirementsPlanningReportDto> GetMrpReportAsync([FromQuery] MaterialRequirementsPlanningFilterDto input)
+        => _mrpService.GetReportAsync(input);
 }
