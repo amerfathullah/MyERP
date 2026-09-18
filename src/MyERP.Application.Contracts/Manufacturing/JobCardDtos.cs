@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Volo.Abp.Application.Dtos;
 
 namespace MyERP.Manufacturing;
@@ -26,6 +27,7 @@ public class JobCardDto : EntityDto<Guid>
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public JobCardTimeLogDto[] TimeLogs { get; set; } = [];
+    public JobCardSecondaryItemDto[] SecondaryItems { get; set; } = [];
     public DateTime CreationTime { get; set; }
 }
 
@@ -49,6 +51,7 @@ public class CreateJobCardDto
     public decimal ForQuantity { get; set; }
     public int SequenceId { get; set; }
     public decimal PlannedTimeInMins { get; set; }
+    public List<CreateJobCardSecondaryItemDto> SecondaryItems { get; set; } = new();
 }
 
 public class AddTimeLogDto
@@ -81,5 +84,30 @@ public class JobCardRawMaterialDto
     public decimal PendingQty => Math.Max(0, RequiredQty - TransferredQty);
     public decimal StockQty { get; set; }
     public bool IsAvailable { get; set; }
+}
+
+public class JobCardSecondaryItemDto : EntityDto<Guid>
+{
+    public Guid JobCardId { get; set; }
+    public Guid ItemId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public decimal StockQty { get; set; }
+    public string StockUom { get; set; } = string.Empty;
+    public SecondaryItemType SecondaryItemType { get; set; }
+    public Guid? BomSecondaryItemId { get; set; }
+    public int Idx { get; set; }
+}
+
+public class CreateJobCardSecondaryItemDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public decimal StockQty { get; set; }
+    public string StockUom { get; set; } = string.Empty;
+    public SecondaryItemType SecondaryItemType { get; set; }
+    public Guid? BomSecondaryItemId { get; set; }
+    public int? Idx { get; set; }
 }
 

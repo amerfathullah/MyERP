@@ -111,6 +111,23 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             BatchSplit = input.BatchSplit,
             WeightPerPiece = input.WeightPerPiece,
         };
+
+        if (input.SecondaryItems != null && input.SecondaryItems.Count > 0)
+        {
+            foreach (var sec in input.SecondaryItems)
+            {
+                jc.AddSecondaryItem(
+                    sec.ItemId,
+                    sec.ItemName,
+                    sec.StockQty,
+                    sec.StockUom,
+                    sec.SecondaryItemType,
+                    sec.Description,
+                    sec.BomSecondaryItemId,
+                    sec.Idx);
+            }
+        }
+
         await _repository.InsertAsync(jc);
 
         // Workstation scheduling: compute time slot for capacity planning
@@ -186,6 +203,23 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         jc.SequenceId = input.SequenceId;
         jc.BatchSplit = input.BatchSplit;
         jc.WeightPerPiece = input.WeightPerPiece;
+
+        if (input.SecondaryItems != null)
+        {
+            jc.ClearSecondaryItems();
+            foreach (var sec in input.SecondaryItems)
+            {
+                jc.AddSecondaryItem(
+                    sec.ItemId,
+                    sec.ItemName,
+                    sec.StockQty,
+                    sec.StockUom,
+                    sec.SecondaryItemType,
+                    sec.Description,
+                    sec.BomSecondaryItemId,
+                    sec.Idx);
+            }
+        }
 
         await _repository.UpdateAsync(jc);
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);

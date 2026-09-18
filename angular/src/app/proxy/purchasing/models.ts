@@ -1076,3 +1076,43 @@ export interface UpdateOrderItemsResultDto {
   previousGrandTotal?: number;
   warnings?: string[];
 }
+
+export interface RequestedItemsFilterDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  materialRequestId?: string | null;
+  itemId?: string | null;
+  warehouseId?: string | null;
+}
+
+export interface RequestedItemToOrderAndReceiveRowDto {
+  materialRequestId?: string;
+  materialRequestNumber?: string;
+  transactionDate?: string;
+  requiredDate?: string | null;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  description?: string | null;
+  qty?: number;
+  stockQty?: number;
+  orderedQty?: number;
+  receivedQty?: number;
+  qtyToOrder?: number;
+  qtyToReceive?: number;
+  uom?: string;
+  stockUom?: string;
+  warehouseId?: string | null;
+  warehouseName?: string | null;
+}
+
+export interface RequestedItemsToOrderAndReceiveReportDto {
+  rows?: RequestedItemToOrderAndReceiveRowDto[];
+  totalQty?: number;
+  totalOrderedQty?: number;
+  totalReceivedQty?: number;
+  totalQtyToOrder?: number;
+  totalQtyToReceive?: number;
+}
+

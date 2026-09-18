@@ -80,6 +80,9 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
     private readonly List<JobCardTimeLog> _timeLogs = new();
     public IReadOnlyList<JobCardTimeLog> TimeLogs => _timeLogs.AsReadOnly();
 
+    private readonly List<JobCardSecondaryItem> _secondaryItems = new();
+    public IReadOnlyList<JobCardSecondaryItem> SecondaryItems => _secondaryItems.AsReadOnly();
+
     protected JobCard() { }
 
     public JobCard(Guid id, Guid companyId, Guid workOrderId, Guid operationId,
@@ -137,6 +140,43 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", nameof(processLossQty));
         ProcessLossQty = processLossQty;
+    }
+
+    public JobCardSecondaryItem AddSecondaryItem(
+        Guid itemId,
+        string itemName,
+        decimal stockQty,
+        string stockUom,
+        SecondaryItemType secondaryItemType,
+        string? description = null,
+        Guid? bomSecondaryItemId = null,
+        int? idx = null)
+    {
+        if (stockQty < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(stockQty));
+
+        var nextIdx = idx ?? (_secondaryItems.Count > 0 ? _secondaryItems.Max(i => i.Idx) + 1 : 1);
+        var item = new JobCardSecondaryItem(
+            Guid.NewGuid(),
+            Id,
+            itemId,
+            itemName,
+            stockQty,
+            stockUom,
+            secondaryItemType,
+            description,
+            bomSecondaryItemId,
+            nextIdx,
+            TenantId);
+
+        _secondaryItems.Add(item);
+        return item;
+    }
+
+    public void ClearSecondaryItems()
+    {
+        _secondaryItems.Clear();
     }
 
     /// <summary>

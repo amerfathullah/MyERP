@@ -184,6 +184,56 @@ public class WorkOrderProductionService : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Aggregates secondary items (scrap, byproduct, co-product) across completed Job Cards for a Work Order.
+    /// Per ERPNext PR #59129 (commit f97660d10e):
+    /// Groups by (ItemId, SecondaryItemType, BomSecondaryItemId).
+    /// Sums StockQty.
+    /// Derives line-level metadata (StockUom, ItemName, Description) from the representative line
+    /// sorted deterministically by (Idx, CreationTime), avoiding SQL text collation divergence.
+    /// </summary>
+    public async Task<List<JobCardSecondaryItemSummary>> GetSecondaryItemsFromJobCardsAsync(
+        Guid workOrderId,
+        Guid? jobCardId = null)
+    {
+        if (_jobCardRepository == null)
+            return new List<JobCardSecondaryItemSummary>();
+
+        var jcQuery = await _jobCardRepository.GetQueryableAsync();
+        var jcs = jcQuery
+            .Where(jc => jc.WorkOrderId == workOrderId && jc.Status == JobCardStatus.Completed)
+            .WhereIf(jobCardId.HasValue, jc => jc.Id == jobCardId!.Value)
+            .ToList();
+
+        var allSecondaryItems = jcs
+            .SelectMany(jc => jc.SecondaryItems)
+            .ToList();
+
+        if (allSecondaryItems.Count == 0)
+            return new List<JobCardSecondaryItemSummary>();
+
+        var grouped = allSecondaryItems
+            .GroupBy(i => (i.ItemId, i.SecondaryItemType, i.BomSecondaryItemId))
+            .Select(g =>
+            {
+                var totalQty = g.Sum(x => x.StockQty);
+                var rep = g.OrderBy(x => x.Idx).ThenBy(x => x.CreationTime).First();
+
+                return new JobCardSecondaryItemSummary(
+                    ItemId: g.Key.ItemId,
+                    ItemName: rep.ItemName,
+                    Description: rep.Description,
+                    StockQty: totalQty,
+                    StockUom: rep.StockUom,
+                    SecondaryItemType: g.Key.SecondaryItemType,
+                    BomSecondaryItemId: g.Key.BomSecondaryItemId
+                );
+            })
+            .ToList();
+
+        return grouped;
+    }
 }
 
 /// <summary>Raw material consumption line for production stock entry.</summary>
@@ -211,4 +261,14 @@ public record SecondaryItemOutput(
     decimal Rate,
     decimal CostAllocationPercentage,
     Guid? WarehouseId);
+
+/// <summary>Summary of Job Card secondary item output across completed job cards.</summary>
+public record JobCardSecondaryItemSummary(
+    Guid ItemId,
+    string ItemName,
+    string? Description,
+    decimal StockQty,
+    string StockUom,
+    SecondaryItemType SecondaryItemType,
+    Guid? BomSecondaryItemId);
 

@@ -1812,3 +1812,34 @@ export interface OrderReceiptDto {
   status?: string;
   itemCount?: number;
 }
+
+export interface SalesPaymentSummaryFilterDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  warehouseId?: string | null;
+  posProfileId?: string | null;
+  customerId?: string | null;
+}
+
+export interface SalesPaymentSummaryRowDto {
+  postingDate?: string;
+  cashier?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  costCenter?: string;
+  modeOfPayment?: string;
+  netTotal?: number;
+  totalTaxes?: number;
+  paidAmount?: number;
+  outstandingAmount?: number;
+}
+
+export interface SalesPaymentSummaryReportDto {
+  rows?: SalesPaymentSummaryRowDto[];
+  totalNet?: number;
+  totalTaxes?: number;
+  totalPaid?: number;
+  totalOutstanding?: number;
+}
+

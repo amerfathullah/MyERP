@@ -6,5 +6,5 @@ namespace MyERP.Manufacturing;
 
 public interface IBomStockAnalysisAppService : IApplicationService
 {
-    Task<BomStockAnalysisDto> GetAnalysisAsync(Guid bomId, decimal requiredQty = 1);
+    Task<BomStockAnalysisDto> GetAnalysisAsync(Guid bomId, decimal requiredQty = 1, Guid? warehouseId = null);
 }

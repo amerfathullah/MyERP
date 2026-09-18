@@ -617,6 +617,7 @@ public partial class JobCardMapper : MapperBase<Manufacturing.Entities.JobCard, 
     public override partial Manufacturing.JobCardDto Map(Manufacturing.Entities.JobCard source);
     public override partial void Map(Manufacturing.Entities.JobCard source, Manufacturing.JobCardDto destination);
     private partial Manufacturing.JobCardTimeLogDto MapChild(Manufacturing.Entities.JobCardTimeLog source);
+    private partial Manufacturing.JobCardSecondaryItemDto MapSecondaryChild(Manufacturing.Entities.JobCardSecondaryItem source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

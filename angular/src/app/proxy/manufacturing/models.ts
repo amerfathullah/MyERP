@@ -81,6 +81,30 @@ export interface CreateJobCardDto {
   forQuantity?: number;
   sequenceId?: number;
   plannedTimeInMins?: number;
+  secondaryItems?: CreateJobCardSecondaryItemDto[];
+}
+
+export interface CreateJobCardSecondaryItemDto {
+  itemId?: string;
+  itemName?: string;
+  description?: string | null;
+  stockQty?: number;
+  stockUom?: string;
+  secondaryItemType?: SecondaryItemType;
+  bomSecondaryItemId?: string | null;
+  idx?: number | null;
+}
+
+export interface JobCardSecondaryItemDto extends EntityDto<string> {
+  jobCardId?: string;
+  itemId?: string;
+  itemName?: string;
+  description?: string | null;
+  stockQty?: number;
+  stockUom?: string;
+  secondaryItemType?: SecondaryItemType;
+  bomSecondaryItemId?: string | null;
+  idx?: number;
 }
 
 export interface CreateMasterProductionScheduleDto {
@@ -241,6 +265,7 @@ export interface JobCardDto extends EntityDto<string> {
   startedAt?: string | null;
   completedAt?: string | null;
   timeLogs?: JobCardTimeLogDto[];
+  secondaryItems?: JobCardSecondaryItemDto[];
   creationTime?: string;
 }
 

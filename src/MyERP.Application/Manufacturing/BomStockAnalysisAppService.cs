@@ -28,7 +28,7 @@ public class BomStockAnalysisAppService : ApplicationService, IBomStockAnalysisA
         _itemRepository = itemRepository;
     }
 
-    public async Task<BomStockAnalysisDto> GetAnalysisAsync(Guid bomId, decimal requiredQty = 1)
+    public async Task<BomStockAnalysisDto> GetAnalysisAsync(Guid bomId, decimal requiredQty = 1, Guid? warehouseId = null)
     {
         var bom = await _bomRepository.GetAsync(bomId);
         // Per ERPNext PR #58647 (commit a2071a6fdd): only active BOMs can be analyzed for stock
@@ -54,10 +54,17 @@ public class BomStockAnalysisAppService : ApplicationService, IBomStockAnalysisA
             .ToList();
         var itemMap = items.ToDictionary(i => i.Id);
 
-        // Batch-resolve available stock per item (sum across all warehouses for the company)
+        // Batch-resolve available stock per item (optionally filtered by warehouse)
+        // Per ERPNext PR #59116 (commit 60913b722a): components without warehouse stock
+        // remain visible with AvailableQty = 0 and negative difference, rather than dropped.
         var binQuery = await _binRepository.GetQueryableAsync();
-        var binData = binQuery
-            .Where(b => itemIds.Contains(b.ItemId))
+        var filteredBins = binQuery.Where(b => itemIds.Contains(b.ItemId));
+        if (warehouseId.HasValue)
+        {
+            filteredBins = filteredBins.Where(b => b.WarehouseId == warehouseId.Value);
+        }
+
+        var binData = filteredBins
             .GroupBy(b => b.ItemId)
             .Select(g => new { ItemId = g.Key, AvailableQty = g.Sum(b => b.ActualQty - b.ReservedQty) })
             .ToList();

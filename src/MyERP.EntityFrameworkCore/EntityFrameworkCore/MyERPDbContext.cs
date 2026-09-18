@@ -433,6 +433,7 @@ public class MyERPDbContext :
     public DbSet<RoutingOperation> RoutingOperations { get; set; }
     public DbSet<JobCard> JobCards { get; set; }
     public DbSet<JobCardTimeLog> JobCardTimeLogs { get; set; }
+    public DbSet<JobCardSecondaryItem> JobCardSecondaryItems { get; set; }
     public DbSet<ManufacturingSettings> ManufacturingSettings { get; set; }
     public DbSet<DowntimeEntry> DowntimeEntries { get; set; }
     public DbSet<BomCreator> BomCreators { get; set; }
@@ -3609,6 +3610,8 @@ public class MyERPDbContext :
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasMany(x => x.TimeLogs).WithOne().HasForeignKey(x => x.JobCardId).IsRequired();
             b.Navigation(x => x.TimeLogs).AutoInclude();
+            b.HasMany(x => x.SecondaryItems).WithOne().HasForeignKey(x => x.JobCardId).IsRequired();
+            b.Navigation(x => x.SecondaryItems).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.WorkOrderId, x.OperationId });
         });
 
@@ -3618,6 +3621,18 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.TimeInMins).HasColumnType("decimal(18,2)");
             b.Property(x => x.CompletedQty).HasColumnType("decimal(18,4)");
+        });
+
+        builder.Entity<JobCardSecondaryItem>(b =>
+        {
+            b.ToTable("Mfg_JobCardSecondaryItems", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ItemName).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Description).HasMaxLength(1000);
+            b.Property(x => x.StockQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.StockUom).IsRequired().HasMaxLength(50);
+            b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.JobCardId, x.ItemId });
         });
 
         builder.Entity<ManufacturingSettings>(b =>
