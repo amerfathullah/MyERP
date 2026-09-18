@@ -114,6 +114,7 @@ public static class MyERPDomainErrorCodes
     public const string BarcodeRequired = "MyERP:05061";
     public const string InsufficientRawMaterial = "MyERP:10008";
     public const string CannotDeleteBOM = "MyERP:10009";
+    public const string BomNotFound = "MyERP:10034";
 
     // Pricing Rule
     public const string PricingRuleAmbiguity = "MyERP:11002";
@@ -388,6 +389,7 @@ public static class MyERPDomainErrorCodes
 
     // Account
     public const string StockAccountTypeChangeLocked = "MyERP:02085";
+    public const string InvalidAccountType = "MyERP:02092";
 
     // CRM — Prospect
     public const string ProspectAlreadyConverted = "MyERP:17001";

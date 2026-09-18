@@ -102,10 +102,20 @@ public class ItemGroupAppService : ApplicationService, IItemGroupAppService
         {
             var accRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
             var acc = await accRepo.FindAsync(defaultInventoryAccountId.Value);
-            if (acc != null && acc.IsGroup)
+            if (acc != null)
             {
-                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
-                    .WithData("detail", $"Account '{acc.AccountName}' is a group account. Default inventory account must be a leaf account.");
+                if (acc.IsGroup)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.AccountIsGroup)
+                        .WithData("detail", $"Account '{acc.AccountName}' is a group account. Default inventory account must be a leaf account.");
+                }
+
+                // Per ERPNext PR #58923: default inventory account must be an Asset Stock account
+                if (acc.AccountType != Accounting.AccountType.Asset || (acc.AccountSubType.HasValue && acc.AccountSubType != Accounting.AccountSubType.Stock))
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidAccountType)
+                        .WithData("detail", $"Account '{acc.AccountName}' is not a stock asset account. Default inventory account must be an Asset Stock account.");
+                }
             }
         }
     }

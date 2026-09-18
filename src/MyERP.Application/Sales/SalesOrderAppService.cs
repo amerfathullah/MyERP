@@ -795,6 +795,12 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             await poRepo.UpdateAsync(linkedPo, autoSave: true);
         }
 
+        // Per ERPNext PR #59120: reset ordered_qty when a cancelled Sales Order is unlinked from its Purchase Orders
+        foreach (var item in order.Items)
+        {
+            item.OrderedQty = 0;
+        }
+
         await _repository.UpdateAsync(order, autoSave: true);
         var cancelDto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
         cancelDto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);

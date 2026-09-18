@@ -458,7 +458,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var boms = bomQuery.Where(b => bomIds.Contains(b.Id)).ToDictionary(b => b.Id);
 
         // Collect all exploded items
-        var explodedList = new List<(Guid ItemId, string ItemName, string? Uom, decimal Quantity, Guid? WarehouseId, SubAssemblyType ProcurementType)>();
+        var explodedList = new List<(Guid ItemId, string ItemName, string? Uom, decimal Quantity, Guid? WarehouseId, SubAssemblyType ProcurementType, Guid? SubBomId)>();
 
         foreach (var plannedItem in plan.PlannedItems)
         {
@@ -476,7 +476,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 var procType = explodedItem.SubBomId.HasValue
                     ? SubAssemblyType.InHouseManufacturing
                     : SubAssemblyType.MaterialRequest;
-                explodedList.Add((explodedItem.ItemId, explodedItem.ItemName, explodedItem.Uom, explodedItem.Quantity, targetWh, procType));
+                explodedList.Add((explodedItem.ItemId, explodedItem.ItemName, explodedItem.Uom, explodedItem.Quantity, targetWh, procType, explodedItem.SubBomId));
             }
         }
 
@@ -508,11 +508,21 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             var minOrderQty = itemMaster?.MinOrderQty ?? 0m;
             var safetyStock = itemMaster?.SafetyStock ?? 0m;
 
+            // Per ERPNext PR #58510: classify rows by purchase item vs manufacture, not missing BOM
+            var procType = exploded.ProcurementType;
+            if (itemMaster != null && !exploded.SubBomId.HasValue)
+            {
+                if (itemMaster.DefaultMaterialRequestType == Purchasing.MaterialRequestType.Manufacture)
+                {
+                    procType = SubAssemblyType.InHouseManufacturing;
+                }
+            }
+
             binMap.TryGetValue((exploded.ItemId, exploded.WarehouseId ?? Guid.Empty), out var bin);
             var actualQty = bin?.ActualQty ?? 0m;
 
             var existing = plan.CombineItems
-                ? rawRows.FirstOrDefault(r => r.ItemId == exploded.ItemId && r.WarehouseId == exploded.WarehouseId)
+                ? rawRows.FirstOrDefault(r => r.ItemId == exploded.ItemId && r.WarehouseId == exploded.WarehouseId && r.ProcurementType == procType)
                 : null;
 
             if (existing != null)
@@ -527,7 +537,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 {
                     Uom = exploded.Uom,
                     WarehouseId = exploded.WarehouseId,
-                    ProcurementType = exploded.ProcurementType,
+                    ProcurementType = procType,
                     MinOrderQty = minOrderQty,
                     SafetyStock = safetyStock,
                     AvailableQty = actualQty,
@@ -634,14 +644,30 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var company = await companyRepo.FindAsync(plan.CompanyId);
 
         // Batch load BOMs to prevent N+1 queries during bulk Work Order generation (ERPNext PR #57154)
-        var bomIds = itemsNeedingWo.Select(i => i.Item.BomId).Distinct().ToList();
+        var bomIds = itemsNeedingWo.Select(i => i.Item.BomId).Where(id => id != Guid.Empty).Distinct().ToList();
         var bomQuery = await _bomRepository.WithDetailsAsync();
-        var bomMap = bomQuery.Where(b => bomIds.Contains(b.Id)).ToList().ToDictionary(b => b.Id);
+        var bomMap = bomQuery.Where(b => bomIds.Contains(b.Id) && b.IsActive).ToList().ToDictionary(b => b.Id);
+
+        // Per ERPNext PR #58510 & #58511: throw when manufactured items have no active BOM
+        var missingBomItems = new List<string>();
+        foreach (var (item, _) in itemsNeedingWo)
+        {
+            if (item.BomId == Guid.Empty || !bomMap.ContainsKey(item.BomId))
+            {
+                if (!missingBomItems.Contains(item.ItemName))
+                    missingBomItems.Add(item.ItemName);
+            }
+        }
+
+        if (missingBomItems.Count > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.BomNotFound)
+                .WithData("items", string.Join(", ", missingBomItems));
+        }
 
         foreach (var (item, qtyToOrder) in itemsNeedingWo)
         {
-            if (!bomMap.TryGetValue(item.BomId, out var bom))
-                continue;
+            var bom = bomMap[item.BomId];
 
             var woNumber = await _numberGenerator.GenerateAsync("WO", plan.CompanyId);
             var wo = new WorkOrder(
