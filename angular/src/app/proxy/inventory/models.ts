@@ -2024,3 +2024,58 @@ export interface UomConversionDto extends EntityDto<string> {
   conversionFactor?: number;
   itemId?: string | null;
 }
+
+export interface StockAgeingFilterDto {
+  companyId: string;
+  warehouseId?: string | null;
+  itemGroupId?: string | null;
+  itemId?: string | null;
+  toDate?: string | null;
+  ranges?: string | null;
+  showWarehouseWiseStock?: boolean;
+  includeZeroStock?: boolean;
+  filterText?: string | null;
+}
+
+export interface StockAgeingBucketDefinitionDto {
+  bucketIndex: number;
+  label: string;
+  minDays: number;
+  maxDays?: number | null;
+}
+
+export interface StockAgeingBucketValueDto {
+  bucketIndex: number;
+  label: string;
+  qty: number;
+  stockValue: number;
+}
+
+export interface StockAgeingRowDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description?: string | null;
+  itemGroup?: string | null;
+  brand?: string | null;
+  warehouseId?: string | null;
+  warehouseName?: string | null;
+  totalQty: number;
+  valuationRate: number;
+  totalStockValue: number;
+  averageAgeDays: number;
+  oldestDays: number;
+  newestDays: number;
+  stockUom: string;
+  buckets: StockAgeingBucketValueDto[];
+}
+
+export interface StockAgeingReportDto {
+  toDate: string;
+  buckets: StockAgeingBucketDefinitionDto[];
+  rows: StockAgeingRowDto[];
+  totalItems: number;
+  totalStockValue: number;
+  overallAverageAgeDays: number;
+  agedOver90Count: number;
+}

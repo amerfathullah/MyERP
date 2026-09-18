@@ -2,26 +2,16 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { StockBalanceService } from '../../../proxy/inventory/stock-balance.service';
+import { StockAgeingService } from '../../../proxy/inventory/stock-ageing.service';
 import { WarehouseService } from '../../../proxy/inventory/warehouse.service';
 import { ItemGroupService } from '../../../proxy/inventory/item-group.service';
+import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
-
-interface AgeingRow {
-  itemId: string;
-  itemCode: string;
-  itemName: string;
-  warehouseName: string;
-  qty: number;
-  valuationRate: number;
-  stockValue: number;
-  // Ageing buckets (days)
-  bucket0to30: number;
-  bucket31to60: number;
-  bucket61to90: number;
-  bucket91plus: number;
-  averageAge: number;
-}
+import {
+  StockAgeingReportDto,
+  StockAgeingRowDto,
+  StockAgeingBucketDefinitionDto
+} from '../../../proxy/inventory/models';
 
 @Component({
   selector: 'app-stock-ageing',
@@ -30,16 +20,41 @@ interface AgeingRow {
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>{{ 'MyERP::StockAgeing' | abpLocalization }}</h5>
-        <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
-          <i class="bi bi-download me-1"></i>Export CSV
-        </button>
+        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>{{ 'StockAgeing' | abpLocalization }}</h5>
+        <div class="d-flex gap-2">
+          <div class="btn-group btn-group-sm" role="group">
+            <button
+              type="button"
+              class="btn"
+              [class.btn-primary]="displayMode === 'qty'"
+              [class.btn-outline-primary]="displayMode !== 'qty'"
+              (click)="displayMode = 'qty'"
+            >
+              Qty
+            </button>
+            <button
+              type="button"
+              class="btn"
+              [class.btn-primary]="displayMode === 'value'"
+              [class.btn-outline-primary]="displayMode !== 'value'"
+              (click)="displayMode = 'value'"
+            >
+              Value
+            </button>
+          </div>
+          <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()" [disabled]="!rows().length">
+            <i class="bi bi-download me-1"></i>Export CSV
+          </button>
+          <button class="btn btn-sm btn-primary" (click)="loadData()" [disabled]="loading()">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+          </button>
+        </div>
       </div>
       <div class="card-body">
         <!-- Filters -->
         <div class="row mb-3 g-2">
-          <div class="col-md-3">
-            <label class="form-label small">{{ 'MyERP::Warehouse' | abpLocalization }}</label>
+          <div class="col-md-2">
+            <label class="form-label small">{{ 'Warehouse' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="filterWarehouse" (change)="loadData()">
               <option value="">All Warehouses</option>
               @for (w of warehouses(); track w.id) {
@@ -47,8 +62,8 @@ interface AgeingRow {
               }
             </select>
           </div>
-          <div class="col-md-3">
-            <label class="form-label small">{{ 'MyERP::ItemGroup' | abpLocalization }}</label>
+          <div class="col-md-2">
+            <label class="form-label small">{{ 'ItemGroup' | abpLocalization }}</label>
             <select class="form-select form-select-sm" [(ngModel)]="filterItemGroup" (change)="loadData()">
               <option value="">All Item Groups</option>
               @for (g of itemGroups(); track g.id) {
@@ -56,9 +71,51 @@ interface AgeingRow {
               }
             </select>
           </div>
-          <div class="col-md-3">
-            <label class="form-label small">{{ 'MyERP::AsOfDate' | abpLocalization }}</label>
+          <div class="col-md-2">
+            <label class="form-label small">As of Date</label>
             <input type="date" class="form-control form-control-sm" [(ngModel)]="asOfDate" (change)="loadData()" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">Age Ranges (days)</label>
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              [(ngModel)]="ranges"
+              placeholder="30, 60, 90, 120"
+              (change)="loadData()"
+            />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">Search Item</label>
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              [(ngModel)]="filterText"
+              placeholder="Code or name..."
+              (keyup.enter)="loadData()"
+            />
+          </div>
+          <div class="col-md-2 d-flex flex-column justify-content-end">
+            <div class="form-check form-check-sm">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                id="showWhWise"
+                [(ngModel)]="showWarehouseWise"
+                (change)="loadData()"
+              />
+              <label class="form-check-label small" for="showWhWise">Warehouse-wise</label>
+            </div>
+            <div class="form-check form-check-sm">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                id="showZero"
+                [(ngModel)]="includeZeroStock"
+                (change)="loadData()"
+              />
+              <label class="form-check-label small" for="showZero">Zero Stock</label>
+            </div>
           </div>
         </div>
 
@@ -70,25 +127,25 @@ interface AgeingRow {
             <div class="col-md-3">
               <div class="border rounded p-2 text-center">
                 <div class="small text-muted">Total Items</div>
-                <div class="fw-bold">{{ rows().length }}</div>
+                <div class="fw-bold fs-5">{{ report()?.totalItems ?? 0 }}</div>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-2 text-center">
-                <div class="small text-muted">Total Value</div>
-                <div class="fw-bold">{{ totalValue | number:'1.2-2' }}</div>
+                <div class="small text-muted">Total Stock Value</div>
+                <div class="fw-bold fs-5">{{ report()?.totalStockValue ?? 0 | number:'1.2-2' }}</div>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-2 text-center bg-warning bg-opacity-10">
                 <div class="small text-muted">Aged &gt; 90 days</div>
-                <div class="fw-bold text-warning">{{ agedCount }}</div>
+                <div class="fw-bold fs-5 text-warning">{{ report()?.agedOver90Count ?? 0 }}</div>
               </div>
             </div>
             <div class="col-md-3">
               <div class="border rounded p-2 text-center">
-                <div class="small text-muted">Avg Age (days)</div>
-                <div class="fw-bold">{{ avgAge | number:'1.0-0' }}</div>
+                <div class="small text-muted">Overall Avg Age (days)</div>
+                <div class="fw-bold fs-5">{{ report()?.overallAverageAgeDays ?? 0 | number:'1.0-0' }}</div>
               </div>
             </div>
           </div>
@@ -98,43 +155,62 @@ interface AgeingRow {
             <table class="table table-sm table-hover align-middle">
               <thead class="table-light">
                 <tr>
-                  <th>{{ 'MyERP::Item' | abpLocalization }}</th>
-                  <th>{{ 'MyERP::Warehouse' | abpLocalization }}</th>
-                  <th class="text-end">Qty</th>
-                  <th class="text-end">Value</th>
-                  <th class="text-end">0-30d</th>
-                  <th class="text-end">31-60d</th>
-                  <th class="text-end">61-90d</th>
-                  <th class="text-end">&gt;90d</th>
+                  <th>{{ 'Item' | abpLocalization }}</th>
+                  @if (showWarehouseWise) {
+                    <th>{{ 'Warehouse' | abpLocalization }}</th>
+                  }
+                  <th class="text-end">Total Qty</th>
+                  <th class="text-end">Valuation Rate</th>
+                  <th class="text-end">Total Value</th>
+                  @for (b of buckets(); track b.bucketIndex) {
+                    <th class="text-end">{{ b.label }}</th>
+                  }
                   <th class="text-end">Avg Age</th>
+                  <th class="text-end">Oldest</th>
+                  <th class="text-end">Newest</th>
                 </tr>
               </thead>
               <tbody>
-                @for (row of rows(); track row.itemId + row.warehouseName) {
+                @for (row of rows(); track row.itemId + (row.warehouseId ?? '')) {
                   <tr>
                     <td>
                       <div class="fw-medium small">{{ row.itemCode }}</div>
                       <div class="text-muted" style="font-size: 0.75rem;">{{ row.itemName }}</div>
                     </td>
-                    <td class="small">{{ row.warehouseName }}</td>
-                    <td class="text-end font-monospace">{{ row.qty | number:'1.2-2' }}</td>
-                    <td class="text-end font-monospace">{{ row.stockValue | number:'1.2-2' }}</td>
-                    <td class="text-end font-monospace">{{ row.bucket0to30 | number:'1.2-2' }}</td>
-                    <td class="text-end font-monospace">{{ row.bucket31to60 | number:'1.2-2' }}</td>
-                    <td class="text-end font-monospace">{{ row.bucket61to90 | number:'1.2-2' }}</td>
-                    <td class="text-end font-monospace" [class.text-danger]="row.bucket91plus > 0">
-                      {{ row.bucket91plus | number:'1.2-2' }}
-                    </td>
+                    @if (showWarehouseWise) {
+                      <td class="small">{{ row.warehouseName ?? '—' }}</td>
+                    }
+                    <td class="text-end font-monospace">{{ row.totalQty | number:'1.2-2' }} <span class="text-muted small">{{ row.stockUom }}</span></td>
+                    <td class="text-end font-monospace">{{ row.valuationRate | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace">{{ row.totalStockValue | number:'1.2-2' }}</td>
+                    @for (b of row.buckets; track b.bucketIndex) {
+                      <td class="text-end font-monospace" [class.fw-bold]="b.qty > 0">
+                        @if (displayMode === 'qty') {
+                          {{ b.qty | number:'1.2-2' }}
+                        } @else {
+                          {{ b.stockValue | number:'1.2-2' }}
+                        }
+                      </td>
+                    }
                     <td class="text-end">
-                      <span class="badge" [class.bg-success]="row.averageAge <= 30"
-                        [class.bg-warning]="row.averageAge > 30 && row.averageAge <= 90"
-                        [class.bg-danger]="row.averageAge > 90">
-                        {{ row.averageAge | number:'1.0-0' }}d
+                      <span
+                        class="badge"
+                        [class.bg-success]="row.averageAgeDays <= 30"
+                        [class.bg-warning]="row.averageAgeDays > 30 && row.averageAgeDays <= 90"
+                        [class.bg-danger]="row.averageAgeDays > 90"
+                      >
+                        {{ row.averageAgeDays | number:'1.0-0' }}d
                       </span>
                     </td>
+                    <td class="text-end small font-monospace">{{ row.oldestDays }}d</td>
+                    <td class="text-end small font-monospace">{{ row.newestDays }}d</td>
                   </tr>
                 } @empty {
-                  <tr><td colspan="9" class="text-center text-muted py-4">No stock data found</td></tr>
+                  <tr>
+                    <td [attr.colspan]="showWarehouseWise ? (7 + buckets().length) : (6 + buckets().length)" class="text-center text-muted py-4">
+                      {{ 'NoDataAvailable' | abpLocalization }}
+                    </td>
+                  </tr>
                 }
               </tbody>
             </table>
@@ -145,75 +221,55 @@ interface AgeingRow {
   `,
 })
 export class StockAgeingComponent implements OnInit {
-  private stockService = inject(StockBalanceService);
+  private stockAgeingService = inject(StockAgeingService);
   private warehouseService = inject(WarehouseService);
   private itemGroupService = inject(ItemGroupService);
+  private companyContext = inject(CompanyContextService);
 
-  rows = signal<AgeingRow[]>([]);
+  report = signal<StockAgeingReportDto | null>(null);
+  rows = signal<StockAgeingRowDto[]>([]);
+  buckets = signal<StockAgeingBucketDefinitionDto[]>([]);
   warehouses = signal<{ id: string; name: string }[]>([]);
   itemGroups = signal<{ id: string; name: string }[]>([]);
   loading = signal(true);
 
+  displayMode: 'qty' | 'value' = 'qty';
   filterWarehouse = '';
   filterItemGroup = '';
+  filterText = '';
+  ranges = '30, 60, 90, 120';
+  showWarehouseWise = true;
+  includeZeroStock = false;
   asOfDate = new Date().toISOString().substring(0, 10);
 
-  totalValue = 0;
-  agedCount = 0;
-  avgAge = 0;
-
   ngOnInit() {
-    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
-      res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup).map((w: any) => ({ id: w.id, name: w.warehouseName ?? w.name ?? w.id }))));
-    this.itemGroupService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
-      res => this.itemGroups.set((res.items ?? []).map((g: any) => ({ id: g.id, name: g.name ?? g.id }))));
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe({
+      next: res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup).map((w: any) => ({ id: w.id, name: w.warehouseName ?? w.name ?? w.id })))
+    });
+    this.itemGroupService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe({
+      next: res => this.itemGroups.set((res.items ?? []).map((g: any) => ({ id: g.id, name: g.name ?? g.id })))
+    });
     this.loadData();
   }
 
   loadData() {
     this.loading.set(true);
-    // Use stock balance endpoint and compute ageing client-side
-    this.stockService.getStockBalance({
-      skipCount: 0, maxResultCount: 1000,
-      warehouseId: this.filterWarehouse || undefined,
-    } as any).subscribe({
+    const companyId = this.companyContext.currentCompanyId();
+
+    this.stockAgeingService.getReport({
+      companyId: companyId ?? '00000000-0000-0000-0000-000000000000',
+      warehouseId: this.filterWarehouse || null,
+      itemGroupId: this.filterItemGroup || null,
+      filterText: this.filterText || null,
+      toDate: this.asOfDate ? new Date(this.asOfDate).toISOString() : null,
+      ranges: this.ranges || '30, 60, 90, 120',
+      showWarehouseWiseStock: this.showWarehouseWise,
+      includeZeroStock: this.includeZeroStock,
+    }).subscribe({
       next: (res) => {
-        const balances = res.items ?? [];
-        const today = new Date(this.asOfDate);
-
-        const ageingRows: AgeingRow[] = balances
-          .filter((b: any) => (b.actualQty ?? b.qty ?? 0) > 0)
-          .map((b: any) => {
-            const qty = b.actualQty ?? b.qty ?? 0;
-            const rate = b.valuationRate ?? 0;
-            const stockValue = qty * rate;
-            // Approximate average age from last stock entry (simplified)
-            const lastDate = b.lastStockDate ? new Date(b.lastStockDate) : today;
-            const daysSinceLastEntry = Math.max(0, Math.floor((today.getTime() - lastDate.getTime()) / 86400000));
-            const avgDays = daysSinceLastEntry;
-
-            return {
-              itemId: b.itemId ?? '',
-              itemCode: b.itemCode ?? b.itemId?.substring(0, 8) ?? '',
-              itemName: b.itemName ?? '',
-              warehouseName: b.warehouseName ?? '',
-              qty,
-              valuationRate: rate,
-              stockValue,
-              bucket0to30: avgDays <= 30 ? qty : 0,
-              bucket31to60: avgDays > 30 && avgDays <= 60 ? qty : 0,
-              bucket61to90: avgDays > 60 && avgDays <= 90 ? qty : 0,
-              bucket91plus: avgDays > 90 ? qty : 0,
-              averageAge: avgDays,
-            } as AgeingRow;
-          });
-
-        this.rows.set(ageingRows);
-        this.totalValue = ageingRows.reduce((s, r) => s + r.stockValue, 0);
-        this.agedCount = ageingRows.filter(r => r.averageAge > 90).length;
-        this.avgAge = ageingRows.length > 0
-          ? ageingRows.reduce((s, r) => s + r.averageAge, 0) / ageingRows.length
-          : 0;
+        this.report.set(res);
+        this.rows.set(res.rows ?? []);
+        this.buckets.set(res.buckets ?? []);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
@@ -221,7 +277,34 @@ export class StockAgeingComponent implements OnInit {
   }
 
   exportCsv() {
-    const columns = ['itemCode', 'itemName', 'warehouseName', 'qty', 'stockValue', 'bucket0to30', 'bucket31to60', 'bucket61to90', 'bucket91plus', 'averageAge'];
-    exportToCsv('stock-ageing-report', this.rows(), columns);
+    const r = this.rows();
+    if (!r.length) return;
+
+    const b = this.buckets();
+    const rowsForExport = r.map(item => {
+      const record: Record<string, any> = {
+        'Item Code': item.itemCode,
+        'Item Name': item.itemName,
+        'Warehouse': item.warehouseName ?? '—',
+        'Stock UOM': item.stockUom,
+        'Total Qty': item.totalQty,
+        'Valuation Rate': item.valuationRate,
+        'Total Stock Value': item.totalStockValue,
+      };
+
+      for (const bucket of item.buckets) {
+        record[`${bucket.label} (Qty)`] = bucket.qty;
+        record[`${bucket.label} (Value)`] = bucket.stockValue;
+      }
+
+      record['Average Age (days)'] = item.averageAgeDays;
+      record['Oldest Age (days)'] = item.oldestDays;
+      record['Newest Age (days)'] = item.newestDays;
+
+      return record;
+    });
+
+    const columns = Object.keys(rowsForExport[0]);
+    exportToCsv('stock-ageing-report', rowsForExport, columns);
   }
 }
