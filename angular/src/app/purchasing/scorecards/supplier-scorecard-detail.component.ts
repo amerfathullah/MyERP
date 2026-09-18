@@ -6,12 +6,13 @@ import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PageModule } from '@abp/ng.components/page';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorecard.service';
 
 @Component({
   selector: 'app-supplier-scorecard-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageModule, BreadcrumbComponent, LocalizationPipe],
+  imports: [CommonModule, FormsModule, RouterModule, PageModule, BreadcrumbComponent, DocumentConnectionsComponent, LocalizationPipe],
   template: `
     <app-breadcrumb />
     <abp-page [title]="scorecard?.supplierName ?? 'Supplier Scorecard'">
@@ -122,6 +123,8 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
             </div>
           }
         </div>
+
+        <app-document-connections [documentType]="'SupplierScorecard'" [documentId]="scorecard.id" />
       }
     </abp-page>
   `
