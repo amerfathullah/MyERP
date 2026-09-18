@@ -146,6 +146,85 @@
       </div>
     }
 
+    <!-- Production Plan Summary (ERPNext PR #58541) -->
+    @if (summaryReport()?.rows && summaryReport()!.rows!.length > 0) {
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-bold"><i class="fa fa-sitemap me-2"></i>{{ '::ProductionPlanSummary' | abpLocalization }}</span>
+          <button class="btn btn-sm btn-outline-secondary" (click)="loadSummary()" [disabled]="loadingSummary()">
+            <i class="fa fa-sync me-1" [class.fa-spin]="loadingSummary()"></i>{{ '::Refresh' | abpLocalization }}
+          </button>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>{{ '::Item' | abpLocalization }}</th>
+                  <th>{{ '::Document' | abpLocalization }}</th>
+                  <th>{{ '::SalesOrder' | abpLocalization }}</th>
+                  <th>{{ '::Status' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::BOMLevel' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::OrderQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ProducedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::PendingQty' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of summaryReport()!.rows!; track $index) {
+                  <tr [class.fw-bold]="row.indent === 0" [class.table-light]="row.documentType">
+                    <td>
+                      <div class="d-flex align-items-center" [style.padding-left.rem]="(row.indent ?? 0) * 1.5">
+                        @if (row.indent === 0) {
+                          <i class="fa fa-cube text-primary me-2"></i>
+                        } @else if (row.documentType) {
+                          <i class="fa fa-file-lines text-muted me-2"></i>
+                        } @else {
+                          <i class="fa fa-cubes text-secondary me-2"></i>
+                        }
+                        <span>{{ row.itemCode }} - {{ row.itemName }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      @if (row.documentType && row.documentName) {
+                        <span class="badge bg-light text-dark border me-1">{{ row.documentType }}</span>
+                        <span class="font-monospace text-primary">{{ row.documentName }}</span>
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                    <td>
+                      @if (row.salesOrderNumber) {
+                        <span class="font-monospace">{{ row.salesOrderNumber }}</span>
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                    <td>
+                      @if (row.status) {
+                        <span class="badge"
+                          [class.bg-success]="row.status === 'Completed'"
+                          [class.bg-info]="row.status === 'InProgress' || row.status === 'NotStarted'"
+                          [class.bg-secondary]="row.status !== 'Completed' && row.status !== 'InProgress' && row.status !== 'NotStarted'">
+                          {{ row.status }}
+                        </span>
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                    <td class="text-center">{{ row.bomLevel }}</td>
+                    <td class="text-end font-monospace">{{ row.qty | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace text-success">{{ row.producedQty | number:'1.2-2' }}</td>
+                    <td class="text-end font-monospace" [class.text-warning]="(row.pendingQty ?? 0) > 0">{{ row.pendingQty | number:'1.2-2' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
+
     <app-document-connections [documentType]="'ProductionPlan'" [documentId]="plan.id!" />
 
     <app-activity-log documentType="ProductionPlan" [documentId]="plan.id!" />

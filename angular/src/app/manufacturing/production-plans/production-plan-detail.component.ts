@@ -9,6 +9,8 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { ToasterService } from '@abp/ng.theme.shared';
+import { ProductionPlanService } from '../../proxy/manufacturing/production-plan.service';
+import type { ProductionPlanSummaryDto } from '../../proxy/manufacturing/models';
 
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 
@@ -21,13 +23,34 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 })
 export class ProductionPlanDetailComponent implements OnInit {
   readonly store = inject(ProductionPlanStore);
+  private planService = inject(ProductionPlanService);
   private route = inject(ActivatedRoute);
   private toaster = inject(ToasterService);
   actionLoading = signal(false);
+  summaryReport = signal<ProductionPlanSummaryDto | null>(null);
+  loadingSummary = signal(false);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    if (id) this.store.loadOne(id);
+    if (id) {
+      this.store.loadOne(id);
+      this.loadSummary(id);
+    }
+  }
+
+  loadSummary(id?: string): void {
+    const targetId = id ?? this.plan?.id;
+    if (!targetId) return;
+    this.loadingSummary.set(true);
+    this.planService.getSummaryReport(targetId).subscribe({
+      next: (res) => {
+        this.summaryReport.set(res);
+        this.loadingSummary.set(false);
+      },
+      error: () => {
+        this.loadingSummary.set(false);
+      },
+    });
   }
 
   private localization = inject(LocalizationService);
@@ -78,6 +101,7 @@ export class ProductionPlanDetailComponent implements OnInit {
     this.actionLoading.set(true);
     this.store.submit(this.plan.id);
     this.actionLoading.set(false);
+    this.loadSummary();
   }
 
   calculateMaterials(): void {
@@ -85,6 +109,7 @@ export class ProductionPlanDetailComponent implements OnInit {
     this.actionLoading.set(true);
     this.store.calculateMaterials(this.plan.id);
     this.actionLoading.set(false);
+    this.loadSummary();
   }
 
   generateWorkOrders(): void {
@@ -92,6 +117,7 @@ export class ProductionPlanDetailComponent implements OnInit {
     this.actionLoading.set(true);
     this.store.generateWorkOrders(this.plan.id);
     this.actionLoading.set(false);
+    this.loadSummary();
   }
 
   generateMaterialRequests(): void {
@@ -99,6 +125,7 @@ export class ProductionPlanDetailComponent implements OnInit {
     this.actionLoading.set(true);
     this.store.generateMaterialRequests(this.plan.id);
     this.actionLoading.set(false);
+    this.loadSummary();
   }
 
   cancel(): void {
@@ -106,5 +133,6 @@ export class ProductionPlanDetailComponent implements OnInit {
     this.actionLoading.set(true);
     this.store.cancel(this.plan.id);
     this.actionLoading.set(false);
+    this.loadSummary();
   }
 }

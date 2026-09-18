@@ -1,4 +1,4 @@
-import type { CreateProductionPlanDto, GetProductionPlanListDto, ProductionPlanDto, ProductionPlanVisualizerDto } from './models';
+import type { CreateProductionPlanDto, GetProductionPlanListDto, ProductionPlanDto, ProductionPlanSummaryDto, ProductionPlanVisualizerDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -89,6 +89,14 @@ export class ProductionPlanService {
     this.restService.request<any, ProductionPlanVisualizerDto>({
       method: 'GET',
       url: `/api/app/production-plan/${id}/visualizer-data`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getSummaryReport = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProductionPlanSummaryDto>({
+      method: 'GET',
+      url: `/api/app/production-plan/${id}/summary-report`,
     },
     { apiName: this.apiName,...config });
   

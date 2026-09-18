@@ -1617,7 +1617,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             query = query.Where(o => o.CompanyId == companyId.Value);
         }
 
-        var orders = query.ToList();
+        // Per ERPNext PR #59010 / commit 5dfd21cce6: list billable sales orders oldest first
+        var orders = query.OrderBy(o => o.OrderDate).ThenBy(o => o.CreationTime).ToList();
         if (orders.Count == 0)
         {
             return new List<SalesOrderDto>();

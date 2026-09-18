@@ -4872,6 +4872,9 @@
     "Demand": "Demand",
     "Supply": "Supply",
     "Projected": "Projected",
-    "NoDataAvailable": "No data available for the selected period"
+    "NoDataAvailable": "No data available for the selected period",
+    "ProductionPlanSummary": "Production Plan Summary",
+    "BOMLevel": "BOM Level",
+    "OrderQty": "Order Qty"
   }
 }

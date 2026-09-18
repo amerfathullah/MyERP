@@ -988,5 +988,212 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             RawMaterials = rawMaterials,
         };
     }
+
+    private record ItemSummaryInfo(Guid Id, string ItemCode, string ItemName);
+
+    [Authorize(MyERPPermissions.ProductionPlans.Default)]
+    public async Task<ProductionPlanSummaryDto> GetSummaryReportAsync(Guid id)
+    {
+        var plan = await _planRepository.GetAsync(id, includeDetails: true);
+
+        // Per ERPNext PR #58541: fetch submitted (non-draft, non-cancelled) work orders for this plan
+        var woQuery = await _workOrderRepository.GetQueryableAsync();
+        var workOrders = woQuery
+            .Where(w => w.ProductionPlanId == plan.Id
+                     && w.Status != WorkOrderStatus.Draft
+                     && w.Status != WorkOrderStatus.Cancelled)
+            .ToList();
+
+        // Resolve item codes and sales order numbers
+        var allItemIds = new HashSet<Guid>();
+        foreach (var pi in plan.PlannedItems) allItemIds.Add(pi.ItemId);
+        foreach (var mr in plan.MaterialRequirements) allItemIds.Add(mr.ItemId);
+        foreach (var wo in workOrders) allItemIds.Add(wo.ItemId);
+
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var itemMap = itemQuery
+            .Where(i => allItemIds.Contains(i.Id))
+            .Select(i => new ItemSummaryInfo(i.Id, i.ItemCode, i.ItemName))
+            .ToDictionary(i => i.Id);
+
+        var soIds = plan.PlannedItems
+            .Select(p => p.SalesOrderId)
+            .Concat(workOrders.Select(w => w.SalesOrderId))
+            .Where(sid => sid.HasValue)
+            .Select(sid => sid!.Value)
+            .Distinct()
+            .ToList();
+
+        var soMap = new Dictionary<Guid, string>();
+        if (soIds.Count > 0)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var soQuery = await soRepo.GetQueryableAsync();
+            soMap = soQuery
+                .Where(s => soIds.Contains(s.Id))
+                .Select(s => new { s.Id, s.OrderNumber })
+                .ToDictionary(s => s.Id, s => s.OrderNumber);
+        }
+
+        var result = new ProductionPlanSummaryDto
+        {
+            ProductionPlanId = plan.Id,
+            PlanNumber = plan.PlanNumber,
+            Rows = new List<ProductionPlanSummaryRowDto>()
+        };
+
+        // Sub-assembly requirements: InHouseManufacturing, Subcontracting, or has linked sub-assembly work orders
+        var subAssemblyMrItems = plan.MaterialRequirements
+            .Where(m => m.ProcurementType == SubAssemblyType.InHouseManufacturing
+                     || m.ProcurementType == SubAssemblyType.Subcontracting
+                     || workOrders.Any(w => w.ProductionPlanSubAssemblyItemId == m.Id))
+            .ToList();
+
+        var processedSubAssemblyIds = new HashSet<Guid>();
+
+        foreach (var plannedItem in plan.PlannedItems)
+        {
+            var fgWorkOrders = workOrders
+                .Where(w => w.ProductionPlanItemId == plannedItem.Id
+                         || (!w.ProductionPlanItemId.HasValue && plannedItem.WorkOrderId == w.Id))
+                .ToList();
+
+            var fgProducedQty = fgWorkOrders.Sum(w => w.ProducedQuantity);
+            var itemCode = itemMap.TryGetValue(plannedItem.ItemId, out var fgItem) ? fgItem.ItemCode : plannedItem.ItemName;
+            var soNumber = plannedItem.SalesOrderId.HasValue && soMap.TryGetValue(plannedItem.SalesOrderId.Value, out var sNum)
+                ? sNum
+                : null;
+
+            // FG summary row (indent = 0)
+            result.Rows.Add(new ProductionPlanSummaryRowDto
+            {
+                Indent = 0,
+                ItemCode = itemCode ?? string.Empty,
+                ItemName = plannedItem.ItemName ?? string.Empty,
+                SalesOrderNumber = soNumber,
+                BomLevel = 0,
+                Qty = plannedItem.PlannedQty,
+                ProducedQty = fgProducedQty,
+                PendingQty = Math.Max(0, plannedItem.PlannedQty - fgProducedQty),
+                DocumentType = null,
+                DocumentName = null,
+                Status = null
+            });
+
+            // FG Work Order document rows (indent = 1)
+            foreach (var wo in fgWorkOrders)
+            {
+                itemMap.TryGetValue(wo.ItemId, out var wItem);
+                var woCode = wItem?.ItemCode ?? string.Empty;
+                var woName = wItem?.ItemName ?? string.Empty;
+                var woSoNumber = wo.SalesOrderId.HasValue && soMap.TryGetValue(wo.SalesOrderId.Value, out var wSo)
+                    ? wSo
+                    : soNumber;
+
+                result.Rows.Add(new ProductionPlanSummaryRowDto
+                {
+                    Indent = 1,
+                    ItemCode = woCode,
+                    ItemName = woName,
+                    SalesOrderNumber = woSoNumber,
+                    DocumentType = "Work Order",
+                    DocumentName = wo.WorkOrderNumber,
+                    Status = wo.Status.ToString(),
+                    BomLevel = 0,
+                    Qty = wo.Quantity,
+                    ProducedQty = wo.ProducedQuantity,
+                    PendingQty = Math.Max(0, wo.Quantity - wo.ProducedQuantity)
+                });
+            }
+
+            // Sub-assemblies for this FG: if single planned item, all sub-assemblies belong here
+            var subItemsForFg = new List<ProductionPlanMrItem>();
+            if (plan.PlannedItems.Count == 1)
+            {
+                subItemsForFg = subAssemblyMrItems;
+            }
+            else
+            {
+                var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
+                var bom = await bomRepo.FindAsync(plannedItem.BomId);
+                if (bom != null)
+                {
+                    var bomItemIds = bom.Items.Select(bi => bi.ItemId).ToHashSet();
+                    subItemsForFg = subAssemblyMrItems.Where(s => bomItemIds.Contains(s.ItemId)).ToList();
+                }
+            }
+
+            foreach (var subItem in subItemsForFg)
+            {
+                processedSubAssemblyIds.Add(subItem.Id);
+                AddSubAssemblyRows(subItem, result.Rows, workOrders, itemMap, soNumber, indent: 1);
+            }
+        }
+
+        // Add orphan sub-assembly items not mapped to any FG row (per ERPNext production_plan_summary.py)
+        var orphanItems = subAssemblyMrItems.Where(s => !processedSubAssemblyIds.Contains(s.Id)).ToList();
+        foreach (var orphan in orphanItems)
+        {
+            AddSubAssemblyRows(orphan, result.Rows, workOrders, itemMap, salesOrderNumber: null, indent: 1);
+        }
+
+        return result;
+    }
+
+    private static void AddSubAssemblyRows(
+        ProductionPlanMrItem subItem,
+        List<ProductionPlanSummaryRowDto> rows,
+        List<WorkOrder> workOrders,
+        Dictionary<Guid, ItemSummaryInfo> itemMap,
+        string? salesOrderNumber,
+        int indent)
+    {
+        var linkedWos = workOrders
+            .Where(w => w.ProductionPlanSubAssemblyItemId == subItem.Id)
+            .ToList();
+
+        var producedQty = linkedWos.Sum(w => w.ProducedQuantity);
+        var subQty = subItem.PlannedQty > 0 ? subItem.PlannedQty : subItem.RequiredQty;
+        var subItemCode = itemMap.TryGetValue(subItem.ItemId, out var sItem) ? sItem.ItemCode : subItem.ItemName;
+
+        // Sub-assembly summary row
+        rows.Add(new ProductionPlanSummaryRowDto
+        {
+            Indent = indent,
+            ItemCode = subItemCode ?? string.Empty,
+            ItemName = subItem.ItemName ?? string.Empty,
+            SalesOrderNumber = salesOrderNumber,
+            BomLevel = 1,
+            Qty = subQty,
+            ProducedQty = producedQty,
+            PendingQty = Math.Max(0, subQty - producedQty),
+            DocumentType = null,
+            DocumentName = null,
+            Status = null
+        });
+
+        // Sub-assembly linked Work Order rows (indent + 1)
+        foreach (var wo in linkedWos)
+        {
+            itemMap.TryGetValue(wo.ItemId, out var wItem);
+            var woCode = wItem?.ItemCode ?? string.Empty;
+            var woName = wItem?.ItemName ?? string.Empty;
+            rows.Add(new ProductionPlanSummaryRowDto
+            {
+                Indent = indent + 1,
+                ItemCode = woCode,
+                ItemName = woName,
+                SalesOrderNumber = salesOrderNumber,
+                DocumentType = "Work Order",
+                DocumentName = wo.WorkOrderNumber,
+                Status = wo.Status.ToString(),
+                BomLevel = 1,
+                Qty = wo.Quantity,
+                ProducedQty = wo.ProducedQuantity,
+                PendingQty = Math.Max(0, wo.Quantity - wo.ProducedQuantity)
+            });
+        }
+    }
 }
 

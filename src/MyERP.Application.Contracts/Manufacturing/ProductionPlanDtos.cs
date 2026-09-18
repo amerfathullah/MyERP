@@ -143,6 +143,28 @@ public class VisualizerLinkedDocDto
     public decimal CompletedQty { get; set; }
 }
 
+public class ProductionPlanSummaryDto
+{
+    public Guid ProductionPlanId { get; set; }
+    public string PlanNumber { get; set; } = null!;
+    public List<ProductionPlanSummaryRowDto> Rows { get; set; } = new();
+}
+
+public class ProductionPlanSummaryRowDto
+{
+    public int Indent { get; set; }
+    public string ItemCode { get; set; } = null!;
+    public string ItemName { get; set; } = null!;
+    public string? SalesOrderNumber { get; set; }
+    public string? DocumentType { get; set; }
+    public string? DocumentName { get; set; }
+    public string? Status { get; set; }
+    public int BomLevel { get; set; }
+    public decimal Qty { get; set; }
+    public decimal ProducedQty { get; set; }
+    public decimal PendingQty { get; set; }
+}
+
 // === Interface ===
 
 public interface IProductionPlanAppService : IApplicationService
@@ -168,4 +190,7 @@ public interface IProductionPlanAppService : IApplicationService
 
     /// <summary>Fetch unified visualizer data including linked work orders, material requests, and live stock readiness.</summary>
     Task<ProductionPlanVisualizerDto> GetVisualizerDataAsync(Guid id);
+
+    /// <summary>Generate hierarchical summary report of planned finished goods, sub-assemblies, and linked work/purchase orders (ERPNext PR #58541).</summary>
+    Task<ProductionPlanSummaryDto> GetSummaryReportAsync(Guid id);
 }

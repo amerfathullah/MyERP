@@ -434,6 +434,26 @@ export interface ProductionPlanVisualizerDto {
   rawMaterials?: VisualizerMaterialDto[];
 }
 
+export interface ProductionPlanSummaryDto {
+  productionPlanId?: string;
+  planNumber?: string;
+  rows?: ProductionPlanSummaryRowDto[];
+}
+
+export interface ProductionPlanSummaryRowDto {
+  indent?: number;
+  itemCode?: string;
+  itemName?: string;
+  salesOrderNumber?: string;
+  documentType?: string;
+  documentName?: string;
+  status?: string;
+  bomLevel?: number;
+  qty?: number;
+  producedQty?: number;
+  pendingQty?: number;
+}
+
 export interface ProductionStatusCountDto {
   status?: string;
   count?: number;
