@@ -99,7 +99,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             var pendingQty = Math.Max(0, item.PendingReceiptQty - draftQty);
             if (pendingQty > 0)
             {
-                receipt.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom, item.Id);
+                var itemTax = item.Quantity > 0 ? Math.Round(item.TaxAmount * (pendingQty / item.Quantity), 2) : 0m;
+                receipt.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, itemTax, item.Uom, item.Id);
                 // Carry forward UOM conversion data from PO item
                 var lastItem = receipt.Items[^1];
                 lastItem.StockUom = item.StockUom;
@@ -171,7 +172,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             var pendingQty = Math.Max(0, item.PendingBillingQty - draftQty);
             if (pendingQty > 0)
             {
-                invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom);
+                var itemTax = item.Quantity > 0 ? Math.Round(item.TaxAmount * (pendingQty / item.Quantity), 2) : 0m;
+                invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, itemTax, item.Uom);
                 var lastItem = invoice.Items.Last();
                 lastItem.PurchaseOrderItemId = item.Id;
                 lastItem.StockUom = item.StockUom;
@@ -241,7 +243,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             var pendingQty = Math.Max(0, item.PendingBillingQty - draftQty);
             if (pendingQty <= 0) continue;
 
-            invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom);
+            var itemTax = item.Quantity > 0 ? Math.Round(item.TaxAmount * (pendingQty / item.Quantity), 2) : 0m;
+            invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, itemTax, item.Uom);
             var lastItem = invoice.Items.Last();
             lastItem.PurchaseOrderItemId = item.PurchaseOrderItemId;
             lastItem.PurchaseReceiptItemId = item.Id;
@@ -316,7 +319,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             var pendingQty = item.Quantity - returnedQty;
             if (pendingQty <= 0) continue;
 
-            receipt.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom);
+            var itemTax = item.Quantity > 0 ? Math.Round(item.TaxAmount * (pendingQty / item.Quantity), 2) : 0m;
+            receipt.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, itemTax, item.Uom);
             var lastItem = receipt.Items[^1];
             lastItem.StockUom = item.StockUom;
             lastItem.ConversionFactor = item.ConversionFactor;

@@ -183,7 +183,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                 var remainingPending = Math.Max(0, soItem.PendingDeliveryQty - alreadyMapped);
                 var deliverQty = Math.Min(sel.Quantity, remainingPending);
                 if (deliverQty <= 0) continue;
-                deliveryNote.AddItem(soItem.ItemId, soItem.Description, deliverQty, soItem.UnitPrice, soItem.TaxAmount, soItem.Uom, soItem.Id);
+                var itemTax = soItem.Quantity > 0 ? Math.Round(soItem.TaxAmount * (deliverQty / soItem.Quantity), 2) : 0m;
+                deliveryNote.AddItem(soItem.ItemId, soItem.Description, deliverQty, soItem.UnitPrice, itemTax, soItem.Uom, soItem.Id);
                 mappedQtyByItem[sel.SalesOrderItemId] = alreadyMapped + deliverQty;
                 var lastItem = deliveryNote.Items[^1];
                 lastItem.StockUom = soItem.StockUom;
@@ -199,7 +200,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                 var pendingQty = item.PendingDeliveryQty;
                 if (pendingQty > 0)
                 {
-                    deliveryNote.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom, item.Id);
+                    var itemTax = item.Quantity > 0 ? Math.Round(item.TaxAmount * (pendingQty / item.Quantity), 2) : 0m;
+                    deliveryNote.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, itemTax, item.Uom, item.Id);
                     var lastItem = deliveryNote.Items[^1];
                     lastItem.StockUom = item.StockUom;
                     lastItem.ConversionFactor = item.ConversionFactor;
@@ -273,7 +275,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             var pendingQty = item.PendingDeliveryQty;
             if (pendingQty <= 0) continue;
 
-            deliveryNote.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom, item.Id);
+            var itemTax = item.Quantity > 0 ? Math.Round(item.TaxAmount * (pendingQty / item.Quantity), 2) : 0m;
+            deliveryNote.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, itemTax, item.Uom, item.Id);
             var lastItem = deliveryNote.Items[^1];
             lastItem.StockUom = item.StockUom;
             lastItem.ConversionFactor = item.ConversionFactor;
@@ -339,7 +342,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             var pendingQty = Math.Max(0, item.PendingBillingQty - draftQty);
             if (pendingQty > 0)
             {
-                invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, item.TaxAmount, item.Uom);
+                var itemTax = item.Quantity > 0 ? Math.Round(item.TaxAmount * (pendingQty / item.Quantity), 2) : 0m;
+                invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, itemTax, item.Uom);
                 var lastItem = invoice.Items.Last();
                 lastItem.SalesOrderItemId = item.Id;
                 lastItem.StockUom = item.StockUom;
@@ -428,7 +432,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             var billingQty = Math.Max(0, Math.Abs(item.Quantity) - Math.Abs(item.BilledQty) - returnedQty - draftQty);
             if (billingQty <= 0) continue;
 
-            invoice.AddItem(item.ItemId, item.Description, billingQty, item.UnitPrice, item.TaxAmount, item.Uom);
+            var itemTax = Math.Abs(item.Quantity) > 0 ? Math.Round(item.TaxAmount * (billingQty / Math.Abs(item.Quantity)), 2) : 0m;
+            invoice.AddItem(item.ItemId, item.Description, billingQty, item.UnitPrice, itemTax, item.Uom);
             var lastItem = invoice.Items.Last();
             lastItem.SalesOrderItemId = item.SalesOrderItemId;
             lastItem.DeliveryNoteItemId = item.Id; // Track which DN item is being billed

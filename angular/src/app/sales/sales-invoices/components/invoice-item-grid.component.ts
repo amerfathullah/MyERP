@@ -22,7 +22,17 @@ import type { ItemDto } from '../../../proxy/inventory/models';
 export class InvoiceItemGridComponent {
   @Input({ required: true }) items!: FormArray;
   @Input() transactionType: string = 'Selling';
-  @Input() warehouseId: string = '';
+  private _warehouseId: string = '';
+  @Input()
+  get warehouseId(): string {
+    return this._warehouseId;
+  }
+  set warehouseId(val: string) {
+    if (this._warehouseId !== val) {
+      this._warehouseId = val;
+      this.refreshStockAvailability();
+    }
+  }
   @Input() companyId: string = '';
   @Input() customerId: string = '';
   @Input() supplierId: string = '';
@@ -224,4 +234,42 @@ export class InvoiceItemGridComponent {
       error: () => {} // Non-blocking — pricing rules are advisory
     });
   }
+
+  refreshStockAvailability(): void {
+    if (!this.showStockAvailability || !this.items?.controls?.length) return;
+    const itemIds = Array.from(new Set(
+      this.items.controls
+        .map(c => c.get('itemId')?.value)
+        .filter((id): id is string => !!id)
+    ));
+
+    for (const itemId of itemIds) {
+      this.itemDetailsService.getItemDetails({
+        itemId,
+        transactionType: this.transactionType,
+        warehouseId: this._warehouseId || undefined,
+        companyId: this.companyId || undefined,
+        supplierId: this.supplierId || undefined,
+        customerId: this.customerId || undefined,
+        priceListId: this.priceListId || undefined,
+      }).subscribe({
+        next: (details) => {
+          if (details && details.actualQty !== undefined) {
+            this.stockInfo.update(m => ({
+              ...m,
+              [itemId]: {
+                actualQty: details.actualQty ?? 0,
+                projectedQty: details.projectedQty ?? 0,
+              },
+            }));
+          }
+          if (details?.valuationRate && details.valuationRate > 0) {
+            this.valuationRates.update(m => ({ ...m, [itemId]: details.valuationRate! }));
+          }
+        },
+        error: () => {}
+      });
+    }
+  }
 }
+

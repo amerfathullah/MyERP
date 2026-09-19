@@ -154,7 +154,7 @@
         }
       </div>
       <div class="card-body">
-        <app-invoice-item-grid [items]="items" transactionType="Buying" [companyId]="form.get('companyId')?.value || ''" [supplierId]="form.get('supplierId')?.value || ''" [priceListId]="form.get('priceListId')?.value || ''" (rowChanged)="recalculate()" />
+        <app-invoice-item-grid [items]="items" transactionType="Buying" [warehouseId]="form.get('warehouseId')?.value || ''" [companyId]="form.get('companyId')?.value || ''" [supplierId]="form.get('supplierId')?.value || ''" [priceListId]="form.get('priceListId')?.value || ''" (rowChanged)="recalculate()" />
       </div>
     </div>
 

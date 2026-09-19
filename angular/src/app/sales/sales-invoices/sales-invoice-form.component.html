@@ -200,7 +200,7 @@
         }
       </div>
       <div class="card-body">
-        <app-invoice-item-grid [items]="items" transactionType="Selling" [companyId]="form.get('companyId')?.value || ''" [customerId]="form.get('customerId')?.value || ''" [priceListId]="form.get('priceListId')?.value || ''" (rowChanged)="recalculate()" />
+        <app-invoice-item-grid [items]="items" transactionType="Selling" [warehouseId]="form.get('warehouseId')?.value || ''" [companyId]="form.get('companyId')?.value || ''" [customerId]="form.get('customerId')?.value || ''" [priceListId]="form.get('priceListId')?.value || ''" (rowChanged)="recalculate()" />
       </div>
     </div>
 
