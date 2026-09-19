@@ -1,10 +1,13 @@
 using MyERP.Purchasing;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Purchasing.DomainServices;
 using MyERP.Purchasing.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.SubcontractingAndWiringTests;
@@ -146,5 +149,77 @@ public class SubcontractingAndWiringTests
         var sco = CreateSco();
         sco.Cancel();
         Should.Throw<BusinessException>(() => sco.Cancel());
+    }
+
+    [Fact]
+    public async Task ValidateReceiptAgainstOrderAsync_DifferentHeaderProject_Throws()
+    {
+        var scoRepo = Substitute.For<IRepository<SubcontractingOrder, Guid>>();
+        var scrRepo = Substitute.For<IRepository<SubcontractingReceipt, Guid>>();
+        var mgr = new SubcontractingManager(scoRepo, scrRepo);
+
+        var sco = CreateSco();
+        sco.ProjectId = Guid.NewGuid();
+        scoRepo.GetAsync(sco.Id).Returns(Task.FromResult(sco));
+
+        var receipt = new SubcontractingReceipt(
+            Guid.NewGuid(), sco.CompanyId, "SCR-001", DateTime.UtcNow, sco.SupplierId, sco.Id)
+        {
+            ProjectId = Guid.NewGuid() // Different project
+        };
+
+        var ex = await Should.ThrowAsync<BusinessException>(() => mgr.ValidateReceiptAgainstOrderAsync(receipt));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString()!.ShouldContain("Subcontracting Receipt Project cannot differ from Subcontracting Order Project");
+    }
+
+    [Fact]
+    public async Task ValidateReceiptAgainstOrderAsync_DifferentItemProject_Throws()
+    {
+        var scoRepo = Substitute.For<IRepository<SubcontractingOrder, Guid>>();
+        var scrRepo = Substitute.For<IRepository<SubcontractingReceipt, Guid>>();
+        var mgr = new SubcontractingManager(scoRepo, scrRepo);
+
+        var projectId = Guid.NewGuid();
+        var sco = CreateSco();
+        sco.ProjectId = projectId;
+        sco.Items.First().ProjectId = projectId;
+        scoRepo.GetAsync(sco.Id).Returns(Task.FromResult(sco));
+
+        var receipt = new SubcontractingReceipt(
+            Guid.NewGuid(), sco.CompanyId, "SCR-001", DateTime.UtcNow, sco.SupplierId, sco.Id)
+        {
+            ProjectId = projectId
+        };
+        receipt.AddItem(new SubcontractingReceiptItem(
+            Guid.NewGuid(), receipt.Id, sco.Items.First().ItemId, "FG Widget", 10m, 50m, Guid.NewGuid())); // Different item project
+
+        var ex = await Should.ThrowAsync<BusinessException>(() => mgr.ValidateReceiptAgainstOrderAsync(receipt));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString()!.ShouldContain("Subcontracting Receipt Item Project cannot differ from Subcontracting Order Item Project");
+    }
+
+    [Fact]
+    public async Task ValidateReceiptAgainstOrderAsync_MatchingProjects_Passes()
+    {
+        var scoRepo = Substitute.For<IRepository<SubcontractingOrder, Guid>>();
+        var scrRepo = Substitute.For<IRepository<SubcontractingReceipt, Guid>>();
+        var mgr = new SubcontractingManager(scoRepo, scrRepo);
+
+        var projectId = Guid.NewGuid();
+        var sco = CreateSco();
+        sco.ProjectId = projectId;
+        sco.Items.First().ProjectId = projectId;
+        scoRepo.GetAsync(sco.Id).Returns(Task.FromResult(sco));
+
+        var receipt = new SubcontractingReceipt(
+            Guid.NewGuid(), sco.CompanyId, "SCR-001", DateTime.UtcNow, sco.SupplierId, sco.Id)
+        {
+            ProjectId = projectId
+        };
+        receipt.AddItem(new SubcontractingReceiptItem(
+            Guid.NewGuid(), receipt.Id, sco.Items.First().ItemId, "FG Widget", 10m, 50m, projectId));
+
+        await mgr.ValidateReceiptAgainstOrderAsync(receipt);
     }
 }

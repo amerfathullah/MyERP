@@ -117,7 +117,7 @@ public class EInvoiceValidationService : ITransientDependency
             errors.Add("As per LHDN Regulation, choose the invoice type code as '04 : Refund Note'.");
         }
 
-        if (invoice.IsReturn && !invoice.IsReturnRefund && typeCode != "02" && typeCode != "04")
+        if (invoice.IsReturn && !invoice.IsReturnRefund && typeCode != "02")
         {
             errors.Add("As per LHDN Regulation, choose the invoice type code as '02 : Credit Note'.");
         }
@@ -261,7 +261,7 @@ public class EInvoiceValidationService : ITransientDependency
             errors.Add("As per LHDN Regulation, choose the invoice type code as '14 : Self-billed Refund Note'.");
         }
 
-        if (invoice.IsReturn && !invoice.IsReturnRefund && typeCode is not ("12" or "13" or "14"))
+        if (invoice.IsReturn && !invoice.IsReturnRefund && typeCode is not ("12" or "13"))
         {
             errors.Add("As per LHDN Regulation, choose the invoice type code as Self-billed Credit Note ('12') or Self-billed Debit Note ('13').");
         }

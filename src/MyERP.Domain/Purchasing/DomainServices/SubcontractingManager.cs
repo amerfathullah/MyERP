@@ -41,10 +41,23 @@ public class SubcontractingManager : DomainService
                 .WithData("status", sco.Status.ToString());
         }
 
+        // Per ERPNext PR #58965: Project validation across subcontracting flow
+        if (sco.ProjectId.HasValue && receipt.ProjectId.HasValue && sco.ProjectId.Value != receipt.ProjectId.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Subcontracting Receipt Project cannot differ from Subcontracting Order Project.");
+        }
+
         foreach (var receiptItem in receipt.Items)
         {
             var scoItem = sco.Items.FirstOrDefault(i => i.ItemId == receiptItem.ItemId);
             if (scoItem == null) continue;
+
+            if (scoItem.ProjectId.HasValue && receiptItem.ProjectId.HasValue && scoItem.ProjectId.Value != receiptItem.ProjectId.Value)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Subcontracting Receipt Item Project cannot differ from Subcontracting Order Item Project.");
+            }
 
             var pendingQty = scoItem.Qty - scoItem.ReceivedQty;
             if (receiptItem.Qty > pendingQty)

@@ -495,14 +495,27 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             ProjectId = projectId
         };
 
+        PurchaseOrder? po = null;
+        if (sco?.PurchaseOrderId.HasValue == true)
+        {
+            var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            po = await poRepo.FindAsync(sco.PurchaseOrderId.Value, includeDetails: true);
+        }
+
         foreach (var item in input.Items)
         {
             var scoItem = sco?.Items.FirstOrDefault(s => s.ItemId == item.ItemId);
-            var itemProjectId = item.ProjectId ?? scoItem?.ProjectId ?? projectId;
+            var poItem = po?.Items.FirstOrDefault(p => p.ItemId == item.ItemId);
+            var itemProjectId = item.ProjectId ?? scoItem?.ProjectId ?? poItem?.ProjectId ?? projectId;
             if (scoItem != null && scoItem.ProjectId.HasValue && item.ProjectId.HasValue && item.ProjectId.Value != scoItem.ProjectId.Value)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", "Subcontracting Receipt Item Project cannot differ from Subcontracting Order Item Project.");
+            }
+            if (poItem != null && poItem.ProjectId.HasValue && item.ProjectId.HasValue && item.ProjectId.Value != poItem.ProjectId.Value)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Subcontracting Receipt Item Project cannot differ from Purchase Order Item Project.");
             }
 
             scr.AddItem(new SubcontractingReceiptItem(
@@ -727,7 +740,8 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         {
             IsReturn = true,
             ReturnAgainstReceiptId = original.Id,
-            WarehouseId = original.WarehouseId
+            WarehouseId = original.WarehouseId,
+            ProjectId = original.ProjectId
         };
 
         foreach (var retItem in input.Items)
@@ -740,12 +754,17 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 retItem.ItemId,
                 retItem.ItemName,
                 negativeQty,
-                retItem.Rate > 0 ? retItem.Rate : origItem.Rate)
+                retItem.Rate > 0 ? retItem.Rate : origItem.Rate,
+                origItem.ProjectId)
             {
                 WarehouseId = retItem.WarehouseId ?? origItem.WarehouseId ?? original.WarehouseId,
                 CostCenterId = origItem.CostCenterId,
                 ExpenseAccountId = origItem.ExpenseAccountId,
-                ServiceExpenseAccountId = origItem.ServiceExpenseAccountId
+                ServiceExpenseAccountId = origItem.ServiceExpenseAccountId,
+                SecondaryItemType = origItem.SecondaryItemType,
+                ValuationType = origItem.ValuationType,
+                CostAllocationPercentage = origItem.CostAllocationPercentage,
+                BomSecondaryItemId = origItem.BomSecondaryItemId
             });
         }
 

@@ -51,15 +51,20 @@ public class SubcontractingReceiptWorkflowTests
     public async Task CreateReceiptReturnAsync_ValidQuantities_CreatesReturnReceiptWithNegativeQty()
     {
         var origReceiptId = Guid.NewGuid();
+        var origProjectId = Guid.NewGuid();
         var origReceipt = new SubcontractingReceipt(
             origReceiptId, _companyId, "SCR-2026-00001", new DateTime(2026, 6, 10), _supplierId, _scoId)
         {
-            WarehouseId = _warehouseId
+            WarehouseId = _warehouseId,
+            ProjectId = origProjectId
         };
         var origItem = new SubcontractingReceiptItem(
-            Guid.NewGuid(), origReceiptId, _itemId, "Subcontracted Part", 100m, 25m)
+            Guid.NewGuid(), origReceiptId, _itemId, "Subcontracted Part", 100m, 25m, origProjectId)
         {
-            WarehouseId = _warehouseId
+            WarehouseId = _warehouseId,
+            SecondaryItemType = "Co-Product",
+            ValuationType = global::MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost,
+            CostAllocationPercentage = 25m
         };
         origReceipt.AddItem(origItem);
         origReceipt.Submit();
@@ -94,10 +99,15 @@ public class SubcontractingReceiptWorkflowTests
         Assert.NotNull(savedReturn);
         Assert.True(savedReturn.IsReturn);
         Assert.Equal(origReceiptId, savedReturn.ReturnAgainstReceiptId);
+        Assert.Equal(origProjectId, savedReturn.ProjectId);
         Assert.Single(savedReturn.Items);
         var returnItem = savedReturn.Items[0];
         Assert.Equal(-20m, returnItem.Qty);
         Assert.Equal(-500m, savedReturn.NetTotal);
+        Assert.Equal(origProjectId, returnItem.ProjectId);
+        Assert.Equal("Co-Product", returnItem.SecondaryItemType);
+        Assert.Equal(global::MyERP.Manufacturing.SecondaryItemValuationType.PercentageOfComponentCost, returnItem.ValuationType);
+        Assert.Equal(25m, returnItem.CostAllocationPercentage);
     }
 
     [Fact]
