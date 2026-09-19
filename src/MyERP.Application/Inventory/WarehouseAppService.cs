@@ -71,6 +71,9 @@ public class WarehouseAppService :
             }
         }
 
+        // Per ERPNext PR #59191 / commit db6e089109: validate warehouse account belongs to company
+        await ValidateAccountCompanyAsync(input.DefaultAccountId, input.CompanyId);
+
         var result = await base.CreateAsync(input);
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -88,6 +91,9 @@ public class WarehouseAppService :
             throw new BusinessException(MyERPDomainErrorCodes.InvalidParentWarehouse)
                 .WithData("warehouseId", id);
         }
+
+        // Per ERPNext PR #59191 / commit db6e089109: validate warehouse account belongs to company
+        await ValidateAccountCompanyAsync(input.DefaultAccountId, input.CompanyId);
 
         var result = await base.UpdateAsync(id, input);
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
@@ -169,5 +175,18 @@ public class WarehouseAppService :
         // filter IsGroup out client-side. Group warehouses are still blocked from receiving stock at
         // posting time (StockPostingService/StockEntryManager), so this list including them is safe.
         return query.Where(w => w.IsActive);
+    }
+
+    private async Task ValidateAccountCompanyAsync(Guid? accountId, Guid companyId)
+    {
+        if (!accountId.HasValue || accountId.Value == Guid.Empty) return;
+
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
+        var account = await accountRepo.FindAsync(accountId.Value);
+        if (account != null && account.CompanyId != companyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Account '{account.AccountName}' does not belong to Company.");
+        }
     }
 }

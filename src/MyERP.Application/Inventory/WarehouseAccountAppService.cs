@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -62,6 +63,12 @@ public class WarehouseAccountAppService : ApplicationService, IWarehouseAccountA
     [Authorize(MyERPPermissions.WarehouseAccounts.Create)]
     public async Task<WarehouseAccountDto> SaveAsync(CreateWarehouseAccountDto input)
     {
+        // Per ERPNext PR #59191 / commit db6e089109: validate warehouse accounts belong to company
+        await ValidateAccountCompanyAsync(input.AccountId, input.CompanyId);
+        await ValidateAccountCompanyAsync(input.StockReceivedButNotBilledAccountId, input.CompanyId);
+        await ValidateAccountCompanyAsync(input.StockDeliveredButNotBilledAccountId, input.CompanyId);
+        await ValidateAccountCompanyAsync(input.StockAdjustmentAccountId, input.CompanyId);
+
         // Upsert: find existing by warehouse+company, update or create
         var queryable = await _repository.GetQueryableAsync();
         var existing = queryable.FirstOrDefault(x =>
@@ -109,4 +116,17 @@ public class WarehouseAccountAppService : ApplicationService, IWarehouseAccountA
         StockDeliveredButNotBilledAccountId = e.StockDeliveredButNotBilledAccountId,
         StockAdjustmentAccountId = e.StockAdjustmentAccountId
     };
+
+    private async Task ValidateAccountCompanyAsync(Guid? accountId, Guid companyId)
+    {
+        if (!accountId.HasValue || accountId.Value == Guid.Empty) return;
+
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
+        var account = await accountRepo.FindAsync(accountId.Value);
+        if (account != null && account.CompanyId != companyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Account '{account.AccountName}' does not belong to Company.");
+        }
+    }
 }

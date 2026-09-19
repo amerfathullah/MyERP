@@ -15,7 +15,7 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Accounting;
 
-[Authorize(MyERPPermissions.PaymentEntries.Default)]
+[Authorize(MyERPPermissions.InvoiceDiscounting.Default)]
 public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscountingAppService
 {
     private readonly InvoiceDiscountingService _service;
@@ -69,11 +69,19 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
 
     public async Task<List<InvoiceForDiscountingDto>> GetEligibleInvoicesAsync(Guid companyId, Guid? customerId = null)
     {
-        // Per ERPNext PR #58975 / commit b481083ff0: require company before requesting invoices
+        // Per ERPNext PR #58975 / commit b481083ff0: require company and verify access before requesting invoices
         if (companyId == Guid.Empty)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Please set company on the document before requesting for invoices.");
+        }
+
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+        var company = await companyRepo.FindAsync(companyId);
+        if (company == null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound)
+                .WithData("entity", "Company");
         }
 
         var pledgedInvoiceIds = await GetPledgedInvoiceIdsAsync();
@@ -128,6 +136,7 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
         });
     }
 
+    [Authorize(MyERPPermissions.InvoiceDiscounting.Create)]
     public async Task<InvoiceDiscountingDto> CreateAsync(CreateInvoiceDiscountingDto input)
     {
         if (input.Invoices.Count == 0)
@@ -150,6 +159,7 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
         return await ToDetailedDtoAsync(doc);
     }
 
+    [Authorize(MyERPPermissions.InvoiceDiscounting.Submit)]
     public async Task<InvoiceDiscountingDto> SubmitAsync(Guid id, SubmitInvoiceDiscountingDto input)
     {
         var doc = await GetWithInvoicesAsync(id);
@@ -191,6 +201,7 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
         return await ToDetailedDtoAsync(doc);
     }
 
+    [Authorize(MyERPPermissions.InvoiceDiscounting.Disburse)]
     public async Task<InvoiceDiscountingDto> DisburseAsync(Guid id, DisburseInvoiceDiscountingDto input)
     {
         var doc = await GetWithInvoicesAsync(id);
@@ -218,6 +229,7 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
         return await ToDetailedDtoAsync(doc);
     }
 
+    [Authorize(MyERPPermissions.InvoiceDiscounting.Settle)]
     public async Task<InvoiceDiscountingDto> SettleAsync(Guid id)
     {
         var doc = await GetWithInvoicesAsync(id);
@@ -242,6 +254,7 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
         return await ToDetailedDtoAsync(doc);
     }
 
+    [Authorize(MyERPPermissions.InvoiceDiscounting.Cancel)]
     public async Task<InvoiceDiscountingDto> CancelAsync(Guid id)
     {
         var doc = await GetWithInvoicesAsync(id);

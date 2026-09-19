@@ -132,6 +132,15 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         unreconcilePaymentsPermission.AddChild(MyERPPermissions.UnreconcilePayments.Submit, L("Permission:UnreconcilePayments.Submit"));
         unreconcilePaymentsPermission.AddChild(MyERPPermissions.UnreconcilePayments.Cancel, L("Permission:UnreconcilePayments.Cancel"));
 
+        var invoiceDiscountingPermission = myGroup.AddPermission(MyERPPermissions.InvoiceDiscounting.Default, L("Permission:InvoiceDiscounting"));
+        invoiceDiscountingPermission.AddChild(MyERPPermissions.InvoiceDiscounting.Create, L("Permission:InvoiceDiscounting.Create"));
+        invoiceDiscountingPermission.AddChild(MyERPPermissions.InvoiceDiscounting.Edit, L("Permission:InvoiceDiscounting.Edit"));
+        invoiceDiscountingPermission.AddChild(MyERPPermissions.InvoiceDiscounting.Delete, L("Permission:InvoiceDiscounting.Delete"));
+        invoiceDiscountingPermission.AddChild(MyERPPermissions.InvoiceDiscounting.Submit, L("Permission:InvoiceDiscounting.Submit"));
+        invoiceDiscountingPermission.AddChild(MyERPPermissions.InvoiceDiscounting.Cancel, L("Permission:InvoiceDiscounting.Cancel"));
+        invoiceDiscountingPermission.AddChild(MyERPPermissions.InvoiceDiscounting.Disburse, L("Permission:InvoiceDiscounting.Disburse"));
+        invoiceDiscountingPermission.AddChild(MyERPPermissions.InvoiceDiscounting.Settle, L("Permission:InvoiceDiscounting.Settle"));
+
         var deliveryNotesPermission = myGroup.AddPermission(MyERPPermissions.DeliveryNotes.Default, L("Permission:DeliveryNotes"));
         deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Create, L("Permission:DeliveryNotes.Create"));
         deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Edit, L("Permission:DeliveryNotes.Edit"));

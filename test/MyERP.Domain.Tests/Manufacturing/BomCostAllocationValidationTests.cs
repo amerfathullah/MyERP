@@ -85,4 +85,34 @@ public class BomCostAllocationValidationTests
         Assert.Equal(70m, bom.TotalCost); // 100 - 30 = 70
         Assert.Equal(30m, byProduct.Rate);
     }
+
+    [Fact]
+    public void CostAllocationPercentage_HarmonizedWithFgCostAllocationPercentage()
+    {
+        // Per ERPNext PR #58939 / commit 33a066d568 & commit bc2fa03730:
+        // CostAllocationPercentage is the single source of truth mapped to DB
+        var bom = new BillOfMaterials(Guid.NewGuid(), Guid.NewGuid(), "BOM-005", Guid.NewGuid());
+        Assert.Equal(100m, bom.CostAllocationPercentage);
+        Assert.Equal(100m, bom.FgCostAllocationPercentage);
+
+        var byProduct = new BomSecondaryItem(
+            Guid.NewGuid(), bom.Id, Guid.NewGuid(), SecondaryItemType.ByProduct, 1m)
+        {
+            CostAllocationPercentage = 40m,
+        };
+        bom.AddSecondaryItem(byProduct);
+
+        // Empty/null argument handling
+        bom.SetFgCostAllocation(null);
+
+        Assert.Equal(60m, bom.CostAllocationPercentage);
+        Assert.Equal(60m, bom.FgCostAllocationPercentage);
+        Assert.True(bom.ValidateCostAllocation());
+
+        // Explicit set
+        bom.SetFgCostAllocation(50m);
+        Assert.Equal(50m, bom.CostAllocationPercentage);
+        Assert.Equal(50m, bom.FgCostAllocationPercentage);
+        Assert.False(bom.ValidateCostAllocation()); // 50 + 40 != 100
+    }
 }

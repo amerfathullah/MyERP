@@ -196,6 +196,18 @@ public static class MyERPPermissions
         public const string Cancel = Default + ".Cancel";
     }
 
+    public static class InvoiceDiscounting
+    {
+        public const string Default = GroupName + ".InvoiceDiscounting";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+        public const string Submit = Default + ".Submit";
+        public const string Cancel = Default + ".Cancel";
+        public const string Disburse = Default + ".Disburse";
+        public const string Settle = Default + ".Settle";
+    }
+
     public static class DeliveryNotes
     {
         public const string Default = GroupName + ".DeliveryNotes";

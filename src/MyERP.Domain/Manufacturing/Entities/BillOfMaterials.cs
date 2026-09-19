@@ -311,22 +311,15 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         SecondaryItems.Add(item);
     }
 
-    private decimal? _fgCostAllocationPercentage;
-
     /// <summary>
     /// Gets or sets the FG cost allocation percentage. Defaults to 100%.
+    /// Maps directly to CostAllocationPercentage (persisted in EF Core).
     /// Auto-reduced when secondary items have cost allocation per ERPNext PR #58979 / PR #58939.
     /// </summary>
     public decimal FgCostAllocationPercentage
     {
-        get
-        {
-            if (_fgCostAllocationPercentage.HasValue)
-                return _fgCostAllocationPercentage.Value;
-            var secondaryTotal = SecondaryItems.Where(si => !si.IsLegacy).Sum(si => si.CostAllocationPercentage);
-            return Math.Clamp(100m - secondaryTotal, 0m, 100m);
-        }
-        set => _fgCostAllocationPercentage = value;
+        get => CostAllocationPercentage;
+        set => CostAllocationPercentage = value;
     }
 
     /// <summary>
@@ -338,14 +331,13 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void SetFgCostAllocation(decimal? costAllocationPercentage = null)
     {
         if (costAllocationPercentage.HasValue)
-            _fgCostAllocationPercentage = costAllocationPercentage.Value;
+            CostAllocationPercentage = costAllocationPercentage.Value;
 
         var totalSecondary = SecondaryItems.Where(s => !s.IsLegacy).Sum(s => s.CostAllocationPercentage);
-        var currentFg = _fgCostAllocationPercentage ?? 100m;
 
-        if (currentFg == 100m && totalSecondary > 0)
+        if (CostAllocationPercentage == 100m && totalSecondary > 0)
         {
-            _fgCostAllocationPercentage = 100m - totalSecondary;
+            CostAllocationPercentage = Math.Max(0m, 100m - totalSecondary);
         }
     }
 
@@ -357,11 +349,10 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public bool ValidateCostAllocation()
     {
         var secondaryTotal = SecondaryItems.Where(si => !si.IsLegacy).Sum(si => si.CostAllocationPercentage);
-        if (secondaryTotal == 0 && (!_fgCostAllocationPercentage.HasValue || _fgCostAllocationPercentage.Value == 100m))
+        if (secondaryTotal == 0 && CostAllocationPercentage == 100m)
             return true; // No cost allocation configured — FG gets 100% implicitly
 
-        var fgAllocation = FgCostAllocationPercentage;
-        return fgAllocation >= 0 && Math.Abs((fgAllocation + secondaryTotal) - 100m) < 0.0001m;
+        return CostAllocationPercentage >= 0 && Math.Abs((CostAllocationPercentage + secondaryTotal) - 100m) < 0.0001m;
     }
 
     /// <summary>
