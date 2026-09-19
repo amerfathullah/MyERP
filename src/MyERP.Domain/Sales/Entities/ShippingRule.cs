@@ -101,6 +101,21 @@ public class ShippingRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Validates that the shipping account belongs to the shipping rule's company.
+    /// Per ERPNext PR #59142 / commit 340feb94a1.
+    /// </summary>
+    public void ValidateAccountCompany(Accounting.Entities.Account account)
+    {
+        Check.NotNull(account, nameof(account));
+        if (CompanyId.HasValue && account.CompanyId != CompanyId.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ShippingRuleAccountCompanyMismatch)
+                .WithData("account", account.AccountName)
+                .WithData("company", CompanyId.Value);
+        }
+    }
+
+    /// <summary>
     /// Validate rule configuration.
     /// </summary>
     public void Validate()

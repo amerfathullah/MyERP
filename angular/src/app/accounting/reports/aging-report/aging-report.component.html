@@ -15,15 +15,21 @@
           <label class="form-label">{{ 'AsOfDate' | abpLocalization }}</label>
           <input type="date" class="form-control" formControlName="asOfDate" />
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label">{{ 'ReportType' | abpLocalization }}</label>
           <select class="form-select" formControlName="reportType">
             <option value="receivables">{{ 'Receivables' | abpLocalization }}</option>
             <option value="payables">{{ 'Payables' | abpLocalization }}</option>
           </select>
         </div>
-        <div class="col-md-3">
-          <button type="submit" class="btn btn-primary" [disabled]="isLoading()">
+        <div class="col-md-3 d-flex align-items-end">
+          <div class="form-check mb-2">
+            <input type="checkbox" class="form-check-input" id="includeReval" formControlName="includeRevaluationJournals" />
+            <label class="form-check-label" for="includeReval">{{ '::IncludeRevaluationJournals' | abpLocalization }}</label>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
             <i class="fa fa-chart-bar me-1"></i>{{ 'Generate' | abpLocalization }}
           </button>
         </div>

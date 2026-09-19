@@ -12,6 +12,7 @@ public class AgingReportDto
     public decimal[] BucketTotals { get; set; } = [];
     public decimal TotalOutstanding { get; set; }
     public int InvoiceCount { get; set; }
+    public bool IncludeRevaluationJournals { get; set; }
     public AgingDetailEntryDto[] Details { get; set; } = [];
 }
 
@@ -57,6 +58,11 @@ public class AgingReportRequestDto
     /// <summary>Optional invoice posting date range filter.</summary>
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
+
+    /// <summary>
+    /// Per ERPNext PR #59181: Include exchange rate revaluation journal entries in the report.
+    /// </summary>
+    public bool IncludeRevaluationJournals { get; set; }
 }
 
 public class SendPaymentReminderInput

@@ -32,6 +32,7 @@ export class AgingReportComponent implements OnInit {
     companyId: ['', Validators.required],
     asOfDate: [new Date().toISOString().split('T')[0], Validators.required],
     reportType: ['receivables'],
+    includeRevaluationJournals: [false],
   });
 
   companies = signal<CompanyDto[]>([]);
@@ -58,8 +59,12 @@ export class AgingReportComponent implements OnInit {
       return;
     }
     this.isLoading.set(true);
-    const { companyId, asOfDate, reportType } = this.filters.getRawValue();
-    const request = { companyId: companyId!, asOfDate: asOfDate! };
+    const { companyId, asOfDate, reportType, includeRevaluationJournals } = this.filters.getRawValue();
+    const request = {
+      companyId: companyId!,
+      asOfDate: asOfDate!,
+      includeRevaluationJournals: includeRevaluationJournals ?? false,
+    };
     const call$ = reportType === 'receivables'
       ? this.agingReportService.getReceivablesAging(request)
       : this.agingReportService.getPayablesAging(request);

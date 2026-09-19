@@ -12,6 +12,7 @@ public class PickListDto : EntityDto<Guid>
     public string Purpose { get; set; } = null!;
     public Guid? SalesOrderId { get; set; }
     public Guid? CustomerId { get; set; }
+    public bool PickManually { get; set; }
     public int Status { get; set; }
     public bool IsFullyTransferred { get; set; }
     public bool IsPartiallyTransferred { get; set; }
@@ -67,6 +68,7 @@ public class CreatePickListDto
     public Guid? MaterialRequestId { get; set; }
     public Guid? WorkOrderId { get; set; }
     public Guid? CustomerId { get; set; }
+    public bool PickManually { get; set; }
     public CreatePickListItemDto[] Items { get; set; } = [];
 }
 

@@ -56,6 +56,12 @@ import { ItemService } from '../../proxy/inventory/item.service';
                   }
                 </select>
               </div>
+              <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check mb-2">
+                  <input type="checkbox" class="form-check-input" id="pickManually" formControlName="pickManually">
+                  <label class="form-check-label" for="pickManually">{{ '::PickManually' | abpLocalization }}</label>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -143,6 +149,7 @@ export class PickListFormComponent implements OnInit {
     purpose: ['Delivery'],
     customerId: [''],
     salesOrderId: [''],
+    pickManually: [false],
     items: this.fb.array([]),
   });
 
@@ -197,6 +204,7 @@ export class PickListFormComponent implements OnInit {
       purpose: raw.purpose,
       customerId: raw.customerId || undefined,
       salesOrderId: raw.salesOrderId || undefined,
+      pickManually: raw.pickManually ?? false,
       items: (raw.items || []).filter((i: any) => i.itemId).map((i: any) => ({
         itemId: i.itemId,
         warehouseId: i.warehouseId,

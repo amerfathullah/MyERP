@@ -96,6 +96,10 @@ export class BankReconciliationComponent implements OnInit {
   }
 
   onBankAccountChanged(): void {
+    if (this.fromDate && this.toDate && this.fromDate > this.toDate) {
+      this.toaster.error('::FromDateCannotBeGreaterThanToDate');
+      return;
+    }
     if (this.bankAccountId) {
       this.loadTransactions(0, 20);
       this.loadSummary();
@@ -104,9 +108,15 @@ export class BankReconciliationComponent implements OnInit {
 
   loadTransactions(skipCount: number, maxResultCount: number): void {
     if (!this.bankAccountId) return;
+    if (this.fromDate && this.toDate && this.fromDate > this.toDate) {
+      this.toaster.error('::FromDateCannotBeGreaterThanToDate');
+      return;
+    }
     this.isLoading.set(true);
     this.service.getTransactions({
       bankAccountId: this.bankAccountId,
+      dateFrom: this.fromDate ? this.fromDate : undefined,
+      dateTo: this.toDate ? this.toDate : undefined,
       skipCount,
       maxResultCount,
       sorting: 'transactionDate DESC',

@@ -70,6 +70,17 @@ public class ShippingRuleAppService : ApplicationService, IShippingRuleAppServic
             rule.AddCountry(country);
         }
 
+        // Per ERPNext PR #59142: validate shipping rule account company
+        if (input.CompanyId != Guid.Empty && input.AccountId != Guid.Empty)
+        {
+            var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
+            var account = await accountRepo.FindAsync(input.AccountId);
+            if (account != null)
+            {
+                rule.ValidateAccountCompany(account);
+            }
+        }
+
         rule.Validate();
         await _repository.InsertAsync(rule);
 

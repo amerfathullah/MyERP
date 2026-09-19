@@ -290,6 +290,7 @@ export interface CreatePickListDto {
   materialRequestId?: string | null;
   workOrderId?: string | null;
   customerId?: string | null;
+  pickManually?: boolean;
   items?: CreatePickListItemDto[];
 }
 
@@ -1419,6 +1420,7 @@ export interface PickListDto extends EntityDto<string> {
   purpose?: string;
   salesOrderId?: string | null;
   customerId?: string | null;
+  pickManually?: boolean;
   status?: number;
   isFullyTransferred?: boolean;
   isPartiallyTransferred?: boolean;

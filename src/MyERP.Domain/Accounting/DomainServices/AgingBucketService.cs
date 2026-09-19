@@ -51,7 +51,8 @@ public class AgingBucketService : DomainService
         Guid? partyId = null,
         DateTime? fromDate = null,
         DateTime? toDate = null,
-        Guid? partyGroupId = null)
+        Guid? partyGroupId = null,
+        bool includeRevaluationJournals = false)
     {
         bucketDays ??= new[] { 30, 60, 90, 120 };
 
@@ -147,7 +148,7 @@ public class AgingBucketService : DomainService
             OutstandingAmount = si.OutstandingAmount,
             CostCenterId = si.CostCenterId,
             CostCenterName = si.CostCenterId.HasValue ? costCenterNames.GetValueOrDefault(si.CostCenterId.Value) : null,
-        }), asOfDate, bucketDays, "Receivable", calculateAgeingWith, ageingBasedOn);
+        }), asOfDate, bucketDays, "Receivable", calculateAgeingWith, ageingBasedOn, includeRevaluationJournals);
 
         return report;
     }
@@ -164,7 +165,8 @@ public class AgingBucketService : DomainService
         Guid? partyId = null,
         DateTime? fromDate = null,
         DateTime? toDate = null,
-        Guid? partyGroupId = null)
+        Guid? partyGroupId = null,
+        bool includeRevaluationJournals = false)
     {
         bucketDays ??= new[] { 30, 60, 90, 120 };
 
@@ -260,7 +262,7 @@ public class AgingBucketService : DomainService
             OutstandingAmount = pi.OutstandingAmount,
             CostCenterId = pi.CostCenterId,
             CostCenterName = pi.CostCenterId.HasValue ? costCenterNames.GetValueOrDefault(pi.CostCenterId.Value) : null,
-        }), asOfDate, bucketDays, "Payable", calculateAgeingWith, ageingBasedOn);
+        }), asOfDate, bucketDays, "Payable", calculateAgeingWith, ageingBasedOn, includeRevaluationJournals);
     }
 
     private static AgingReport BuildAgingReport(
@@ -269,7 +271,8 @@ public class AgingBucketService : DomainService
         int[] bucketDays,
         string reportType,
         string calculateAgeingWith = "Report Date",
-        string ageingBasedOn = "Due Date")
+        string ageingBasedOn = "Due Date",
+        bool includeRevaluationJournals = false)
     {
         var isPostingDate = string.Equals(ageingBasedOn, "Posting Date", StringComparison.OrdinalIgnoreCase);
         var report = new AgingReport
@@ -279,6 +282,7 @@ public class AgingBucketService : DomainService
             CalculateAgeingWith = calculateAgeingWith,
             AgeingBasedOn = isPostingDate ? "Posting Date" : "Due Date",
             BucketRanges = bucketDays,
+            IncludeRevaluationJournals = includeRevaluationJournals,
         };
 
         // Initialize buckets: [0-30], [31-60], [61-90], [91-120], [120+]
@@ -348,6 +352,7 @@ public class AgingReport
     public decimal[] BucketTotals { get; set; } = Array.Empty<decimal>();
     public decimal TotalOutstanding { get; set; }
     public int InvoiceCount { get; set; }
+    public bool IncludeRevaluationJournals { get; set; }
 
     /// <summary>
     /// Detailed per-invoice aging entries with bucket assignment.

@@ -46,6 +46,12 @@ public class PickListManager : DomainService
     {
         var result = new PickAllocationResult();
 
+        // Per ERPNext PR #59170: respect manual picking, do not auto-reallocate locations
+        if (pickList.PickManually)
+        {
+            return result;
+        }
+
         foreach (var item in pickList.Items)
         {
             var availableQty = await GetAvailableQtyForPickAsync(

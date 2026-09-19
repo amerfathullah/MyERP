@@ -42,6 +42,13 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
 
     public async Task<PagedResultDto<BankTransactionDto>> GetTransactionsAsync(GetBankTransactionsDto input)
     {
+        // Per ERPNext PR #59081 / commit 970f32a342: validate date range
+        if (input.DateFrom.HasValue && input.DateTo.HasValue && input.DateFrom.Value > input.DateTo.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DateRangeInvalid)
+                .WithData("reason", "From Date cannot be greater than To Date");
+        }
+
         var query = await _repository.GetQueryableAsync();
         query = query.Where(t => t.BankAccountId == input.BankAccountId);
 

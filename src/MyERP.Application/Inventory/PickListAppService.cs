@@ -91,6 +91,7 @@ public class PickListAppService : ApplicationService, IPickListAppService
             MaterialRequestId = input.MaterialRequestId,
             WorkOrderId = input.WorkOrderId,
             CustomerId = input.CustomerId,
+            PickManually = input.PickManually,
         };
         foreach (var item in input.Items)
             pl.AddItem(item.ItemId, item.WarehouseId, item.Qty, itemName: item.ItemName, batchId: item.BatchId,

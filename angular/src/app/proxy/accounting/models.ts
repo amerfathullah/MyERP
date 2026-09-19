@@ -172,6 +172,7 @@ export interface AgingReportDto {
   bucketTotals?: number[];
   totalOutstanding?: number;
   invoiceCount?: number;
+  includeRevaluationJournals?: boolean;
   details?: AgingDetailEntryDto[];
 }
 
@@ -184,6 +185,7 @@ export interface AgingReportRequestDto {
   partyGroupId?: string | null;
   fromDate?: string | null;
   toDate?: string | null;
+  includeRevaluationJournals?: boolean;
 }
 
 export interface AllocationSuggestionDto {

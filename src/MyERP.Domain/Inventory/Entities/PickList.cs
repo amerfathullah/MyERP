@@ -35,6 +35,12 @@ public class PickList : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Customer for the pick list (used when creating DN without SO reference).</summary>
     public Guid? CustomerId { get; set; }
 
+    /// <summary>
+    /// When true, item picking locations are specified manually and auto-allocation does not overwrite them.
+    /// Per ERPNext PR #59170 / commit 4bbd07944d.
+    /// </summary>
+    public bool PickManually { get; set; }
+
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
     private readonly List<PickListItem> _items = new();

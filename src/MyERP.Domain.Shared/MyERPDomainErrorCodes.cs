@@ -20,6 +20,7 @@ public static class MyERPDomainErrorCodes
     public const string EntityNotFound = "MyERP:00006";
     public const string DocumentNotEditable = "MyERP:00007";
     public const string ValidationFailed = "MyERP:00008";
+    public const string DateRangeInvalid = "MyERP:00011";
 
     // Document Workflow
     public const string InvalidStatusTransition = "MyERP:01001";
@@ -39,6 +40,7 @@ public static class MyERPDomainErrorCodes
     // Tax
     public const string NoApplicableTaxRule = "MyERP:03001";
     public const string CreditLimitExceeded = "MyERP:03002";
+    public const string ShippingRuleAccountCompanyMismatch = "MyERP:03007";
 
     // E-Invoice
     public const string EInvoiceSubmissionFailed = "MyERP:04001";

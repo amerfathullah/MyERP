@@ -45,7 +45,8 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
             partyId: input.PartyId,
             fromDate: input.FromDate,
             toDate: input.ToDate,
-            partyGroupId: input.PartyGroupId);
+            partyGroupId: input.PartyGroupId,
+            includeRevaluationJournals: input.IncludeRevaluationJournals);
         return MapToDto(report);
     }
 
@@ -69,7 +70,8 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
             partyId: input.PartyId,
             fromDate: input.FromDate,
             toDate: input.ToDate,
-            partyGroupId: input.PartyGroupId);
+            partyGroupId: input.PartyGroupId,
+            includeRevaluationJournals: input.IncludeRevaluationJournals);
         return MapToDto(report);
     }
 
@@ -94,6 +96,7 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
             BucketTotals = report.BucketTotals,
             TotalOutstanding = report.TotalOutstanding,
             InvoiceCount = report.InvoiceCount,
+            IncludeRevaluationJournals = report.IncludeRevaluationJournals,
             Details = report.Details.Select(d => new AgingDetailEntryDto
             {
                 PartyId = d.PartyId,
