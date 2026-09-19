@@ -3122,6 +3122,7 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.BomNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.ItemId, x.IsDefault });
             b.Property(x => x.BackflushBasedOn).HasMaxLength(50);
+            b.Ignore(x => x.CostAllocationPercentage);
         });
 
         builder.Entity<BomItem>(b =>

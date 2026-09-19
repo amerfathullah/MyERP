@@ -84,9 +84,13 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>
     /// Finished good cost allocation percentage. Maps to ERPNext bom.py cost_allocation_per.
-    /// Derived as 100 - sum(SecondaryItems.CostAllocationPercentage) per PR #58939 / commit 33a066d568.
+    /// Alias for FgCostAllocationPercentage per PR #58939 / commit 33a066d568.
     /// </summary>
-    public decimal CostAllocationPercentage { get; set; } = 100m;
+    public decimal CostAllocationPercentage
+    {
+        get => FgCostAllocationPercentage;
+        set => FgCostAllocationPercentage = value;
+    }
 
     public List<BomItem> Items { get; private set; } = new();
     public List<BomOperation> Operations { get; private set; } = new();
@@ -311,15 +315,24 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
         SecondaryItems.Add(item);
     }
 
+    private decimal? _fgCostAllocationPercentage;
+
     /// <summary>
     /// Gets or sets the FG cost allocation percentage. Defaults to 100%.
-    /// Maps directly to CostAllocationPercentage (persisted in EF Core).
-    /// Auto-reduced when secondary items have cost allocation per ERPNext PR #58979 / PR #58939.
+    /// Maps directly to FgCostAllocationPercentage (persisted in EF Core).
+    /// Auto-reduced when secondary items have cost allocation per ERPNext PR #58979 / PR #58939 / gotcha #518.
     /// </summary>
     public decimal FgCostAllocationPercentage
     {
-        get => CostAllocationPercentage;
-        set => CostAllocationPercentage = value;
+        get
+        {
+            if (_fgCostAllocationPercentage.HasValue)
+                return _fgCostAllocationPercentage.Value;
+
+            var secondaryTotal = SecondaryItems.Where(si => !si.IsLegacy).Sum(si => si.CostAllocationPercentage);
+            return Math.Clamp(100m - secondaryTotal, 0m, 100m);
+        }
+        set => _fgCostAllocationPercentage = value;
     }
 
     /// <summary>
@@ -331,13 +344,14 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void SetFgCostAllocation(decimal? costAllocationPercentage = null)
     {
         if (costAllocationPercentage.HasValue)
-            CostAllocationPercentage = costAllocationPercentage.Value;
+            _fgCostAllocationPercentage = costAllocationPercentage.Value;
 
         var totalSecondary = SecondaryItems.Where(s => !s.IsLegacy).Sum(s => s.CostAllocationPercentage);
+        var currentFg = _fgCostAllocationPercentage ?? 100m;
 
-        if (CostAllocationPercentage == 100m && totalSecondary > 0)
+        if (currentFg == 100m && totalSecondary > 0)
         {
-            CostAllocationPercentage = Math.Max(0m, 100m - totalSecondary);
+            _fgCostAllocationPercentage = Math.Max(0m, 100m - totalSecondary);
         }
     }
 
@@ -349,10 +363,11 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public bool ValidateCostAllocation()
     {
         var secondaryTotal = SecondaryItems.Where(si => !si.IsLegacy).Sum(si => si.CostAllocationPercentage);
-        if (secondaryTotal == 0 && CostAllocationPercentage == 100m)
+        if (secondaryTotal == 0 && (!_fgCostAllocationPercentage.HasValue || _fgCostAllocationPercentage.Value == 100m))
             return true; // No cost allocation configured — FG gets 100% implicitly
 
-        return CostAllocationPercentage >= 0 && Math.Abs((CostAllocationPercentage + secondaryTotal) - 100m) < 0.0001m;
+        var fgAllocation = FgCostAllocationPercentage;
+        return fgAllocation >= 0 && Math.Abs((fgAllocation + secondaryTotal) - 100m) < 0.0001m;
     }
 
     /// <summary>
