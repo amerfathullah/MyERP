@@ -1530,6 +1530,9 @@ export interface GenerateBankFileInput {
 
 export interface GetAccountListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
+  companyId?: string | null;
+  accountSubType?: AccountSubType;
+  isGroup?: boolean | null;
 }
 
 export interface GetBankAccountBalanceListDto extends PagedAndSortedResultRequestDto {

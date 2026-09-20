@@ -4889,6 +4889,7 @@
     "PickManually": "Pick Manually",
     "IncludeRevaluationJournals": "Include Revaluation Journals",
     "MyERP:00011": "From Date cannot be greater than To Date.",
-    "MyERP:03007": "Shipping Account does not belong to the selected Company."
+    "MyERP:03007": "Shipping Account does not belong to the selected Company.",
+    "DefaultAccount": "Default Account"
   }
 }

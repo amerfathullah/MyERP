@@ -40,7 +40,7 @@ export class AccountService {
     this.restService.request<any, PagedResultDto<AccountDto>>({
       method: 'GET',
       url: '/api/app/account',
-      params: { filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { filter: input.filter, companyId: input.companyId, accountSubType: input.accountSubType, isGroup: input.isGroup, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
     { apiName: this.apiName,...config });
   

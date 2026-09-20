@@ -51,6 +51,15 @@
               <option [ngValue]="3">{{ '::WarehouseType:SampleRetention' | abpLocalization }}</option>
             </select>
           </div>
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <label class="form-label">{{ '::DefaultAccount' | abpLocalization }}</label>
+            <select class="form-select" formControlName="defaultAccountId">
+              <option [ngValue]="null">-- {{ '::Select' | abpLocalization }} --</option>
+              @for (acc of accounts(); track acc.id) {
+                <option [value]="acc.id">{{ acc.accountName }} ({{ acc.accountCode }})</option>
+              }
+            </select>
+          </div>
           <div class="col-12 mb-3">
             <div class="d-flex align-items-center gap-3">
               <div class="form-check form-switch">

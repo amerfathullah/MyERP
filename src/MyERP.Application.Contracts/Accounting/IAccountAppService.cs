@@ -8,6 +8,9 @@ namespace MyERP.Accounting;
 public class GetAccountListDto : PagedAndSortedResultRequestDto
 {
     public string? Filter { get; set; }
+    public Guid? CompanyId { get; set; }
+    public AccountSubType? AccountSubType { get; set; }
+    public bool? IsGroup { get; set; }
 }
 
 public interface IAccountAppService :

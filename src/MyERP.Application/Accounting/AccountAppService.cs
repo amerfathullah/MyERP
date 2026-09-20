@@ -34,22 +34,34 @@ public class AccountAppService :
 
     public override async Task<PagedResultDto<AccountDto>> GetListAsync(GetAccountListDto input)
     {
-        var filter = input.Filter;
-
-        if (string.IsNullOrWhiteSpace(filter))
-        {
-            return await base.GetListAsync(input);
-        }
-
         var queryable = await Repository.GetQueryableAsync();
 
-        queryable = queryable.Where(a =>
-            a.AccountName.Contains(filter)
-            || a.AccountCode.Contains(filter));
+        if (input.CompanyId.HasValue && input.CompanyId.Value != Guid.Empty)
+        {
+            queryable = queryable.Where(a => a.CompanyId == input.CompanyId.Value);
+        }
+
+        if (input.AccountSubType.HasValue)
+        {
+            queryable = queryable.Where(a => a.AccountSubType == input.AccountSubType.Value);
+        }
+
+        if (input.IsGroup.HasValue)
+        {
+            queryable = queryable.Where(a => a.IsGroup == input.IsGroup.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Filter))
+        {
+            queryable = queryable.Where(a =>
+                a.AccountName.Contains(input.Filter)
+                || a.AccountCode.Contains(input.Filter));
+        }
 
         var totalCount = queryable.Count();
         var items = queryable
-            .OrderBy(a => a.AccountName)
+            .OrderBy(a => a.AccountCode)
+            .ThenBy(a => a.AccountName)
             .Skip(input.SkipCount)
             .Take(input.MaxResultCount)
             .ToList();
