@@ -304,8 +304,8 @@ public class ProjectDetailAndAdvancedFlowTests
         so.Items.First().DeliveredQty = 10;
         so.Items.Last().DeliveredQty = 0;
 
-        // MIN% means 0% (worst item), not 50% (average)
-        Assert.Equal(0m, so.PerDelivered);
+        // Weighted formula: (10 + 0) / (10 + 20) * 100 = 33.33%
+        Assert.Equal(33.33m, so.PerDelivered);
     }
 
     [Fact]

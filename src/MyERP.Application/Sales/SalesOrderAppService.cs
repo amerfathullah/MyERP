@@ -142,6 +142,16 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
 
             var commissionRate = row.CommissionRate ?? salesPerson.CommissionRate;
+            if (commissionRate > 100m)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Commission rate ({commissionRate}%) cannot exceed 100%.");
+            }
+            if (commissionRate < 0m)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Commission rate ({commissionRate}%) cannot be negative.");
+            }
 
             var entry = new SalesTeamEntry(
                 GuidGenerator.Create(), row.SalesPersonId, "SalesOrder", order.Id,
@@ -281,6 +291,12 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.Notes = input.Notes;
         order.CostCenterId = input.CostCenterId;
         order.ProjectId = input.ProjectId;
+        if (order.ProjectId.HasValue)
+        {
+            var projectValidation = LazyServiceProvider
+                .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
+            await projectValidation.ValidateProjectCustomerAsync(order.ProjectId, order.CustomerId);
+        }
 
         // Per ERPNext: Price List defaults from the customer's own default when not given explicitly, if active (commit fd492100b0).
         order.PriceListId = input.PriceListId;
@@ -1098,6 +1114,10 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         var updateValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
         await updateValidation.ValidatePriceListAsync(order.PriceListId);
+        if (order.ProjectId.HasValue)
+        {
+            await updateValidation.ValidateProjectCustomerAsync(order.ProjectId, order.CustomerId);
+        }
 
         // Replace items
         order.ClearItems();
@@ -1163,8 +1183,10 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
             if (project != null && project.CustomerId.HasValue && project.CustomerId.Value != input.CustomerId)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Project {project.ProjectName} belongs to a different Customer.");
+                throw new BusinessException(MyERPDomainErrorCodes.ProjectCustomerMismatch)
+                    .WithData("projectName", project.ProjectName)
+                    .WithData("customerId", input.CustomerId)
+                    .WithData("projectCustomerId", project.CustomerId.Value);
             }
         }
 

@@ -90,6 +90,7 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     /// <summary>
     /// Percentage of total qty delivered (0-100). Excludes closed rows and service items.
     /// If all items skip delivery, order skips delivery, or all are closed, returns 100%.
+    /// Gotcha #370 / part52 line 155: SUM(MIN(delivered_qty, qty)) / SUM(qty) * 100.
     /// </summary>
     public decimal PerDelivered
     {
@@ -99,7 +100,9 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
             var openItems = _items.Where(i => !i.SkipDelivery && !i.IsClosed).ToList();
             var basis = openItems.Count > 0 ? openItems : _items.Where(i => !i.SkipDelivery).ToList();
             if (basis.Count == 0) return _items.Count > 0 ? 100m : 0m;
-            return Math.Round(basis.Min(i => i.Quantity > 0 ? i.DeliveredQty / i.Quantity * 100 : 100m), 2);
+            var totalQty = basis.Sum(i => i.Quantity);
+            if (totalQty <= 0) return 100m;
+            return Math.Round(basis.Sum(i => Math.Min(i.DeliveredQty, i.Quantity)) / totalQty * 100, 2);
         }
     }
 
@@ -211,9 +214,12 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
 
     /// <summary>
     /// Validates delivery dates and syncs header delivery date to max of item delivery dates (gotcha #462, PR #48690 / commit cf6913891a).
+    /// Gated to order_type == "Sales" and skip_delivery_note == false.
     /// </summary>
     public void ValidateDeliveryDates()
     {
+        if (SkipDeliveryNote || OrderType != SalesOrderType.Sales) return;
+
         foreach (var item in _items)
         {
             if (!item.DeliveryDate.HasValue && DeliveryDate.HasValue)

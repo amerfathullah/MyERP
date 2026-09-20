@@ -42,14 +42,14 @@ public class CompleteBusinessFlowTests
         // Partial delivery of item A (60 of 100)
         so.Items[0].DeliveredQty = 60;
         so.UpdateFulfillmentStatus();
-        so.Status.ShouldBe(DocumentStatus.ToDeliverAndBill); // Min(60%, 0%) < 100
-        so.PerDelivered.ShouldBe(0m); // Min(60/100=60%, 0/50=0%) = 0%
+        so.Status.ShouldBe(DocumentStatus.ToDeliverAndBill);
+        so.PerDelivered.ShouldBe(40.0m); // (60 + 0) / (100 + 50) = 60 / 150 = 40.0%
 
         // Full delivery of item B (50 of 50)
         so.Items[1].DeliveredQty = 50;
         so.UpdateFulfillmentStatus();
-        so.Status.ShouldBe(DocumentStatus.ToDeliverAndBill); // Min(60%, 100%) = 60% < 100
-        so.PerDelivered.ShouldBe(60m);
+        so.Status.ShouldBe(DocumentStatus.ToDeliverAndBill);
+        so.PerDelivered.ShouldBe(73.33m); // (60 + 50) / 150 = 73.33%
 
         // Complete delivery of item A
         so.Items[0].DeliveredQty = 100;

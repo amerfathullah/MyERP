@@ -122,8 +122,8 @@ public class SalesOrderManagerTests
         so.Items[0].DeliveredQty = 100; // 100%
         so.Items[1].DeliveredQty = 25;  // 50%
 
-        // Min(100%, 50%) = 50%
-        so.PerDelivered.ShouldBe(50m);
+        // Gotcha #370 / part52 line 155: (min(100, 100) + min(25, 50)) / (100 + 50) = 125 / 150 = 83.33%
+        so.PerDelivered.ShouldBe(83.33m);
     }
 
     [Fact]

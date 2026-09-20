@@ -97,6 +97,19 @@ public class Lead : FullAuditedAggregateRoot<Guid>, IMultiTenant
         ConvertedCustomerId = customerId;
     }
 
+    /// <summary>
+    /// Reverts conversion when linked Customer is deleted (per ERPNext Customer on_trash gotcha #182).
+    /// Resets status to Interested and clears ConvertedCustomerId.
+    /// </summary>
+    public void RevertCustomer()
+    {
+        if (Status == LeadStatus.Converted)
+        {
+            Status = LeadStatus.Interested;
+            ConvertedCustomerId = null;
+        }
+    }
+
     public void MarkLost()
     {
         if (Status == LeadStatus.Converted)

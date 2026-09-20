@@ -85,7 +85,7 @@ public class SalesCycleTests
         // Simulate partial delivery: 60 of A, 50 of B
         so.Items[0].DeliveredQty = 60;
         so.Items[1].DeliveredQty = 50;
-        so.PerDelivered.ShouldBe(60m); // Min(60/100=60%, 50/50=100%) = 60%
+        so.PerDelivered.ShouldBe(73.33m); // (60 + 50) / (100 + 50) = 110 / 150 = 73.33%
 
         // Simulate billing: all of Widget A
         so.Items[0].BilledQty = 100;

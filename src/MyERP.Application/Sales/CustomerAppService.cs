@@ -62,6 +62,32 @@ public class CustomerAppService :
                 .WithData("reason", "Customer has posted Sales Invoices.");
         }
 
+        // Per ERPNext Customer on_trash gotcha #182: revert linked Lead status to "Interested"
+        var customer = await Repository.FindAsync(id);
+        if (customer != null)
+        {
+            var leadRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Lead, Guid>>();
+            if (customer.LeadId.HasValue)
+            {
+                var lead = await leadRepo.FindAsync(customer.LeadId.Value);
+                if (lead != null && (lead.ConvertedCustomerId == customer.Id || lead.Status == CRM.LeadStatus.Converted))
+                {
+                    lead.RevertCustomer();
+                    await leadRepo.UpdateAsync(lead, autoSave: true);
+                }
+            }
+            else
+            {
+                var leadQuery = await leadRepo.GetQueryableAsync();
+                var lead = leadQuery.FirstOrDefault(l => l.ConvertedCustomerId == customer.Id);
+                if (lead != null)
+                {
+                    lead.RevertCustomer();
+                    await leadRepo.UpdateAsync(lead, autoSave: true);
+                }
+            }
+        }
+
         await base.DeleteAsync(id);
     }
 

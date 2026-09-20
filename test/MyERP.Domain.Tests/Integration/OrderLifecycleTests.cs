@@ -244,11 +244,11 @@ public class OrderLifecycleTests
         so.Submit();
         // Item A: qty=10, Item B: qty=5
         so.Items[0].DeliveredQty = 5; // 50% of item A
-        // PerDelivered = Min(50%, 0%) = 0% (item B not delivered at all)
-        so.PerDelivered.ShouldBe(0m);
+        // PerDelivered = (5 + 0) / (10 + 5) = 5 / 15 = 33.33%
+        so.PerDelivered.ShouldBe(33.33m);
 
         so.Items[1].DeliveredQty = 5; // 100% of item B
-        // PerDelivered = Min(50%, 100%) = 50%
-        so.PerDelivered.ShouldBe(50m);
+        // PerDelivered = (5 + 5) / (10 + 5) = 10 / 15 = 66.67%
+        so.PerDelivered.ShouldBe(66.67m);
     }
 }
