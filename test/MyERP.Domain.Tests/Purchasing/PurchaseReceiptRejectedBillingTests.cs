@@ -41,7 +41,7 @@ public class PurchaseReceiptRejectedBillingTests
     {
         // Per ERPNext PR #58885: Billing rejected qty must not push per_billed above 100, and marks it Completed
         var pr = new PurchaseReceipt(Guid.NewGuid(), _companyId, _supplierId, _warehouseId, "PR-001", DateTime.UtcNow);
-        pr.AddItem(Guid.NewGuid(), "Raw Material", 0m, 9.5m, 0m, rejectedQty: 10m);
+        pr.AddItem(Guid.NewGuid(), "Raw Material", 0m, 9.5m, 0m, rejectedQty: 10m, rejectedWarehouseId: Guid.NewGuid());
         var item = pr.Items[0];
         pr.Submit();
 
@@ -55,7 +55,7 @@ public class PurchaseReceiptRejectedBillingTests
     public void FullyRejectedReceipt_PartialBilled_PerBilledIsProportional()
     {
         var pr = new PurchaseReceipt(Guid.NewGuid(), _companyId, _supplierId, _warehouseId, "PR-001", DateTime.UtcNow);
-        pr.AddItem(Guid.NewGuid(), "Raw Material", 0m, 9.5m, 0m, rejectedQty: 10m);
+        pr.AddItem(Guid.NewGuid(), "Raw Material", 0m, 9.5m, 0m, rejectedQty: 10m, rejectedWarehouseId: Guid.NewGuid());
         var item = pr.Items[0];
         pr.Submit();
 
@@ -73,7 +73,7 @@ public class PurchaseReceiptRejectedBillingTests
         var piRepo = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
 
         var pr = new PurchaseReceipt(Guid.NewGuid(), _companyId, _supplierId, _warehouseId, "PR-REJ", DateTime.UtcNow);
-        pr.AddItem(Guid.NewGuid(), "Raw Material", 0m, 9.5m, 0m, rejectedQty: 10m);
+        pr.AddItem(Guid.NewGuid(), "Raw Material", 0m, 9.5m, 0m, rejectedQty: 10m, rejectedWarehouseId: Guid.NewGuid());
         pr.Submit();
 
         prRepo.GetAsync(pr.Id).Returns(Task.FromResult(pr));
@@ -151,7 +151,7 @@ public class PurchaseReceiptRejectedBillingTests
         var piRepo = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
 
         var pr = new PurchaseReceipt(Guid.NewGuid(), _companyId, _supplierId, _warehouseId, "PR-001", DateTime.UtcNow);
-        pr.AddItem(Guid.NewGuid(), "Raw Material", 0m, 9.5m, 0m, rejectedQty: 10m);
+        pr.AddItem(Guid.NewGuid(), "Raw Material", 0m, 9.5m, 0m, rejectedQty: 10m, rejectedWarehouseId: Guid.NewGuid());
         var item = pr.Items[0];
         item.BilledQty = 10m;
         pr.Submit();

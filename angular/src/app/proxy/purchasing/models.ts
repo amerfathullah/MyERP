@@ -144,6 +144,9 @@ export interface CreatePurchaseReceiptItemDto {
   uom?: string;
   purchaseOrderItemId?: string | null;
   warehouseId?: string | null;
+  receivedQty?: number;
+  rejectedQty?: number;
+  rejectedWarehouseId?: string | null;
 }
 
 export interface CreateRfqDto {
@@ -605,6 +608,14 @@ export interface PurchaseReceiptItemDto {
   description?: string;
   uom?: string;
   quantity?: number;
+  receivedQty?: number;
+  rejectedQty?: number;
+  rejectedWarehouseId?: string | null;
+  rejectedWarehouseName?: string | null;
+  stockQty?: number;
+  stockUom?: string | null;
+  conversionFactor?: number;
+  pendingBillingQty?: number;
   unitPrice?: number;
   taxAmount?: number;
   lineTotal?: number;

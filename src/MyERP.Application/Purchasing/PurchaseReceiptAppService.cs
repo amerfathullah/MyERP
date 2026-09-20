@@ -87,6 +87,22 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 if (itemNames.TryGetValue(item.ItemId, out var name))
                     item.ItemName = name;
             }
+
+            var rejectedWhIds = dto.Items
+                .Where(i => i.RejectedWarehouseId.HasValue)
+                .Select(i => i.RejectedWarehouseId!.Value)
+                .Distinct()
+                .ToList();
+            if (rejectedWhIds.Count > 0)
+            {
+                var rejectedWhs = await warehouseRepo.GetListAsync(w => rejectedWhIds.Contains(w.Id));
+                var rejectedNames = rejectedWhs.ToDictionary(w => w.Id, w => w.Name);
+                foreach (var item in dto.Items)
+                {
+                    if (item.RejectedWarehouseId.HasValue && rejectedNames.TryGetValue(item.RejectedWarehouseId.Value, out var rwName))
+                        item.RejectedWarehouseName = rwName;
+                }
+            }
         }
 
         return dto;
@@ -157,8 +173,9 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         await ValidateItemWarehousesAsync(input.Items, input.CompanyId);
 
         var allWarehouseIds = input.Items
-            .Where(i => i.WarehouseId.HasValue)
-            .Select(i => i.WarehouseId!.Value)
+            .SelectMany(i => new[] { i.WarehouseId, i.RejectedWarehouseId })
+            .Where(w => w.HasValue)
+            .Select(w => w!.Value)
             .ToList();
         allWarehouseIds.Add(input.WarehouseId);
         allWarehouseIds = allWarehouseIds.Distinct().ToList();
@@ -208,14 +225,23 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         {
             var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
             var poQuery = await poRepo.GetQueryableAsync();
-            var crossCompanyPo = poQuery
-                .Where(po => po.Items.Any(i => linkedPoItemIds.Contains(i.Id)) && po.CompanyId != input.CompanyId)
-                .FirstOrDefault();
+            var linkedPos = poQuery
+                .Where(po => po.Items.Any(i => linkedPoItemIds.Contains(i.Id)))
+                .ToList();
+
+            var crossCompanyPo = linkedPos.FirstOrDefault(po => po.CompanyId != input.CompanyId);
             if (crossCompanyPo != null)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
                     .WithData("purchaseOrderCompany", crossCompanyPo.CompanyId)
                     .WithData("receiptCompany", input.CompanyId);
+            }
+
+            var priorPo = linkedPos.FirstOrDefault(po => input.PostingDate.Date < po.OrderDate.Date);
+            if (priorPo != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Posting Date cannot be before Purchase Order {priorPo.OrderNumber} date ({priorPo.OrderDate:yyyy-MM-dd}).");
             }
         }
 
@@ -249,7 +275,18 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
         foreach (var item in input.Items)
         {
-            receipt.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.PurchaseOrderItemId, item.WarehouseId);
+            receipt.AddItem(
+                item.ItemId,
+                item.Description,
+                item.Quantity,
+                item.UnitPrice,
+                item.TaxAmount,
+                item.Uom,
+                item.PurchaseOrderItemId,
+                item.WarehouseId,
+                item.RejectedQty,
+                item.RejectedWarehouseId,
+                item.ReceivedQty);
         }
 
         // Resolve UOM conversion factors
@@ -327,14 +364,23 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         {
             var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
             var poQuery = await poRepo.GetQueryableAsync();
-            var crossCompanyPo = poQuery
-                .Where(po => po.Items.Any(i => updatePoItemIds.Contains(i.Id)) && po.CompanyId != receipt.CompanyId)
-                .FirstOrDefault();
+            var linkedPos = poQuery
+                .Where(po => po.Items.Any(i => updatePoItemIds.Contains(i.Id)))
+                .ToList();
+
+            var crossCompanyPo = linkedPos.FirstOrDefault(po => po.CompanyId != receipt.CompanyId);
             if (crossCompanyPo != null)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
                     .WithData("purchaseOrderCompany", crossCompanyPo.CompanyId)
                     .WithData("receiptCompany", receipt.CompanyId);
+            }
+
+            var priorPo = linkedPos.FirstOrDefault(po => input.PostingDate.Date < po.OrderDate.Date);
+            if (priorPo != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Posting Date cannot be before Purchase Order {priorPo.OrderNumber} date ({priorPo.OrderDate:yyyy-MM-dd}).");
             }
         }
 
@@ -353,8 +399,9 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         await ValidateItemWarehousesAsync(input.Items, receipt.CompanyId);
 
         var updateAllWarehouseIds = input.Items
-            .Where(i => i.WarehouseId.HasValue)
-            .Select(i => i.WarehouseId!.Value)
+            .SelectMany(i => new[] { i.WarehouseId, i.RejectedWarehouseId })
+            .Where(w => w.HasValue)
+            .Select(w => w!.Value)
             .ToList();
         updateAllWarehouseIds.Add(receipt.WarehouseId);
         updateAllWarehouseIds = updateAllWarehouseIds.Distinct().ToList();
@@ -379,7 +426,18 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         receipt.ClearItems();
         foreach (var item in input.Items)
         {
-            receipt.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.PurchaseOrderItemId, item.WarehouseId);
+            receipt.AddItem(
+                item.ItemId,
+                item.Description,
+                item.Quantity,
+                item.UnitPrice,
+                item.TaxAmount,
+                item.Uom,
+                item.PurchaseOrderItemId,
+                item.WarehouseId,
+                item.RejectedQty,
+                item.RejectedWarehouseId,
+                item.ReceivedQty);
         }
 
         await _repository.UpdateAsync(receipt, autoSave: true);
@@ -974,7 +1032,12 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
     /// </summary>
     private async Task ValidateItemWarehousesAsync(List<CreatePurchaseReceiptItemDto> items, Guid companyId)
     {
-        var overrides = items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value).Distinct().ToList();
+        var overrides = items
+            .SelectMany(i => new[] { i.WarehouseId, i.RejectedWarehouseId })
+            .Where(w => w.HasValue)
+            .Select(w => w!.Value)
+            .Distinct()
+            .ToList();
         if (overrides.Count == 0) return;
 
         var warehouseRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();

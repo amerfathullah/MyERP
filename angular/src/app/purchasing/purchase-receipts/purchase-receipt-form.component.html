@@ -77,11 +77,14 @@
               <thead>
                 <tr>
                   <th>{{ '::Item' | abpLocalization }}</th>
-                  <th style="width:180px">{{ '::Warehouse' | abpLocalization }}</th>
-                  <th style="width:100px">{{ '::Qty' | abpLocalization }}</th>
-                  <th style="width:120px">{{ '::UnitPrice' | abpLocalization }}</th>
-                  <th style="width:80px">{{ '::UOM' | abpLocalization }}</th>
-                  <th style="width:50px"></th>
+                  <th style="width:160px">{{ '::Warehouse' | abpLocalization }}</th>
+                  <th style="width:95px">{{ '::ReceivedQty' | abpLocalization }}</th>
+                  <th style="width:95px">{{ '::AcceptedQty' | abpLocalization }}</th>
+                  <th style="width:95px">{{ '::RejectedQty' | abpLocalization }}</th>
+                  <th style="width:160px">{{ '::RejectedWarehouse' | abpLocalization }}</th>
+                  <th style="width:110px">{{ '::UnitPrice' | abpLocalization }}</th>
+                  <th style="width:75px">{{ '::UOM' | abpLocalization }}</th>
+                  <th style="width:40px"></th>
                 </tr>
               </thead>
               <tbody>
@@ -103,7 +106,17 @@
                         }
                       </select>
                     </td>
+                    <td><input type="number" class="form-control form-control-sm" formControlName="receivedQty" /></td>
                     <td><input type="number" class="form-control form-control-sm" formControlName="quantity" /></td>
+                    <td><input type="number" class="form-control form-control-sm" formControlName="rejectedQty" /></td>
+                    <td>
+                      <select class="form-select form-select-sm" formControlName="rejectedWarehouseId">
+                        <option value="">{{ '::SelectWarehouse' | abpLocalization }}</option>
+                        @for (wh of warehouses(); track wh.id) {
+                          <option [value]="wh.id">{{ wh.name }}</option>
+                        }
+                      </select>
+                    </td>
                     <td><input type="number" class="form-control form-control-sm" formControlName="unitPrice" /></td>
                     <td><input class="form-control form-control-sm" formControlName="uom" /></td>
                     <td><button type="button" class="btn btn-sm btn-outline-danger" (click)="removeItem(i)"><i class="fa fa-trash"></i></button></td>

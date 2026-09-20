@@ -564,6 +564,9 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         // Release consumed Blanket Order allocations (reverse of submit)
         await ReleaseBlanketOrdersAsync(po);
 
+        // Synchronize zeroed drop-ship delivered quantities to linked Sales Orders (Gotcha #500)
+        await UpdateLinkedSalesOrderDeliveryStatusAsync(po);
+
         await _repository.UpdateAsync(po, autoSave: true);
 
         // Audit trail

@@ -60,15 +60,33 @@ export class PurchaseReceiptFormComponent implements OnInit {
 
   get items(): FormArray { return this.form.get('items') as FormArray; }
 
+  private setupQtyAutoDerivation(group: any): void {
+    const updateReceived = () => {
+      if (this.isReturn) return;
+      const accepted = Number(group.get('quantity')?.value) || 0;
+      const rejected = Number(group.get('rejectedQty')?.value) || 0;
+      group.patchValue({ receivedQty: accepted + rejected }, { emitEvent: false });
+    };
+
+    group.get('quantity')?.valueChanges.subscribe(() => updateReceived());
+    group.get('rejectedQty')?.valueChanges.subscribe(() => updateReceived());
+  }
+
   addItem(): void {
-    this.items.push(this.fb.group({
+    const itemGroup = this.fb.group({
       itemId: ['', Validators.required],
       description: ['', Validators.required],
       warehouseId: [''],
-      quantity: [1, [Validators.required, Validators.min(0.01)]],
+      receivedQty: [1, [Validators.required]],
+      quantity: [1, [Validators.required]],
+      rejectedQty: [0],
+      rejectedWarehouseId: [''],
       unitPrice: [0, [Validators.required, Validators.min(0)]],
       uom: ['EA'],
-    }));
+      purchaseOrderItemId: [null],
+    });
+    this.setupQtyAutoDerivation(itemGroup);
+    this.items.push(itemGroup);
   }
 
   removeItem(i: number): void { this.items.removeAt(i); }
@@ -116,15 +134,20 @@ export class PurchaseReceiptFormComponent implements OnInit {
         (po.items ?? []).forEach(item => {
           const pendingQty = (item.quantity ?? 0) - (item.receivedQty ?? 0);
           if (pendingQty > 0) {
-            this.items.push(this.fb.group({
+            const itemGroup = this.fb.group({
               itemId: [item.itemId ?? '', Validators.required],
               description: [item.description ?? '', Validators.required],
               warehouseId: [''],
-              quantity: [pendingQty, [Validators.required, Validators.min(0.01)]],
+              receivedQty: [pendingQty, [Validators.required]],
+              quantity: [pendingQty, [Validators.required]],
+              rejectedQty: [0],
+              rejectedWarehouseId: [''],
               unitPrice: [item.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
               uom: [item.uom ?? 'EA'],
               purchaseOrderItemId: [item.id ?? null],
-            }));
+            });
+            this.setupQtyAutoDerivation(itemGroup);
+            this.items.push(itemGroup);
             loadedCount++;
           }
         });
@@ -219,15 +242,22 @@ export class PurchaseReceiptFormComponent implements OnInit {
     });
 
     while (this.items.length > 0) this.items.removeAt(0);
-    rebuilt.forEach(row => this.items.push(this.fb.group({
-      itemId: [row.itemId ?? '', Validators.required],
-      description: [row.description ?? '', Validators.required],
-      warehouseId: [row.warehouseId ?? ''],
-      quantity: [row.quantity ?? 1, [Validators.required, Validators.min(0.01)]],
-      unitPrice: [row.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
-      uom: [row.uom ?? 'EA'],
-      purchaseOrderItemId: [row.purchaseOrderItemId ?? null],
-    })));
+    rebuilt.forEach(row => {
+      const itemGroup = this.fb.group({
+        itemId: [row.itemId ?? '', Validators.required],
+        description: [row.description ?? '', Validators.required],
+        warehouseId: [row.warehouseId ?? ''],
+        receivedQty: [row.receivedQty ?? row.quantity ?? 1, [Validators.required]],
+        quantity: [row.quantity ?? 1, [Validators.required]],
+        rejectedQty: [row.rejectedQty ?? 0],
+        rejectedWarehouseId: [row.rejectedWarehouseId ?? ''],
+        unitPrice: [row.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
+        uom: [row.uom ?? 'EA'],
+        purchaseOrderItemId: [row.purchaseOrderItemId ?? null],
+      });
+      this.setupQtyAutoDerivation(itemGroup);
+      this.items.push(itemGroup);
+    });
     this.form.markAsDirty();
 
     if (splitCount > 0) {
@@ -276,14 +306,20 @@ export class PurchaseReceiptFormComponent implements OnInit {
           notes: '',
         });
         (pr.items ?? []).forEach((item: any) => {
-          this.items.push(this.fb.group({
+          const itemGroup = this.fb.group({
             itemId: [item.itemId ?? '', Validators.required],
             description: [item.description ?? '', Validators.required],
             warehouseId: [item.warehouseId ?? ''],
-            quantity: [item.quantity ?? 1, [Validators.required, Validators.min(0.01)]],
+            receivedQty: [item.receivedQty ?? item.quantity ?? 1, [Validators.required]],
+            quantity: [item.quantity ?? 1, [Validators.required]],
+            rejectedQty: [item.rejectedQty ?? 0],
+            rejectedWarehouseId: [item.rejectedWarehouseId ?? ''],
             unitPrice: [item.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
             uom: [item.uom ?? 'EA'],
-          }));
+            purchaseOrderItemId: [item.purchaseOrderItemId ?? null],
+          });
+          this.setupQtyAutoDerivation(itemGroup);
+          this.items.push(itemGroup);
         });
       });
     }
@@ -301,14 +337,19 @@ export class PurchaseReceiptFormComponent implements OnInit {
           purchaseOrderId: original.purchaseOrderId ?? '',
         });
         (original.items ?? []).forEach((item: any) => {
-          this.items.push(this.fb.group({
+          const itemGroup = this.fb.group({
             itemId: [item.itemId ?? '', Validators.required],
             description: [item.description ?? '', Validators.required],
             warehouseId: [item.warehouseId ?? ''],
+            receivedQty: [-(Math.abs(item.quantity ?? 0)), [Validators.required]],
             quantity: [-(Math.abs(item.quantity ?? 0)), [Validators.required]],
+            rejectedQty: [0],
+            rejectedWarehouseId: [''],
             unitPrice: [item.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
             uom: [item.uom ?? 'EA'],
-          }));
+            purchaseOrderItemId: [item.purchaseOrderItemId ?? null],
+          });
+          this.items.push(itemGroup);
         });
       });
     }
@@ -329,6 +370,9 @@ export class PurchaseReceiptFormComponent implements OnInit {
         ...item,
         purchaseOrderItemId: item.purchaseOrderItemId || undefined,
         warehouseId: item.warehouseId || null,
+        rejectedWarehouseId: item.rejectedWarehouseId || null,
+        receivedQty: Number(item.receivedQty) || (Number(item.quantity) + (Number(item.rejectedQty) || 0)),
+        rejectedQty: Number(item.rejectedQty) || 0,
       })),
     } as unknown as CreatePurchaseReceiptDto;
     if (this.isEditMode) {

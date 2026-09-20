@@ -179,7 +179,7 @@ public class PurchaseReceiptTests
     {
         // Fully rejected receipt: accepted qty 0, rejected qty 10 (ERPNext PR #58885 / commit 3761eb8cbe)
         var receipt = CreateReceipt();
-        receipt.AddItem(Guid.NewGuid(), "Part A", 0, 100m, 0m, rejectedQty: 10);
+        receipt.AddItem(Guid.NewGuid(), "Part A", 0, 100m, 0m, rejectedQty: 10, rejectedWarehouseId: Guid.NewGuid());
         receipt.Submit();
 
         var item = receipt.Items[0];
@@ -193,7 +193,7 @@ public class PurchaseReceiptTests
     public void PerBilled_FullyRejectedReceipt_PartiallyBilled_ShouldBeFiftyPercentAndPartiallyBilled()
     {
         var receipt = CreateReceipt();
-        receipt.AddItem(Guid.NewGuid(), "Part A", 0, 100m, 0m, rejectedQty: 10);
+        receipt.AddItem(Guid.NewGuid(), "Part A", 0, 100m, 0m, rejectedQty: 10, rejectedWarehouseId: Guid.NewGuid());
         receipt.Submit();
 
         var item = receipt.Items[0];
@@ -209,7 +209,7 @@ public class PurchaseReceiptTests
     public void PerBilled_FullyRejectedReceipt_FullyBilled_ShouldBeHundredPercentAndCompleted()
     {
         var receipt = CreateReceipt();
-        receipt.AddItem(Guid.NewGuid(), "Part A", 0, 100m, 0m, rejectedQty: 10);
+        receipt.AddItem(Guid.NewGuid(), "Part A", 0, 100m, 0m, rejectedQty: 10, rejectedWarehouseId: Guid.NewGuid());
         receipt.Submit();
 
         var item = receipt.Items[0];
@@ -225,7 +225,7 @@ public class PurchaseReceiptTests
     public void PerBilled_AcceptedAndRejectedBilled_NeverExceeds100Percent()
     {
         var receipt = CreateReceipt();
-        receipt.AddItem(Guid.NewGuid(), "Part A", 10, 100m, 0m, rejectedQty: 5);
+        receipt.AddItem(Guid.NewGuid(), "Part A", 10, 100m, 0m, rejectedQty: 5, rejectedWarehouseId: Guid.NewGuid());
         receipt.Submit();
 
         var item = receipt.Items[0];

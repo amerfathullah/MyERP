@@ -102,7 +102,7 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
 
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
-    /// <summary>Percentage of total qty received (0-100). Uses min per-item completion with per-item capping (gotcha #370). Excludes closed rows.</summary>
+    /// <summary>Percentage of total qty received (0-100). Uses sum of capped received quantities divided by total quantity (gotcha #370). Excludes closed rows.</summary>
     public decimal PerReceived
     {
         get
@@ -110,7 +110,10 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
             var openItems = _items.Where(i => !i.IsClosed).ToList();
             var basis = openItems.Count > 0 ? openItems : _items;
             if (basis.Count == 0) return 0m;
-            return Math.Round(basis.Min(i => i.Quantity > 0 ? Math.Min(Math.Max(0, i.ReceivedQty), i.Quantity) / i.Quantity * 100 : 100m), 2);
+            var totalQty = basis.Sum(i => i.Quantity);
+            if (totalQty <= 0) return 0m;
+            var receivedQty = basis.Sum(i => Math.Min(Math.Max(0, i.ReceivedQty), i.Quantity));
+            return Math.Round(receivedQty / totalQty * 100m, 2);
         }
     }
 
@@ -222,6 +225,13 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     {
         if (Status == DocumentStatus.Cancelled || Status == DocumentStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Per Gotcha #500: PO cancel zeros drop-ship received_qty THEN recalculates percentage
+        foreach (var item in _items.Where(i => i.DeliveredBySupplier))
+        {
+            item.ReceivedQty = 0;
+        }
+
         Status = DocumentStatus.Cancelled;
     }
 

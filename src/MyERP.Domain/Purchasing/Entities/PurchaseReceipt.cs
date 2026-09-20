@@ -189,16 +189,31 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         if (!_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
-        if (PostingDate.Date > DateTime.UtcNow.Date.AddDays(1))
+        if (PostingDate.Date > DateTime.UtcNow.Date)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", "Posting Date cannot be in the future.");
+                .WithData("detail", "Posting Date cannot be in the future for Purchase Receipts.");
         }
 
         // Validate from_warehouse, UOM conversion factor, and accepted/rejected quantities per ERPNext buying/stock controller
         foreach (var item in _items)
         {
             item.ValidateAcceptedRejectedQty(IsReturn);
+
+            var targetWarehouse = item.WarehouseId ?? WarehouseId;
+
+            // Validate rejected warehouse per ERPNext buying/subcontracting controller
+            if (item.RejectedQty > 0 && !item.RejectedWarehouseId.HasValue)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Rejected Warehouse is mandatory for rejected Item {item.Description}.");
+            }
+
+            if (item.RejectedWarehouseId.HasValue && item.RejectedWarehouseId.Value == targetWarehouse)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Accepted Warehouse and Rejected Warehouse cannot be the same for Item {item.Description}.");
+            }
 
             // Auto-correct conversion factor when UOM equals StockUOM (gotcha #6171)
             if (!string.IsNullOrEmpty(item.Uom) && !string.IsNullOrEmpty(item.StockUom)
@@ -215,7 +230,6 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", "From Warehouse cannot be set for subcontracted receipts.");
 
-                var targetWarehouse = item.WarehouseId ?? WarehouseId;
                 if (item.FromWarehouseId.Value == targetWarehouse)
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", "From Warehouse and Target Warehouse cannot be the same.");

@@ -32,8 +32,8 @@ public class PurchaseReceiptAndOrderTests
         // Line 2 partially received: 5 received against 10 ordered (50%)
         po.Items[1].ReceivedQty = 5m;
 
-        // Min(100%, 50%) = 50%
-        Assert.Equal(50m, po.PerReceived);
+        // SUM(MIN(15, 10) + MIN(5, 10)) / (10 + 10) * 100 = 75%
+        Assert.Equal(75m, po.PerReceived);
     }
 
     [Fact]
@@ -78,5 +78,52 @@ public class PurchaseReceiptAndOrderTests
         var ex = Assert.Throws<BusinessException>(() => pr.ValidatePostingDateWithPo(poDate));
         Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
         Assert.Contains("cannot be before the linked Purchase Order date", ex.Data["detail"]?.ToString());
+    }
+
+    [Fact]
+    public void PurchaseReceipt_Submit_MissingRejectedWarehouse_ThrowsValidationException()
+    {
+        var pr = new PurchaseReceipt(Guid.NewGuid(), _companyId, _supplierId, _warehouseId, "PR-2026-0002", DateTime.UtcNow.Date);
+        pr.AddItem(_itemId1, "Widget A", 8m, 50m, 0m, rejectedQty: 2m, rejectedWarehouseId: null);
+
+        var ex = Assert.Throws<BusinessException>(() => pr.Submit());
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("Rejected Warehouse is mandatory", ex.Data["detail"]?.ToString());
+    }
+
+    [Fact]
+    public void PurchaseReceipt_Submit_RejectedWarehouseSameAsTarget_ThrowsValidationException()
+    {
+        var pr = new PurchaseReceipt(Guid.NewGuid(), _companyId, _supplierId, _warehouseId, "PR-2026-0003", DateTime.UtcNow.Date);
+        pr.AddItem(_itemId1, "Widget A", 8m, 50m, 0m, rejectedQty: 2m, rejectedWarehouseId: _warehouseId);
+
+        var ex = Assert.Throws<BusinessException>(() => pr.Submit());
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("cannot be the same", ex.Data["detail"]?.ToString());
+    }
+
+    [Fact]
+    public void PurchaseReceipt_Submit_FuturePostingDate_ThrowsValidationException()
+    {
+        var futureDate = DateTime.UtcNow.Date.AddDays(1);
+        var pr = new PurchaseReceipt(Guid.NewGuid(), _companyId, _supplierId, _warehouseId, "PR-2026-0004", futureDate);
+        pr.AddItem(_itemId1, "Widget A", 10m, 50m, 0m);
+
+        var ex = Assert.Throws<BusinessException>(() => pr.Submit());
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("Posting Date cannot be in the future", ex.Data["detail"]?.ToString());
+    }
+
+    [Fact]
+    public void PurchaseReceipt_Submit_WithValidRejectedWarehouse_Succeeds()
+    {
+        var rejectedWarehouseId = Guid.NewGuid();
+        var pr = new PurchaseReceipt(Guid.NewGuid(), _companyId, _supplierId, _warehouseId, "PR-2026-0005", DateTime.UtcNow.Date);
+        pr.AddItem(_itemId1, "Widget A", 8m, 50m, 0m, rejectedQty: 2m, rejectedWarehouseId: rejectedWarehouseId);
+
+        pr.Submit();
+
+        Assert.Equal(DocumentStatus.Submitted, pr.Status);
+        Assert.Equal(10m, pr.Items[0].ReceivedQty);
     }
 }

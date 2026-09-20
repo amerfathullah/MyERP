@@ -53,49 +53,79 @@ public class PurchaseReceiptManager : DomainService
     /// </summary>
     public async Task ValidateAgainstPurchaseOrderAsync(PurchaseReceipt receipt)
     {
-        if (!receipt.PurchaseOrderId.HasValue) return;
-
-        var po = await _poRepository.GetAsync(receipt.PurchaseOrderId.Value);
-
-        // PO must be in an active fulfillment state (returns allowed against Closed PO, but blocked against Cancelled)
-        if (po.Status == Core.DocumentStatus.Cancelled || (!receipt.IsReturn && po.Status == Core.DocumentStatus.Closed))
+        var poIds = new HashSet<Guid>();
+        if (receipt.PurchaseOrderId.HasValue)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("documentType", "Purchase Order")
-                .WithData("status", po.Status.ToString());
+            poIds.Add(receipt.PurchaseOrderId.Value);
         }
 
-        // Return PRs bypass temporal ordering and pending quantity checks against PO
-        if (receipt.IsReturn) return;
+        var linkedPoItemIds = receipt.Items
+            .Where(i => i.PurchaseOrderItemId.HasValue)
+            .Select(i => i.PurchaseOrderItemId!.Value)
+            .Distinct()
+            .ToList();
 
-        // Temporal ordering: cannot receive before ordering
-        if (receipt.PostingDate < po.OrderDate)
+        if (linkedPoItemIds.Count > 0)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.PostingDateBeforePODate)
-                .WithData("postingDate", receipt.PostingDate)
-                .WithData("poDate", po.OrderDate)
-                .WithData("poNumber", po.OrderNumber);
+            var poQuery = await _poRepository.GetQueryableAsync();
+            var itemPoIds = poQuery
+                .Where(p => p.Items.Any(pi => linkedPoItemIds.Contains(pi.Id)))
+                .Select(p => p.Id)
+                .ToList();
+            foreach (var pid in itemPoIds) poIds.Add(pid);
         }
 
-        foreach (var prItem in receipt.Items)
+        if (poIds.Count == 0) return;
+
+        var poList = new List<PurchaseOrder>();
+        foreach (var pid in poIds)
         {
-            var poItem = prItem.PurchaseOrderItemId.HasValue
-                ? po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId.Value)
-                : po.Items.FirstOrDefault(i => i.ItemId == prItem.ItemId);
-            if (poItem != null)
+            poList.Add(await _poRepository.GetAsync(pid));
+        }
+
+        foreach (var po in poList)
+        {
+            // PO must be in an active fulfillment state (returns allowed against Closed PO, but blocked against Cancelled)
+            if (po.Status == Core.DocumentStatus.Cancelled || (!receipt.IsReturn && po.Status == Core.DocumentStatus.Closed))
             {
-                if (poItem.IsClosed)
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                    .WithData("documentType", "Purchase Order")
+                    .WithData("status", po.Status.ToString());
+            }
+
+            // Return PRs bypass temporal ordering and pending quantity checks against PO
+            if (receipt.IsReturn) continue;
+
+            // Temporal ordering: cannot receive before ordering
+            if (receipt.PostingDate.Date < po.OrderDate.Date)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.PostingDateBeforePODate)
+                    .WithData("postingDate", receipt.PostingDate)
+                    .WithData("poDate", po.OrderDate)
+                    .WithData("poNumber", po.OrderNumber);
+            }
+
+            foreach (var prItem in receipt.Items)
+            {
+                var poItem = prItem.PurchaseOrderItemId.HasValue
+                    ? po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId.Value)
+                    : (po.Id == receipt.PurchaseOrderId ? po.Items.FirstOrDefault(i => i.ItemId == prItem.ItemId) : null);
+
+                if (poItem != null)
                 {
-                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", $"Item {prItem.Description} is closed in Purchase Order {po.OrderNumber} and cannot be processed further.");
-                }
-                if (prItem.Quantity > poItem.PendingReceiptQty)
-                {
-                    throw new BusinessException("MyERP:08006")
-                        .WithData("itemName", prItem.Description)
-                        .WithData("orderedQty", poItem.Quantity)
-                        .WithData("receivedQty", poItem.ReceivedQty)
-                        .WithData("attemptedQty", prItem.Quantity);
+                    if (poItem.IsClosed)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"Item {prItem.Description} is closed in Purchase Order {po.OrderNumber} and cannot be processed further.");
+                    }
+                    if (prItem.Quantity > poItem.PendingReceiptQty)
+                    {
+                        throw new BusinessException("MyERP:08006")
+                            .WithData("itemName", prItem.Description)
+                            .WithData("orderedQty", poItem.Quantity)
+                            .WithData("receivedQty", poItem.ReceivedQty)
+                            .WithData("attemptedQty", prItem.Quantity);
+                    }
                 }
             }
         }

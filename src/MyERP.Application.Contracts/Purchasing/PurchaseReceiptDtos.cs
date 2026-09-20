@@ -37,6 +37,14 @@ public class PurchaseReceiptItemDto
     public string Description { get; set; } = null!;
     public string Uom { get; set; } = null!;
     public decimal Quantity { get; set; }
+    public decimal ReceivedQty { get; set; }
+    public decimal RejectedQty { get; set; }
+    public Guid? RejectedWarehouseId { get; set; }
+    public string? RejectedWarehouseName { get; set; }
+    public decimal StockQty { get; set; }
+    public string StockUom { get; set; } = "Unit";
+    public decimal ConversionFactor { get; set; } = 1m;
+    public decimal PendingBillingQty { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
@@ -67,7 +75,7 @@ public class CreatePurchaseReceiptItemDto
 {
     [Required] public Guid ItemId { get; set; }
     [Required][StringLength(500)] public string Description { get; set; } = null!;
-    [Required][Range(0.0001, double.MaxValue)] public decimal Quantity { get; set; }
+    public decimal Quantity { get; set; }
     [Required][Range(0, double.MaxValue)] public decimal UnitPrice { get; set; }
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(50)] public string Uom { get; set; } = "Unit";
@@ -78,6 +86,9 @@ public class CreatePurchaseReceiptItemDto
     /// allocation, which splits one ordered qty across several warehouses by capacity.
     /// </summary>
     public Guid? WarehouseId { get; set; }
+    public decimal ReceivedQty { get; set; }
+    public decimal RejectedQty { get; set; }
+    public Guid? RejectedWarehouseId { get; set; }
 }
 
 public class PutawayItemInput

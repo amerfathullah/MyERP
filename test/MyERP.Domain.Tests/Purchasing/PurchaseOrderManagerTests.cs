@@ -167,8 +167,8 @@ public class PurchaseOrderManagerTests
         po.Items[0].ReceivedQty = 100; // 100% received
         po.Items[1].ReceivedQty = 25;  // 50% received
 
-        // Min(100%, 50%) = 50%
-        po.PerReceived.ShouldBe(50m);
+        // Gotcha #370: SUM(MIN(received_qty, qty)) / SUM(qty) = (100 + 25) / (100 + 50) = 125 / 150 = 83.33%
+        po.PerReceived.ShouldBe(83.33m);
     }
 
     [Fact]
