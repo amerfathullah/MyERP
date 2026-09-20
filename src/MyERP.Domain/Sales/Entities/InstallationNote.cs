@@ -44,7 +44,7 @@ public class InstallationNote : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, decimal qty, string? serialNo = null)
+    public void AddItem(Guid itemId, decimal qty, string? serialNo = null, Guid? deliveryNoteItemId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -54,7 +54,8 @@ public class InstallationNote : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             ItemId = itemId,
             Qty = qty,
-            SerialNo = serialNo
+            SerialNo = serialNo,
+            DeliveryNoteItemId = deliveryNoteItemId
         });
     }
 
@@ -92,4 +93,5 @@ public class InstallationNoteItem : Volo.Abp.Domain.Entities.Entity<Guid>
     public Guid ItemId { get; set; }
     public decimal Qty { get; set; }
     public string? SerialNo { get; set; }
+    public Guid? DeliveryNoteItemId { get; set; }
 }

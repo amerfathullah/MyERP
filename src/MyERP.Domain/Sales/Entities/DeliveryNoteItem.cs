@@ -78,6 +78,15 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
     /// </summary>
     public decimal PackedQty { get; set; }
 
+    /// <summary>
+    /// Quantity installed at customer site via submitted Installation Notes.
+    /// Per ERPNext status updater: Installation Note Item.qty -> DN Item.installed_qty.
+    /// </summary>
+    public decimal InstalledQty { get; set; }
+
+    /// <summary>Pending installation quantity = Quantity - InstalledQty. 0 if closed.</summary>
+    public decimal PendingInstallationQty => IsClosed ? 0 : Math.Max(0, Math.Abs(Quantity) - Math.Abs(InstalledQty));
+
     protected DeliveryNoteItem() { }
 
     public DeliveryNoteItem(

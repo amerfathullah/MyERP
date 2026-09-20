@@ -108,7 +108,12 @@ export class InstallationNoteFormComponent implements OnInit {
         if (this.minDate && this.installationDate < this.minDate) this.installationDate = this.minDate;
         this.rows = (dn.items ?? [])
           .filter(i => !!i.itemId)
-          .map(i => ({ itemId: i.itemId!, qty: i.quantity ?? 0, serialNo: '' }));
+          .map(i => ({
+            itemId: i.itemId!,
+            deliveryNoteItemId: i.id,
+            qty: Math.max(0, (i.quantity ?? 0) - (i.installedQty ?? 0)),
+            serialNo: '',
+          }));
         this.isLoading = false;
       },
       error: () => { this.isLoading = false; },

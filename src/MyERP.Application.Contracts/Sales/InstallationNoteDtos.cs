@@ -20,6 +20,7 @@ public class InstallationNoteItemDto
     public Guid ItemId { get; set; }
     public decimal Qty { get; set; }
     public string? SerialNo { get; set; }
+    public Guid? DeliveryNoteItemId { get; set; }
 }
 
 public class CreateInstallationNoteDto

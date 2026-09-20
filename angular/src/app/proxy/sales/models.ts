@@ -692,7 +692,9 @@ export interface DeliveryNoteDto extends EntityDto<string> {
   status?: string;
   perBilled?: number;
   perReturned?: number;
+  perInstalled?: number;
   billingStatus?: string | null;
+  installationStatus?: string | null;
   items?: DeliveryNoteItemDto[];
 }
 
@@ -708,6 +710,7 @@ export interface DeliveryNoteItemDto {
   billedQty?: number;
   returnedQty?: number;
   packedQty?: number;
+  installedQty?: number;
   isClosed?: boolean;
   salesOrderItemId?: string | null;
 }
@@ -860,6 +863,7 @@ export interface InstallationNoteItemDto {
   itemId?: string;
   qty?: number;
   serialNo?: string | null;
+  deliveryNoteItemId?: string | null;
 }
 
 export interface InvoicePaymentHistoryDto {

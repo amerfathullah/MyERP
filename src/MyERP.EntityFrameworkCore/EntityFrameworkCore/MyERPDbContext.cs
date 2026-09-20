@@ -1289,6 +1289,7 @@ public class MyERPDbContext :
             b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.BilledQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.ReturnedQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.InstalledQty).HasColumnType("decimal(18,4)");
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
         });
 
@@ -4387,6 +4388,7 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.Qty).HasColumnType("decimal(18,4)");
             b.Property(x => x.SerialNo).HasMaxLength(200);
+            b.HasOne<DeliveryNoteItem>().WithMany().HasForeignKey(x => x.DeliveryNoteItemId).IsRequired(false);
         });
 
         // PartyLink — inter-company bidirectional party mapping

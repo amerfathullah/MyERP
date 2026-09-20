@@ -150,6 +150,40 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         // PerBilled and PerReturned are computed dynamically from item-level BilledQty and ReturnedQty
     }
 
+    /// <summary>
+    /// Installation completion percentage. Uses MIN% formula per ERPNext StatusUpdater.
+    /// Excludes closed rows.
+    /// </summary>
+    public decimal PerInstalled
+    {
+        get
+        {
+            if (!_items.Any()) return 0;
+            var openItems = _items.Where(i => !i.IsClosed).ToList();
+            var basis = openItems.Count > 0 ? openItems : _items;
+            return Math.Round(basis.Min(i =>
+            {
+                var netQty = Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty));
+                return netQty == 0 ? 100 : Math.Min(100, Math.Abs(i.InstalledQty) / netQty * 100);
+            }), 2);
+        }
+    }
+
+    /// <summary>
+    /// Delivery Note Installation Status indicator per ERPNext status updater:
+    /// Not Installed -> Partially Installed -> Installed
+    /// </summary>
+    public string InstallationStatus
+    {
+        get
+        {
+            if (Status == DocumentStatus.Draft || Status == DocumentStatus.Cancelled) return "Not Installed";
+            if (PerInstalled >= 100m) return "Installed";
+            if (PerInstalled > 0m || _items.Any(i => i.InstalledQty > 0)) return "Partially Installed";
+            return "Not Installed";
+        }
+    }
+
     protected DeliveryNote() { }
 
     public DeliveryNote(Guid id, Guid companyId, Guid customerId, Guid warehouseId, string deliveryNumber, DateTime postingDate, Guid? tenantId = null)

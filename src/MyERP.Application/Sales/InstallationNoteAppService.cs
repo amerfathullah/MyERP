@@ -102,7 +102,12 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
 
         foreach (var item in input.Items)
         {
-            note.AddItem(item.ItemId, item.Qty, item.SerialNo);
+            var dnItemId = item.DeliveryNoteItemId;
+            if (!dnItemId.HasValue)
+            {
+                dnItemId = deliveryNote.Items.FirstOrDefault(d => d.ItemId == item.ItemId)?.Id;
+            }
+            note.AddItem(item.ItemId, item.Qty, item.SerialNo, dnItemId);
         }
 
         // Per DO-NOT: installed qty must never exceed the DN's item qty, across all
@@ -153,6 +158,23 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
         note.Submit();
         await _repository.UpdateAsync(note);
 
+        // Update DeliveryNoteItem.InstalledQty and DeliveryNote status (per ERPNext status_updater)
+        var deliveryNote = await _deliveryNoteRepository.GetAsync(note.DeliveryNoteId, includeDetails: true);
+        foreach (var item in note.Items)
+        {
+            DeliveryNoteItem? dnItem = null;
+            if (item.DeliveryNoteItemId.HasValue)
+            {
+                dnItem = deliveryNote.Items.FirstOrDefault(d => d.Id == item.DeliveryNoteItemId.Value);
+            }
+            dnItem ??= deliveryNote.Items.FirstOrDefault(d => d.ItemId == item.ItemId);
+            if (dnItem != null)
+            {
+                dnItem.InstalledQty += item.Qty;
+            }
+        }
+        await _deliveryNoteRepository.UpdateAsync(deliveryNote, autoSave: true);
+
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "InstallationNote", note.Id,
@@ -167,6 +189,23 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
         var note = await _repository.GetAsync(id);
         note.Cancel();
         await _repository.UpdateAsync(note);
+
+        // Reverse DeliveryNoteItem.InstalledQty (per ERPNext status_updater)
+        var deliveryNote = await _deliveryNoteRepository.GetAsync(note.DeliveryNoteId, includeDetails: true);
+        foreach (var item in note.Items)
+        {
+            DeliveryNoteItem? dnItem = null;
+            if (item.DeliveryNoteItemId.HasValue)
+            {
+                dnItem = deliveryNote.Items.FirstOrDefault(d => d.Id == item.DeliveryNoteItemId.Value);
+            }
+            dnItem ??= deliveryNote.Items.FirstOrDefault(d => d.ItemId == item.ItemId);
+            if (dnItem != null)
+            {
+                dnItem.InstalledQty = Math.Max(0, dnItem.InstalledQty - item.Qty);
+            }
+        }
+        await _deliveryNoteRepository.UpdateAsync(deliveryNote, autoSave: true);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(

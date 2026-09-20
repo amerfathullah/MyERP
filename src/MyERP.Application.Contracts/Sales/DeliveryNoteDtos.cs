@@ -30,7 +30,10 @@ public class DeliveryNoteDto : EntityDto<Guid>
     public decimal PerBilled { get; set; }
     /// <summary>Returned percentage %. 0 = none returned, 100 = fully returned.</summary>
     public decimal PerReturned { get; set; }
+    /// <summary>Installation completion %. 0 = not installed, 100 = fully installed.</summary>
+    public decimal PerInstalled { get; set; }
     public string? BillingStatus { get; set; }
+    public string? InstallationStatus { get; set; }
     public List<DeliveryNoteItemDto> Items { get; set; } = new();
 }
 
@@ -47,6 +50,7 @@ public class DeliveryNoteItemDto
     public decimal BilledQty { get; set; }
     public decimal ReturnedQty { get; set; }
     public decimal PackedQty { get; set; }
+    public decimal InstalledQty { get; set; }
     public bool IsClosed { get; set; }
     public Guid? SalesOrderItemId { get; set; }
 }
