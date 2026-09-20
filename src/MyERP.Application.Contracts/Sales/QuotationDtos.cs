@@ -25,6 +25,8 @@ public class QuotationDto : FullAuditedEntityDto<Guid>
     public Guid? OpportunityId { get; set; }
     /// <summary>SO conversion completion %. 0 = not ordered, 100 = fully ordered.</summary>
     public decimal PerOrdered { get; set; }
+    /// <summary>Order conversion status: Not Ordered, Partially Ordered, Ordered.</summary>
+    public string OrderStatus { get; set; } = "Not Ordered";
     public List<QuotationItemDto> Items { get; set; } = new();
     public List<MyERP.CRM.CompetitorDetailDto> Competitors { get; set; } = new();
 }
@@ -40,6 +42,10 @@ public class QuotationItemDto
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
     public decimal OrderedQty { get; set; }
+    public decimal PendingOrderQty { get; set; }
+    public decimal StockQty { get; set; }
+    public string StockUom { get; set; } = "Unit";
+    public decimal ConversionFactor { get; set; } = 1m;
 }
 
 public class CreateQuotationDto

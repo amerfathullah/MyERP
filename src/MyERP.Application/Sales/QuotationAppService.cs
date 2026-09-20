@@ -360,6 +360,18 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         quotation.Submit();
         await _repository.UpdateAsync(quotation, autoSave: true);
 
+        // Per ERPNext quotation.py on_submit(): update enquiry status
+        if (quotation.OpportunityId.HasValue)
+        {
+            var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
+            var opp = await oppRepo.FindAsync(quotation.OpportunityId.Value);
+            if (opp != null && opp.Status is CRM.OpportunityStatus.Open or CRM.OpportunityStatus.Replied)
+            {
+                opp.MarkQuotation();
+                await oppRepo.UpdateAsync(opp, autoSave: true);
+            }
+        }
+
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
         await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "Quotation", quotation.Id, "Submitted",
@@ -378,6 +390,27 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         quotation.Cancel();
         await _repository.UpdateAsync(quotation, autoSave: true);
 
+        // Per ERPNext quotation.py on_cancel(): revert opportunity to Open if no other active quotations exist
+        if (quotation.OpportunityId.HasValue)
+        {
+            var queryable = await _repository.GetQueryableAsync();
+            var hasOtherActiveQuotations = queryable.Any(q =>
+                q.Id != quotation.Id
+                && q.OpportunityId == quotation.OpportunityId
+                && q.Status == Core.DocumentStatus.Submitted);
+
+            if (!hasOtherActiveQuotations)
+            {
+                var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
+                var opp = await oppRepo.FindAsync(quotation.OpportunityId.Value);
+                if (opp != null && opp.Status == CRM.OpportunityStatus.Quotation)
+                {
+                    opp.Reopen();
+                    await oppRepo.UpdateAsync(opp, autoSave: true);
+                }
+            }
+        }
+
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
         await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "Quotation", quotation.Id, "Cancelled",
@@ -395,6 +428,28 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var quotation = await _repository.GetAsync(id);
         quotation.MarkLost();
         await _repository.UpdateAsync(quotation, autoSave: true);
+
+        // Per ERPNext quotation.py declare_enquiry_lost(): mark opportunity Lost if no other active quotations exist
+        if (quotation.OpportunityId.HasValue)
+        {
+            var queryable = await _repository.GetQueryableAsync();
+            var hasOtherActiveQuotations = queryable.Any(q =>
+                q.Id != quotation.Id
+                && q.OpportunityId == quotation.OpportunityId
+                && q.Status == Core.DocumentStatus.Submitted);
+
+            if (!hasOtherActiveQuotations)
+            {
+                var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
+                var opp = await oppRepo.FindAsync(quotation.OpportunityId.Value);
+                if (opp != null && opp.Status != CRM.OpportunityStatus.Converted)
+                {
+                    opp.DeclareLost("Quotation marked as Lost");
+                    await oppRepo.UpdateAsync(opp, autoSave: true);
+                }
+            }
+        }
+
         var lostDto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
         lostDto.CustomerName = await ResolveCustomerNameAsync(quotation.CustomerId);
         return lostDto;

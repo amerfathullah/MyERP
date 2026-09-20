@@ -66,9 +66,15 @@ export class QuotationDetailComponent implements OnInit {
       actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
     }
     if (this.quotation.status === 'Submitted') {
-      actions.push({ name: 'convert', label: 'Convert to SO', icon: 'arrow-right-arrow-left', color: 'success' });
+      const isOrdered = this.quotation.orderStatus === 'Ordered' || (this.quotation.perOrdered ?? 0) >= 100 || !!this.quotation.convertedToSalesOrderId;
+      const isPartiallyOrdered = this.quotation.orderStatus === 'Partially Ordered' || (this.quotation.perOrdered ?? 0) > 0;
+      if (!isOrdered) {
+        actions.push({ name: 'convert', label: 'Convert to SO', icon: 'arrow-right-arrow-left', color: 'success' });
+      }
       actions.push({ name: 'sendEmail', label: this.l.instant('::SendEmail'), icon: 'envelope', color: 'secondary' });
-      actions.push({ name: 'lost', label: 'Mark Lost', icon: 'thumbs-down', color: 'warning' });
+      if (!isOrdered && !isPartiallyOrdered) {
+        actions.push({ name: 'lost', label: 'Mark Lost', icon: 'thumbs-down', color: 'warning' });
+      }
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
     }
     if (this.quotation.status === 'Cancelled' || this.quotation.status === 'Rejected') {

@@ -83,6 +83,14 @@ public class Opportunity : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = OpportunityStatus.Converted;
     }
 
+    /// <summary>Reverts converted opportunity back to Quotation status when Sales Order is cancelled.</summary>
+    public void RevertToQuotation()
+    {
+        if (Status != OpportunityStatus.Converted)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = OpportunityStatus.Quotation;
+    }
+
     public void DeclareLost(string? reason = null)
     {
         if (Status == OpportunityStatus.Converted)
@@ -100,7 +108,7 @@ public class Opportunity : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void Reopen()
     {
-        if (Status is not (OpportunityStatus.Lost or OpportunityStatus.Closed))
+        if (Status is not (OpportunityStatus.Lost or OpportunityStatus.Closed or OpportunityStatus.Quotation))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = OpportunityStatus.Open;
         LostReason = null;

@@ -312,8 +312,14 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         if (input.QuotationId.HasValue)
         {
             var quotationRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
-            var quotation = await quotationRepo.FindAsync(input.QuotationId.Value);
-            if (quotation != null && quotation.IsExpired)
+            var quotation = await quotationRepo.GetAsync(input.QuotationId.Value);
+            if (quotation.Status != Core.DocumentStatus.Submitted)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion)
+                    .WithData("documentType", "Quotation")
+                    .WithData("documentNumber", quotation.QuotationNumber);
+            }
+            if (quotation.IsExpired)
             {
                 var allowExpired = await SettingProvider.GetOrNullAsync(MyERPSettings.Selling.AllowSalesOrderCreationForExpiredQuotation);
                 if (allowExpired != "true")
@@ -678,6 +684,18 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                     }
                 }
                 await quotationRepo.UpdateAsync(quotation, autoSave: true);
+
+                // Per ERPNext sales_order.py update_prevdoc_status(): cascade to Opportunity status
+                if (quotation.OpportunityId.HasValue)
+                {
+                    var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
+                    var opp = await oppRepo.FindAsync(quotation.OpportunityId.Value);
+                    if (opp != null && opp.Status is CRM.OpportunityStatus.Open or CRM.OpportunityStatus.Quotation or CRM.OpportunityStatus.Replied)
+                    {
+                        opp.Convert();
+                        await oppRepo.UpdateAsync(opp, autoSave: true);
+                    }
+                }
             }
         }
 
@@ -782,6 +800,28 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                     quotation.ConvertedToSalesOrderId = null;
                 }
                 await quotationRepo.UpdateAsync(quotation, autoSave: true);
+
+                // Per ERPNext sales_order.py update_prevdoc_status(): revert Opportunity if no other submitted SOs
+                if (quotation.OpportunityId.HasValue)
+                {
+                    var soQuery = await _repository.GetQueryableAsync();
+                    var hasOtherSubmittedSo = soQuery.Any(so =>
+                        so.Id != order.Id
+                        && so.QuotationId == quotation.Id
+                        && so.Status != Core.DocumentStatus.Draft
+                        && so.Status != Core.DocumentStatus.Cancelled);
+
+                    if (!hasOtherSubmittedSo)
+                    {
+                        var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
+                        var opp = await oppRepo.FindAsync(quotation.OpportunityId.Value);
+                        if (opp != null && opp.Status == CRM.OpportunityStatus.Converted)
+                        {
+                            opp.RevertToQuotation();
+                            await oppRepo.UpdateAsync(opp, autoSave: true);
+                        }
+                    }
+                }
             }
         }
 

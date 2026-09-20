@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive' | 'ToDeliverAndBill' | 'ToDeliver' | 'ToBill' | 'Completed' | 'Closed' | 'NotApplicable' | 'Unfulfilled' | 'PartiallyFulfilled' | 'Fulfilled' | 'Lapsed' | 'Return' | 'ReturnIssued' | 'PartiallyBilled';
+export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive' | 'ToDeliverAndBill' | 'ToDeliver' | 'ToBill' | 'Completed' | 'Closed' | 'NotApplicable' | 'Unfulfilled' | 'PartiallyFulfilled' | 'Fulfilled' | 'Lapsed' | 'Return' | 'ReturnIssued' | 'PartiallyBilled' | 'Ordered' | 'PartiallyOrdered' | 'Open' | 'Lost' | 'Converted' | 'Quotation';
 
 interface StatusConfig {
   icon: string;
@@ -33,6 +33,12 @@ const STATUS_MAP: Record<DocumentStatus, StatusConfig> = {
   Return: { icon: 'fa fa-undo', badgeClass: 'bg-warning text-dark' },
   ReturnIssued: { icon: 'fa fa-undo', badgeClass: 'bg-info' },
   PartiallyBilled: { icon: 'fa fa-clock', badgeClass: 'bg-warning text-dark' },
+  Ordered: { icon: 'fa fa-check-double', badgeClass: 'bg-success' },
+  PartiallyOrdered: { icon: 'fa fa-clock', badgeClass: 'bg-info' },
+  Open: { icon: 'fa fa-folder-open', badgeClass: 'bg-info' },
+  Lost: { icon: 'fa fa-thumbs-down', badgeClass: 'bg-warning text-dark' },
+  Converted: { icon: 'fa fa-check-circle', badgeClass: 'bg-success' },
+  Quotation: { icon: 'fa fa-file-invoice-dollar', badgeClass: 'bg-info' },
 };
 
 @Component({

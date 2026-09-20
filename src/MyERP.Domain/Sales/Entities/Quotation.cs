@@ -61,6 +61,28 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
         }
     }
 
+    /// <summary>Dynamic order status matching ERPNext get_ordered_status(): Open, Partially Ordered, Ordered.</summary>
+    public string OrderStatus
+    {
+        get
+        {
+            if (Status != DocumentStatus.Submitted)
+                return Status == DocumentStatus.Rejected ? "Lost" : Status.ToString();
+
+            if (PerOrdered >= 100m)
+                return "Ordered";
+            if (PerOrdered > 0m)
+                return "Partially Ordered";
+            return "Open";
+        }
+    }
+
+    /// <summary>True when all items have been converted to Sales Orders (100%).</summary>
+    public bool IsFullyOrdered => OrderStatus == "Ordered";
+
+    /// <summary>True when some items have been converted to Sales Orders (0% &lt; PerOrdered &lt; 100%).</summary>
+    public bool IsPartiallyOrdered => OrderStatus == "Partially Ordered";
+
     protected Quotation() { }
 
     public Quotation(Guid id, Guid companyId, Guid customerId, string quotationNumber, DateTime issueDate, Guid? tenantId = null)

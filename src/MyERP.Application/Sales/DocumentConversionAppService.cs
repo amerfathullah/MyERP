@@ -101,7 +101,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         if (quotation.Status != Core.DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
-        if (quotation.ConvertedToSalesOrderId.HasValue)
+        if (quotation.ConvertedToSalesOrderId.HasValue || quotation.IsFullyOrdered)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
                 .WithData("documentType", "Quotation")
                 .WithData("documentNumber", quotation.QuotationNumber)

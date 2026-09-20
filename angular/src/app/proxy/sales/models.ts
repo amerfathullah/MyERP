@@ -1350,6 +1350,7 @@ export interface QuotationDto extends FullAuditedEntityDto<string> {
   convertedToSalesOrderId?: string | null;
   opportunityId?: string | null;
   perOrdered?: number;
+  orderStatus?: string;
   items?: QuotationItemDto[];
   competitors?: CompetitorDetailDto[];
 }
@@ -1364,6 +1365,10 @@ export interface QuotationItemDto {
   taxAmount?: number;
   lineTotal?: number;
   orderedQty?: number;
+  pendingOrderQty?: number;
+  stockQty?: number;
+  stockUom?: string;
+  conversionFactor?: number;
 }
 
 export interface QuotationLostReasonDto extends FullAuditedEntityDto<string> {

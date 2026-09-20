@@ -24,6 +24,7 @@
             <option value="Draft">{{ '::Draft' | abpLocalization }}</option>
             <option value="Submitted">{{ '::Submitted' | abpLocalization }}</option>
             <option value="Cancelled">{{ '::Cancelled' | abpLocalization }}</option>
+            <option value="Rejected">{{ '::Lost' | abpLocalization }}</option>
           </select>
         </div>
         <div class="col-auto">
@@ -87,12 +88,12 @@
                   <td>{{ row.issueDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
                   <td>
-                    @if (row.convertedToSalesOrderId) {
-                      <span class="badge bg-info"><i class="fa fa-check-double me-1"></i>{{ '::Ordered' | abpLocalization }}</span>
+                    @if (row.orderStatus === 'Ordered' || row.convertedToSalesOrderId) {
+                      <span class="badge bg-success"><i class="fa fa-check-double me-1"></i>{{ '::Ordered' | abpLocalization }}</span>
                     } @else if (row.status === 'Submitted') {
                       <div class="d-flex align-items-center gap-1">
                         <div class="progress flex-grow-1" style="height: 5px;">
-                          <div class="progress-bar bg-info" [style.width.%]="row.perOrdered ?? 0"></div>
+                          <div class="progress-bar" [class.bg-success]="(row.perOrdered ?? 0) >= 100" [class.bg-info]="(row.perOrdered ?? 0) < 100" [style.width.%]="row.perOrdered ?? 0"></div>
                         </div>
                         <small [class.text-success]="(row.perOrdered ?? 0) >= 100" [class.fw-bold]="(row.perOrdered ?? 0) >= 100">{{ row.perOrdered ?? 0 | number:'1.0-0' }}%</small>
                       </div>
@@ -100,7 +101,7 @@
                       <span class="text-muted">—</span>
                     }
                   </td>
-                  <td><app-status-badge [status]="row.status ?? ''" /></td>
+                  <td><app-status-badge [status]="row.orderStatus || row.status || ''" /></td>
                   <td>
                     @if (row.status === 'Submitted') {
                       @if (isExpired(row)) {
