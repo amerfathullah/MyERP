@@ -230,4 +230,42 @@ public abstract class DisassemblySourceResolutionTests<TStartupModule> : MyERPAp
         company.DefaultStockAdjustmentAccountId = adjustmentAccount.Id;
         await companyRepository.UpdateAsync(company, autoSave: true);
     }
+
+    [Fact]
+    public async Task ExplicitSourceEntry_FromAnotherWorkOrder_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "Disassembly Source Guard Co"), autoSave: true);
+            var fgItem = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "FG-GUARD", "Guard Widget", ItemType.Goods), autoSave: true);
+            var warehouse = await GetRequiredService<IRepository<Warehouse, Guid>>().InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Guard Store"), autoSave: true);
+            await GetRequiredService<IRepository<DocumentSeries, Guid>>().InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SE Series G", "SE", "SEG-"), autoSave: true);
+
+            var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-GUARD-1", fgItem.Id, Guid.NewGuid(), quantity: 10m) { FgWarehouseId = warehouse.Id };
+            wo.Submit();
+            wo.Start();
+            wo.RecordProduction(10m);
+            await GetRequiredService<IRepository<WorkOrder, Guid>>().InsertAsync(wo, autoSave: true);
+
+            var foreignEntry = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.Manufacture, DateTime.UtcNow.Date, company.TenantId)
+            {
+                WorkOrderId = Guid.NewGuid(),
+                EntryNumber = "SE-FOREIGN-1",
+                FgCompletedQty = 10m,
+            };
+            foreignEntry.AddItem(fgItem.Id, 10m, sourceWarehouseId: null, targetWarehouseId: warehouse.Id, valuationRate: 5m);
+            foreignEntry.Submit();
+            await GetRequiredService<IRepository<StockEntry, Guid>>().InsertAsync(foreignEntry, autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                GetRequiredService<IManufacturingAppService>().CreateDisassemblyStockEntryAsync(new CreateDisassemblyDto
+                {
+                    WorkOrderId = wo.Id,
+                    Quantity = 5m,
+                    SourceStockEntryId = foreignEntry.Id,
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
 }

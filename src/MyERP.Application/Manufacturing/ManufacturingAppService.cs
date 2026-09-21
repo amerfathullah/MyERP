@@ -2151,6 +2151,18 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         {
             // Tier 1: exact reversal of one explicitly-chosen Manufacture Stock Entry.
             sourceEntry = await seRepo.GetAsync(input.SourceStockEntryId.Value);
+
+            // ERPNext validate_source_stock_entry (+ the disassembly tamper checks): the source must
+            // be a live Manufacture entry of this very Work Order, otherwise the reversal would mint
+            // raw materials from an unrelated, draft or cancelled document.
+            if (sourceEntry.WorkOrderId != wo.Id)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Source Stock Entry {sourceEntry.EntryNumber} does not belong to Work Order {wo.WorkOrderNumber}. Please use a manufacture entry from the same Work Order.");
+            if (sourceEntry.EntryType != Inventory.StockEntryType.Manufacture
+                || sourceEntry.Status == Core.DocumentStatus.Draft
+                || sourceEntry.Status == Core.DocumentStatus.Cancelled)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Source Stock Entry {sourceEntry.EntryNumber} must be a submitted Manufacture entry.");
         }
         else
         {
