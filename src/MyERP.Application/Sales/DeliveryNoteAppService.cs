@@ -171,6 +171,13 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                         .WithData("deliveryNoteCompany", input.CompanyId);
                 }
 
+                // ERPNext check_sales_order_on_hold_or_close: no delivery against a closed Sales Order (returns exempt).
+                if (!input.IsReturn && so.Status == Core.DocumentStatus.Closed)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.LinkedSalesOrderClosed)
+                        .WithData("salesOrderNumber", so.OrderNumber);
+                }
+
                 var soItemIds = so.Items.Select(i => i.Id).ToHashSet();
                 var invalidSoItem = input.Items.FirstOrDefault(i => i.SalesOrderItemId.HasValue && !soItemIds.Contains(i.SalesOrderItemId.Value));
                 if (invalidSoItem != null)
@@ -322,6 +329,13 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
                         .WithData("salesOrderCompany", so.CompanyId)
                         .WithData("deliveryNoteCompany", dn.CompanyId);
+                }
+
+                // ERPNext check_sales_order_on_hold_or_close: no delivery against a closed Sales Order (returns exempt).
+                if (!dn.IsReturn && so.Status == Core.DocumentStatus.Closed)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.LinkedSalesOrderClosed)
+                        .WithData("salesOrderNumber", so.OrderNumber);
                 }
 
                 var soItemIds = so.Items.Select(i => i.Id).ToHashSet();

@@ -376,4 +376,37 @@ public abstract class DeliveryNoteCompanyGuardTests<TStartupModule> : MyERPAppli
             loadedPlAfterCancel.PerDelivered.ShouldBe(0m);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_ClosedSalesOrder_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "DN Closed SO Co 1"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(new Customer(Guid.NewGuid(), company.Id, "DN Closed SO Cust 1"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(new Item(Guid.NewGuid(), company.Id, "DN-ITEM-CLOSED", "DN Item Closed", ItemType.Goods), autoSave: true);
+            var wh = await GetRequiredService<IRepository<Warehouse, Guid>>().InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "DN Closed SO WH 1"), autoSave: true);
+
+            var so = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-DN-CLOSED", DateTime.UtcNow.Date);
+            so.AddItem(item.Id, "Item SO", 1, 100, 0);
+            so.Submit();
+            so.Close();
+            await GetRequiredService<IRepository<SalesOrder, Guid>>().InsertAsync(so, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                GetRequiredService<IDeliveryNoteAppService>().CreateAsync(new CreateDeliveryNoteDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customer.Id,
+                    WarehouseId = wh.Id,
+                    SalesOrderId = so.Id,
+                    PostingDate = DateTime.UtcNow.Date,
+                    Items = new List<CreateDeliveryNoteItemDto>
+                    {
+                        new() { ItemId = item.Id, Description = "Item", Quantity = 1, UnitPrice = 100, SalesOrderItemId = so.Items[0].Id }
+                    }
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.LinkedSalesOrderClosed);
+        });
+    }
 }
