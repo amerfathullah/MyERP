@@ -86,6 +86,12 @@ public class SalesOrderItemDto
     public decimal BilledQty { get; set; }
     public Guid? WarehouseId { get; set; }
 
+    /// <summary>Drop-ship: the supplier ships this line straight to the customer (no warehouse involvement).</summary>
+    public bool DeliveredBySupplier { get; set; }
+
+    /// <summary>Drop-ship supplier for this line (required when DeliveredBySupplier).</summary>
+    public Guid? SupplierId { get; set; }
+
     /// <summary>Blanket Order this line draws from (null if not linked to one).</summary>
     public Guid? BlanketOrderId { get; set; }
 
@@ -184,6 +190,12 @@ public class CreateSalesOrderItemDto
 
     public Guid? WarehouseId { get; set; }
     public DateTime? DeliveryDate { get; set; }
+
+    /// <summary>Drop-ship: the supplier ships this line straight to the customer (no warehouse involvement).</summary>
+    public bool DeliveredBySupplier { get; set; }
+
+    /// <summary>Drop-ship supplier for this line (required when DeliveredBySupplier).</summary>
+    public Guid? SupplierId { get; set; }
 
     /// <summary>Blanket Order this line draws from — qty deducted from the blanket allocation on submit.</summary>
     public Guid? BlanketOrderId { get; set; }

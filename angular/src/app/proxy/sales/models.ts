@@ -446,6 +446,8 @@ export interface CreateSalesOrderItemDto {
   taxAmount?: number;
   uom?: string;
   warehouseId?: string | null;
+  deliveredBySupplier?: boolean;
+  supplierId?: string | null;
   deliveryDate?: string | null;
   blanketOrderId?: string | null;
   quotationItemId?: string | null;
@@ -1562,6 +1564,8 @@ export interface SalesOrderItemDto {
   availableQty?: number;
   isInsufficientStock?: boolean;
   isClosed?: boolean;
+  deliveredBySupplier?: boolean;
+  supplierId?: string | null;
 }
 
 export interface SalesOrderTrackingBoardCardDto {

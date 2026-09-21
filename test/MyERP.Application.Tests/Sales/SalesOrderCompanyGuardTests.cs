@@ -6,6 +6,7 @@ using MyERP.Core.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.Entities;
 using MyERP.Projects.Entities;
+using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using Shouldly;
 using Volo.Abp;
@@ -263,6 +264,59 @@ public abstract class SalesOrderCompanyGuardTests<TStartupModule> : MyERPApplica
                         new() { ItemId = item.Id, Description = "SO Item 7", Quantity = 1, UnitPrice = 100 }
                     }
                 }));
+        });
+    }
+
+    private async Task<(Company Company, Customer Customer, Item Item, Supplier Supplier)> SeedDropShipAsync(string tag)
+    {
+        var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), $"SO Drop Co {tag}"), autoSave: true);
+        var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(new Customer(Guid.NewGuid(), company.Id, $"SO Drop Cust {tag}"), autoSave: true);
+        var supplier = await GetRequiredService<IRepository<Supplier, Guid>>().InsertAsync(new Supplier(Guid.NewGuid(), company.Id, $"SO Drop Supp {tag}"), autoSave: true);
+        var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(new Item(Guid.NewGuid(), company.Id, $"SO-DROP-{tag}", "Drop Item", ItemType.Goods), autoSave: true);
+        await GetRequiredService<IRepository<DocumentSeries, Guid>>().InsertAsync(
+            new DocumentSeries(Guid.NewGuid(), company.Id, $"SO Series {tag}", "SalesOrder", $"SODROP{tag}-"), autoSave: true);
+        return (company, customer, item, supplier);
+    }
+
+    [Fact]
+    public async Task CreateAsync_DropShipItemWithoutSupplier_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var f = await SeedDropShipAsync("A");
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                GetRequiredService<ISalesOrderAppService>().CreateAsync(new CreateSalesOrderDto
+                {
+                    CompanyId = f.Company.Id,
+                    CustomerId = f.Customer.Id,
+                    OrderDate = DateTime.UtcNow.Date,
+                    Items = new List<CreateSalesOrderItemDto>
+                    {
+                        new() { ItemId = f.Item.Id, Description = "Drop Item", Quantity = 1, UnitPrice = 100, DeliveredBySupplier = true }
+                    }
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
+
+    [Fact]
+    public async Task CreateAsync_DropShipItemWithSupplier_PersistsFlagAndSupplier()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var f = await SeedDropShipAsync("B");
+            var created = await GetRequiredService<ISalesOrderAppService>().CreateAsync(new CreateSalesOrderDto
+            {
+                CompanyId = f.Company.Id,
+                CustomerId = f.Customer.Id,
+                OrderDate = DateTime.UtcNow.Date,
+                Items = new List<CreateSalesOrderItemDto>
+                {
+                    new() { ItemId = f.Item.Id, Description = "Drop Item", Quantity = 1, UnitPrice = 100, DeliveredBySupplier = true, SupplierId = f.Supplier.Id }
+                }
+            });
+            created.Items[0].DeliveredBySupplier.ShouldBeTrue();
+            created.Items[0].SupplierId.ShouldBe(f.Supplier.Id);
         });
     }
 }

@@ -353,6 +353,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.DeliveryDate, item.QuotationItemId);
             if (item.WarehouseId.HasValue)
                 order.Items[^1].WarehouseId = item.WarehouseId;
+            ApplyDropShip(order.Items[^1], item);
             if (item.BlanketOrderId.HasValue)
                 order.Items[^1].BlanketOrderId = item.BlanketOrderId;
         }
@@ -1070,6 +1071,21 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         return dto;
     }
 
+    /// <summary>
+    /// Copies the drop-ship flag/supplier onto a new SO line. ERPNext validate_drop_ship:
+    /// a line delivered by the supplier must name that supplier.
+    /// </summary>
+    private static void ApplyDropShip(SalesOrderItem line, CreateSalesOrderItemDto input)
+    {
+        if (!input.DeliveredBySupplier)
+            return;
+        if (!input.SupplierId.HasValue)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Set Supplier for drop-ship item {input.Description}.");
+        line.DeliveredBySupplier = true;
+        line.SupplierId = input.SupplierId;
+    }
+
     [Authorize(MyERPPermissions.SalesOrders.Edit)]
     public async Task<SalesOrderDto> UpdateAsync(Guid id, CreateSalesOrderDto input)
     {
@@ -1130,6 +1146,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             var lastSoItem = order.Items[^1];
             if (item.WarehouseId.HasValue)
                 lastSoItem.WarehouseId = item.WarehouseId;
+            ApplyDropShip(lastSoItem, item);
             if (item.BlanketOrderId.HasValue)
                 lastSoItem.BlanketOrderId = item.BlanketOrderId;
 
