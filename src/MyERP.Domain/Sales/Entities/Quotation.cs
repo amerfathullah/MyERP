@@ -49,7 +49,8 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     public Guid? OpportunityId { get; set; }
 
     private readonly List<QuotationItem> _items = new();
-    public IReadOnlyList<QuotationItem> Items => _items.AsReadOnly();
+    /// <summary>Rows in document order (Idx), since the database gives no ordering guarantee.</summary>
+    public IReadOnlyList<QuotationItem> Items => _items.OrderBy(i => i.Idx).ThenBy(i => i.CreationTime).ToList();
 
     /// <summary>SO conversion completion %. MIN% formula per ERPNext StatusUpdater (PR #58603: compares in stock UOM).</summary>
     public decimal PerOrdered
@@ -101,7 +102,7 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        _items.Add(new QuotationItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom) { IsAlternative = isAlternative });
+        _items.Add(new QuotationItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom) { IsAlternative = isAlternative, Idx = _items.Count });
         RecalculateTotals();
     }
 
@@ -170,10 +171,11 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     /// </summary>
     private void MarkRowsWithAlternatives()
     {
-        for (var idx = 0; idx < _items.Count - 1; idx++)
+        var ordered = Items;
+        for (var idx = 0; idx < ordered.Count - 1; idx++)
         {
-            if (!_items[idx].IsAlternative && _items[idx + 1].IsAlternative)
-                _items[idx].HasAlternativeItem = true;
+            if (!ordered[idx].IsAlternative && ordered[idx + 1].IsAlternative)
+                ordered[idx].HasAlternativeItem = true;
         }
     }
 
@@ -213,6 +215,9 @@ public class QuotationItem : CreationAuditedEntity<Guid>
 
     /// <summary>Qty converted to Sales Order in stock UOM (PR #58603). Tracked by document conversion.</summary>
     public decimal OrderedQty { get; set; }
+
+    /// <summary>Zero-based row position within the quotation (ERPNext idx).</summary>
+    public int Idx { get; set; }
 
     /// <summary>Alternative offer for the preceding row; excluded from totals (ERPNext is_alternative).</summary>
     public bool IsAlternative { get; set; }
