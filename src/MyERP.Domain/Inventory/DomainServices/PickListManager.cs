@@ -114,7 +114,8 @@ public class PickListManager : DomainService
                 ItemId = i.ItemId,
                 WarehouseId = i.WarehouseId,
                 PendingQty = i.PendingQty,
-                BatchId = i.BatchId
+                BatchId = i.BatchId,
+                SourceDocumentItemId = i.SourceDocumentItemId
             })
             .ToList();
     }
@@ -385,6 +386,7 @@ public class PendingTransfer
     public Guid WarehouseId { get; set; }
     public decimal PendingQty { get; set; }
     public Guid? BatchId { get; set; }
+    public Guid? SourceDocumentItemId { get; set; }
 }
 
 public record DeliveredComponentItem(

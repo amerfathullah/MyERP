@@ -28,6 +28,9 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Reference to Sales Order this delivery fulfills.</summary>
     public Guid? SalesOrderId { get; set; }
 
+    /// <summary>Reference to Pick List this delivery fulfills.</summary>
+    public Guid? PickListId { get; set; }
+
     /// <summary>Target warehouse from which goods are dispatched.</summary>
     public Guid WarehouseId { get; set; }
 
@@ -91,21 +94,35 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public IReadOnlyList<DeliveryNoteItem> Items => _items.AsReadOnly();
 
     /// <summary>
-    /// Billing completion percentage. Uses MIN% formula per ERPNext StatusUpdater.
+    /// Billing completion percentage (0-100).
+    /// Uses weighted sum-of-min formula per ERPNext StatusUpdater / StockController (PR #58869, PR #58953).
     /// Excludes closed rows (settled by close, per ERPNext PR #57596).
+    /// Preserves original basis when 100% returned.
     /// </summary>
     public decimal PerBilled
     {
         get
         {
-            if (!_items.Any()) return 0;
+            if (!_items.Any()) return 0m;
             var openItems = _items.Where(i => !i.IsClosed).ToList();
             var basis = openItems.Count > 0 ? openItems : _items;
-            return Math.Round(basis.Min(i =>
+            if (basis.Count == 0) return 0m;
+
+            var basisTotal = basis.Sum(i => Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty)) * i.UnitPrice);
+            if (basisTotal > 0)
             {
-                var netQty = Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty));
-                return netQty == 0 ? 100 : Math.Min(100, Math.Abs(i.BilledQty) / netQty * 100);
-            }), 2);
+                var billedAmount = basis.Sum(i => Math.Min(Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty)), Math.Abs(i.BilledQty)) * i.UnitPrice);
+                return Math.Min(100m, Math.Round(billedAmount / basisTotal * 100m, 2));
+            }
+
+            var totalNetQty = basis.Sum(i => Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty)));
+            if (totalNetQty > 0)
+            {
+                var billedQty = basis.Sum(i => Math.Min(Math.Max(0, Math.Abs(i.Quantity) - Math.Abs(i.ReturnedQty)), Math.Abs(i.BilledQty)));
+                return Math.Min(100m, Math.Round(billedQty / totalNetQty * 100m, 2));
+            }
+
+            return 100m;
         }
     }
 
@@ -197,7 +214,7 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", Guid? salesOrderItemId = null)
+    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", Guid? salesOrderItemId = null, Guid? pickListItemId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -209,7 +226,7 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             throw new ArgumentException("Quantity must be negative for return delivery notes.", nameof(quantity));
 
         _items.Add(new DeliveryNoteItem(
-            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, salesOrderItemId));
+            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, salesOrderItemId, pickListItemId));
 
         RecalculateTotals();
     }

@@ -54,6 +54,7 @@ public class PickListItemDto
     public Guid WarehouseId { get; set; }
     public decimal Qty { get; set; }
     public decimal TransferredQty { get; set; }
+    public decimal DeliveredQty { get; set; }
     public decimal PendingQty { get; set; }
     public decimal StockReservedQty { get; set; }
     public Guid? ProductBundleItemId { get; set; }

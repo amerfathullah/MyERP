@@ -82,14 +82,26 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     {
         get
         {
-            if (!_items.Any()) return 0;
+            if (!_items.Any()) return 0m;
             var openItems = _items.Where(i => !i.IsClosed).ToList();
             var basis = openItems.Count > 0 ? openItems : _items;
-            return Math.Round(basis.Min(i =>
+            if (basis.Count == 0) return 0m;
+
+            var basisTotal = basis.Sum(i => i.BillableQty * i.UnitPrice);
+            if (basisTotal > 0)
             {
-                var billableQty = i.BillableQty;
-                return billableQty == 0 ? 100 : Math.Min(100, Math.Abs(i.BilledQty) / billableQty * 100);
-            }), 2);
+                var billedAmount = basis.Sum(i => Math.Min(i.BillableQty, Math.Abs(i.BilledQty)) * i.UnitPrice);
+                return Math.Min(100m, Math.Round(billedAmount / basisTotal * 100m, 2));
+            }
+
+            var totalNetQty = basis.Sum(i => i.BillableQty);
+            if (totalNetQty > 0)
+            {
+                var billedQty = basis.Sum(i => Math.Min(i.BillableQty, Math.Abs(i.BilledQty)));
+                return Math.Min(100m, Math.Round(billedQty / totalNetQty * 100m, 2));
+            }
+
+            return 100m;
         }
     }
 

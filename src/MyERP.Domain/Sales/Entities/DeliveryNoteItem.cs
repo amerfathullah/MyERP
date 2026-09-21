@@ -87,12 +87,18 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
     /// <summary>Pending installation quantity = Quantity - InstalledQty. 0 if closed.</summary>
     public decimal PendingInstallationQty => IsClosed ? 0 : Math.Max(0, Math.Abs(Quantity) - Math.Abs(InstalledQty));
 
+    /// <summary>
+    /// Link to Pick List Item when created from or fulfilled via Pick List.
+    /// Per ERPNext status updater: Delivery Note Item.pick_list_item -> Pick List Item.delivered_qty.
+    /// </summary>
+    public Guid? PickListItemId { get; set; }
+
     protected DeliveryNoteItem() { }
 
     public DeliveryNoteItem(
         Guid id, Guid deliveryNoteId, Guid itemId,
         string description, decimal quantity, decimal unitPrice, decimal taxAmount,
-        string uom = "Unit", Guid? salesOrderItemId = null)
+        string uom = "Unit", Guid? salesOrderItemId = null, Guid? pickListItemId = null)
         : base(id)
     {
         DeliveryNoteId = deliveryNoteId;
@@ -103,5 +109,6 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
         TaxAmount = taxAmount;
         Uom = uom;
         SalesOrderItemId = salesOrderItemId;
+        PickListItemId = pickListItemId;
     }
 }

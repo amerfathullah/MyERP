@@ -131,8 +131,8 @@ public class ProcurementDashboardAndUpstreamSyncTests
         po.Items[0].ReceivedQty = 10; // 100% received
         po.Items[1].ReceivedQty = 5;  // 25% received
 
-        // MIN(100%, 25%) = 25%
-        Assert.Equal(25m, po.PerReceived);
+        // Weighted: (10 + 5) / (10 + 20) * 100 = 50%
+        Assert.Equal(50.0m, po.PerReceived);
     }
 
     // ── Stock Entry Process Loss (entity fields verification) ──

@@ -93,7 +93,7 @@ public class DeliveryNoteReturnBillingStatusTests
         // Item 1 billed
         dn.Items[0].BilledQty = 1m;
         dn.BillingStatus.ShouldBe("Partially Billed");
-        dn.PerBilled.ShouldBe(0m); // Min(100%, 0%) = 0%
+        dn.PerBilled.ShouldBe(50.0m);
 
         // Item 2 returned
         dn.Items[1].ReturnedQty = 1m;
@@ -108,7 +108,7 @@ public class DeliveryNoteReturnBillingStatusTests
         dn.Items[1].ReturnedQty = 0m;
         dn.UpdateBillingStatus();
 
-        dn.PerBilled.ShouldBe(0m);
+        dn.PerBilled.ShouldBe(50.0m);
         dn.BillingStatus.ShouldBe("Partially Billed");
         dn.PerReturned.ShouldBe(0m);
     }

@@ -240,8 +240,8 @@ public class InvoiceAdvanceRoundingBillingTests
         // Bill 100% of A but 0% of B
         dn.Items.First().BilledQty = 10;
 
-        // MIN(100%, 0%) = 0%
-        dn.PerBilled.ShouldBe(0);
+        // Weighted: (500 + 0) / 1000 = 50%
+        dn.PerBilled.ShouldBe(50);
     }
 
     [Fact]
@@ -305,7 +305,8 @@ public class InvoiceAdvanceRoundingBillingTests
         pr.Items.First().BilledQty = 10; // 100%
         pr.Items.Last().BilledQty = 10;  // 50%
 
-        pr.PerBilled.ShouldBe(50); // MIN(100%, 50%)
+        // Weighted: (250 + 100) / 450 = 77.78%
+        pr.PerBilled.ShouldBe(77.78m);
     }
 
     [Fact]

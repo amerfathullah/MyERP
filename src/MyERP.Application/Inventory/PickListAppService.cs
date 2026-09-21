@@ -258,6 +258,7 @@ public class PickListAppService : ApplicationService, IPickListAppService
             pl.TenantId);
 
         dn.SalesOrderId = pl.SalesOrderId;
+        dn.PickListId = pl.Id;
 
         // Map pending transfer items to DN items
         var pickListManager = LazyServiceProvider.LazyGetRequiredService<PickListManager>();
@@ -266,7 +267,9 @@ public class PickListAppService : ApplicationService, IPickListAppService
         foreach (var item in pendingItems.Where(p => p.PendingQty > 0))
         {
             // PendingTransfer doesn't carry ItemName; use empty string (DN detail resolves from Item master)
-            dn.AddItem(item.ItemId, "", item.PendingQty, 0m, 0m, "Unit");
+            dn.AddItem(item.ItemId, "", item.PendingQty, 0m, 0m, "Unit",
+                salesOrderItemId: item.SourceDocumentItemId,
+                pickListItemId: item.PickListItemId);
         }
 
         await dnRepo.InsertAsync(dn, autoSave: true);

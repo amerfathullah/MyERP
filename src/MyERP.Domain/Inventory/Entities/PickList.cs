@@ -166,6 +166,12 @@ public class PickListItem : FullAuditedEntity<Guid>
         DeliveredQty += qty;
     }
 
+    public void RevertDelivery(decimal qty)
+    {
+        if (qty <= 0) throw new ArgumentException("Qty must be positive.");
+        DeliveredQty = Math.Max(0, DeliveredQty - qty);
+    }
+
     public void SetStockReservedQty(decimal qty)
     {
         if (qty < 0) throw new ArgumentException("Reserved qty cannot be negative.");

@@ -127,6 +127,7 @@ export interface CreateDeliveryNoteDto {
   warehouseId: string;
   postingDate: string;
   salesOrderId?: string | null;
+  pickListId?: string | null;
   contactPersonId?: string | null;
   shippingContactPersonId?: string | null;
   shippingAddress?: string | null;
@@ -146,6 +147,7 @@ export interface CreateDeliveryNoteItemDto {
   taxAmount?: number;
   uom?: string;
   salesOrderItemId?: string | null;
+  pickListItemId?: string | null;
 }
 
 export interface CreateDeliveryNoteResultDto {
@@ -677,6 +679,7 @@ export interface DeliveryNoteDto extends EntityDto<string> {
   customerId?: string;
   customerName?: string | null;
   salesOrderId?: string | null;
+  pickListId?: string | null;
   warehouseId?: string;
   shippingAddress?: string | null;
   contactPersonId?: string | null;
@@ -713,6 +716,7 @@ export interface DeliveryNoteItemDto {
   installedQty?: number;
   isClosed?: boolean;
   salesOrderItemId?: string | null;
+  pickListItemId?: string | null;
 }
 
 export interface DeliveryScheduleEntryDto {

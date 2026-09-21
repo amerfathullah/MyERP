@@ -99,7 +99,7 @@ public class PurchaseReceiptTests
 
         itemA.BilledQty = 6; // 60%
         itemB.BilledQty = 0; // 0%
-        receipt.PerBilled.ShouldBe(0m); // Min of 60% and 0% is 0%
+        receipt.PerBilled.ShouldBe(30.0m); // Weighted: (600 + 0) / 2000 = 30%
 
         // Close item B (which had 0% billed)
         receipt.CloseItem(itemB.Id);

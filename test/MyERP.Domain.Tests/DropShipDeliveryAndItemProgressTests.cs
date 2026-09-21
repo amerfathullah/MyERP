@@ -111,7 +111,8 @@ public class DropShipDeliveryAndItemProgressTests
         var po = CreatePO();
         po.Items[0].ReceivedQty = 10; // 100%
         po.Items[1].ReceivedQty = 2;  // 40%
-        po.PerReceived.ShouldBe(40); // MIN(100, 40) = 40
+        // Weighted: (10 + 2) / (10 + 5) * 100 = 80%
+        po.PerReceived.ShouldBe(80.0m);
     }
 
     // --- SO Per-Item Fulfillment Progress ---
@@ -158,7 +159,8 @@ public class DropShipDeliveryAndItemProgressTests
         var so = CreateSO();
         so.Items[0].DeliveredQty = 10; // 100%
         so.Items[1].DeliveredQty = 2;  // 40%
-        so.PerDelivered.ShouldBe(40); // MIN(100, 40)
+        // Weighted: (10 + 2) / (10 + 5) * 100 = 80%
+        so.PerDelivered.ShouldBe(80.0m);
     }
 
     // --- Drop-Ship Entity Fields ---

@@ -45,7 +45,7 @@ public class DnPrBillingProgressTests
     }
 
     [Fact]
-    public void DeliveryNote_PerBilled_MultiItem_UsesMinFormula()
+    public void DeliveryNote_PerBilled_MultiItem_UsesWeightedSumFormula()
     {
         var dn = new DeliveryNote(Guid.NewGuid(), CompanyId, CustomerId, WarehouseId, "DN-MIN", DateTime.UtcNow);
         dn.AddItem(ItemId, "A", 10, 100, 0);
@@ -53,7 +53,7 @@ public class DnPrBillingProgressTests
         dn.Submit();
         dn.Items[0].BilledQty = 10; // 100%
         dn.Items[1].BilledQty = 5;  // 25%
-        Assert.Equal(25, dn.PerBilled); // MIN(100, 25) = 25
+        Assert.Equal(62.50m, dn.PerBilled); // (1000 + 250) / 2000 = 62.50%
     }
 
     // ── PR PerBilled ──
@@ -82,7 +82,7 @@ public class DnPrBillingProgressTests
     }
 
     [Fact]
-    public void PurchaseReceipt_PerBilled_MultiItem_UsesMinFormula()
+    public void PurchaseReceipt_PerBilled_MultiItem_UsesWeightedSumFormula()
     {
         var pr = new PurchaseReceipt(Guid.NewGuid(), CompanyId, SupplierId, WarehouseId, "PR-MIN", DateTime.UtcNow);
         pr.AddItem(ItemId, "A", 10, 80, 0);
@@ -90,7 +90,7 @@ public class DnPrBillingProgressTests
         pr.Submit();
         pr.Items[0].BilledQty = 10; // 100%
         pr.Items[1].BilledQty = 10; // 50%
-        Assert.Equal(50, pr.PerBilled); // MIN(100, 50) = 50
+        Assert.Equal(70.0m, pr.PerBilled); // (800 + 600) / 2000 = 70%
     }
 
     // ── Localization ──

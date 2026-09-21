@@ -109,7 +109,7 @@ public class DeliveryNoteTests
 
         itemA.BilledQty = 5; // 50%
         itemB.BilledQty = 0; // 0%
-        dn.PerBilled.ShouldBe(0m); // Min of 50% and 0% is 0%
+        dn.PerBilled.ShouldBe(25.00m); // Weighted: (500 + 0) / 2000 = 25%
 
         // Close item B (which had 0% billed)
         dn.CloseItem(itemB.Id);
@@ -232,7 +232,7 @@ public class DeliveryNoteTests
         dn.Items[0].BilledQty = 5;
         dn.Items[1].BilledQty = 0;
 
-        dn.PerBilled.ShouldBe(0m); // Min(50%, 0%) = 0%
+        dn.PerBilled.ShouldBe(25.00m); // Weighted: (500 + 0) / 2000 = 25%
         dn.BillingStatus.ShouldBe("Partially Billed");
     }
 

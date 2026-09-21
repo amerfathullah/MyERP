@@ -47,8 +47,8 @@ public class DocumentLifecycleSideEffectTests
         so.Items[0].DeliveredQty = 10;
         so.Items[1].DeliveredQty = 0;
 
-        // PerDelivered uses MIN formula: min(100%, 0%) = 0%
-        Assert.Equal(0, so.PerDelivered);
+        // Weighted: (10 + 0) / (10 + 5) * 100 = 66.67%
+        Assert.Equal(66.67m, so.PerDelivered);
     }
 
     [Fact]
@@ -131,9 +131,9 @@ public class DocumentLifecycleSideEffectTests
         po.Items[0].ReceivedQty = 10; // A fully received
         po.Items[1].ReceivedQty = 5;  // B only 25%
 
-        // Min(100%, 25%) = 25%
+        // Weighted: (10 + 5) / (10 + 20) * 100 = 50%
         Assert.True(po.PerReceived < 100);
-        Assert.Equal(25, po.PerReceived);
+        Assert.Equal(50.0m, po.PerReceived);
     }
 
     #endregion

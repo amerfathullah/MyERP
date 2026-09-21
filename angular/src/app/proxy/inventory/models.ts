@@ -1439,6 +1439,7 @@ export interface PickListItemDto {
   warehouseId?: string;
   qty?: number;
   transferredQty?: number;
+  deliveredQty?: number;
   pendingQty?: number;
   stockReservedQty?: number;
   productBundleItemId?: string | null;

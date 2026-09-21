@@ -231,7 +231,8 @@ public class PerItemWarehouseAndUpstreamTests
         so.AddItem(Guid.NewGuid(), "Item B", 20, 30, 0);
         so.Items.First().DeliveredQty = 10; // 100%
         so.Items.Last().DeliveredQty = 5;   // 25%
-        Assert.Equal(25, so.PerDelivered); // MIN(100%, 25%) = 25%
+        // Weighted: (10 + 5) / (10 + 20) * 100 = 50%
+        Assert.Equal(50.0m, so.PerDelivered);
     }
 
     // --- Session Tracking ---

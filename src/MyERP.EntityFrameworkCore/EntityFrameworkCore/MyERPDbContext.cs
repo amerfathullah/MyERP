@@ -1272,6 +1272,7 @@ public class MyERPDbContext :
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasOne<Customer>().WithMany().HasForeignKey(x => x.CustomerId).IsRequired();
             b.HasOne<Warehouse>().WithMany().HasForeignKey(x => x.WarehouseId).IsRequired();
+            b.HasOne<PickList>().WithMany().HasForeignKey(x => x.PickListId).IsRequired(false);
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.DeliveryNoteId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.DeliveryNumber }).IsUnique();
@@ -1291,6 +1292,7 @@ public class MyERPDbContext :
             b.Property(x => x.ReturnedQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.InstalledQty).HasColumnType("decimal(18,4)");
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
+            b.HasOne<PickListItem>().WithMany().HasForeignKey(x => x.PickListItemId).IsRequired(false);
         });
 
         // Purchase Orders

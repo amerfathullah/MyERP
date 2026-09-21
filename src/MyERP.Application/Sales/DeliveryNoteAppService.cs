@@ -151,15 +151,33 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 .WithData("deliveryNoteCompany", input.CompanyId);
         }
 
+        // Gotcha #233 & #710: Paired reference field validation for SO references
+        if (input.Items.Any(i => i.SalesOrderItemId.HasValue) && !input.SalesOrderId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Delivery Note item references a Sales Order item, but no Sales Order is specified on the Delivery Note.");
+        }
+
         if (input.SalesOrderId.HasValue)
         {
             var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
             var so = await soRepo.FindAsync(input.SalesOrderId.Value);
-            if (so != null && so.CompanyId != input.CompanyId)
+            if (so != null)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                    .WithData("salesOrderCompany", so.CompanyId)
-                    .WithData("deliveryNoteCompany", input.CompanyId);
+                if (so.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("salesOrderCompany", so.CompanyId)
+                        .WithData("deliveryNoteCompany", input.CompanyId);
+                }
+
+                var soItemIds = so.Items.Select(i => i.Id).ToHashSet();
+                var invalidSoItem = input.Items.FirstOrDefault(i => i.SalesOrderItemId.HasValue && !soItemIds.Contains(i.SalesOrderItemId.Value));
+                if (invalidSoItem != null)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Sales Order item {invalidSoItem.SalesOrderItemId} does not belong to Sales Order {input.SalesOrderId}.");
+                }
             }
         }
 
@@ -213,6 +231,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             CurrentTenant.Id);
 
         dn.SalesOrderId = input.SalesOrderId;
+        dn.PickListId = input.PickListId;
         dn.ContactPersonId = input.ContactPersonId;
         dn.ShippingContactPersonId = input.ShippingContactPersonId;
         dn.ShippingAddress = input.ShippingAddress;
@@ -250,7 +269,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         foreach (var item in input.Items)
         {
             dn.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice,
-                item.TaxAmount, item.Uom, item.SalesOrderItemId);
+                item.TaxAmount, item.Uom, item.SalesOrderItemId, item.PickListItemId);
             var lastItem = dn.Items[^1];
             var itemEntity = await itemRepoForUom.FindAsync(item.ItemId);
             if (itemEntity != null)
@@ -284,15 +303,34 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         }
 
         var soId = input.SalesOrderId ?? dn.SalesOrderId;
+
+        // Gotcha #233 & #710: Paired reference field validation for SO references
+        if (input.Items.Any(i => i.SalesOrderItemId.HasValue) && !soId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Delivery Note item references a Sales Order item, but no Sales Order is specified on the Delivery Note.");
+        }
+
         if (soId.HasValue)
         {
             var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
             var so = await soRepo.FindAsync(soId.Value);
-            if (so != null && so.CompanyId != dn.CompanyId)
+            if (so != null)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                    .WithData("salesOrderCompany", so.CompanyId)
-                    .WithData("deliveryNoteCompany", dn.CompanyId);
+                if (so.CompanyId != dn.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("salesOrderCompany", so.CompanyId)
+                        .WithData("deliveryNoteCompany", dn.CompanyId);
+                }
+
+                var soItemIds = so.Items.Select(i => i.Id).ToHashSet();
+                var invalidSoItem = input.Items.FirstOrDefault(i => i.SalesOrderItemId.HasValue && !soItemIds.Contains(i.SalesOrderItemId.Value));
+                if (invalidSoItem != null)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Sales Order item {invalidSoItem.SalesOrderItemId} does not belong to Sales Order {soId}.");
+                }
             }
         }
 
@@ -340,6 +378,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
         dn.PostingDate = input.PostingDate;
         dn.SalesOrderId = input.SalesOrderId;
+        dn.PickListId = input.PickListId ?? dn.PickListId;
         dn.IsReturn = input.IsReturn;
         dn.ReturnAgainstId = input.ReturnAgainstId;
         dn.ContactPersonId = input.ContactPersonId;
@@ -352,7 +391,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         dn.ClearItems();
         foreach (var item in input.Items)
         {
-            dn.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.SalesOrderItemId);
+            dn.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.SalesOrderItemId, item.PickListItemId);
         }
 
         await _repository.UpdateAsync(dn, autoSave: true);
@@ -729,6 +768,28 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 await UpdateDeliveryScheduleAsync(dn.SalesOrderId.Value, dn.Items);
             }
 
+            // Update linked Pick List delivery tracking (per ERPNext status updater: DN Item -> Pick List Item delivered_qty)
+            var itemsWithPickList = dn.Items.Where(i => i.PickListItemId.HasValue).ToList();
+            if (itemsWithPickList.Count > 0)
+            {
+                var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.PickList, Guid>>();
+                var plQuery = await plRepo.WithDetailsAsync(p => p.Items);
+                var pickListItemIds = itemsWithPickList.Select(i => i.PickListItemId!.Value).ToHashSet();
+                var pickLists = plQuery.Where(p => p.Items.Any(pi => pickListItemIds.Contains(pi.Id))).ToList();
+                foreach (var pl in pickLists)
+                {
+                    foreach (var item in itemsWithPickList)
+                    {
+                        var plItem = pl.Items.FirstOrDefault(pi => pi.Id == item.PickListItemId!.Value);
+                        if (plItem != null)
+                        {
+                            plItem.RecordDelivery(Math.Abs(item.Quantity));
+                        }
+                    }
+                    await plRepo.UpdateAsync(pl, autoSave: true);
+                }
+            }
+
             // Check auto-reorder for items that had stock reduced
             foreach (var item in dn.Items)
             {
@@ -926,6 +987,28 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         {
             await UpdateSoFulfillmentWithRetryAsync(dn.SalesOrderId.Value, dn.Items, isReversal: true, isReturn: dn.IsReturn);
             await ReverseDeliveryScheduleAsync(dn.SalesOrderId.Value, dn.Items);
+        }
+
+        // Update linked Pick List delivery tracking (Gotcha #427: decrement DeliveredQty on cancel)
+        var cancelPickListItems = dn.Items.Where(i => i.PickListItemId.HasValue).ToList();
+        if (cancelPickListItems.Count > 0)
+        {
+            var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.PickList, Guid>>();
+            var plQuery = await plRepo.WithDetailsAsync(p => p.Items);
+            var pickListItemIds = cancelPickListItems.Select(i => i.PickListItemId!.Value).ToHashSet();
+            var pickLists = plQuery.Where(p => p.Items.Any(pi => pickListItemIds.Contains(pi.Id))).ToList();
+            foreach (var pl in pickLists)
+            {
+                foreach (var item in cancelPickListItems)
+                {
+                    var plItem = pl.Items.FirstOrDefault(pi => pi.Id == item.PickListItemId!.Value);
+                    if (plItem != null)
+                    {
+                        plItem.RevertDelivery(Math.Abs(item.Quantity));
+                    }
+                }
+                await plRepo.UpdateAsync(pl, autoSave: true);
+            }
         }
 
         // Per ERPNext PR #58953 / commit be8208e7cb & PR #58869 / commit f864333afa: revert original DN returned_qty & recalculate billing when return is cancelled

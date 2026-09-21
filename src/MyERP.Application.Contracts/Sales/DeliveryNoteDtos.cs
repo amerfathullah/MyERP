@@ -13,6 +13,7 @@ public class DeliveryNoteDto : EntityDto<Guid>
     public Guid CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public Guid? SalesOrderId { get; set; }
+    public Guid? PickListId { get; set; }
     public Guid WarehouseId { get; set; }
     public string? ShippingAddress { get; set; }
     public Guid? ContactPersonId { get; set; }
@@ -53,6 +54,7 @@ public class DeliveryNoteItemDto
     public decimal InstalledQty { get; set; }
     public bool IsClosed { get; set; }
     public Guid? SalesOrderItemId { get; set; }
+    public Guid? PickListItemId { get; set; }
 }
 
 public class CreateDeliveryNoteDto
@@ -62,6 +64,7 @@ public class CreateDeliveryNoteDto
     [Required] public Guid WarehouseId { get; set; }
     [Required] public DateTime PostingDate { get; set; }
     public Guid? SalesOrderId { get; set; }
+    public Guid? PickListId { get; set; }
     public Guid? ContactPersonId { get; set; }
     public Guid? ShippingContactPersonId { get; set; }
     [StringLength(500)] public string? ShippingAddress { get; set; }
@@ -82,4 +85,5 @@ public class CreateDeliveryNoteItemDto
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(50)] public string Uom { get; set; } = "Unit";
     public Guid? SalesOrderItemId { get; set; }
+    public Guid? PickListItemId { get; set; }
 }

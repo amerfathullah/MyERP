@@ -44,7 +44,7 @@ public class DocumentLifecycleTests
         so.Items[0].DeliveredQty = 60;
         so.UpdateFulfillmentStatus();
         so.Status.ShouldBe(DocumentStatus.ToDeliverAndBill);
-        so.PerDelivered.ShouldBe(0m); // Min(60/100=60%, 0/50=0%) = 0% (item B not started)
+        so.PerDelivered.ShouldBe(40.0m); // Weighted: (60 + 0) / (100 + 50) * 100 = 40%
 
         // Close (short-close: remaining 40+50 won't be delivered)
         so.Close();

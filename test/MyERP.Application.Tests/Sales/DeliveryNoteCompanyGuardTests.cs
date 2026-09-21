@@ -122,6 +122,7 @@ public abstract class DeliveryNoteCompanyGuardTests<TStartupModule> : MyERPAppli
                     CustomerId = customer.Id,
                     WarehouseId = ownerWh.Id,
                     PostingDate = DateTime.UtcNow.Date,
+                    SalesOrderId = crossSo.Id,
                     Items = new List<CreateDeliveryNoteItemDto>
                     {
                         new() { ItemId = item.Id, Description = "DN Item 3", Quantity = 1, UnitPrice = 100, SalesOrderItemId = crossSoItemId }
@@ -210,11 +211,130 @@ public abstract class DeliveryNoteCompanyGuardTests<TStartupModule> : MyERPAppli
                     CustomerId = customer.Id,
                     WarehouseId = ownerWh.Id,
                     PostingDate = DateTime.UtcNow.Date,
+                    SalesOrderId = crossSo.Id,
                     Items = new List<CreateDeliveryNoteItemDto>
                     {
                         new() { ItemId = item.Id, Description = "Updated Item 5", Quantity = 1, UnitPrice = 100, SalesOrderItemId = crossSoItemId }
                     }
                 }));
+        });
+    }
+
+    [Fact]
+    public async Task CreateAsync_UnpairedSalesOrderReference_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var dnAppService = GetRequiredService<IDeliveryNoteAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "DN Paired Co"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "DN Paired Cust"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "DN-PAIRED-ITEM", "DN Paired Item", ItemType.Goods), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "DN Paired Wh"), autoSave: true);
+
+            // Case 1: Item has SalesOrderItemId without parent SalesOrderId (Gotcha #233 & #710)
+            var ex1 = await Should.ThrowAsync<BusinessException>(() =>
+                dnAppService.CreateAsync(new CreateDeliveryNoteDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customer.Id,
+                    WarehouseId = wh.Id,
+                    PostingDate = DateTime.UtcNow.Date,
+                    Items = new List<CreateDeliveryNoteItemDto>
+                    {
+                        new() { ItemId = item.Id, Description = "Item", Quantity = 1, UnitPrice = 100, SalesOrderItemId = Guid.NewGuid() }
+                    }
+                }));
+            ex1.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+
+            // Case 2: Parent SalesOrderId provided, but item has SalesOrderItemId not in that SalesOrder
+            var soRepo = GetRequiredService<IRepository<SalesOrder, Guid>>();
+            var so = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-PAIRED", DateTime.UtcNow.Date);
+            so.AddItem(item.Id, "SO Item", 1, 100, 0);
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var ex2 = await Should.ThrowAsync<BusinessException>(() =>
+                dnAppService.CreateAsync(new CreateDeliveryNoteDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customer.Id,
+                    WarehouseId = wh.Id,
+                    SalesOrderId = so.Id,
+                    PostingDate = DateTime.UtcNow.Date,
+                    Items = new List<CreateDeliveryNoteItemDto>
+                    {
+                        new() { ItemId = item.Id, Description = "Item", Quantity = 1, UnitPrice = 100, SalesOrderItemId = Guid.NewGuid() }
+                    }
+                }));
+            ex2.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
+
+    [Fact]
+    public async Task SubmitAndCancelAsync_LinkedPickList_UpdatesAndRevertsDeliveredQty()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var plRepo = GetRequiredService<IRepository<PickList, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var dnAppService = GetRequiredService<IDeliveryNoteAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "DN PickList Co"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "DN PickList Cust"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "DN-PL-ITEM", "DN PL Item", ItemType.Goods) { AllowNegativeStock = true }, autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "DN PL Wh"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "DN Series", "DeliveryNote", "DN-"), autoSave: true);
+
+            var pl = new PickList(Guid.NewGuid(), company.Id, "Delivery") { PickListNumber = "PL-DN-TEST" };
+            pl.AddItem(item.Id, wh.Id, 10m);
+            pl.Submit();
+            await plRepo.InsertAsync(pl, autoSave: true);
+
+            var plItem = pl.Items[0];
+            plItem.DeliveredQty.ShouldBe(0m);
+
+            // Create DN linked to PickList
+            var dnDto = await dnAppService.CreateAsync(new CreateDeliveryNoteDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                WarehouseId = wh.Id,
+                PickListId = pl.Id,
+                PostingDate = DateTime.UtcNow.Date,
+                Items = new List<CreateDeliveryNoteItemDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        Description = "Item 1",
+                        Quantity = 10,
+                        UnitPrice = 50,
+                        PickListItemId = plItem.Id
+                    }
+                }
+            });
+
+            // Submit DN -> PickListItem.DeliveredQty increases to 10
+            await dnAppService.SubmitAsync(dnDto.Id);
+
+            var loadedPlAfterSubmit = await plRepo.GetAsync(pl.Id);
+            loadedPlAfterSubmit.Items[0].DeliveredQty.ShouldBe(10m);
+            loadedPlAfterSubmit.PerDelivered.ShouldBe(100m);
+
+            // Cancel DN -> PickListItem.DeliveredQty reverts to 0 (Gotcha #427)
+            await dnAppService.CancelAsync(dnDto.Id);
+
+            var loadedPlAfterCancel = await plRepo.GetAsync(pl.Id);
+            loadedPlAfterCancel.Items[0].DeliveredQty.ShouldBe(0m);
+            loadedPlAfterCancel.PerDelivered.ShouldBe(0m);
         });
     }
 }

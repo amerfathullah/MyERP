@@ -130,6 +130,36 @@ public class PickListTests
     }
 
     [Fact]
+    public void RevertDelivery_ReducesDeliveredQtyAndPerDelivered()
+    {
+        var pl = CreatePickList();
+        pl.AddItem(Guid.NewGuid(), Guid.NewGuid(), 100m);
+        pl.Submit();
+
+        pl.Items[0].RecordDelivery(60m);
+        pl.Items[0].DeliveredQty.ShouldBe(60m);
+        pl.PerDelivered.ShouldBe(60m);
+
+        // Revert 20m (e.g. Delivery Note cancelled, Gotcha #427)
+        pl.Items[0].RevertDelivery(20m);
+        pl.Items[0].DeliveredQty.ShouldBe(40m);
+        pl.PerDelivered.ShouldBe(40m);
+    }
+
+    [Fact]
+    public void RevertDelivery_Excess_ClampsToZero()
+    {
+        var pl = CreatePickList();
+        pl.AddItem(Guid.NewGuid(), Guid.NewGuid(), 100m);
+        pl.Submit();
+        pl.Items[0].RecordDelivery(20m);
+
+        pl.Items[0].RevertDelivery(30m);
+        pl.Items[0].DeliveredQty.ShouldBe(0m);
+        pl.PerDelivered.ShouldBe(0m);
+    }
+
+    [Fact]
     public void PickListManager_UpdateDeliveredQuantities_MatchesComponents()
     {
         var plRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<PickList, Guid>>();
