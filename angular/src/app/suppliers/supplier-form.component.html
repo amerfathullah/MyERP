@@ -173,6 +173,20 @@
               <label class="form-check-label" for="preventRfqs">{{ '::PreventRfqs' | abpLocalization }}</label>
             </div>
           </div>
+
+          <div class="col-12 col-md-4 mb-3 d-flex align-items-center">
+            <div class="form-check form-switch mt-3">
+              <input class="form-check-input" type="checkbox" id="allowPiWithoutPo" formControlName="allowPurchaseInvoiceWithoutPurchaseOrder" />
+              <label class="form-check-label" for="allowPiWithoutPo">Allow Purchase Invoice without Purchase Order</label>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-4 mb-3 d-flex align-items-center">
+            <div class="form-check form-switch mt-3">
+              <input class="form-check-input" type="checkbox" id="allowPiWithoutPr" formControlName="allowPurchaseInvoiceWithoutPurchaseReceipt" />
+              <label class="form-check-label" for="allowPiWithoutPr">Allow Purchase Invoice without Purchase Receipt</label>
+            </div>
+          </div>
         </div>
       </div>
     </div>

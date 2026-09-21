@@ -68,6 +68,12 @@ public class Supplier : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Supplier scorecard standing — blocks RFQs when true (per DO-NOT: prevent_rfqs flag).</summary>
     public bool PreventRfqs { get; set; }
 
+    /// <summary>Exempts this supplier from the Buying Settings "Purchase Order Required" rule for invoices (ERPNext allow_purchase_invoice_creation_without_purchase_order).</summary>
+    public bool AllowPurchaseInvoiceWithoutPurchaseOrder { get; set; }
+
+    /// <summary>Exempts this supplier from the Buying Settings "Purchase Receipt Required" rule for invoices (ERPNext allow_purchase_invoice_creation_without_purchase_receipt).</summary>
+    public bool AllowPurchaseInvoiceWithoutPurchaseReceipt { get; set; }
+
     /// <summary>For inter-company: the Company this supplier represents (bidirectional link).</summary>
     public Guid? RepresentsCompanyId { get; set; }
 

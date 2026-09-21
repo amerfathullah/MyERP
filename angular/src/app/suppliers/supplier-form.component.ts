@@ -67,6 +67,8 @@ export class SupplierFormComponent implements OnInit {
     holdType: [0],
     preventPurchaseOrders: [false],
     preventRfqs: [false],
+    allowPurchaseInvoiceWithoutPurchaseOrder: [false],
+    allowPurchaseInvoiceWithoutPurchaseReceipt: [false],
     taxWithholdingCategory: [null as string | null],
     tin: [''],
     registrationNumber: [''],

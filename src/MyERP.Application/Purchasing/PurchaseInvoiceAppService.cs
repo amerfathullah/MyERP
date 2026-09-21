@@ -1122,8 +1122,12 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         }
 
         // Mandatory PO/PR linkage (Buying Settings: "Is PO/PR required for Purchase Invoice?")
-        var poRequired = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.PoRequired);
-        var prRequired = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.PrRequired);
+        // The Buying Settings switch enforces; the supplier flags exempt (ERPNext po_required/pr_required).
+        var requirementSupplier = await _supplierRepository.FindAsync(invoice.SupplierId);
+        var poRequired = !(requirementSupplier?.AllowPurchaseInvoiceWithoutPurchaseOrder ?? false)
+            && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.PoRequired);
+        var prRequired = !(requirementSupplier?.AllowPurchaseInvoiceWithoutPurchaseReceipt ?? false)
+            && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.PrRequired);
         MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.ValidatePoRequired(invoice, poRequired);
 
         if (prRequired && !invoice.IsReturn)

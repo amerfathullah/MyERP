@@ -10,6 +10,7 @@ using MyERP.Inventory.Entities;
 using MyERP.Purchasing.Entities;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.SettingManagement;
 using Volo.Abp.Modularity;
 using Xunit;
 
@@ -304,6 +305,68 @@ public abstract class PurchaseInvoiceUpdateStockGlTests<TStartupModule> : MyERPA
             payableLine.IsDebit.ShouldBeTrue();
             payableLine.Amount.ShouldBe(50m);
             writeOffJournal.Lines.Single(l => l.AccountId == f.ExpenseAccount.Id).IsDebit.ShouldBeFalse();
+        });
+    }
+
+    private async Task<Guid> CreateInvoiceWithoutPoAsync(Fixture f, string itemCode, bool supplierExempt)
+    {
+        var supplierRepository = GetRequiredService<IRepository<Supplier, Guid>>();
+        f.Supplier.AllowPurchaseInvoiceWithoutPurchaseOrder = supplierExempt;
+        await supplierRepository.UpdateAsync(f.Supplier, autoSave: true);
+        var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+            new Item(Guid.NewGuid(), f.Company.Id, itemCode, "PO Required Item", ItemType.Goods), autoSave: true);
+        var created = await GetRequiredService<IPurchaseInvoiceAppService>().CreateAsync(new CreatePurchaseInvoiceDto
+        {
+            CompanyId = f.Company.Id,
+            SupplierId = f.Supplier.Id,
+            IssueDate = DateTime.UtcNow.Date,
+            DueDate = DateTime.UtcNow.Date.AddDays(30),
+            Items = new List<CreatePurchaseInvoiceItemDto>
+            {
+                new() { ItemId = item.Id, Description = "PO Required Item", Quantity = 1m, UnitPrice = 10m, Uom = "Unit" },
+            },
+        });
+        return created.Id;
+    }
+
+    [Fact]
+    public async Task PoRequired_SupplierNotExempt_BlocksInvoiceWithoutPurchaseOrder()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var settings = GetRequiredService<Volo.Abp.SettingManagement.ISettingManager>();
+            await settings.SetGlobalAsync(MyERP.Settings.MyERPSettings.Buying.PoRequired, "true");
+            try
+            {
+                var f = await SeedAsync("PO1");
+                var id = await CreateInvoiceWithoutPoAsync(f, "PIS-PO1", supplierExempt: false);
+                var appService = GetRequiredService<IPurchaseInvoiceAppService>();
+                await Should.ThrowAsync<Volo.Abp.BusinessException>(async () =>
+                {
+                    await appService.SubmitAsync(id);
+                    await appService.PostAsync(id);
+                });
+            }
+            finally { await settings.SetGlobalAsync(MyERP.Settings.MyERPSettings.Buying.PoRequired, "false"); }
+        });
+    }
+
+    [Fact]
+    public async Task PoRequired_ExemptSupplier_AllowsInvoiceWithoutPurchaseOrder()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var settings = GetRequiredService<Volo.Abp.SettingManagement.ISettingManager>();
+            await settings.SetGlobalAsync(MyERP.Settings.MyERPSettings.Buying.PoRequired, "true");
+            try
+            {
+                var f = await SeedAsync("PO2");
+                var id = await CreateInvoiceWithoutPoAsync(f, "PIS-PO2", supplierExempt: true);
+                var appService = GetRequiredService<IPurchaseInvoiceAppService>();
+                await appService.SubmitAsync(id);
+                await appService.PostAsync(id);
+            }
+            finally { await settings.SetGlobalAsync(MyERP.Settings.MyERPSettings.Buying.PoRequired, "false"); }
         });
     }
 }

@@ -193,6 +193,8 @@ public class SupplierAppService :
         entity.HoldType = input.HoldType;
         entity.PreventPurchaseOrders = input.PreventPurchaseOrders;
         entity.PreventRfqs = input.PreventRfqs;
+        entity.AllowPurchaseInvoiceWithoutPurchaseOrder = input.AllowPurchaseInvoiceWithoutPurchaseOrder;
+        entity.AllowPurchaseInvoiceWithoutPurchaseReceipt = input.AllowPurchaseInvoiceWithoutPurchaseReceipt;
         entity.RepresentsCompanyId = input.RepresentsCompanyId;
         entity.SupplierGroupId = input.SupplierGroupId;
         entity.TaxWithholdingCategory = input.TaxWithholdingCategory;
