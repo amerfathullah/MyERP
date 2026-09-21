@@ -1633,6 +1633,31 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         if (invoice.OutstandingAmount <= 0)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvoiceAlreadySettled);
 
+        // ERPNext books a write-off as Dr Payable (party) / Cr Write Off Account. Without the GL
+        // entry the PLE is cleared but the Accounts Payable ledger keeps the balance forever.
+        var writeOffAmount = invoice.OutstandingAmount;
+        var company = await _companyRepository.GetAsync(invoice.CompanyId);
+        var writeOffAccountId = invoice.WriteOffAccountId ?? company.DefaultExpenseAccountId;
+        if (!writeOffAccountId.HasValue)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Please enter a Write Off Account (or set a default expense account on the Company).");
+
+        var fyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<FiscalYear, Guid>>();
+        var fyQuery = await fyRepo.GetQueryableAsync();
+        var today = DateTime.UtcNow;
+        var fy = fyQuery.FirstOrDefault(f => f.CompanyId == invoice.CompanyId && f.StartDate <= today && f.EndDate >= today);
+        if (fy == null)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "No fiscal year covers today's date; cannot post the write-off.");
+
+        var je = new JournalEntry(GuidGenerator.Create(), invoice.CompanyId, fy.Id, today, invoice.TenantId);
+        je.AddLineWithParty(invoice.CreditToAccountId, writeOffAmount, true,
+            invoice.SupplierId, "Supplier", null, $"Write-off: {invoice.InvoiceNumber}");
+        je.AddLine(writeOffAccountId.Value, writeOffAmount, false, $"Write-off: {invoice.InvoiceNumber}");
+        je.Validate();
+        je.Post();
+        await LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>().InsertAsync(je);
+
         invoice.AmountPaid = invoice.GrandTotal;
         await _postingOrchestrator.ReversePleForDocumentAsync("PurchaseInvoice", invoice.Id);
         await _repository.UpdateAsync(invoice, autoSave: true);

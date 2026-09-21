@@ -270,4 +270,40 @@ public abstract class PurchaseInvoiceUpdateStockGlTests<TStartupModule> : MyERPA
             lines.Any(l => l.AccountId == f.StockAccount.Id).ShouldBeFalse();
         });
     }
+
+    [Fact]
+    public async Task WriteOffAsync_PostsPayableDebitAgainstWriteOffAccount()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var f = await SeedAsync("W");
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+                new Item(Guid.NewGuid(), f.Company.Id, "PIS-W1", "Write Off Item", ItemType.Goods), autoSave: true);
+            var appService = GetRequiredService<IPurchaseInvoiceAppService>();
+
+            var created = await appService.CreateAsync(new CreatePurchaseInvoiceDto
+            {
+                CompanyId = f.Company.Id,
+                SupplierId = f.Supplier.Id,
+                IssueDate = DateTime.UtcNow.Date,
+                DueDate = DateTime.UtcNow.Date.AddDays(30),
+                Items = new List<CreatePurchaseInvoiceItemDto>
+                {
+                    new() { ItemId = item.Id, Description = "Write Off Item", Quantity = 1m, UnitPrice = 50m, Uom = "Unit" },
+                },
+            });
+            await appService.SubmitAsync(created.Id);
+            await appService.PostAsync(created.Id);
+
+            await appService.WriteOffAsync(created.Id);
+
+            var writeOffJournal = (await GetRequiredService<IRepository<JournalEntry, Guid>>().GetQueryableAsync())
+                .ToList()
+                .Single(j => j.Lines.Any(l => l.Description != null && l.Description.StartsWith("Write-off:")));
+            var payableLine = writeOffJournal.Lines.Single(l => l.AccountId == f.PayableAccount.Id);
+            payableLine.IsDebit.ShouldBeTrue();
+            payableLine.Amount.ShouldBe(50m);
+            writeOffJournal.Lines.Single(l => l.AccountId == f.ExpenseAccount.Id).IsDebit.ShouldBeFalse();
+        });
+    }
 }
