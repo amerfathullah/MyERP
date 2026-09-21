@@ -145,4 +145,31 @@ public abstract class BlanketOrderCompanyGuardTests<TStartupModule> : MyERPAppli
             ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_TwoOrdersInSameSecond_GetDistinctNumbers()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "BO Number Co"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(new Customer(Guid.NewGuid(), company.Id, "BO Number Customer"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "BO-ITEM-NUM", "BO Number Item", ItemType.Goods), autoSave: true);
+            var app = GetRequiredService<IBlanketOrderAppService>();
+            CreateBlanketOrderDto Dto() => new()
+            {
+                CompanyId = company.Id,
+                OrderType = "Selling",
+                PartyId = customer.Id,
+                FromDate = DateTime.Today,
+                ToDate = DateTime.Today.AddMonths(1),
+                Items = [new CreateBlanketOrderItemDto { ItemId = item.Id, Qty = 1m, Rate = 1m }]
+            };
+
+            var first = await app.CreateAsync(Dto());
+            var second = await app.CreateAsync(Dto());
+
+            first.OrderNumber.ShouldNotBe(second.OrderNumber);
+        });
+    }
 }

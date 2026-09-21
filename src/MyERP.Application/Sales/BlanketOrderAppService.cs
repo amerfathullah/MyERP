@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
+using MyERP.Core.DomainServices;
 using MyERP.Sales.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
@@ -69,7 +70,7 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
             supplierIds: string.Equals(input.OrderType, "Selling", StringComparison.OrdinalIgnoreCase) ? null : new[] { input.PartyId });
 
         var bo = new BlanketOrder(GuidGenerator.Create(), input.CompanyId,
-            $"BO-{DateTime.UtcNow:yyyyMMdd-HHmmss}", input.OrderType,
+            await GenerateOrderNumberAsync(input.CompanyId), input.OrderType,
             input.PartyId, input.FromDate, input.ToDate, CurrentTenant.Id)
         {
             PartyName = input.PartyName,
@@ -113,5 +114,22 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
 
         return ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(bo);
     }
-}
 
+    /// <summary>
+    /// Uses the company's "BlanketOrder" number series when one is configured. No such series is
+    /// seeded, so fall back to a timestamp number with a random suffix (the bare timestamp collided
+    /// for two orders created within the same second).
+    /// </summary>
+    private async Task<string> GenerateOrderNumberAsync(Guid companyId)
+    {
+        try
+        {
+            return await LazyServiceProvider.LazyGetRequiredService<IDocumentNumberGenerator>()
+                .GenerateAsync("BlanketOrder", companyId);
+        }
+        catch (BusinessException ex) when (ex.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+        {
+            return $"BO-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+        }
+    }
+}
