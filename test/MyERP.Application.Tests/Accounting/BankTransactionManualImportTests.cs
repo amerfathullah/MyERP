@@ -291,4 +291,41 @@ public abstract class BankTransactionManualImportTests<TStartupModule> : MyERPAp
             tx.PaymentEntryId.ShouldBeNull();
         });
     }
+
+    [Fact]
+    public async Task CreateInternalTransferAsync_TwoTransfersInSameSecond_GetDistinctPaymentNumbers()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var accountRepository = GetRequiredService<IRepository<Account, Guid>>();
+            var transactionRepository = GetRequiredService<IRepository<BankTransaction, Guid>>();
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "Internal Transfer Co 1"), autoSave: true);
+            var sourceGl = await accountRepository.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1120", "Source Bank GL", AccountType.Asset), autoSave: true);
+            var targetGl = await accountRepository.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1130", "Target Bank GL", AccountType.Asset), autoSave: true);
+            var bankAccount = await GetRequiredService<IRepository<BankAccount, Guid>>().InsertAsync(
+                new BankAccount(Guid.NewGuid(), company.Id, "Source Bank Account", sourceGl.Id, "Maybank"), autoSave: true);
+            var app = GetRequiredService<IBankReconciliationAppService>();
+
+            var numbers = new System.Collections.Generic.List<string>();
+            for (var n = 1; n <= 2; n++)
+            {
+                var tx = await transactionRepository.InsertAsync(new BankTransaction(
+                    Guid.NewGuid(), company.Id, bankAccount.Id, DateTime.Today, $"Transfer out {n}", 100m)
+                {
+                    Withdrawal = 100m,
+                    ReferenceNumber = $"TRF-{n}",
+                }, autoSave: true);
+
+                var result = await app.CreateInternalTransferAsync(new CreateInternalTransferDto
+                {
+                    BankTransactionId = tx.Id,
+                    TargetBankAccountGlId = targetGl.Id,
+                    CompanyId = company.Id,
+                });
+                numbers.Add(result.PaymentNumber);
+            }
+
+            numbers[0].ShouldNotBe(numbers[1]);
+        });
+    }
 }

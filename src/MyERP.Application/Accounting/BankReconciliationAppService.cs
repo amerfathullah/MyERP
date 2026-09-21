@@ -273,7 +273,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
             CurrentTenant.Id)
         {
             ReferenceNumber = spec.ReferenceNumber,
-            PaymentNumber = $"PE-IT-{DateTime.UtcNow:yyyyMMddHHmmss}",
+            PaymentNumber = await GenerateInternalTransferNumberAsync(spec.CompanyId),
         };
 
         pe.Submit();
@@ -641,4 +641,22 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         };
     }
 
+
+    /// <summary>
+    /// Regular Payment Entry number series when configured; otherwise a timestamp number with a random
+    /// suffix. The bare per-second timestamp violated the unique (tenant, company, number) index when
+    /// two transfers were reconciled within the same second.
+    /// </summary>
+    private async Task<string> GenerateInternalTransferNumberAsync(Guid companyId)
+    {
+        try
+        {
+            return await LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.IDocumentNumberGenerator>()
+                .GenerateAsync("PaymentEntry", companyId);
+        }
+        catch (Volo.Abp.BusinessException ex) when (ex.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+        {
+            return $"PE-IT-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+        }
+    }
 }
