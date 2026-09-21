@@ -222,6 +222,17 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
             .Where(i => itemIds.Contains(i.Id))
             .ToDictionary(i => i.Id, i => i.Uom);
 
+        // ERPNext validate_item: end-of-life/disabled items and non-stock items cannot be reconciled.
+        await LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>()
+            .ValidateItemsForTransactionAsync(itemIds.ToArray());
+        var nonStock = (await itemRepo.GetQueryableAsync())
+            .Where(i => itemIds.Contains(i.Id) && !i.MaintainStock)
+            .Select(i => i.ItemName)
+            .FirstOrDefault();
+        if (nonStock != null)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Item {nonStock} is not a stock Item.");
+
         foreach (var item in input.Items)
         {
             var uom = !string.IsNullOrWhiteSpace(item.StockUom)

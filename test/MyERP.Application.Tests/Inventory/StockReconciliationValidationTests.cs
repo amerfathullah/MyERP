@@ -143,4 +143,30 @@ public abstract class StockReconciliationValidationTests<TStartupModule> : MyERP
             dto.Id.ShouldNotBe(Guid.Empty);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_NonStockItem_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "SR Guard Non Stock Co"), autoSave: true);
+            var warehouse = await GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>().InsertAsync(
+                new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "SR Guard WH NS"), autoSave: true);
+            var service = await GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>().InsertAsync(
+                new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "SR-SVC-1", "SR Guard Service", MyERP.Inventory.ItemType.Service), autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                GetRequiredService<IStockReconciliationAppService>().CreateAsync(new CreateStockReconciliationDto
+                {
+                    CompanyId = company.Id,
+                    PostingDate = DateTime.Today,
+                    Purpose = "Stock Reconciliation",
+                    Items = new List<CreateStockReconciliationItemDto>
+                    {
+                        new() { ItemId = service.Id, WarehouseId = warehouse.Id, NewQuantity = 5m, NewValuationRate = 10m }
+                    }.ToArray()
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
 }
