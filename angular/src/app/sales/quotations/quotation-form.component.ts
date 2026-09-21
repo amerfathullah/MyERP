@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormArray, FormControl, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -107,6 +107,7 @@ export class QuotationFormComponent implements OnInit {
             qty: [item.quantity ?? 0],
             rate: [item.unitPrice ?? 0],
             discountPercent: [0],
+            isAlternative: [item.isAlternative ?? false],
           }));
         });
         this.recalculate();
@@ -132,7 +133,8 @@ export class QuotationFormComponent implements OnInit {
   }
 
   recalculate(): void {
-    const itemValues = this.items.controls.map(c => ({
+    // Alternative rows are offers, not part of the document total (ERPNext taxes_and_totals).
+    const itemValues = this.items.controls.filter(c => !c.get('isAlternative')?.value).map(c => ({
       qty: c.get('qty')?.value ?? 0,
       rate: c.get('rate')?.value ?? 0,
       discountPercent: c.get('discountPercent')?.value ?? 0,
@@ -152,6 +154,7 @@ export class QuotationFormComponent implements OnInit {
         description: item.description || item.itemName || '',
         quantity: item.quantity ?? item.qty ?? 0,
         unitPrice: item.unitPrice ?? item.rate ?? 0,
+        isAlternative: !!item.isAlternative,
       })),
     };
 
@@ -164,6 +167,17 @@ export class QuotationFormComponent implements OnInit {
       error: () => { /* handled by global error interceptor */ },
     });
   }
+
+  /** Rows added by the shared item grid don't carry the control; add it on first use. */
+  toggleAlternative(row: any, checked: boolean): void {
+    const group = row as FormGroup;
+    if (!group.get('isAlternative')) group.addControl('isAlternative', new FormControl(false));
+    group.get('isAlternative')!.setValue(checked);
+    this.form.markAsDirty();
+    this.recalculate();
+  }
+
+  isAlternative(row: any): boolean { return !!row.get('isAlternative')?.value; }
 
   cancel(): void { this.router.navigate(['/sales/quotations']); }
 

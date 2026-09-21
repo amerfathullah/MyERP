@@ -46,6 +46,24 @@
       </div>
       <div class="card-body">
         <app-invoice-item-grid [items]="items" transactionType="Selling" [companyId]="form.get('companyId')?.value || ''" [customerId]="form.get('customerId')?.value || ''" [priceListId]="form.get('priceListId')?.value || ''" (rowChanged)="recalculate()" />
+
+        @if (items.length > 1) {
+          <div class="mt-3">
+            <h6 class="mb-2"><i class="fa fa-random me-2"></i>Alternative Items</h6>
+            <small class="text-muted d-block mb-2">An alternative is an offer for the row above it and is left out of the totals.</small>
+            @for (ctrl of items.controls; track $index) {
+              @if ($index > 0 && ctrl.get('itemId')?.value) {
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" [id]="'alt' + $index"
+                         [checked]="isAlternative(ctrl)" (change)="toggleAlternative(ctrl, $any($event.target).checked)">
+                  <label class="form-check-label" [for]="'alt' + $index">
+                    {{ ctrl.get('itemName')?.value || ctrl.get('description')?.value || ctrl.get('itemId')?.value }}
+                  </label>
+                </div>
+              }
+            }
+          </div>
+        }
       </div>
     </div>
 

@@ -78,7 +78,7 @@
             <tbody>
               @for (row of quotation.items ?? []; track $index) {
                 <tr>
-                  <td>{{ row.description }}</td>
+                  <td>{{ row.description }}@if (row.isAlternative) { <span class="badge bg-info ms-2">Alternative</span> }</td>
                   <td>{{ row.quantity | number:'1.2-2' }}</td>
                   <td>{{ row.unitPrice | number:'1.2-2' }}</td>
                   <td>{{ row.taxAmount | number:'1.2-2' }}</td>
