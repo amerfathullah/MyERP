@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MyERP.Accounting;
+using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.Entities;
@@ -292,6 +294,43 @@ public abstract class DeliveryNoteCompanyGuardTests<TStartupModule> : MyERPAppli
             var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "DN-PL-ITEM", "DN PL Item", ItemType.Goods) { AllowNegativeStock = true }, autoSave: true);
             var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "DN PL Wh"), autoSave: true);
             await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "DN Series", "DeliveryNote", "DN-"), autoSave: true);
+
+            // GL fixture: SubmitAsync posts DR COGS / CR Stock (perpetual inventory), which needs a
+            // matching AccountingRule per document type plus accounts/fiscal year/cost center — a
+            // bare `new Company(...)` here (unlike the real ICompanyAppService) gets none of that
+            // seeded automatically (see SubscriptionCatchUpInvoiceTests.SeedGlFixtureAsync for the
+            // established pattern).
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var fiscalYearRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var costCenterRepo = GetRequiredService<IRepository<CostCenter, Guid>>();
+            var ruleRepo = GetRequiredService<IRepository<AccountingRule, Guid>>();
+
+            var stockAccount = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "1140-DNPL", "Test Stock", AccountType.Asset), autoSave: true);
+            var cogsAccount = await accountRepo.InsertAsync(
+                new Account(Guid.NewGuid(), company.Id, "5000-DNPL", "Test COGS", AccountType.Expense), autoSave: true);
+            var costCenter = await costCenterRepo.InsertAsync(
+                new CostCenter(Guid.NewGuid(), company.Id, "DN PL Cost Center"), autoSave: true);
+
+            company.DefaultInventoryAccountId = stockAccount.Id;
+            company.DefaultExpenseAccountId = cogsAccount.Id;
+            company.DefaultCostCenterId = costCenter.Id;
+            await companyRepo.UpdateAsync(company, autoSave: true);
+
+            await fiscalYearRepo.InsertAsync(
+                new FiscalYear(Guid.NewGuid(), company.Id, "FY DN PL", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)),
+                autoSave: true);
+
+            // NetTotal (not StockCostTotal) — matches the rule ICompanyAppService.CreateAsync
+            // actually seeds for real companies. StockCostTotal would be 0 here since this item
+            // has no prior stock ledger history (ValuationRate resolves to 0), which would make
+            // the rule engine skip both lines (rawAmount == 0) and post an empty, invalid journal.
+            await ruleRepo.InsertAsync(
+                new AccountingRule(Guid.NewGuid(), company.Id, "DN DR COGS", "DeliveryNote", true, AccountSource.ItemExpense, AmountSource.NetTotal) { SortOrder = 1 },
+                autoSave: true);
+            await ruleRepo.InsertAsync(
+                new AccountingRule(Guid.NewGuid(), company.Id, "DN CR Stock", "DeliveryNote", false, AccountSource.FixedAccount, AmountSource.NetTotal) { SortOrder = 2, FixedAccountId = stockAccount.Id },
+                autoSave: true);
 
             var pl = new PickList(Guid.NewGuid(), company.Id, "Delivery") { PickListNumber = "PL-DN-TEST" };
             pl.AddItem(item.Id, wh.Id, 10m);
