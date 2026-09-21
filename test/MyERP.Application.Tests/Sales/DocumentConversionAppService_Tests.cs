@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Sales;
 using MyERP.Sales.Entities;
@@ -382,5 +384,56 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
         var ex = await Assert.ThrowsAsync<Volo.Abp.BusinessException>(
             () => _conversionService.ConvertDeliveryNoteToSalesInvoiceAsync(dn.Id));
         ex.Code.ShouldBe(MyERPDomainErrorCodes.DocumentAlreadyConverted);
+    }
+
+    private async Task<QuotationDto> CreateSubmittedAlternativeQuotationAsync()
+    {
+        var (companyId, customerId, _) = await SeedDataAsync();
+        var quotation = await _quotationService.CreateAsync(new CreateQuotationDto
+        {
+            CompanyId = companyId,
+            CustomerId = customerId,
+            IssueDate = DateTime.Today,
+            Items = new()
+            {
+                new() { ItemId = Guid.NewGuid(), Description = "Primary", Quantity = 1, UnitPrice = 100m },
+                new() { ItemId = Guid.NewGuid(), Description = "Alternative", Quantity = 1, UnitPrice = 90m, IsAlternative = true },
+            }
+        });
+        await _quotationService.SubmitAsync(quotation.Id);
+        return await _quotationService.GetAsync(quotation.Id);
+    }
+
+    [Fact]
+    public async Task Should_Skip_Alternative_Items_By_Default()
+    {
+        var quotation = await CreateSubmittedAlternativeQuotationAsync();
+        quotation.NetTotal.ShouldBe(100m);
+
+        var salesOrder = await _conversionService.ConvertQuotationToSalesOrderAsync(quotation.Id);
+
+        salesOrder.Items.Count.ShouldBe(1);
+        salesOrder.Items[0].Description.ShouldBe("Primary");
+    }
+
+    [Fact]
+    public async Task Should_Order_Selected_Alternative_Item()
+    {
+        var quotation = await CreateSubmittedAlternativeQuotationAsync();
+        var alternativeId = quotation.Items.Single(i => i.IsAlternative).Id;
+
+        var salesOrder = await _conversionService.ConvertQuotationToSalesOrderAsync(quotation.Id, new List<Guid> { alternativeId });
+
+        salesOrder.Items.Count.ShouldBe(1);
+        salesOrder.Items[0].Description.ShouldBe("Alternative");
+    }
+
+    [Fact]
+    public async Task Should_Reject_Selecting_Two_Items_Of_One_Alternatives_Set()
+    {
+        var quotation = await CreateSubmittedAlternativeQuotationAsync();
+
+        await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            _conversionService.ConvertQuotationToSalesOrderAsync(quotation.Id, quotation.Items.Select(i => i.Id).ToList()));
     }
 }

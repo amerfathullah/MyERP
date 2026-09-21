@@ -12,7 +12,7 @@ namespace MyERP.Sales;
 public interface IDocumentConversionAppService : IApplicationService
 {
     /// <summary>Convert a submitted Quotation into a Sales Order.</summary>
-    Task<SalesOrderDto> ConvertQuotationToSalesOrderAsync(Guid quotationId);
+    Task<SalesOrderDto> ConvertQuotationToSalesOrderAsync(Guid quotationId, List<Guid>? selectedItemIds = null);
 
     /// <summary>Convert a submitted Sales Order into a Delivery Note. When selectedItems is empty, delivers all pending items.</summary>
     Task<DeliveryNoteDto> ConvertSalesOrderToDeliveryNoteAsync(Guid salesOrderId, List<PartialDeliveryItemDto>? selectedItems = null);

@@ -94,7 +94,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
     }
 
     [Authorize(MyERPPermissions.SalesOrders.Create)]
-    public async Task<SalesOrderDto> ConvertQuotationToSalesOrderAsync(Guid quotationId)
+    public async Task<SalesOrderDto> ConvertQuotationToSalesOrderAsync(Guid quotationId, List<Guid>? selectedItemIds = null)
     {
         var quotation = await _quotationRepository.GetAsync(quotationId);
 
@@ -129,8 +129,38 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         salesOrder.Notes = quotation.Notes;
         salesOrder.PriceListId = quotation.PriceListId;
 
-        // Alternative offers are not ordered by default (ERPNext lets the user pick one explicitly).
-        foreach (var item in quotation.Items.Where(i => !i.IsAlternative))
+        // Alternative offers are not ordered unless the user picks them explicitly (ERPNext); at most
+        // one row of each alternatives set (a row plus the alternative rows right after it) may be ordered.
+        IEnumerable<QuotationItem> itemsToOrder;
+        if (selectedItemIds is { Count: > 0 })
+        {
+            var unknown = selectedItemIds.FirstOrDefault(id => quotation.Items.All(i => i.Id != id));
+            if (unknown != default)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Item {unknown} does not belong to Quotation {quotation.QuotationNumber}.");
+
+            var setStart = 0;
+            for (var idx = 0; idx < quotation.Items.Count; idx++)
+            {
+                if (!quotation.Items[idx].IsAlternative)
+                    setStart = idx;
+                if (idx == quotation.Items.Count - 1 || !quotation.Items[idx + 1].IsAlternative)
+                {
+                    var picked = quotation.Items.Skip(setStart).Take(idx - setStart + 1).Count(i => selectedItemIds.Contains(i.Id));
+                    if (picked > 1)
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", "Only one item of an alternatives set can be ordered.");
+                }
+            }
+
+            itemsToOrder = quotation.Items.Where(i => selectedItemIds.Contains(i.Id));
+        }
+        else
+        {
+            itemsToOrder = quotation.Items.Where(i => !i.IsAlternative);
+        }
+
+        foreach (var item in itemsToOrder)
         {
             salesOrder.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, quotationItemId: item.Id);
         }

@@ -137,6 +137,24 @@ export class QuotationDetailComponent implements OnInit {
     return new Date(validUntil) < new Date() && this.quotation.status === 'Submitted';
   }
 
+  /** Ids the user ticked for conversion; null until they touch a checkbox (then non-alternative rows are the default). */
+  private orderSelection: Set<string> | null = null;
+
+  get hasAlternatives(): boolean {
+    return (this.quotation?.items ?? []).some((r: any) => r.isAlternative);
+  }
+
+  isSelectedForOrder(row: any): boolean {
+    return this.orderSelection ? this.orderSelection.has(row.id) : !row.isAlternative;
+  }
+
+  toggleOrderSelection(row: any, checked: boolean): void {
+    if (!this.orderSelection) {
+      this.orderSelection = new Set((this.quotation?.items ?? []).filter((r: any) => !r.isAlternative).map((r: any) => r.id));
+    }
+    if (checked) this.orderSelection.add(row.id); else this.orderSelection.delete(row.id);
+  }
+
   get daysUntilExpiry(): number | null {
     if (!this.quotation) return null;
     const validUntil = (this.quotation as any).validUntil;
@@ -153,7 +171,14 @@ export class QuotationDetailComponent implements OnInit {
         this.reloadAfterAction();
         break;
       case 'convert':
-        this.conversionService.convertQuotationToSalesOrder(id).subscribe((salesOrder) => {
+        const selectedItemIds = this.hasAlternatives
+          ? (this.quotation!.items ?? []).filter(r => this.isSelectedForOrder(r)).map(r => r.id!)
+          : undefined;
+        if (selectedItemIds && selectedItemIds.length === 0) {
+          this.toaster.error('Select at least one item to order.');
+          break;
+        }
+        this.conversionService.convertQuotationToSalesOrder(id, selectedItemIds).subscribe((salesOrder) => {
           this.router.navigate(['/sales/orders', salesOrder.id]);
         });
         break;

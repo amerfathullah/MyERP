@@ -68,6 +68,7 @@
           <table class="table table-sm w-100">
             <thead>
               <tr>
+                @if (hasAlternatives && quotation.status === 'Submitted') { <th>Order</th> }
                 <th>{{ '::Description' | abpLocalization }}</th>
                 <th>{{ '::Qty' | abpLocalization }}</th>
                 <th>{{ '::UnitPrice' | abpLocalization }}</th>
@@ -78,6 +79,9 @@
             <tbody>
               @for (row of quotation.items ?? []; track $index) {
                 <tr>
+                  @if (hasAlternatives && quotation.status === 'Submitted') {
+                    <td><input type="checkbox" class="form-check-input" [checked]="isSelectedForOrder(row)" (change)="toggleOrderSelection(row, $any($event.target).checked)"></td>
+                  }
                   <td>{{ row.description }}@if (row.isAlternative) { <span class="badge bg-info ms-2">Alternative</span> }</td>
                   <td>{{ row.quantity | number:'1.2-2' }}</td>
                   <td>{{ row.unitPrice | number:'1.2-2' }}</td>

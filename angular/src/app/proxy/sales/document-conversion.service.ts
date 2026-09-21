@@ -26,10 +26,11 @@ export class DocumentConversionService {
     { apiName: this.apiName,...config });
   
 
-  convertQuotationToSalesOrder = (quotationId: string, config?: Partial<Rest.Config>) =>
+  convertQuotationToSalesOrder = (quotationId: string, selectedItemIds?: string[], config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesOrderDto>({
       method: 'POST',
       url: `/api/app/document-conversion/convert-quotation-to-sales-order/${quotationId}`,
+      body: selectedItemIds,
     },
     { apiName: this.apiName,...config });
   
