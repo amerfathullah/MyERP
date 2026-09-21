@@ -99,4 +99,32 @@ public abstract class PaymentEntryDuplicateReferenceGuardTests<TStartupModule> :
             created.ReferenceDate.ShouldBe(dto.ReferenceDate);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_DisabledCustomerParty_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "PE Disabled Party Co"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>().InsertAsync(
+                new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "PE Disabled Party Cust") { IsActive = false }, autoSave: true);
+            var accountRepository = GetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
+            var bank = await accountRepository.InsertAsync(new Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1123-PEDIS", "Bank", AccountType.Asset), autoSave: true);
+            var receivable = await accountRepository.InsertAsync(new Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1132-PEDIS", "Receivable", AccountType.Asset), autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                GetRequiredService<IPaymentEntryAppService>().CreateAsync(new CreatePaymentEntryDto
+                {
+                    CompanyId = company.Id,
+                    PaymentType = PaymentType.Receive,
+                    PostingDate = DateTime.UtcNow,
+                    PaidAmount = 100m,
+                    PaidFromAccountId = receivable.Id,
+                    PaidToAccountId = bank.Id,
+                    PartyType = "Customer",
+                    PartyId = customer.Id,
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.PartyDisabled);
+        });
+    }
 }

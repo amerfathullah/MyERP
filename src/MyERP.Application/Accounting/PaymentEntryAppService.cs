@@ -178,6 +178,8 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             "PaymentEntry", input.CompanyId,
             accountIds: new[] { input.PaidFromAccountId, input.PaidToAccountId });
 
+        await ValidatePartyNotDisabledAsync(input.PartyType, input.PartyId);
+
         // Per ERPNext PR #47069 / commit a854beeb40: set account type and currency if missing
         await PopulateAccountDetailsAsync(input);
 
@@ -1774,5 +1776,32 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         if (account?.AccountSubType == AccountSubType.BankAccount)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Reference No and Reference Date is mandatory for Bank transaction.");
+    }
+
+    /// <summary>ERPNext validate_party_frozen_disabled: no payment to/from a disabled Customer or Supplier.</summary>
+    private async Task ValidatePartyNotDisabledAsync(string? partyType, Guid? partyId)
+    {
+        if (!partyId.HasValue) return;
+
+        string? name = null;
+        var isDisabled = false;
+        if (string.Equals(partyType, "Customer", StringComparison.OrdinalIgnoreCase))
+        {
+            var customer = await LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>().FindAsync(partyId.Value);
+            if (customer == null) return;
+            name = customer.Name;
+            isDisabled = !customer.IsActive;
+        }
+        else if (string.Equals(partyType, "Supplier", StringComparison.OrdinalIgnoreCase))
+        {
+            var supplier = await LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>().FindAsync(partyId.Value);
+            if (supplier == null) return;
+            name = supplier.Name;
+            isDisabled = !supplier.IsActive;
+        }
+        else return;
+
+        LazyServiceProvider.LazyGetRequiredService<PartyValidationService>()
+            .ValidatePartyStatus(partyType!, isFrozen: false, isDisabled: isDisabled, name!);
     }
 }
