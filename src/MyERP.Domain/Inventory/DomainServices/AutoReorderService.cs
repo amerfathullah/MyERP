@@ -129,7 +129,9 @@ public class AutoReorderService : DomainService
             var mr = new MaterialRequest(
                 _guidGenerator.Create(),
                 companyId,
-                $"REORDER-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{group.Key.warehouseId.ToString()[..8]}",
+                // Suffix keeps (type, warehouse) groups created in the same second distinct: the
+                // same warehouse can appear under Purchase, Transfer and Manufacture reorders.
+                $"REORDER-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{group.Key.warehouseId.ToString()[..8]}-{group.Key.mrType.ToString()[..1]}{_guidGenerator.Create().ToString("N")[..3].ToUpperInvariant()}",
                 group.Key.mrType,
                 DateTime.UtcNow,
                 tenantId);

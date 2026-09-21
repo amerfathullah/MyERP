@@ -103,7 +103,7 @@ public class AppointmentAppService : ApplicationService, IAppointmentAppService
         else if (!string.IsNullOrWhiteSpace(input.Email))
         {
             // Per ERPNext: auto-create a Lead when the appointment has no linked party.
-            var leadNumber = $"LEAD-APT-{DateTime.UtcNow:yyyyMMddHHmmss}";
+            var leadNumber = $"LEAD-APT-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
             var lead = new Lead(GuidGenerator.Create(), input.CompanyId, leadNumber, input.CustomerName, CurrentTenant.Id)
             {
                 Email = input.Email,
