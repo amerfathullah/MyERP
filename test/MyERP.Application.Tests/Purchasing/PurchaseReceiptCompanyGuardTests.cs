@@ -251,4 +251,36 @@ public abstract class PurchaseReceiptCompanyGuardTests<TStartupModule> : MyERPAp
                 }));
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_ClosedPurchaseOrder_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "PR Closed PO Co 1"), autoSave: true);
+            var supplier = await GetRequiredService<IRepository<Supplier, Guid>>().InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "PR Closed PO Supp 1"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(new Item(Guid.NewGuid(), company.Id, "PR-ITEM-CLOSED", "PR Item Closed", ItemType.Goods), autoSave: true);
+            var po = new PurchaseOrder(Guid.NewGuid(), company.Id, supplier.Id, "PO-PR-CLOSED", DateTime.UtcNow.Date);
+            po.AddItem(item.Id, "Item PO", 1, 100, 0);
+            po.Submit();
+            po.Close();
+            await GetRequiredService<IRepository<PurchaseOrder, Guid>>().InsertAsync(po, autoSave: true);
+            var wh = await GetRequiredService<IRepository<Warehouse, Guid>>().InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "PR Closed PO WH 1"), autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                GetRequiredService<IPurchaseReceiptAppService>().CreateAsync(new CreatePurchaseReceiptDto
+                {
+                    CompanyId = company.Id,
+                    SupplierId = supplier.Id,
+                    WarehouseId = wh.Id,
+                    PurchaseOrderId = po.Id,
+                    PostingDate = DateTime.UtcNow.Date,
+                    Items = new List<CreatePurchaseReceiptItemDto>
+                    {
+                        new() { ItemId = item.Id, Description = "Item", Quantity = 1, UnitPrice = 100, PurchaseOrderItemId = po.Items[0].Id }
+                    }
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed);
+        });
+    }
 }

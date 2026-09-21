@@ -499,6 +499,24 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     .WithData("purchaseOrderCompany", crossCompanyPo.CompanyId)
                     .WithData("invoiceCompany", input.CompanyId);
             }
+
+            // ERPNext check_purchase_order_on_hold_or_close (exclude_if_field=purchase_receipt):
+            // a closed PO cannot be billed directly; receipt-linked rows and returns are exempt.
+            var directPoItemIds = input.Items
+                .Where(i => i.PurchaseOrderItemId.HasValue && !i.PurchaseReceiptItemId.HasValue)
+                .Select(i => i.PurchaseOrderItemId!.Value)
+                .ToList();
+            if (!input.IsReturn && directPoItemIds.Count > 0)
+            {
+                var closedPo = poQuery
+                    .Where(po => po.Items.Any(i => directPoItemIds.Contains(i.Id)) && po.Status == Core.DocumentStatus.Closed)
+                    .FirstOrDefault();
+                if (closedPo != null)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed)
+                        .WithData("purchaseOrderNumber", closedPo.OrderNumber);
+                }
+            }
         }
 
         var linkedPrItemIds = input.Items

@@ -4358,6 +4358,7 @@
     "DisposalAmount": "Disposal Amount",
     "SettlementAccount": "Settlement Account",
     "AssetCancelConfirmation": "This will cancel the asset and reverse any posted depreciation entries. Continue?",
+    "MyERP:04041": "Purchase Order {purchaseOrderNumber} is Closed and cannot be received or invoiced against.",
     "MyERP:04030": "Supplier name cannot match Supplier Group '{name}'.",
     "MyERP:05062": "Stock reservation is disabled. Enable it in Stock Settings before reserving stock.",
     "MyERP:05063": "Source and destination warehouse must be different.",

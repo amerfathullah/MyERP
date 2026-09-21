@@ -208,6 +208,13 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                         .WithData("receiptCompany", input.CompanyId);
                 }
 
+                // ERPNext check_purchase_order_on_hold_or_close: no receipt against a closed PO (returns exempt).
+                if (!input.IsReturn && po.Status == Core.DocumentStatus.Closed)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed)
+                        .WithData("purchaseOrderNumber", po.OrderNumber);
+                }
+
                 if (input.PostingDate.Date < po.OrderDate.Date)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
@@ -336,6 +343,13 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
                         .WithData("purchaseOrderCompany", po.CompanyId)
                         .WithData("receiptCompany", receipt.CompanyId);
+                }
+
+                // ERPNext check_purchase_order_on_hold_or_close: no receipt against a closed PO (returns exempt).
+                if (!receipt.IsReturn && po.Status == Core.DocumentStatus.Closed)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed)
+                        .WithData("purchaseOrderNumber", po.OrderNumber);
                 }
 
                 if (input.PostingDate.Date < po.OrderDate.Date)
