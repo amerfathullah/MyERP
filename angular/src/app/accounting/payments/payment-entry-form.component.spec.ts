@@ -189,8 +189,8 @@ describe('PaymentEntry form validation', () => {
     it('should allow different accounts on internal transfer', () => {
       const paymentType = 'InternalTransfer';
       const paidFrom = 'bank-acct-1';
-      const paidTo = 'bank-acct-2';
-      const isInvalid = paymentType === 'InternalTransfer' && paidFrom === paidTo;
+      const paidTo: string = 'bank-acct-2';
+      const isInvalid = paymentType === 'InternalTransfer' && (paidFrom as string) === paidTo;
       expect(isInvalid).toBe(false);
     });
 

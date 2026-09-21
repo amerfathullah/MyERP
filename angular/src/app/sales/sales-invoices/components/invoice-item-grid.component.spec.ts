@@ -149,7 +149,7 @@ describe('InvoiceItemGrid logic', () => {
     });
 
     it('should handle pre-loaded items (quantity/unitPrice names)', () => {
-      const items = fb.array([]);
+      const items: FormArray = fb.array([]);
       items.push(fb.group({
         itemId: ['item-1'],
         quantity: [7],

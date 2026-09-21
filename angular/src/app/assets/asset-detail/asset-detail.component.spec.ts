@@ -51,7 +51,7 @@ describe('AssetDetailComponent Logic', () => {
     });
 
     it('edit button hidden after submit', () => {
-      const status = 1;
+      const status: number = 1;
       const showEdit = status === 0;
       expect(showEdit).toBe(false);
     });

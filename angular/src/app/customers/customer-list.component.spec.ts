@@ -106,7 +106,7 @@ describe('CustomerListComponent Logic', () => {
 
     it('rejected confirmation does not delete', () => {
       let deleted = false;
-      const status = 'dismiss';
+      const status: string = 'dismiss';
       if (status === 'confirm') deleted = true;
       expect(deleted).toBe(false);
     });

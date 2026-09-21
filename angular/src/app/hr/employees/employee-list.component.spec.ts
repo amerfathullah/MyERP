@@ -93,7 +93,7 @@ describe('EmployeeListComponent Logic', () => {
 
     it('rejected does not delete', () => {
       let deleted = false;
-      const status = 'dismiss';
+      const status: string = 'dismiss';
       if (status === 'confirm') deleted = true;
       expect(deleted).toBe(false);
     });

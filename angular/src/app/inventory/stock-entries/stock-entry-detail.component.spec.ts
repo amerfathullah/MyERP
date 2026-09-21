@@ -95,17 +95,17 @@ describe('StockEntryDetail edit/delete visibility', () => {
   });
 
   it('Submitted hides edit and delete', () => {
-    const status = 'Submitted';
+    const status: string = 'Submitted';
     expect(status === 'Draft').toBe(false);
   });
 
   it('Posted hides edit and delete', () => {
-    const status = 'Posted';
+    const status: string = 'Posted';
     expect(status === 'Draft').toBe(false);
   });
 
   it('Cancelled hides edit and delete', () => {
-    const status = 'Cancelled';
+    const status: string = 'Cancelled';
     expect(status === 'Draft').toBe(false);
   });
 });
