@@ -1643,30 +1643,33 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var writeOffAmount = invoice.OutstandingAmount;
         invoice.AmountPaid = invoice.GrandTotal; // Clears outstanding to 0
 
-        // Create write-off Journal Entry (DR Write-Off Expense, CR Receivable)
+        // Write-off Journal Entry (DR Write-Off Account, CR Receivable). A missing account or
+        // fiscal year must fail loudly: skipping the entry would clear the PLE while the
+        // receivable ledger keeps the balance.
         var company = await _companyRepository.GetAsync(invoice.CompanyId);
-        if (company.DefaultExpenseAccountId.HasValue && company.DefaultReceivableAccountId.HasValue)
-        {
-            // Resolve fiscal year for the posting date
-            var fyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.FiscalYear, Guid>>();
-            var fyQuery = await fyRepo.GetQueryableAsync();
-            var fy = fyQuery.FirstOrDefault(f => f.CompanyId == invoice.CompanyId
-                && f.StartDate <= DateTime.UtcNow && f.EndDate >= DateTime.UtcNow);
+        var writeOffAccountId = invoice.WriteOffAccountId ?? company.DefaultExpenseAccountId;
+        if (!writeOffAccountId.HasValue)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Please enter a Write Off Account (or set a default expense account on the Company).");
 
-            if (fy != null)
-            {
-                var je = new Accounting.Entities.JournalEntry(
-                    GuidGenerator.Create(), invoice.CompanyId, fy.Id, DateTime.UtcNow, invoice.TenantId);
+        var fyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.FiscalYear, Guid>>();
+        var fyQuery = await fyRepo.GetQueryableAsync();
+        var fy = fyQuery.FirstOrDefault(f => f.CompanyId == invoice.CompanyId
+            && f.StartDate <= DateTime.UtcNow && f.EndDate >= DateTime.UtcNow);
+        if (fy == null)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "No fiscal year covers today's date; cannot post the write-off.");
 
-                je.AddLine(company.DefaultExpenseAccountId.Value, writeOffAmount, true, $"Write-off: {invoice.InvoiceNumber}");
-                je.AddLine(company.DefaultReceivableAccountId.Value, writeOffAmount, false, $"Write-off: {invoice.InvoiceNumber}");
-                je.Validate();
-                je.Post();
+        var je = new Accounting.Entities.JournalEntry(
+            GuidGenerator.Create(), invoice.CompanyId, fy.Id, DateTime.UtcNow, invoice.TenantId);
+        je.AddLine(writeOffAccountId.Value, writeOffAmount, true, $"Write-off: {invoice.InvoiceNumber}");
+        je.AddLineWithParty(invoice.DebitToAccountId, writeOffAmount, false,
+            invoice.CustomerId, "Customer", null, $"Write-off: {invoice.InvoiceNumber}");
+        je.Validate();
+        je.Post();
 
-                var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.JournalEntry, Guid>>();
-                await jeRepo.InsertAsync(je);
-            }
-        }
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.JournalEntry, Guid>>();
+        await jeRepo.InsertAsync(je);
 
         // Reverse PLE outstanding (creates write-off PLE entry)
         await _postingOrchestrator.ReversePleForDocumentAsync("SalesInvoice", invoice.Id);
