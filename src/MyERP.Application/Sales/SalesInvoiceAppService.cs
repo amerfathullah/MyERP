@@ -503,6 +503,20 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                     .WithData("salesOrderCompany", crossCompanySo.CompanyId)
                     .WithData("invoiceCompany", input.CompanyId);
             }
+
+            // ERPNext check_sales_order_on_hold_or_close: a closed Sales Order cannot be billed
+            // (returns are exempt).
+            if (!input.IsReturn)
+            {
+                var closedSo = soQuery
+                    .Where(so => so.Items.Any(i => soItemIds.Contains(i.Id)) && so.Status == Core.DocumentStatus.Closed)
+                    .FirstOrDefault();
+                if (closedSo != null)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.LinkedSalesOrderClosed)
+                        .WithData("salesOrderNumber", closedSo.OrderNumber);
+                }
+            }
         }
 
         var dnItemIds = input.Items
