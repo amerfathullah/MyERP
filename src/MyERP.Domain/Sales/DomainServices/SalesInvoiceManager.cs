@@ -40,7 +40,7 @@ public class SalesInvoiceManager : DomainService
     /// </summary>
     public static void ValidateSoRequired(SalesInvoice invoice, bool soRequired)
     {
-        if (!soRequired || invoice.IsReturn || invoice.UpdateStock) return;
+        if (!soRequired || invoice.IsReturn || invoice.IsPos || invoice.IsDebitNote) return;
 
         var unlinkedItem = invoice.Items.FirstOrDefault(i => !i.SalesOrderItemId.HasValue);
         if (unlinkedItem != null)
@@ -57,7 +57,7 @@ public class SalesInvoiceManager : DomainService
     /// </summary>
     public static void ValidateDnRequired(SalesInvoice invoice, bool dnRequired)
     {
-        if (!dnRequired || invoice.IsReturn || invoice.UpdateStock) return;
+        if (!dnRequired || invoice.IsReturn || invoice.UpdateStock || invoice.IsDebitNote) return;
 
         var unlinkedItem = invoice.Items.FirstOrDefault(i => !i.DeliveryNoteItemId.HasValue);
         if (unlinkedItem != null)

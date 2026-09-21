@@ -432,9 +432,9 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         // Mandatory SO linkage (Selling Settings or Customer flag)
         if (!dn.IsReturn)
         {
-            var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
-            var customer = await customerRepo.FindAsync(dn.CustomerId);
-            var soRequired = (customer?.SoRequired ?? false) || await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.SoRequired);
+            // ERPNext DeliveryNote.so_required reads Selling Settings only; the customer flag
+            // only exempts Sales Invoices.
+            var soRequired = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.SoRequired);
             if (soRequired)
             {
                 var unlinkedItem = dn.Items.FirstOrDefault(i => !i.SalesOrderItemId.HasValue && !dn.SalesOrderId.HasValue);

@@ -1041,8 +1041,10 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
             // Mandatory SO/DN linkage (Selling Settings or Customer flags: "Is SO/DN required for Sales Invoice?")
             var customerEntity = await _customerRepository.FindAsync(invoice.CustomerId);
-            var soRequired = (customerEntity?.SoRequired ?? false) || await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.SoRequired);
-            var dnRequired = (customerEntity?.DnRequired ?? false) || await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.DnRequired);
+            // ERPNext so_dn_required: the Selling Settings switch enforces, and the customer flag
+            // ("Allow sales invoice creation without sales order/delivery note") exempts.
+            var soRequired = !(customerEntity?.SoRequired ?? false) && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.SoRequired);
+            var dnRequired = !(customerEntity?.DnRequired ?? false) && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.DnRequired);
             SalesInvoiceManager.ValidateSoRequired(invoice, soRequired);
             SalesInvoiceManager.ValidateDnRequired(invoice, dnRequired);
 

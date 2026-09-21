@@ -84,10 +84,10 @@ public class Customer : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool RestrictToCompanies { get; set; }
 
-    /// <summary>Sales Order required before Delivery Note / Sales Invoice can be created for this customer.</summary>
+    /// <summary>Allow Sales Invoice creation without a Sales Order for this customer (exempts the Selling Settings requirement).</summary>
     public bool SoRequired { get; set; }
 
-    /// <summary>Delivery Note required before Sales Invoice can be created for this customer.</summary>
+    /// <summary>Allow Sales Invoice creation without a Delivery Note for this customer (exempts the Selling Settings requirement).</summary>
     public bool DnRequired { get; set; }
 
     /// <summary>Source Lead ID if customer was converted from a Lead (PR #50665 / commit 310099f4cd).</summary>
