@@ -99,4 +99,25 @@ public abstract class SupplierQuotationCompanyGuardTests<TStartupModule> : MyERP
             afterCancel.Suppliers[0].QuoteStatus.ShouldBe("Pending");
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_DisabledSupplier_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "SQ Disabled Co 1"), autoSave: true);
+            var supplier = new Supplier(Guid.NewGuid(), company.Id, "SQ Disabled Supp 1") { IsActive = false };
+            await GetRequiredService<IRepository<Supplier, Guid>>().InsertAsync(supplier, autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(new Item(Guid.NewGuid(), company.Id, "SQ-ITEM-3", "SQ Item 3", ItemType.Goods), autoSave: true);
+
+            await Should.ThrowAsync<BusinessException>(() =>
+                GetRequiredService<ISupplierQuotationAppService>().CreateAsync(new CreateSupplierQuotationDto
+                {
+                    CompanyId = company.Id,
+                    SupplierId = supplier.Id,
+                    TransactionDate = DateTime.UtcNow.Date,
+                    Items = new[] { new CreateSQItemDto { ItemId = item.Id, ItemName = "SQ Item 3", Qty = 1, Rate = 10 } }
+                }));
+        });
+    }
 }
