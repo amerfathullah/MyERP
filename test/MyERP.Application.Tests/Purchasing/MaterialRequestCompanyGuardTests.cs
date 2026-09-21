@@ -244,4 +244,33 @@ public abstract class MaterialRequestCompanyGuardTests<TStartupModule> : MyERPAp
                 }));
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_ClosedSalesOrder_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "MR Closed SO Co 1"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(new Customer(Guid.NewGuid(), company.Id, "MR Closed SO Cust 1"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(new Item(Guid.NewGuid(), company.Id, "MR-ITEM-CLOSED", "MR Item Closed", ItemType.Goods), autoSave: true);
+            var so = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-MR-CLOSED", DateTime.UtcNow.Date);
+            so.AddItem(item.Id, "Item SO", 1, 100, 0);
+            so.Submit();
+            so.Close();
+            await GetRequiredService<IRepository<SalesOrder, Guid>>().InsertAsync(so, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                GetRequiredService<IMaterialRequestAppService>().CreateAsync(new CreateMaterialRequestDto
+                {
+                    CompanyId = company.Id,
+                    RequestType = MaterialRequestType.Purchase,
+                    RequestDate = DateTime.UtcNow.Date,
+                    Items = new List<CreateMaterialRequestItemDto>
+                    {
+                        new() { ItemId = item.Id, ItemName = "MR Item Closed", Quantity = 1, Uom = "Unit", SalesOrderId = so.Id, SalesOrderItemId = so.Items[0].Id }
+                    }
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.LinkedSalesOrderClosed);
+        });
+    }
 }

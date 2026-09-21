@@ -495,6 +495,14 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
                     .WithData("salesOrderCompany", soMismatch.CompanyId)
                     .WithData("materialRequestCompany", companyId);
             }
+
+            // ERPNext check_for_on_hold_or_closed_status("Sales Order", "sales_order")
+            var closedSo = salesOrders.FirstOrDefault(s => s.Status == Core.DocumentStatus.Closed);
+            if (closedSo != null)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.LinkedSalesOrderClosed)
+                    .WithData("salesOrderNumber", closedSo.OrderNumber);
+            }
         }
 
         var linkedSoItemIds = input.Items

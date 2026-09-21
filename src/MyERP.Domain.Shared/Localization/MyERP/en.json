@@ -1201,7 +1201,7 @@
     "MyERP:03041": "Coupon code '{code}' not found.",
     "MyERP:03042": "Coupon code '{code}' is invalid or expired.",
     "MyERP:03043": "Overdue billing threshold exceeded for customer.",
-    "MyERP:03044": "Sales Order {salesOrderNumber} is Closed and cannot be invoiced.",
+    "MyERP:03044": "Sales Order {salesOrderNumber} is Closed and cannot be used in this document.",
     "MyERP:03022": "A lead with this email address already exists.",
     "MyERP:02048": "This bank transaction is already reconciled.",
     "MyERP:02049": "Bank clearance date cannot be earlier than the posting date.",
