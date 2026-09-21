@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormArray, Validators, FormsModule } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormArray, FormControl, FormGroup, Validators, FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -18,6 +18,7 @@ import { StockAvailabilityComponent } from '../../shared/components/stock-availa
 import { PaymentTermsTemplateService } from '../../proxy/accounting/payment-terms-template.service';
 import { PriceListService } from '../../proxy/inventory/price-list.service';
 import { PartyDetailsService } from '../../proxy/core/party-details.service';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { LinkPickerComponent } from '../../shared/components/link-picker/link-picker.component';
 import type { CustomerDto } from '../../proxy/sales/models';
 import { map, Observable } from 'rxjs';
@@ -44,8 +45,10 @@ export class SalesOrderFormComponent implements OnInit {
   private taxRuleService = inject(TaxRuleService);
   private priceListService = inject(PriceListService);
   private partyDetailsService = inject(PartyDetailsService);
+  private supplierService = inject(SupplierService);
 
   warehouses = signal<any[]>([]);
+  suppliers = signal<{ id: string; name: string }[]>([]);
   paymentTermsTemplates = signal<any[]>([]);
   priceLists = signal<any[]>([]);
   taxCategories = signal<any[]>([]);
@@ -82,6 +85,9 @@ export class SalesOrderFormComponent implements OnInit {
 
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' })
       .subscribe(res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)));
+
+    this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' } as any)
+      .subscribe({ next: res => this.suppliers.set((res.items ?? []).map((s: any) => ({ id: s.id, name: s.supplierName ?? s.name }))), error: () => {} });
 
     this.paymentTermsService.getList({ skipCount: 0, maxResultCount: 50, sorting: 'name asc' })
       .subscribe({ next: res => this.paymentTermsTemplates.set(res.items ?? []), error: () => {} });
@@ -120,6 +126,8 @@ export class SalesOrderFormComponent implements OnInit {
             rate: [item.unitPrice ?? 0],
             discountPercent: [0],
             blanketOrderId: [item.blanketOrderId ?? null],
+            deliveredBySupplier: [item.deliveredBySupplier ?? false],
+            supplierId: [item.supplierId ?? null],
           }));
         });
         this.recalculate();
@@ -149,6 +157,26 @@ export class SalesOrderFormComponent implements OnInit {
   }
 
   get items(): FormArray { return this.form.get('items') as FormArray; }
+
+  /** Rows added by the shared item grid don't carry the drop-ship controls; add them on first use. */
+  private dropShipControl(row: any, name: 'deliveredBySupplier' | 'supplierId'): FormControl {
+    const group = row as FormGroup;
+    if (!group.get(name)) group.addControl(name, new FormControl(name === 'deliveredBySupplier' ? false : null));
+    return group.get(name) as FormControl;
+  }
+
+  isDropShip(row: any): boolean { return !!row.get('deliveredBySupplier')?.value; }
+
+  toggleDropShip(row: any, checked: boolean): void {
+    this.dropShipControl(row, 'deliveredBySupplier').setValue(checked);
+    if (!checked) this.dropShipControl(row, 'supplierId').setValue(null);
+    this.form.markAsDirty();
+  }
+
+  setDropShipSupplier(row: any, supplierId: string): void {
+    this.dropShipControl(row, 'supplierId').setValue(supplierId || null);
+    this.form.markAsDirty();
+  }
 
   customerSearchFn = (filter: string): Observable<CustomerDto[]> =>
     this.customerService.getList({ filter, skipCount: 0, maxResultCount: 20, sorting: '' } as any)
@@ -199,6 +227,8 @@ export class SalesOrderFormComponent implements OnInit {
         uom: item.uom ?? 'Unit',
         warehouseId,
         blanketOrderId: item.blanketOrderId || null,
+        deliveredBySupplier: !!item.deliveredBySupplier,
+        supplierId: item.deliveredBySupplier ? (item.supplierId || null) : null,
       })),
     };
     if (this.isEditMode) {
