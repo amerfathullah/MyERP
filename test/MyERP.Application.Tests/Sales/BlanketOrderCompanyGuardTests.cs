@@ -121,4 +121,28 @@ public abstract class BlanketOrderCompanyGuardTests<TStartupModule> : MyERPAppli
             dto.Id.ShouldNotBe(Guid.Empty);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_FromDateAfterToDate_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "BO Dates Co"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(new Customer(Guid.NewGuid(), company.Id, "BO Dates Customer"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "BO-ITEM-DATES", "BO Dates Item", ItemType.Goods), autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                GetRequiredService<IBlanketOrderAppService>().CreateAsync(new CreateBlanketOrderDto
+                {
+                    CompanyId = company.Id,
+                    OrderType = "Selling",
+                    PartyId = customer.Id,
+                    FromDate = DateTime.Today.AddMonths(6),
+                    ToDate = DateTime.Today,
+                    Items = [new CreateBlanketOrderItemDto { ItemId = item.Id, Qty = 1m, Rate = 1m }]
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
 }

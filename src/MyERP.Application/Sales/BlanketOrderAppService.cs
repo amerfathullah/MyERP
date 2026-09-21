@@ -6,6 +6,7 @@ using MyERP.Sales.Entities;
 using MyERP.Permissions;
 using MyERP.Shared;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -49,6 +50,11 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
     [Authorize(MyERPPermissions.SalesOrders.Create)]
     public async Task<BlanketOrderDto> CreateAsync(CreateBlanketOrderDto input)
     {
+        // ERPNext validate_dates: rejected at save, not only at submit.
+        if (input.FromDate.Date > input.ToDate.Date)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "From Date cannot be greater than To Date.");
+
         // Validate all items are active
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         var itemIds = input.Items.Select(i => i.ItemId).ToArray();
