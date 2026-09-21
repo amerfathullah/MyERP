@@ -135,6 +135,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToArray();
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+        await ValidateStockItemsAsync(itemIds);
 
         await ValidateCompanyBoundariesAsync(input, input.CompanyId);
 
@@ -909,6 +910,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToArray();
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+        await ValidateStockItemsAsync(itemIds);
 
         await ValidateCompanyBoundariesAsync(input, entry.CompanyId);
 
@@ -1268,5 +1270,17 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             warehouseIds: allWarehouseIds.Count > 0 ? allWarehouseIds : null,
             accountIds: expenseAcctIds.Count > 0 ? expenseAcctIds : null);
     }
-}
 
+    /// <summary>ERPNext StockEntryDetail.validate_and_update_item_details: only stock items can move.</summary>
+    private async Task ValidateStockItemsAsync(Guid[] itemIds)
+    {
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var nonStock = (await itemRepo.GetQueryableAsync())
+            .Where(i => itemIds.Contains(i.Id) && !i.MaintainStock)
+            .Select(i => i.ItemName)
+            .FirstOrDefault();
+        if (nonStock != null)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"{nonStock} is not a stock Item.");
+    }
+}

@@ -258,4 +258,28 @@ public abstract class StockEntryCompanyGuardTests<TStartupModule> : MyERPApplica
                 }));
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_NonStockItem_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "SE Non Stock Co 1"), autoSave: true);
+            var service = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(new Item(Guid.NewGuid(), company.Id, "SE-SVC-1", "SE Service 1", ItemType.Service), autoSave: true);
+            var wh = await GetRequiredService<IRepository<Warehouse, Guid>>().InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "SE Non Stock Wh 1"), autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                GetRequiredService<IStockEntryAppService>().CreateAsync(new CreateStockEntryDto
+                {
+                    CompanyId = company.Id,
+                    EntryType = StockEntryType.MaterialReceipt,
+                    PostingDate = DateTime.UtcNow.Date,
+                    Items = new List<CreateStockEntryItemDto>
+                    {
+                        new() { ItemId = service.Id, Quantity = 1, TargetWarehouseId = wh.Id, ValuationRate = 10 }
+                    }
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
 }
