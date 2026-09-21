@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
 using MyERP.Inventory;
@@ -49,6 +50,53 @@ public abstract class SupplierQuotationCompanyGuardTests<TStartupModule> : MyERP
                         new CreateSQItemDto { ItemId = item.Id, ItemName = "SQ Item 1", Qty = 1, Rate = 100 }
                     }
                 }));
+        });
+    }
+
+    [Fact]
+    public async Task SubmitAndCancel_TogglesRfqSupplierQuoteStatus()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var rfqRepo = GetRequiredService<IRepository<RequestForQuotation, Guid>>();
+            var sqAppService = GetRequiredService<ISupplierQuotationAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SQ Status Co 1"), autoSave: true);
+            var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "SQ Status Supp 1"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "SQ-ITEM-2", "SQ Item 2", ItemType.Goods), autoSave: true);
+
+            await GetRequiredService<IRepository<DocumentSeries, Guid>>().InsertAsync(
+                new DocumentSeries(Guid.NewGuid(), company.Id, "SQ Series", "SQ", "SQST-"), autoSave: true);
+
+            var rfq = new RequestForQuotation(Guid.NewGuid(), company.Id, "RFQ-STATUS-1", DateTime.UtcNow.Date);
+            rfq.AddItem(item.Id, "SQ Item 2", 1, "Unit");
+            rfq.AddSupplier(supplier.Id, supplier.Name);
+            rfq.Submit();
+            await rfqRepo.InsertAsync(rfq, autoSave: true);
+
+            var sq = await sqAppService.CreateAsync(new CreateSupplierQuotationDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                TransactionDate = DateTime.UtcNow.Date,
+                RequestForQuotationId = rfq.Id,
+                Items = new[] { new CreateSQItemDto { ItemId = item.Id, ItemName = "SQ Item 2", Qty = 1, Rate = 100 } }
+            });
+            await GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>().Current!.SaveChangesAsync();
+
+            await sqAppService.SubmitAsync(sq.Id);
+            await GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>().Current!.SaveChangesAsync();
+            var afterSubmit = (await rfqRepo.WithDetailsAsync()).First(r => r.Id == rfq.Id);
+            afterSubmit.Suppliers[0].QuoteStatus.ShouldBe("Received");
+            afterSubmit.Suppliers[0].EmailSent.ShouldBeFalse();
+
+            await sqAppService.CancelAsync(sq.Id);
+            await GetRequiredService<Volo.Abp.Uow.IUnitOfWorkManager>().Current!.SaveChangesAsync();
+            var afterCancel = (await rfqRepo.WithDetailsAsync()).First(r => r.Id == rfq.Id);
+            afterCancel.Suppliers[0].QuoteStatus.ShouldBe("Pending");
         });
     }
 }

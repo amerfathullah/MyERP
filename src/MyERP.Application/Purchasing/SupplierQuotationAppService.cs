@@ -141,21 +141,7 @@ public class SupplierQuotationAppService : ApplicationService, ISupplierQuotatio
         sq.Submit();
         await _repository.UpdateAsync(sq);
 
-        // If created from RFQ, update RFQ activity
-        if (sq.RequestForQuotationId.HasValue)
-        {
-            var rfqRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<RequestForQuotation, Guid>>();
-            var rfq = await rfqRepo.FindAsync(sq.RequestForQuotationId.Value);
-            if (rfq != null)
-            {
-                var rfqSupplier = rfq.Suppliers.FirstOrDefault(s => s.SupplierId == sq.SupplierId);
-                if (rfqSupplier != null)
-                {
-                    rfqSupplier.EmailSent = true;
-                    await rfqRepo.UpdateAsync(rfq);
-                }
-            }
-        }
+        await UpdateRfqSupplierQuoteStatusAsync(sq, includeSelf: true);
 
         return ObjectMapper.Map<SupplierQuotation, SupplierQuotationDto>(sq);
     }
@@ -166,6 +152,37 @@ public class SupplierQuotationAppService : ApplicationService, ISupplierQuotatio
         var sq = await _repository.GetAsync(id);
         sq.Cancel();
         await _repository.UpdateAsync(sq);
+        await UpdateRfqSupplierQuoteStatusAsync(sq, includeSelf: false);
         return ObjectMapper.Map<SupplierQuotation, SupplierQuotationDto>(sq);
+    }
+
+    /// <summary>
+    /// ERPNext update_rfq_supplier_status: the RFQ supplier row is "Received" while a submitted
+    /// quotation from that supplier exists against the RFQ, otherwise back to "Pending".
+    /// </summary>
+    private async Task UpdateRfqSupplierQuoteStatusAsync(SupplierQuotation sq, bool includeSelf)
+    {
+        if (!sq.RequestForQuotationId.HasValue)
+            return;
+
+        var rfqRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<RequestForQuotation, Guid>>();
+        var rfq = (await rfqRepo.WithDetailsAsync()).FirstOrDefault(r => r.Id == sq.RequestForQuotationId.Value);
+        var rfqSupplier = rfq?.Suppliers.FirstOrDefault(s => s.SupplierId == sq.SupplierId);
+        if (rfq == null || rfqSupplier == null)
+            return;
+
+        var received = includeSelf;
+        if (!received)
+        {
+            var sqQuery = await _repository.GetQueryableAsync();
+            received = sqQuery.Any(x =>
+                x.Id != sq.Id &&
+                x.SupplierId == sq.SupplierId &&
+                x.RequestForQuotationId == sq.RequestForQuotationId &&
+                x.Status == DocumentStatus.Submitted);
+        }
+
+        rfqSupplier.QuoteStatus = received ? "Received" : "Pending";
+        await rfqRepo.UpdateAsync(rfq);
     }
 }

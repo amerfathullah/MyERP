@@ -78,6 +78,11 @@ public class RequestForQuotation : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status != DocumentStatus.Draft || !_items.Any() || !_suppliers.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Submitted;
+        foreach (var supplier in _suppliers)
+        {
+            supplier.EmailSent = false;
+            supplier.QuoteStatus = "Pending";
+        }
     }
 
     public void Cancel()
