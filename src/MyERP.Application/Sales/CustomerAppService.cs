@@ -148,6 +148,21 @@ public class CustomerAppService :
 
     private async Task ValidateCustomerAsync(CreateUpdateCustomerDto input, Guid? currentId = null)
     {
+        // ERPNext validate_account_head: the party account must belong to the customer's company
+        // and be a postable (non-group, enabled) ledger.
+        if (input.DefaultReceivableAccountId.HasValue)
+        {
+            var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>();
+            var account = await accountRepo.GetAsync(input.DefaultReceivableAccountId.Value);
+            if (account.CompanyId != input.CompanyId)
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch);
+            if (account.IsGroup)
+                throw new BusinessException(MyERPDomainErrorCodes.AccountIsGroup);
+            if (!account.IsActive)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Account {account.AccountName} is disabled.");
+        }
+
         if (input.RepresentsCompanyId.HasValue)
         {
             if (input.RepresentsCompanyId.Value == input.CompanyId)
