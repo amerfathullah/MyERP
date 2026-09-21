@@ -409,4 +409,30 @@ public abstract class DeliveryNoteCompanyGuardTests<TStartupModule> : MyERPAppli
             ex.Code.ShouldBe(MyERPDomainErrorCodes.LinkedSalesOrderClosed);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_DisabledCustomer_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "DN Disabled Cust Co"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(new Customer(Guid.NewGuid(), company.Id, "DN Disabled Cust") { IsActive = false }, autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(new Item(Guid.NewGuid(), company.Id, "DN-ITEM-DIS", "DN Item Dis", ItemType.Goods), autoSave: true);
+            var wh = await GetRequiredService<IRepository<Warehouse, Guid>>().InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "DN Disabled WH"), autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                GetRequiredService<IDeliveryNoteAppService>().CreateAsync(new CreateDeliveryNoteDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customer.Id,
+                    WarehouseId = wh.Id,
+                    PostingDate = DateTime.UtcNow.Date,
+                    Items = new List<CreateDeliveryNoteItemDto>
+                    {
+                        new() { ItemId = item.Id, Description = "Item", Quantity = 1, UnitPrice = 10 }
+                    }
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.PartyDisabled);
+        });
+    }
 }

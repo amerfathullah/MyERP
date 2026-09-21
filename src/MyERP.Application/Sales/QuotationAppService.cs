@@ -183,6 +183,12 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
                 .WithData("detail", "Valid Until date cannot be earlier than Issue Date.");
         }
 
+        // ERPNext validate_party_frozen_disabled (quotations to a Customer party)
+        var partyCustomer = await LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>().FindAsync(input.CustomerId);
+        if (partyCustomer != null)
+            LazyServiceProvider.LazyGetRequiredService<PartyValidationService>()
+                .ValidatePartyStatus("Customer", isFrozen: false, isDisabled: !partyCustomer.IsActive, partyCustomer.Name);
+
         var quotationNumber = await _numberGenerator.GenerateAsync("Quotation", input.CompanyId);
 
         var quotation = new Quotation(

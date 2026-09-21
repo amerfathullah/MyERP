@@ -162,4 +162,28 @@ public abstract class QuotationCompanyGuardTests<TStartupModule> : MyERPApplicat
                 }));
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_DisabledCustomer_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "QTN Disabled Cust Co"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(new Customer(Guid.NewGuid(), company.Id, "QTN Disabled Cust") { IsActive = false }, autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(new Item(Guid.NewGuid(), company.Id, "QTN-ITEM-DIS", "QTN Item Dis", ItemType.Goods), autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                GetRequiredService<IQuotationAppService>().CreateAsync(new CreateQuotationDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customer.Id,
+                    IssueDate = DateTime.UtcNow.Date,
+                    Items = new List<CreateQuotationItemDto>
+                    {
+                        new() { ItemId = item.Id, Description = "Item", Quantity = 1, UnitPrice = 10 }
+                    }
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.PartyDisabled);
+        });
+    }
 }

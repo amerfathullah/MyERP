@@ -283,4 +283,30 @@ public abstract class PurchaseReceiptCompanyGuardTests<TStartupModule> : MyERPAp
             ex.Code.ShouldBe(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_DisabledSupplier_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "PR Disabled Supp Co"), autoSave: true);
+            var supplier = await GetRequiredService<IRepository<Supplier, Guid>>().InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "PR Disabled Supp") { IsActive = false }, autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(new Item(Guid.NewGuid(), company.Id, "PR-ITEM-DIS", "PR Item Dis", ItemType.Goods), autoSave: true);
+            var wh = await GetRequiredService<IRepository<Warehouse, Guid>>().InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "PR Disabled WH"), autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                GetRequiredService<IPurchaseReceiptAppService>().CreateAsync(new CreatePurchaseReceiptDto
+                {
+                    CompanyId = company.Id,
+                    SupplierId = supplier.Id,
+                    WarehouseId = wh.Id,
+                    PostingDate = DateTime.UtcNow.Date,
+                    Items = new List<CreatePurchaseReceiptItemDto>
+                    {
+                        new() { ItemId = item.Id, Description = "Item", Quantity = 1, UnitPrice = 10 }
+                    }
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.PartyDisabled);
+        });
+    }
 }

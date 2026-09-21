@@ -161,6 +161,12 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
 
+        // ERPNext validate_party_frozen_disabled: no receipt from a disabled supplier
+        var partySupplier = await LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>().FindAsync(input.SupplierId);
+        if (partySupplier != null)
+            LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
+                .ValidatePartyStatus("Supplier", isFrozen: false, isDisabled: !partySupplier.IsActive, partySupplier.Name);
+
         var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
         var headerWh = await whRepo.FindAsync(input.WarehouseId);
         if (headerWh != null && headerWh.CompanyId != input.CompanyId)
