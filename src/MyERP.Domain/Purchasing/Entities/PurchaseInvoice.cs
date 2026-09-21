@@ -177,7 +177,8 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         && DueDate.Value.Date < DateTime.UtcNow.Date;
 
     private readonly List<PurchaseInvoiceItem> _items = new();
-    public IReadOnlyList<PurchaseInvoiceItem> Items => _items.AsReadOnly();
+    /// <summary>Rows in document order (Idx), since the database gives no ordering guarantee.</summary>
+    public IReadOnlyList<PurchaseInvoiceItem> Items => _items.OrderBy(i => i.Idx).ThenBy(i => i.CreationTime).ToList();
 
     // IAccountableDocument
     string IAccountableDocument.DocumentType => "PurchaseInvoice";
@@ -216,6 +217,7 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         _items.Add(new PurchaseInvoiceItem(
             Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom)
         {
+            Idx = _items.Count,
             WarehouseId = warehouseId,
         });
 

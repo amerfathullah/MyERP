@@ -72,7 +72,8 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     decimal IAccountableDocument.PurchaseExpenseTotal => PurchaseExpenseTotal;
 
     private readonly List<PurchaseReceiptItem> _items = new();
-    public IReadOnlyList<PurchaseReceiptItem> Items => _items.AsReadOnly();
+    /// <summary>Rows in document order (Idx), since the database gives no ordering guarantee.</summary>
+    public IReadOnlyList<PurchaseReceiptItem> Items => _items.OrderBy(i => i.Idx).ThenBy(i => i.CreationTime).ToList();
 
     /// <summary>
     /// Billing completion percentage. Uses MIN% formula per ERPNext StatusUpdater.
@@ -172,6 +173,7 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             RejectedWarehouseId = rejectedWarehouseId,
             ReceivedQty = receivedQty > 0 ? receivedQty : (quantity + rejectedQty),
         };
+        item.Idx = _items.Count;
         _items.Add(item);
 
         RecalculateTotals();

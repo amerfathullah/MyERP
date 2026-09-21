@@ -144,7 +144,8 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     }
 
     private readonly List<PurchaseOrderItem> _items = new();
-    public IReadOnlyList<PurchaseOrderItem> Items => _items.AsReadOnly();
+    /// <summary>Rows in document order (Idx), since the database gives no ordering guarantee.</summary>
+    public IReadOnlyList<PurchaseOrderItem> Items => _items.OrderBy(i => i.Idx).ThenBy(i => i.CreationTime).ToList();
 
     protected PurchaseOrder() { }
 
@@ -170,6 +171,7 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
             WarehouseId = warehouseId,
             ExpenseAccountId = expenseAccountId
         };
+        item.Idx = _items.Count;
         _items.Add(item);
         RecalculateTotals();
     }
@@ -347,6 +349,8 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
 {
     public Guid? TenantId { get; set; }
     public Guid PurchaseOrderId { get; set; }
+    /// <summary>Zero-based row position within the document (ERPNext idx); the database gives no ordering guarantee.</summary>
+    public int Idx { get; set; }
     public Guid ItemId { get; set; }
     public string Description { get; set; } = null!;
     public string Uom { get; set; } = "Unit";

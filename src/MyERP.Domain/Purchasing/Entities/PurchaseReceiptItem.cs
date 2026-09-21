@@ -10,6 +10,8 @@ namespace MyERP.Purchasing.Entities;
 public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
 {
     public Guid PurchaseReceiptId { get; set; }
+    /// <summary>Zero-based row position within the document (ERPNext idx); the database gives no ordering guarantee.</summary>
+    public int Idx { get; set; }
     public Guid ItemId { get; set; }
 
     public string Description { get; set; } = null!;

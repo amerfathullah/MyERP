@@ -91,7 +91,8 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     decimal IAccountableDocument.StockCostTotal => StockCostTotal;
 
     private readonly List<DeliveryNoteItem> _items = new();
-    public IReadOnlyList<DeliveryNoteItem> Items => _items.AsReadOnly();
+    /// <summary>Rows in document order (Idx), since the database gives no ordering guarantee.</summary>
+    public IReadOnlyList<DeliveryNoteItem> Items => _items.OrderBy(i => i.Idx).ThenBy(i => i.CreationTime).ToList();
 
     /// <summary>
     /// Billing completion percentage (0-100).
@@ -225,8 +226,10 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         if (IsReturn && quantity >= 0)
             throw new ArgumentException("Quantity must be negative for return delivery notes.", nameof(quantity));
 
-        _items.Add(new DeliveryNoteItem(
-            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, salesOrderItemId, pickListItemId));
+        var newItem = new DeliveryNoteItem(
+            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, salesOrderItemId, pickListItemId);
+        newItem.Idx = _items.Count;
+        _items.Add(newItem);
 
         RecalculateTotals();
     }

@@ -227,7 +227,8 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
 
     // Line items
     private readonly List<SalesInvoiceItem> _items = new();
-    public IReadOnlyList<SalesInvoiceItem> Items => _items.AsReadOnly();
+    /// <summary>Rows in document order (Idx), since the database gives no ordering guarantee.</summary>
+    public IReadOnlyList<SalesInvoiceItem> Items => _items.OrderBy(i => i.Idx).ThenBy(i => i.CreationTime).ToList();
 
     // IAccountableDocument implementation
     string IAccountableDocument.DocumentType => "SalesInvoice";
@@ -260,8 +261,10 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         if (IsReturn && quantity >= 0)
             throw new ArgumentException("Quantity must be negative for return invoices (credit notes).", nameof(quantity));
 
-        _items.Add(new SalesInvoiceItem(
-            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom));
+        var newItem = new SalesInvoiceItem(
+            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom);
+        newItem.Idx = _items.Count;
+        _items.Add(newItem);
 
         RecalculateTotals();
     }

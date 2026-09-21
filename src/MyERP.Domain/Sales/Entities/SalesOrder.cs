@@ -133,7 +133,8 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     }
 
     private readonly List<SalesOrderItem> _items = new();
-    public IReadOnlyList<SalesOrderItem> Items => _items.AsReadOnly();
+    /// <summary>Rows in document order (Idx), since the database gives no ordering guarantee.</summary>
+    public IReadOnlyList<SalesOrderItem> Items => _items.OrderBy(i => i.Idx).ThenBy(i => i.CreationTime).ToList();
 
     protected SalesOrder() { }
 
@@ -157,6 +158,7 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         var item = new SalesOrderItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom);
         item.DeliveryDate = deliveryDate;
         item.QuotationItemId = quotationItemId;
+        item.Idx = _items.Count;
         _items.Add(item);
         RecalculateTotals();
     }
@@ -354,6 +356,8 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
 {
     public Guid? TenantId { get; set; }
     public Guid SalesOrderId { get; set; }
+    /// <summary>Zero-based row position within the document (ERPNext idx); the database gives no ordering guarantee.</summary>
+    public int Idx { get; set; }
     public Guid ItemId { get; set; }
     public string Description { get; set; } = null!;
     public string Uom { get; set; } = "Unit";
