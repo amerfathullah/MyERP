@@ -361,6 +361,7 @@ export interface CreateQuotationItemDto {
   unitPrice: number;
   taxAmount?: number;
   uom?: string;
+  isAlternative?: boolean;
 }
 
 export interface CreateSalesInvoiceDto {
@@ -1375,6 +1376,8 @@ export interface QuotationItemDto {
   stockQty?: number;
   stockUom?: string;
   conversionFactor?: number;
+  isAlternative?: boolean;
+  hasAlternativeItem?: boolean;
 }
 
 export interface QuotationLostReasonDto extends FullAuditedEntityDto<string> {

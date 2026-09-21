@@ -129,7 +129,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         salesOrder.Notes = quotation.Notes;
         salesOrder.PriceListId = quotation.PriceListId;
 
-        foreach (var item in quotation.Items)
+        // Alternative offers are not ordered by default (ERPNext lets the user pick one explicitly).
+        foreach (var item in quotation.Items.Where(i => !i.IsAlternative))
         {
             salesOrder.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, quotationItemId: item.Id);
         }

@@ -56,8 +56,10 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     {
         get
         {
-            if (!_items.Any()) return 0;
-            return _items.Min(i => i.StockQty == 0 ? 100 : Math.Min(100, i.OrderedQty / i.StockQty * 100));
+            // ERPNext get_valid_items: rows in an alternatives set count only once they were ordered.
+            var valid = _items.Where(i => !(i.IsAlternative || i.HasAlternativeItem) || i.OrderedQty > 0).ToList();
+            if (!valid.Any()) return 0;
+            return valid.Min(i => i.StockQty == 0 ? 100 : Math.Min(100, i.OrderedQty / i.StockQty * 100));
         }
     }
 
@@ -95,11 +97,11 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit")
+    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", bool isAlternative = false)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        _items.Add(new QuotationItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom));
+        _items.Add(new QuotationItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom) { IsAlternative = isAlternative });
         RecalculateTotals();
     }
 
@@ -115,6 +117,8 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     {
         if (Status != DocumentStatus.Draft || !_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        MarkRowsWithAlternatives();
 
         // Auto-correct conversion factor when UOM equals StockUOM (gotcha #6171)
         foreach (var item in _items)
@@ -160,10 +164,25 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
         Status = DocumentStatus.Rejected; // Rejected = Lost in quotation context
     }
 
+    /// <summary>
+    /// ERPNext set_has_alternative_item: a non-alternative row directly followed by alternative
+    /// row(s) is flagged as having an alternative.
+    /// </summary>
+    private void MarkRowsWithAlternatives()
+    {
+        for (var idx = 0; idx < _items.Count - 1; idx++)
+        {
+            if (!_items[idx].IsAlternative && _items[idx + 1].IsAlternative)
+                _items[idx].HasAlternativeItem = true;
+        }
+    }
+
     private void RecalculateTotals()
     {
-        NetTotal = _items.Sum(i => i.LineTotal);
-        TaxAmount = _items.Sum(i => i.TaxAmount);
+        // ERPNext taxes_and_totals: alternative rows are offers, not part of the document total.
+        var counted = _items.Where(i => !i.IsAlternative).ToList();
+        NetTotal = counted.Sum(i => i.LineTotal);
+        TaxAmount = counted.Sum(i => i.TaxAmount);
         GrandTotal = NetTotal + TaxAmount;
         HasUnitPriceItems = _items.Any(i => i.Quantity == 0);
     }
@@ -194,6 +213,12 @@ public class QuotationItem : CreationAuditedEntity<Guid>
 
     /// <summary>Qty converted to Sales Order in stock UOM (PR #58603). Tracked by document conversion.</summary>
     public decimal OrderedQty { get; set; }
+
+    /// <summary>Alternative offer for the preceding row; excluded from totals (ERPNext is_alternative).</summary>
+    public bool IsAlternative { get; set; }
+
+    /// <summary>This row is followed by at least one alternative row (ERPNext has_alternative_item).</summary>
+    public bool HasAlternativeItem { get; set; }
 
     /// <summary>Remaining quantity to order in stock UOM (per ERPNext PR #58603).</summary>
     public decimal PendingOrderQty => Math.Max(0, StockQty - OrderedQty);

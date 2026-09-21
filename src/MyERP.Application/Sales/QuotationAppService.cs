@@ -262,7 +262,7 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
 
         foreach (var item in input.Items)
         {
-            quotation.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            quotation.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.IsAlternative);
         }
 
         await ApplyPricingRulesAsync(quotation);
@@ -339,7 +339,7 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         quotation.ClearItems();
         foreach (var item in input.Items)
         {
-            quotation.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            quotation.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.IsAlternative);
         }
 
         await ApplyPricingRulesAsync(quotation);
@@ -479,7 +479,7 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
 
         foreach (var item in original.Items)
         {
-            amended.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            amended.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.IsAlternative);
         }
 
         await _repository.InsertAsync(amended, autoSave: true);

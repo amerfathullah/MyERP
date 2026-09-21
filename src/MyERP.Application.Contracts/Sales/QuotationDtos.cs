@@ -46,6 +46,8 @@ public class QuotationItemDto
     public decimal StockQty { get; set; }
     public string StockUom { get; set; } = "Unit";
     public decimal ConversionFactor { get; set; } = 1m;
+    public bool IsAlternative { get; set; }
+    public bool HasAlternativeItem { get; set; }
 }
 
 public class CreateQuotationDto
@@ -103,4 +105,7 @@ public class CreateQuotationItemDto
 
     [StringLength(20)]
     public string Uom { get; set; } = "Unit";
+
+    /// <summary>Alternative offer for the preceding row; excluded from document totals.</summary>
+    public bool IsAlternative { get; set; }
 }
