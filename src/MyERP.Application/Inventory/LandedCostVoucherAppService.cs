@@ -96,7 +96,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
     /// UpdateStock (gotcha #280); Stock Entries are restricted to the entry types that actually
     /// move stock in (Material Receipt/Manufacture/Repack), matching GetReceiptItemsAsync.
     /// </summary>
-    private async Task ValidateReceiptForLandedCostAsync(string receiptType, Guid receiptId, Guid companyId)
+    private async Task<HashSet<Guid>> ValidateReceiptForLandedCostAsync(string receiptType, Guid receiptId, Guid companyId)
     {
         if (string.Equals(receiptType, "PurchaseReceipt", StringComparison.OrdinalIgnoreCase))
         {
@@ -107,6 +107,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             if (pr.Status != Core.DocumentStatus.Submitted)
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Purchase Receipt '{pr.ReceiptNumber}' must be submitted.");
+            return pr.Items.Select(i => i.ItemId).ToHashSet();
         }
         else if (string.Equals(receiptType, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase))
         {
@@ -120,6 +121,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             if (!pi.UpdateStock)
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Purchase Invoice '{pi.InvoiceNumber}' does not have Update Stock enabled. Landed Cost Voucher can only apply to Purchase Invoices with Update Stock.");
+            return pi.Items.Select(i => i.ItemId).ToHashSet();
         }
         else if (string.Equals(receiptType, "StockEntry", StringComparison.OrdinalIgnoreCase))
         {
@@ -136,6 +138,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                 se.EntryType != StockEntryType.Repack)
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be of entry type Material Receipt, Manufacture, or Repack.");
+            return se.Items.Select(i => i.ItemId).ToHashSet();
         }
         else
         {
@@ -193,13 +196,17 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
         // method applies these same checks, but CreateAsync is a public endpoint in its own
         // right and nothing stops a direct call with an arbitrary ReceiptId from a different
         // company or a Draft/Cancelled document. Per ERPNext validate_receipt_documents.
-        var validatedReceipts = new HashSet<(string Type, Guid Id)>();
+        var receiptItemIds = new Dictionary<(string Type, Guid Id), HashSet<Guid>>();
         foreach (var item in input.Items)
         {
             var key = (item.ReceiptType, item.ReceiptId);
-            if (!validatedReceipts.Add(key)) continue;
+            if (!receiptItemIds.ContainsKey(key))
+                receiptItemIds[key] = await ValidateReceiptForLandedCostAsync(item.ReceiptType, item.ReceiptId, input.CompanyId);
 
-            await ValidateReceiptForLandedCostAsync(item.ReceiptType, item.ReceiptId, input.CompanyId);
+            // ERPNext validate_line_items: the item must actually be a row of the referenced document.
+            if (!receiptItemIds[key].Contains(item.ItemId))
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Item {item.ItemId} does not exist in the referenced {item.ReceiptType}.");
         }
 
         foreach (var item in input.Items)

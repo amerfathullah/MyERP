@@ -259,4 +259,43 @@ public abstract class LandedCostVoucherReceiptGuardTests<TStartupModule> : MyERP
                 }));
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_ItemNotOnReferencedReceipt_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "LCV Guard Item Co"), autoSave: true);
+            var supplier = await GetRequiredService<IRepository<Supplier, Guid>>().InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "LCV Guard Supplier 5"), autoSave: true);
+            var expenseAccount = await GetRequiredService<IRepository<MyERP.Accounting.Entities.Account, Guid>>().InsertAsync(
+                new MyERP.Accounting.Entities.Account(Guid.NewGuid(), company.Id, "5904", "Freight Expense 5", MyERP.Accounting.AccountType.Expense), autoSave: true);
+            await GetRequiredService<IRepository<Core.Entities.DocumentSeries, Guid>>().InsertAsync(
+                new Core.Entities.DocumentSeries(Guid.NewGuid(), company.Id, "LCV Series 5", "LCV", "LCV5-"), autoSave: true);
+
+            var receiptItemId = Guid.NewGuid();
+            var pr = new PurchaseReceipt(Guid.NewGuid(), company.Id, supplier.Id, Guid.NewGuid(), "PR-LCV-ITEM-001", DateTime.Today);
+            pr.AddItem(receiptItemId, "Widget", quantity: 10m, unitPrice: 5.00m, taxAmount: 0m);
+            pr.Submit();
+            await GetRequiredService<IRepository<PurchaseReceipt, Guid>>().InsertAsync(pr, autoSave: true);
+
+            await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                GetRequiredService<ILandedCostVoucherAppService>().CreateAsync(new CreateLandedCostVoucherDto
+                {
+                    CompanyId = company.Id,
+                    PostingDate = DateTime.Today,
+                    Items =
+                    [
+                        new CreateLandedCostItemDto
+                        {
+                            ReceiptId = pr.Id, ReceiptType = "PurchaseReceipt", ItemId = Guid.NewGuid(),
+                            Quantity = 10m, Amount = 50m,
+                        }
+                    ],
+                    Charges =
+                    [
+                        new CreateLandedCostChargeDto { Description = "Freight", ExpenseAccountId = expenseAccount.Id, Amount = 20m }
+                    ]
+                }));
+        });
+    }
 }
