@@ -104,6 +104,7 @@ export class PaymentEntryFormComponent implements OnInit {
     partyType: ['Customer'],
     partyId: [''],
     reference: [''],
+    referenceDate: [null as Date | string | null],
     costCenterId: [''],
     projectId: [''],
     remarks: [''],
@@ -195,6 +196,7 @@ export class PaymentEntryFormComponent implements OnInit {
           paidToAccount: '',
           partyType: 'Customer',
           reference: pe.referenceNumber ?? '',
+          referenceDate: pe.referenceDate ? String(pe.referenceDate).substring(0, 10) : null,
           remarks: '',
         });
         this.taxRows.set(pe.taxes ?? []);
@@ -574,6 +576,7 @@ export class PaymentEntryFormComponent implements OnInit {
       paidFromAccountId: raw.paidFromAccount,
       paidToAccountId: raw.paidToAccount,
       referenceNumber: raw.reference,
+      referenceDate: raw.referenceDate || null,
     };
 
     // Multi-invoice allocation: include references array

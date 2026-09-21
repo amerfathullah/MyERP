@@ -17,6 +17,7 @@ public class PaymentEntryDto : EntityDto<Guid>
     public string CurrencyCode { get; set; } = null!;
     public string Status { get; set; } = null!;
     public string? ReferenceNumber { get; set; }
+    public DateTime? ReferenceDate { get; set; }
     public Guid PaidFromAccountId { get; set; }
     public Guid PaidToAccountId { get; set; }
     public string? PaidFromAccountCurrency { get; set; }
@@ -70,6 +71,8 @@ public class CreatePaymentEntryDto
     /// <summary>Project for project-wise reporting. Propagated to exchange gain/loss JE.</summary>
     public Guid? ProjectId { get; set; }
     [StringLength(PaymentEntryConsts.MaxReferenceNumberLength)] public string? ReferenceNumber { get; set; }
+    /// <summary>Required together with ReferenceNumber when the bank-side account is a Bank account.</summary>
+    public DateTime? ReferenceDate { get; set; }
     public string? Notes { get; set; }
     public string? Remarks { get; set; }
 

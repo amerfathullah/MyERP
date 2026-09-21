@@ -207,6 +207,9 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             throw new BusinessException(MyERPDomainErrorCodes.SameAccountInternalTransfer);
         }
 
+        await ValidateTransactionReferenceAsync(
+            input.PaymentType, input.PaidFromAccountId, input.PaidToAccountId, input.ReferenceNumber, input.ReferenceDate);
+
         var paymentNumber = await _numberGenerator.GenerateAsync("PaymentEntry", input.CompanyId);
         var pe = new PaymentEntry(
             GuidGenerator.Create(), input.CompanyId, input.PaymentType, input.PostingDate,
@@ -219,6 +222,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         pe.CostCenterId = input.CostCenterId;
         pe.ProjectId = input.ProjectId;
         pe.ReferenceNumber = input.ReferenceNumber;
+        pe.ReferenceDate = input.ReferenceDate;
         pe.Notes = input.Notes;
         pe.AgainstOrderId = input.AgainstOrderId;
         pe.AgainstOrderType = input.AgainstOrderType;
@@ -1268,7 +1272,10 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         entry.PaidFromAccountId = input.PaidFromAccountId != Guid.Empty ? input.PaidFromAccountId : entry.PaidFromAccountId;
         entry.PaidToAccountId = input.PaidToAccountId != Guid.Empty ? input.PaidToAccountId : entry.PaidToAccountId;
         entry.ValidateInternalTransferAccounts();
+        await ValidateTransactionReferenceAsync(
+            entry.PaymentType, entry.PaidFromAccountId, entry.PaidToAccountId, input.ReferenceNumber, input.ReferenceDate);
         entry.ReferenceNumber = input.ReferenceNumber;
+        entry.ReferenceDate = input.ReferenceDate;
 
         if (input.Taxes != null)
         {
@@ -1396,6 +1403,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             TargetExchangeRate = original.TargetExchangeRate,
             ReceivedAmount = original.ReceivedAmount,
             ReferenceNumber = original.ReferenceNumber,
+            ReferenceDate = original.ReferenceDate,
             Notes = original.Notes,
             AgainstInvoiceId = original.AgainstInvoiceId,
             AgainstInvoiceType = original.AgainstInvoiceType,
@@ -1750,5 +1758,21 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             }
         }
     }
-}
 
+    /// <summary>
+    /// ERPNext validate_transaction_reference: a payment through a Bank account needs the bank
+    /// reference number and date (the receiving account for Receive, the paying account otherwise).
+    /// </summary>
+    private async Task ValidateTransactionReferenceAsync(
+        PaymentType paymentType, Guid paidFromAccountId, Guid paidToAccountId, string? referenceNumber, DateTime? referenceDate)
+    {
+        if (!string.IsNullOrWhiteSpace(referenceNumber) && referenceDate.HasValue)
+            return;
+
+        var bankSideAccountId = paymentType == PaymentType.Receive ? paidToAccountId : paidFromAccountId;
+        var account = await LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>().FindAsync(bankSideAccountId);
+        if (account?.AccountSubType == AccountSubType.BankAccount)
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Reference No and Reference Date is mandatory for Bank transaction.");
+    }
+}

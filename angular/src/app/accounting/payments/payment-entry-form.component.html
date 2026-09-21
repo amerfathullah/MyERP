@@ -136,6 +136,11 @@
             <input type="text" class="form-control" formControlName="reference" [class.is-invalid]="form.get('reference')?.invalid && form.get('reference')?.touched" />
           </div>
           <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">Reference Date</label>
+            <input type="date" class="form-control" formControlName="referenceDate" />
+            <small class="text-muted">Required with Reference No for bank payments.</small>
+          </div>
+          <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::CostCenter' | abpLocalization }}</label>
             <select class="form-select" formControlName="costCenterId">
               <option value="">—</option>

@@ -1041,6 +1041,7 @@ export interface CreatePaymentEntryDto {
   costCenterId?: string | null;
   projectId?: string | null;
   referenceNumber?: string | null;
+  referenceDate?: string | null;
   notes?: string | null;
   remarks?: string | null;
   againstInvoiceId?: string | null;
@@ -2066,6 +2067,7 @@ export interface PaymentEntryDto extends EntityDto<string> {
   currencyCode?: string;
   status?: string;
   referenceNumber?: string | null;
+  referenceDate?: string | null;
   paidFromAccountId?: string;
   paidToAccountId?: string;
   paidFromAccountCurrency?: string | null;

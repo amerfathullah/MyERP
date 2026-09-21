@@ -299,7 +299,9 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
             PaidToAccountId = isReceive ? company.DefaultBankAccountId.Value : partyAccountId,
             PartyType = pr.PartyType,
             PartyId = pr.PartyId,
-            ReferenceNumber = pr.ReferenceNumber,
+            // Bank payments require a reference no + date (ERPNext validate_transaction_reference).
+            ReferenceNumber = pr.ReferenceNumber ?? $"PR-{pr.Id.ToString()[..8].ToUpperInvariant()}",
+            ReferenceDate = DateTime.UtcNow.Date,
             PaymentCurrency = pr.Currency,
         };
 

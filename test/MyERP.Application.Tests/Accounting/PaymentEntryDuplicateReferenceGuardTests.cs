@@ -54,4 +54,49 @@ public abstract class PaymentEntryDuplicateReferenceGuardTests<TStartupModule> :
                 }));
         });
     }
+
+    private async Task<(CreatePaymentEntryDto Dto, Guid CompanyId)> BuildBankReceiptAsync(string tag)
+    {
+        var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), $"PE Bank Ref Co {tag}"), autoSave: true);
+        var accountRepository = GetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
+        var bank = await accountRepository.InsertAsync(
+            new Accounting.Entities.Account(Guid.NewGuid(), company.Id, $"1122-{tag}", "Bank", AccountType.Asset) { AccountSubType = AccountSubType.BankAccount }, autoSave: true);
+        var receivable = await accountRepository.InsertAsync(
+            new Accounting.Entities.Account(Guid.NewGuid(), company.Id, $"1131-{tag}", "Receivable", AccountType.Asset), autoSave: true);
+        await GetRequiredService<IRepository<DocumentSeries, Guid>>().InsertAsync(
+            new DocumentSeries(Guid.NewGuid(), company.Id, $"PE Series {tag}", "PaymentEntry", $"PEB{tag}-"), autoSave: true);
+        return (new CreatePaymentEntryDto
+        {
+            CompanyId = company.Id,
+            PaymentType = PaymentType.Receive,
+            PostingDate = DateTime.UtcNow,
+            PaidAmount = 100m,
+            PaidFromAccountId = receivable.Id,
+            PaidToAccountId = bank.Id,
+        }, company.Id);
+    }
+
+    [Fact]
+    public async Task CreateAsync_BankAccountWithoutReference_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var (dto, _) = await BuildBankReceiptAsync("A");
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => GetRequiredService<IPaymentEntryAppService>().CreateAsync(dto));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
+
+    [Fact]
+    public async Task CreateAsync_BankAccountWithReferenceNoAndDate_Succeeds()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var (dto, _) = await BuildBankReceiptAsync("B");
+            dto.ReferenceNumber = "CHQ-001";
+            dto.ReferenceDate = DateTime.UtcNow.Date;
+            var created = await GetRequiredService<IPaymentEntryAppService>().CreateAsync(dto);
+            created.ReferenceDate.ShouldBe(dto.ReferenceDate);
+        });
+    }
 }

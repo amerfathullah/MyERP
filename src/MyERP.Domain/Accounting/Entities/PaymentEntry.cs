@@ -103,6 +103,9 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Bank reference / cheque number.</summary>
     public string? ReferenceNumber { get; set; }
 
+    /// <summary>Bank reference / cheque date. Mandatory with the reference number for bank payments (ERPNext reference_date).</summary>
+    public DateTime? ReferenceDate { get; set; }
+
     /// <summary>
     /// Date the bank confirmed this payment cleared (from Bank Clearance / Bank Reconciliation).
     /// Null = outstanding (not yet cleared at the bank). Drives the Bank Reconciliation Statement.

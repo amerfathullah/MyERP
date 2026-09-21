@@ -273,6 +273,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
             CurrentTenant.Id)
         {
             ReferenceNumber = spec.ReferenceNumber,
+            ReferenceDate = spec.PostingDate,
             PaymentNumber = await GenerateInternalTransferNumberAsync(spec.CompanyId),
         };
 
