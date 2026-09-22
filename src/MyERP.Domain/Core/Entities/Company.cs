@@ -83,6 +83,9 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? DefaultTaxPayableAccountId { get; set; }
     /// <summary>Default Bank account.</summary>
     public Guid? DefaultBankAccountId { get; set; }
+
+    /// <summary>Role that may still transact with frozen customers/suppliers (ERPNext role_allowed_for_frozen_entries).</summary>
+    public string? RoleAllowedForFrozenEntries { get; set; }
     /// <summary>Default Stock/Inventory account (perpetual inventory).</summary>
     public Guid? DefaultInventoryAccountId { get; set; }
     /// <summary>

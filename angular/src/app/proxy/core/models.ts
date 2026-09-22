@@ -144,6 +144,7 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   serviceExpenseAccountId?: string | null;
   defaultTaxPayableAccountId?: string | null;
   defaultBankAccountId?: string | null;
+  roleAllowedForFrozenEntries?: string | null;
   defaultInventoryAccountId?: string | null;
   stockReceivedButNotBilledAccountId?: string | null;
   stockDeliveredButNotBilledAccountId?: string | null;
@@ -350,6 +351,7 @@ export interface CreateUpdateCompanyDto {
   serviceExpenseAccountId?: string | null;
   defaultTaxPayableAccountId?: string | null;
   defaultBankAccountId?: string | null;
+  roleAllowedForFrozenEntries?: string | null;
   defaultInventoryAccountId?: string | null;
   stockReceivedButNotBilledAccountId?: string | null;
   stockDeliveredButNotBilledAccountId?: string | null;
@@ -1041,6 +1043,7 @@ export interface UpdateCompanySettingsDto {
   defaultExpenseAccountId?: string | null;
   defaultTaxPayableAccountId?: string | null;
   defaultBankAccountId?: string | null;
+  roleAllowedForFrozenEntries?: string | null;
   defaultInventoryAccountId?: string | null;
   depreciationExpenseAccountId?: string | null;
   accumulatedDepreciationAccountId?: string | null;

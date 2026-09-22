@@ -65,6 +65,7 @@ public class CreateUpdateSupplierDto
     public SupplierHoldType HoldType { get; set; } = SupplierHoldType.None;
     public bool PreventPurchaseOrders { get; set; }
     public bool PreventRfqs { get; set; }
+    public bool IsFrozen { get; set; }
     public bool AllowPurchaseInvoiceWithoutPurchaseOrder { get; set; }
     public bool AllowPurchaseInvoiceWithoutPurchaseReceipt { get; set; }
     public Guid? RepresentsCompanyId { get; set; }

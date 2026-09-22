@@ -27,6 +27,7 @@ public class SupplierDto : FullAuditedEntityDto<Guid>
     public SupplierHoldType HoldType { get; set; }
     public bool PreventPurchaseOrders { get; set; }
     public bool PreventRfqs { get; set; }
+    public bool IsFrozen { get; set; }
     public bool AllowPurchaseInvoiceWithoutPurchaseOrder { get; set; }
     public bool AllowPurchaseInvoiceWithoutPurchaseReceipt { get; set; }
     public Guid? RepresentsCompanyId { get; set; }

@@ -68,6 +68,9 @@ public class Supplier : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Supplier scorecard standing — blocks RFQs when true (per DO-NOT: prevent_rfqs flag).</summary>
     public bool PreventRfqs { get; set; }
 
+    /// <summary>Frozen suppliers cannot be transacted with except by the company's frozen-entries role (ERPNext is_frozen).</summary>
+    public bool IsFrozen { get; set; }
+
     /// <summary>Exempts this supplier from the Buying Settings "Purchase Order Required" rule for invoices (ERPNext allow_purchase_invoice_creation_without_purchase_order).</summary>
     public bool AllowPurchaseInvoiceWithoutPurchaseOrder { get; set; }
 

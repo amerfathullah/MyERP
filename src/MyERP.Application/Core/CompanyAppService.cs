@@ -33,6 +33,7 @@ public class UpdateCompanySettingsDto
     public Guid? DefaultExpenseAccountId { get; set; }
     public Guid? DefaultTaxPayableAccountId { get; set; }
     public Guid? DefaultBankAccountId { get; set; }
+    public string? RoleAllowedForFrozenEntries { get; set; }
     public Guid? DefaultInventoryAccountId { get; set; }
     public Guid? DepreciationExpenseAccountId { get; set; }
     public Guid? AccumulatedDepreciationAccountId { get; set; }
@@ -148,6 +149,7 @@ public class CompanyAppService :
         entity.ServiceExpenseAccountId = input.ServiceExpenseAccountId;
         entity.DefaultTaxPayableAccountId = input.DefaultTaxPayableAccountId;
         entity.DefaultBankAccountId = input.DefaultBankAccountId;
+        entity.RoleAllowedForFrozenEntries = input.RoleAllowedForFrozenEntries;
         entity.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
         entity.StockReceivedButNotBilledAccountId = input.StockReceivedButNotBilledAccountId;
         entity.StockDeliveredButNotBilledAccountId = input.StockDeliveredButNotBilledAccountId;
@@ -206,6 +208,7 @@ public class CompanyAppService :
         company.DefaultExpenseAccountId = input.DefaultExpenseAccountId;
         company.DefaultTaxPayableAccountId = input.DefaultTaxPayableAccountId;
         company.DefaultBankAccountId = input.DefaultBankAccountId;
+        company.RoleAllowedForFrozenEntries = input.RoleAllowedForFrozenEntries;
         company.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
         company.DepreciationExpenseAccountId = input.DepreciationExpenseAccountId;
         company.AccumulatedDepreciationAccountId = input.AccumulatedDepreciationAccountId;

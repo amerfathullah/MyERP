@@ -548,8 +548,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             accountIds: deferredAcctIds.Count > 0 ? deferredAcctIds : null);
 
         var customerForStatus = await _customerRepository.GetAsync(input.CustomerId);
-        LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
-            .ValidatePartyStatus("Customer", isFrozen: false, isDisabled: !customerForStatus.IsActive, customerForStatus.Name);
+        await LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
+            .ValidatePartyForTransactionAsync("Customer", isDisabled: !customerForStatus.IsActive, isFrozen: customerForStatus.IsFrozen, customerForStatus.Name, input.CompanyId);
 
         var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", input.CompanyId);
 

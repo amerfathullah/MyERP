@@ -178,7 +178,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             "PaymentEntry", input.CompanyId,
             accountIds: new[] { input.PaidFromAccountId, input.PaidToAccountId });
 
-        await ValidatePartyNotDisabledAsync(input.PartyType, input.PartyId);
+        await ValidatePartyUsableAsync(input.PartyType, input.PartyId, input.CompanyId);
 
         // Per ERPNext PR #47069 / commit a854beeb40: set account type and currency if missing
         await PopulateAccountDetailsAsync(input);
@@ -1778,19 +1778,21 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 .WithData("detail", "Reference No and Reference Date is mandatory for Bank transaction.");
     }
 
-    /// <summary>ERPNext validate_party_frozen_disabled: no payment to/from a disabled Customer or Supplier.</summary>
-    private async Task ValidatePartyNotDisabledAsync(string? partyType, Guid? partyId)
+    /// <summary>ERPNext validate_party_frozen_disabled: no payment to/from a disabled or (unless overridden) frozen Customer or Supplier.</summary>
+    private async Task ValidatePartyUsableAsync(string? partyType, Guid? partyId, Guid companyId)
     {
         if (!partyId.HasValue) return;
 
         string? name = null;
         var isDisabled = false;
+        var isFrozen = false;
         if (string.Equals(partyType, "Customer", StringComparison.OrdinalIgnoreCase))
         {
             var customer = await LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>().FindAsync(partyId.Value);
             if (customer == null) return;
             name = customer.Name;
             isDisabled = !customer.IsActive;
+            isFrozen = customer.IsFrozen;
         }
         else if (string.Equals(partyType, "Supplier", StringComparison.OrdinalIgnoreCase))
         {
@@ -1798,10 +1800,11 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             if (supplier == null) return;
             name = supplier.Name;
             isDisabled = !supplier.IsActive;
+            isFrozen = supplier.IsFrozen;
         }
         else return;
 
-        LazyServiceProvider.LazyGetRequiredService<PartyValidationService>()
-            .ValidatePartyStatus(partyType!, isFrozen: false, isDisabled: isDisabled, name!);
+        await LazyServiceProvider.LazyGetRequiredService<PartyValidationService>()
+            .ValidatePartyForTransactionAsync(partyType!, isDisabled, isFrozen, name!, companyId);
     }
 }

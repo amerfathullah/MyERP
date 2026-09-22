@@ -251,6 +251,7 @@ public class CustomerAppService :
         entity.DefaultPriceListId = input.DefaultPriceListId;
         entity.RestrictToCompanies = input.RestrictToCompanies;
         entity.SoRequired = input.SoRequired;
+        entity.IsFrozen = input.IsFrozen;
         entity.DnRequired = input.DnRequired;
         entity.LeadId = input.LeadId;
         entity.OpportunityId = input.OpportunityId;

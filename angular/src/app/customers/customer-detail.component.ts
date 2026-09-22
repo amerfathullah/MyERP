@@ -81,13 +81,13 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </tr>
                   @if (customer.soRequired) {
                     <tr>
-                      <th class="text-muted">{{ '::SalesOrderRequired' | abpLocalization }}</th>
+                      <th class="text-muted">Invoice without Sales Order allowed</th>
                       <td><span class="badge bg-warning text-dark">{{ '::Yes' | abpLocalization }}</span></td>
                     </tr>
                   }
                   @if (customer.dnRequired) {
                     <tr>
-                      <th class="text-muted">{{ '::DeliveryNoteRequired' | abpLocalization }}</th>
+                      <th class="text-muted">Invoice without Delivery Note allowed</th>
                       <td><span class="badge bg-info text-dark">{{ '::Yes' | abpLocalization }}</span></td>
                     </tr>
                   }

@@ -243,8 +243,8 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             accountIds: expenseAcctIds.Count > 0 ? expenseAcctIds : null);
 
         var supplierForStatus = await _supplierRepository.GetAsync(input.SupplierId);
-        LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
-            .ValidatePartyStatus("Supplier", isFrozen: false, isDisabled: !supplierForStatus.IsActive, supplierForStatus.Name);
+        await LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
+            .ValidatePartyForTransactionAsync("Supplier", isDisabled: !supplierForStatus.IsActive, isFrozen: supplierForStatus.IsFrozen, supplierForStatus.Name, input.CompanyId);
 
         var orderNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", input.CompanyId);
         var po = new PurchaseOrder(GuidGenerator.Create(), input.CompanyId, input.SupplierId, orderNumber, input.OrderDate);

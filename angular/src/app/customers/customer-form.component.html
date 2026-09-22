@@ -217,14 +217,21 @@
           <div class="col-12 col-md-3 mb-3 d-flex align-items-end">
             <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="soRequired" formControlName="soRequired" />
-              <label class="form-check-label" for="soRequired">{{ '::SalesOrderRequired' | abpLocalization }}</label>
+              <label class="form-check-label" for="soRequired">Allow Sales Invoice without Sales Order</label>
             </div>
           </div>
 
           <div class="col-12 col-md-3 mb-3 d-flex align-items-end">
             <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="dnRequired" formControlName="dnRequired" />
-              <label class="form-check-label" for="dnRequired">{{ '::DeliveryNoteRequired' | abpLocalization }}</label>
+              <label class="form-check-label" for="dnRequired">Allow Sales Invoice without Delivery Note</label>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-3 mb-3 d-flex align-items-end">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="isFrozen" formControlName="isFrozen" />
+              <label class="form-check-label" for="isFrozen">Frozen</label>
             </div>
           </div>
 

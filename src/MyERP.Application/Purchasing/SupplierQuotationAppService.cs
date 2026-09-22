@@ -75,8 +75,8 @@ public class SupplierQuotationAppService : ApplicationService, ISupplierQuotatio
         }
 
         // ERPNext validate_party_frozen_disabled: disabled supplier cannot be quoted against.
-        LazyServiceProvider.LazyGetRequiredService<PartyValidationService>()
-            .ValidatePartyStatus("Supplier", isFrozen: false, isDisabled: !supplier.IsActive, supplier.Name);
+        await LazyServiceProvider.LazyGetRequiredService<PartyValidationService>()
+            .ValidatePartyForTransactionAsync("Supplier", isDisabled: !supplier.IsActive, isFrozen: supplier.IsFrozen, supplier.Name, input.CompanyId);
 
         // Validate all items are active
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();

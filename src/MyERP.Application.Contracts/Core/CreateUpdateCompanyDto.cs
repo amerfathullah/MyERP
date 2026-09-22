@@ -80,6 +80,7 @@ public class CreateUpdateCompanyDto
     public System.Guid? ServiceExpenseAccountId { get; set; }
     public System.Guid? DefaultTaxPayableAccountId { get; set; }
     public System.Guid? DefaultBankAccountId { get; set; }
+    [System.ComponentModel.DataAnnotations.StringLength(100)] public string? RoleAllowedForFrozenEntries { get; set; }
     public System.Guid? DefaultInventoryAccountId { get; set; }
     public System.Guid? StockReceivedButNotBilledAccountId { get; set; }
     public System.Guid? StockDeliveredButNotBilledAccountId { get; set; }

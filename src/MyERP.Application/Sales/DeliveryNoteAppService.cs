@@ -145,8 +145,8 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         // ERPNext validate_party_frozen_disabled: no delivery to a disabled customer
         var partyCustomer = await LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>().FindAsync(input.CustomerId);
         if (partyCustomer != null)
-            LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
-                .ValidatePartyStatus("Customer", isFrozen: false, isDisabled: !partyCustomer.IsActive, partyCustomer.Name);
+            await LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
+                .ValidatePartyForTransactionAsync("Customer", isDisabled: !partyCustomer.IsActive, isFrozen: partyCustomer.IsFrozen, partyCustomer.Name, input.CompanyId);
 
         var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
         var warehouse = await whRepo.FindAsync(input.WarehouseId);

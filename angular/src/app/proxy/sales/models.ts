@@ -541,6 +541,7 @@ export interface CreateUpdateCustomerDto {
   defaultPriceListId?: string | null;
   restrictToCompanies?: boolean;
   soRequired?: boolean;
+  isFrozen?: boolean;
   dnRequired?: boolean;
   leadId?: string | null;
   opportunityId?: string | null;
@@ -651,6 +652,7 @@ export interface CustomerDto extends FullAuditedEntityDto<string> {
   defaultPriceListId?: string | null;
   restrictToCompanies?: boolean;
   soRequired?: boolean;
+  isFrozen?: boolean;
   dnRequired?: boolean;
   leadId?: string | null;
   opportunityId?: string | null;

@@ -327,6 +327,7 @@ export interface CreateUpdateSupplierDto {
   holdType?: SupplierHoldType;
   preventPurchaseOrders?: boolean;
   preventRfqs?: boolean;
+  isFrozen?: boolean;
   allowPurchaseInvoiceWithoutPurchaseOrder?: boolean;
   allowPurchaseInvoiceWithoutPurchaseReceipt?: boolean;
   representsCompanyId?: string | null;
@@ -903,6 +904,7 @@ export interface SupplierDto extends FullAuditedEntityDto<string> {
   holdType?: SupplierHoldType;
   preventPurchaseOrders?: boolean;
   preventRfqs?: boolean;
+  isFrozen?: boolean;
   allowPurchaseInvoiceWithoutPurchaseOrder?: boolean;
   allowPurchaseInvoiceWithoutPurchaseReceipt?: boolean;
   representsCompanyId?: string | null;

@@ -79,6 +79,7 @@ export class CustomerFormComponent implements OnInit {
     isActive: [true],
     restrictToCompanies: [false],
     soRequired: [false],
+    isFrozen: [false],
     dnRequired: [false],
   });
 

@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MyERP.Core.Entities;
 using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
+using Volo.Abp.Users;
 
 namespace MyERP.Core.DomainServices;
 
@@ -48,6 +51,24 @@ public class PartyValidationService : DomainService
             throw new BusinessException(MyERPDomainErrorCodes.PartyFrozen)
                 .WithData("partyName", partyName);
         }
+    }
+
+    /// <summary>
+    /// ERPNext validate_party_frozen_disabled: a disabled party always blocks; a frozen party blocks
+    /// unless the current user holds the company's role_allowed_for_frozen_entries.
+    /// </summary>
+    public async Task ValidatePartyForTransactionAsync(
+        string partyType, bool isDisabled, bool isFrozen, string partyName, Guid companyId)
+    {
+        if (isFrozen && !isDisabled)
+        {
+            var company = await LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>().FindAsync(companyId);
+            var role = company?.RoleAllowedForFrozenEntries;
+            if (!string.IsNullOrWhiteSpace(role) && LazyServiceProvider.LazyGetRequiredService<ICurrentUser>().IsInRole(role))
+                isFrozen = false;
+        }
+
+        ValidatePartyStatus(partyType, isFrozen, isDisabled, partyName);
     }
 
     /// <summary>

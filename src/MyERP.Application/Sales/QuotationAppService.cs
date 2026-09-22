@@ -186,8 +186,8 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         // ERPNext validate_party_frozen_disabled (quotations to a Customer party)
         var partyCustomer = await LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>().FindAsync(input.CustomerId);
         if (partyCustomer != null)
-            LazyServiceProvider.LazyGetRequiredService<PartyValidationService>()
-                .ValidatePartyStatus("Customer", isFrozen: false, isDisabled: !partyCustomer.IsActive, partyCustomer.Name);
+            await LazyServiceProvider.LazyGetRequiredService<PartyValidationService>()
+                .ValidatePartyForTransactionAsync("Customer", isDisabled: !partyCustomer.IsActive, isFrozen: partyCustomer.IsFrozen, partyCustomer.Name, input.CompanyId);
 
         var quotationNumber = await _numberGenerator.GenerateAsync("Quotation", input.CompanyId);
 

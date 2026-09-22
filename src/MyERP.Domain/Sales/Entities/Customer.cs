@@ -87,6 +87,9 @@ public class Customer : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Allow Sales Invoice creation without a Sales Order for this customer (exempts the Selling Settings requirement).</summary>
     public bool SoRequired { get; set; }
 
+    /// <summary>Frozen customers cannot be transacted with except by the company's frozen-entries role (ERPNext is_frozen).</summary>
+    public bool IsFrozen { get; set; }
+
     /// <summary>Allow Sales Invoice creation without a Delivery Note for this customer (exempts the Selling Settings requirement).</summary>
     public bool DnRequired { get; set; }
 

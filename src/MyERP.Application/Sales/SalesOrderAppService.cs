@@ -270,8 +270,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         await ValidateCompanyBoundariesAsync(input, input.CompanyId);
 
         var customerForStatus = await _customerRepository.GetAsync(input.CustomerId);
-        LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
-            .ValidatePartyStatus("Customer", isFrozen: false, isDisabled: !customerForStatus.IsActive, customerForStatus.Name);
+        await LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
+            .ValidatePartyForTransactionAsync("Customer", isDisabled: !customerForStatus.IsActive, isFrozen: customerForStatus.IsFrozen, customerForStatus.Name, input.CompanyId);
 
         var orderNumber = await _numberGenerator.GenerateAsync("SalesOrder", input.CompanyId);
 
@@ -1109,8 +1109,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         await _itemValidation.ValidateItemsForTransactionAsync(updateItemIds);
 
         var customerForStatus = await _customerRepository.GetAsync(input.CustomerId);
-        LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
-            .ValidatePartyStatus("Customer", isFrozen: false, isDisabled: !customerForStatus.IsActive, customerForStatus.Name);
+        await LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
+            .ValidatePartyForTransactionAsync("Customer", isDisabled: !customerForStatus.IsActive, isFrozen: customerForStatus.IsFrozen, customerForStatus.Name, input.CompanyId);
 
         await ValidateCompanyBoundariesAsync(input, order.CompanyId);
 

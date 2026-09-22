@@ -319,4 +319,28 @@ public abstract class SalesOrderCompanyGuardTests<TStartupModule> : MyERPApplica
             created.Items[0].SupplierId.ShouldBe(f.Supplier.Id);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_FrozenCustomer_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "SO Frozen Cust Co") { RoleAllowedForFrozenEntries = "Accounts Manager" }, autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(new Customer(Guid.NewGuid(), company.Id, "SO Frozen Cust") { IsFrozen = true }, autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(new Item(Guid.NewGuid(), company.Id, "SO-ITEM-FRZ", "SO Item Frozen", ItemType.Goods), autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                GetRequiredService<ISalesOrderAppService>().CreateAsync(new CreateSalesOrderDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customer.Id,
+                    OrderDate = DateTime.UtcNow.Date,
+                    Items = new List<CreateSalesOrderItemDto>
+                    {
+                        new() { ItemId = item.Id, Description = "Frozen Item", Quantity = 1, UnitPrice = 100 }
+                    }
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.PartyFrozen);
+        });
+    }
 }

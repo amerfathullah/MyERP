@@ -48,6 +48,7 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public Guid? ServiceExpenseAccountId { get; set; }
     public Guid? DefaultTaxPayableAccountId { get; set; }
     public Guid? DefaultBankAccountId { get; set; }
+    public string? RoleAllowedForFrozenEntries { get; set; }
     public Guid? DefaultInventoryAccountId { get; set; }
     public Guid? StockReceivedButNotBilledAccountId { get; set; }
     public Guid? StockDeliveredButNotBilledAccountId { get; set; }

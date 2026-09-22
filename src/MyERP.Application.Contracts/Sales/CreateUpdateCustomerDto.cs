@@ -74,6 +74,7 @@ public class CreateUpdateCustomerDto
     public Guid? DefaultPriceListId { get; set; }
     public bool RestrictToCompanies { get; set; }
     public bool SoRequired { get; set; }
+    public bool IsFrozen { get; set; }
     public bool DnRequired { get; set; }
     public Guid? LeadId { get; set; }
     public Guid? OpportunityId { get; set; }
