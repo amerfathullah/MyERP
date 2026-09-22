@@ -322,7 +322,8 @@ public abstract class BankTransactionManualImportTests<TStartupModule> : MyERPAp
                     TargetBankAccountGlId = targetGl.Id,
                     CompanyId = company.Id,
                 });
-                numbers.Add(result.PaymentNumber);
+                result.PaymentNumber.ShouldNotBeNull();
+                numbers.Add(result.PaymentNumber!);
             }
 
             numbers[0].ShouldNotBe(numbers[1]);
