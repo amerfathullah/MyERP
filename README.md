@@ -277,7 +277,7 @@ src/
 ├── MyERP.Domain               → Entities, domain services, repository interfaces, events
 ├── MyERP.Application.Contracts → DTOs, application service interfaces, permissions
 ├── MyERP.Application          → Application service implementations, Mapperly mapping profiles
-├── MyERP.EntityFrameworkCore  → DbContext, migrations (443), repository implementations
+├── MyERP.EntityFrameworkCore  → DbContext, migrations (473), repository implementations
 ├── MyERP.HttpApi              → API controllers
 ├── MyERP.HttpApi.Host         → Host application (startup, middleware, configuration)
 ├── MyERP.HttpApi.Client       → HTTP client proxies for service-to-service calls
@@ -353,7 +353,7 @@ angular/                       → Angular 21 SPA (standalone components, NgRx S
 │                                sales-invoices, accounting+inventory) — Chromium + Firefox
 
 test/
-├── MyERP.Domain.Tests         → 11,500+ unit tests (entities, domain services, business rules)
+├── MyERP.Domain.Tests         → 13,900+ unit tests (entities, domain services, business rules)
 ├── MyERP.Application.Tests    → Integration tests (app services, conversion flows)
 ├── MyERP.EntityFrameworkCore.Tests → Repository/query tests
 ├── MyERP.TestBase             → Shared test fixtures and base classes
@@ -382,7 +382,7 @@ etc/
 dotnet test
 ```
 
-Runs 11,900+ tests across all test projects (domain unit tests, application integration tests, EF repository tests).
+Runs 13,900+ tests across all test projects (domain unit tests, application integration tests, EF repository tests).
 
 ### Frontend Unit Tests
 
