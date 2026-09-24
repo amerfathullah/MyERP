@@ -141,6 +141,13 @@ public class MyERPPermissionDefinitionProvider : PermissionDefinitionProvider
         invoiceDiscountingPermission.AddChild(MyERPPermissions.InvoiceDiscounting.Disburse, L("Permission:InvoiceDiscounting.Disburse"));
         invoiceDiscountingPermission.AddChild(MyERPPermissions.InvoiceDiscounting.Settle, L("Permission:InvoiceDiscounting.Settle"));
 
+        var dunningsPermission = myGroup.AddPermission(MyERPPermissions.Dunnings.Default, L("Permission:Dunnings"));
+        dunningsPermission.AddChild(MyERPPermissions.Dunnings.Create, L("Permission:Dunnings.Create"));
+        dunningsPermission.AddChild(MyERPPermissions.Dunnings.Edit, L("Permission:Dunnings.Edit"));
+        dunningsPermission.AddChild(MyERPPermissions.Dunnings.Delete, L("Permission:Dunnings.Delete"));
+        dunningsPermission.AddChild(MyERPPermissions.Dunnings.Submit, L("Permission:Dunnings.Submit"));
+        dunningsPermission.AddChild(MyERPPermissions.Dunnings.Cancel, L("Permission:Dunnings.Cancel"));
+
         var deliveryNotesPermission = myGroup.AddPermission(MyERPPermissions.DeliveryNotes.Default, L("Permission:DeliveryNotes"));
         deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Create, L("Permission:DeliveryNotes.Create"));
         deliveryNotesPermission.AddChild(MyERPPermissions.DeliveryNotes.Edit, L("Permission:DeliveryNotes.Edit"));

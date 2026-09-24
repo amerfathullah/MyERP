@@ -20,7 +20,7 @@ using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Sales;
 
-[Authorize(MyERPPermissions.SalesInvoices.Default)]
+[Authorize(MyERPPermissions.Dunnings.Default)]
 public class DunningAppService : ApplicationService, IDunningAppService
 {
     private readonly IRepository<Dunning, Guid> _repository;

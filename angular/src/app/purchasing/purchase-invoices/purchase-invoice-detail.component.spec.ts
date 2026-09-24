@@ -2,8 +2,14 @@ import { describe, it, expect } from 'vitest';
 
 // PurchaseInvoiceDetailComponent — workflow actions + navigation + payment schedule tests
 
-function getWorkflowActions(status: string, outstandingAmount: number = 0): { name: string; label: string; color: string }[] {
+function getWorkflowActions(
+  status: string,
+  outstandingAmount: number = 0,
+  perms: { canCreatePI?: boolean; canCancelPI?: boolean; canEditPI?: boolean; canCreatePR?: boolean; canCreateLCV?: boolean; canCreateSI?: boolean } = {}
+): { name: string; label: string; color: string }[] {
   const actions: { name: string; label: string; color: string }[] = [];
+  const canCreatePI = perms.canCreatePI ?? true;
+  const canCancelPI = perms.canCancelPI ?? true;
   if (status === 'Draft') {
     actions.push({ name: 'submit', label: 'Submit', color: 'primary' });
   }
@@ -12,14 +18,32 @@ function getWorkflowActions(status: string, outstandingAmount: number = 0): { na
   }
   if (status === 'Posted') {
     actions.push({ name: 'payment', label: 'Make Payment', color: 'primary' });
-    actions.push({ name: 'return', label: 'Create Return', color: 'warning' });
+    if (canCreatePI) {
+      actions.push({ name: 'return', label: 'Create Return', color: 'warning' });
+    }
     if (outstandingAmount > 0) {
       actions.push({ name: 'writeOff', label: 'Write Off', color: 'secondary' });
     }
-    actions.push({ name: 'cancel', label: 'Cancel', color: 'danger' });
+    if (perms.canEditPI && outstandingAmount !== 0) {
+      actions.push({ name: 'block', label: 'Block Invoice', color: 'warning' });
+    }
+    if (perms.canCreatePR) {
+      actions.push({ name: 'createReceipt', label: 'Create Purchase Receipt', color: 'info' });
+    }
+    if (perms.canCreateLCV) {
+      actions.push({ name: 'createLCV', label: 'Create Landed Cost Voucher', color: 'info' });
+    }
+    if (perms.canCreateSI) {
+      actions.push({ name: 'createSalesInvoice', label: 'Make Sales Invoice', color: 'info' });
+    }
+    if (canCancelPI) {
+      actions.push({ name: 'cancel', label: 'Cancel', color: 'danger' });
+    }
   }
   if (status === 'Cancelled') {
-    actions.push({ name: 'amend', label: 'Amend', color: 'primary' });
+    if (canCreatePI) {
+      actions.push({ name: 'amend', label: 'Amend', color: 'primary' });
+    }
   }
   return actions;
 }
@@ -29,6 +53,9 @@ function getActionRoute(action: string, id: string): string | null {
     case 'payment': return `/accounting/payments/new?partyType=Supplier&againstInvoiceType=PurchaseInvoice&againstInvoiceId=${id}`;
     case 'return': return `/purchasing/invoices/new?returnAgainst=${id}`;
     case 'amend': return `/purchasing/invoices/${id}`;
+    case 'createReceipt': return `/purchasing/receipts/new?purchaseInvoiceId=${id}`;
+    case 'createLCV': return `/purchasing/landed-cost-vouchers/new?purchaseInvoiceId=${id}`;
+    case 'createSalesInvoice': return `/sales/invoices/new?interCompanyInvoiceReference=${id}`;
     default: return null;
   }
 }
@@ -69,6 +96,26 @@ describe('PurchaseInvoiceDetailComponent', () => {
       const actions = getWorkflowActions('Cancelled');
       expect(actions).toHaveLength(1);
       expect(actions[0].name).toBe('amend');
+    });
+
+    it('should respect permissions on purchase invoice actions (ERPNext #59367)', () => {
+      // With canCreatePI false, return and amend are hidden
+      const postedNoCreate = getWorkflowActions('Posted', 100, { canCreatePI: false, canCancelPI: false });
+      expect(postedNoCreate.map(a => a.name)).not.toContain('return');
+      expect(postedNoCreate.map(a => a.name)).not.toContain('cancel');
+
+      const cancelledNoCreate = getWorkflowActions('Cancelled', 0, { canCreatePI: false });
+      expect(cancelledNoCreate).toHaveLength(0);
+
+      // With canEditPI true, hold/block action is available when outstanding != 0
+      const postedWithEdit = getWorkflowActions('Posted', 500, { canEditPI: true });
+      expect(postedWithEdit.map(a => a.name)).toContain('block');
+
+      // With canCreatePR, canCreateLCV, canCreateSI
+      const postedLinked = getWorkflowActions('Posted', 0, { canCreatePR: true, canCreateLCV: true, canCreateSI: true });
+      expect(postedLinked.map(a => a.name)).toContain('createReceipt');
+      expect(postedLinked.map(a => a.name)).toContain('createLCV');
+      expect(postedLinked.map(a => a.name)).toContain('createSalesInvoice');
     });
 
     it('should show no actions for unknown status', () => {

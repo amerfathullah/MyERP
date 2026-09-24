@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
-import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService, PermissionService } from '@abp/ng.core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { MasterDataService } from '../../proxy/core/master-data.service';
@@ -45,6 +45,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
   private masterDataService = inject(MasterDataService);
   private paymentEntryService = inject(PaymentEntryService);
   private localization = inject(LocalizationService);
+  private permissionService = inject(PermissionService);
 
   invoice: PurchaseInvoiceDto | null = null;
   itemColumns = ['description', 'quantity', 'unitPrice', 'taxAmount', 'lineTotal'];
@@ -73,25 +74,67 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
   blockHoldComment = signal('');
   blockReleaseDate = signal('');
 
+  canEdit(): boolean {
+    return this.permissionService.getGrantedPolicy('MyERP.PurchaseInvoices.Edit');
+  }
+
+  canDelete(): boolean {
+    return this.permissionService.getGrantedPolicy('MyERP.PurchaseInvoices.Delete');
+  }
+
+  canCreate(): boolean {
+    return this.permissionService.getGrantedPolicy('MyERP.PurchaseInvoices.Create');
+  }
+
   get workflowActions(): WorkflowAction[] {
     if (!this.invoice) return [];
     const actions: WorkflowAction[] = [];
+    const canCreatePurchaseInvoice = this.permissionService.getGrantedPolicy('MyERP.PurchaseInvoices.Create');
+    const canEditPurchaseInvoice = this.permissionService.getGrantedPolicy('MyERP.PurchaseInvoices.Edit');
+    const canSubmitPI = this.permissionService.getGrantedPolicy('MyERP.PurchaseInvoices.Submit');
+    const canCancelPI = this.permissionService.getGrantedPolicy('MyERP.PurchaseInvoices.Cancel');
+    const canCreateSalesInvoice = this.permissionService.getGrantedPolicy('MyERP.SalesInvoices.Create');
+    const canCreatePurchaseReceipt = this.permissionService.getGrantedPolicy('MyERP.PurchaseReceipts.Create');
+    const canCreateLCV = this.permissionService.getGrantedPolicy('MyERP.LandedCostVouchers.Create');
+
     if (this.invoice.status === 'Draft') {
-      actions.push({ name: 'submit', label: 'Submit', icon: 'fa fa-paper-plane', color: 'primary' });
+      if (canSubmitPI) {
+        actions.push({ name: 'submit', label: 'Submit', icon: 'fa fa-paper-plane', color: 'primary' });
+      }
     }
     if (this.invoice.status === 'Submitted') {
       actions.push({ name: 'post', label: 'Post', icon: 'fa fa-check-double', color: 'success' });
     }
     if (this.invoice.status === 'Posted') {
       actions.push({ name: 'payment', label: 'Make Payment', icon: 'fa fa-money-bill', color: 'success' });
-      actions.push({ name: 'return', label: 'Create Debit Note', icon: 'fa fa-rotate-left', color: 'warning' });
-      if ((this.invoice as any).outstandingAmount > 0) {
+      // Per ERPNext #59367: Return / Debit Note respects Purchase Invoice create permission
+      const outstanding = (this.invoice as any).outstandingAmount ?? 0;
+      const grandTotal = this.invoice.grandTotal ?? 0;
+      if (!this.invoice.isReturn && canCreatePurchaseInvoice && (outstanding >= 0 || Math.abs(outstanding) < grandTotal)) {
+        actions.push({ name: 'return', label: 'Create Debit Note', icon: 'fa fa-rotate-left', color: 'warning' });
+      }
+      if (outstanding > 0) {
         actions.push({ name: 'writeOff', label: 'Write Off', icon: 'fa fa-eraser', color: 'secondary' });
       }
-      if (this.invoice.onHold) {
-        actions.push({ name: 'unblock', label: 'Unblock Invoice', icon: 'fa fa-lock-open', color: 'success' });
-      } else {
-        actions.push({ name: 'block', label: 'Block Invoice', icon: 'fa fa-lock', color: 'warning' });
+      // Per ERPNext #59367: Hold / Release Date requires write/edit permission and outstanding != 0
+      if (!this.invoice.isReturn && outstanding !== 0 && canEditPurchaseInvoice) {
+        if (this.invoice.onHold) {
+          actions.push({ name: 'unblock', label: 'Unblock Invoice', icon: 'fa fa-lock-open', color: 'success' });
+        } else {
+          actions.push({ name: 'block', label: 'Block Invoice', icon: 'fa fa-lock', color: 'warning' });
+        }
+      }
+      // Per ERPNext #59367: Make Sales Invoice for internal supplier
+      if ((this.invoice as any).isInternalSupplier && !(this.invoice as any).interCompanyInvoiceReference && canCreateSalesInvoice) {
+        actions.push({ name: 'createSalesInvoice', label: 'Make Sales Invoice', icon: 'fa fa-file-invoice', color: 'info' });
+      }
+      // Per ERPNext #59367: Purchase Receipt if perReceived < 100 and !updateStock
+      if ((this.invoice as any).perReceived < 100 && !(this.invoice as any).updateStock && canCreatePurchaseReceipt) {
+        actions.push({ name: 'createReceipt', label: 'Create Purchase Receipt', icon: 'fa fa-truck-ramp-box', color: 'info' });
+      }
+      // Per ERPNext #59367: Landed Cost Voucher if updateStock
+      if ((this.invoice as any).updateStock && canCreateLCV) {
+        actions.push({ name: 'createLCV', label: 'Create Landed Cost Voucher', icon: 'fa fa-receipt', color: 'info' });
       }
       if (!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted') {
         actions.push({ name: 'submitLhdn', label: 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', color: 'primary' });
@@ -102,10 +145,14 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       if (this.invoice.eInvoiceStatus === 'Valid' && this.isWithin72HourWindow()) {
         actions.push({ name: 'cancelLhdn', label: 'Cancel e-Invoice', icon: 'fa fa-cloud-xmark', color: 'warning' });
       }
-      actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', color: 'danger' });
+      if (canCancelPI) {
+        actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', color: 'danger' });
+      }
     }
     if (this.invoice.status === 'Cancelled') {
-      actions.push({ name: 'amend', label: 'Amend', icon: 'fa fa-file-circle-plus', color: 'success' });
+      if (canCreatePurchaseInvoice) {
+        actions.push({ name: 'amend', label: 'Amend', icon: 'fa fa-file-circle-plus', color: 'success' });
+      }
     }
     return actions;
   }
@@ -200,6 +247,21 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       case 'return':
         this.router.navigate(['/purchasing/invoices/new'], {
           queryParams: { returnAgainst: id }
+        });
+        break;
+      case 'createSalesInvoice':
+        this.router.navigate(['/sales/invoices/new'], {
+          queryParams: { interCompanyInvoiceReference: id }
+        });
+        break;
+      case 'createReceipt':
+        this.router.navigate(['/purchasing/receipts/new'], {
+          queryParams: { purchaseInvoiceId: id }
+        });
+        break;
+      case 'createLCV':
+        this.router.navigate(['/purchasing/landed-cost-vouchers/new'], {
+          queryParams: { purchaseInvoiceId: id }
         });
         break;
       case 'writeOff':

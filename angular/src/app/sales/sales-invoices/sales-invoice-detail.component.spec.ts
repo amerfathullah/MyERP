@@ -13,28 +13,77 @@ interface DetailWorkflowAction {
  */
 describe('SalesInvoiceDetailComponent Logic', () => {
 
-  function getWorkflowActions(invoice: { status: string; outstandingAmount?: number; eInvoiceStatus?: string }): DetailWorkflowAction[] {
+  interface Perms {
+    canCreateSI?: boolean;
+    canSubmitSI?: boolean;
+    canCancelSI?: boolean;
+    canCreateDN?: boolean;
+    canCreateDunning?: boolean;
+    canCreateMaintenance?: boolean;
+    canCreatePI?: boolean;
+  }
+
+  function getWorkflowActions(
+    invoice: {
+      status: string;
+      outstandingAmount?: number;
+      grandTotal?: number;
+      eInvoiceStatus?: string;
+      updateStock?: boolean;
+      isReturn?: boolean;
+      isInternalCustomer?: boolean;
+      interCompanyInvoiceReference?: string | null;
+    },
+    perms: Perms = {}
+  ): DetailWorkflowAction[] {
+    const canCreateSI = perms.canCreateSI ?? true;
+    const canSubmitSI = perms.canSubmitSI ?? true;
+    const canCancelSI = perms.canCancelSI ?? true;
+    const canCreateDN = perms.canCreateDN ?? false;
+    const canCreateDunning = perms.canCreateDunning ?? false;
+    const canCreateMaintenance = perms.canCreateMaintenance ?? false;
+    const canCreatePI = perms.canCreatePI ?? false;
+
     const actions: DetailWorkflowAction[] = [];
     switch (invoice.status) {
       case 'Draft':
-        actions.push({ name: 'submit', label: 'Submit', icon: 'fa fa-paper-plane', btnClass: 'btn-primary' });
+        if (canSubmitSI) {
+          actions.push({ name: 'submit', label: 'Submit', icon: 'fa fa-paper-plane', btnClass: 'btn-primary' });
+        }
         break;
       case 'Submitted':
         actions.push({ name: 'post', label: 'Post', icon: 'fa fa-check-double', btnClass: 'btn-success' });
         break;
       case 'Posted':
         actions.push({ name: 'payment', label: 'Make Payment', icon: 'fa fa-money-bill', btnClass: 'btn-success' });
-        actions.push({ name: 'return', label: 'Create Return', icon: 'fa fa-rotate-left', btnClass: 'btn-outline-warning' });
-        if ((invoice.outstandingAmount ?? 0) > 0) {
+        if (!invoice.updateStock && !invoice.isReturn && canCreateDN) {
+          actions.push({ name: 'createDN', label: 'Create Delivery Note', icon: 'fa fa-truck', btnClass: 'btn-outline-info' });
+        }
+        const outstanding = invoice.outstandingAmount ?? 0;
+        const grandTotal = invoice.grandTotal ?? 0;
+        if (canCreateSI && !invoice.isReturn && (outstanding >= 0 || Math.abs(outstanding) < grandTotal)) {
+          actions.push({ name: 'return', label: 'Create Return', icon: 'fa fa-rotate-left', btnClass: 'btn-outline-warning' });
+        }
+        if (canCreateMaintenance) {
+          actions.push({ name: 'maintenanceSchedule', label: 'Maintenance Schedule', icon: 'fa fa-wrench', btnClass: 'btn-outline-info' });
+        }
+        if (invoice.isInternalCustomer && !invoice.interCompanyInvoiceReference && canCreatePI) {
+          actions.push({ name: 'createPurchaseInvoice', label: 'Make Purchase Invoice', icon: 'fa fa-file-invoice', btnClass: 'btn-outline-info' });
+        }
+        if (outstanding > 0) {
           actions.push({ name: 'writeOff', label: 'Write Off', icon: 'fa fa-eraser', btnClass: 'btn-outline-secondary' });
         }
-        actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', btnClass: 'btn-outline-danger' });
+        if (canCancelSI) {
+          actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', btnClass: 'btn-outline-danger' });
+        }
         if (!invoice.eInvoiceStatus || invoice.eInvoiceStatus === 'NotSubmitted') {
           actions.push({ name: 'submitLhdn', label: 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', btnClass: 'btn-outline-primary' });
         }
         break;
       case 'Cancelled':
-        actions.push({ name: 'amend', label: 'Amend', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-success' });
+        if (canCreateSI) {
+          actions.push({ name: 'amend', label: 'Amend', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-success' });
+        }
         break;
     }
     return actions;
@@ -100,6 +149,33 @@ describe('SalesInvoiceDetailComponent Logic', () => {
 
     it('unknown status shows no actions', () => {
       expect(getWorkflowActions({ status: 'Expired' })).toHaveLength(0);
+    });
+
+    it('respects permissions on sales invoice actions (ERPNext #59367)', () => {
+      // With canCreateSI false, return and amend are hidden
+      const postedNoPerm = getWorkflowActions(
+        { status: 'Posted', outstandingAmount: 500 },
+        { canCreateSI: false, canCancelSI: false }
+      );
+      expect(postedNoPerm.map(a => a.name)).not.toContain('return');
+      expect(postedNoPerm.map(a => a.name)).not.toContain('cancel');
+
+      const cancelledNoPerm = getWorkflowActions({ status: 'Cancelled' }, { canCreateSI: false });
+      expect(cancelledNoPerm).toHaveLength(0);
+
+      // With canCreateDN true, delivery note is shown
+      const postedWithDN = getWorkflowActions(
+        { status: 'Posted', updateStock: false, isReturn: false },
+        { canCreateDN: true }
+      );
+      expect(postedWithDN.map(a => a.name)).toContain('createDN');
+
+      // With canCreatePI true for internal customer, purchase invoice action is shown
+      const postedInternal = getWorkflowActions(
+        { status: 'Posted', isInternalCustomer: true },
+        { canCreatePI: true }
+      );
+      expect(postedInternal.map(a => a.name)).toContain('createPurchaseInvoice');
     });
   });
 

@@ -19,18 +19,20 @@
           {{ action.label }}
         </button>
       }
-      <button class="btn btn-outline-primary btn-sm" (click)="edit()" [disabled]="invoice.status !== 'Draft'">
+      <button class="btn btn-outline-primary btn-sm" (click)="edit()" [disabled]="invoice.status !== 'Draft' || !canEdit()">
         <i class="fa fa-pencil me-1"></i>{{ '::Edit' | abpLocalization }}</button>
-      @if (invoice.status === 'Draft') {
+      @if (invoice.status === 'Draft' && canDelete()) {
         <button class="btn btn-outline-danger btn-sm" (click)="deleteInvoice()">
           <i class="fa fa-trash me-1"></i>{{ 'Delete' | abpLocalization }}</button>
       }
-      @if (invoice.status === 'Cancelled') {
+      @if (invoice.status === 'Cancelled' && canCreate()) {
         <button class="btn btn-outline-success btn-sm" (click)="amend()">
           <i class="fa fa-file-circle-plus me-1"></i>{{ '::AmendInvoice' | abpLocalization }}</button>
       }
-      <button class="btn btn-outline-warning btn-sm" (click)="duplicate()">
-        <i class="fa fa-copy me-1"></i>{{ 'Duplicate' | abpLocalization }}</button>
+      @if (canCreate()) {
+        <button class="btn btn-outline-warning btn-sm" (click)="duplicate()">
+          <i class="fa fa-copy me-1"></i>{{ 'Duplicate' | abpLocalization }}</button>
+      }
       <button class="btn btn-outline-info btn-sm" (click)="printInvoice()">
         <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}</button>
       <button class="btn btn-outline-success btn-sm" (click)="downloadPdf()">

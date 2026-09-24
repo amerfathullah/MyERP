@@ -9,7 +9,7 @@ import { FormsModule } from '@angular/forms';
 import { CompanyService } from '../../proxy/core/company.service';
 import { PageModule } from '@abp/ng.components/page';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
-import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService, PermissionService } from '@abp/ng.core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -66,6 +66,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
   private paymentEntryService = inject(PaymentEntryService);
   private documentEmailService = inject(DocumentEmailService);
   private localization = inject(LocalizationService);
+  private permissionService = inject(PermissionService);
 
   invoice: (SalesInvoiceDto & {
     isConsolidated?: boolean;
@@ -86,12 +87,40 @@ export class SalesInvoiceDetailComponent implements OnInit {
   isProcessingPayment = signal(false);
   modesOfPayment = signal<any[]>([]);
 
+  canEdit(): boolean {
+    return this.permissionService.getGrantedPolicy('MyERP.SalesInvoices.Edit');
+  }
+
+  canDelete(): boolean {
+    return this.permissionService.getGrantedPolicy('MyERP.SalesInvoices.Delete');
+  }
+
+  canCreate(): boolean {
+    return this.permissionService.getGrantedPolicy('MyERP.SalesInvoices.Create');
+  }
+
+  hasOverduePayment(): boolean {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return this.paymentSchedule().some((row: any) => row.dueDate && new Date(row.dueDate) < today && (row.outstanding ?? 1) > 0);
+  }
+
   get workflowActions(): DetailWorkflowAction[] {
     if (!this.invoice) return [];
     const actions: DetailWorkflowAction[] = [];
+    const canCreateSalesInvoice = this.permissionService.getGrantedPolicy('MyERP.SalesInvoices.Create');
+    const canSubmitSI = this.permissionService.getGrantedPolicy('MyERP.SalesInvoices.Submit');
+    const canCancelSI = this.permissionService.getGrantedPolicy('MyERP.SalesInvoices.Cancel');
+    const canCreateDeliveryNote = this.permissionService.getGrantedPolicy('MyERP.DeliveryNotes.Create');
+    const canCreateDunning = this.permissionService.getGrantedPolicy('MyERP.Dunnings.Create');
+    const canCreateMaintenanceSchedule = this.permissionService.getGrantedPolicy('MyERP.MaintenanceSchedules.Create');
+    const canCreatePurchaseInvoice = this.permissionService.getGrantedPolicy('MyERP.PurchaseInvoices.Create');
+
     switch (this.invoice.status) {
       case 'Draft':
-        actions.push({ name: 'submit', label: 'Submit', icon: 'fa fa-paper-plane', btnClass: 'btn-primary' });
+        if (canSubmitSI) {
+          actions.push({ name: 'submit', label: 'Submit', icon: 'fa fa-paper-plane', btnClass: 'btn-primary' });
+        }
         break;
       case 'Submitted':
         actions.push({ name: 'post', label: 'Post', icon: 'fa fa-check-double', btnClass: 'btn-success' });
@@ -99,14 +128,33 @@ export class SalesInvoiceDetailComponent implements OnInit {
       case 'Posted':
         actions.push({ name: 'payment', label: 'Make Payment', icon: 'fa fa-money-bill', btnClass: 'btn-success' });
         // Per ERPNext: SI→DN enables goods delivery from an already-posted invoice (service→goods flow)
-        if (!(this.invoice as any).updateStock && !(this.invoice as any).isReturn) {
+        if (!(this.invoice as any).updateStock && !(this.invoice as any).isReturn && canCreateDeliveryNote) {
           actions.push({ name: 'createDN', label: 'Create Delivery Note', icon: 'fa fa-truck', btnClass: 'btn-outline-info' });
         }
-        actions.push({ name: 'return', label: 'Create Return', icon: 'fa fa-rotate-left', btnClass: 'btn-outline-warning' });
-        if ((this.invoice as any).outstandingAmount > 0) {
+        // Per ERPNext #59367: Return / Credit Note respects Sales Invoice create permission
+        const outstanding = (this.invoice as any).outstandingAmount ?? 0;
+        const grandTotal = this.invoice.grandTotal ?? 0;
+        if (canCreateSalesInvoice && !(this.invoice as any).isReturn && (outstanding >= 0 || Math.abs(outstanding) < grandTotal)) {
+          actions.push({ name: 'return', label: 'Create Return', icon: 'fa fa-rotate-left', btnClass: 'btn-outline-warning' });
+        }
+        // Per ERPNext #59367: Dunning if payment is overdue and can create Dunning
+        if (!(this.invoice as any).updateStock && canCreateDunning && this.hasOverduePayment()) {
+          actions.push({ name: 'dunning', label: 'Dunning', icon: 'fa fa-bell', btnClass: 'btn-outline-warning' });
+        }
+        // Per ERPNext #59367: Maintenance Schedule if posted and can create Maintenance Schedule
+        if (canCreateMaintenanceSchedule) {
+          actions.push({ name: 'maintenanceSchedule', label: 'Maintenance Schedule', icon: 'fa fa-wrench', btnClass: 'btn-outline-info' });
+        }
+        // Per ERPNext #59367: Make Purchase Invoice for internal customer
+        if ((this.invoice as any).isInternalCustomer && !(this.invoice as any).interCompanyInvoiceReference && canCreatePurchaseInvoice) {
+          actions.push({ name: 'createPurchaseInvoice', label: 'Make Purchase Invoice', icon: 'fa fa-file-invoice', btnClass: 'btn-outline-info' });
+        }
+        if (outstanding > 0) {
           actions.push({ name: 'writeOff', label: 'Write Off', icon: 'fa fa-eraser', btnClass: 'btn-outline-secondary' });
         }
-        actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', btnClass: 'btn-outline-danger' });
+        if (canCancelSI) {
+          actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', btnClass: 'btn-outline-danger' });
+        }
         // Per MyInvois commit 0e3fc83: cannot submit to LHDN if already consolidated
         if ((!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted') && !(this.invoice as any).consolidatedSalesInvoiceId) {
           actions.push({ name: 'submitLhdn', label: 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', btnClass: 'btn-outline-primary' });
@@ -118,7 +166,9 @@ export class SalesInvoiceDetailComponent implements OnInit {
         actions.push({ name: 'setRecurring', label: 'Set Recurring', icon: 'fa fa-repeat', btnClass: 'btn-outline-info' });
         break;
       case 'Cancelled':
-        actions.push({ name: 'amend', label: 'Amend', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-success' });
+        if (canCreateSalesInvoice) {
+          actions.push({ name: 'amend', label: 'Amend', icon: 'fa fa-file-circle-plus', btnClass: 'btn-outline-success' });
+        }
         break;
     }
     return actions;
@@ -198,6 +248,21 @@ export class SalesInvoiceDetailComponent implements OnInit {
         // Navigate to DN form with pre-fill from this SI
         this.router.navigate(['/sales/delivery-notes/new'], {
           queryParams: { salesInvoiceId: id, customerId: this.invoice!.customerId }
+        });
+        break;
+      case 'dunning':
+        this.router.navigate(['/sales/dunnings/new'], {
+          queryParams: { customerId: this.invoice!.customerId, salesInvoiceId: id }
+        });
+        break;
+      case 'maintenanceSchedule':
+        this.router.navigate(['/maintenance/schedules/new'], {
+          queryParams: { customerId: this.invoice!.customerId, salesInvoiceId: id }
+        });
+        break;
+      case 'createPurchaseInvoice':
+        this.router.navigate(['/purchasing/invoices/new'], {
+          queryParams: { interCompanyInvoiceReference: id }
         });
         break;
       case 'sendEmail':
