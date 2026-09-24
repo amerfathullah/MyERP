@@ -59,6 +59,7 @@ export class PosComponent implements OnInit {
 
   // Payment
   payments: PaymentRow[] = [{ mode: 'Cash', amount: 0 }];
+  selectedPaymentMode = signal<string>('');
   totalPaid = computed(() => this.payments.reduce((s, p) => s + (p.amount || 0), 0));
 
   // Customer
@@ -159,6 +160,13 @@ export class PosComponent implements OnInit {
   }
 
   // Payment methods
+  selectPaymentMode(mode: string): void {
+    this.selectedPaymentMode.set(mode);
+    if (this.payments.length > 0) {
+      this.payments[0].mode = mode;
+    }
+  }
+
   addPaymentRow(): void {
     this.payments.push({ mode: 'Cash', amount: 0 });
   }
@@ -189,7 +197,7 @@ export class PosComponent implements OnInit {
     };
     this.heldOrders.push(order);
     sessionStorage.setItem('pos_held_orders', JSON.stringify(this.heldOrders));
-    this.clearCart();
+    this.makeNewInvoice();
     this.toaster.info('::OrderHeld');
   }
 
@@ -197,6 +205,7 @@ export class PosComponent implements OnInit {
     const order = this.heldOrders[index];
     this.cart = [...order.items];
     this.payments = [...order.payments];
+    this.selectedPaymentMode.set(this.payments[0]?.mode ?? '');
     this.customerName = order.customer;
     this.heldOrders.splice(index, 1);
     sessionStorage.setItem('pos_held_orders', JSON.stringify(this.heldOrders));
@@ -209,16 +218,21 @@ export class PosComponent implements OnInit {
     sessionStorage.setItem('pos_held_orders', JSON.stringify(this.heldOrders));
   }
 
+  makeNewInvoice(): void {
+    this.clearCart();
+    this.lastInvoice = null;
+  }
+
   clearCart(): void {
     this.cart = [];
     this.payments = [{ mode: 'Cash', amount: 0 }];
+    this.selectedPaymentMode.set('');
     this.customerId = null;
     this.customerName = '';
     this.netTotal = 0;
     this.taxTotal = 0;
     this.discountTotal = 0;
     this.grandTotal = 0;
-    this.lastInvoice = null;
   }
 
   // Barcode Scanner

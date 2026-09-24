@@ -150,9 +150,20 @@
             <span class="small fw-medium">{{ '::Payment' | abpLocalization }}</span>
             <button class="btn btn-sm btn-link p-0" (click)="addPaymentRow()"><i class="bi bi-plus-circle me-1"></i>{{ '::Split' | abpLocalization }}</button>
           </div>
+          <!-- Payment Mode Quick Select Buttons -->
+          <div class="btn-group btn-group-sm w-100 mb-2 flex-wrap" role="group">
+            @for (mode of paymentModes; track mode) {
+              <button type="button" class="btn"
+                [class.btn-primary]="selectedPaymentMode() === mode || (!selectedPaymentMode() && payments[0]?.mode === mode)"
+                [class.btn-outline-secondary]="selectedPaymentMode() !== mode && (selectedPaymentMode() !== '' || payments[0]?.mode !== mode)"
+                (click)="selectPaymentMode(mode)">
+                {{ mode }}
+              </button>
+            }
+          </div>
           @for (payment of payments; track $index; let i = $index) {
             <div class="input-group input-group-sm mb-1">
-              <select class="form-select" style="max-width: 120px;" [(ngModel)]="payment.mode">
+              <select class="form-select" style="max-width: 120px;" [(ngModel)]="payment.mode" (ngModelChange)="i === 0 ? selectedPaymentMode.set($event) : null">
                 @for (mode of paymentModes; track mode) { <option [value]="mode">{{ mode }}</option> }
               </select>
               <span class="input-group-text">{{ "" | companyCurrency }}</span>
@@ -181,7 +192,12 @@
           {{ isProcessing ? ('::Processing' | abpLocalization) : ('::CompleteSale' | abpLocalization) }}
         </button>
         @if (lastInvoice) {
-          <p class="text-center small text-muted mt-2"><i class="bi bi-receipt me-1"></i>{{ lastInvoice }}</p>
+          <div class="d-flex justify-content-between align-items-center mt-2 p-2 bg-light rounded">
+            <span class="small text-muted"><i class="bi bi-receipt me-1"></i>{{ lastInvoice }}</span>
+            <button class="btn btn-sm btn-outline-primary" (click)="makeNewInvoice()">
+              <i class="bi bi-plus-lg me-1"></i>{{ '::NewInvoice' | abpLocalization }}
+            </button>
+          </div>
         }
       </div>
     </div>
