@@ -9,6 +9,8 @@ interface BatchBalanceRow {
   warehouseName: string;
   balance: number;
   stockValue: number;
+  valuationRate?: number;
+  serialNos?: string | null;
   reservedStockQty: number;
   expiryDate: string | null;
   isExpired: boolean;
@@ -29,8 +31,10 @@ describe('BatchWiseBalanceComponent logic', () => {
     return report.rows.map(row => ({
       Item: row.itemName,
       'Batch No': row.batchNo,
+      'Serial Nos': row.serialNos ?? '',
       Warehouse: row.warehouseName,
       'Balance Qty': row.balance,
+      'Valuation Rate': row.valuationRate ?? 0,
       'Reserved Stock': row.reservedStockQty ?? 0,
       'Stock Value': row.stockValue,
       'Expiry Date': row.expiryDate ?? '',
@@ -99,4 +103,39 @@ describe('BatchWiseBalanceComponent logic', () => {
     const csvRows = mapReportToCsvRows(report);
     expect(csvRows[0]['Reserved Stock']).toBe(0);
   });
+
+  it('maps serialNos and valuationRate in CSV rows correctly (PR #59321)', () => {
+    const report: BatchBalanceReport = {
+      rows: [
+        {
+          itemId: 'item-3',
+          itemName: 'Item Gamma',
+          batchId: '00000000-0000-0000-0000-000000000000',
+          batchNo: '(Serialized)',
+          warehouseId: 'wh-1',
+          warehouseName: 'Stores',
+          balance: 2,
+          stockValue: 200,
+          valuationRate: 100,
+          serialNos: 'SN-001, SN-002',
+          reservedStockQty: 0,
+          expiryDate: null,
+          isExpired: false,
+          isDisabled: false,
+        },
+      ],
+      totalBatches: 0,
+      totalQuantity: 2,
+      totalStockValue: 200,
+      totalReservedStock: 0,
+      expiredBatchCount: 0,
+    };
+
+    const csvRows = mapReportToCsvRows(report);
+    expect(csvRows.length).toBe(1);
+    expect(csvRows[0]['Serial Nos']).toBe('SN-001, SN-002');
+    expect(csvRows[0]['Valuation Rate']).toBe(100);
+    expect(csvRows[0]['Batch No']).toBe('(Serialized)');
+  });
 });
+

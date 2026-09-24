@@ -154,13 +154,13 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
     }
 
     /// <summary>
-    /// Batch-Wise Stock Balance: shows per-batch qty across warehouses.
-    /// Per ERPNext stock/report/batch_wise_balance_history: aggregates SLE by batch.
+    /// Serial and Batch-Wise Stock Balance: shows per-batch and serialized stock across warehouses.
+    /// Per ERPNext PR #59321 (Serial and batch wise stock balance report): aggregates SLE by batch/serial with in-stock serial numbers.
     /// </summary>
     public async Task<BatchWiseBalanceReportDto> GetBatchWiseBalanceAsync(GetBatchWiseBalanceRequestDto input)
     {
         var sleQuery = await _sleRepository.GetQueryableAsync();
-        sleQuery = sleQuery.Where(s => s.BatchId != null && !s.IsCancelled);
+        sleQuery = sleQuery.Where(s => !s.IsCancelled && (s.BatchId != null || s.SerialNoId != null || s.SerialAndBatchBundleId != null));
 
         if (input.CompanyId.HasValue)
             sleQuery = sleQuery.Where(s => s.CompanyId == input.CompanyId.Value);
@@ -181,7 +181,7 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
             .Select(g => new
             {
                 g.Key.ItemId,
-                BatchId = g.Key.BatchId!.Value,
+                BatchId = g.Key.BatchId,
                 g.Key.WarehouseId,
                 Balance = g.Sum(s => s.QuantityChange),
                 StockValue = g.Sum(s => s.QuantityChange * s.ValuationRate),
@@ -194,13 +194,13 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
 
         // Resolve names
         var itemIds = grouped.Select(g => g.ItemId).Distinct().ToList();
-        var batchIds = grouped.Select(g => g.BatchId).Distinct().ToList();
+        var batchIds = grouped.Where(g => g.BatchId.HasValue).Select(g => g.BatchId!.Value).Distinct().ToList();
         var warehouseIds = grouped.Select(g => g.WarehouseId).Distinct().ToList();
 
         var itemQ = await _itemRepository.GetQueryableAsync();
         var itemMap = itemQ.Where(i => itemIds.Contains(i.Id))
-            .Select(i => new { i.Id, i.ItemCode, i.ItemName }).ToList()
-            .ToDictionary(i => i.Id, i => $"{i.ItemCode} — {i.ItemName}");
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName, i.HasSerialNo, i.HasBatchNo }).ToList()
+            .ToDictionary(i => i.Id);
 
         var batchQ = await _batchRepository.GetQueryableAsync();
         var batchMap = batchQ.Where(b => batchIds.Contains(b.Id))
@@ -212,8 +212,33 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
             .Select(w => new { w.Id, w.Name }).ToList()
             .ToDictionary(w => w.Id, w => w.Name);
 
+        // Query active serial numbers in stock (PR #59321)
+        var serialMap = new Dictionary<(Guid ItemId, Guid WarehouseId, Guid? BatchId), List<string>>();
+        var serialRepo = LazyServiceProvider.LazyGetService<IRepository<SerialNo, Guid>>();
+        if (serialRepo != null && grouped.Count > 0)
+        {
+            var serialQuery = await serialRepo.GetQueryableAsync();
+            serialQuery = serialQuery.Where(s => s.Status == SerialNoStatus.Active && s.WarehouseId != null && itemIds.Contains(s.ItemId));
+            if (input.CompanyId.HasValue)
+                serialQuery = serialQuery.Where(s => s.CompanyId == input.CompanyId.Value);
+            if (input.WarehouseId.HasValue)
+                serialQuery = serialQuery.Where(s => s.WarehouseId == input.WarehouseId.Value);
+
+            var serials = serialQuery.Select(s => new { s.ItemId, s.WarehouseId, s.BatchId, s.SerialNumber }).ToList();
+            foreach (var s in serials)
+            {
+                var key = (s.ItemId, s.WarehouseId!.Value, s.BatchId);
+                if (!serialMap.TryGetValue(key, out var list))
+                {
+                    list = new List<string>();
+                    serialMap[key] = list;
+                }
+                list.Add(s.SerialNumber);
+            }
+        }
+
         // Query active reserved stock (PR #59008 / commit 000dcfc23d)
-        var reservedMap = new Dictionary<(Guid ItemId, Guid WarehouseId, Guid BatchId), decimal>();
+        var reservedMap = new Dictionary<(Guid ItemId, Guid WarehouseId, Guid? BatchId), decimal>();
         var sreRepo = LazyServiceProvider.LazyGetService<IRepository<StockReservationEntry, Guid>>();
         if (sreRepo != null && grouped.Count > 0)
         {
@@ -233,7 +258,7 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
             // 1) Direct BatchId reservations
             foreach (var sre in sres.Where(s => s.BatchId.HasValue && batchIds.Contains(s.BatchId!.Value)))
             {
-                var key = (sre.ItemId, sre.WarehouseId, sre.BatchId!.Value);
+                var key = (sre.ItemId, sre.WarehouseId, (Guid?)sre.BatchId!.Value);
                 var activeReserved = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
                 reservedMap[key] = reservedMap.GetValueOrDefault(key, 0m) + activeReserved;
             }
@@ -264,7 +289,7 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
 
                             foreach (var entry in bundle.Entries.Where(e => e.BatchId.HasValue && batchIds.Contains(e.BatchId!.Value)))
                             {
-                                var key = (sre.ItemId, sre.WarehouseId, entry.BatchId!.Value);
+                                var key = (sre.ItemId, sre.WarehouseId, (Guid?)entry.BatchId!.Value);
                                 var entryReserved = entry.Qty * ratio;
                                 reservedMap[key] = reservedMap.GetValueOrDefault(key, 0m) + entryReserved;
                             }
@@ -276,18 +301,25 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
 
         var rows = grouped.Select(g =>
         {
-            var batch = batchMap.GetValueOrDefault(g.BatchId);
+            var item = itemMap.GetValueOrDefault(g.ItemId);
+            var batch = g.BatchId.HasValue ? batchMap.GetValueOrDefault(g.BatchId.Value) : null;
             var reservedKey = (g.ItemId, g.WarehouseId, g.BatchId);
+            var serialList = serialMap.GetValueOrDefault(reservedKey)
+                ?? (g.BatchId == null ? serialMap.GetValueOrDefault((g.ItemId, g.WarehouseId, null)) : null);
+            var valRate = g.Balance != 0 ? Math.Round(g.StockValue / g.Balance, 4) : 0m;
+
             return new BatchWiseBalanceRowDto
             {
                 ItemId = g.ItemId,
-                ItemName = itemMap.GetValueOrDefault(g.ItemId, "—"),
-                BatchId = g.BatchId,
-                BatchNo = batch?.BatchNo ?? "—",
+                ItemName = item != null ? $"{item.ItemCode} — {item.ItemName}" : "—",
+                BatchId = g.BatchId ?? Guid.Empty,
+                BatchNo = batch?.BatchNo ?? (g.BatchId.HasValue ? "—" : (item != null && item.HasSerialNo ? "(Serialized)" : "—")),
                 WarehouseId = g.WarehouseId,
                 WarehouseName = whMap.GetValueOrDefault(g.WarehouseId, "—"),
                 Balance = g.Balance,
                 StockValue = g.StockValue,
+                ValuationRate = valRate,
+                SerialNos = serialList != null && serialList.Count > 0 ? string.Join(", ", serialList.OrderBy(x => x)) : null,
                 ReservedStockQty = Math.Round(reservedMap.GetValueOrDefault(reservedKey, 0m), 4),
                 ExpiryDate = batch?.ExpiryDate,
                 IsExpired = batch?.ExpiryDate.HasValue == true && batch.ExpiryDate < DateTime.UtcNow.Date,
@@ -300,7 +332,7 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
         return new BatchWiseBalanceReportDto
         {
             Rows = rows,
-            TotalBatches = rows.Select(r => r.BatchId).Distinct().Count(),
+            TotalBatches = rows.Where(r => r.BatchId != Guid.Empty).Select(r => r.BatchId).Distinct().Count(),
             TotalQuantity = rows.Sum(r => r.Balance),
             TotalStockValue = rows.Sum(r => r.StockValue),
             TotalReservedStock = rows.Sum(r => r.ReservedStockQty),

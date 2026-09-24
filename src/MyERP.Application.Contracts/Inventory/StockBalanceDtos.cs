@@ -84,6 +84,16 @@ public class BatchWiseBalanceRowDto
     public decimal Balance { get; set; }
     public decimal StockValue { get; set; }
     /// <summary>
+    /// Valuation rate per unit.
+    /// Per ERPNext PR #59321 (Serial and batch wise stock balance report).
+    /// </summary>
+    public decimal ValuationRate { get; set; }
+    /// <summary>
+    /// Comma-separated list of active serial numbers currently in stock.
+    /// Per ERPNext PR #59321 (Serial and batch wise stock balance report).
+    /// </summary>
+    public string? SerialNos { get; set; }
+    /// <summary>
     /// Current active reserved quantity from submitted Stock Reservation Entries.
     /// Per ERPNext PR #59008 / commit 000dcfc23d.
     /// </summary>

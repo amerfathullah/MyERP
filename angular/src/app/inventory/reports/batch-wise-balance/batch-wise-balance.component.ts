@@ -17,6 +17,8 @@ interface BatchBalanceRow {
   warehouseName: string;
   balance: number;
   stockValue: number;
+  valuationRate?: number;
+  serialNos?: string | null;
   reservedStockQty: number;
   expiryDate: string | null;
   isExpired: boolean;
@@ -141,8 +143,10 @@ interface BatchBalanceReport {
                   <tr>
                     <th>{{ '::Item' | abpLocalization }}</th>
                     <th>{{ '::BatchNo' | abpLocalization }}</th>
+                    <th>{{ '::SerialNos' | abpLocalization }}</th>
                     <th>{{ '::Warehouse' | abpLocalization }}</th>
                     <th class="text-end">{{ '::Balance' | abpLocalization }}</th>
+                    <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
                     <th class="text-end">{{ '::ReservedStockCurrent' | abpLocalization }}</th>
                     <th class="text-end">{{ '::StockValue' | abpLocalization }}</th>
                     <th>{{ '::ExpiryDate' | abpLocalization }}</th>
@@ -154,8 +158,16 @@ interface BatchBalanceReport {
                     <tr [class.table-danger]="row.isExpired" [class.table-warning]="row.isDisabled && !row.isExpired">
                       <td>{{ row.itemName }}</td>
                       <td><code>{{ row.batchNo }}</code></td>
+                      <td>
+                        @if (row.serialNos) {
+                          <span class="small font-monospace text-truncate d-inline-block" style="max-width: 200px;" [title]="row.serialNos">{{ row.serialNos }}</span>
+                        } @else {
+                          <span class="text-muted">—</span>
+                        }
+                      </td>
                       <td>{{ row.warehouseName }}</td>
                       <td class="text-end fw-bold">{{ row.balance | number:'1.2-2' }}</td>
+                      <td class="text-end text-muted">{{ (row.valuationRate ?? 0) | number:'1.2-2' }}</td>
                       <td class="text-end text-muted">{{ row.reservedStockQty | number:'1.2-2' }}</td>
                       <td class="text-end">{{ row.stockValue | number:'1.2-2' }}</td>
                       <td>
@@ -177,7 +189,7 @@ interface BatchBalanceReport {
                     </tr>
                   }
                   @if (report()!.rows.length === 0) {
-                    <tr><td colspan="8" class="text-center text-muted py-4">{{ '::NoBatchDataFound' | abpLocalization }}</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted py-4">{{ '::NoBatchDataFound' | abpLocalization }}</td></tr>
                   }
                 </tbody>
               </table>
@@ -216,7 +228,7 @@ export class BatchWiseBalanceComponent implements OnInit {
   }
 
   loadWarehouses(): void {
-    this.warehouseService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any).subscribe({
       next: (r) => this.warehouses.set((r.items ?? []).map((w: any) => ({ id: w.id, name: w.name }))),
       error: () => {}
     });
@@ -250,14 +262,16 @@ export class BatchWiseBalanceComponent implements OnInit {
     const mapped = r.rows.map(row => ({
       Item: row.itemName,
       'Batch No': row.batchNo,
+      'Serial Nos': row.serialNos ?? '',
       Warehouse: row.warehouseName,
       'Balance Qty': row.balance,
+      'Valuation Rate': row.valuationRate ?? 0,
       'Reserved Stock': row.reservedStockQty ?? 0,
       'Stock Value': row.stockValue,
       'Expiry Date': row.expiryDate ?? '',
       Expired: row.isExpired ? 'Yes' : 'No',
       Disabled: row.isDisabled ? 'Yes' : 'No',
     }));
-    exportToCsv('batch-wise-balance.csv', mapped, ['Item', 'Batch No', 'Warehouse', 'Balance Qty', 'Reserved Stock', 'Stock Value', 'Expiry Date', 'Expired', 'Disabled']);
+    exportToCsv('batch-wise-balance.csv', mapped, ['Item', 'Batch No', 'Serial Nos', 'Warehouse', 'Balance Qty', 'Valuation Rate', 'Reserved Stock', 'Stock Value', 'Expiry Date', 'Expired', 'Disabled']);
   }
 }
