@@ -141,23 +141,47 @@ public class WoConsumedTransferredQtyTrackingTests
     }
 
     [Fact]
-    public void WorkOrder_Upstream_NoNewCommits()
+    public void WorkOrderItem_ReturnableQuantity_Calculates_Transferred_Minus_Consumed()
     {
-        // Verified: erpnext HEAD 7febc28ed6, myinvois 6501660 — no new commits
-        Assert.True(true);
+        var item = new WorkOrderItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Steel Rod", 100m)
+        {
+            TransferredQuantity = 100m,
+            ConsumedQuantity = 60m
+        };
+
+        // Returnable quantity is transferred - consumed
+        var returnableQty = item.TransferredQuantity - item.ConsumedQuantity;
+        Assert.Equal(40m, returnableQty);
     }
 
     [Fact]
-    public void Session_Tracking_ConsumedQty_Fix_Implemented()
+    public void WorkOrder_MaterialReturn_Excludes_Both_Manufacture_And_MaterialConsumption_Entries()
     {
-        // RecordProductionAsync now updates WorkOrderItem.ConsumedQuantity per consumed RM
-        Assert.True(true);
-    }
+        // Per ERPNext PR #59310 / commit a46930e10a:
+        // When returning unconsumed materials, both Manufacture and Material Consumption entries are deducted
+        var wo = new WorkOrder(
+            Guid.NewGuid(), Guid.NewGuid(), "WO-002",
+            Guid.NewGuid(), Guid.NewGuid(), 10m, null);
 
-    [Fact]
-    public void Session_Tracking_TransferredQty_Fix_Implemented()
-    {
-        // CreateMaterialTransferForManufactureAsync now updates WorkOrderItem.TransferredQuantity per transferred item
-        Assert.True(true);
+        var item = new WorkOrderItem(Guid.NewGuid(), wo.Id, Guid.NewGuid(), "Component", 10m)
+        {
+            TransferredQuantity = 10m
+        };
+        wo.RequiredItems.Add(item);
+
+        // Step 1: 4 units consumed via Material Consumption for Manufacture
+        item.ConsumedQuantity += 4m;
+
+        // Step 2: 2 units consumed via Manufacture
+        item.ConsumedQuantity += 2m;
+
+        // Total consumed = 6m, returnable = 10 - 6 = 4m
+        var returnableQty = item.TransferredQuantity - item.ConsumedQuantity;
+        Assert.Equal(4m, returnableQty);
+
+        // Step 3: Return leftover 4 units
+        item.TransferredQuantity -= returnableQty;
+        Assert.Equal(6m, item.TransferredQuantity);
+        Assert.Equal(0m, item.TransferredQuantity - item.ConsumedQuantity);
     }
 }

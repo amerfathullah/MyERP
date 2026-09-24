@@ -403,6 +403,7 @@ export interface CreateStockEntryDto {
   projectId?: string | null;
   notes?: string | null;
   isOpening?: boolean;
+  isReturn?: boolean;
   items: CreateStockEntryItemDto[];
 }
 
@@ -1807,6 +1808,7 @@ export interface StockEntryDto extends FullAuditedEntityDto<string> {
   projectId?: string | null;
   notes?: string | null;
   isOpening?: boolean;
+  isReturn?: boolean;
   status?: string;
   items?: StockEntryItemDto[];
 }

@@ -1714,6 +1714,93 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     }
 
     /// <summary>
+    /// Creates a Material Return Stock Entry from a Work Order, returning unconsumed materials from WIP back to source store.
+    /// Per ERPNext make_stock_return_entry / PR #59310 (commit a46930e10a):
+    /// Available returnable materials = TransferredQuantity - ConsumedQuantity
+    /// where consumption excludes both "Manufacture" and "Material Consumption for Manufacture" entries.
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<StockEntryResultDto> CreateMaterialReturnForManufactureAsync(Guid workOrderId)
+    {
+        var wo = await _workOrderRepository.GetAsync(workOrderId, includeDetails: true);
+
+        if (wo.Status is WorkOrderStatus.Draft or WorkOrderStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Work Order cannot return materials in Draft or Cancelled status");
+
+        var wipWarehouseId = wo.WipWarehouseId ?? wo.SourceWarehouseId;
+        if (!wipWarehouseId.HasValue)
+            throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                .WithData("field", "WIP Warehouse");
+
+        // Available returnable materials = TransferredQuantity - ConsumedQuantity
+        // Per ERPNext PR #59310: both Manufacture and Material Consumption entries are subtracted
+        var returnableItems = wo.RequiredItems
+            .Where(i => i.TransferredQuantity - i.ConsumedQuantity > 0)
+            .ToList();
+
+        if (!returnableItems.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "No unconsumed materials available to return for this Work Order");
+
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+        var entry = new Inventory.Entities.StockEntry(
+            GuidGenerator.Create(), wo.CompanyId,
+            StockEntryType.MaterialTransferForManufacture,
+            DateTime.UtcNow.Date, CurrentTenant.Id)
+        {
+            WorkOrderId = wo.Id,
+            EntryNumber = await _numberGenerator.GenerateAsync("SE", wo.CompanyId),
+            IsReturn = true,
+            Notes = $"Material Return for Manufacture — WO {wo.WorkOrderNumber}",
+        };
+
+        foreach (var item in returnableItems)
+        {
+            var targetWarehouseId = item.SourceWarehouseId ?? wo.SourceWarehouseId;
+            if (!targetWarehouseId.HasValue)
+                continue;
+
+            var returnQty = item.TransferredQuantity - item.ConsumedQuantity;
+            var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, wipWarehouseId.Value);
+
+            entry.AddItem(
+                itemId: item.ItemId,
+                quantity: returnQty,
+                sourceWarehouseId: wipWarehouseId.Value,
+                targetWarehouseId: targetWarehouseId.Value,
+                valuationRate: balance.ValuationRate);
+        }
+
+        if (!entry.Items.Any())
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "No valid return items could be added");
+
+        await seRepo.InsertAsync(entry);
+
+        // Update WO item transferred quantities and material transferred
+        foreach (var seItem in entry.Items)
+        {
+            var woItem = wo.RequiredItems.FirstOrDefault(i => i.ItemId == seItem.ItemId);
+            if (woItem != null)
+            {
+                woItem.TransferredQuantity = Math.Max(0, woItem.TransferredQuantity - (seItem.StockQty > 0 ? seItem.StockQty : seItem.Quantity));
+            }
+            wo.MaterialTransferred = Math.Max(0, wo.MaterialTransferred - seItem.Quantity);
+        }
+        await _workOrderRepository.UpdateAsync(wo);
+
+        return new StockEntryResultDto
+        {
+            StockEntryId = entry.Id,
+            EntryNumber = entry.EntryNumber,
+            EntryType = StockEntryType.MaterialTransferForManufacture.ToString(),
+            ItemCount = entry.Items.Count,
+            TotalValue = entry.TotalIncomingValue,
+        };
+    }
+
+    /// <summary>
     /// Creates a Manufacture Stock Entry from a Work Order.
     /// Consumes raw materials from WIP warehouse and produces finished goods.
     /// 

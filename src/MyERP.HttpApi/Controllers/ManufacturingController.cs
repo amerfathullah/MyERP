@@ -168,6 +168,10 @@ public class ManufacturingController : MyERPController
     public Task<StockEntryResultDto> CreateMaterialTransferForManufactureAsync(Guid workOrderId)
         => _service.CreateMaterialTransferForManufactureAsync(workOrderId);
 
+    [HttpPost("work-order/{workOrderId}/material-return")]
+    public Task<StockEntryResultDto> CreateMaterialReturnForManufactureAsync(Guid workOrderId)
+        => _service.CreateMaterialReturnForManufactureAsync(workOrderId);
+
     [HttpPost("manufacture-stock-entry")]
     public Task<StockEntryResultDto> CreateManufactureStockEntryAsync([FromBody] CreateManufactureStockEntryDto input)
         => _service.CreateManufactureStockEntryAsync(input);

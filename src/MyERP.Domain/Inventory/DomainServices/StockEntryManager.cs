@@ -328,7 +328,7 @@ public class StockEntryManager : DomainService
         }
 
         // Per ERPNext PR #58005: mandatory manufactured qty check for manufacture entries
-        if (entry.WorkOrderId.HasValue && !trackSemiFinishedGoods && entry.FgCompletedQty <= 0)
+        if (entry.EntryType == StockEntryType.Manufacture && entry.WorkOrderId.HasValue && !trackSemiFinishedGoods && entry.FgCompletedQty <= 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "For Quantity (Manufactured Qty) is mandatory for Work Order manufacture stock entries.");

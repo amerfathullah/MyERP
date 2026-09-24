@@ -376,6 +376,7 @@ public interface IManufacturingAppService : IApplicationService
 
     // Material Transfer & Manufacture Stock Entry from Work Order
     Task<StockEntryResultDto> CreateMaterialTransferForManufactureAsync(Guid workOrderId);
+    Task<StockEntryResultDto> CreateMaterialReturnForManufactureAsync(Guid workOrderId);
     Task<StockEntryResultDto> CreateManufactureStockEntryAsync(CreateManufactureStockEntryDto input);
 
     // Finished Good Conversion to Alternative FG (upstream PR #58479)

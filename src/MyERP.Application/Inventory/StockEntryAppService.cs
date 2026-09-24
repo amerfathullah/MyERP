@@ -163,6 +163,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.ProjectId = input.ProjectId;
         entry.Notes = input.Notes;
         entry.IsOpening = input.IsOpening;
+        entry.IsReturn = input.IsReturn;
 
         foreach (var item in input.Items)
         {
@@ -377,45 +378,61 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
                 var wo = await woRepo.GetAsync(entry.WorkOrderId.Value, includeDetails: true);
                 var totalTransferredQty = entry.Items.Sum(i => i.Quantity);
-                wo.RecordMaterialTransfer(totalTransferredQty);
-
-                // Per ERPNext PR #47511 / commit 963d1e502e & PR #47548 / commit fc554ba599:
-                // Track transferred qty and add extra/additional items against work order unless ValidateComponentsQuantitiesPerBom is set
-                var mfgSettingsRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
-                var mfgSettings = mfgSettingsRepo != null
-                    ? (await mfgSettingsRepo.GetQueryableAsync()).FirstOrDefault(s => s.CompanyId == entry.CompanyId)
-                    : null;
-                var disallowAdditionalItems = mfgSettings?.ValidateComponentsQuantitiesPerBom ?? false;
-
-                foreach (var seItem in entry.Items)
+                if (entry.IsReturn)
                 {
-                    var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
-                    if (existingWoItem != null)
+                    wo.MaterialTransferred = Math.Max(0, wo.MaterialTransferred - totalTransferredQty);
+                    foreach (var seItem in entry.Items)
                     {
-                        existingWoItem.TransferredQuantity += seItem.Quantity;
-                    }
-                    else if (!disallowAdditionalItems)
-                    {
-                        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
-                        var itemObj = await itemRepo.FindAsync(seItem.ItemId);
-                        var itemName = itemObj?.ItemName ?? "Additional Item";
-                        var stockUom = itemObj?.Uom ?? "Unit";
-
-                        var addlItem = new WorkOrderItem(
-                            GuidGenerator.Create(), wo.Id, seItem.ItemId,
-                            itemName, seItem.Quantity)
+                        var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
+                        if (existingWoItem != null)
                         {
-                            TransferredQuantity = seItem.Quantity,
-                            SourceWarehouseId = seItem.SourceWarehouseId,
-                            StockUom = stockUom,
-                            IsAdditionalItem = true,
-                            VoucherDetailReference = seItem.Id,
-                        };
-                        wo.RequiredItems.Add(addlItem);
+                            existingWoItem.TransferredQuantity = Math.Max(0, existingWoItem.TransferredQuantity - seItem.Quantity);
+                        }
                     }
+                    await woRepo.UpdateAsync(wo, autoSave: true);
                 }
+                else
+                {
+                    wo.RecordMaterialTransfer(totalTransferredQty);
 
-                await woRepo.UpdateAsync(wo, autoSave: true);
+                    // Per ERPNext PR #47511 / commit 963d1e502e & PR #47548 / commit fc554ba599:
+                    // Track transferred qty and add extra/additional items against work order unless ValidateComponentsQuantitiesPerBom is set
+                    var mfgSettingsRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
+                    var mfgSettings = mfgSettingsRepo != null
+                        ? (await mfgSettingsRepo.GetQueryableAsync()).FirstOrDefault(s => s.CompanyId == entry.CompanyId)
+                        : null;
+                    var disallowAdditionalItems = mfgSettings?.ValidateComponentsQuantitiesPerBom ?? false;
+
+                    foreach (var seItem in entry.Items)
+                    {
+                        var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
+                        if (existingWoItem != null)
+                        {
+                            existingWoItem.TransferredQuantity += seItem.Quantity;
+                        }
+                        else if (!disallowAdditionalItems)
+                        {
+                            var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+                            var itemObj = await itemRepo.FindAsync(seItem.ItemId);
+                            var itemName = itemObj?.ItemName ?? "Additional Item";
+                            var stockUom = itemObj?.Uom ?? "Unit";
+
+                            var addlItem = new WorkOrderItem(
+                                GuidGenerator.Create(), wo.Id, seItem.ItemId,
+                                itemName, seItem.Quantity)
+                            {
+                                TransferredQuantity = seItem.Quantity,
+                                SourceWarehouseId = seItem.SourceWarehouseId,
+                                StockUom = stockUom,
+                                IsAdditionalItem = true,
+                                VoucherDetailReference = seItem.Id,
+                            };
+                            wo.RequiredItems.Add(addlItem);
+                        }
+                    }
+
+                    await woRepo.UpdateAsync(wo, autoSave: true);
+                }
             }
         }
 
@@ -436,7 +453,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         if (entry.EntryType == StockEntryType.Manufacture && entry.WorkOrderId.HasValue)
         {
             var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
-            var wo = await woRepo.GetAsync(entry.WorkOrderId.Value);
+            var wo = await woRepo.GetAsync(entry.WorkOrderId.Value, includeDetails: true);
             // FG qty = sum of items going to target warehouse (finished goods)
             var fgQty = entry.Items
                 .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
@@ -444,6 +461,17 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             var processLoss = entry.ProcessLossQty > 0
                 ? entry.ProcessLossQty
                 : (entry.FgCompletedQty > fgQty ? entry.FgCompletedQty - fgQty : 0m);
+
+            // Track raw materials consumed against Work Order
+            foreach (var seItem in entry.Items.Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem && !i.TargetWarehouseId.HasValue))
+            {
+                var reqItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
+                if (reqItem != null)
+                {
+                    reqItem.ConsumedQuantity += seItem.Quantity;
+                }
+            }
+
             if (fgQty > 0 || processLoss > 0)
             {
                 var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
@@ -532,6 +560,22 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 wo.RecordDisassembly(disQty);
                 await woRepo.UpdateAsync(wo, autoSave: true);
             }
+        }
+
+        // Update Work Order consumed qty for material consumption entries
+        if (entry.EntryType == StockEntryType.MaterialConsumptionForManufacture && entry.WorkOrderId.HasValue)
+        {
+            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var wo = await woRepo.GetAsync(entry.WorkOrderId.Value, includeDetails: true);
+            foreach (var seItem in entry.Items)
+            {
+                var reqItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
+                if (reqItem != null)
+                {
+                    reqItem.ConsumedQuantity += seItem.Quantity;
+                }
+            }
+            await woRepo.UpdateAsync(wo, autoSave: true);
         }
 
         // Auto-reorder check for stock-out entries (Issue, Transfer source)
@@ -632,7 +676,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         if (entry.WorkOrderId.HasValue && entry.EntryType == StockEntryType.Manufacture)
         {
             var workOrderRepoForProduction = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
-            var producingWorkOrder = await workOrderRepoForProduction.FindAsync(entry.WorkOrderId.Value);
+            var producingWorkOrder = await workOrderRepoForProduction.FindAsync(entry.WorkOrderId.Value, includeDetails: true);
             if (producingWorkOrder != null)
             {
                 var fgQty = entry.Items
@@ -641,6 +685,17 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 var processLoss = entry.ProcessLossQty > 0
                     ? entry.ProcessLossQty
                     : (entry.FgCompletedQty > fgQty ? entry.FgCompletedQty - fgQty : 0m);
+
+                // Roll back raw materials consumed against Work Order
+                foreach (var seItem in entry.Items.Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem && !i.TargetWarehouseId.HasValue))
+                {
+                    var reqItem = producingWorkOrder.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
+                    if (reqItem != null)
+                    {
+                        reqItem.ConsumedQuantity = Math.Max(0, reqItem.ConsumedQuantity - seItem.Quantity);
+                    }
+                }
+
                 producingWorkOrder.ReverseProduction(fgQty, processLoss: processLoss);
                 await workOrderRepoForProduction.UpdateAsync(producingWorkOrder);
 
@@ -655,6 +710,25 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         await planItemRepo.UpdateAsync(linkedPlanItem, autoSave: true);
                     }
                 }
+            }
+        }
+
+        // Reverse WorkOrder.RequiredItems.ConsumedQuantity on MaterialConsumption cancellation
+        if (entry.WorkOrderId.HasValue && entry.EntryType == StockEntryType.MaterialConsumptionForManufacture)
+        {
+            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+            var wo = await woRepo.FindAsync(entry.WorkOrderId.Value, includeDetails: true);
+            if (wo != null)
+            {
+                foreach (var seItem in entry.Items)
+                {
+                    var reqItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
+                    if (reqItem != null)
+                    {
+                        reqItem.ConsumedQuantity = Math.Max(0, reqItem.ConsumedQuantity - seItem.Quantity);
+                    }
+                }
+                await woRepo.UpdateAsync(wo);
             }
         }
 
@@ -681,21 +755,36 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             if (woForTransfer != null)
             {
                 var totalTransferredQty = entry.Items.Sum(i => i.Quantity);
-                woForTransfer.MaterialTransferred = Math.Max(0, woForTransfer.MaterialTransferred - totalTransferredQty);
-
-                foreach (var seItem in entry.Items)
+                if (entry.IsReturn)
                 {
-                    var addlItem = woForTransfer.RequiredItems.FirstOrDefault(ri => ri.IsAdditionalItem && ri.VoucherDetailReference == seItem.Id);
-                    if (addlItem != null)
-                    {
-                        woForTransfer.RequiredItems.Remove(addlItem);
-                    }
-                    else
+                    woForTransfer.RecordMaterialTransfer(totalTransferredQty);
+                    foreach (var seItem in entry.Items)
                     {
                         var reqItem = woForTransfer.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
                         if (reqItem != null)
                         {
-                            reqItem.TransferredQuantity = Math.Max(0, reqItem.TransferredQuantity - seItem.Quantity);
+                            reqItem.TransferredQuantity += seItem.Quantity;
+                        }
+                    }
+                }
+                else
+                {
+                    woForTransfer.MaterialTransferred = Math.Max(0, woForTransfer.MaterialTransferred - totalTransferredQty);
+
+                    foreach (var seItem in entry.Items)
+                    {
+                        var addlItem = woForTransfer.RequiredItems.FirstOrDefault(ri => ri.IsAdditionalItem && ri.VoucherDetailReference == seItem.Id);
+                        if (addlItem != null)
+                        {
+                            woForTransfer.RequiredItems.Remove(addlItem);
+                        }
+                        else
+                        {
+                            var reqItem = woForTransfer.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
+                            if (reqItem != null)
+                            {
+                                reqItem.TransferredQuantity = Math.Max(0, reqItem.TransferredQuantity - seItem.Quantity);
+                            }
                         }
                     }
                 }
@@ -930,6 +1019,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.CostCenterId = input.CostCenterId;
         entry.ProjectId = input.ProjectId;
         entry.IsOpening = input.IsOpening;
+        entry.IsReturn = input.IsReturn;
 
         // Replace items
         entry.ClearItems();

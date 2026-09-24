@@ -71,6 +71,12 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     public bool IsOpening { get; set; }
 
     /// <summary>
+    /// Indicates whether this stock entry is a return entry (e.g. returning unconsumed materials to stores).
+    /// Per ERPNext make_stock_return_entry.
+    /// </summary>
+    public bool IsReturn { get; set; }
+
+    /// <summary>
     /// Total additional costs for this stock entry (per ERPNext commit 074c84e880 / PR #58433).
     /// Distributed across all incoming rows.
     /// </summary>
