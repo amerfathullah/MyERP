@@ -260,10 +260,11 @@ public class SalesOrderBillableAllowanceTests
     }
 
     [Fact]
-    public void LandedCostVoucher_ZeroValuedItems_BasedOnAmount_FallsBackToQuantity()
+    public void LandedCostVoucher_ZeroValuedItems_RejectsBasedOnAmount_DistributesOnQuantity()
     {
-        // Per ERPNext PR #58841 / #58842:
-        // When incoming items have basic amount = 0, BasedOnAmount falls back to distributing by Quantity.
+        // Per ERPNext PR #59274 (supersedes PR #58841 / #58842):
+        // When incoming items have total amount = 0, BasedOnAmount rejects with explicit error.
+        // Explicitly setting BasedOnQuantity distributes by quantity.
         var lcv = new MyERP.Inventory.Entities.LandedCostVoucher(Guid.NewGuid(), _companyId, DateTime.UtcNow)
         {
             DistributionMethod = MyERP.Inventory.LandedCostDistributionMethod.BasedOnAmount
@@ -277,6 +278,12 @@ public class SalesOrderBillableAllowanceTests
 
         lcv.AddCharge("Freight", Guid.NewGuid(), 100m);
 
+        // Must reject BasedOnAmount
+        var ex = Should.Throw<Volo.Abp.BusinessException>(() => lcv.DistributeCharges());
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Total Amount of all items is zero. Set 'Distribute Charges Based On' to Qty.");
+
+        // Explicitly set BasedOnQuantity
+        lcv.DistributionMethod = MyERP.Inventory.LandedCostDistributionMethod.BasedOnQuantity;
         lcv.DistributeCharges();
 
         // Item 1: 20/50 * 100 = 40

@@ -270,6 +270,11 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             lcv.AddCharge(charge.Description, charge.ExpenseAccountId, charge.Amount,
                 charge.CostCenterId, charge.ProjectId);
 
+        if (lcv.DistributionMethod != LandedCostDistributionMethod.Manual)
+        {
+            lcv.DistributeCharges();
+        }
+
         await _repository.InsertAsync(lcv);
         return ObjectMapper.Map<LandedCostVoucher, LandedCostVoucherDto>(lcv);
     }
@@ -597,7 +602,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                         ItemId = item.ItemId,
                         Description = item.Description,
                         Quantity = item.Quantity,
-                        Amount = item.LineTotal - item.TaxAmount,
+                        Amount = Math.Round(item.Quantity * item.UnitPrice * receipt.ExchangeRate, 2),
                         ApplicableCharges = 0m
                     });
                 }
@@ -636,7 +641,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                         ItemId = item.ItemId,
                         Description = item.Description,
                         Quantity = item.Quantity,
-                        Amount = item.LineTotal - item.TaxAmount,
+                        Amount = Math.Round(item.Quantity * item.UnitPrice * invoice.ExchangeRate, 2),
                         ApplicableCharges = 0m
                     });
                 }
@@ -727,11 +732,11 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
 
         if (input.DistributionMethod == LandedCostDistributionMethod.BasedOnQuantity)
         {
-            var totalQty = items.Sum(i => i.Quantity);
-            if (totalQty <= 0)
+            var totalQty = Math.Round(items.Sum(i => i.Quantity), 4);
+            if (totalQty == 0)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", "Total item quantity must be greater than zero for quantity-based distribution.");
+                    .WithData("detail", "Total Quantity of all items is zero. Set 'Distribute Charges Based On' to Amount.");
             }
 
             decimal allocatedSoFar = 0m;
@@ -753,11 +758,11 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
         }
         else // BasedOnAmount (default)
         {
-            var totalAmount = items.Sum(i => i.Amount);
-            if (totalAmount <= 0)
+            var totalAmount = Math.Round(items.Sum(i => i.Amount), 2);
+            if (totalAmount == 0)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", "Total item amount must be greater than zero for amount-based distribution.");
+                    .WithData("detail", "Total Amount of all items is zero. Set 'Distribute Charges Based On' to Qty.");
             }
 
             decimal allocatedSoFar = 0m;

@@ -82,27 +82,25 @@ public class LandedCostVoucher : FullAuditedAggregateRoot<Guid>, IMultiTenant
         switch (DistributionMethod)
         {
             case LandedCostDistributionMethod.BasedOnQuantity:
-                var totalQty = _items.Sum(i => i.Quantity);
-                if (totalQty == 0) return;
+                var totalQty = Math.Round(_items.Sum(i => i.Quantity), 4);
+                if (totalQty == 0)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Total Quantity of all items is zero. Set 'Distribute Charges Based On' to Amount.");
+                }
                 foreach (var item in _items)
                     item.ApplicableCharges = Math.Round(totalChargeAmount * item.Quantity / totalQty, 2);
                 break;
 
             case LandedCostDistributionMethod.BasedOnAmount:
-                var totalAmt = _items.Sum(i => i.Amount);
-                if (totalAmt > 0)
+                var totalAmt = Math.Round(_items.Sum(i => i.Amount), 2);
+                if (totalAmt == 0)
                 {
-                    foreach (var item in _items)
-                        item.ApplicableCharges = Math.Round(totalChargeAmount * item.Amount / totalAmt, 2);
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Total Amount of all items is zero. Set 'Distribute Charges Based On' to Qty.");
                 }
-                else
-                {
-                    // Fallback to quantity when total amount is zero (per ERPNext PR #58841 / #58842)
-                    var fallbackQty = _items.Sum(i => i.Quantity);
-                    if (fallbackQty <= 0) return;
-                    foreach (var item in _items)
-                        item.ApplicableCharges = Math.Round(totalChargeAmount * item.Quantity / fallbackQty, 2);
-                }
+                foreach (var item in _items)
+                    item.ApplicableCharges = Math.Round(totalChargeAmount * item.Amount / totalAmt, 2);
                 break;
 
             case LandedCostDistributionMethod.Manual:

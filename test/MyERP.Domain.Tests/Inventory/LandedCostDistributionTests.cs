@@ -182,4 +182,40 @@ public class LandedCostDistributionTests
         Assert.Equal(225m, result.DistributedItems[0].ApplicableCharges); // 30/40 * 300
         Assert.Equal(75m, result.DistributedItems[1].ApplicableCharges);  // 10/40 * 300
     }
+
+    [Fact]
+    public async Task CalculateDistributionAsync_BasedOnAmount_ThrowsWhenTotalAmountZero()
+    {
+        var input = new CalculateLandedCostDistributionDto
+        {
+            DistributionMethod = LandedCostDistributionMethod.BasedOnAmount,
+            TotalCharges = 100m,
+            Items = new List<LandedCostItemDto>
+            {
+                new() { ItemId = Guid.NewGuid(), Quantity = 10m, Amount = 100m },
+                new() { ItemId = Guid.NewGuid(), Quantity = -5m, Amount = -100m }
+            }
+        };
+
+        var ex = await Assert.ThrowsAsync<Volo.Abp.BusinessException>(() => _appService.CalculateDistributionAsync(input));
+        Assert.Contains("Total Amount of all items is zero. Set 'Distribute Charges Based On' to Qty.", ex.Data["detail"]?.ToString() ?? string.Empty);
+    }
+
+    [Fact]
+    public async Task CalculateDistributionAsync_BasedOnQuantity_ThrowsWhenTotalQuantityZero()
+    {
+        var input = new CalculateLandedCostDistributionDto
+        {
+            DistributionMethod = LandedCostDistributionMethod.BasedOnQuantity,
+            TotalCharges = 100m,
+            Items = new List<LandedCostItemDto>
+            {
+                new() { ItemId = Guid.NewGuid(), Quantity = 10m, Amount = 100m },
+                new() { ItemId = Guid.NewGuid(), Quantity = -10m, Amount = 100m }
+            }
+        };
+
+        var ex = await Assert.ThrowsAsync<Volo.Abp.BusinessException>(() => _appService.CalculateDistributionAsync(input));
+        Assert.Contains("Total Quantity of all items is zero. Set 'Distribute Charges Based On' to Amount.", ex.Data["detail"]?.ToString() ?? string.Empty);
+    }
 }
