@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -226,6 +226,18 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
     public async Task<StockEntryDto> SubmitAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
+
+        // ERPNext validate_closed_subcontracting_order: no stock movement against a closed SCO.
+        if (entry.SubcontractingOrderId.HasValue)
+        {
+            var scoRepository = LazyServiceProvider.LazyGetRequiredService<IRepository<SubcontractingOrder, Guid>>();
+            var sco = await scoRepository.FindAsync(entry.SubcontractingOrderId.Value);
+            if (sco != null && sco.Status == MyERP.Purchasing.SubcontractingOrderStatus.Closed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.LinkedSubcontractingOrderClosed)
+                    .WithData("subcontractingOrderNumber", sco.OrderNumber);
+            }
+        }
 
         // Per DO-NOT: "Allow excess material transfer for manufacture beyond required_qty -
         // already_transferred_qty" — applies to manually-authored SendToSubcontractor entries too,

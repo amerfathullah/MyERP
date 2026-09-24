@@ -282,4 +282,48 @@ public abstract class StockEntryCompanyGuardTests<TStartupModule> : MyERPApplica
             ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
         });
     }
+
+    [Fact]
+    public async Task SubmitAsync_LinkedSubcontractingOrderClosed_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var scoRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.SubcontractingOrder, Guid>>();
+            var seRepo = GetRequiredService<IRepository<StockEntry, Guid>>();
+            var seAppService = GetRequiredService<IStockEntryAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SE Closed SCO Co"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "SE-ITEM-SCO", "SE Item SCO", ItemType.Goods), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "SE Wh SCO"), autoSave: true);
+
+            await GetRequiredService<IRepository<DocumentSeries, Guid>>().InsertAsync(
+                new DocumentSeries(Guid.NewGuid(), company.Id, "SE Series SCO", "StockEntry", "SESCO-"), autoSave: true);
+
+            var sco = new MyERP.Purchasing.Entities.SubcontractingOrder(Guid.NewGuid(), company.Id, "SCO-SE-CLOSED", DateTime.UtcNow.Date, Guid.NewGuid());
+            sco.AddItem(new MyERP.Purchasing.Entities.SubcontractingOrderItem(Guid.NewGuid(), sco.Id, item.Id, "SE Item SCO", 1, 10));
+            sco.Submit();
+            sco.Close();
+            await scoRepo.InsertAsync(sco, autoSave: true);
+
+            var created = await seAppService.CreateAsync(new CreateStockEntryDto
+            {
+                CompanyId = company.Id,
+                EntryType = StockEntryType.MaterialReceipt,
+                PostingDate = DateTime.UtcNow.Date,
+                Items = new List<CreateStockEntryItemDto>
+                {
+                    new() { ItemId = item.Id, Quantity = 1, TargetWarehouseId = wh.Id, ValuationRate = 10 }
+                }
+            });
+            var entry = await seRepo.GetAsync(created.Id);
+            entry.SubcontractingOrderId = sco.Id;
+            await seRepo.UpdateAsync(entry, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() => seAppService.SubmitAsync(created.Id));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.LinkedSubcontractingOrderClosed);
+        });
+    }
 }

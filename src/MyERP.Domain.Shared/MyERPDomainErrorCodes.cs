@@ -48,6 +48,7 @@ public static class MyERPDomainErrorCodes
     public const string EInvoiceCancellationFailed = "MyERP:04003";
     public const string CannotCancelInvoiceWithValidEInvoice = "MyERP:04040";
     public const string LinkedPurchaseOrderClosed = "MyERP:04041";
+    public const string LinkedSubcontractingOrderClosed = "MyERP:04042";
     public const string SupplierOnHold = "MyERP:04004";
     public const string BelowMinimumOrderQty = "MyERP:04005";
 
