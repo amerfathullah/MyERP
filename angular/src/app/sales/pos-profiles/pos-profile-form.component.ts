@@ -52,6 +52,11 @@ import { ToasterService } from '@abp/ng.theme.shared';
               <label class="form-label">{{ 'MyERP::Project' | abpLocalization }}</label>
               <input type="text" class="form-control" formControlName="projectId" [placeholder]="'::Placeholder:ProjectId' | abpLocalization" />
             </div>
+            <div class="col-md-4">
+              <label class="form-label">{{ 'MyERP::ReceiptEmailTemplate' | abpLocalization }}</label>
+              <input type="text" class="form-control" formControlName="receiptEmailTemplateId" [placeholder]="'::Placeholder:ReceiptEmailTemplate' | abpLocalization" />
+              <small class="text-muted d-block mt-1">{{ 'MyERP::ReceiptEmailTemplateHelp' | abpLocalization }}</small>
+            </div>
           </div>
 
           <div class="row mb-3">
@@ -171,6 +176,7 @@ export class PosProfileFormComponent implements OnInit {
       writeOffLimit: [0],
       postChangeGlEntries: [false],
       projectId: [''],
+      receiptEmailTemplateId: [''],
       paymentMethods: this.fb.array([]),
       users: this.fb.array([]),
     });
@@ -189,6 +195,7 @@ export class PosProfileFormComponent implements OnInit {
             writeOffLimit: p.writeOffLimit,
             postChangeGlEntries: p.postChangeGlEntries,
             projectId: (p as any).projectId ?? '',
+            receiptEmailTemplateId: (p as any).receiptEmailTemplateId ?? '',
           });
           (p.paymentMethods ?? []).forEach(pm => this.addPaymentMethod(pm));
           (p.users ?? []).forEach(u => this.addUser(u));

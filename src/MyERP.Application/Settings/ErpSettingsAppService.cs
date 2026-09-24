@@ -112,6 +112,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Selling.AllowAgainstMultiplePurchaseOrders,
             MyERPSettings.Selling.EnableProformaInvoice,
             MyERPSettings.Selling.DefaultProformaPrintFormat,
+            MyERPSettings.Selling.ProformaEmailTemplate,
             MyERPSettings.Selling.UseLegacyJsReactivity,
             MyERPSettings.Selling.AllowDeliveryOfOverproducedQty,
         ],

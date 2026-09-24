@@ -131,6 +131,31 @@ import { ToasterService } from '@abp/ng.theme.shared';
               </div>
             </div>
 
+            <h6 class="text-muted mb-3 mt-4">Proforma Invoicing</h6>
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <div class="form-check form-switch">
+                  <input type="checkbox" class="form-check-input" id="enableProforma"
+                    [ngModel]="settings['MyERP.Selling.EnableProformaInvoice'] === 'true'"
+                    (ngModelChange)="settings['MyERP.Selling.EnableProformaInvoice'] = $event ? 'true' : 'false'" name="enableProforma" />
+                  <label class="form-check-label" for="enableProforma">Enable Proforma Invoice</label>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Default Proforma Print Format</label>
+                <input type="text" class="form-control form-control-sm"
+                  [(ngModel)]="settings['MyERP.Selling.DefaultProformaPrintFormat']" name="defaultProformaPrintFormat"
+                  placeholder="e.g. Standard Proforma Invoice" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">{{ 'MyERP::ProformaEmailTemplate' | abpLocalization }}</label>
+                <input type="text" class="form-control form-control-sm"
+                  [(ngModel)]="settings['MyERP.Selling.ProformaEmailTemplate']" name="proformaEmailTemplate"
+                  placeholder="e.g. Proforma Invoice Notification" />
+                <small class="text-muted d-block mt-1">{{ 'MyERP::ProformaEmailTemplateHelp' | abpLocalization }}</small>
+              </div>
+            </div>
+
             <div class="d-flex justify-content-end mt-4">
               <button type="submit" class="btn btn-primary" [disabled]="saving()">
                 <i class="bi bi-check-lg me-1"></i>{{ 'MyERP::Save' | abpLocalization }}

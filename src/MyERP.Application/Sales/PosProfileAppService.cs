@@ -65,7 +65,14 @@ public class PosProfileAppService : CrudAppService<
             throw new BusinessException("MyERP:EntityNotFound");
         }
 
-        return ObjectMapper.Map<PosProfile, PosProfileDto>(entity);
+        var dto = ObjectMapper.Map<PosProfile, PosProfileDto>(entity);
+        if (entity.ReceiptEmailTemplateId.HasValue)
+        {
+            var emailTemplateRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.EmailTemplate, Guid>>();
+            var template = await emailTemplateRepo.FindAsync(entity.ReceiptEmailTemplateId.Value);
+            dto.ReceiptEmailTemplateName = template?.Name;
+        }
+        return dto;
     }
 
     public override async Task<PosProfileDto> CreateAsync(CreateUpdatePosProfileDto input)
@@ -94,6 +101,7 @@ public class PosProfileAppService : CrudAppService<
             IncomeAccountId = input.IncomeAccountId,
             ExpenseAccountId = input.ExpenseAccountId,
             ProjectId = input.ProjectId,
+            ReceiptEmailTemplateId = input.ReceiptEmailTemplateId,
         };
 
         if (input.PaymentMethods != null)
@@ -191,6 +199,7 @@ public class PosProfileAppService : CrudAppService<
         entity.IncomeAccountId = input.IncomeAccountId;
         entity.ExpenseAccountId = input.ExpenseAccountId;
         entity.ProjectId = input.ProjectId;
+        entity.ReceiptEmailTemplateId = input.ReceiptEmailTemplateId;
 
         entity.ClearPaymentMethods();
         if (input.PaymentMethods != null)

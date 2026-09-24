@@ -204,13 +204,71 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
         await _repository.UpdateAsync(proforma);
     }
 
+    [Authorize(MyERPPermissions.SalesInvoices.Default)]
+    public async Task<ProformaEmailContentDto> GetEmailContentAsync(Guid id)
+    {
+        var proforma = await _repository.GetAsync(id);
+        var customer = await _customerRepository.FindAsync(proforma.CustomerId);
+        var so = await _salesOrderRepository.FindAsync(proforma.SalesOrderId);
+
+        var templateSetting = await _settingProvider.GetOrNullAsync(MyERPSettings.Selling.ProformaEmailTemplate);
+        Core.Entities.EmailTemplate? template = null;
+        if (!string.IsNullOrWhiteSpace(templateSetting))
+        {
+            var templateRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.EmailTemplate, Guid>>();
+            if (Guid.TryParse(templateSetting, out var templateId))
+            {
+                template = await templateRepo.FindAsync(templateId);
+            }
+            if (template == null)
+            {
+                var queryable = await templateRepo.GetQueryableAsync();
+                template = queryable.FirstOrDefault(t => t.Name == templateSetting);
+            }
+        }
+
+        var customerName = customer?.Name ?? string.Empty;
+        var soNumber = so?.OrderNumber ?? string.Empty;
+        var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["doc.name"] = proforma.ProformaNumber,
+            ["name"] = proforma.ProformaNumber,
+            ["proforma_number"] = proforma.ProformaNumber,
+            ["doc.sales_order"] = soNumber,
+            ["sales_order"] = soNumber,
+            ["sales_order_number"] = soNumber,
+            ["doc.customer"] = customerName,
+            ["doc.customer_name"] = customerName,
+            ["customer_name"] = customerName,
+            ["customer"] = customerName,
+            ["doc.grand_total"] = proforma.GrandTotal.ToString("F2"),
+            ["grand_total"] = proforma.GrandTotal.ToString("F2"),
+        };
+
+        var (subject, message) = Core.Entities.EmailTemplate.GetSubjectAndMessage(
+            template,
+            vars,
+            $"Proforma Invoice {proforma.ProformaNumber}",
+            $"Please find attached the proforma invoice {proforma.ProformaNumber}.");
+
+        return new ProformaEmailContentDto
+        {
+            Subject = subject,
+            Message = message,
+        };
+    }
+
     [Authorize(MyERPPermissions.SalesInvoices.Edit)]
     public async Task SendEmailAsync(Guid id, SendProformaEmailDto input)
     {
         var proforma = await _repository.GetAsync(id);
+        var content = await GetEmailContentAsync(id);
+        var subject = !string.IsNullOrWhiteSpace(input.Subject) ? input.Subject : content.Subject;
+        var message = !string.IsNullOrWhiteSpace(input.Message) ? input.Message : content.Message;
+
         proforma.MarkEmailed(input.Recipients);
         await _repository.UpdateAsync(proforma);
-        // Note: actual email sending would be done via ABP email module
+        // Note: actual email sending would be done via ABP email module with subject & message
         // This records the intent + timestamps
     }
 

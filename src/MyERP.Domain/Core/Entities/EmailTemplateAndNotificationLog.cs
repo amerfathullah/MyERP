@@ -61,14 +61,33 @@ public class EmailTemplate : FullAuditedAggregateRoot<Guid>, IMultiTenant
         return RenderTemplate(Body, variables);
     }
 
+    /// <summary>
+    /// Render subject and message using the specified template, falling back to defaults if null.
+    /// Mirrors ERPNext erpnext.utilities.email_template.get_email_subject_and_message.
+    /// </summary>
+    public static (string Subject, string Message) GetSubjectAndMessage(
+        EmailTemplate? template,
+        Dictionary<string, string> variables,
+        string defaultSubject,
+        string defaultMessage)
+    {
+        if (template == null)
+        {
+            return (defaultSubject, defaultMessage);
+        }
+
+        return (template.RenderSubject(variables), template.RenderBody(variables));
+    }
+
     private static string RenderTemplate(string template, Dictionary<string, string> variables)
     {
         var result = template;
         foreach (var (key, value) in variables)
         {
-            result = result.Replace($"{{{{{key}}}}}", value ?? string.Empty);
-            // Also handle without spaces: {{key}}
-            result = result.Replace($"{{{{ {key} }}}}", value ?? string.Empty);
+            var val = value ?? string.Empty;
+            result = result.Replace($"{{{{{key}}}}}", val);
+            result = result.Replace($"{{{{ {key} }}}}", val);
+            result = result.Replace($"{{{{  {key}  }}}}", val);
         }
         return result;
     }

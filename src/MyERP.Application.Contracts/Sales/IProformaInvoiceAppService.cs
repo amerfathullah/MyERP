@@ -14,5 +14,6 @@ public interface IProformaInvoiceAppService : IApplicationService
     Task<List<ProformedTotalsDto>> GetProformedTotalsAsync(Guid salesOrderId);
     Task<ProformaInvoiceDto> CreateAsync(CreateProformaInvoiceDto input);
     Task CancelAsync(Guid id);
+    Task<ProformaEmailContentDto> GetEmailContentAsync(Guid id);
     Task SendEmailAsync(Guid id, SendProformaEmailDto input);
 }

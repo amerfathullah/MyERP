@@ -4355,6 +4355,7 @@ public class MyERPDbContext :
             b.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(10);
             b.Property(x => x.InvoiceType).HasMaxLength(30);
             b.Property(x => x.WriteOffLimit).HasColumnType("decimal(18,2)");
+            b.Property(x => x.ReceiptEmailTemplateId);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasMany(x => x.PaymentMethods).WithOne().HasForeignKey(x => x.PosProfileId).IsRequired();
             b.Navigation(x => x.PaymentMethods).AutoInclude();

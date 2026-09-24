@@ -118,4 +118,18 @@ public class PosProfileUserAuthorizationTests
         resolved.Id.ShouldBe(p2.Id);
         resolved.ProfileName.ShouldBe("Register 2 (Default)");
     }
+
+    [Fact]
+    public void ReceiptEmailTemplateId_CanBeAssignedAndCleared()
+    {
+        var templateId = Guid.NewGuid();
+        var profile = new PosProfile(Guid.NewGuid(), _companyId, "Main POS Register", _warehouseId)
+        {
+            ReceiptEmailTemplateId = templateId
+        };
+
+        profile.ReceiptEmailTemplateId.ShouldBe(templateId);
+        profile.ReceiptEmailTemplateId = null;
+        profile.ReceiptEmailTemplateId.ShouldBeNull();
+    }
 }

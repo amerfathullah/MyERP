@@ -332,5 +332,56 @@ public class PosAppService : ApplicationService, IPosAppService
             Barcode = item.Barcode,
         };
     }
+
+    [Authorize(MyERPPermissions.SalesInvoices.Default)]
+    public async Task<PosReceiptEmailContentDto> GetReceiptEmailContentAsync(Guid invoiceId)
+    {
+        var invoice = await _invoiceRepository.GetAsync(invoiceId);
+        string defaultText = $"{(invoice.IsPos ? "POS Invoice" : "Sales Invoice")}: {invoice.InvoiceNumber}";
+
+        Core.Entities.EmailTemplate? template = null;
+        if (invoice.PosProfileId.HasValue)
+        {
+            var profileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
+            var profile = await profileRepo.FindAsync(invoice.PosProfileId.Value);
+            if (profile?.ReceiptEmailTemplateId.HasValue == true)
+            {
+                var templateRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.EmailTemplate, Guid>>();
+                template = await templateRepo.FindAsync(profile.ReceiptEmailTemplateId.Value);
+            }
+        }
+
+        string customerName = string.Empty;
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+        var customer = await customerRepo.FindAsync(invoice.CustomerId);
+        if (customer != null) customerName = customer.Name;
+
+        var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["doc.name"] = invoice.InvoiceNumber,
+            ["name"] = invoice.InvoiceNumber,
+            ["invoice_number"] = invoice.InvoiceNumber,
+            ["doc.customer"] = customerName,
+            ["doc.customer_name"] = customerName,
+            ["customer"] = customerName,
+            ["customer_name"] = customerName,
+            ["doc.grand_total"] = invoice.GrandTotal.ToString("F2"),
+            ["grand_total"] = invoice.GrandTotal.ToString("F2"),
+            ["doc.posting_date"] = invoice.IssueDate.ToString("yyyy-MM-dd"),
+            ["posting_date"] = invoice.IssueDate.ToString("yyyy-MM-dd"),
+        };
+
+        var (subject, message) = Core.Entities.EmailTemplate.GetSubjectAndMessage(
+            template,
+            vars,
+            defaultText,
+            defaultText);
+
+        return new PosReceiptEmailContentDto
+        {
+            Subject = subject,
+            Message = message,
+        };
+    }
 }
 

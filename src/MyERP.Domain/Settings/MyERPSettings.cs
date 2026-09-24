@@ -60,6 +60,7 @@ public static class MyERPSettings
         public const string AllowAgainstMultiplePurchaseOrders = G + ".AllowAgainstMultiplePOs";
         public const string EnableProformaInvoice = G + ".EnableProformaInvoice";
         public const string DefaultProformaPrintFormat = G + ".DefaultProformaPrintFormat";
+        public const string ProformaEmailTemplate = G + ".ProformaEmailTemplate";
         public const string UseLegacyJsReactivity = G + ".UseLegacyJsReactivity";
         public const string AllowDeliveryOfOverproducedQty = G + ".AllowDeliveryOfOverproducedQty";
         public const string AllowSalesOrderCreationForExpiredQuotation = G + ".AllowSalesOrderCreationForExpiredQuotation";

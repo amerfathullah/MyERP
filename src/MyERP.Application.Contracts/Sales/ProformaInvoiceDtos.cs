@@ -71,6 +71,14 @@ public class SendProformaEmailDto
 {
     [Required]
     public string Recipients { get; set; } = null!;
+    public string? Subject { get; set; }
+    public string? Message { get; set; }
+}
+
+public class ProformaEmailContentDto
+{
+    public string Subject { get; set; } = null!;
+    public string Message { get; set; } = null!;
 }
 
 /// <summary>Per-item proformed totals (already issued against this SO item).</summary>

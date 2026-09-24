@@ -579,6 +579,7 @@ export interface CreateUpdatePosProfileDto {
   incomeAccountId?: string | null;
   expenseAccountId?: string | null;
   projectId?: string | null;
+  receiptEmailTemplateId?: string | null;
   paymentMethods?: CreateUpdatePosProfilePaymentMethodDto[];
   users?: CreateUpdatePosProfileUserDto[];
 }
@@ -1169,6 +1170,8 @@ export interface PosProfileDto extends FullAuditedEntityDto<string> {
   incomeAccountId?: string | null;
   expenseAccountId?: string | null;
   projectId?: string | null;
+  receiptEmailTemplateId?: string | null;
+  receiptEmailTemplateName?: string | null;
   paymentMethods?: PosProfilePaymentMethodDto[];
   users?: PosProfileUserDto[];
 }
@@ -1710,6 +1713,18 @@ export interface SendInvoiceEmailDto {
 
 export interface SendProformaEmailDto {
   recipients: string;
+  subject?: string | null;
+  message?: string | null;
+}
+
+export interface ProformaEmailContentDto {
+  subject: string;
+  message: string;
+}
+
+export interface PosReceiptEmailContentDto {
+  subject: string;
+  message: string;
 }
 
 export interface SendPurchaseOrderEmailDto {

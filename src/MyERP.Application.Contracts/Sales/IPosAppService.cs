@@ -12,6 +12,13 @@ public interface IPosAppService : IApplicationService
     Task<PosInvoiceDto> CompleteSaleAsync(CreatePosInvoiceDto input);
     Task<PagedResultDto<PosItemDto>> SearchItemsAsync(PosItemSearchDto input);
     Task<BarcodeScanResultDto> ScanBarcodeAsync(ScanBarcodeInput input);
+    Task<PosReceiptEmailContentDto> GetReceiptEmailContentAsync(Guid invoiceId);
+}
+
+public class PosReceiptEmailContentDto
+{
+    public string Subject { get; set; } = null!;
+    public string Message { get; set; } = null!;
 }
 
 public class CreatePosInvoiceDto

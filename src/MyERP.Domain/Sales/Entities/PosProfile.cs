@@ -77,6 +77,12 @@ public class PosProfile : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Default project for accounting dimensions on POS sales. Per ERPNext PR #46964 / commit 821d64241a.</summary>
     public Guid? ProjectId { get; set; }
 
+    /// <summary>
+    /// Email template for receipts emailed from the POS terminal.
+    /// Per ERPNext PR #59332 / commit 328ec92662.
+    /// </summary>
+    public Guid? ReceiptEmailTemplateId { get; set; }
+
     /// <summary>Accepted payment modes for this POS profile.</summary>
     private readonly List<PosProfilePaymentMethod> _paymentMethods = new();
     public IReadOnlyList<PosProfilePaymentMethod> PaymentMethods => _paymentMethods.AsReadOnly();
