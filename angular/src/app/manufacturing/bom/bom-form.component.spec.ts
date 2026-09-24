@@ -2,13 +2,16 @@ import { describe, it, expect } from 'vitest';
 
 // BOM Form DTO mapping + validation logic tests
 
-function mapBomMaterial(control: { itemId: string; description: string; qty: number; rate: number }) {
+function mapBomMaterial(control: { itemId: string; description: string; qty: number; rate: number; subBomId?: string | null; setRateOfSubAssemblyItemBasedOnBom?: boolean; doNotExplode?: boolean }) {
   return {
     itemId: control.itemId,
     itemName: control.description || '',
     quantity: control.qty ?? 0,
     rate: control.rate ?? 0,
     uom: 'Unit',
+    subBomId: control.subBomId || null,
+    setRateOfSubAssemblyItemBasedOnBom: control.setRateOfSubAssemblyItemBasedOnBom ?? true,
+    doNotExplode: control.doNotExplode ?? false,
   };
 }
 
@@ -41,6 +44,8 @@ describe('BomFormComponent', () => {
       expect(result.itemName).toBe('Steel Rod');
       expect(result.rate).toBe(12.5);
       expect(result.uom).toBe('Unit');
+      expect(result.setRateOfSubAssemblyItemBasedOnBom).toBe(true);
+      expect(result.doNotExplode).toBe(false);
     });
 
     it('should default itemName to empty when description is blank', () => {
@@ -56,6 +61,21 @@ describe('BomFormComponent', () => {
     it('should handle fractional quantities', () => {
       const result = mapBomMaterial({ itemId: 'item-1', description: 'Wire', qty: 2.5, rate: 4.8 });
       expect(result.quantity).toBe(2.5);
+    });
+
+    it('should respect setRateOfSubAssemblyItemBasedOnBom when set to false (PR #59178 / ec88db0253)', () => {
+      const result = mapBomMaterial({
+        itemId: 'sub-item-1',
+        description: 'Sub Assembly Alpha',
+        qty: 1,
+        rate: 50,
+        subBomId: 'bom-sub-1',
+        setRateOfSubAssemblyItemBasedOnBom: false,
+        doNotExplode: true,
+      });
+      expect(result.setRateOfSubAssemblyItemBasedOnBom).toBe(false);
+      expect(result.doNotExplode).toBe(true);
+      expect(result.subBomId).toBe('bom-sub-1');
     });
   });
 

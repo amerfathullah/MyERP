@@ -63,6 +63,7 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
                   <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
                   <th class="text-end">{{ 'Rate' | abpLocalization }}</th>
                   <th class="text-end">{{ 'Amount' | abpLocalization }}</th>
+                  <th class="text-center" style="width: 160px">{{ 'SubAssembly' | abpLocalization }}</th>
                   <th class="pe-3"></th>
                 </tr>
               </thead>
@@ -77,6 +78,12 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
                     <td><input type="number" class="form-control form-control-sm text-end" formControlName="qty" min="0.01" step="0.01" /></td>
                     <td><input type="number" class="form-control form-control-sm text-end" formControlName="rate" min="0" step="0.01" /></td>
                     <td class="text-end font-monospace">{{ (mat.get('qty')?.value * mat.get('rate')?.value) | number:'1.2-2' }}</td>
+                    <td class="text-center">
+                      <div class="form-check form-check-inline form-switch mb-0" [title]="'SetRateBasedOnSubAssemblyBOM' | abpLocalization">
+                        <input class="form-check-input" type="checkbox" formControlName="setRateOfSubAssemblyItemBasedOnBom" id="subRate_{{i}}" />
+                        <label class="form-check-label small" for="subRate_{{i}}">{{ 'SetRateBasedOnSubAssemblyBOM' | abpLocalization }}</label>
+                      </div>
+                    </td>
                     <td class="pe-3"><button type="button" class="btn btn-sm btn-outline-danger" (click)="removeMaterial(i)"><i class="fa fa-trash"></i></button></td>
                   </tr>
                 }
