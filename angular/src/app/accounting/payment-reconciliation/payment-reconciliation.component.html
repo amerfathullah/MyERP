@@ -75,6 +75,36 @@
       </div>
     </div>
 
+    <!-- Totals Section (ERPNext PR #59233 / commit 5aeacbbf5d) -->
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm bg-light">
+          <div class="card-body py-2">
+            <span class="text-muted small d-block">{{ 'TotalInvoiceAmount' | abpLocalization }}</span>
+            <span class="fs-5 fw-bold text-dark">{{ totalInvoiceAmount | number:'1.2-2' }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm bg-light">
+          <div class="card-body py-2">
+            <span class="text-muted small d-block">{{ 'TotalPaymentAmount' | abpLocalization }}</span>
+            <span class="fs-5 fw-bold text-dark">{{ totalPaymentAmount | number:'1.2-2' }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm" [class.bg-light]="differenceAmount === 0" [class.bg-warning-subtle]="differenceAmount > 0" [class.bg-info-subtle]="differenceAmount < 0">
+          <div class="card-body py-2">
+            <span class="text-muted small d-block">{{ 'DifferenceAmount' | abpLocalization }}</span>
+            <span class="fs-5 fw-bold" [class.text-danger]="differenceAmount > 0" [class.text-primary]="differenceAmount < 0" [class.text-success]="differenceAmount === 0">
+              {{ differenceAmount | number:'1.2-2' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Outstanding Invoices — allocate the selected payment across one or more rows -->
     @if (invoices().length > 0) {
       <div class="card">

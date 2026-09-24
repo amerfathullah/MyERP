@@ -84,6 +84,22 @@ export class PaymentReconciliationComponent {
     return !!payment && this.totalAllocated > payment.unallocatedAmount + 0.009;
   }
 
+  get totalInvoiceAmount(): number {
+    const selected = this.invoices().filter(i => i.selected);
+    const list = selected.length > 0 ? selected : this.invoices();
+    return list.reduce((sum, i) => sum + (i.outstanding || 0), 0);
+  }
+
+  get totalPaymentAmount(): number {
+    const selected = this.selectedPayment;
+    if (selected) return selected.unallocatedAmount || 0;
+    return this.payments().reduce((sum, p) => sum + (p.unallocatedAmount || 0), 0);
+  }
+
+  get differenceAmount(): number {
+    return Math.round((this.totalInvoiceAmount - this.totalPaymentAmount) * 100) / 100;
+  }
+
   autoAllocating = signal(false);
 
   /// Fetches the greedy first-fit allocation plan and applies only the rows for the currently

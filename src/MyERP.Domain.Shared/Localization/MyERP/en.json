@@ -1019,6 +1019,8 @@
     "NoStockReconciliationsYet": "No stock reconciliations yet",
     "ReconciliationNumber": "Reconciliation #",
     "DifferenceAmount": "Difference Amount",
+    "TotalInvoiceAmount": "Total Invoice Amount",
+    "TotalPaymentAmount": "Total Payment Amount",
     "LandedCostVouchers": "Landed Cost Vouchers",
     "NewLandedCostVoucher": "New Landed Cost Voucher",
     "NoLandedCostVouchersYet": "No landed cost vouchers yet",
