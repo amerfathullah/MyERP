@@ -13,4 +13,8 @@ public interface IBlanketOrderAppService : IApplicationService
     Task<BlanketOrderDto> CreateAsync(CreateBlanketOrderDto input);
     Task<BlanketOrderDto> SubmitAsync(Guid id);
     Task<BlanketOrderDto> CancelAsync(Guid id);
+    Task<BlanketOrderDto> CloseAsync(Guid id);
+    Task<BlanketOrderDto> ReopenAsync(Guid id);
+    Task<BlanketOrderDto> CloseItemAsync(Guid id, Guid itemId);
+    Task<BlanketOrderDto> ReopenItemAsync(Guid id, Guid itemId);
 }

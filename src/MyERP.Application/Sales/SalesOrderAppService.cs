@@ -270,8 +270,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         await ValidateCompanyBoundariesAsync(input, input.CompanyId);
 
         var customerForStatus = await _customerRepository.GetAsync(input.CustomerId);
-        await LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
-            .ValidatePartyForTransactionAsync("Customer", isDisabled: !customerForStatus.IsActive, isFrozen: customerForStatus.IsFrozen, customerForStatus.Name, input.CompanyId);
+        var partyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
+        await partyValidation.ValidatePartyForTransactionAsync("Customer", isDisabled: !customerForStatus.IsActive, isFrozen: customerForStatus.IsFrozen, customerForStatus.Name, input.CompanyId);
+        partyValidation.ValidateCustomerNotBlocked(customerForStatus.OnHold, customerForStatus.ReleaseDate, customerForStatus.Name, input.OrderDate);
 
         var orderNumber = await _numberGenerator.GenerateAsync("SalesOrder", input.CompanyId);
 
@@ -586,6 +587,11 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var validationService = LazyServiceProvider
             .LazyGetRequiredService<MyERP.Core.DomainServices.TransactionValidationService>();
         await validationService.ValidatePriceListAsync(order.PriceListId);
+
+        var customer = await _customerRepository.GetAsync(order.CustomerId);
+        var partyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
+        await partyValidation.ValidatePartyForTransactionAsync("Customer", isDisabled: !customer.IsActive, isFrozen: customer.IsFrozen, customer.Name, order.CompanyId);
+        partyValidation.ValidateCustomerNotBlocked(customer.OnHold, customer.ReleaseDate, customer.Name, order.OrderDate);
 
         order.Submit();
 
@@ -1109,8 +1115,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         await _itemValidation.ValidateItemsForTransactionAsync(updateItemIds);
 
         var customerForStatus = await _customerRepository.GetAsync(input.CustomerId);
-        await LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
-            .ValidatePartyForTransactionAsync("Customer", isDisabled: !customerForStatus.IsActive, isFrozen: customerForStatus.IsFrozen, customerForStatus.Name, input.CompanyId);
+        var partyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
+        await partyValidation.ValidatePartyForTransactionAsync("Customer", isDisabled: !customerForStatus.IsActive, isFrozen: customerForStatus.IsFrozen, customerForStatus.Name, input.CompanyId);
+        partyValidation.ValidateCustomerNotBlocked(customerForStatus.OnHold, customerForStatus.ReleaseDate, customerForStatus.Name, input.OrderDate);
 
         await ValidateCompanyBoundariesAsync(input, order.CompanyId);
 
@@ -1273,6 +1280,19 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                     .WithData("blanketOrderCompany", boMismatch.CompanyId)
                     .WithData("salesOrderCompany", companyId);
             }
+            foreach (var bo in blanketOrders)
+            {
+                bo.ValidateCanBeOrdered(input.OrderDate);
+                foreach (var soItem in input.Items.Where(i => i.BlanketOrderId == bo.Id))
+                {
+                    var boItem = bo.Items.FirstOrDefault(x => x.ItemId == soItem.ItemId);
+                    if (boItem != null && boItem.IsClosed)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                            .WithData("detail", $"Blanket Order item for item {soItem.ItemId} is closed.");
+                    }
+                }
+            }
         }
 
         var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToList();
@@ -1304,6 +1324,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         {
             var bo = await boRepository.FindAsync(group.Key);
             if (bo == null) continue;
+            bo.ValidateCanBeOrdered(order.OrderDate);
             foreach (var item in group)
             {
                 var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);

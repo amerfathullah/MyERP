@@ -78,7 +78,7 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
             ExchangeRate = input.ExchangeRate > 0 ? input.ExchangeRate : 1m
         };
         foreach (var item in input.Items)
-            bo.AddItem(item.ItemId, item.Qty, item.Rate, item.ItemName);
+            bo.AddItem(item.ItemId, item.Qty, item.Rate, item.ItemName, stockUom: item.StockUom);
         await _repository.InsertAsync(bo);
         return ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(bo);
     }
@@ -112,6 +112,56 @@ public class BlanketOrderAppService : ApplicationService, IBlanketOrderAppServic
             bo.CompanyId, bo.OrderNumber, "Submitted", "Cancelled",
             CurrentUser.Id, tenantId: bo.TenantId));
 
+        return ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(bo);
+    }
+
+    [Authorize(MyERPPermissions.SalesOrders.Edit)]
+    public async Task<BlanketOrderDto> CloseAsync(Guid id)
+    {
+        var bo = await _repository.GetAsync(id);
+        bo.Close();
+        await _repository.UpdateAsync(bo);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "BlanketOrder", bo.Id, "Closed",
+            bo.CompanyId, bo.OrderNumber, "Submitted", "Closed",
+            CurrentUser.Id, tenantId: bo.TenantId));
+
+        return ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(bo);
+    }
+
+    [Authorize(MyERPPermissions.SalesOrders.Edit)]
+    public async Task<BlanketOrderDto> ReopenAsync(Guid id)
+    {
+        var bo = await _repository.GetAsync(id);
+        bo.Reopen();
+        await _repository.UpdateAsync(bo);
+
+        var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "BlanketOrder", bo.Id, "Reopened",
+            bo.CompanyId, bo.OrderNumber, "Closed", "Submitted",
+            CurrentUser.Id, tenantId: bo.TenantId));
+
+        return ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(bo);
+    }
+
+    [Authorize(MyERPPermissions.SalesOrders.Edit)]
+    public async Task<BlanketOrderDto> CloseItemAsync(Guid id, Guid itemId)
+    {
+        var bo = (await _repository.WithDetailsAsync()).First(b => b.Id == id);
+        bo.CloseItem(itemId);
+        await _repository.UpdateAsync(bo);
+        return ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(bo);
+    }
+
+    [Authorize(MyERPPermissions.SalesOrders.Edit)]
+    public async Task<BlanketOrderDto> ReopenItemAsync(Guid id, Guid itemId)
+    {
+        var bo = (await _repository.WithDetailsAsync()).First(b => b.Id == id);
+        bo.ReopenItem(itemId);
+        await _repository.UpdateAsync(bo);
         return ObjectMapper.Map<BlanketOrder, BlanketOrderDto>(bo);
     }
 

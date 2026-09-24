@@ -237,6 +237,21 @@
 
           <div class="col-12 col-md-3 mb-3 d-flex align-items-end">
             <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="onHold" formControlName="onHold" />
+              <label class="form-check-label" for="onHold">{{ '::OnHold' | abpLocalization }}</label>
+            </div>
+          </div>
+
+          @if (form.get('onHold')?.value) {
+            <div class="col-12 col-md-3 mb-3">
+              <label class="form-label" for="releaseDate">{{ '::ReleaseDate' | abpLocalization }}</label>
+              <input id="releaseDate" type="date" class="form-control" formControlName="releaseDate" />
+              <div class="form-text small">{{ '::ReleaseDateMustBeFutureHint' | abpLocalization }}</div>
+            </div>
+          }
+
+          <div class="col-12 col-md-3 mb-3 d-flex align-items-end">
+            <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="restrictToCompanies" formControlName="restrictToCompanies" />
               <label class="form-check-label" for="restrictToCompanies">{{ '::RestrictToCompanies' | abpLocalization }}</label>
             </div>

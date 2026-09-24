@@ -142,4 +142,26 @@ public class QualityInspectionTests
             formulaBased: true, formula: "reading_1 >=");
         Should.Throw<BusinessException>(() => qi.Evaluate());
     }
+
+    [Fact]
+    public void Submit_ZeroOrNegativeSampleSize_Throws()
+    {
+        var qi = CreateQI();
+        qi.AddReading("Color", "Red", null, null, "Red");
+        qi.SampleSize = 0;
+        Should.Throw<BusinessException>(() => qi.Submit());
+
+        qi.SampleSize = -2.5m;
+        Should.Throw<BusinessException>(() => qi.Submit());
+    }
+
+    [Fact]
+    public void Submit_PositiveSampleSize_Succeeds()
+    {
+        var qi = CreateQI();
+        qi.AddReading("Color", "Red", null, null, "Red");
+        qi.SampleSize = 5;
+        qi.Submit();
+        qi.DocStatus.ShouldBe(Core.DocumentStatus.Submitted);
+    }
 }

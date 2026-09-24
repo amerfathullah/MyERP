@@ -102,6 +102,32 @@ public class Customer : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Source Prospect ID if customer was converted from a Prospect (PR #50665 / commit 310099f4cd).</summary>
     public Guid? ProspectId { get; set; }
 
+    /// <summary>
+    /// Blocks saving or submitting Sales Orders, Delivery Notes, Sales Invoices and POS Invoices for this customer.
+    /// Maps to ERPNext selling/doctype/customer on_hold (PR #59303 / commit d75b957ce0).
+    /// </summary>
+    public bool OnHold { get; set; }
+
+    /// <summary>
+    /// Date until which the customer is on hold. Null = blocked indefinitely.
+    /// Maps to ERPNext selling/doctype/customer release_date.
+    /// </summary>
+    public DateTime? ReleaseDate { get; set; }
+
+    /// <summary>
+    /// Whether customer is currently blocked (as of UTC today).
+    /// </summary>
+    public bool IsBlocked => OnHold && (!ReleaseDate.HasValue || DateTime.UtcNow.Date <= ReleaseDate.Value.Date);
+
+    /// <summary>
+    /// Whether customer is blocked as of the given date.
+    /// </summary>
+    public bool IsBlockedOn(DateTime asOfDate)
+    {
+        if (!OnHold) return false;
+        return !ReleaseDate.HasValue || asOfDate.Date <= ReleaseDate.Value.Date;
+    }
+
     protected Customer() { }
 
     public Customer(Guid id, Guid companyId, string name, Guid? tenantId = null) : base(id)

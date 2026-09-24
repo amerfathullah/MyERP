@@ -57,7 +57,7 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, decimal qty, decimal rate, string? itemName = null, string? partyItemCode = null)
+    public void AddItem(Guid itemId, decimal qty, decimal rate, string? itemName = null, string? partyItemCode = null, string? stockUom = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -72,6 +72,7 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         var item = new BlanketOrderItem(Guid.NewGuid(), Id, itemId, qty, rate, itemName)
         {
             PartyItemCode = partyItemCode,
+            StockUom = stockUom,
             BaseRate = Math.Round(rate * ExchangeRate, 4)
         };
         _items.Add(item);
@@ -95,6 +96,77 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Cancelled;
     }
+
+    /// <summary>
+    /// Closes the blanket order (ERPNext PR #59341 / commit df4a9f8d9f).
+    /// </summary>
+    public void Close()
+    {
+        if (Status != DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = DocumentStatus.Closed;
+    }
+
+    /// <summary>
+    /// Re-opens a closed blanket order (ERPNext PR #59341 / commit df4a9f8d9f).
+    /// </summary>
+    public void Reopen()
+    {
+        if (Status != DocumentStatus.Closed)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = DocumentStatus.Submitted;
+    }
+
+    /// <summary>
+    /// Closes an individual item row on the blanket order (ERPNext PR #59343 / commit 775b019c30).
+    /// If all rows become closed, the blanket order itself is closed.
+    /// </summary>
+    public void CloseItem(Guid itemId)
+    {
+        var item = _items.FirstOrDefault(x => x.Id == itemId || x.ItemId == itemId);
+        if (item == null)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Item not found in Blanket Order.");
+        item.Close();
+        if (_items.Count > 0 && _items.All(x => x.IsClosed))
+        {
+            Status = DocumentStatus.Closed;
+        }
+    }
+
+    /// <summary>
+    /// Re-opens a closed individual item row on the blanket order (ERPNext PR #59343 / commit 775b019c30).
+    /// If the blanket order was closed, reopening any row reopens the blanket order.
+    /// </summary>
+    public void ReopenItem(Guid itemId)
+    {
+        var item = _items.FirstOrDefault(x => x.Id == itemId || x.ItemId == itemId);
+        if (item == null)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Item not found in Blanket Order.");
+        item.Reopen();
+        if (Status == DocumentStatus.Closed)
+        {
+            Status = DocumentStatus.Submitted;
+        }
+    }
+
+    /// <summary>
+    /// Validates that an order can be placed against this Blanket Order per ERPNext PR #59341 &amp; #59346.
+    /// Must be submitted (not closed or cancelled) and not expired.
+    /// </summary>
+    public void ValidateCanBeOrdered(DateTime orderDate)
+    {
+        if (Status == DocumentStatus.Closed)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", $"Blanket Order {OrderNumber} is closed.");
+        if (Status != DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", $"Blanket Order {OrderNumber} is not submitted.");
+        if (orderDate.Date > ToDate.Date)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Blanket Order {OrderNumber} expired on {ToDate:yyyy-MM-dd}.");
+    }
 }
 
 public class BlanketOrderItem : FullAuditedEntity<Guid>
@@ -103,6 +175,8 @@ public class BlanketOrderItem : FullAuditedEntity<Guid>
     public Guid ItemId { get; set; }
     public string? ItemName { get; set; }
     public string? PartyItemCode { get; set; }
+    public string? StockUom { get; set; }
+    public bool IsClosed { get; private set; }
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
 
@@ -128,9 +202,23 @@ public class BlanketOrderItem : FullAuditedEntity<Guid>
         BaseRate = rate;
     }
 
+    public void Close()
+    {
+        IsClosed = true;
+    }
+
+    public void Reopen()
+    {
+        IsClosed = false;
+    }
+
     /// <summary>Record an order against this blanket line. Validates allowance.</summary>
     public void RecordOrder(decimal qty, decimal allowancePct = 0)
     {
+        if (IsClosed)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Cannot order against a closed Blanket Order item.");
+
         var maxAllowed = Qty * (1 + allowancePct / 100);
         if (OrderedQty + qty > maxAllowed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)

@@ -44,7 +44,7 @@ public class BlanketOrderRateService : DomainService
         foreach (var bo in orders)
         {
             var matchingItem = bo.Items
-                .FirstOrDefault(i => i.ItemId == itemId && i.RemainingQty > 0);
+                .FirstOrDefault(i => i.ItemId == itemId && !i.IsClosed && i.RemainingQty > 0);
 
             if (matchingItem != null)
             {

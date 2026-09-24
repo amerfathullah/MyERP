@@ -80,6 +80,8 @@ export class CustomerFormComponent implements OnInit {
     restrictToCompanies: [false],
     soRequired: [false],
     isFrozen: [false],
+    onHold: [false],
+    releaseDate: [null as string | null],
     dnRequired: [false],
   });
 
@@ -89,6 +91,12 @@ export class CustomerFormComponent implements OnInit {
   ngOnInit(): void {
     this.entityId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.entityId;
+
+    this.form.get('onHold')?.valueChanges.subscribe(onHold => {
+      if (!onHold) {
+        this.form.get('releaseDate')?.setValue(null);
+      }
+    });
 
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' })
       .subscribe({ next: res => this.companies.set(res.items ?? []), error: () => {} });
@@ -110,7 +118,11 @@ export class CustomerFormComponent implements OnInit {
 
     if (this.isEditMode) {
       this.service.get(this.entityId!).subscribe((customer) => {
-        this.form.patchValue(customer as any);
+        const patch: any = { ...customer };
+        if (customer.releaseDate) {
+          patch.releaseDate = customer.releaseDate.split('T')[0];
+        }
+        this.form.patchValue(patch);
       });
       // Load outstanding invoices for this customer
       this.reconciliationService.getOutstandingInvoices('Customer', this.entityId!)

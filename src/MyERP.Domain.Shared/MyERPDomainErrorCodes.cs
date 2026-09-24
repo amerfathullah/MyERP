@@ -567,6 +567,7 @@ public static class MyERPDomainErrorCodes
     public const string PaymentRequestAlreadyCreated = "MyERP:02090";
     public const string SameAccountInternalTransfer = "MyERP:02091";
     public const string PriceListDisabled = "MyERP:01051";
+    public const string CustomerBlocked = "MyERP:01052";
 
     // Item Batch & Retain Sample (PR #58911 / gotcha rules)
     public const string ShelfLifeMustBeGreaterThanZero = "MyERP:05076";

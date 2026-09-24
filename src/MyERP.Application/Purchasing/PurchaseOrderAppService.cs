@@ -232,6 +232,19 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                     .WithData("blanketOrderCompany", mismatch.CompanyId)
                     .WithData("purchaseOrderCompany", input.CompanyId);
             }
+            foreach (var bo in blanketOrders)
+            {
+                bo.ValidateCanBeOrdered(input.OrderDate);
+                foreach (var poItem in input.Items.Where(i => i.BlanketOrderId == bo.Id))
+                {
+                    var boItem = bo.Items.FirstOrDefault(x => x.ItemId == poItem.ItemId);
+                    if (boItem != null && boItem.IsClosed)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                            .WithData("detail", $"Blanket Order item for item {poItem.ItemId} is closed.");
+                    }
+                }
+            }
         }
 
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
@@ -830,6 +843,19 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                     .WithData("blanketOrderCompany", mismatch.CompanyId)
                     .WithData("purchaseOrderCompany", order.CompanyId);
             }
+            foreach (var bo in blanketOrders)
+            {
+                bo.ValidateCanBeOrdered(input.OrderDate);
+                foreach (var poItem in input.Items.Where(i => i.BlanketOrderId == bo.Id))
+                {
+                    var boItem = bo.Items.FirstOrDefault(x => x.ItemId == poItem.ItemId);
+                    if (boItem != null && boItem.IsClosed)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                            .WithData("detail", $"Blanket Order item for item {poItem.ItemId} is closed.");
+                    }
+                }
+            }
         }
 
         var updateItemIds = input.Items.Select(i => i.ItemId).ToList();
@@ -1043,6 +1069,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         {
             var bo = await boRepository.FindAsync(group.Key);
             if (bo == null) continue;
+            bo.ValidateCanBeOrdered(po.OrderDate);
             foreach (var item in group)
             {
                 var boItem = bo.Items.FirstOrDefault(i => i.ItemId == item.ItemId);

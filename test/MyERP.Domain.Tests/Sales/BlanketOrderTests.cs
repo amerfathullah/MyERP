@@ -139,4 +139,97 @@ public class BlanketOrderTests
         bo.Items[0].Rate.ShouldBe(10m);
         bo.Items[0].BaseRate.ShouldBe(44.5m);
     }
+
+    [Fact]
+    public void Close_WhenSubmitted_ChangesStatusToClosed()
+    {
+        var bo = CreateBO();
+        bo.AddItem(Guid.NewGuid(), 100, 10m);
+        bo.Submit();
+        bo.Close();
+        bo.Status.ShouldBe(Core.DocumentStatus.Closed);
+    }
+
+    [Fact]
+    public void Reopen_WhenClosed_ChangesStatusToSubmitted()
+    {
+        var bo = CreateBO();
+        bo.AddItem(Guid.NewGuid(), 100, 10m);
+        bo.Submit();
+        bo.Close();
+        bo.Reopen();
+        bo.Status.ShouldBe(Core.DocumentStatus.Submitted);
+    }
+
+    [Fact]
+    public void CloseItem_MarksItemClosed_AndClosesOrderIfAllClosed()
+    {
+        var bo = CreateBO();
+        var item1Id = Guid.NewGuid();
+        var item2Id = Guid.NewGuid();
+        bo.AddItem(item1Id, 50, 10m);
+        bo.AddItem(item2Id, 50, 20m);
+        bo.Submit();
+
+        bo.CloseItem(item1Id);
+        bo.Items[0].IsClosed.ShouldBeTrue();
+        bo.Items[1].IsClosed.ShouldBeFalse();
+        bo.Status.ShouldBe(Core.DocumentStatus.Submitted); // Still submitted because item 2 is open
+
+        bo.CloseItem(item2Id);
+        bo.Items[1].IsClosed.ShouldBeTrue();
+        bo.Status.ShouldBe(Core.DocumentStatus.Closed); // All items closed -> order closed
+    }
+
+    [Fact]
+    public void ReopenItem_MarksItemOpen_AndReopensOrderIfOrderWasClosed()
+    {
+        var bo = CreateBO();
+        var item1Id = Guid.NewGuid();
+        bo.AddItem(item1Id, 50, 10m);
+        bo.Submit();
+        bo.CloseItem(item1Id);
+        bo.Status.ShouldBe(Core.DocumentStatus.Closed);
+
+        bo.ReopenItem(item1Id);
+        bo.Items[0].IsClosed.ShouldBeFalse();
+        bo.Status.ShouldBe(Core.DocumentStatus.Submitted);
+    }
+
+    [Fact]
+    public void RecordOrder_WhenItemClosed_Throws()
+    {
+        var bo = CreateBO();
+        var item1Id = Guid.NewGuid();
+        bo.AddItem(item1Id, 50, 10m);
+        bo.Submit();
+        bo.CloseItem(item1Id);
+
+        Should.Throw<BusinessException>(() => bo.Items[0].RecordOrder(10m));
+    }
+
+    [Fact]
+    public void ValidateCanBeOrdered_Expired_Throws()
+    {
+        var bo = CreateBO(); // 2026-01-01 to 2026-12-31
+        bo.AddItem(Guid.NewGuid(), 50, 10m);
+        bo.Submit();
+
+        // Within validity
+        bo.ValidateCanBeOrdered(new DateTime(2026, 6, 1));
+
+        // After validity
+        Should.Throw<BusinessException>(() => bo.ValidateCanBeOrdered(new DateTime(2027, 1, 1)));
+    }
+
+    [Fact]
+    public void ValidateCanBeOrdered_WhenClosed_Throws()
+    {
+        var bo = CreateBO();
+        bo.AddItem(Guid.NewGuid(), 50, 10m);
+        bo.Submit();
+        bo.Close();
+
+        Should.Throw<BusinessException>(() => bo.ValidateCanBeOrdered(new DateTime(2026, 6, 1)));
+    }
 }

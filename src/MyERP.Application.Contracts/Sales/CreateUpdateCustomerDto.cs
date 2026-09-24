@@ -76,6 +76,8 @@ public class CreateUpdateCustomerDto
     public bool SoRequired { get; set; }
     public bool IsFrozen { get; set; }
     public bool DnRequired { get; set; }
+    public bool OnHold { get; set; }
+    public DateTime? ReleaseDate { get; set; }
     public Guid? LeadId { get; set; }
     public Guid? OpportunityId { get; set; }
     public Guid? ProspectId { get; set; }

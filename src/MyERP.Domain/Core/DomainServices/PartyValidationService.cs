@@ -72,6 +72,25 @@ public class PartyValidationService : DomainService
     }
 
     /// <summary>
+    /// Validates that a customer is not on hold / blocked (ERPNext PR #59303 / commit d75b957ce0).
+    /// Blocks saving or submitting Sales Orders, Delivery Notes, Sales Invoices and POS Invoices.
+    /// Quotations are exempt.
+    /// </summary>
+    public void ValidateCustomerNotBlocked(bool onHold, DateTime? releaseDate, string customerName, DateTime? transactionDate = null)
+    {
+        if (!onHold) return;
+
+        var asOf = (transactionDate ?? DateTime.UtcNow).Date;
+        var isBlocked = !releaseDate.HasValue || asOf <= releaseDate.Value.Date;
+        if (isBlocked)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CustomerBlocked)
+                .WithData("customerName", customerName)
+                .WithData("detail", $"{customerName} is blocked so this transaction cannot proceed.");
+        }
+    }
+
+    /// <summary>
     /// Validates that line item accounts (income/expense) do not match the party receivable/payable account.
     /// Per gotcha #1130 step 2: item account != party account.
     /// </summary>

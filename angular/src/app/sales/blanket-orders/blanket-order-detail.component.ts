@@ -17,6 +17,29 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
       @if (isLoading) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else if (order) {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="btn-group">
+            @if (order.status === 0) {
+              <button class="btn btn-primary" (click)="submit()">
+                <i class="fa fa-check me-1"></i>{{ 'Submit' | abpLocalization }}
+              </button>
+            }
+            @if (order.status === 1) {
+              <button class="btn btn-warning" (click)="close()">
+                <i class="fa fa-lock me-1"></i>{{ 'Close' | abpLocalization }}
+              </button>
+              <button class="btn btn-outline-danger" (click)="cancel()">
+                <i class="fa fa-ban me-1"></i>{{ 'Cancel' | abpLocalization }}
+              </button>
+            }
+            @if (order.status === 14) {
+              <button class="btn btn-info text-white" (click)="reopen()">
+                <i class="fa fa-unlock me-1"></i>Reopen
+              </button>
+            }
+          </div>
+        </div>
+
         <div class="row g-3 mb-4">
           <div class="col-md-3">
             <div class="card text-center h-100"><div class="card-body">
@@ -49,20 +72,43 @@ import { BlanketOrderService } from '../../proxy/sales/blanket-order.service';
             <table class="table table-hover mb-0">
               <thead><tr>
                 <th>Item</th>
+                <th>UoM</th>
                 <th class="text-end">Qty</th>
                 <th class="text-end">Rate</th>
                 <th class="text-end">Ordered</th>
                 <th class="text-end">Remaining</th>
+                <th class="text-center">Status</th>
+                <th class="text-end">Actions</th>
               </tr></thead>
               <tbody>
-                @for (item of order.items; track $index) {
-                  <tr>
+                @for (item of order.items; track item.id ?? $index) {
+                  <tr [class.table-light]="item.isClosed">
                     <td>{{ item.itemName ?? item.itemId }}</td>
-                    <td class="text-end">{{ item.quantity | number:'1.0-2' }}</td>
+                    <td>{{ item.stockUom || '—' }}</td>
+                    <td class="text-end">{{ item.qty | number:'1.0-2' }}</td>
                     <td class="text-end">{{ item.rate | number:'1.2-2' }}</td>
                     <td class="text-end">{{ item.orderedQty | number:'1.0-2' }}</td>
-                    <td class="text-end fw-bold" [class.text-danger]="(item.quantity - item.orderedQty) <= 0">
-                      {{ (item.quantity - (item.orderedQty ?? 0)) | number:'1.0-2' }}
+                    <td class="text-end fw-bold" [class.text-danger]="(item.remainingQty ?? (item.qty - (item.orderedQty ?? 0))) <= 0">
+                      {{ (item.remainingQty ?? (item.qty - (item.orderedQty ?? 0))) | number:'1.0-2' }}
+                    </td>
+                    <td class="text-center">
+                      @if (item.isClosed) {
+                        <span class="badge bg-secondary">Closed</span>
+                      } @else {
+                        <span class="badge bg-success">Open</span>
+                      }
+                    </td>
+                    <td class="text-end">
+                      @if (!item.isClosed && order.status === 1) {
+                        <button class="btn btn-sm btn-outline-warning" (click)="closeItem(item.id)">
+                          <i class="fa fa-lock me-1"></i>Close
+                        </button>
+                      }
+                      @if (item.isClosed && (order.status === 1 || order.status === 14)) {
+                        <button class="btn btn-sm btn-outline-info" (click)="reopenItem(item.id)">
+                          <i class="fa fa-unlock me-1"></i>Reopen
+                        </button>
+                      }
                     </td>
                   </tr>
                 }
@@ -89,5 +135,35 @@ export class BlanketOrderDetailComponent implements OnInit {
         error: () => { this.isLoading = false; }
       });
     }
+  }
+
+  submit() {
+    if (!this.order?.id) return;
+    this.service.submit(this.order.id).subscribe(o => this.order = o);
+  }
+
+  close() {
+    if (!this.order?.id) return;
+    this.service.close(this.order.id).subscribe(o => this.order = o);
+  }
+
+  reopen() {
+    if (!this.order?.id) return;
+    this.service.reopen(this.order.id).subscribe(o => this.order = o);
+  }
+
+  cancel() {
+    if (!this.order?.id) return;
+    this.service.cancel(this.order.id).subscribe(o => this.order = o);
+  }
+
+  closeItem(itemId: string) {
+    if (!this.order?.id || !itemId) return;
+    this.service.closeItem(this.order.id, itemId).subscribe(o => this.order = o);
+  }
+
+  reopenItem(itemId: string) {
+    if (!this.order?.id || !itemId) return;
+    this.service.reopenItem(this.order.id, itemId).subscribe(o => this.order = o);
   }
 }

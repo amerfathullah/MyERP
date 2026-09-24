@@ -52,4 +52,38 @@ export class BlanketOrderService {
       url: `/api/app/blanket-order/${id}/submit`,
     },
     { apiName: this.apiName,...config });
+  
+
+  close = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BlanketOrderDto>({
+      method: 'POST',
+      url: `/api/app/blanket-order/${id}/close`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  reopen = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BlanketOrderDto>({
+      method: 'POST',
+      url: `/api/app/blanket-order/${id}/reopen`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  closeItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BlanketOrderDto>({
+      method: 'POST',
+      url: `/api/app/blanket-order/${id}/close-item`,
+      params: { itemId },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  reopenItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BlanketOrderDto>({
+      method: 'POST',
+      url: `/api/app/blanket-order/${id}/reopen-item`,
+      params: { itemId },
+    },
+    { apiName: this.apiName,...config });
 }

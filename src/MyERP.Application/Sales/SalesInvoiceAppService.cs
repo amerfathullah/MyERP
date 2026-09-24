@@ -548,8 +548,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             accountIds: deferredAcctIds.Count > 0 ? deferredAcctIds : null);
 
         var customerForStatus = await _customerRepository.GetAsync(input.CustomerId);
-        await LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
-            .ValidatePartyForTransactionAsync("Customer", isDisabled: !customerForStatus.IsActive, isFrozen: customerForStatus.IsFrozen, customerForStatus.Name, input.CompanyId);
+        var partyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
+        await partyValidation.ValidatePartyForTransactionAsync("Customer", isDisabled: !customerForStatus.IsActive, isFrozen: customerForStatus.IsFrozen, customerForStatus.Name, input.CompanyId);
+        partyValidation.ValidateCustomerNotBlocked(customerForStatus.OnHold, customerForStatus.ReleaseDate, customerForStatus.Name, input.IssueDate);
 
         var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", input.CompanyId);
 
@@ -969,6 +970,11 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
     public async Task<SalesInvoiceDto> SubmitAsync(Guid id)
     {
         var invoice = await _repository.GetAsync(id);
+
+        var customerForStatus = await _customerRepository.GetAsync(invoice.CustomerId);
+        var partyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
+        await partyValidation.ValidatePartyForTransactionAsync("Customer", isDisabled: !customerForStatus.IsActive, isFrozen: customerForStatus.IsFrozen, customerForStatus.Name, invoice.CompanyId);
+        partyValidation.ValidateCustomerNotBlocked(customerForStatus.OnHold, customerForStatus.ReleaseDate, customerForStatus.Name, invoice.IssueDate);
 
         // Authorization control: high-value transaction approval check
         // Per ERPNext: Authorization Rules check based on GrandTotal/Discount/Customerwise

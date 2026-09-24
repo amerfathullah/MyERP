@@ -31,7 +31,7 @@ public class QualityInspection : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? ChildRowReference { get; set; }
 
     public string? BatchNo { get; set; }
-    public decimal SampleSize { get; set; }
+    public decimal SampleSize { get; set; } = 1m;
     public DateTime InspectionDate { get; set; }
 
     public InspectionStatus Status { get; private set; } = InspectionStatus.Draft;
@@ -95,6 +95,9 @@ public class QualityInspection : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (DocStatus != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        if (SampleSize <= 0)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Sample Size must be greater than zero.");
         if (!_readings.Any())
             throw new BusinessException(MyERPDomainErrorCodes.QualityInspectionHasNoReadings);
 

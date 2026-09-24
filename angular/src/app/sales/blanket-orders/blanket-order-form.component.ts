@@ -46,18 +46,19 @@ import { ItemService } from '../../proxy/inventory/item.service';
 
         <h6 class="mb-2">{{ 'Items' | abpLocalization }}</h6>
         <table class="table table-sm">
-          <thead><tr><th>{{ 'Item' | abpLocalization }}</th><th>{{ 'Quantity' | abpLocalization }}</th><th>{{ 'Rate' | abpLocalization }}</th><th></th></tr></thead>
+          <thead><tr><th>{{ 'Item' | abpLocalization }}</th><th>{{ 'UoM' | abpLocalization }}</th><th>{{ 'Quantity' | abpLocalization }}</th><th>{{ 'Rate' | abpLocalization }}</th><th></th></tr></thead>
           <tbody>
             @for (item of form.items; track $index) {
               <tr>
                 <td>
-                  <select class="form-select form-select-sm" (ngModelChange)="isDirty=true" [(ngModel)]="item.itemId">
+                  <select class="form-select form-select-sm" (ngModelChange)="onItemSelect(item)" [(ngModel)]="item.itemId">
                     <option value="">-- {{ 'SelectItem' | abpLocalization }} --</option>
                     @for (i of availableItems(); track i.id) {
                       <option [value]="i.id">{{ i.itemCode }} — {{ i.itemName }}</option>
                     }
                   </select>
                 </td>
+                <td><input type="text" class="form-control form-control-sm" [(ngModel)]="item.stockUom" (ngModelChange)="isDirty=true" placeholder="UoM" /></td>
                 <td><input type="number" class="form-control form-control-sm" min="1" (ngModelChange)="isDirty=true" [(ngModel)]="item.qty" /></td>
                 <td><input type="number" class="form-control form-control-sm" min="0" step="0.01" (ngModelChange)="isDirty=true" [(ngModel)]="item.rate" /></td>
                 <td><button class="btn btn-sm btn-outline-danger" (click)="form.items.splice($index, 1); isDirty=true"><i class="fa fa-trash"></i></button></td>
@@ -88,11 +89,11 @@ export class BlanketOrderFormComponent implements OnInit {
   saving = false;
   isDirty = false;
   parties = signal<{ id: string; name: string }[]>([]);
-  availableItems = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
+  availableItems = signal<{ id: string; itemCode: string; itemName: string; stockUom?: string }[]>([]);
 
   form: any = {
     orderType: 'Selling', fromDate: '', toDate: '', partyId: '',
-    items: [{ itemId: '', qty: 1, rate: 0 }]
+    items: [{ itemId: '', qty: 1, rate: 0, stockUom: '' }]
   };
 
   ngOnInit(): void {
@@ -102,7 +103,15 @@ export class BlanketOrderFormComponent implements OnInit {
 
   onTypeChange(): void { this.form.partyId = ''; this.loadParties(); }
 
-  addItem(): void { this.form.items.push({ itemId: '', qty: 1, rate: 0 }); this.isDirty = true; }
+  onItemSelect(item: any): void {
+    const selected = this.availableItems().find(x => x.id === item.itemId);
+    if (selected) {
+      item.stockUom = selected.stockUom ?? '';
+    }
+    this.isDirty = true;
+  }
+
+  addItem(): void { this.form.items.push({ itemId: '', qty: 1, rate: 0, stockUom: '' }); this.isDirty = true; }
 
   save(): void {
     this.saving = true;
@@ -115,7 +124,7 @@ export class BlanketOrderFormComponent implements OnInit {
       toDate: this.form.toDate,
       items: this.form.items
         .filter((i: any) => i.itemId)
-        .map((i: any) => ({ itemId: i.itemId, qty: i.qty || 0, rate: i.rate || 0 }))
+        .map((i: any) => ({ itemId: i.itemId, qty: i.qty || 0, rate: i.rate || 0, stockUom: i.stockUom || undefined }))
     };
     this.service.create(dto).subscribe({
       next: () => { this.isDirty = false; this.router.navigate(['/sales/blanket-orders']); },
@@ -139,7 +148,7 @@ export class BlanketOrderFormComponent implements OnInit {
 
   private loadItems(): void {
     this.itemService.getList({ maxResultCount: 500 } as any).subscribe(r =>
-      this.availableItems.set((r.items ?? []).map((i: any) => ({ id: i.id, itemCode: i.itemCode, itemName: i.itemName })))
+      this.availableItems.set((r.items ?? []).map((i: any) => ({ id: i.id, itemCode: i.itemCode, itemName: i.itemName, stockUom: i.stockUom })))
     );
   }
 }

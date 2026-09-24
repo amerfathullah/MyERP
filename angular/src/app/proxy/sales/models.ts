@@ -72,6 +72,8 @@ export interface BlanketOrderItemDto {
   baseRate?: number;
   orderedQty?: number;
   remainingQty?: number;
+  stockUom?: string | null;
+  isClosed?: boolean;
 }
 
 export interface CouponCodeDto extends EntityDto<string> {
@@ -105,6 +107,7 @@ export interface CreateBlanketOrderItemDto {
   itemName?: string | null;
   qty?: number;
   rate?: number;
+  stockUom?: string | null;
 }
 
 export interface CreateCouponCodeDto {
@@ -542,6 +545,8 @@ export interface CreateUpdateCustomerDto {
   restrictToCompanies?: boolean;
   soRequired?: boolean;
   isFrozen?: boolean;
+  onHold?: boolean;
+  releaseDate?: string | null;
   dnRequired?: boolean;
   leadId?: string | null;
   opportunityId?: string | null;
@@ -653,6 +658,9 @@ export interface CustomerDto extends FullAuditedEntityDto<string> {
   restrictToCompanies?: boolean;
   soRequired?: boolean;
   isFrozen?: boolean;
+  onHold?: boolean;
+  releaseDate?: string | null;
+  isBlocked?: boolean;
   dnRequired?: boolean;
   leadId?: string | null;
   opportunityId?: string | null;

@@ -145,8 +145,11 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         // ERPNext validate_party_frozen_disabled: no delivery to a disabled customer
         var partyCustomer = await LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>().FindAsync(input.CustomerId);
         if (partyCustomer != null)
-            await LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>()
-                .ValidatePartyForTransactionAsync("Customer", isDisabled: !partyCustomer.IsActive, isFrozen: partyCustomer.IsFrozen, partyCustomer.Name, input.CompanyId);
+        {
+            var partyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
+            await partyValidation.ValidatePartyForTransactionAsync("Customer", isDisabled: !partyCustomer.IsActive, isFrozen: partyCustomer.IsFrozen, partyCustomer.Name, input.CompanyId);
+            partyValidation.ValidateCustomerNotBlocked(partyCustomer.OnHold, partyCustomer.ReleaseDate, partyCustomer.Name, input.PostingDate);
+        }
 
         var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
         var warehouse = await whRepo.FindAsync(input.WarehouseId);
@@ -422,6 +425,14 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
     public async Task<DeliveryNoteDto> SubmitAsync(Guid id)
     {
         var dn = await _repository.GetAsync(id);
+
+        var customer = await LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>().FindAsync(dn.CustomerId);
+        if (customer != null)
+        {
+            var partyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
+            await partyValidation.ValidatePartyForTransactionAsync("Customer", isDisabled: !customer.IsActive, isFrozen: customer.IsFrozen, customer.Name, dn.CompanyId);
+            partyValidation.ValidateCustomerNotBlocked(customer.OnHold, customer.ReleaseDate, customer.Name, dn.PostingDate);
+        }
 
         // Authorization control: high-value transaction approval check
         var authControl = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.AuthorizationControlService>();

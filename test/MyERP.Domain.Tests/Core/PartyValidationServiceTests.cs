@@ -116,4 +116,42 @@ public class PartyValidationServiceTests
 
         Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
     }
+
+    [Fact]
+    public void ValidateCustomerNotBlocked_NotOnHold_Passes()
+    {
+        _service.ValidateCustomerNotBlocked(false, null, "Acme", DateTime.UtcNow);
+    }
+
+    [Fact]
+    public void ValidateCustomerNotBlocked_OnHoldWithoutReleaseDate_ThrowsCustomerBlocked()
+    {
+        var ex = Assert.Throws<BusinessException>(() =>
+            _service.ValidateCustomerNotBlocked(true, null, "Acme Corp", DateTime.UtcNow));
+
+        Assert.Equal(MyERPDomainErrorCodes.CustomerBlocked, ex.Code);
+        Assert.Equal("Acme Corp", ex.Data["customerName"]);
+    }
+
+    [Fact]
+    public void ValidateCustomerNotBlocked_OnHoldWithFutureReleaseDate_ThrowsCustomerBlocked()
+    {
+        var transactionDate = new DateTime(2026, 6, 1);
+        var releaseDate = new DateTime(2026, 7, 1);
+
+        var ex = Assert.Throws<BusinessException>(() =>
+            _service.ValidateCustomerNotBlocked(true, releaseDate, "Acme Corp", transactionDate));
+
+        Assert.Equal(MyERPDomainErrorCodes.CustomerBlocked, ex.Code);
+    }
+
+    [Fact]
+    public void ValidateCustomerNotBlocked_OnHoldWithPastReleaseDate_Passes()
+    {
+        var transactionDate = new DateTime(2026, 6, 1);
+        var releaseDate = new DateTime(2026, 5, 1);
+
+        // Transaction is after release date -> blocked status has expired -> passes
+        _service.ValidateCustomerNotBlocked(true, releaseDate, "Acme Corp", transactionDate);
+    }
 }

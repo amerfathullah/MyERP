@@ -253,6 +253,8 @@ public class CustomerAppService :
         entity.SoRequired = input.SoRequired;
         entity.IsFrozen = input.IsFrozen;
         entity.DnRequired = input.DnRequired;
+        entity.OnHold = input.OnHold;
+        entity.ReleaseDate = input.OnHold ? input.ReleaseDate : null;
         entity.LeadId = input.LeadId;
         entity.OpportunityId = input.OpportunityId;
         entity.ProspectId = input.ProspectId;

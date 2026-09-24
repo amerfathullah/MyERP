@@ -25,6 +25,8 @@ public class BlanketOrderItemDto
     public Guid Id { get; set; }
     public Guid ItemId { get; set; }
     public string? ItemName { get; set; }
+    public string? StockUom { get; set; }
+    public bool IsClosed { get; set; }
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
     public decimal BaseRate { get; set; }
@@ -49,6 +51,7 @@ public class CreateBlanketOrderItemDto
 {
     public Guid ItemId { get; set; }
     public string? ItemName { get; set; }
+    public string? StockUom { get; set; }
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
 }

@@ -91,6 +91,17 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                       <td><span class="badge bg-info text-dark">{{ '::Yes' | abpLocalization }}</span></td>
                     </tr>
                   }
+                  @if (customer.onHold) {
+                    <tr>
+                      <th class="text-muted">{{ '::OnHold' | abpLocalization }}</th>
+                      <td>
+                        <span class="badge bg-danger">{{ '::Yes' | abpLocalization }}</span>
+                        @if (customer.releaseDate) {
+                          <span class="ms-2 text-muted small">({{ '::ReleaseDate' | abpLocalization }}: {{ customer.releaseDate | date }})</span>
+                        }
+                      </td>
+                    </tr>
+                  }
                 </tbody>
               </table>
             </div>
