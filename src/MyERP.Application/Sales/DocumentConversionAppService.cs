@@ -129,6 +129,13 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         salesOrder.Notes = quotation.Notes;
         salesOrder.PriceListId = quotation.PriceListId;
 
+        // Auto-fill addresses from customer master per ERPNext (PR #59336)
+        var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
+        var billingAddress = await partyDefaults.GetPrimaryAddressAsync("Customer", quotation.CustomerId);
+        if (billingAddress != null) salesOrder.BillingAddressId = billingAddress.Id;
+        var shippingAddress = await partyDefaults.GetShippingAddressAsync("Customer", quotation.CustomerId);
+        if (shippingAddress != null) salesOrder.ShippingAddressId = shippingAddress.Id;
+
         // Alternative offers are not ordered unless the user picks them explicitly (ERPNext); at most
         // one row of each alternatives set (a row plus the alternative rows right after it) may be ordered.
         IEnumerable<QuotationItem> itemsToOrder;

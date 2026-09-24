@@ -436,4 +436,36 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
         await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
             _conversionService.ConvertQuotationToSalesOrderAsync(quotation.Id, quotation.Items.Select(i => i.Id).ToList()));
     }
+
+    [Fact]
+    public async Task Should_Auto_Fill_Addresses_From_Customer_Master_On_Quotation_Conversion()
+    {
+        // Per ERPNext PR #59336: quotation conversion to sales order auto-populates billing and shipping addresses
+        var (companyId, customerId, _) = await SeedDataAsync();
+        var addressRepo = GetRequiredService<IRepository<Core.Entities.Address, Guid>>();
+        var billing = await addressRepo.InsertAsync(
+            new Core.Entities.Address(Guid.NewGuid(), "Cust Billing", "Customer", customerId, "123 Main St", "Malaysia")
+            {
+                IsPrimaryAddress = true,
+                AddressType = "Billing"
+            }, autoSave: true);
+
+        var quotation = await _quotationService.CreateAsync(new CreateQuotationDto
+        {
+            CompanyId = companyId,
+            CustomerId = customerId,
+            IssueDate = DateTime.Today,
+            Items = new List<CreateQuotationItemDto>
+            {
+                new() { ItemId = Guid.NewGuid(), Description = "Widget", Quantity = 1, UnitPrice = 100m }
+            }
+        });
+        await _quotationService.SubmitAsync(quotation.Id);
+
+        var salesOrderDto = await _conversionService.ConvertQuotationToSalesOrderAsync(quotation.Id);
+
+        var soRepo = GetRequiredService<IRepository<SalesOrder, Guid>>();
+        var so = await soRepo.GetAsync(salesOrderDto.Id);
+        so.BillingAddressId.ShouldBe(billing.Id);
+    }
 }
