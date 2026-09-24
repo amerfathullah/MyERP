@@ -716,6 +716,7 @@ public partial class PurchaseReceiptMapper : MapperBase<Purchasing.Entities.Purc
     public override partial void Map(Purchasing.Entities.PurchaseReceipt source, Purchasing.PurchaseReceiptDto destination);
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptItemDto.ItemName))]
     [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptItemDto.RejectedWarehouseName))]
+    [MapperIgnoreTarget(nameof(Purchasing.PurchaseReceiptItemDto.FromWarehouseName))]
     private partial Purchasing.PurchaseReceiptItemDto MapChild(Purchasing.Entities.PurchaseReceiptItem source);
 }
 

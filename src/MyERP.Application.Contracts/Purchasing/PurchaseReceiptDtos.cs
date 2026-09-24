@@ -55,6 +55,10 @@ public class PurchaseReceiptItemDto
 
     /// <summary>Item-level target warehouse override; null means the receipt's own warehouse.</summary>
     public Guid? WarehouseId { get; set; }
+
+    /// <summary>Source/in-transit warehouse for internal transfers (PR #59251).</summary>
+    public Guid? FromWarehouseId { get; set; }
+    public string? FromWarehouseName { get; set; }
 }
 
 public class CreatePurchaseReceiptDto
@@ -86,6 +90,9 @@ public class CreatePurchaseReceiptItemDto
     /// allocation, which splits one ordered qty across several warehouses by capacity.
     /// </summary>
     public Guid? WarehouseId { get; set; }
+
+    /// <summary>Source/in-transit warehouse for internal transfers (PR #59251).</summary>
+    public Guid? FromWarehouseId { get; set; }
     public decimal ReceivedQty { get; set; }
     public decimal RejectedQty { get; set; }
     public Guid? RejectedWarehouseId { get; set; }

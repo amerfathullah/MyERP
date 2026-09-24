@@ -154,7 +154,8 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         Guid? warehouseId = null,
         decimal rejectedQty = 0,
         Guid? rejectedWarehouseId = null,
-        decimal receivedQty = 0)
+        decimal receivedQty = 0,
+        Guid? fromWarehouseId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -169,6 +170,7 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, purchaseOrderItemId)
         {
             WarehouseId = warehouseId,
+            FromWarehouseId = fromWarehouseId,
             RejectedQty = rejectedQty,
             RejectedWarehouseId = rejectedWarehouseId,
             ReceivedQty = receivedQty != 0 ? receivedQty : (quantity + rejectedQty),
@@ -250,7 +252,7 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             }
         }
 
-        if (IsReturn && !_items.Any(i => i.Quantity < 0))
+        if (IsReturn && !_items.Any(i => i.Quantity < 0 || i.RejectedQty < 0))
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "At least one item must be entered with negative quantity in a return document.");

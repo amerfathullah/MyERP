@@ -144,6 +144,7 @@ export interface CreatePurchaseReceiptItemDto {
   uom?: string;
   purchaseOrderItemId?: string | null;
   warehouseId?: string | null;
+  fromWarehouseId?: string | null;
   receivedQty?: number;
   rejectedQty?: number;
   rejectedWarehouseId?: string | null;
@@ -630,6 +631,8 @@ export interface PurchaseReceiptItemDto {
   isClosed?: boolean;
   purchaseOrderItemId?: string | null;
   warehouseId?: string | null;
+  fromWarehouseId?: string | null;
+  fromWarehouseName?: string | null;
 }
 
 export interface PurchaseRegisterLineDto {
