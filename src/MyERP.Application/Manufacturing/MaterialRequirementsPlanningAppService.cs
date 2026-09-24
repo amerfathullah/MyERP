@@ -356,6 +356,18 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
         var itemLeadTimes = (await itemLeadTimeRepo.WithDetailsAsync(lt => lt.Suppliers)).ToList();
         var itemLeadTimeMap = itemLeadTimes.ToDictionary(lt => lt.ItemId);
 
+        var itemDefaultRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemDefault, Guid>>();
+        var itemDefaults = (await itemDefaultRepo.GetQueryableAsync())
+            .Where(d => d.CompanyId == input.CompanyId && itemIds.Contains(d.ItemId))
+            .ToList();
+        var itemDefaultMap = itemDefaults
+            .Where(d => d.DefaultSupplierId.HasValue)
+            .ToDictionary(d => d.ItemId, d => d.DefaultSupplierId!.Value);
+
+        var itemGroupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemGroup, Guid>>();
+        var itemGroups = await itemGroupRepo.GetListAsync();
+        var itemGroupMap = itemGroups.ToDictionary(g => g.Id);
+
         foreach (var itemRow in rows)
         {
             var item = itemMap[itemRow.ItemId];
@@ -370,8 +382,36 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                 if (defaultSup != null)
                 {
                     defaultSupplierId = defaultSup.SupplierId;
-                    defaultSupplierName = supplierMap.GetValueOrDefault(defaultSup.SupplierId)?.Name;
                 }
+            }
+
+            if (!defaultSupplierId.HasValue && itemDefaultMap.TryGetValue(item.Id, out var idSupId))
+            {
+                defaultSupplierId = idSupId;
+            }
+
+            if (!defaultSupplierId.HasValue && item.ItemGroupId.HasValue)
+            {
+                var curGroupId = (Guid?)item.ItemGroupId.Value;
+                int maxDepth = 10;
+                while (curGroupId.HasValue && maxDepth-- > 0)
+                {
+                    if (itemGroupMap.TryGetValue(curGroupId.Value, out var grp))
+                    {
+                        if (grp.DefaultSupplierId.HasValue)
+                        {
+                            defaultSupplierId = grp.DefaultSupplierId.Value;
+                            break;
+                        }
+                        curGroupId = grp.ParentId;
+                    }
+                    else break;
+                }
+            }
+
+            if (defaultSupplierId.HasValue)
+            {
+                defaultSupplierName = supplierMap.GetValueOrDefault(defaultSupplierId.Value)?.Name;
             }
 
             foreach (var b in itemRow.Buckets)
@@ -514,27 +554,74 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
         var createdPurchaseOrderIds = new List<Guid>();
         if (purchaseRows.Count > 0)
         {
-            var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>();
-            var suppliers = (await supplierRepo.GetQueryableAsync())
-                .Where(s => s.CompanyId == input.CompanyId && s.IsActive)
-                .ToList();
-
             var itemIds = purchaseRows.Select(r => r.ItemId).Distinct().ToList();
             var items = (await _itemRepository.GetQueryableAsync())
                 .Where(i => itemIds.Contains(i.Id))
                 .ToList();
             var itemMap = items.ToDictionary(i => i.Id);
 
+            var itemDefaultRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemDefault, Guid>>();
+            var itemDefaults = (await itemDefaultRepo.GetQueryableAsync())
+                .Where(d => d.CompanyId == input.CompanyId && itemIds.Contains(d.ItemId))
+                .ToList();
+            var itemDefaultMap = itemDefaults
+                .Where(d => d.DefaultSupplierId.HasValue)
+                .ToDictionary(d => d.ItemId, d => d.DefaultSupplierId!.Value);
+
+            var itemGroupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemGroup, Guid>>();
+            var itemGroups = await itemGroupRepo.GetListAsync();
+            var itemGroupMap = itemGroups.ToDictionary(g => g.Id);
+
+            // PR #59349: Resolve supplier per item with ItemGroup fallback; throw if missing
+            var missingSuppliers = new List<string>();
+            foreach (var row in purchaseRows)
+            {
+                if (!row.DefaultSupplierId.HasValue || row.DefaultSupplierId.Value == Guid.Empty)
+                {
+                    if (itemDefaultMap.TryGetValue(row.ItemId, out var supId))
+                    {
+                        row.DefaultSupplierId = supId;
+                    }
+                    else if (itemMap.TryGetValue(row.ItemId, out var item) && item.ItemGroupId.HasValue)
+                    {
+                        var curGroupId = (Guid?)item.ItemGroupId.Value;
+                        int maxDepth = 10;
+                        while (curGroupId.HasValue && maxDepth-- > 0)
+                        {
+                            if (itemGroupMap.TryGetValue(curGroupId.Value, out var grp))
+                            {
+                                if (grp.DefaultSupplierId.HasValue)
+                                {
+                                    row.DefaultSupplierId = grp.DefaultSupplierId.Value;
+                                    break;
+                                }
+                                curGroupId = grp.ParentId;
+                            }
+                            else break;
+                        }
+                    }
+
+                    if (!row.DefaultSupplierId.HasValue || row.DefaultSupplierId.Value == Guid.Empty)
+                    {
+                        missingSuppliers.Add(row.ItemCode);
+                    }
+                }
+            }
+
+            if (missingSuppliers.Count > 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Default Supplier for {string.Join(", ", missingSuppliers.Distinct())} not found");
+            }
+
             var groupedPurchases = purchaseRows.GroupBy(r =>
             {
-                var supId = r.DefaultSupplierId ?? suppliers.FirstOrDefault()?.Id ?? Guid.Empty;
                 var releaseDate = (r.ReleaseDate ?? r.DeliveryDate).Date;
-                return (SupplierId: supId, ReleaseDate: releaseDate);
+                return (SupplierId: r.DefaultSupplierId!.Value, ReleaseDate: releaseDate);
             });
 
             foreach (var grp in groupedPurchases)
             {
-                if (grp.Key.SupplierId == Guid.Empty) continue;
 
                 var poNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", input.CompanyId);
                 var po = new PurchaseOrder(

@@ -50,6 +50,22 @@ public class PosConsolidationService : DomainService
         var query = await _invoiceRepository.GetQueryableAsync();
         var posInvoices = query.Where(x => posInvoiceIds.Contains(x.Id)).ToList();
 
+        // Load any external return_against invoices if referenced by return POS invoices (PR #59320)
+        var returnAgainstIds = posInvoices
+            .Where(x => x.IsReturn && x.ReturnAgainstId.HasValue)
+            .Select(x => x.ReturnAgainstId!.Value)
+            .Except(posInvoices.Select(x => x.Id))
+            .Distinct()
+            .ToList();
+
+        var returnAgainstInvoices = new List<SalesInvoice>();
+        if (returnAgainstIds.Count > 0)
+        {
+            returnAgainstInvoices = query.Where(x => returnAgainstIds.Contains(x.Id)).ToList();
+        }
+
+        var knownInvoices = posInvoices.Concat(returnAgainstInvoices).ToDictionary(x => x.Id);
+
         // Group by accounting dimension hash (per gotcha #398)
         var groups = GroupByDimensionHash(posInvoices);
 
@@ -59,7 +75,7 @@ public class PosConsolidationService : DomainService
         foreach (var group in groups)
         {
             var ordered = OrderForConsolidation(group.Value);
-            var consolidated = BuildConsolidatedInvoice(ordered, companyId, customerId, postingDate);
+            var consolidated = BuildConsolidatedInvoice(ordered, companyId, customerId, postingDate, knownInvoices);
             results.Add(consolidated);
         }
 
@@ -122,12 +138,15 @@ public class PosConsolidationService : DomainService
     /// <summary>
     /// Builds the consolidated invoice result from ordered POS invoices.
     /// Aggregates items by item_code (per gotcha #181: group_similar_items SUM qty+amount).
+    /// Per ERPNext PR #59320 / commit 5de2ac1f26: quotes the reversed row's rate on returns
+    /// so invoice discount rounding does not cause return rate to exceed original sold rate.
     /// </summary>
     private ConsolidationResult BuildConsolidatedInvoice(
         List<SalesInvoice> orderedInvoices,
         Guid companyId,
         Guid customerId,
-        DateTime postingDate)
+        DateTime postingDate,
+        IReadOnlyDictionary<Guid, SalesInvoice>? knownInvoices = null)
     {
         var consolidatedItems = new List<ConsolidatedItem>();
 
@@ -135,12 +154,33 @@ public class PosConsolidationService : DomainService
         {
             foreach (var item in invoice.Items)
             {
+                var unitPrice = item.UnitPrice;
+
+                // PR #59320: Quote reversed row rate on a return/credit note.
+                // Rounding an invoice-level discount can leave a return's net rate a minor unit above the sale's,
+                // and validate_returned_items refuses a return priced above its original sold rate.
+                if (invoice.IsReturn)
+                {
+                    SalesInvoice? originalInvoice = null;
+                    if (invoice.ReturnAgainstId.HasValue && knownInvoices != null)
+                    {
+                        knownInvoices.TryGetValue(invoice.ReturnAgainstId.Value, out originalInvoice);
+                    }
+                    originalInvoice ??= orderedInvoices.FirstOrDefault(x => !x.IsReturn && (invoice.ReturnAgainstId.HasValue ? x.Id == invoice.ReturnAgainstId.Value : x.Items.Any(i => i.ItemId == item.ItemId)));
+
+                    var originalItem = originalInvoice?.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                    if (originalItem != null && unitPrice > originalItem.UnitPrice)
+                    {
+                        unitPrice = originalItem.UnitPrice;
+                    }
+                }
+
                 var existing = consolidatedItems.FirstOrDefault(c => c.ItemId == item.ItemId);
                 if (existing != null)
                 {
                     // Merge: sum quantities and amounts
                     existing.Quantity += item.Quantity;
-                    existing.Amount += item.Quantity * item.UnitPrice;
+                    existing.Amount += item.Quantity * unitPrice;
                 }
                 else
                 {
@@ -149,8 +189,8 @@ public class PosConsolidationService : DomainService
                         ItemId = item.ItemId,
                         Description = item.Description,
                         Quantity = item.Quantity,
-                        UnitPrice = item.UnitPrice,
-                        Amount = item.Quantity * item.UnitPrice
+                        UnitPrice = unitPrice,
+                        Amount = item.Quantity * unitPrice
                     });
                 }
             }
@@ -160,12 +200,15 @@ public class PosConsolidationService : DomainService
         foreach (var item in consolidatedItems)
         {
             if (item.Quantity != 0)
-                item.UnitPrice = item.Amount / item.Quantity;
+                item.UnitPrice = Math.Abs(item.Amount / item.Quantity);
         }
 
         var grandTotal = orderedInvoices.Sum(i => i.GrandTotal);
         var netTotal = orderedInvoices.Sum(i => i.NetTotal);
         var taxAmount = orderedInvoices.Sum(i => i.TaxAmount);
+
+        var isReturn = orderedInvoices.All(i => i.IsReturn);
+        var returnAgainstId = orderedInvoices.FirstOrDefault(i => i.ReturnAgainstId.HasValue)?.ReturnAgainstId;
 
         var firstInvoice = orderedInvoices.First();
         return new ConsolidationResult
@@ -182,7 +225,9 @@ public class PosConsolidationService : DomainService
             NetTotal = netTotal,
             TaxAmount = taxAmount,
             SourceInvoiceCount = orderedInvoices.Count,
-            SourceInvoiceIds = orderedInvoices.Select(i => i.Id).ToList()
+            SourceInvoiceIds = orderedInvoices.Select(i => i.Id).ToList(),
+            IsReturn = isReturn,
+            ReturnAgainstId = returnAgainstId
         };
     }
 }
@@ -205,6 +250,8 @@ public class ConsolidationResult
     public int SourceInvoiceCount { get; set; }
     public List<Guid> SourceInvoiceIds { get; set; } = new();
     public List<ConsolidatedItem> Items { get; set; } = new();
+    public bool IsReturn { get; set; }
+    public Guid? ReturnAgainstId { get; set; }
 }
 
 public class ConsolidatedItem

@@ -257,6 +257,7 @@ export interface CreateItemGroupDto {
   isGroup?: boolean;
   defaultWarehouseId?: string | null;
   defaultInventoryAccountId?: string | null;
+  defaultSupplierId?: string | null;
 }
 
 export interface CreateItemReorderDto {
@@ -1134,6 +1135,7 @@ export interface ItemGroupDto extends EntityDto<string> {
   isGroup?: boolean;
   defaultWarehouseId?: string | null;
   defaultInventoryAccountId?: string | null;
+  defaultSupplierId?: string | null;
 }
 
 export interface ItemLeadTimeDto extends FullAuditedEntityDto<string> {

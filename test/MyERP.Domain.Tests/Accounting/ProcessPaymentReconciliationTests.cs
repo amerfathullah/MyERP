@@ -124,6 +124,41 @@ public class AutoAllocateTests
         result[0].InvoiceVoucherId.ShouldBe(realInvoice.VoucherId);
         result[0].AllocatedAmount.ShouldBe(200m);
     }
+
+    [Fact]
+    public void AutoAllocate_RoundsRunningBalance_ToCurrencyPrecision()
+    {
+        // Per ERPNext PR #58393 / commit f7d16fbc16:
+        // Division of transaction discount splits produces multi-decimal numbers (e.g. 17592.415)
+        // Running balance must be rounded to precision (default 2)
+        var payment = Payment(18230m);
+        var invoice = Invoice(17592.415m);
+
+        var result = PaymentReconciliationEngine.AutoAllocate(
+            new List<UnreconciledPayment> { payment },
+            new List<OutstandingVoucher> { invoice },
+            precision: 2);
+
+        result.Count.ShouldBe(1);
+        result[0].AllocatedAmount.ShouldBe(17592.42m);
+        payment.UnallocatedAmount.ShouldBe(637.58m);
+    }
+
+    [Fact]
+    public void AutoAllocate_CustomPrecision_Respected()
+    {
+        var payment = Payment(18230m);
+        var invoice = Invoice(17592.415m);
+
+        var result = PaymentReconciliationEngine.AutoAllocate(
+            new List<UnreconciledPayment> { payment },
+            new List<OutstandingVoucher> { invoice },
+            precision: 3);
+
+        result.Count.ShouldBe(1);
+        result[0].AllocatedAmount.ShouldBe(17592.415m);
+        payment.UnallocatedAmount.ShouldBe(637.585m);
+    }
 }
 
 public class ProcessPaymentReconciliationTests

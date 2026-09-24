@@ -189,4 +189,112 @@ public abstract class MrpLeadTimeAndOrderCreationTests<TStartupModule> : MyERPAp
             po.Items[0].Quantity.ShouldBe(20);
         });
     }
+
+    [Fact]
+    public async Task CreateOrdersAsync_PurchaseRowMissingSupplier_ThrowsValidationFailed_PR59349()
+    {
+        // Per ERPNext PR #59349 (commit 43913d5c2a):
+        // If an item in purchase rows has no configured supplier (no row override, no item default, no item group default),
+        // throw BusinessException(ValidationFailed) with "Default Supplier for {items} not found".
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var mrpAppService = GetRequiredService<IMaterialRequirementsPlanningAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "MRP Co Missing Sup"), autoSave: true);
+            var item = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "MRP-NO-SUP-01", "Item With No Supplier", ItemType.Goods), autoSave: true);
+
+            var input = new CreateOrdersFromMrpInput
+            {
+                CompanyId = company.Id,
+                SelectedRows = new List<MrpOrderRowInputDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        ItemCode = item.ItemCode,
+                        ItemName = item.ItemName,
+                        TypeOfMaterial = "Purchase",
+                        DefaultSupplierId = null,
+                        Quantity = 10,
+                        DeliveryDate = DateTime.UtcNow.Date.AddDays(15),
+                        ReleaseDate = DateTime.UtcNow.Date.AddDays(10)
+                    }
+                }
+            };
+
+            var ex = await Should.ThrowAsync<BusinessException>(() => mrpAppService.CreateOrdersAsync(input));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Default Supplier for MRP-NO-SUP-01 not found");
+        });
+    }
+
+    [Fact]
+    public async Task CreateOrdersAsync_PurchaseRowFallsBackToItemGroupSupplier_PR59349()
+    {
+        // Per ERPNext PR #59349 (commit 43913d5c2a):
+        // Fall back to ItemGroup.DefaultSupplierId if row and item default have no supplier.
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var itemGroupRepo = GetRequiredService<IRepository<ItemGroup, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var poRepo = GetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var mrpAppService = GetRequiredService<IMaterialRequirementsPlanningAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "MRP Co Group Sup"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PO Series 3", "PurchaseOrder", "PO-"), autoSave: true);
+
+            var groupSupplier = await supplierRepo.InsertAsync(
+                new Supplier(Guid.NewGuid(), company.Id, "Group Fallback Supplier"), autoSave: true);
+
+            var group = await itemGroupRepo.InsertAsync(
+                new ItemGroup(Guid.NewGuid(), "Hardware Group", false)
+                {
+                    DefaultSupplierId = groupSupplier.Id
+                }, autoSave: true);
+
+            var item = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "MRP-GRP-SUP-01", "Group Sourced Item", ItemType.Goods)
+                {
+                    ItemGroupId = group.Id,
+                    StandardBuyingPrice = 25m
+                }, autoSave: true);
+
+            var deliveryDate = DateTime.UtcNow.Date.AddDays(20);
+            var releaseDate = DateTime.UtcNow.Date.AddDays(15);
+
+            var input = new CreateOrdersFromMrpInput
+            {
+                CompanyId = company.Id,
+                SelectedRows = new List<MrpOrderRowInputDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        ItemCode = item.ItemCode,
+                        ItemName = item.ItemName,
+                        TypeOfMaterial = "Purchase",
+                        DefaultSupplierId = null, // No row supplier
+                        Quantity = 15,
+                        DeliveryDate = deliveryDate,
+                        ReleaseDate = releaseDate
+                    }
+                }
+            };
+
+            var result = await mrpAppService.CreateOrdersAsync(input);
+            result.PurchaseOrdersCount.ShouldBe(1);
+
+            var po = await poRepo.GetAsync(result.PurchaseOrderIds[0]);
+            po.SupplierId.ShouldBe(groupSupplier.Id);
+            po.Items.Count.ShouldBe(1);
+            po.Items[0].ItemId.ShouldBe(item.Id);
+            po.Items[0].Quantity.ShouldBe(15);
+        });
+    }
 }

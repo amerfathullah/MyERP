@@ -42,6 +42,7 @@ public class ItemGroupAppService : ApplicationService, IItemGroupAppService
             ParentId = input.ParentId,
             DefaultWarehouseId = input.DefaultWarehouseId,
             DefaultInventoryAccountId = input.DefaultInventoryAccountId,
+            DefaultSupplierId = input.DefaultSupplierId,
         };
         await _repository.InsertAsync(ig);
 
@@ -66,6 +67,7 @@ public class ItemGroupAppService : ApplicationService, IItemGroupAppService
         ig.ParentId = input.ParentId;
         ig.DefaultWarehouseId = input.DefaultWarehouseId;
         ig.DefaultInventoryAccountId = input.DefaultInventoryAccountId;
+        ig.DefaultSupplierId = input.DefaultSupplierId;
 
         await _repository.UpdateAsync(ig);
 

@@ -377,20 +377,25 @@ public class PaymentReconciliationEngine : DomainService
     /// exhausted to zero stops consuming further invoices, an invoice fully covered is skipped for
     /// the next payment. Pure computation — no PLE/GL side effects, safe to call from Angular-facing
     /// endpoints or the background batch engine to produce a plan before executing it.
+    ///
+    /// Per ERPNext PR #58393 / commit f7d16fbc16:
+    /// Rounds running allocation balance and remaining amounts to currency precision (default 2 decimals)
+    /// to avoid floating point discrepancies from division of invoice-level discounts or partial allocations.
     /// </summary>
     public static List<ReconciliationAllocation> AutoAllocate(
         IReadOnlyList<UnreconciledPayment> payments,
-        IReadOnlyList<OutstandingVoucher> invoices)
+        IReadOnlyList<OutstandingVoucher> invoices,
+        int precision = 2)
     {
         var allocations = new List<ReconciliationAllocation>();
         var remainingInvoices = invoices
             .Where(i => i.Outstanding > 0.009m)
-            .Select(i => new { i.VoucherType, i.VoucherId, Remaining = i.Outstanding })
+            .Select(i => new { i.VoucherType, i.VoucherId, Remaining = Math.Round(i.Outstanding, precision) })
             .ToList();
 
         foreach (var payment in payments)
         {
-            var remainingPayment = payment.UnallocatedAmount;
+            var remainingPayment = Math.Round(payment.UnallocatedAmount, precision);
             if (remainingPayment <= 0.009m) continue;
 
             for (int i = 0; i < remainingInvoices.Count && remainingPayment > 0.009m; i++)
@@ -398,7 +403,7 @@ public class PaymentReconciliationEngine : DomainService
                 var invoice = remainingInvoices[i];
                 if (invoice.Remaining <= 0.009m) continue;
 
-                var allocated = Math.Min(remainingPayment, invoice.Remaining);
+                var allocated = Math.Round(Math.Min(remainingPayment, invoice.Remaining), precision);
                 allocations.Add(new ReconciliationAllocation
                 {
                     PaymentVoucherType = payment.VoucherType,
@@ -408,8 +413,9 @@ public class PaymentReconciliationEngine : DomainService
                     AllocatedAmount = allocated,
                 });
 
-                remainingPayment -= allocated;
-                remainingInvoices[i] = new { invoice.VoucherType, invoice.VoucherId, Remaining = invoice.Remaining - allocated };
+                remainingPayment = Math.Round(remainingPayment - allocated, precision);
+                payment.UnallocatedAmount = remainingPayment;
+                remainingInvoices[i] = new { invoice.VoucherType, invoice.VoucherId, Remaining = Math.Round(invoice.Remaining - allocated, precision) };
             }
         }
 

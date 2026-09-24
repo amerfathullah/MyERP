@@ -184,6 +184,7 @@
     "Customer": "Customer",
     "CustomerOutstanding": "Customer Outstanding Balance",
     "Supplier": "Supplier",
+    "DefaultSupplier": "Default Supplier",
     "IssueDate": "Issue Date",
     "DueDate": "Due Date",
     "DueDateHelp": "Auto-calculated from Payment Terms if selected",

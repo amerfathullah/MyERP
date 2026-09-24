@@ -260,5 +260,18 @@ public class ItemDetailsAndAvailabilityTests
         Assert.Equal(2.5m, details.WeightPerUnit);
     }
 
+    [Fact]
+    public void ItemGroup_DefaultSupplierId_CanBeSet()
+    {
+        // PR #59349: ItemGroup can configure a fallback DefaultSupplierId
+        var supplierId = Guid.NewGuid();
+        var group = new ItemGroup(Guid.NewGuid(), "Raw Materials", false, TenantId)
+        {
+            DefaultSupplierId = supplierId
+        };
+
+        Assert.Equal(supplierId, group.DefaultSupplierId);
+    }
+
     #endregion
 }

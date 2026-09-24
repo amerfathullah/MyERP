@@ -1,9 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
 using MyERP.Assets.Entities;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
+using NSubstitute;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Domain.Tests;
@@ -288,5 +292,53 @@ public class PosConsolidationAndFinanceBookTests
         };
         Assert.Empty(result.Items);
         Assert.Equal(0, result.GrandTotal);
+    }
+
+    [Fact]
+    public void ConsolidationResult_IsReturnFlag_DefaultsFalse()
+    {
+        var result = new ConsolidationResult();
+        Assert.False(result.IsReturn);
+        Assert.Null(result.ReturnAgainstId);
+    }
+
+    [Fact]
+    public async Task ConsolidateAsync_QuotesReversedRowRate_WhenReturnRateExceedsOriginal()
+    {
+        // Per ERPNext PR #59320 / commit 5de2ac1f26:
+        // Rounding an invoice-level discount can leave a return's net rate a minor unit above the sale's,
+        // and validate_returned_items refuses a return priced above its original.
+        // Consolidation must quote the reversed row's rate on a consolidated credit note.
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var sale = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "POS-001", DateTime.UtcNow);
+        sale.AddItem(itemId, "Test Item", 1, 32.14m, 0);
+
+        var ret = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "RET-001", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = sale.Id
+        };
+        // Return has 32.15m due to discount rounding split
+        ret.AddItem(itemId, "Test Item", -1, 32.15m, 0);
+
+        var repo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var invoices = new List<SalesInvoice> { sale, ret };
+        repo.GetQueryableAsync().Returns(Task.FromResult(invoices.AsQueryable()));
+
+        var service = new PosConsolidationService(repo);
+        var results = await service.ConsolidateAsync(
+            new[] { ret.Id },
+            companyId, customerId, DateTime.UtcNow.Date);
+
+        Assert.Single(results);
+        var consolidated = results[0];
+        Assert.True(consolidated.IsReturn);
+        Assert.Equal(sale.Id, consolidated.ReturnAgainstId);
+        var item = consolidated.Items.FirstOrDefault(i => i.ItemId == itemId);
+        Assert.NotNull(item);
+        Assert.Equal(32.14m, item.UnitPrice); // Quoted original sold rate, NOT 32.15m!
     }
 }

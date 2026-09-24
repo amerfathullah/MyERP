@@ -34,6 +34,9 @@ public class ItemGroup : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Default inventory/stock asset account for items in this group.</summary>
     public Guid? DefaultInventoryAccountId { get; set; }
 
+    /// <summary>Default supplier for items in this group (PR #59349 fallback).</summary>
+    public Guid? DefaultSupplierId { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     protected ItemGroup() { }

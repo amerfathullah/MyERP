@@ -227,6 +227,7 @@ public class ItemDetailsResolverService : DomainService
             defaults.WarehouseId ??= group.DefaultWarehouseId;
             defaults.IncomeAccountId ??= group.DefaultIncomeAccountId;
             defaults.ExpenseAccountId ??= group.DefaultExpenseAccountId;
+            defaults.DefaultSupplierId ??= group.DefaultSupplierId;
 
             currentGroupId = group.ParentId;
         }

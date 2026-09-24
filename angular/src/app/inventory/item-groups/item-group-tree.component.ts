@@ -5,6 +5,7 @@ import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ItemGroupService } from '../../proxy/inventory/item-group.service';
 import type { ItemGroupDto } from '../../proxy/inventory/models';
+import { SupplierService } from '../../proxy/purchasing/supplier.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 
 export interface ItemGroupNode {
@@ -13,6 +14,7 @@ export interface ItemGroupNode {
   isGroup: boolean;
   parentId?: string | null;
   defaultWarehouseId?: string | null;
+  defaultSupplierId?: string | null;
   children: ItemGroupNode[];
   level: number;
 }
@@ -35,7 +37,7 @@ export interface ItemGroupNode {
           <div class="border rounded p-3 mb-3 bg-light">
             <h6 class="mb-2">{{ newGroup.id ? 'Edit' : 'New' }} Item Group</h6>
             <div class="row g-2">
-              <div class="col-md-4">
+              <div class="col-md-3">
                 <label class="form-label">{{ 'MyERP::Name' | abpLocalization }} *</label>
                 <input class="form-control form-control-sm" [(ngModel)]="newGroup.name" />
               </div>
@@ -49,13 +51,22 @@ export interface ItemGroupNode {
                 </select>
               </div>
               <div class="col-md-2">
+                <label class="form-label">{{ 'MyERP::DefaultSupplier' | abpLocalization }}</label>
+                <select class="form-select form-select-sm" [(ngModel)]="newGroup.defaultSupplierId">
+                  <option [ngValue]="null">— None —</option>
+                  @for (s of suppliers(); track s.id) {
+                    <option [value]="s.id">{{ s.name }}</option>
+                  }
+                </select>
+              </div>
+              <div class="col-md-2">
                 <label class="form-label">{{ 'MyERP::IsGroup' | abpLocalization }}</label>
                 <div class="form-check mt-1">
                   <input type="checkbox" class="form-check-input" [(ngModel)]="newGroup.isGroup" id="isGroupCheck" />
                   <label class="form-check-label" for="isGroupCheck">Group</label>
                 </div>
               </div>
-              <div class="col-md-3 d-flex align-items-end gap-2">
+              <div class="col-md-2 d-flex align-items-end gap-2">
                 <button class="btn btn-primary btn-sm" (click)="saveGroup()" [disabled]="!newGroup.name">
                   <i class="bi bi-check-lg me-1"></i>{{ 'MyERP::Save' | abpLocalization }}
                 </button>
@@ -125,16 +136,18 @@ export interface ItemGroupNode {
 })
 export class ItemGroupTreeComponent implements OnInit {
   private service = inject(ItemGroupService);
+  private supplierService = inject(SupplierService);
   private toaster = inject(ToasterService);
 
   tree = signal<ItemGroupNode[]>([]);
   groupOptions = signal<{ id: string; name: string }[]>([]);
+  suppliers = signal<{ id: string; name: string }[]>([]);
   loading = signal(true);
   showCreateForm = false;
   expandedIds = new Set<string>();
 
-  newGroup: { id?: string; name: string; parentId: string | null; isGroup: boolean } = {
-    name: '', parentId: null, isGroup: false,
+  newGroup: { id?: string; name: string; parentId: string | null; isGroup: boolean; defaultSupplierId: string | null } = {
+    name: '', parentId: null, isGroup: false, defaultSupplierId: null,
   };
 
   ngOnInit() {
@@ -152,6 +165,10 @@ export class ItemGroupTreeComponent implements OnInit {
       },
       error: () => this.loading.set(false),
     });
+
+    this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: 'name asc' } as any).subscribe({
+      next: (res) => this.suppliers.set((res.items ?? []).map(s => ({ id: s.id!, name: s.name! }))),
+    });
   }
 
   private buildTree(items: ItemGroupDto[]): ItemGroupNode[] {
@@ -165,6 +182,7 @@ export class ItemGroupTreeComponent implements OnInit {
         isGroup: item.isGroup ?? false,
         parentId: item.parentId,
         defaultWarehouseId: item.defaultWarehouseId,
+        defaultSupplierId: item.defaultSupplierId,
         children: [],
         level: 0,
       });
@@ -217,20 +235,26 @@ export class ItemGroupTreeComponent implements OnInit {
   }
 
   addChildTo(parent: ItemGroupNode) {
-    this.newGroup = { name: '', parentId: parent.id, isGroup: false };
+    this.newGroup = { name: '', parentId: parent.id, isGroup: false, defaultSupplierId: null };
     this.showCreateForm = true;
     // Expand parent to show new child
     this.expandedIds.add(parent.id);
   }
 
   editGroup(node: ItemGroupNode) {
-    this.newGroup = { id: node.id, name: node.name, parentId: node.parentId ?? null, isGroup: node.isGroup };
+    this.newGroup = {
+      id: node.id,
+      name: node.name,
+      parentId: node.parentId ?? null,
+      isGroup: node.isGroup,
+      defaultSupplierId: node.defaultSupplierId ?? null,
+    };
     this.showCreateForm = true;
   }
 
   cancelForm() {
     this.showCreateForm = false;
-    this.newGroup = { name: '', parentId: null, isGroup: false };
+    this.newGroup = { name: '', parentId: null, isGroup: false, defaultSupplierId: null };
   }
 
   saveGroup() {
@@ -240,9 +264,9 @@ export class ItemGroupTreeComponent implements OnInit {
       name: this.newGroup.name,
       parentId: this.newGroup.parentId || undefined,
       isGroup: this.newGroup.isGroup,
+      defaultSupplierId: this.newGroup.defaultSupplierId || undefined,
     };
 
-    // Create only (update would need a separate endpoint)
     this.service.create(payload as any).subscribe({
       next: () => {
         this.toaster.success('MyERP::SuccessfullySaved');
