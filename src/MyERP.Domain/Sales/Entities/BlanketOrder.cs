@@ -114,6 +114,9 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != DocumentStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        if (_items.Count > 0 && _items.All(x => x.IsClosed))
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot reopen Blanket Order as all items are closed.");
         Status = DocumentStatus.Submitted;
     }
 
@@ -204,6 +207,9 @@ public class BlanketOrderItem : FullAuditedEntity<Guid>
 
     public void Close()
     {
+        if (OrderedQty >= Qty)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot close item as it is already fully ordered.");
         IsClosed = true;
     }
 

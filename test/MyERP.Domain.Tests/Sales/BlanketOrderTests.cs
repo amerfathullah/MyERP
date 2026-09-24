@@ -229,7 +229,33 @@ public class BlanketOrderTests
         bo.AddItem(Guid.NewGuid(), 50, 10m);
         bo.Submit();
         bo.Close();
-
         Should.Throw<BusinessException>(() => bo.ValidateCanBeOrdered(new DateTime(2026, 6, 1)));
+    }
+
+    [Fact]
+    public void Reopen_WhenAllItemsClosed_Throws()
+    {
+        // Per ERPNext PR #59341 & #59343: Cannot reopen Blanket Order when all items are closed
+        var bo = CreateBO();
+        var itemId = Guid.NewGuid();
+        bo.AddItem(itemId, 50, 10m);
+        bo.Submit();
+        bo.CloseItem(itemId);
+        bo.Status.ShouldBe(Core.DocumentStatus.Closed);
+
+        Should.Throw<BusinessException>(() => bo.Reopen());
+    }
+
+    [Fact]
+    public void CloseItem_WhenFullyOrdered_Throws()
+    {
+        // Per ERPNext PR #59343: Cannot close item as it is already fully ordered
+        var bo = CreateBO();
+        var itemId = Guid.NewGuid();
+        bo.AddItem(itemId, 50, 10m);
+        bo.Submit();
+        bo.Items[0].RecordOrder(50m);
+
+        Should.Throw<BusinessException>(() => bo.CloseItem(itemId));
     }
 }
