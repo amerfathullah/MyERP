@@ -25,18 +25,32 @@ export class ActivityLogComponent implements OnInit {
   @Input() documentType!: string;
   @Input() documentId!: string;
 
-  private activityLogService = inject(DocumentActivityLogService);
+  private activityLogService: DocumentActivityLogService | null = null;
 
   logs: DocumentActivityLogDto[] = [];
   loading = false;
 
+  constructor() {
+    try {
+      this.activityLogService = inject(DocumentActivityLogService);
+    } catch {
+      // Allows instantiation in unit tests without Angular injection context
+    }
+  }
+
   ngOnInit(): void {
-    if (this.documentType && this.documentId) {
+    if (this.documentType && this.documentId && this.documentId !== 'new') {
       this.loadLogs();
     }
   }
 
   loadLogs(): void {
+    // Per ERPNext PR #59386 (commit 87052020fb): unsaved doc has no activities and cannot be permission-checked
+    if (!this.documentType || !this.documentId || this.documentId === 'new') {
+      this.logs = [];
+      return;
+    }
+
     this.loading = true;
     this.activityLogService
       .getForDocument(this.documentType, this.documentId)
