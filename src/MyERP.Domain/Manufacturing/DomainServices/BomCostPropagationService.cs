@@ -39,11 +39,15 @@ public class BomCostPropagationService : DomainService
 
         foreach (var parentBom in parentBoms)
         {
-            // Update the sub-assembly item rate in the parent BOM
+            // Update the sub-assembly item rate in the parent BOM (PR #59178: respects SetRateOfSubAssemblyItemBasedOnBom per item)
             foreach (var item in parentBom.Items.Where(i => i.SubBomId == bomId))
             {
-                item.Rate = bom.TotalCost / (bom.Quantity > 0 ? bom.Quantity : 1);
-                item.Recalculate();
+                if (item.SetRateOfSubAssemblyItemBasedOnBom || item.IsPhantom)
+                {
+                    var unitCost = bom.Quantity > 0 ? bom.TotalCost / bom.Quantity : bom.TotalCost;
+                    item.Rate = unitCost * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
+                    item.Recalculate();
+                }
             }
 
             parentBom.RecalculateCost();
@@ -81,8 +85,11 @@ public class BomCostPropagationService : DomainService
             foreach (var item in parentBom.Items.Where(i => i.SubBomId == currentBomId))
             {
                 item.SubBomId = newBomId;
-                item.Rate = newUnitCost;
-                item.Recalculate();
+                if (item.SetRateOfSubAssemblyItemBasedOnBom || item.IsPhantom)
+                {
+                    item.Rate = newUnitCost * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
+                    item.Recalculate();
+                }
                 updatedItemCount++;
             }
 
@@ -136,14 +143,18 @@ public class BomCostPropagationService : DomainService
 
             foreach (var bom in readyBoms)
             {
-                // Update sub-assembly rates from processed child BOMs
+                // Update sub-assembly rates from processed child BOMs (PR #59178: respects SetRateOfSubAssemblyItemBasedOnBom per item)
                 foreach (var item in bom.Items.Where(i => i.SubBomId.HasValue))
                 {
-                    var childBom = allBoms.FirstOrDefault(b => b.Id == item.SubBomId!.Value);
-                    if (childBom != null)
+                    if (item.SetRateOfSubAssemblyItemBasedOnBom || item.IsPhantom)
                     {
-                        item.Rate = childBom.TotalCost / (childBom.Quantity > 0 ? childBom.Quantity : 1);
-                        item.Recalculate();
+                        var childBom = allBoms.FirstOrDefault(b => b.Id == item.SubBomId!.Value);
+                        if (childBom != null)
+                        {
+                            var unitCost = childBom.Quantity > 0 ? childBom.TotalCost / childBom.Quantity : childBom.TotalCost;
+                            item.Rate = unitCost * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
+                            item.Recalculate();
+                        }
                     }
                 }
 

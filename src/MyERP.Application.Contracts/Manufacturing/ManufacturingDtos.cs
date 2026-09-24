@@ -76,6 +76,8 @@ public class BomItemDto
     public decimal Percentage { get; set; }
     public bool IsBalanceItem { get; set; }
     public bool DoNotExplode { get; set; }
+    public Guid? SubBomId { get; set; }
+    public bool SetRateOfSubAssemblyItemBasedOnBom { get; set; } = true;
 }
 
 public class BomSecondaryItemDto
@@ -156,6 +158,8 @@ public class CreateBomItemDto
     public decimal Percentage { get; set; }
     public bool IsBalanceItem { get; set; }
     public bool DoNotExplode { get; set; }
+    public Guid? SubBomId { get; set; }
+    public bool SetRateOfSubAssemblyItemBasedOnBom { get; set; } = true;
 }
 
 // === Work Order DTOs ===

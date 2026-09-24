@@ -45,6 +45,13 @@ public class BomItem : FullAuditedEntity<Guid>
     /// <summary>Absorbs the remaining percentage to make components sum to 100%.</summary>
     public bool IsBalanceItem { get; set; }
 
+    /// <summary>
+    /// Cost this sub-assembly by rolling up its BOM cost instead of the item's own valuation or price-list rate.
+    /// Per ERPNext PR #59178 / commit ec88db0253: moved setting from BOM header to BOM item level.
+    /// Defaults to true.
+    /// </summary>
+    public bool SetRateOfSubAssemblyItemBasedOnBom { get; set; } = true;
+
     protected BomItem() { }
 
     public BomItem(Guid id, Guid bomId, Guid itemId, string itemName, decimal quantity, decimal rate,

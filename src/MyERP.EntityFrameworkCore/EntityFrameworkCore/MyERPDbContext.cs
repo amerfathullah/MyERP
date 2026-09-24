@@ -3140,6 +3140,7 @@ public class MyERPDbContext :
             b.Property(x => x.Rate).HasColumnType("decimal(18,2)");
             b.Property(x => x.Amount).HasColumnType("decimal(18,2)");
             b.Property(x => x.IsPhantom).HasDefaultValue(false);
+            b.Property(x => x.SetRateOfSubAssemblyItemBasedOnBom).HasDefaultValue(true);
         });
 
         builder.Entity<BomOperation>(b =>

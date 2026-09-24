@@ -270,6 +270,9 @@ export class BomFormComponent implements OnInit {
       description: [item?.itemName ?? ''],
       qty: [item?.quantity ?? 1, [Validators.required, Validators.min(0.01)]],
       rate: [item?.rate ?? 0, [Validators.required, Validators.min(0)]],
+      subBomId: [item?.subBomId ?? null],
+      setRateOfSubAssemblyItemBasedOnBom: [item?.setRateOfSubAssemblyItemBasedOnBom ?? true],
+      doNotExplode: [item?.doNotExplode ?? false],
     }));
   }
 
@@ -348,7 +351,16 @@ export class BomFormComponent implements OnInit {
       // Map BOM material 'qty'→'quantity' and 'description'→'itemName' to match CreateBomItemDto
       items: this.materials.controls.map(c => {
         const v = c.getRawValue();
-        return { itemId: v.itemId, itemName: v.description || '', quantity: v.qty ?? 0, rate: v.rate ?? 0, uom: 'Unit' };
+        return {
+          itemId: v.itemId,
+          itemName: v.description || '',
+          quantity: v.qty ?? 0,
+          rate: v.rate ?? 0,
+          uom: 'Unit',
+          subBomId: v.subBomId || null,
+          setRateOfSubAssemblyItemBasedOnBom: v.setRateOfSubAssemblyItemBasedOnBom ?? true,
+          doNotExplode: v.doNotExplode ?? false,
+        };
       }),
       operations: this.operations.controls.map(c => c.getRawValue()),
       secondaryItems: this.secondaryItems.controls.map(c => {

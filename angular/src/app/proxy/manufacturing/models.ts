@@ -631,6 +631,8 @@ export interface BomItemDto {
   percentage?: number;
   isBalanceItem?: boolean;
   doNotExplode?: boolean;
+  subBomId?: string | null;
+  setRateOfSubAssemblyItemBasedOnBom?: boolean;
 }
 
 export interface BomOperationDto {
@@ -699,6 +701,8 @@ export interface CreateBomItemDto {
   percentage?: number;
   isBalanceItem?: boolean;
   doNotExplode?: boolean;
+  subBomId?: string | null;
+  setRateOfSubAssemblyItemBasedOnBom?: boolean;
 }
 
 export interface CreateBomOperationDto {

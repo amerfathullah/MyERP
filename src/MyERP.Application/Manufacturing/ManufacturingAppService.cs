@@ -117,13 +117,25 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         foreach (var item in input.Items)
         {
+            var rate = item.Rate;
+            if (item.SubBomId.HasValue && item.SetRateOfSubAssemblyItemBasedOnBom && rate == 0)
+            {
+                var subBom = await _bomRepository.FindAsync(item.SubBomId.Value);
+                if (subBom != null)
+                {
+                    rate = subBom.Quantity > 0 ? subBom.TotalCost / subBom.Quantity : subBom.TotalCost;
+                }
+            }
+
             bom.AddItem(new BomItem(
-                GuidGenerator.Create(), bom.Id, item.ItemId, item.ItemName, item.Quantity, item.Rate)
+                GuidGenerator.Create(), bom.Id, item.ItemId, item.ItemName, item.Quantity, rate)
             {
                 Uom = item.Uom,
                 Percentage = item.Percentage,
                 IsBalanceItem = item.IsBalanceItem,
                 DoNotExplode = item.DoNotExplode,
+                SubBomId = item.SubBomId,
+                SetRateOfSubAssemblyItemBasedOnBom = item.SetRateOfSubAssemblyItemBasedOnBom,
             });
         }
 
@@ -233,13 +245,25 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         bom.Items.Clear();
         foreach (var item in input.Items)
         {
+            var rate = item.Rate;
+            if (item.SubBomId.HasValue && item.SetRateOfSubAssemblyItemBasedOnBom && rate == 0)
+            {
+                var subBom = await _bomRepository.FindAsync(item.SubBomId.Value);
+                if (subBom != null)
+                {
+                    rate = subBom.Quantity > 0 ? subBom.TotalCost / subBom.Quantity : subBom.TotalCost;
+                }
+            }
+
             bom.AddItem(new BomItem(
-                GuidGenerator.Create(), bom.Id, item.ItemId, item.ItemName, item.Quantity, item.Rate)
+                GuidGenerator.Create(), bom.Id, item.ItemId, item.ItemName, item.Quantity, rate)
             {
                 Uom = item.Uom,
                 Percentage = item.Percentage,
                 IsBalanceItem = item.IsBalanceItem,
                 DoNotExplode = item.DoNotExplode,
+                SubBomId = item.SubBomId,
+                SetRateOfSubAssemblyItemBasedOnBom = item.SetRateOfSubAssemblyItemBasedOnBom,
             });
         }
 
