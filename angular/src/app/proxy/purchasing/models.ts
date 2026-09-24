@@ -716,6 +716,7 @@ export interface ScoItemDto extends EntityDto<string> {
   qty?: number;
   rate?: number;
   receivedQty?: number;
+  bomId?: string;
 }
 
 export interface ScorecardCriterionDto extends EntityDto<string> {

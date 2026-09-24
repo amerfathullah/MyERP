@@ -101,22 +101,6 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 .WithData("detail", "Subcontracting Order Project cannot differ from Purchase Order Project.");
         }
 
-        var bomIds = input.Items.Where(i => i.BomId.HasValue).Select(i => i.BomId!.Value).Distinct().ToList();
-        if (bomIds.Count > 0)
-        {
-            var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.BillOfMaterials, Guid>>();
-            var bomQuery = await bomRepo.GetQueryableAsync();
-            var boms = bomQuery.Where(b => bomIds.Contains(b.Id)).ToList();
-            foreach (var bom in boms)
-            {
-                if (bom.CompanyId != input.CompanyId)
-                {
-                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                        .WithData("bomCompany", bom.CompanyId)
-                        .WithData("orderCompany", input.CompanyId);
-                }
-            }
-        }
 
         var warehouseIds = input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value).Distinct().ToList();
         if (warehouseIds.Count > 0)
@@ -138,6 +122,81 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var itemIds = input.Items.Select(i => i.ItemId).ToArray();
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(itemIds);
+
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var itemEntities = (await itemRepo.GetQueryableAsync()).Where(i => itemIds.Contains(i.Id)).ToList();
+        var itemDict = itemEntities.ToDictionary(i => i.Id);
+
+        var templateItemIds = itemEntities
+            .Where(i => i.VariantOfId.HasValue)
+            .Select(i => i.VariantOfId!.Value)
+            .Distinct()
+            .ToList();
+        var templateDict = templateItemIds.Count > 0
+            ? (await itemRepo.GetQueryableAsync()).Where(i => templateItemIds.Contains(i.Id)).ToDictionary(i => i.Id)
+            : new Dictionary<Guid, Item>();
+
+        var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.BillOfMaterials, Guid>>();
+        var bomQueryable = await bomRepo.GetQueryableAsync();
+
+        foreach (var item in input.Items)
+        {
+            var itemEntity = itemDict.GetValueOrDefault(item.ItemId);
+            Item? templateItem = itemEntity?.VariantOfId.HasValue == true
+                ? templateDict.GetValueOrDefault(itemEntity.VariantOfId.Value)
+                : null;
+
+            // PR #59373: Auto-resolve BOM; if finished good is a variant, fall back to template BOM
+            if (!item.BomId.HasValue)
+            {
+                if (itemEntity?.DefaultBomId.HasValue == true)
+                {
+                    item.BomId = itemEntity.DefaultBomId.Value;
+                }
+                else if (templateItem?.DefaultBomId.HasValue == true)
+                {
+                    item.BomId = templateItem.DefaultBomId.Value;
+                }
+                else
+                {
+                    var targetItemIds = templateItem != null
+                        ? new[] { item.ItemId, templateItem.Id }
+                        : new[] { item.ItemId };
+                    var defaultBom = bomQueryable
+                        .Where(b => targetItemIds.Contains(b.ItemId) && b.CompanyId == input.CompanyId && b.IsActive)
+                        .OrderByDescending(b => b.ItemId == item.ItemId)
+                        .ThenByDescending(b => b.IsDefault)
+                        .FirstOrDefault();
+                    if (defaultBom != null)
+                    {
+                        item.BomId = defaultBom.Id;
+                    }
+                }
+            }
+
+            if (item.BomId.HasValue)
+            {
+                var bom = await bomRepo.FindAsync(item.BomId.Value);
+                if (bom != null)
+                {
+                    if (bom.CompanyId != input.CompanyId)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                            .WithData("bomCompany", bom.CompanyId)
+                            .WithData("orderCompany", input.CompanyId);
+                    }
+
+                    // PR #59373: BOM must belong to finished good or its template item (for variants)
+                    bool isApplicable = bom.ItemId == item.ItemId
+                        || (templateItem != null && bom.ItemId == templateItem.Id);
+                    if (!isApplicable)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"BOM {bom.BomNumber} does not belong to Item {itemEntity?.ItemName ?? item.ItemName}.");
+                    }
+                }
+            }
+        }
 
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
         await companyRestriction.ValidateTransactionCompanyAsync(

@@ -32,6 +32,7 @@ public class ScoItemDto : EntityDto<Guid>
     public decimal Rate { get; set; }
     public decimal ReceivedQty { get; set; }
     public Guid? ProjectId { get; set; }
+    public Guid? BomId { get; set; }
 }
 
 public class CreateSubcontractingOrderDto
