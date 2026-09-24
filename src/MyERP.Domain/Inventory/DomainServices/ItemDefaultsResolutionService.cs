@@ -130,6 +130,38 @@ public class ItemDefaultsResolutionService : DomainService
     }
 
     /// <summary>
+    /// Resolves the default supplier for an item using the ERPNext fallback chain:
+    /// ItemDefault (for company) → Item.Suppliers (first) → ItemGroup hierarchy (traverse parents up) → null.
+    /// Per ERPNext PR #59349 / commit 43913d5c2a.
+    /// </summary>
+    public async Task<Guid?> ResolveDefaultSupplierAsync(Guid itemId, Guid? companyId = null)
+    {
+        if (companyId.HasValue)
+        {
+            var defRepo = GetItemDefaultRepository();
+            if (defRepo != null)
+            {
+                var defQ = await defRepo.GetQueryableAsync();
+                var defSupplier = defQ
+                    .Where(d => d.ItemId == itemId && d.CompanyId == companyId.Value && d.DefaultSupplierId != null)
+                    .Select(d => d.DefaultSupplierId)
+                    .FirstOrDefault();
+                if (defSupplier.HasValue)
+                    return defSupplier;
+            }
+        }
+
+        var item = await _itemRepository.FindAsync(itemId);
+        if (item == null) return null;
+
+        var defaultSupplier = item.Suppliers?.FirstOrDefault()?.SupplierId;
+        if (defaultSupplier.HasValue)
+            return defaultSupplier;
+
+        return await TraverseGroupHierarchyAsync(item.ItemGroupId, g => g.DefaultSupplierId);
+    }
+
+    /// <summary>
     /// Traverses item group hierarchy (child → parent → grandparent) looking for a non-null value.
     /// Max depth = 10 to prevent infinite loops from data corruption.
     /// </summary>

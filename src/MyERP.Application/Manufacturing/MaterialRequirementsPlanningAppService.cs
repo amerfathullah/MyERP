@@ -560,48 +560,19 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                 .ToList();
             var itemMap = items.ToDictionary(i => i.Id);
 
-            var itemDefaultRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemDefault, Guid>>();
-            var itemDefaults = (await itemDefaultRepo.GetQueryableAsync())
-                .Where(d => d.CompanyId == input.CompanyId && itemIds.Contains(d.ItemId))
-                .ToList();
-            var itemDefaultMap = itemDefaults
-                .Where(d => d.DefaultSupplierId.HasValue)
-                .ToDictionary(d => d.ItemId, d => d.DefaultSupplierId!.Value);
-
-            var itemGroupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemGroup, Guid>>();
-            var itemGroups = await itemGroupRepo.GetListAsync();
-            var itemGroupMap = itemGroups.ToDictionary(g => g.Id);
-
             // PR #59349: Resolve supplier per item with ItemGroup fallback; throw if missing
+            var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
             var missingSuppliers = new List<string>();
             foreach (var row in purchaseRows)
             {
                 if (!row.DefaultSupplierId.HasValue || row.DefaultSupplierId.Value == Guid.Empty)
                 {
-                    if (itemDefaultMap.TryGetValue(row.ItemId, out var supId))
+                    var resolvedSupplier = await itemDefaultsService.ResolveDefaultSupplierAsync(row.ItemId, input.CompanyId);
+                    if (resolvedSupplier.HasValue && resolvedSupplier.Value != Guid.Empty)
                     {
-                        row.DefaultSupplierId = supId;
+                        row.DefaultSupplierId = resolvedSupplier.Value;
                     }
-                    else if (itemMap.TryGetValue(row.ItemId, out var item) && item.ItemGroupId.HasValue)
-                    {
-                        var curGroupId = (Guid?)item.ItemGroupId.Value;
-                        int maxDepth = 10;
-                        while (curGroupId.HasValue && maxDepth-- > 0)
-                        {
-                            if (itemGroupMap.TryGetValue(curGroupId.Value, out var grp))
-                            {
-                                if (grp.DefaultSupplierId.HasValue)
-                                {
-                                    row.DefaultSupplierId = grp.DefaultSupplierId.Value;
-                                    break;
-                                }
-                                curGroupId = grp.ParentId;
-                            }
-                            else break;
-                        }
-                    }
-
-                    if (!row.DefaultSupplierId.HasValue || row.DefaultSupplierId.Value == Guid.Empty)
+                    else
                     {
                         missingSuppliers.Add(row.ItemCode);
                     }

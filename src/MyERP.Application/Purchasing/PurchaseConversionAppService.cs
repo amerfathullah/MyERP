@@ -726,15 +726,18 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
                 .WithData("reason", "All items in this Material Request have already been converted or have pending draft RFQs.");
         }
 
-        // Pre-populate default suppliers from ItemDefault (per ERPNext get_default_supplier_for_item)
+        // Pre-populate default suppliers with fallback chain (ItemDefault -> Item.Suppliers -> ItemGroup)
         var candidateItemIds = rfq.Items.Select(i => i.ItemId).Distinct().ToList();
-        var itemDefaultRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemDefault, Guid>>();
-        var itemDefaultQuery = await itemDefaultRepo.GetQueryableAsync();
-        var defaultSuppliers = itemDefaultQuery
-            .Where(d => candidateItemIds.Contains(d.ItemId) && d.DefaultSupplierId.HasValue && d.CompanyId == mr.CompanyId)
-            .Select(d => d.DefaultSupplierId!.Value)
-            .Distinct()
-            .ToList();
+        var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
+        var defaultSuppliers = new HashSet<Guid>();
+        foreach (var itemId in candidateItemIds)
+        {
+            var resolvedSupplier = await itemDefaultsService.ResolveDefaultSupplierAsync(itemId, mr.CompanyId);
+            if (resolvedSupplier.HasValue && resolvedSupplier.Value != Guid.Empty)
+            {
+                defaultSuppliers.Add(resolvedSupplier.Value);
+            }
+        }
 
         foreach (var supplierId in defaultSuppliers)
         {

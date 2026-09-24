@@ -104,6 +104,16 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public int FrequencyMonths { get; set; } = 12;
     public DateTime? AvailableForUseDate { get; set; }
     public decimal OpeningAccumulatedDepreciation { get; set; }
+    /// <summary>
+    /// Number of depreciations already booked in legacy system (for imported/existing assets).
+    /// Per ERPNext PR #59304 / commit 56f24a6adf.
+    /// </summary>
+    public int OpeningNumberOfBookedDepreciations { get; set; }
+    /// <summary>
+    /// Date when depreciation starts for this asset (for imported/existing assets).
+    /// Per ERPNext PR #59304 / commit 56f24a6adf.
+    /// </summary>
+    public DateTime? DepreciationStartDate { get; set; }
     /// <summary>Expected residual/salvage value at end of useful life (ERPNext commit 2a89bac11d).</summary>
     public decimal ExpectedValueAfterUsefulLife { get; set; }
     public decimal ValueAfterDepreciation { get; set; }
@@ -341,24 +351,33 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         var totalPeriods = FrequencyMonths > 0 ? UsefulLifeMonths / FrequencyMonths : 0;
         if (totalPeriods <= 0 || depreciableAmount <= 0) return;
 
-        var bookedCount = bookedEntries.Count;
-        var accumulated = bookedCount > 0 ? bookedEntries[^1].AccumulatedDepreciation : OpeningAccumulatedDepreciation;
+        var previouslyBookedCount = bookedEntries.Count + OpeningNumberOfBookedDepreciations;
+        var remainingPeriods = totalPeriods - previouslyBookedCount;
+        if (remainingPeriods <= 0) return;
+
+        var periodsToDepreciate = totalPeriods - OpeningNumberOfBookedDepreciations;
+        if (periodsToDepreciate <= 0) return;
+
+        var accumulated = bookedEntries.Count > 0 ? bookedEntries[^1].AccumulatedDepreciation : OpeningAccumulatedDepreciation;
         var bookValue = TotalAssetCost - accumulated;
 
-        for (int i = bookedCount; i < totalPeriods; i++)
+        var useLastDay = (DepreciationStartDate.HasValue && DepreciationStartDate.Value.Day == DateTime.DaysInMonth(DepreciationStartDate.Value.Year, DepreciationStartDate.Value.Month))
+            || (startDate.Day == DateTime.DaysInMonth(startDate.Year, startDate.Month));
+
+        for (int k = 0; k < remainingPeriods; k++)
         {
-            var scheduleDate = startDate.AddMonths((i + 1) * FrequencyMonths);
+            var scheduleDate = GetScheduleDate(startDate, previouslyBookedCount, k, useLastDay, bookedEntries);
             decimal amount;
 
             var remainingDepreciable = Math.Max(bookValue - ExpectedValueAfterUsefulLife, 0);
-            if (i == totalPeriods - 1)
+            if (k == remainingPeriods - 1)
             {
                 // Final period absorbs rounding difference so book value reaches ExpectedValueAfterUsefulLife
                 amount = remainingDepreciable;
             }
             else
             {
-                amount = CalculateDepreciationAmount(depreciableAmount, remainingDepreciable, totalPeriods, i, startDate);
+                amount = CalculateDepreciationAmount(depreciableAmount, remainingDepreciable, periodsToDepreciate, totalPeriods, k, startDate);
                 amount = Math.Min(amount, remainingDepreciable); // never exceed remaining depreciable value
             }
 
@@ -370,6 +389,30 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
             DepreciationSchedule.Add(new DepreciationScheduleEntry(
                 Guid.NewGuid(), Id, scheduleDate, amount, accumulated));
         }
+    }
+
+    private DateTime GetScheduleDate(DateTime startDate, int previouslyBookedCount, int k, bool useLastDay, List<DepreciationScheduleEntry> bookedEntries)
+    {
+        DateTime scheduleDate;
+        if (bookedEntries.Count > 0)
+        {
+            scheduleDate = bookedEntries[^1].ScheduleDate.AddMonths((k + 1) * FrequencyMonths);
+        }
+        else if (DepreciationStartDate.HasValue)
+        {
+            scheduleDate = DepreciationStartDate.Value.AddMonths(k * FrequencyMonths);
+        }
+        else
+        {
+            scheduleDate = startDate.AddMonths((previouslyBookedCount + k + 1) * FrequencyMonths);
+        }
+
+        if (useLastDay)
+        {
+            scheduleDate = new DateTime(scheduleDate.Year, scheduleDate.Month, DateTime.DaysInMonth(scheduleDate.Year, scheduleDate.Month));
+        }
+
+        return scheduleDate;
     }
 
     /// <summary>
@@ -396,18 +439,30 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         var totalPeriods = FrequencyMonths > 0 ? UsefulLifeMonths / FrequencyMonths : 0;
         if (totalPeriods <= 0 || depreciableAmount <= 0) return ValueAfterDepreciation;
 
-        var bookedCount = bookedEntries.Count;
-        var accumulated = bookedCount > 0 ? bookedEntries[^1].AccumulatedDepreciation : OpeningAccumulatedDepreciation;
-        var bookValue = TotalAssetCost - accumulated;
-        var periodStart = bookedCount > 0 ? bookedEntries[^1].ScheduleDate : startDate;
+        var previouslyBookedCount = bookedEntries.Count + OpeningNumberOfBookedDepreciations;
+        var remainingPeriods = totalPeriods - previouslyBookedCount;
+        if (remainingPeriods <= 0) return ValueAfterDepreciation;
 
-        for (int i = bookedCount; i < totalPeriods; i++)
+        var periodsToDepreciate = totalPeriods - OpeningNumberOfBookedDepreciations;
+        if (periodsToDepreciate <= 0) return ValueAfterDepreciation;
+
+        var accumulated = bookedEntries.Count > 0 ? bookedEntries[^1].AccumulatedDepreciation : OpeningAccumulatedDepreciation;
+        var bookValue = TotalAssetCost - accumulated;
+
+        var useLastDay = (DepreciationStartDate.HasValue && DepreciationStartDate.Value.Day == DateTime.DaysInMonth(DepreciationStartDate.Value.Year, DepreciationStartDate.Value.Month))
+            || (startDate.Day == DateTime.DaysInMonth(startDate.Year, startDate.Month));
+
+        var periodStart = bookedEntries.Count > 0
+            ? bookedEntries[^1].ScheduleDate
+            : (DepreciationStartDate.HasValue ? DepreciationStartDate.Value.AddMonths(-FrequencyMonths) : startDate.AddMonths(previouslyBookedCount * FrequencyMonths));
+
+        for (int k = 0; k < remainingPeriods; k++)
         {
-            var scheduleDate = startDate.AddMonths((i + 1) * FrequencyMonths);
+            var scheduleDate = GetScheduleDate(startDate, previouslyBookedCount, k, useLastDay, bookedEntries);
             var remainingDepreciable = Math.Max(bookValue - ExpectedValueAfterUsefulLife, 0);
-            var fullPeriodAmount = i == totalPeriods - 1
+            var fullPeriodAmount = k == remainingPeriods - 1
                 ? remainingDepreciable
-                : Math.Min(CalculateDepreciationAmount(depreciableAmount, remainingDepreciable, totalPeriods, i, startDate), remainingDepreciable);
+                : Math.Min(CalculateDepreciationAmount(depreciableAmount, remainingDepreciable, periodsToDepreciate, totalPeriods, k, startDate), remainingDepreciable);
 
             if (fullPeriodAmount <= 0) break;
 
@@ -431,13 +486,13 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         return Math.Max(bookValue, ExpectedValueAfterUsefulLife);
     }
 
-    private decimal CalculateDepreciationAmount(decimal depreciableAmount, decimal bookValue, int totalPeriods, int periodIndex, DateTime startDate)
+    private decimal CalculateDepreciationAmount(decimal depreciableAmount, decimal bookValue, int periodsToDepreciate, int totalPeriods, int periodIndex, DateTime startDate)
     {
         return DepreciationMethod switch
         {
             DepreciationMethod.StraightLine => UseTotalDaysForDepreciation
-                ? CalculateStraightLineByTotalDays(depreciableAmount, totalPeriods, periodIndex, startDate)
-                : Math.Round(depreciableAmount / totalPeriods, 2),
+                ? CalculateStraightLineByTotalDays(depreciableAmount, periodsToDepreciate, periodIndex, startDate)
+                : Math.Round(depreciableAmount / periodsToDepreciate, 2),
             DepreciationMethod.DoubleDecliningBalance => Math.Round(bookValue * (2m / totalPeriods), 2),
             DepreciationMethod.WrittenDownValue => Math.Round(bookValue * (DepreciationRate / 100m), 2),
             _ => 0,
@@ -451,11 +506,11 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// meaningful for Straight Line — WDV/DDB already derive each period from book value x rate,
     /// not from an equal division of the total.
     /// </summary>
-    private decimal CalculateStraightLineByTotalDays(decimal depreciableAmount, int totalPeriods, int periodIndex, DateTime startDate)
+    private decimal CalculateStraightLineByTotalDays(decimal depreciableAmount, int periodsToDepreciate, int periodIndex, DateTime startDate)
     {
-        var scheduleStartDate = startDate.AddMonths(totalPeriods * FrequencyMonths);
+        var scheduleStartDate = startDate.AddMonths(periodsToDepreciate * FrequencyMonths);
         var totalDays = (scheduleStartDate - startDate).TotalDays;
-        if (totalDays <= 0) return Math.Round(depreciableAmount / totalPeriods, 2);
+        if (totalDays <= 0) return Math.Round(depreciableAmount / periodsToDepreciate, 2);
 
         var periodStart = startDate.AddMonths(periodIndex * FrequencyMonths);
         var periodEnd = startDate.AddMonths((periodIndex + 1) * FrequencyMonths);

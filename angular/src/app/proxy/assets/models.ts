@@ -107,6 +107,8 @@ export interface AssetDto extends FullAuditedEntityDto<string> {
   frequencyMonths?: number;
   availableForUseDate?: string | null;
   openingAccumulatedDepreciation?: number;
+  openingNumberOfBookedDepreciations?: number;
+  depreciationStartDate?: string | null;
   expectedValueAfterUsefulLife?: number;
   valueAfterDepreciation?: number;
   isFullyDepreciated?: boolean;
@@ -360,6 +362,8 @@ export interface CreateAssetDto {
   frequencyMonths?: number;
   availableForUseDate?: string | null;
   openingAccumulatedDepreciation?: number;
+  openingNumberOfBookedDepreciations?: number;
+  depreciationStartDate?: string | null;
   expectedValueAfterUsefulLife?: number;
   assetQuantity?: number;
   isCompositeAsset?: boolean;
@@ -770,6 +774,8 @@ export interface UpdateAssetDto {
   frequencyMonths?: number;
   availableForUseDate?: string | null;
   openingAccumulatedDepreciation?: number;
+  openingNumberOfBookedDepreciations?: number;
+  depreciationStartDate?: string | null;
   expectedValueAfterUsefulLife?: number;
   isCompositeAsset?: boolean;
   isCompositeComponent?: boolean;

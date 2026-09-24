@@ -36,6 +36,8 @@ public class AssetDto : FullAuditedEntityDto<Guid>
     public int FrequencyMonths { get; set; } = 12;
     public DateTime? AvailableForUseDate { get; set; }
     public decimal OpeningAccumulatedDepreciation { get; set; }
+    public int OpeningNumberOfBookedDepreciations { get; set; }
+    public DateTime? DepreciationStartDate { get; set; }
     public decimal ExpectedValueAfterUsefulLife { get; set; }
     public decimal ValueAfterDepreciation { get; set; }
     public bool IsFullyDepreciated { get; set; }
@@ -91,6 +93,8 @@ public class CreateAssetDto
     public int FrequencyMonths { get; set; } = 12;
     public DateTime? AvailableForUseDate { get; set; }
     public decimal OpeningAccumulatedDepreciation { get; set; }
+    public int OpeningNumberOfBookedDepreciations { get; set; }
+    public DateTime? DepreciationStartDate { get; set; }
     public decimal ExpectedValueAfterUsefulLife { get; set; }
 
     /// <summary>Number of identical units this single asset record represents (e.g. "10 chairs").
@@ -128,6 +132,8 @@ public class UpdateAssetDto
     public int FrequencyMonths { get; set; } = 12;
     public DateTime? AvailableForUseDate { get; set; }
     public decimal OpeningAccumulatedDepreciation { get; set; }
+    public int OpeningNumberOfBookedDepreciations { get; set; }
+    public DateTime? DepreciationStartDate { get; set; }
     public decimal ExpectedValueAfterUsefulLife { get; set; }
     public bool IsCompositeAsset { get; set; }
     public bool IsCompositeComponent { get; set; }

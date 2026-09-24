@@ -747,22 +747,20 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         if (!itemsNeedingMr.Any())
             return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
 
-        // Resolve default suppliers from ItemDefault for grouping
-        // Per ERPNext: separate MRs per (supplier, warehouse) for procurement routing
-        var itemIds = itemsNeedingMr.Select(m => m.ItemId).Distinct().ToList();
-        var itemDefaultQuery = await LazyServiceProvider
-            .LazyGetRequiredService<IRepository<Inventory.Entities.ItemDefault, Guid>>()
-            .GetQueryableAsync();
-        var supplierMap = itemDefaultQuery
-            .Where(d => itemIds.Contains(d.ItemId) && d.DefaultSupplierId != null && d.CompanyId == plan.CompanyId)
-            .Select(d => new { d.ItemId, d.DefaultSupplierId })
-            .ToDictionary(d => d.ItemId, d => d.DefaultSupplierId);
+        // Resolve default suppliers with fallback chain: ItemDefault -> Item.Suppliers -> ItemGroup hierarchy -> null
+        // Per ERPNext PR #59349 / commit 43913d5c2a
+        var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
+        var supplierMap = new Dictionary<Guid, Guid?>();
+        foreach (var itemId in itemsNeedingMr.Select(m => m.ItemId).Distinct())
+        {
+            supplierMap[itemId] = await itemDefaultsService.ResolveDefaultSupplierAsync(itemId, plan.CompanyId);
+        }
 
         // Group items by (supplier, warehouse) — items without supplier go to a "general" MR
         var groups = itemsNeedingMr
             .GroupBy(m => new
             {
-                SupplierId = supplierMap.ContainsKey(m.ItemId) ? supplierMap[m.ItemId] : (Guid?)null,
+                SupplierId = supplierMap.TryGetValue(m.ItemId, out var supId) ? supId : null,
                 WarehouseId = m.WarehouseId ?? plan.ForWarehouseId
             })
             .ToList();

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MyERP.Assets.Entities;
 using Shouldly;
 using Volo.Abp;
@@ -202,6 +203,84 @@ public class AssetTests
         asset.DepreciationSchedule.Count.ShouldBe(5); // 60/12 = 5 periods
         asset.DepreciationSchedule[0].DepreciationAmount.ShouldBe(10000m); // 50000/5
         asset.DepreciationSchedule[4].AccumulatedDepreciation.ShouldBe(50000m);
+    }
+
+    [Fact]
+    public void GenerateDepreciationSchedule_CompleteOpeningPeriods_PR59304()
+    {
+        // Per ERPNext PR #59304 / commit 56f24a6adf / test_complete_opening_periods:
+        // Purchase 13200, salvage 1200, useful 12 months, freq 1 month (12 periods).
+        // 4 opening booked depreciations @ 1000 each = 4000 opening accumulated.
+        // Remaining 8 periods should each be 1000m, starting on DepreciationStartDate.
+        var asset = new Asset(Guid.NewGuid(), Guid.NewGuid(), "AST-OP-01", "Imported Equipment",
+            new DateTime(2026, 1, 1), 13200m)
+        {
+            CalculateDepreciation = true,
+            DepreciationMethod = DepreciationMethod.StraightLine,
+            UsefulLifeMonths = 12,
+            FrequencyMonths = 1,
+            AvailableForUseDate = new DateTime(2026, 1, 1),
+            DepreciationStartDate = new DateTime(2026, 5, 31),
+            ExpectedValueAfterUsefulLife = 1200m,
+            OpeningNumberOfBookedDepreciations = 4,
+            OpeningAccumulatedDepreciation = 4000m
+        };
+
+        asset.GenerateDepreciationSchedule();
+
+        asset.DepreciationSchedule.Count.ShouldBe(8); // 12 - 4 = 8 remaining periods
+        asset.DepreciationSchedule.All(r => r.DepreciationAmount == 1000m).ShouldBeTrue();
+        asset.DepreciationSchedule[0].ScheduleDate.ShouldBe(new DateTime(2026, 5, 31));
+        asset.DepreciationSchedule[7].AccumulatedDepreciation.ShouldBe(12000m);
+    }
+
+    [Fact]
+    public void GenerateDepreciationSchedule_QuarterlyOpeningPeriod_PR59304()
+    {
+        // Quarterly asset with 1 opening period
+        var asset = new Asset(Guid.NewGuid(), Guid.NewGuid(), "AST-OP-02", "Machinery",
+            new DateTime(2026, 1, 1), 13200m)
+        {
+            CalculateDepreciation = true,
+            DepreciationMethod = DepreciationMethod.StraightLine,
+            UsefulLifeMonths = 36,
+            FrequencyMonths = 3, // 12 periods
+            AvailableForUseDate = new DateTime(2026, 1, 1),
+            DepreciationStartDate = new DateTime(2026, 6, 30),
+            ExpectedValueAfterUsefulLife = 1200m,
+            OpeningNumberOfBookedDepreciations = 1,
+            OpeningAccumulatedDepreciation = 1000m
+        };
+
+        asset.GenerateDepreciationSchedule();
+
+        asset.DepreciationSchedule.Count.ShouldBe(11); // 12 - 1 = 11 periods
+        asset.DepreciationSchedule.All(r => r.DepreciationAmount == 1000m).ShouldBeTrue();
+        asset.DepreciationSchedule[0].ScheduleDate.ShouldBe(new DateTime(2026, 6, 30));
+        asset.DepreciationSchedule[10].AccumulatedDepreciation.ShouldBe(12000m);
+    }
+
+    [Fact]
+    public void SimulateBookValueAtDate_WithOpeningDepreciations()
+    {
+        var asset = new Asset(Guid.NewGuid(), Guid.NewGuid(), "AST-OP-03", "Vehicle",
+            new DateTime(2026, 1, 1), 13200m)
+        {
+            CalculateDepreciation = true,
+            DepreciationMethod = DepreciationMethod.StraightLine,
+            UsefulLifeMonths = 12,
+            FrequencyMonths = 1,
+            AvailableForUseDate = new DateTime(2026, 1, 1),
+            DepreciationStartDate = new DateTime(2026, 5, 31),
+            ExpectedValueAfterUsefulLife = 1200m,
+            OpeningNumberOfBookedDepreciations = 4,
+            OpeningAccumulatedDepreciation = 4000m
+        };
+
+        // Before start date: purchase amount minus opening accumulated = 9200
+        asset.SimulateBookValueAtDate(new DateTime(2026, 1, 1)).ShouldBe(9200m);
+        // On first remaining period (2026-05-31): 9200 - 1000 = 8200
+        asset.SimulateBookValueAtDate(new DateTime(2026, 5, 31)).ShouldBe(8200m);
     }
 
     [Fact]
