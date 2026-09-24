@@ -159,11 +159,11 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
-        // Per DO-NOT: returns must always have negative qty
+        // Per DO-NOT: returns must always have negative qty or negative rejected qty (PR #59280 / commit b3d55db893)
         if (!IsReturn && quantity <= 0 && rejectedQty <= 0)
             throw new ArgumentException("Quantity or RejectedQty must be positive for non-return receipts.", nameof(quantity));
-        if (IsReturn && quantity >= 0)
-            throw new ArgumentException("Quantity must be negative for return receipts.", nameof(quantity));
+        if (IsReturn && (quantity > 0 || rejectedQty > 0 || (quantity == 0 && rejectedQty == 0)))
+            throw new ArgumentException("Quantity or RejectedQty must be negative for return receipts.", nameof(quantity));
 
         var item = new PurchaseReceiptItem(
             Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, purchaseOrderItemId)
@@ -171,7 +171,7 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             WarehouseId = warehouseId,
             RejectedQty = rejectedQty,
             RejectedWarehouseId = rejectedWarehouseId,
-            ReceivedQty = receivedQty > 0 ? receivedQty : (quantity + rejectedQty),
+            ReceivedQty = receivedQty != 0 ? receivedQty : (quantity + rejectedQty),
         };
         item.Idx = _items.Count;
         _items.Add(item);
@@ -217,7 +217,7 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             var targetWarehouse = item.WarehouseId ?? WarehouseId;
 
             // Validate rejected warehouse per ERPNext buying/subcontracting controller
-            if (item.RejectedQty > 0 && !item.RejectedWarehouseId.HasValue)
+            if (item.RejectedQty != 0 && !item.RejectedWarehouseId.HasValue)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Rejected Warehouse is mandatory for rejected Item {item.Description}.");

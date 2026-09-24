@@ -337,14 +337,20 @@ export class PurchaseReceiptFormComponent implements OnInit {
           purchaseOrderId: original.purchaseOrderId ?? '',
         });
         (original.items ?? []).forEach((item: any) => {
+          const itemQty = Number(item.quantity ?? 0);
+          const itemRejected = Number(item.rejectedQty ?? 0);
+          const returnQty = itemQty > 0 ? -Math.abs(itemQty) : 0;
+          const returnRejected = itemRejected > 0 ? -Math.abs(itemRejected) : 0;
+          const returnReceived = returnQty + returnRejected;
+
           const itemGroup = this.fb.group({
             itemId: [item.itemId ?? '', Validators.required],
             description: [item.description ?? '', Validators.required],
             warehouseId: [item.warehouseId ?? ''],
-            receivedQty: [-(Math.abs(item.quantity ?? 0)), [Validators.required]],
-            quantity: [-(Math.abs(item.quantity ?? 0)), [Validators.required]],
-            rejectedQty: [0],
-            rejectedWarehouseId: [''],
+            receivedQty: [returnReceived, [Validators.required]],
+            quantity: [returnQty, [Validators.required]],
+            rejectedQty: [returnRejected],
+            rejectedWarehouseId: [item.rejectedWarehouseId ?? ''],
             unitPrice: [item.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
             uom: [item.uom ?? 'EA'],
             purchaseOrderItemId: [item.purchaseOrderItemId ?? null],

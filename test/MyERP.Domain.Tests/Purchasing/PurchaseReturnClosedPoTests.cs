@@ -140,4 +140,81 @@ public class PurchaseReturnClosedPoTests
         var ex = await Should.ThrowAsync<BusinessException>(async () => await _piManager.ValidatePurchaseOrderStatusAsync(pi));
         ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
     }
+
+    [Fact]
+    public async Task PurchaseReceipt_ReturnOfFullyRejectedReceipt_Succeeds()
+    {
+        // Per ERPNext PR #59280 / commit b3d55db893:
+        // A receipt that rejected every unit can be sent back.
+        var companyId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var rejectedWarehouseId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var originalId = Guid.NewGuid();
+        var originalPr = new PurchaseReceipt(originalId, companyId, supplierId, warehouseId, "PR-REJ-001", DateTime.UtcNow);
+        originalPr.AddItem(itemId, "Defective Item", 0, 100m, 0m, rejectedQty: 10m, rejectedWarehouseId: rejectedWarehouseId);
+
+        _prRepository.GetAsync(originalId).Returns(Task.FromResult(originalPr));
+        _prRepository.GetQueryableAsync().Returns(Task.FromResult(new List<PurchaseReceipt>().AsQueryable()));
+
+        var returnPr = new PurchaseReceipt(Guid.NewGuid(), companyId, supplierId, warehouseId, "PR-RET-REJ-001", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = originalId
+        };
+        returnPr.AddItem(itemId, "Defective Item", 0, 100m, 0m, rejectedQty: -10m, rejectedWarehouseId: rejectedWarehouseId);
+
+        await Should.NotThrowAsync(async () => await _prManager.ValidateReturnAsync(returnPr));
+    }
+
+    [Fact]
+    public async Task PurchaseReceipt_ReturnOfFullyRejectedReceipt_ExceedingQty_Throws()
+    {
+        // Per ERPNext PR #59280:
+        // Returning more rejected quantity than originally received must throw.
+        var companyId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var rejectedWarehouseId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var originalId = Guid.NewGuid();
+        var originalPr = new PurchaseReceipt(originalId, companyId, supplierId, warehouseId, "PR-REJ-002", DateTime.UtcNow);
+        originalPr.AddItem(itemId, "Defective Item", 0, 100m, 0m, rejectedQty: 10m, rejectedWarehouseId: rejectedWarehouseId);
+
+        _prRepository.GetAsync(originalId).Returns(Task.FromResult(originalPr));
+        _prRepository.GetQueryableAsync().Returns(Task.FromResult(new List<PurchaseReceipt>().AsQueryable()));
+
+        var returnPr = new PurchaseReceipt(Guid.NewGuid(), companyId, supplierId, warehouseId, "PR-RET-REJ-002", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = originalId
+        };
+        returnPr.AddItem(itemId, "Defective Item", 0, 100m, 0m, rejectedQty: -15m, rejectedWarehouseId: rejectedWarehouseId);
+
+        var ex = await Should.ThrowAsync<BusinessException>(async () => await _prManager.ValidateReturnAsync(returnPr));
+        ex.Code.ShouldBe("MyERP:08004");
+    }
+
+    [Fact]
+    public void PurchaseReceipt_ReturnWithZeroAcceptedAndZeroRejectedQty_Throws()
+    {
+        // Must reject return item if neither accepted nor rejected qty is negative.
+        var companyId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var returnPr = new PurchaseReceipt(Guid.NewGuid(), companyId, supplierId, warehouseId, "PR-RET-ZERO", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = Guid.NewGuid()
+        };
+
+        var ex = Should.Throw<ArgumentException>(() =>
+            returnPr.AddItem(itemId, "Zero Item", 0, 100m, 0m, rejectedQty: 0m));
+        ex.ParamName.ShouldBe("quantity");
+    }
 }
