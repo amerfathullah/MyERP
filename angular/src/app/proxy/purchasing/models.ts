@@ -191,6 +191,7 @@ export interface CreateScoItemDto {
   itemName: string;
   qty?: number;
   rate?: number;
+  serviceCostPerQty?: number;
   bomId?: string | null;
   warehouseId?: string | null;
 }
@@ -258,6 +259,8 @@ export interface CreateSubcontractingOrderDto {
   supplierId: string;
   orderDate: string;
   purchaseOrderId?: string | null;
+  currencyCode?: string;
+  exchangeRate?: number;
   notes?: string | null;
   items?: CreateScoItemDto[];
 }
@@ -715,6 +718,7 @@ export interface ScoItemDto extends EntityDto<string> {
   itemName?: string;
   qty?: number;
   rate?: number;
+  serviceCostPerQty?: number;
   receivedQty?: number;
   bomId?: string;
 }
@@ -807,6 +811,8 @@ export interface SubcontractingOrderDto extends AuditedEntityDto<string> {
   supplierId?: string;
   supplierName?: string | null;
   companyId?: string;
+  currencyCode?: string;
+  exchangeRate?: number;
   netTotal?: number;
   grandTotal?: number;
   status?: SubcontractingOrderStatus;

@@ -211,7 +211,9 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         {
             PurchaseOrderId = input.PurchaseOrderId,
             ProjectId = projectId,
-            Notes = input.Notes
+            Notes = input.Notes,
+            CurrencyCode = !string.IsNullOrWhiteSpace(input.CurrencyCode) ? input.CurrencyCode : (po?.CurrencyCode ?? "MYR"),
+            ExchangeRate = input.ExchangeRate.HasValue && input.ExchangeRate.Value > 0 ? input.ExchangeRate.Value : (po?.ExchangeRate > 0 ? po.ExchangeRate : 1m),
         };
 
         foreach (var item in input.Items)
@@ -224,9 +226,26 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                     .WithData("detail", "Subcontracting Order Item Project cannot differ from Purchase Order Item Project.");
             }
 
+            // PR #59334: Convert service cost from PO currency to company currency
+            var serviceCost = item.ServiceCostPerQty;
+            if (serviceCost == 0 && poItem != null)
+            {
+                serviceCost = poItem.UnitPrice * sco.ExchangeRate;
+            }
+
+            var itemRate = item.Rate;
+            if (itemRate == 0 && serviceCost > 0)
+            {
+                itemRate = serviceCost;
+            }
+
             sco.AddItem(new SubcontractingOrderItem(
-                GuidGenerator.Create(), sco.Id, item.ItemId, item.ItemName, item.Qty, item.Rate, itemProjectId)
-            { BomId = item.BomId, WarehouseId = item.WarehouseId });
+                GuidGenerator.Create(), sco.Id, item.ItemId, item.ItemName, item.Qty, itemRate, itemProjectId, serviceCost)
+            {
+                BomId = item.BomId,
+                WarehouseId = item.WarehouseId,
+                ServiceCostPerQty = serviceCost
+            });
         }
 
         await _scoRepository.InsertAsync(sco);

@@ -27,6 +27,7 @@ public class SubcontractingOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? PurchaseOrderId { get; set; }
 
     public string CurrencyCode { get; set; } = "MYR";
+    public decimal ExchangeRate { get; set; } = 1m;
     public decimal NetTotal { get; set; }
     public decimal GrandTotal { get; set; }
 
@@ -143,6 +144,8 @@ public class SubcontractingOrderItem : Entity<Guid>
     public string ItemName { get; set; } = null!;
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
+    /// <summary>Service cost per quantity converted to company currency (PR #59334 / commit ce3b63ae25).</summary>
+    public decimal ServiceCostPerQty { get; set; }
     public decimal Amount => Qty * Rate;
     public decimal ReceivedQty { get; set; }
     public Guid? BomId { get; set; }
@@ -150,10 +153,10 @@ public class SubcontractingOrderItem : Entity<Guid>
     public Guid? ProjectId { get; set; }
 
     protected SubcontractingOrderItem() { }
-    public SubcontractingOrderItem(Guid id, Guid scoId, Guid itemId, string itemName, decimal qty, decimal rate, Guid? projectId = null)
+    public SubcontractingOrderItem(Guid id, Guid scoId, Guid itemId, string itemName, decimal qty, decimal rate, Guid? projectId = null, decimal serviceCostPerQty = 0m)
         : base(id)
     {
-        SubcontractingOrderId = scoId; ItemId = itemId; ItemName = itemName; Qty = qty; Rate = rate; ProjectId = projectId;
+        SubcontractingOrderId = scoId; ItemId = itemId; ItemName = itemName; Qty = qty; Rate = rate; ProjectId = projectId; ServiceCostPerQty = serviceCostPerQty;
     }
 }
 

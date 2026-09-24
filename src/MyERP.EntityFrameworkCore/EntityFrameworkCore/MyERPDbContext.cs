@@ -1456,6 +1456,7 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.OrderNumber).IsRequired().HasMaxLength(50);
             b.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(10);
+            b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,6)").HasDefaultValue(1m);
             b.Property(x => x.NetTotal).HasColumnType("decimal(18,4)");
             b.Property(x => x.GrandTotal).HasColumnType("decimal(18,4)");
             b.Property(x => x.PerReceived).HasColumnType("decimal(5,2)");
@@ -1476,6 +1477,7 @@ public class MyERPDbContext :
             b.Property(x => x.ItemName).IsRequired().HasMaxLength(200);
             b.Property(x => x.Qty).HasColumnType("decimal(18,4)");
             b.Property(x => x.Rate).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ServiceCostPerQty).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
             b.Property(x => x.ReceivedQty).HasColumnType("decimal(18,4)");
             b.HasIndex(x => x.ProjectId);
         });

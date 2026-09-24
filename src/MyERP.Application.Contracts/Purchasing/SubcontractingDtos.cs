@@ -15,6 +15,8 @@ public class SubcontractingOrderDto : AuditedEntityDto<Guid>
     public Guid SupplierId { get; set; }
     public string? SupplierName { get; set; }
     public Guid CompanyId { get; set; }
+    public string CurrencyCode { get; set; } = "MYR";
+    public decimal ExchangeRate { get; set; } = 1m;
     public decimal NetTotal { get; set; }
     public decimal GrandTotal { get; set; }
     public SubcontractingOrderStatus Status { get; set; }
@@ -30,6 +32,7 @@ public class ScoItemDto : EntityDto<Guid>
     public string ItemName { get; set; } = null!;
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
+    public decimal ServiceCostPerQty { get; set; }
     public decimal ReceivedQty { get; set; }
     public Guid? ProjectId { get; set; }
     public Guid? BomId { get; set; }
@@ -42,6 +45,8 @@ public class CreateSubcontractingOrderDto
     [Required] public DateTime OrderDate { get; set; }
     public Guid? PurchaseOrderId { get; set; }
     public Guid? ProjectId { get; set; }
+    public string? CurrencyCode { get; set; }
+    public decimal? ExchangeRate { get; set; }
     public string? Notes { get; set; }
     public List<CreateScoItemDto> Items { get; set; } = new();
 }
@@ -52,6 +57,7 @@ public class CreateScoItemDto
     [Required] public string ItemName { get; set; } = null!;
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
+    public decimal ServiceCostPerQty { get; set; }
     public Guid? BomId { get; set; }
     public Guid? WarehouseId { get; set; }
     public Guid? ProjectId { get; set; }
