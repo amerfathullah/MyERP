@@ -1286,37 +1286,40 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             .LazyGetRequiredService<MyERP.Inventory.DomainServices.PutawayService>();
         var itemRepo = LazyServiceProvider
             .LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var uomRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Uom, Guid>>();
 
-        var results = new List<PutawayAllocationResultDto>();
+        var uomQuery = await uomRepo.GetQueryableAsync();
+        var wholeNumberUoms = uomQuery
+            .Where(u => u.MustBeWholeNumber)
+            .Select(u => u.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        var batchRequests = new List<MyERP.Inventory.DomainServices.PutawayBatchItem>();
         foreach (var input in items)
         {
             var item = await itemRepo.FindAsync(input.ItemId);
             if (item == null || !item.MaintainStock) continue;
 
-            var uomRepo = LazyServiceProvider
-                .LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Uom, Guid>>();
-            var uomQuery = await uomRepo.GetQueryableAsync();
-            var mustBeWholeNumber = uomQuery
-                .Any(u => u.Name == item.Uom && u.MustBeWholeNumber);
-
-            var allocations = await putawayService.AllocateAsync(
-                companyId, input.ItemId, input.Qty,
-                item.ItemGroupId, mustBeWholeNumber);
-
-            foreach (var alloc in allocations)
+            var mustBeWholeNumber = !string.IsNullOrWhiteSpace(item.Uom) && wholeNumberUoms.Contains(item.Uom);
+            batchRequests.Add(new MyERP.Inventory.DomainServices.PutawayBatchItem
             {
-                results.Add(new PutawayAllocationResultDto
-                {
-                    ItemId = input.ItemId,
-                    WarehouseId = alloc.WarehouseId,
-                    Qty = alloc.Qty,
-                    IsUnallocated = alloc.IsUnallocated,
-                });
-            }
+                ItemId = input.ItemId,
+                Qty = input.Qty,
+                ItemGroupId = item.ItemGroupId,
+                MustBeWholeNumber = mustBeWholeNumber
+            });
         }
 
-        return results;
+        var allocations = await putawayService.AllocateBatchAsync(companyId, batchRequests);
+
+        return allocations.Select(alloc => new PutawayAllocationResultDto
+        {
+            ItemId = alloc.ItemId,
+            WarehouseId = alloc.WarehouseId,
+            Qty = alloc.Qty,
+            IsUnallocated = alloc.IsUnallocated,
+        }).ToList();
     }
 
     [Authorize(MyERPPermissions.PurchaseReceipts.Submit)]

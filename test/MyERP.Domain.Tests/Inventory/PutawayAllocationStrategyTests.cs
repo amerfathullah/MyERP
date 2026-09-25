@@ -177,4 +177,48 @@ public class PutawayAllocationStrategyTests
         Assert.Equal(60m, allocatedToWh1);
         Assert.Equal(140m, result.Where(a => a.IsUnallocated).Sum(a => a.Qty));
     }
+
+    /// <summary>
+    /// Per ERPNext PR #59380 (reuse putaway rule lookups for repeated items):
+    /// When the same item appears multiple times in a voucher batch, rules are reused,
+    /// and allocated capacity across rows is netted off so warehouse capacity is never exceeded.
+    /// </summary>
+    [Fact]
+    public async Task Putaway_AllocateBatch_ReusesRulesAndNetsCapacity_ForRepeatedItemRows()
+    {
+        var ruleRepo = Substitute.For<IRepository<PutawayRule, Guid>>();
+        var binRepo = Substitute.For<IRepository<Bin, Guid>>();
+
+        var rule = new PutawayRule(Guid.NewGuid(), _companyId, _wh1)
+        {
+            ItemId = _itemId,
+            StockCapacity = 50,
+            Priority = 1
+        };
+
+        var rules = new List<PutawayRule> { rule }.AsQueryable();
+        ruleRepo.GetQueryableAsync().Returns(Task.FromResult(rules));
+        binRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Bin>().AsQueryable()));
+
+        var service = new PutawayService(ruleRepo, binRepo);
+
+        var batch = new[]
+        {
+            new PutawayBatchItem { ItemId = _itemId, Qty = 30m },
+            new PutawayBatchItem { ItemId = _itemId, Qty = 30m }
+        };
+
+        var result = await service.AllocateBatchAsync(_companyId, batch);
+
+        // First item row gets 30 in Wh1
+        // Second item row gets 20 in Wh1 (reaching capacity 50) and 10 is unallocated
+        var allocatedToWh1 = result.Where(a => !a.IsUnallocated && a.WarehouseId == _wh1).Sum(a => a.Qty);
+        Assert.Equal(50m, allocatedToWh1);
+
+        var unallocated = result.Where(a => a.IsUnallocated).Sum(a => a.Qty);
+        Assert.Equal(10m, unallocated);
+
+        // Verify rule repository queryable was only fetched once for the repeated item
+        await ruleRepo.Received(1).GetQueryableAsync();
+    }
 }
