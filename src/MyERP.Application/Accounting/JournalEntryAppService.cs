@@ -319,6 +319,11 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         reversal.VoucherType = JournalEntryVoucherType.Reversal;
         reversal.ReversalOfId = source.Id;
         reversal.IsMultiCurrency = source.IsMultiCurrency;
+        // PR #59262: carry reference fields into reverse journal entry
+        reversal.ReferenceType = source.ReferenceType;
+        reversal.ReferenceId = source.ReferenceId;
+        reversal.ReferenceNumber = source.ReferenceNumber;
+        reversal.Narration = $"Reversal of Journal Entry {source.EntryNumber}";
 
         // Swap debit↔credit for each line (per ERPNext reversal pattern)
         foreach (var line in source.Lines)

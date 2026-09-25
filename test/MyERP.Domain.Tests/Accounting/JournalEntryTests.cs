@@ -299,4 +299,29 @@ public class JournalEntryTests
         entry.TotalCredit.ShouldBe(0.30m);
         entry.Difference.ShouldBe(0.00m);
     }
+
+    [Fact]
+    public void JournalEntry_ReversalCarriesReferenceFields()
+    {
+        // Per ERPNext PR #59262 / commit 9e01992217:
+        // Reverse journal entry carries ReferenceType, ReferenceId, ReferenceNumber from source.
+        var source = CreateJournalEntry();
+        var refId = Guid.NewGuid();
+        source.ReferenceType = "BankEntry";
+        source.ReferenceId = refId;
+        source.ReferenceNumber = "CHQ-123456";
+
+        var reversal = CreateJournalEntry();
+        reversal.ReversalOfId = source.Id;
+        reversal.ReferenceType = source.ReferenceType;
+        reversal.ReferenceId = source.ReferenceId;
+        reversal.ReferenceNumber = source.ReferenceNumber;
+        reversal.Narration = $"Reversal of Journal Entry {source.EntryNumber}";
+
+        reversal.ReferenceType.ShouldBe("BankEntry");
+        reversal.ReferenceId.ShouldBe(refId);
+        reversal.ReferenceNumber.ShouldBe("CHQ-123456");
+        reversal.Narration.ShouldStartWith("Reversal of Journal Entry");
+    }
 }
+
