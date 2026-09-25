@@ -972,6 +972,12 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.Submit();
         await _workOrderRepository.UpdateAsync(wo);
 
+        // Per ERPNext PR #59419 / commit d687024b88: refresh planned qty after status update
+        if (wo.FgWarehouseId.HasValue)
+        {
+            await woManager.RefreshPlannedQtyAsync(_workOrderRepository, _binService, wo.ItemId, wo.FgWarehouseId.Value, wo.TenantId);
+        }
+
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "WorkOrder", wo.Id,
@@ -1365,6 +1371,14 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         await _workOrderRepository.UpdateAsync(wo);
 
+        // Per ERPNext PR #59419 / commit d687024b88: refresh planned qty after status update
+        var targetWarehouseId = productionParams.TargetWarehouseId ?? wo.FgWarehouseId;
+        if (targetWarehouseId.HasValue)
+        {
+            var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+            await woManager.RefreshPlannedQtyAsync(_workOrderRepository, _binService, wo.ItemId, targetWarehouseId.Value, wo.TenantId);
+        }
+
         // Sync linked Production Plan item ProducedQty if applicable
         var planItemRepo = LazyServiceProvider.LazyGetService<IRepository<ProductionPlanItem, Guid>>();
         if (planItemRepo != null)
@@ -1387,6 +1401,11 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
         wo.Stop();
         await _workOrderRepository.UpdateAsync(wo);
+        if (wo.FgWarehouseId.HasValue)
+        {
+            var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+            await woManager.RefreshPlannedQtyAsync(_workOrderRepository, _binService, wo.ItemId, wo.FgWarehouseId.Value, wo.TenantId);
+        }
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
@@ -1396,6 +1415,11 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
         wo.Unstop();
         await _workOrderRepository.UpdateAsync(wo);
+        if (wo.FgWarehouseId.HasValue)
+        {
+            var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+            await woManager.RefreshPlannedQtyAsync(_workOrderRepository, _binService, wo.ItemId, wo.FgWarehouseId.Value, wo.TenantId);
+        }
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
@@ -1405,6 +1429,11 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
         wo.Close();
         await _workOrderRepository.UpdateAsync(wo);
+        if (wo.FgWarehouseId.HasValue)
+        {
+            var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+            await woManager.RefreshPlannedQtyAsync(_workOrderRepository, _binService, wo.ItemId, wo.FgWarehouseId.Value, wo.TenantId);
+        }
 
         // Cancel any active stock reservations for this Work Order (per ERPNext PR #50773 / commit 9b5d215a7a)
         var sreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
@@ -1478,6 +1507,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         wo.Cancel();
         await _workOrderRepository.UpdateAsync(wo);
+
+        // Per ERPNext PR #59419 / commit d687024b88: refresh planned qty after status update
+        if (wo.FgWarehouseId.HasValue)
+        {
+            var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+            await woManager.RefreshPlannedQtyAsync(_workOrderRepository, _binService, wo.ItemId, wo.FgWarehouseId.Value, wo.TenantId);
+        }
 
         // Cancel any active stock reservations for this Work Order (per ERPNext PR #50773 / commit 9b5d215a7a)
         var cancelSreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();

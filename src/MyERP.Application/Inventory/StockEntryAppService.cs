@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -511,6 +511,15 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         await planItemRepo.UpdateAsync(linkedPlanItem, autoSave: true);
                     }
                 }
+
+                // Per ERPNext PR #59419 / commit d687024b88: refresh planned qty after status update
+                var fgWhId = entry.Items.FirstOrDefault(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)?.TargetWarehouseId ?? wo.FgWarehouseId;
+                if (fgWhId.HasValue)
+                {
+                    var binService = LazyServiceProvider.LazyGetRequiredService<DomainServices.BinService>();
+                    var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+                    await woManager.RefreshPlannedQtyAsync(woRepo, binService, wo.ItemId, fgWhId.Value, entry.TenantId);
+                }
             }
 
             // Auto-reserve finished goods for linked Sales Order (ERPNext PR #47382 / commit 5225d4c318)
@@ -721,6 +730,15 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         linkedPlanItem.ProducedQty = producingWorkOrder.ProducedQuantity;
                         await planItemRepo.UpdateAsync(linkedPlanItem, autoSave: true);
                     }
+                }
+
+                // Per ERPNext PR #59419 / commit d687024b88: refresh planned qty after status update
+                var fgWhId = entry.Items.FirstOrDefault(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)?.TargetWarehouseId ?? producingWorkOrder.FgWarehouseId;
+                if (fgWhId.HasValue)
+                {
+                    var binService = LazyServiceProvider.LazyGetRequiredService<DomainServices.BinService>();
+                    var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+                    await woManager.RefreshPlannedQtyAsync(workOrderRepoForProduction, binService, producingWorkOrder.ItemId, fgWhId.Value, entry.TenantId);
                 }
             }
         }

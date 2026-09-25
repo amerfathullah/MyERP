@@ -133,7 +133,18 @@ public class BinService : DomainService
     public virtual async Task UpdatePlannedQtyAsync(Guid itemId, Guid warehouseId, decimal plannedQtyChange, Guid? tenantId = null)
     {
         var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
-        bin.PlannedQty += plannedQtyChange;
+        bin.PlannedQty = Math.Max(0, bin.PlannedQty + plannedQtyChange);
+        await _binRepository.UpdateAsync(bin);
+    }
+
+    /// <summary>
+    /// Sets the planned quantity directly (from refreshed open Work Orders).
+    /// Per ERPNext get_planned_qty / PR #59419.
+    /// </summary>
+    public virtual async Task SetPlannedQtyAsync(Guid itemId, Guid warehouseId, decimal plannedQty, Guid? tenantId = null)
+    {
+        var bin = await GetOrCreateAsync(itemId, warehouseId, tenantId);
+        bin.PlannedQty = Math.Max(0, plannedQty);
         await _binRepository.UpdateAsync(bin);
     }
 

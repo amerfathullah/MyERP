@@ -338,6 +338,32 @@ public class WorkOrderManager : DomainService
                 .WithData("processLossQty", wo.ProcessLossQty);
         }
     }
+
+    /// <summary>
+    /// Refreshes the Bin's planned quantity for a given finished good and warehouse.
+    /// Per ERPNext get_planned_qty / PR #59419 (commit d687024b88):
+    /// Planned qty is calculated AFTER status updates (e.g. Completed/Cancelled/InProcess).
+    /// Sum of (Quantity - ProducedQuantity) where Status is Submitted, NotStarted, or InProcess,
+    /// and Quantity > ProducedQuantity.
+    /// </summary>
+    public async Task RefreshPlannedQtyAsync(
+        IRepository<WorkOrder, Guid> workOrderRepository,
+        Inventory.DomainServices.BinService binService,
+        Guid itemId,
+        Guid warehouseId,
+        Guid? tenantId = null)
+    {
+        var query = await workOrderRepository.GetQueryableAsync();
+        var activeOrders = query
+            .Where(w => w.ItemId == itemId
+                && w.FgWarehouseId == warehouseId
+                && (w.Status == WorkOrderStatus.Submitted || w.Status == WorkOrderStatus.NotStarted || w.Status == WorkOrderStatus.InProcess)
+                && w.Quantity > w.ProducedQuantity)
+            .ToList();
+
+        var plannedQty = activeOrders.Sum(w => w.Quantity - w.ProducedQuantity);
+        await binService.SetPlannedQtyAsync(itemId, warehouseId, Math.Max(0m, plannedQty), tenantId);
+    }
 }
 
 /// <summary>
