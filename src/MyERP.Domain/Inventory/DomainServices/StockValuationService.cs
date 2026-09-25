@@ -255,7 +255,12 @@ public class StockValuationService : DomainService
                     if (totalQty > 0)
                     {
                         var totalVal = list.Sum(s => s.StockValueDifference != 0 ? s.StockValueDifference : s.StockValue);
-                        return Math.Round(totalVal / totalQty, 4);
+                        // Per ERPNext PR #59291: only return batch average rate if both balance qty and value > 0;
+                        // otherwise drained/negative batch pools fall back to warehouse pooled rate.
+                        if (totalVal > 0)
+                        {
+                            return Math.Round(totalVal / totalQty, 4);
+                        }
                     }
                 }
             }
@@ -430,6 +435,8 @@ public class StockValuationService : DomainService
                     newBalanceQty = 0m;
                     newBalanceValue = 0m;
                 }
+                valuationRate = Math.Max(0m, valuationRate);
+                newBalanceValue = Math.Max(0m, newBalanceValue);
                 return (valuationRate, newBalanceQty, newBalanceValue);
             }
 
@@ -463,6 +470,11 @@ public class StockValuationService : DomainService
             newBalanceQty = 0m;
             newBalanceValue = 0m;
         }
+
+        // ERPNext PR #59291 / commit 8793ad8264: moving average valuation rate and balance value
+        // must never be negative, preventing stock value corruption from drained or overdrawn batch pools.
+        valuationRate = Math.Max(0m, valuationRate);
+        newBalanceValue = Math.Max(0m, newBalanceValue);
 
         return (valuationRate, newBalanceQty, newBalanceValue);
     }
