@@ -24,6 +24,13 @@ public class BomItem : FullAuditedEntity<Guid>
     public decimal StockQty => Quantity * ConversionFactor;
 
     /// <summary>
+    /// Gets quantity consumed per unit of finished good based on the parent BOM quantity.
+    /// Per ERPNext PR #59397 (commit 66ca3af4c8): uses per-unit BOM qty (stock_qty / bom.quantity) rather than raw stock_qty.
+    /// </summary>
+    public decimal GetQtyConsumedPerUnit(decimal bomQuantity) =>
+        bomQuantity > 0 ? StockQty / bomQuantity : StockQty;
+
+    /// <summary>
     /// If this item is a sub-assembly, references its BOM for recursive explosion.
     /// </summary>
     public Guid? SubBomId { get; set; }

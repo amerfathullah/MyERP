@@ -252,4 +252,20 @@ public class ProductionRecordingWithProcessLossTests
         altConsumption.OriginalItemId.ShouldBe(originalItemId);
         altConsumption.Quantity.ShouldBe(10m);
     }
+
+    [Fact]
+    public void BomItem_GetQtyConsumedPerUnit_CalculatesPerUnitOfBomQuantity()
+    {
+        // Per ERPNext PR #59397: Multi-unit BOM (e.g. BOM Qty = 2, Item Qty = 4)
+        // Consumed per unit is 4 / 2 = 2, not the raw StockQty 4.
+        var bomItem = new BomItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Raw Material", quantity: 4m, rate: 10m, conversionFactor: 1m);
+        bomItem.GetQtyConsumedPerUnit(2m).ShouldBe(2m);
+
+        // Single-unit BOM
+        bomItem.GetQtyConsumedPerUnit(1m).ShouldBe(4m);
+
+        // Fallback for 0 BOM quantity
+        bomItem.GetQtyConsumedPerUnit(0m).ShouldBe(4m);
+    }
 }
+
