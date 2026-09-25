@@ -283,10 +283,27 @@ public class GlRepostService : DomainService
             var ratePerStockUnit = item.ConversionFactor != 0
                 ? item.UnitPrice / item.ConversionFactor
                 : item.UnitPrice;
-            var warehouseId = item.WarehouseId ?? invoice.WarehouseId.Value;
 
-            valueByWarehouse.TryGetValue(warehouseId, out var prior);
-            valueByWarehouse[warehouseId] = prior + (item.StockQty * ratePerStockUnit);
+            if (item.StockQty > 0)
+            {
+                var warehouseId = item.WarehouseId ?? invoice.WarehouseId.Value;
+                valueByWarehouse.TryGetValue(warehouseId, out var prior);
+                valueByWarehouse[warehouseId] = prior + (item.StockQty * ratePerStockUnit);
+            }
+
+            // Rejected warehouse (PR #59257 & #59258):
+            // Material that nothing paid for carries no value and still books nothing.
+            // When billed on this invoice or an internal transfer, value goes to rejected warehouse.
+            var rejWarehouseId = item.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
+            if (rejWarehouseId.HasValue && item.RejectedQty > 0)
+            {
+                var isValued = item.BillsRejectedQuantity || item.FromWarehouseId.HasValue;
+                if (isValued)
+                {
+                    valueByWarehouse.TryGetValue(rejWarehouseId.Value, out var priorRej);
+                    valueByWarehouse[rejWarehouseId.Value] = priorRej + (item.RejectedStockQty * ratePerStockUnit);
+                }
+            }
         }
 
         if (valueByWarehouse.Count == 0) return null;

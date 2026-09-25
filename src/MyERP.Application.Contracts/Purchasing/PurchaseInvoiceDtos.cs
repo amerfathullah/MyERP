@@ -66,6 +66,12 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public string? InterCompanyInvoiceNumber { get; set; }
     public string? InterCompanyCompanyName { get; set; }
 
+    /// <summary>When true, stock is received on invoice submit (direct purchase without PR).</summary>
+    public bool UpdateStock { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public Guid? RejectedWarehouseId { get; set; }
+    public bool BillsRejectedQuantity { get; set; }
+
     public List<PurchaseInvoiceItemDto> Items { get; set; } = new();
 }
 
@@ -76,11 +82,18 @@ public class PurchaseInvoiceItemDto
     public string Description { get; set; } = null!;
     public string Uom { get; set; } = null!;
     public decimal Quantity { get; set; }
+    public decimal ReceivedQty { get; set; }
+    public decimal RejectedQty { get; set; }
+    public Guid? RejectedWarehouseId { get; set; }
+    public bool BillsRejectedQuantity { get; set; }
+    public decimal BilledQuantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal LineTotal { get; set; }
     public Guid? PurchaseOrderItemId { get; set; }
     public Guid? PurchaseReceiptItemId { get; set; }
+    public Guid? FromWarehouseId { get; set; }
+    public Guid? WarehouseId { get; set; }
     public bool DeliveredBySupplier { get; set; }
     public bool EnableDeferredExpense { get; set; }
     public Guid? DeferredExpenseAccountId { get; set; }
@@ -181,6 +194,9 @@ public class CreatePurchaseInvoiceDto
     /// <summary>Warehouse for stock receipt when UpdateStock=true.</summary>
     public Guid? WarehouseId { get; set; }
 
+    /// <summary>Default warehouse for rejected goods when UpdateStock=true.</summary>
+    public Guid? RejectedWarehouseId { get; set; }
+
     [Required][MinLength(1)] public List<CreatePurchaseInvoiceItemDto> Items { get; set; } = new();
 }
 
@@ -190,6 +206,9 @@ public class CreatePurchaseInvoiceItemDto
     [Required][StringLength(500)] public string Description { get; set; } = null!;
     /// <summary>Quantity (positive for normal invoices, negative for debit notes/returns).</summary>
     [Required] public decimal Quantity { get; set; }
+    public decimal ReceivedQty { get; set; }
+    public decimal RejectedQty { get; set; }
+    public Guid? RejectedWarehouseId { get; set; }
     [Required][Range(0, double.MaxValue)] public decimal UnitPrice { get; set; }
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(50)] public string Uom { get; set; } = "Unit";
@@ -200,6 +219,7 @@ public class CreatePurchaseInvoiceItemDto
     public DateTime? ServiceStopDate { get; set; }
     public Guid? PurchaseOrderItemId { get; set; }
     public Guid? PurchaseReceiptItemId { get; set; }
+    public Guid? FromWarehouseId { get; set; }
     public bool DeliveredBySupplier { get; set; }
 
     /// <summary>

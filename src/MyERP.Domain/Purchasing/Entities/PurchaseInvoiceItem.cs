@@ -1,4 +1,6 @@
 using System;
+using MyERP;
+using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 
 namespace MyERP.Purchasing.Entities;
@@ -17,10 +19,20 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     public string Description { get; set; } = null!;
     public string Uom { get; set; } = "Unit";
     public decimal Quantity { get; set; }
+    /// <summary>Total received quantity. Equals Quantity + RejectedQty.</summary>
+    public decimal ReceivedQty { get; set; }
+    /// <summary>Rejected quantity (damaged, wrong spec, failed inspection).</summary>
+    public decimal RejectedQty { get; set; }
+    /// <summary>Warehouse where rejected goods are stored (when UpdateStock=true).</summary>
+    public Guid? RejectedWarehouseId { get; set; }
+    /// <summary>When true, this item bills the rejected quantity on a stock updating invoice (PR #59258 / commit 16b1be814c).</summary>
+    public bool BillsRejectedQuantity { get; set; }
+    /// <summary>Quantity billed to supplier: Quantity + RejectedQty when BillsRejectedQuantity is true, else Quantity.</summary>
+    public decimal BilledQuantity => (BillsRejectedQuantity && RejectedQty > 0) ? (Quantity + RejectedQty) : Quantity;
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
 
-    public decimal LineTotal => Quantity * UnitPrice;
+    public decimal LineTotal => BilledQuantity * UnitPrice;
 
     /// <summary>Item's stock UOM. From Item master.</summary>
     public string StockUom { get; set; } = "Unit";
@@ -30,6 +42,9 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
 
     /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
     public decimal StockQty => Quantity * ConversionFactor;
+
+    /// <summary>Rejected quantity in stock UOM = RejectedQty × ConversionFactor.</summary>
+    public decimal RejectedStockQty => RejectedQty * ConversionFactor;
 
     /// <summary>Rate per stock UOM = UnitPrice / ConversionFactor (gotcha #198).</summary>
     public decimal StockUomRate => ConversionFactor > 0 ? Math.Round(UnitPrice / ConversionFactor, 4) : UnitPrice;
@@ -86,7 +101,7 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// Calculated purchase expense GL amount.
     /// Per PR #57475: deducts landed cost voucher amount to prevent double-counting.
     /// </summary>
-    public decimal PurchaseExpenseGlAmount => (Quantity * UnitPrice) - LandedCostVoucherAmount;
+    public decimal PurchaseExpenseGlAmount => LineTotal - LandedCostVoucherAmount;
 
     /// <summary>
     /// Computes purchase expense GL amount after deducting landed cost voucher amount in transaction currency.
@@ -97,7 +112,38 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
         var lcvInTxnCurrency = exchangeRate > 0
             ? LandedCostVoucherAmount / exchangeRate
             : LandedCostVoucherAmount;
-        return (Quantity * UnitPrice) - lcvInTxnCurrency;
+        return LineTotal - lcvInTxnCurrency;
+    }
+
+    /// <summary>
+    /// Validates accepted and rejected quantities against received quantity per ERPNext buying_controller (gotchas #488, #3197).
+    /// </summary>
+    public void ValidateAcceptedRejectedQty(bool isReturn)
+    {
+        if (isReturn)
+        {
+            if (Quantity > 0 || RejectedQty > 0 || ReceivedQty > 0)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Accepted, rejected, and received quantities must be negative for return invoices.");
+
+            if (ReceivedQty == 0 && (Quantity < 0 || RejectedQty < 0))
+                ReceivedQty = Quantity + RejectedQty;
+            else if (Math.Abs(ReceivedQty - (Quantity + RejectedQty)) > 0.0001m)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Received Qty ({ReceivedQty}) must equal Accepted Qty ({Quantity}) + Rejected Qty ({RejectedQty}).");
+        }
+        else
+        {
+            if (Quantity < 0 || RejectedQty < 0 || ReceivedQty < 0)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Accepted, rejected, and received quantities cannot be negative for normal invoices.");
+
+            if (ReceivedQty == 0 && (Quantity > 0 || RejectedQty > 0))
+                ReceivedQty = Quantity + RejectedQty;
+            else if (Math.Abs(ReceivedQty - (Quantity + RejectedQty)) > 0.0001m)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Received Qty ({ReceivedQty}) must equal Accepted Qty ({Quantity}) + Rejected Qty ({RejectedQty}).");
+        }
     }
 
     protected PurchaseInvoiceItem() { }

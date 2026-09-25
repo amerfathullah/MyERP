@@ -99,6 +99,12 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>Warehouse for stock receipt when UpdateStock=true.</summary>
     public Guid? WarehouseId { get; set; }
 
+    /// <summary>Default warehouse for rejected goods when UpdateStock=true.</summary>
+    public Guid? RejectedWarehouseId { get; set; }
+
+    /// <summary>When true, rejected quantity is billed on this invoice (PR #59258 / commit 16b1be814c).</summary>
+    public bool BillsRejectedQuantity { get; set; }
+
     /// <summary>Original invoice this return is against.</summary>
     public Guid? ReturnAgainstId { get; set; }
 
@@ -204,22 +210,45 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// invoice's warehouse, used by update_stock invoices whose qty is split across warehouses.
     /// Null keeps the invoice-level warehouse.
     /// </summary>
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", Guid? warehouseId = null)
+    public void AddItem(
+        Guid itemId,
+        string description,
+        decimal quantity,
+        decimal unitPrice,
+        decimal taxAmount,
+        string uom = "Unit",
+        Guid? warehouseId = null,
+        decimal receivedQty = 0,
+        decimal rejectedQty = 0,
+        Guid? rejectedWarehouseId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Check.NotDefaultOrNull<Guid>(itemId, nameof(itemId));
 
-        // Normal invoices: qty must be positive. Returns (IsReturn=true): qty must be negative.
-        if (!IsReturn && quantity <= 0)
-            throw new ArgumentException("Quantity must be positive for non-return invoices.", nameof(quantity));
+        // Normal invoices: qty or rejectedQty must be positive. Returns (IsReturn=true): must be negative.
+        if (!IsReturn && quantity <= 0 && rejectedQty <= 0)
+            throw new ArgumentException("Quantity or RejectedQty must be positive for non-return invoices.", nameof(quantity));
 
-        _items.Add(new PurchaseInvoiceItem(
+        var item = new PurchaseInvoiceItem(
             Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom)
         {
             Idx = _items.Count,
             WarehouseId = warehouseId,
-        });
+            ReceivedQty = receivedQty != 0 ? receivedQty : (quantity + rejectedQty),
+            RejectedQty = rejectedQty,
+            RejectedWarehouseId = rejectedWarehouseId ?? RejectedWarehouseId,
+            BillsRejectedQuantity = BillsRejectedQuantity
+        };
+        if (!IsReturn && (quantity < 0 || rejectedQty < 0 || receivedQty < 0))
+        {
+            item.ValidateAcceptedRejectedQty(IsReturn);
+        }
+        else if (receivedQty != 0 && Math.Abs(receivedQty - (quantity + rejectedQty)) > 0.0001m)
+        {
+            item.ValidateAcceptedRejectedQty(IsReturn);
+        }
+        _items.Add(item);
 
         RecalculateTotals();
     }
@@ -249,6 +278,17 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Cannot enable Update Stock when invoice contains items linked to Purchase Receipts.");
+        }
+
+        // Validate accepted/rejected quantities and warehouse per ERPNext buying_controller (gotchas #488, #3197)
+        foreach (var item in _items)
+        {
+            item.ValidateAcceptedRejectedQty(IsReturn);
+            if (UpdateStock && item.RejectedQty != 0 && !item.RejectedWarehouseId.HasValue && !RejectedWarehouseId.HasValue)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Rejected Warehouse is required for item '{item.Description}' when Rejected Qty is non-zero.");
+            }
         }
 
         // Clear stale deferred expense fields on non-deferred items (ERPNext PR #57140)

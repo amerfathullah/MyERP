@@ -1375,6 +1375,7 @@ public class MyERPDbContext :
 
             // Optimistic concurrency on AmountPaid — prevents lost payments under concurrent PE posting
             b.Property(x => x.ConcurrencyStamp).IsConcurrencyToken().HasMaxLength(40);
+            b.Property(x => x.BillsRejectedQuantity);
         });
 
         builder.Entity<PurchaseInvoiceItem>(b =>
@@ -1384,8 +1385,11 @@ public class MyERPDbContext :
             b.Property(x => x.Description).IsRequired().HasMaxLength(PurchaseInvoiceItemConsts.MaxDescriptionLength);
             b.Property(x => x.Uom).IsRequired().HasMaxLength(PurchaseInvoiceItemConsts.MaxUomLength);
             b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ReceivedQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.RejectedQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.UnitPrice).HasColumnType("decimal(18,4)");
             b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
+            b.Property(x => x.BillsRejectedQuantity);
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
         });
 

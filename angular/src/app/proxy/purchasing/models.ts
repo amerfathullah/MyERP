@@ -68,6 +68,7 @@ export interface CreatePurchaseInvoiceDto {
   eInvoiceDocType?: EInvoiceDocumentType | null;
   updateStock?: boolean;
   warehouseId?: string | null;
+  rejectedWarehouseId?: string | null;
   items: CreatePurchaseInvoiceItemDto[];
 }
 
@@ -75,6 +76,9 @@ export interface CreatePurchaseInvoiceItemDto {
   itemId: string;
   description: string;
   quantity: number;
+  receivedQty?: number;
+  rejectedQty?: number;
+  rejectedWarehouseId?: string | null;
   unitPrice: number;
   taxAmount?: number;
   uom?: string;
@@ -85,6 +89,7 @@ export interface CreatePurchaseInvoiceItemDto {
   serviceStopDate?: string | null;
   purchaseOrderItemId?: string | null;
   purchaseReceiptItemId?: string | null;
+  fromWarehouseId?: string | null;
   deliveredBySupplier?: boolean;
   warehouseId?: string | null;
 }
@@ -496,6 +501,10 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   interCompanyInvoiceId?: string | null;
   interCompanyInvoiceNumber?: string | null;
   interCompanyCompanyName?: string | null;
+  updateStock?: boolean;
+  warehouseId?: string | null;
+  rejectedWarehouseId?: string | null;
+  billsRejectedQuantity?: boolean;
   items?: PurchaseInvoiceItemDto[];
 }
 
@@ -505,11 +514,18 @@ export interface PurchaseInvoiceItemDto {
   description?: string;
   uom?: string;
   quantity?: number;
+  receivedQty?: number;
+  rejectedQty?: number;
+  rejectedWarehouseId?: string | null;
+  billsRejectedQuantity?: boolean;
+  billedQuantity?: number;
   unitPrice?: number;
   taxAmount?: number;
   lineTotal?: number;
   purchaseOrderItemId?: string | null;
   purchaseReceiptItemId?: string | null;
+  fromWarehouseId?: string | null;
+  warehouseId?: string | null;
   deliveredBySupplier?: boolean;
   enableDeferredExpense?: boolean;
   deferredExpenseAccountId?: string | null;
