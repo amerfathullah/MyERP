@@ -34,6 +34,7 @@ public class ProformaInvoiceItemDto
     public Guid ItemId { get; set; }
     public string ItemCode { get; set; } = null!;
     public string ItemName { get; set; } = null!;
+    public string? Description { get; set; }
     public string? Uom { get; set; }
     public decimal Quantity { get; set; }
     public decimal Rate { get; set; }
@@ -60,7 +61,8 @@ public class CreateProformaInvoiceItemDto
     [Required]
     public Guid SalesOrderItemId { get; set; }
 
-    [Range(0.0001, double.MaxValue)]
+    public string? Description { get; set; }
+
     public decimal Quantity { get; set; }
 
     /// <summary>For Amount basis: user-entered amount (rate derived). For Quantity basis: ignored (uses SO rate).</summary>

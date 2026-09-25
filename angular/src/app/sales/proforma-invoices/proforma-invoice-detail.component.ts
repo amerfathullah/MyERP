@@ -87,7 +87,12 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                   @for (item of proforma()!.items; track item.id; let i = $index) {
                     <tr>
                       <td>{{ i + 1 }}</td>
-                      <td>{{ item.itemName || item.itemCode }}</td>
+                      <td>
+                        <div class="fw-semibold">{{ item.itemName || item.itemCode }}</div>
+                        @if (item.description && item.description !== item.itemName) {
+                          <div class="text-muted small">{{ item.description }}</div>
+                        }
+                      </td>
                       @if (!proforma()!.hideItemQty) {
                         <td class="text-end">{{ item.quantity | number:'1.0-4' }}</td>
                         <td>{{ item.uom || '—' }}</td>

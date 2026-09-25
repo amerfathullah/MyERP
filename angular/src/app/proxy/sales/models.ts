@@ -340,6 +340,7 @@ export interface CreateProformaInvoiceDto {
 
 export interface CreateProformaInvoiceItemDto {
   salesOrderItemId: string;
+  description?: string | null;
   quantity?: number;
   amount?: number | null;
 }
@@ -1269,6 +1270,7 @@ export interface ProformaInvoiceItemDto {
   itemId?: string;
   itemCode?: string;
   itemName?: string;
+  description?: string | null;
   uom?: string | null;
   quantity?: number;
   rate?: number;

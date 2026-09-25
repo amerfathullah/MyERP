@@ -4486,6 +4486,7 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.ItemCode).HasMaxLength(140);
             b.Property(x => x.ItemName).HasMaxLength(300);
+            b.Property(x => x.Description).HasMaxLength(1000);
             b.Property(x => x.Uom).HasMaxLength(50);
             b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.Rate).HasColumnType("decimal(18,6)");

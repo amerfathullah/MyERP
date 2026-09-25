@@ -154,36 +154,52 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
         // Build SO item lookup
         var soItems = so.Items.ToDictionary(i => i.Id);
 
-        foreach (var row in input.Items)
+        for (var i = 0; i < input.Items.Count; i++)
         {
+            var row = input.Items[i];
+            var rowIdx = i + 1;
+
             if (!soItems.TryGetValue(row.SalesOrderItemId, out var soItem))
-                continue;
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{rowIdx}: The line does not belong to Sales Order {so.OrderNumber}");
+            }
 
-            decimal qty = row.Quantity;
+            if (row.Quantity <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{rowIdx}: Qty must be a positive number");
+            }
+
             decimal rate;
-
             if (input.BasedOn == ProformaInvoiceBasis.Amount)
             {
-                // Amount basis: both qty and amount are user-entered, rate = amount / qty
                 var amount = row.Amount ?? 0;
-                if (amount <= 0 || qty <= 0) continue;
-                rate = Math.Round(amount / qty, 4);
+                if (amount <= 0)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Row #{rowIdx}: Amount must be a positive number");
+                }
+                rate = Math.Round(amount / row.Quantity, 4);
             }
             else
             {
-                // Quantity basis: rate from SO, amount = qty × rate
-                if (qty <= 0) continue;
                 rate = soItem.UnitPrice;
             }
+
+            var description = !string.IsNullOrWhiteSpace(row.Description)
+                ? row.Description
+                : soItem.Description ?? string.Empty;
 
             proforma.AddItem(
                 soItem.Id,
                 soItem.ItemId,
                 soItem.Description ?? string.Empty,
                 soItem.Description ?? string.Empty,
-                qty,
+                row.Quantity,
                 rate,
-                soItem.StockUom);
+                soItem.StockUom,
+                description);
         }
 
         if (!proforma.Items.Any())
@@ -308,6 +324,7 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
                 ItemId = i.ItemId,
                 ItemCode = i.ItemCode,
                 ItemName = i.ItemName,
+                Description = i.Description,
                 Uom = i.Uom,
                 Quantity = i.Quantity,
                 Rate = i.Rate,

@@ -25,6 +25,8 @@ public class ProformaInvoiceItem : FullAuditedEntity<Guid>, IMultiTenant
     public decimal Rate { get; set; }
     public decimal Amount { get; set; }
 
+    public string Description { get; set; } = string.Empty;
+
     protected ProformaInvoiceItem() { }
 
     public ProformaInvoiceItem(
@@ -36,7 +38,8 @@ public class ProformaInvoiceItem : FullAuditedEntity<Guid>, IMultiTenant
         string itemName,
         decimal quantity,
         decimal rate,
-        string? uom = null)
+        string? uom = null,
+        string? description = null)
         : base(id)
     {
         ProformaInvoiceId = proformaInvoiceId;
@@ -48,5 +51,6 @@ public class ProformaInvoiceItem : FullAuditedEntity<Guid>, IMultiTenant
         Rate = rate;
         Amount = Math.Round(quantity * rate, 4);
         Uom = uom;
+        Description = !string.IsNullOrWhiteSpace(description) ? description : itemName;
     }
 }

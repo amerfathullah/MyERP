@@ -92,7 +92,8 @@ public class ProformaInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant
         string itemName,
         decimal quantity,
         decimal rate,
-        string? uom = null)
+        string? uom = null,
+        string? description = null)
     {
         if (Status != ProformaInvoiceStatus.Draft)
             throw new BusinessException("MyERP:01001")
@@ -110,7 +111,8 @@ public class ProformaInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant
             itemName,
             quantity,
             rate,
-            uom);
+            uom,
+            description);
 
         Items.Add(item);
         RecalculateTotals();

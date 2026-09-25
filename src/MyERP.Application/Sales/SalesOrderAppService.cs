@@ -1544,7 +1544,31 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var warnings = new List<string>();
         var updatedCount = 0;
 
-        foreach (var removeId in input.RemovedItemIds)
+        // Check for issued Proforma Invoices on deleted items (PR #59401 / commit 3e5da36b59)
+        if (input.RemovedItemIds != null && input.RemovedItemIds.Count > 0)
+        {
+            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ProformaInvoice, Guid>>();
+            var piItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ProformaInvoiceItem, Guid>>();
+
+            var piQuery = await piRepo.GetQueryableAsync();
+            var piItemQuery = await piItemRepo.GetQueryableAsync();
+
+            var issuedProformedSoItemIds = (from pi in piQuery
+                                           join item in piItemQuery on pi.Id equals item.ProformaInvoiceId
+                                           where pi.Status == ProformaInvoiceStatus.Issued
+                                                 && input.RemovedItemIds.Contains(item.SalesOrderItemId)
+                                           select item.SalesOrderItemId).Distinct().ToList();
+
+            if (issuedProformedSoItemIds.Count > 0)
+            {
+                var blockedSoItem = so.Items.FirstOrDefault(i => issuedProformedSoItemIds.Contains(i.Id));
+                var itemName = blockedSoItem?.Description ?? "item";
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot delete item '{itemName}' which has an issued Proforma Invoice.");
+            }
+        }
+
+        foreach (var removeId in input.RemovedItemIds ?? Enumerable.Empty<Guid>())
         {
             var soItemToRemove = so.Items.FirstOrDefault(i => i.Id == removeId);
             if (soItemToRemove == null)
@@ -1630,7 +1654,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "SalesOrder", so.Id, "ItemsUpdated",
             so.CompanyId, so.OrderNumber, so.Status.ToString(), so.Status.ToString(),
-            CurrentUser.Id, $"Updated {updatedCount} items, removed {input.RemovedItemIds.Count}. Grand total: {previousGrandTotal} → {so.GrandTotal}",
+            CurrentUser.Id, $"Updated {updatedCount} items, removed {input.RemovedItemIds?.Count ?? 0}. Grand total: {previousGrandTotal} → {so.GrandTotal}",
             so.TenantId));
 
         return new UpdateOrderItemsResultDto
