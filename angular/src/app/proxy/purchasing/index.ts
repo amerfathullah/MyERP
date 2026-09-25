@@ -14,6 +14,7 @@ export * from './scorecard-period-type.enum';
 export * from './subcontracting-bom.service';
 export * from './subcontracting-inward-order-status.enum';
 export * from './subcontracting-inward-order.service';
+export * from './subcontracting-inward-report.service';
 export * from './subcontracting-order-status.enum';
 export * from './subcontracting-receipt-status.enum';
 export * from './subcontracting.service';

@@ -20,9 +20,14 @@ import type { SubcontractingInwardOrderDto } from '../../proxy/purchasing/models
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">{{ 'SubcontractingInwardOrders' | abpLocalization }}</h5>
-          <a routerLink="/purchasing/subcontracting-inward/new" class="btn btn-primary btn-sm">
-            <i class="fa fa-plus me-1"></i> {{ 'NewSubcontractingInwardOrder' | abpLocalization }}
-          </a>
+          <div class="d-flex gap-2">
+            <a routerLink="/purchasing/subcontracting-inward/reports" class="btn btn-outline-secondary btn-sm">
+              <i class="fa fa-chart-bar me-1"></i> {{ 'SubcontractingInwardReports' | abpLocalization }}
+            </a>
+            <a routerLink="/purchasing/subcontracting-inward/new" class="btn btn-primary btn-sm">
+              <i class="fa fa-plus me-1"></i> {{ 'NewSubcontractingInwardOrder' | abpLocalization }}
+            </a>
+          </div>
         </div>
         <div class="card-body">
           <div class="row mb-3">

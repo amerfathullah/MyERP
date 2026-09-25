@@ -2772,6 +2772,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseOrders.Create' },
   },
   {
+    path: 'purchasing/subcontracting-inward/reports',
+    loadComponent: () => import('./purchasing/subcontracting-inward/reports/subcontracting-inward-reports.component').then(c => c.SubcontractingInwardReportsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
     path: 'purchasing/subcontracting-inward/:id',
     loadComponent: () => import('./purchasing/subcontracting-inward/subcontracting-inward-detail.component').then(c => c.SubcontractingInwardDetailComponent),
     canActivate: [authGuard, permissionGuard],

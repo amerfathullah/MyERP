@@ -84,3 +84,40 @@ public class SubcontractingInwardOrderSummaryReportDto
     public decimal TotalPendingQty { get; set; }
     public decimal TotalAmount { get; set; }
 }
+
+/// <summary>
+/// Row item for Subcontracted Raw Materials to be Received report (ERPNext PR #59395 & PR #59397).
+/// </summary>
+public class SubcontractedRawMaterialToBeReceivedRowDto
+{
+    public Guid SubcontractingInwardOrderId { get; set; }
+    public string OrderNumber { get; set; } = string.Empty;
+    public DateTime OrderDate { get; set; }
+    public Guid SupplierId { get; set; }
+    public string PartyName { get; set; } = string.Empty;
+    public Guid FinishedGoodItemId { get; set; }
+    public string FinishedGoodItemCode { get; set; } = string.Empty;
+    public string FinishedGoodItemName { get; set; } = string.Empty;
+    public Guid RawMaterialItemId { get; set; }
+    public string RawMaterialItemCode { get; set; } = string.Empty;
+    public string RawMaterialItemName { get; set; } = string.Empty;
+    public string StockUom { get; set; } = string.Empty;
+    public decimal RequiredQty { get; set; }
+    public decimal ReceivedQty { get; set; }
+    public decimal ReturnedQty { get; set; }
+    public decimal ProcessLossQty { get; set; }
+    public decimal PendingQty { get; set; }
+}
+
+/// <summary>
+/// Report DTO for Subcontracted Raw Materials to be Received (ERPNext PR #59395 & PR #59397).
+/// </summary>
+public class SubcontractedRawMaterialsToBeReceivedReportDto
+{
+    public List<SubcontractedRawMaterialToBeReceivedRowDto> Rows { get; set; } = new();
+    public decimal TotalRequiredQty { get; set; }
+    public decimal TotalReceivedQty { get; set; }
+    public decimal TotalReturnedQty { get; set; }
+    public decimal TotalProcessLossQty { get; set; }
+    public decimal TotalPendingQty { get; set; }
+}

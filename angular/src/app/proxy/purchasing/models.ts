@@ -1143,3 +1143,94 @@ export interface RequestedItemsToOrderAndReceiveReportDto {
   totalQtyToReceive?: number;
 }
 
+export interface SubcontractingInwardReportFilterDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  subcontractingInwardOrderId?: string | null;
+  supplierId?: string | null;
+  itemId?: string | null;
+  status?: string | null;
+}
+
+export interface SubcontractedItemToBeDeliveredRowDto {
+  subcontractingInwardOrderId?: string;
+  orderNumber?: string;
+  orderDate?: string;
+  supplierId?: string;
+  partyName?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  uom?: string;
+  orderQty?: number;
+  producedQty?: number;
+  deliveredQty?: number;
+  pendingQty?: number;
+}
+
+export interface SubcontractedItemsToBeDeliveredReportDto {
+  rows?: SubcontractedItemToBeDeliveredRowDto[];
+  totalOrderQty?: number;
+  totalProducedQty?: number;
+  totalDeliveredQty?: number;
+  totalPendingQty?: number;
+}
+
+export interface SubcontractingInwardOrderSummaryRowDto {
+  subcontractingInwardOrderId?: string;
+  orderNumber?: string;
+  orderDate?: string;
+  supplierId?: string;
+  partyName?: string;
+  status?: SubcontractingInwardOrderStatus;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  uom?: string;
+  orderQty?: number;
+  producedQty?: number;
+  deliveredQty?: number;
+  pendingQty?: number;
+  rate?: number;
+  amount?: number;
+}
+
+export interface SubcontractingInwardOrderSummaryReportDto {
+  rows?: SubcontractingInwardOrderSummaryRowDto[];
+  totalOrderQty?: number;
+  totalProducedQty?: number;
+  totalDeliveredQty?: number;
+  totalPendingQty?: number;
+  totalAmount?: number;
+}
+
+export interface SubcontractedRawMaterialToBeReceivedRowDto {
+  subcontractingInwardOrderId?: string;
+  orderNumber?: string;
+  orderDate?: string;
+  supplierId?: string;
+  partyName?: string;
+  finishedGoodItemId?: string;
+  finishedGoodItemCode?: string;
+  finishedGoodItemName?: string;
+  rawMaterialItemId?: string;
+  rawMaterialItemCode?: string;
+  rawMaterialItemName?: string;
+  stockUom?: string;
+  requiredQty?: number;
+  receivedQty?: number;
+  returnedQty?: number;
+  processLossQty?: number;
+  pendingQty?: number;
+}
+
+export interface SubcontractedRawMaterialsToBeReceivedReportDto {
+  rows?: SubcontractedRawMaterialToBeReceivedRowDto[];
+  totalRequiredQty?: number;
+  totalReceivedQty?: number;
+  totalReturnedQty?: number;
+  totalProcessLossQty?: number;
+  totalPendingQty?: number;
+}
+

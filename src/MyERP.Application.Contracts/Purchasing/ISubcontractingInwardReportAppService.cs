@@ -17,4 +17,10 @@ public interface ISubcontractingInwardReportAppService : IApplicationService
     /// Gets summary overview of subcontracting inward orders across documents and item rows.
     /// </summary>
     Task<SubcontractingInwardOrderSummaryReportDto> GetOrderSummaryReportAsync(SubcontractingInwardReportFilterDto input);
+
+    /// <summary>
+    /// Gets customer-provided raw materials required for active subcontracting inward orders that are pending receipt.
+    /// Uses per-unit BOM qty for multi-unit BOMs and process loss calculation (ERPNext PR #59395 & PR #59397).
+    /// </summary>
+    Task<SubcontractedRawMaterialsToBeReceivedReportDto> GetRawMaterialsToBeReceivedReportAsync(SubcontractingInwardReportFilterDto input);
 }
