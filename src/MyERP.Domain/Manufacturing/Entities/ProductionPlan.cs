@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
+
 
 namespace MyERP.Manufacturing.Entities;
 
@@ -88,6 +90,15 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status is not (ProductionPlanStatus.Submitted or ProductionPlanStatus.InProgress or ProductionPlanStatus.MaterialRequested))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = ProductionPlanStatus.Completed;
+        AddLocalEvent(new MyERP.Manufacturing.Events.ProductionPlanCompletedEvent(Id, TenantId));
+    }
+
+    public void RevertCompletion(ProductionPlanStatus fallbackStatus = ProductionPlanStatus.InProgress)
+    {
+        if (Status != ProductionPlanStatus.Completed)
+            return;
+        Status = fallbackStatus;
+        AddLocalEvent(new MyERP.Manufacturing.Events.ProductionPlanCompletionRevertedEvent(Id, TenantId));
     }
 
     public void Close()
@@ -95,6 +106,7 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status is ProductionPlanStatus.Draft or ProductionPlanStatus.Cancelled or ProductionPlanStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = ProductionPlanStatus.Closed;
+        AddLocalEvent(new MyERP.Manufacturing.Events.ProductionPlanClosedEvent(Id, TenantId));
     }
 
     public void Reopen()
@@ -102,7 +114,45 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status != ProductionPlanStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = MaterialRequirements.Count > 0 ? ProductionPlanStatus.MaterialRequested : ProductionPlanStatus.Submitted;
+        AddLocalEvent(new MyERP.Manufacturing.Events.ProductionPlanReopenedEvent(Id, TenantId));
     }
+
+    /// <summary>
+    /// Updates status based on production progress and releases/restores reservations.
+    /// Per PR #59454: closed plans stay closed until reopened.
+    /// Per PR #59449: plan reservations are released when completed and restored if reverted.
+    /// </summary>
+    public void UpdateProducedStatus(bool allCompleted, bool hasProduction)
+    {
+        if (Status is ProductionPlanStatus.Closed or ProductionPlanStatus.Cancelled or ProductionPlanStatus.Draft)
+            return;
+
+        if (allCompleted)
+        {
+            if (Status != ProductionPlanStatus.Completed)
+            {
+                Complete();
+            }
+        }
+        else
+        {
+            if (Status == ProductionPlanStatus.Completed)
+            {
+                var fallback = hasProduction
+                    ? ProductionPlanStatus.InProgress
+                    : (MaterialRequirements.Any(m => m.MaterialRequestId.HasValue) ? ProductionPlanStatus.MaterialRequested : ProductionPlanStatus.Submitted);
+                RevertCompletion(fallback);
+            }
+            else if (hasProduction)
+            {
+                if (Status is ProductionPlanStatus.Submitted or ProductionPlanStatus.MaterialRequested)
+                {
+                    Status = ProductionPlanStatus.InProgress;
+                }
+            }
+        }
+    }
+
 
     public void Cancel()
     {

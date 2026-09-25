@@ -1439,6 +1439,26 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var sreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
         await sreManager.CancelReservationsForVoucherAsync(wo.Id);
 
+        // Per ERPNext PR #59449: check if closing this WO completes the linked Production Plan
+        if (wo.ProductionPlanId.HasValue)
+        {
+            var planRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ProductionPlan, Guid>>();
+            var plan = await planRepo.GetAsync(wo.ProductionPlanId.Value, includeDetails: true);
+            if (plan.Status != ProductionPlanStatus.Closed)
+            {
+                var allProduced = plan.PlannedItems.All(p => p.PlannedQty - p.ProducedQty < 0.0001m);
+                var woQuery = await _workOrderRepository.GetQueryableAsync();
+                var openWos = woQuery.Where(w => w.ProductionPlanId == plan.Id
+                    && w.Status != WorkOrderStatus.Cancelled
+                    && w.Status != WorkOrderStatus.Closed).ToList();
+                var allWosCompleted = openWos.Count == 0 || openWos.All(w => w.Status == WorkOrderStatus.Completed);
+                var anyProduced = plan.PlannedItems.Any(p => p.ProducedQty > 0);
+
+                plan.UpdateProducedStatus(allProduced && allWosCompleted, anyProduced);
+                await planRepo.UpdateAsync(plan);
+            }
+        }
+
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
             GuidGenerator.Create(), "WorkOrder", wo.Id,
@@ -1447,6 +1467,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             $"Work Order {wo.WorkOrderNumber} closed", CurrentTenant.Id));
 
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
+
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Edit)]

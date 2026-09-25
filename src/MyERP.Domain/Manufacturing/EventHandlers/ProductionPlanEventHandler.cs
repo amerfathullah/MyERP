@@ -13,6 +13,10 @@ namespace MyERP.Manufacturing.EventHandlers;
 public class ProductionPlanEventHandler :
     ILocalEventHandler<ProductionPlanSubmittedEvent>,
     ILocalEventHandler<ProductionPlanCancelledEvent>,
+    ILocalEventHandler<ProductionPlanClosedEvent>,
+    ILocalEventHandler<ProductionPlanReopenedEvent>,
+    ILocalEventHandler<ProductionPlanCompletedEvent>,
+    ILocalEventHandler<ProductionPlanCompletionRevertedEvent>,
     ITransientDependency
 {
     private readonly IRepository<ProductionPlan, Guid> _planRepository;
@@ -61,6 +65,82 @@ public class ProductionPlanEventHandler :
                     mr.ItemId,
                     mr.WarehouseId.Value,
                     -mr.RequiredQty,
+                    eventData.TenantId);
+            }
+        }
+    }
+
+    [UnitOfWork]
+    public virtual async Task HandleEventAsync(ProductionPlanClosedEvent eventData)
+    {
+        var plan = await _planRepository.GetAsync(eventData.ProductionPlanId, includeDetails: true);
+
+        // Release BOM quantities on close (PR #59449 / PR #59454)
+        foreach (var mr in plan.MaterialRequirements)
+        {
+            if (mr.WarehouseId.HasValue && mr.RequiredQty > 0)
+            {
+                await _binService.UpdateReservedQtyForProductionPlanAsync(
+                    mr.ItemId,
+                    mr.WarehouseId.Value,
+                    -mr.RequiredQty,
+                    eventData.TenantId);
+            }
+        }
+    }
+
+    [UnitOfWork]
+    public virtual async Task HandleEventAsync(ProductionPlanReopenedEvent eventData)
+    {
+        var plan = await _planRepository.GetAsync(eventData.ProductionPlanId, includeDetails: true);
+
+        // Restore BOM quantities on reopen
+        foreach (var mr in plan.MaterialRequirements)
+        {
+            if (mr.WarehouseId.HasValue && mr.RequiredQty > 0)
+            {
+                await _binService.UpdateReservedQtyForProductionPlanAsync(
+                    mr.ItemId,
+                    mr.WarehouseId.Value,
+                    mr.RequiredQty,
+                    eventData.TenantId);
+            }
+        }
+    }
+
+    [UnitOfWork]
+    public virtual async Task HandleEventAsync(ProductionPlanCompletedEvent eventData)
+    {
+        var plan = await _planRepository.GetAsync(eventData.ProductionPlanId, includeDetails: true);
+
+        // Release BOM quantities when plan completes (ERPNext PR #59449)
+        foreach (var mr in plan.MaterialRequirements)
+        {
+            if (mr.WarehouseId.HasValue && mr.RequiredQty > 0)
+            {
+                await _binService.UpdateReservedQtyForProductionPlanAsync(
+                    mr.ItemId,
+                    mr.WarehouseId.Value,
+                    -mr.RequiredQty,
+                    eventData.TenantId);
+            }
+        }
+    }
+
+    [UnitOfWork]
+    public virtual async Task HandleEventAsync(ProductionPlanCompletionRevertedEvent eventData)
+    {
+        var plan = await _planRepository.GetAsync(eventData.ProductionPlanId, includeDetails: true);
+
+        // Restore BOM quantities if completion is reverted
+        foreach (var mr in plan.MaterialRequirements)
+        {
+            if (mr.WarehouseId.HasValue && mr.RequiredQty > 0)
+            {
+                await _binService.UpdateReservedQtyForProductionPlanAsync(
+                    mr.ItemId,
+                    mr.WarehouseId.Value,
+                    mr.RequiredQty,
                     eventData.TenantId);
             }
         }

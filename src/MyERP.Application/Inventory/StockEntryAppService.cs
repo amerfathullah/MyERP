@@ -512,6 +512,27 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                     }
                 }
 
+                // Per ERPNext PR #59449 & #59454: sync production plan status (releases reservations if complete; keeps closed plan closed)
+                if (wo.ProductionPlanId.HasValue)
+                {
+                    var planRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ProductionPlan, Guid>>();
+                    var plan = await planRepo.GetAsync(wo.ProductionPlanId.Value, includeDetails: true);
+                    if (plan.Status != Manufacturing.ProductionPlanStatus.Closed)
+                    {
+                        var allProduced = plan.PlannedItems.All(p => p.PlannedQty - p.ProducedQty < 0.0001m);
+                        var woQuery = await woRepo.GetQueryableAsync();
+                        var openWos = woQuery.Where(w => w.ProductionPlanId == plan.Id
+                            && w.Status != Manufacturing.WorkOrderStatus.Cancelled
+                            && w.Status != Manufacturing.WorkOrderStatus.Closed).ToList();
+                        var allWosCompleted = openWos.Count == 0 || openWos.All(w => w.Status == Manufacturing.WorkOrderStatus.Completed);
+                        var anyProduced = plan.PlannedItems.Any(p => p.ProducedQty > 0);
+
+                        plan.UpdateProducedStatus(allProduced && allWosCompleted, anyProduced);
+                        await planRepo.UpdateAsync(plan, autoSave: true);
+                    }
+                }
+
+
                 // Per ERPNext PR #59419 / commit d687024b88: refresh planned qty after status update
                 var fgWhId = entry.Items.FirstOrDefault(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)?.TargetWarehouseId ?? wo.FgWarehouseId;
                 if (fgWhId.HasValue)
@@ -731,6 +752,27 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         await planItemRepo.UpdateAsync(linkedPlanItem, autoSave: true);
                     }
                 }
+
+                // Per ERPNext PR #59449 & #59454: sync production plan status (reverts completion and restores reservations if production reversed)
+                if (producingWorkOrder.ProductionPlanId.HasValue)
+                {
+                    var planRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.ProductionPlan, Guid>>();
+                    var plan = await planRepo.GetAsync(producingWorkOrder.ProductionPlanId.Value, includeDetails: true);
+                    if (plan.Status != Manufacturing.ProductionPlanStatus.Closed)
+                    {
+                        var allProduced = plan.PlannedItems.All(p => p.PlannedQty - p.ProducedQty < 0.0001m);
+                        var woQuery = await workOrderRepoForProduction.GetQueryableAsync();
+                        var openWos = woQuery.Where(w => w.ProductionPlanId == plan.Id
+                            && w.Status != Manufacturing.WorkOrderStatus.Cancelled
+                            && w.Status != Manufacturing.WorkOrderStatus.Closed).ToList();
+                        var allWosCompleted = openWos.Count == 0 || openWos.All(w => w.Status == Manufacturing.WorkOrderStatus.Completed);
+                        var anyProduced = plan.PlannedItems.Any(p => p.ProducedQty > 0);
+
+                        plan.UpdateProducedStatus(allProduced && allWosCompleted, anyProduced);
+                        await planRepo.UpdateAsync(plan, autoSave: true);
+                    }
+                }
+
 
                 // Per ERPNext PR #59419 / commit d687024b88: refresh planned qty after status update
                 var fgWhId = entry.Items.FirstOrDefault(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)?.TargetWarehouseId ?? producingWorkOrder.FgWarehouseId;

@@ -25,3 +25,52 @@ public class ProductionPlanCancelledEvent
         TenantId = tenantId;
     }
 }
+
+public class ProductionPlanClosedEvent
+{
+    public Guid ProductionPlanId { get; }
+    public Guid? TenantId { get; }
+
+    public ProductionPlanClosedEvent(Guid productionPlanId, Guid? tenantId)
+    {
+        ProductionPlanId = productionPlanId;
+        TenantId = tenantId;
+    }
+}
+
+public class ProductionPlanReopenedEvent
+{
+    public Guid ProductionPlanId { get; }
+    public Guid? TenantId { get; }
+
+    public ProductionPlanReopenedEvent(Guid productionPlanId, Guid? tenantId)
+    {
+        ProductionPlanId = productionPlanId;
+        TenantId = tenantId;
+    }
+}
+
+public class ProductionPlanCompletedEvent
+{
+    public Guid ProductionPlanId { get; }
+    public Guid? TenantId { get; }
+
+    public ProductionPlanCompletedEvent(Guid productionPlanId, Guid? tenantId)
+    {
+        ProductionPlanId = productionPlanId;
+        TenantId = tenantId;
+    }
+}
+
+public class ProductionPlanCompletionRevertedEvent
+{
+    public Guid ProductionPlanId { get; }
+    public Guid? TenantId { get; }
+
+    public ProductionPlanCompletionRevertedEvent(Guid productionPlanId, Guid? tenantId)
+    {
+        ProductionPlanId = productionPlanId;
+        TenantId = tenantId;
+    }
+}
+
