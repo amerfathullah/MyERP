@@ -303,10 +303,17 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
         foreach (var item in sr.Items)
         {
             var qtyDiff = item.QuantityDifference; // NewQty - CurrentQty
-            if (qtyDiff == 0 && item.NewValuationRate == item.CurrentValuationRate)
+            var prevSle = await _valuationService.GetPreviousSleAsync(item.ItemId, item.WarehouseId, sr.PostingDate);
+            var prevQty = prevSle?.BalanceQuantity ?? item.CurrentQuantity;
+            var prevVal = prevSle?.BalanceValue ?? (item.CurrentQuantity * item.CurrentValuationRate);
+
+            var isStrandedValueAdjustment = item.NewQuantity == 0 && prevQty == 0 && prevVal != 0;
+            if (qtyDiff == 0 && item.NewValuationRate == item.CurrentValuationRate && !isStrandedValueAdjustment)
                 continue; // No change needed
 
             entriesCreated++;
+
+            var isAdjustment = isStrandedValueAdjustment || qtyDiff == 0;
 
             // Create SLE with the difference quantity and new rate
             await _valuationService.CreateLedgerEntryAsync(
@@ -316,7 +323,8 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
                 incomingRate: item.NewValuationRate,
                 voucherType: "StockReconciliation",
                 voucherId: sr.Id,
-                tenantId: sr.TenantId);
+                tenantId: sr.TenantId,
+                isAdjustmentEntry: isAdjustment);
 
             // Update Bin with the difference
             var valueDiff = item.DifferenceAmount;
@@ -394,7 +402,8 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
                 incomingRate: item.CurrentValuationRate, // Restore original rate
                 voucherType: "StockReconciliation",
                 voucherId: sr.Id,
-                tenantId: sr.TenantId);
+                tenantId: sr.TenantId,
+                isAdjustmentEntry: qtyDiff == 0);
 
             var valueDiff = item.DifferenceAmount;
             await _binService.ApplyStockMovementAsync(

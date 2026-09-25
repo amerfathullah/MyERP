@@ -630,9 +630,24 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                         .WithData("detail", $"Purchase Invoice '{invoice.InvoiceNumber}' must have Update Stock enabled for Landed Cost Voucher.");
                 }
 
+                // PR #59274 / commit 102842253b: Landed Cost Voucher uses net purchase values (discounted)
+                var netForDiscount = invoice.Items.Sum(i => i.LineTotal);
+                decimal discountRatio = 0m;
+                if (invoice.AdditionalDiscountPercentage > 0)
+                {
+                    discountRatio = invoice.AdditionalDiscountPercentage / 100m;
+                }
+                else if (invoice.DiscountAmount > 0 && netForDiscount > 0)
+                {
+                    discountRatio = invoice.DiscountAmount / netForDiscount;
+                }
+
                 // Deterministic item ordering matching invoice row sequence (PR #48372 / commit 32a45cf635)
                 foreach (var item in invoice.Items.OrderBy(i => i.CreationTime))
                 {
+                    var discountedRate = item.UnitPrice * (1m - discountRatio);
+                    var amount = Math.Round(item.Quantity * discountedRate * invoice.ExchangeRate, 2);
+
                     result.Add(new LandedCostItemDto
                     {
                         Id = Guid.NewGuid(),
@@ -641,7 +656,7 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                         ItemId = item.ItemId,
                         Description = item.Description,
                         Quantity = item.Quantity,
-                        Amount = Math.Round(item.Quantity * item.UnitPrice * invoice.ExchangeRate, 2),
+                        Amount = amount,
                         ApplicableCharges = 0m
                     });
                 }

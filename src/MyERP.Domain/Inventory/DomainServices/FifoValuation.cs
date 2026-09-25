@@ -175,6 +175,21 @@ public class FifoValuation
         return new FifoValuation(bins, isLifo);
     }
 
+    /// <summary>
+    /// Restates the rate of all bins in the queue to a new valuation rate without changing quantities.
+    /// Used during rate revaluation adjustment entries (PR #59269).
+    /// </summary>
+    public void RestateRate(decimal newRate)
+    {
+        if (_queue.Count == 0) return;
+        var totalQty = TotalQty;
+        _queue.Clear();
+        if (totalQty != 0)
+        {
+            _queue.Add(new StockBin(totalQty, newRate));
+        }
+    }
+
     private static decimal RoundNearZero(decimal value)
         => Math.Abs(value) < NearZeroThreshold ? 0 : value;
 }

@@ -218,4 +218,35 @@ public class LandedCostDistributionTests
         var ex = await Assert.ThrowsAsync<Volo.Abp.BusinessException>(() => _appService.CalculateDistributionAsync(input));
         Assert.Contains("Total Quantity of all items is zero. Set 'Distribute Charges Based On' to Amount.", ex.Data["detail"]?.ToString() ?? string.Empty);
     }
+
+    [Fact]
+    public async Task GetReceiptItemsAsync_PurchaseInvoiceWithDiscount_UsesDiscountedNetValues()
+    {
+        var piId = Guid.NewGuid();
+        var pi = new PurchaseInvoice(piId, _companyId, _supplierId, "PINV-2026-DISC", DateTime.UtcNow)
+        {
+            UpdateStock = true,
+            AdditionalDiscountPercentage = 40m // 40% discount (PR #59274)
+        };
+        pi.AddItem(Guid.NewGuid(), "Discounted Item", 2m, 100m, 0m);
+        pi.Submit();
+
+        var piList = new List<PurchaseInvoice> { pi };
+        _piRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<PurchaseInvoice, object>>[]>())
+            .Returns(Task.FromResult(piList.AsQueryable()));
+
+        var input = new GetLandedCostReceiptItemsInput
+        {
+            CompanyId = _companyId,
+            ReceiptType = "PurchaseInvoice",
+            ReceiptIds = new List<Guid> { piId }
+        };
+
+        var result = await _appService.GetReceiptItemsAsync(input);
+
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.Equal(2m, result[0].Quantity);
+        Assert.Equal(120m, result[0].Amount); // 2 * 100 * (1 - 0.4) = 120
+    }
 }
