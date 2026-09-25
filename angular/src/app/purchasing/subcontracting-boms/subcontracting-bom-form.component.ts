@@ -80,7 +80,7 @@ export class SubcontractingBomFormComponent implements OnInit {
   isEdit = signal(false);
   private bomId: string | null = null;
 
-  items = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
+  items = signal<{ id: string; itemCode: string; itemName: string; defaultBomId?: string | null; variantOfId?: string | null }[]>([]);
   serviceItems = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
   finishedGoodBoms = signal<{ id: string; bomNumber: string }[]>([]);
 
@@ -94,7 +94,14 @@ export class SubcontractingBomFormComponent implements OnInit {
 
   ngOnInit(): void {
     this.itemService.getList({ maxResultCount: 500 } as any).subscribe(r => {
-      const all = (r.items ?? []).map((i: any) => ({ id: i.id, itemCode: i.itemCode, itemName: i.itemName, maintainStock: i.maintainStock }));
+      const all = (r.items ?? []).map((i: any) => ({
+        id: i.id,
+        itemCode: i.itemCode,
+        itemName: i.itemName,
+        maintainStock: i.maintainStock,
+        defaultBomId: i.defaultBomId,
+        variantOfId: i.variantOfId,
+      }));
       this.items.set(all.filter((i: any) => i.maintainStock));
       this.serviceItems.set(all.filter((i: any) => !i.maintainStock));
     });
@@ -115,10 +122,24 @@ export class SubcontractingBomFormComponent implements OnInit {
 
   onFinishedGoodChanged(): void {
     if (!this.form.finishedGoodId) { this.finishedGoodBoms.set([]); return; }
+    const selectedItem = this.items().find(i => i.id === this.form.finishedGoodId);
+    const applicableItemIds = [this.form.finishedGoodId];
+    if (selectedItem?.variantOfId) {
+      applicableItemIds.push(selectedItem.variantOfId);
+    }
+
     this.manufacturingService.getBomList({ maxResultCount: 100, status: undefined } as any).subscribe(r => {
       this.finishedGoodBoms.set((r.items ?? [])
-        .filter((bom: any) => bom.itemId === this.form.finishedGoodId && bom.isActive)
+        .filter((bom: any) => applicableItemIds.includes(bom.itemId) && bom.isActive)
         .map((bom: any) => ({ id: bom.id, bomNumber: bom.bomNumber })));
+
+      // Auto-select default BOM (item's default BOM or template's default BOM) if not already set
+      if (!this.form.finishedGoodBomId && selectedItem) {
+        const defaultBomId = selectedItem.defaultBomId || (selectedItem.variantOfId ? this.items().find(i => i.id === selectedItem.variantOfId)?.defaultBomId : null);
+        if (defaultBomId && this.finishedGoodBoms().some(b => b.id === defaultBomId)) {
+          this.form.finishedGoodBomId = defaultBomId;
+        }
+      }
     });
   }
 

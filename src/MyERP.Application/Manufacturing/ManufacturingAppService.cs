@@ -381,6 +381,22 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             .ThenByDescending(b => b.CreationTime)
             .FirstOrDefault();
 
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+
+        // PR #59373: If finished good is a variant without its own BOM, fall back to template BOM
+        if (bom == null)
+        {
+            var item = await itemRepo.FindAsync(itemId);
+            if (item?.VariantOfId.HasValue == true)
+            {
+                bom = query
+                    .Where(b => b.ItemId == item.VariantOfId.Value && b.CompanyId == companyId && b.IsActive)
+                    .OrderByDescending(b => b.IsDefault)
+                    .ThenByDescending(b => b.CreationTime)
+                    .FirstOrDefault();
+            }
+        }
+
         if (bom == null)
             return new SubcontractingBomItemsDto { Items = new(), BomId = null, BomNumber = null };
 
@@ -388,7 +404,6 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var bomQty = bom.Quantity > 0 ? bom.Quantity : 1m;
         var ratio = fgQty / bomQty;
 
-        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
         var itemIds = bom.Items.Select(i => i.ItemId).Distinct().ToList();
         var itemQuery = await itemRepo.GetQueryableAsync();
         var itemLookup = itemQuery.Where(i => itemIds.Contains(i.Id))

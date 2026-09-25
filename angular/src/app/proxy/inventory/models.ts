@@ -1123,6 +1123,8 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   hasSerialNo?: boolean;
   hasBatchNo?: boolean;
   hasVariants?: boolean;
+  variantOfId?: string | null;
+  defaultBomId?: string | null;
   leadTimeDays?: number;
   barcodes?: ItemBarcodeDto[];
   suppliers?: ItemSupplierDto[];

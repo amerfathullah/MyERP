@@ -47,7 +47,7 @@ public class SubcontractingBomAppService : ApplicationService, ISubcontractingBo
     [Authorize(MyERPPermissions.PurchaseOrders.Create)]
     public async Task<SubcontractingBomDto> CreateAsync(CreateUpdateSubcontractingBomDto input)
     {
-        await _validationService.ValidateAsync(Guid.Empty, input.FinishedGoodId, input.ServiceItemId, input.IsActive);
+        await _validationService.ValidateAsync(Guid.Empty, input.FinishedGoodId, input.FinishedGoodBomId, input.ServiceItemId, input.IsActive);
 
         var bom = new SubcontractingBom(GuidGenerator.Create(), input.FinishedGoodId, input.FinishedGoodQty,
             input.FinishedGoodBomId, input.ServiceItemId, input.ServiceItemQty, CurrentTenant.Id)
@@ -69,7 +69,7 @@ public class SubcontractingBomAppService : ApplicationService, ISubcontractingBo
     [Authorize(MyERPPermissions.PurchaseOrders.Edit)]
     public async Task<SubcontractingBomDto> UpdateAsync(Guid id, CreateUpdateSubcontractingBomDto input)
     {
-        await _validationService.ValidateAsync(id, input.FinishedGoodId, input.ServiceItemId, input.IsActive);
+        await _validationService.ValidateAsync(id, input.FinishedGoodId, input.FinishedGoodBomId, input.ServiceItemId, input.IsActive);
 
         var bom = await _repository.GetAsync(id);
         bom.Update(input.FinishedGoodId, input.FinishedGoodQty, input.FinishedGoodBomId, input.ServiceItemId, input.ServiceItemQty, input.IsActive);

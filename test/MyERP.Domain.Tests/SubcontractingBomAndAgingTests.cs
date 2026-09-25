@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Manufacturing.Entities;
 using MyERP.Accounting;
+using NSubstitute;
 using Xunit;
 
 // Explicit global references to avoid namespace clash with MyERP.Domain.Tests
@@ -223,6 +225,91 @@ public class SubcontractingBomAndAgingTests
         Assert.NotEqual(Guid.Empty, line.ItemId);
         Assert.Equal("Steel Rod", line.ItemName);
         Assert.Equal(50m, line.RequiredQty);
+    }
+
+    // === ERPNext PR #59373: Subcontracting BOM Template Fallback & BOM Validation ===
+
+    [Fact]
+    public async Task SubcontractingBomValidation_VariantInheritsTemplateDefaultBom()
+    {
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var subBomRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.SubcontractingBom, Guid>>();
+        var service = new MyERP.Purchasing.DomainServices.SubcontractingBomValidationService(itemRepo, subBomRepo);
+
+        var templateId = Guid.NewGuid();
+        var templateBomId = Guid.NewGuid();
+        var templateItem = new MyERP.Inventory.Entities.Item(templateId, Guid.NewGuid(), "TMPL-01", "Template Item", MyERP.Inventory.ItemType.Goods)
+        {
+            DefaultBomId = templateBomId,
+            MaintainStock = true,
+            IsActive = true
+        };
+
+        var variantId = Guid.NewGuid();
+        var variantItem = new MyERP.Inventory.Entities.Item(variantId, Guid.NewGuid(), "VAR-01", "Variant Item", MyERP.Inventory.ItemType.Goods)
+        {
+            VariantOfId = templateId,
+            DefaultBomId = null, // No default BOM of its own!
+            MaintainStock = true,
+            IsActive = true
+        };
+
+        var serviceItemId = Guid.NewGuid();
+        var serviceItem = new MyERP.Inventory.Entities.Item(serviceItemId, Guid.NewGuid(), "SRV-01", "Service Item", MyERP.Inventory.ItemType.Service)
+        {
+            MaintainStock = false,
+            IsActive = true
+        };
+
+        itemRepo.GetAsync(variantId).Returns(Task.FromResult(variantItem));
+        itemRepo.FindAsync(templateId).Returns(Task.FromResult<MyERP.Inventory.Entities.Item?>(templateItem));
+        itemRepo.GetAsync(serviceItemId).Returns(Task.FromResult(serviceItem));
+
+        var subBoms = new List<MyERP.Purchasing.Entities.SubcontractingBom>().AsQueryable();
+        subBomRepo.GetQueryableAsync().Returns(Task.FromResult(subBoms));
+
+        // Should not throw because template item has DefaultBomId!
+        await service.ValidateAsync(Guid.NewGuid(), variantId, templateBomId, serviceItemId, isActive: true);
+    }
+
+    [Fact]
+    public async Task SubcontractingBomValidation_VariantWithoutTemplateDefaultBom_ThrowsNoDefaultBom()
+    {
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var subBomRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.SubcontractingBom, Guid>>();
+        var service = new MyERP.Purchasing.DomainServices.SubcontractingBomValidationService(itemRepo, subBomRepo);
+
+        var templateId = Guid.NewGuid();
+        var templateItem = new MyERP.Inventory.Entities.Item(templateId, Guid.NewGuid(), "TMPL-02", "Template Item", MyERP.Inventory.ItemType.Goods)
+        {
+            DefaultBomId = null, // Template ALSO has no default BOM
+            MaintainStock = true,
+            IsActive = true
+        };
+
+        var variantId = Guid.NewGuid();
+        var variantItem = new MyERP.Inventory.Entities.Item(variantId, Guid.NewGuid(), "VAR-02", "Variant Item", MyERP.Inventory.ItemType.Goods)
+        {
+            VariantOfId = templateId,
+            DefaultBomId = null,
+            MaintainStock = true,
+            IsActive = true
+        };
+
+        var serviceItemId = Guid.NewGuid();
+        var serviceItem = new MyERP.Inventory.Entities.Item(serviceItemId, Guid.NewGuid(), "SRV-02", "Service Item", MyERP.Inventory.ItemType.Service)
+        {
+            MaintainStock = false,
+            IsActive = true
+        };
+
+        itemRepo.GetAsync(variantId).Returns(Task.FromResult(variantItem));
+        itemRepo.FindAsync(templateId).Returns(Task.FromResult<MyERP.Inventory.Entities.Item?>(templateItem));
+        itemRepo.GetAsync(serviceItemId).Returns(Task.FromResult(serviceItem));
+
+        var ex = await Assert.ThrowsAsync<Volo.Abp.BusinessException>(() =>
+            service.ValidateAsync(Guid.NewGuid(), variantId, Guid.NewGuid(), serviceItemId, isActive: true));
+        Assert.Equal(MyERP.MyERPDomainErrorCodes.SubcontractingBomFinishedGoodNoDefaultBom, ex.Code);
     }
 
     // === Localization Key Verification ===

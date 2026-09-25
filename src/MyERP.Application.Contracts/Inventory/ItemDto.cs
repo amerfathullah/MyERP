@@ -77,6 +77,8 @@ public class ItemDto : FullAuditedEntityDto<Guid>
     public bool RetainSample { get; set; }
     public int SampleQuantity { get; set; }
     public bool HasVariants { get; set; }
+    public Guid? VariantOfId { get; set; }
+    public Guid? DefaultBomId { get; set; }
     public int LeadTimeDays { get; set; }
     public List<ItemBarcodeDto> Barcodes { get; set; } = new();
     public List<ItemSupplierDto> Suppliers { get; set; } = new();
