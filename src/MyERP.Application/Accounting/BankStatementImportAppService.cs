@@ -8,9 +8,11 @@ using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Guids;
+
 
 namespace MyERP.Accounting;
 
@@ -24,13 +26,16 @@ namespace MyERP.Accounting;
 public class BankStatementImportAppService : ApplicationService, IBankStatementImportAppService
 {
     private readonly IRepository<BankTransaction, Guid> _transactionRepository;
+    private readonly IRepository<BankAccount, Guid> _bankAccountRepository;
     private readonly IGuidGenerator _guidGenerator;
 
     public BankStatementImportAppService(
         IRepository<BankTransaction, Guid> transactionRepository,
+        IRepository<BankAccount, Guid> bankAccountRepository,
         IGuidGenerator guidGenerator)
     {
         _transactionRepository = transactionRepository;
+        _bankAccountRepository = bankAccountRepository;
         _guidGenerator = guidGenerator;
     }
 
@@ -41,8 +46,22 @@ public class BankStatementImportAppService : ApplicationService, IBankStatementI
     /// </summary>
     public async Task<BankStatementImportResult> ImportFromCsvAsync(BankStatementImportInput input)
     {
+        var bankAccount = await _bankAccountRepository.GetAsync(input.BankAccountId);
+        if (bankAccount.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.BankAccountCompanyMismatch)
+                .WithData("bankAccountId", input.BankAccountId)
+                .WithData("companyId", input.CompanyId);
+        }
+        if (!bankAccount.IsCompanyAccount)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.BankAccountMustBeCompanyAccount)
+                .WithData("bankAccountId", input.BankAccountId);
+        }
+
         var result = new BankStatementImportResult();
         var lines = input.CsvContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
 
         if (lines.Length <= 1)
         {
@@ -239,8 +258,22 @@ public class BankStatementImportAppService : ApplicationService, IBankStatementI
     /// </summary>
     public async Task<BankStatementImportResult> ImportFromMt940Async(Mt940ImportInput input)
     {
+        var bankAccount = await _bankAccountRepository.GetAsync(input.BankAccountId);
+        if (bankAccount.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.BankAccountCompanyMismatch)
+                .WithData("bankAccountId", input.BankAccountId)
+                .WithData("companyId", input.CompanyId);
+        }
+        if (!bankAccount.IsCompanyAccount)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.BankAccountMustBeCompanyAccount)
+                .WithData("bankAccountId", input.BankAccountId);
+        }
+
         var result = new BankStatementImportResult();
         var parser = LazyServiceProvider.LazyGetRequiredService<Mt940Parser>();
+
 
         var parseResult = parser.Parse(input.Mt940Content);
 

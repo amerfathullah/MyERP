@@ -1586,7 +1586,10 @@
     "MyERP:01050": "Customer cannot be changed when Quotation is created from an Opportunity.",
     "MyERP:02090": "A Payment Request for the full remaining amount is already created for this document.",
     "MyERP:02091": "Paid From and Paid To accounts must be different for an Internal Transfer.",
+    "MyERP:02093": "Bank account must be a company account.",
+    "MyERP:02094": "Bank account does not belong to the selected company.",
     "BudgetExceededMessage": "Budget exceeded for account '{account}': budget {budget}, spent {spent}, requested {requested}.",
+
     "MyERP:08001": "Return items must have negative quantity. Item '{item}' has positive qty.",
     "MyERP:08002": "Return document must reference the original invoice.",
     "MyERP:08003": "Return exchange rate ({actual}) must match original document rate ({expected}).",

@@ -12,13 +12,24 @@
       <div class="row mb-3">
         <div class="col-md-6">
           <label class="form-label">{{ 'Company' | abpLocalization }}</label>
-          <input type="text" class="form-control" [ngModel]="companyId()" (ngModelChange)="companyId.set($event)" [placeholder]="'::Placeholder:CompanyId' | abpLocalization">
+          <select class="form-select" [ngModel]="companyId()" (ngModelChange)="onCompanyChange($event)">
+            <option value="">-- {{ 'SelectCompany' | abpLocalization }} --</option>
+            @for (comp of companies(); track comp.id) {
+              <option [value]="comp.id">{{ comp.name }}</option>
+            }
+          </select>
         </div>
         <div class="col-md-6">
-          <label class="form-label">{{ 'BankAccount' | abpLocalization }}</label>
-          <input type="text" class="form-control" [ngModel]="bankAccountId()" (ngModelChange)="bankAccountId.set($event)" [placeholder]="'::Placeholder:BankAccountId' | abpLocalization">
+          <label class="form-label">{{ 'CompanyBankAccount' | abpLocalization }}</label>
+          <select class="form-select" [ngModel]="bankAccountId()" (ngModelChange)="bankAccountId.set($event)">
+            <option value="">-- {{ 'SelectBankAccount' | abpLocalization }} --</option>
+            @for (acc of bankAccounts(); track acc.id) {
+              <option [value]="acc.id">{{ acc.accountName }} ({{ acc.bankName }}{{ acc.bankAccountNo ? ' - ' + acc.bankAccountNo : '' }})</option>
+            }
+          </select>
         </div>
       </div>
+
 
       <!-- Format Selection -->
       <div class="mb-3">
