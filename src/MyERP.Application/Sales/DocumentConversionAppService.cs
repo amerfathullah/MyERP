@@ -101,6 +101,15 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         if (quotation.Status != Core.DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
+        // Per ERPNext PR #59378 (commit 4f1f676b24): block conversion of inactive or lost quotations
+        if (!quotation.IsActive)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot convert an inactive Quotation version to Sales Order.");
+
+        if (quotation.Status == Core.DocumentStatus.Rejected)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot convert a lost Quotation to Sales Order.");
+
         if (quotation.ConvertedToSalesOrderId.HasValue || quotation.IsFullyOrdered)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
                 .WithData("documentType", "Quotation")

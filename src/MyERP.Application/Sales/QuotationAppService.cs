@@ -363,7 +363,36 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var transactionValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
         await transactionValidation.ValidatePriceListAsync(quotation.PriceListId);
 
+        // Per ERPNext PR #59378 (commit 4f1f676b24): Quotation revisions without cancelling
+        var rootId = quotation.RevisionOfId ?? quotation.Id;
+        var queryable = await _repository.GetQueryableAsync();
+        var family = queryable
+            .Where(q => (q.Id == rootId || q.RevisionOfId == rootId) && q.Id != quotation.Id)
+            .ToList();
+
+        if (family.Any(q => q.OrderStatus == "Ordered" || q.ConvertedToSalesOrderId.HasValue || q.Items.Any(i => i.OrderedQty > 0)))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot submit Quotation revision because an existing version is already ordered.");
+        }
+
+        var submittedVersions = family.Where(q => q.Status == Core.DocumentStatus.Submitted).ToList();
+        if (submittedVersions.Any(q => q.IssueDate.Date > quotation.IssueDate.Date))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Quotation revision cannot be dated before the latest version.");
+        }
+
         quotation.Submit();
+        quotation.Activate();
+
+        // Deactivate all older submitted versions in the family
+        foreach (var other in submittedVersions)
+        {
+            other.Deactivate();
+            await _repository.UpdateAsync(other);
+        }
+
         await _repository.UpdateAsync(quotation, autoSave: true);
 
         // Per ERPNext quotation.py on_submit(): update enquiry status
@@ -432,13 +461,33 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     public async Task<QuotationDto> MarkLostAsync(Guid id)
     {
         var quotation = await _repository.GetAsync(id);
+
+        // Per ERPNext PR #59378: check if any version in the family is ordered
+        var rootId = quotation.RevisionOfId ?? quotation.Id;
+        var queryable = await _repository.GetQueryableAsync();
+        var family = queryable
+            .Where(q => (q.Id == rootId || q.RevisionOfId == rootId) && q.Id != quotation.Id)
+            .ToList();
+
+        if (family.Any(q => q.OrderStatus == "Ordered" || q.ConvertedToSalesOrderId.HasValue || q.Items.Any(i => i.OrderedQty > 0)))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot set as Lost as a version of this Quotation is ordered.");
+        }
+
         quotation.MarkLost();
         await _repository.UpdateAsync(quotation, autoSave: true);
+
+        // Also mark other submitted versions in the family as Lost
+        foreach (var other in family.Where(q => q.Status == Core.DocumentStatus.Submitted))
+        {
+            other.MarkLost();
+            await _repository.UpdateAsync(other);
+        }
 
         // Per ERPNext quotation.py declare_enquiry_lost(): mark opportunity Lost if no other active quotations exist
         if (quotation.OpportunityId.HasValue)
         {
-            var queryable = await _repository.GetQueryableAsync();
             var hasOtherActiveQuotations = queryable.Any(q =>
                 q.Id != quotation.Id
                 && q.OpportunityId == quotation.OpportunityId
@@ -459,6 +508,66 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var lostDto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
         lostDto.CustomerName = await ResolveCustomerNameAsync(quotation.CustomerId);
         return lostDto;
+    }
+
+    /// <summary>
+    /// Creates a new revision / version of a submitted quotation without cancelling it.
+    /// Per ERPNext PR #59378 / commit 4f1f676b24.
+    /// </summary>
+    [Authorize(MyERPPermissions.Quotations.Create)]
+    public async Task<QuotationDto> CreateRevisionAsync(Guid id)
+    {
+        var original = await _repository.GetAsync(id, includeDetails: true);
+        if (original.Status != Core.DocumentStatus.Submitted)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Only submitted quotations can be revised.");
+        }
+
+        var rootId = original.RevisionOfId ?? original.Id;
+        var queryable = await _repository.GetQueryableAsync();
+        var family = queryable
+            .Where(q => q.Id == rootId || q.RevisionOfId == rootId)
+            .ToList();
+
+        if (family.Any(q => q.OrderStatus == "Ordered" || q.ConvertedToSalesOrderId.HasValue || q.Items.Any(i => i.OrderedQty > 0)))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot revise Quotation because an existing version is already ordered.");
+        }
+
+        var root = family.FirstOrDefault(q => !q.RevisionOfId.HasValue) ?? original;
+        var maxIndex = family.Max(q => q.RevisionIndex);
+        var newRevisionIndex = maxIndex + 1;
+        var newNumber = $"{root.QuotationNumber}-R{newRevisionIndex}";
+
+        var revision = new Quotation(
+            GuidGenerator.Create(),
+            original.CompanyId,
+            original.CustomerId,
+            newNumber,
+            DateTime.UtcNow.Date,
+            CurrentTenant.Id);
+
+        revision.RevisionOfId = root.Id;
+        revision.RevisionIndex = newRevisionIndex;
+        revision.IsActive = false; // becomes active upon Submit
+        revision.OpportunityId = original.OpportunityId;
+        revision.PriceListId = original.PriceListId;
+        revision.CurrencyCode = original.CurrencyCode;
+        revision.ValidUntil = DateTime.UtcNow.Date.AddDays(30);
+        revision.Terms = original.Terms;
+        revision.Notes = original.Notes;
+
+        foreach (var item in original.Items)
+        {
+            revision.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.IsAlternative);
+        }
+
+        await _repository.InsertAsync(revision, autoSave: true);
+        var revisionDto = ObjectMapper.Map<Quotation, QuotationDto>(revision);
+        revisionDto.CustomerName = await ResolveCustomerNameAsync(revision.CustomerId);
+        return revisionDto;
     }
     /// Amend a cancelled or rejected quotation — creates a new draft copy for revision.
     /// </summary>

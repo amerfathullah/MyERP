@@ -336,6 +336,17 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                     .WithData("documentType", "Quotation")
                     .WithData("documentNumber", quotation.QuotationNumber);
             }
+            // Per ERPNext PR #59378 (commit 4f1f676b24): block sales order against inactive or lost quotation
+            if (!quotation.IsActive)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot create Sales Order against an inactive Quotation version.");
+            }
+            if (quotation.Status == Core.DocumentStatus.Rejected)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot create Sales Order against a lost Quotation.");
+            }
             if (quotation.IsExpired)
             {
                 var allowExpired = await SettingProvider.GetOrNullAsync(MyERPSettings.Selling.AllowSalesOrderCreationForExpiredQuotation);
@@ -694,6 +705,18 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             var quotation = await quotationRepo.FindAsync(order.QuotationId.Value);
             if (quotation != null)
             {
+                // Per ERPNext PR #59378 (commit 4f1f676b24): block submitting sales order against inactive or lost quotation
+                if (!quotation.IsActive)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Cannot submit Sales Order against an inactive Quotation version.");
+                }
+                if (quotation.Status == Core.DocumentStatus.Rejected)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Cannot submit Sales Order against a lost Quotation.");
+                }
+
                 quotation.ConvertedToSalesOrderId = order.Id;
                 foreach (var soItem in order.Items)
                 {

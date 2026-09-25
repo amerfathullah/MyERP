@@ -40,6 +40,16 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     public Guid? AmendedFromId { get; set; }
     public int AmendmentIndex { get; set; }
 
+    // Revision / Versioning support (PR #59378 / commit 4f1f676b24)
+    /// <summary>Original Quotation this version is revised from (null for the original version).</summary>
+    public Guid? RevisionOfId { get; set; }
+
+    /// <summary>0 for original quotation, 1 for -R1, 2 for -R2, etc.</summary>
+    public int RevisionIndex { get; set; }
+
+    /// <summary>Whether this is the currently active version of the quotation (PR #59378).</summary>
+    public bool IsActive { get; set; } = true;
+
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
 
     /// <summary>Reference to converted SalesOrder (if converted).</summary>
@@ -163,6 +173,16 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
                 .WithData("detail", "Cannot set as Lost as Sales Order is made.");
 
         Status = DocumentStatus.Rejected; // Rejected = Lost in quotation context
+    }
+
+    public void Deactivate()
+    {
+        IsActive = false;
+    }
+
+    public void Activate()
+    {
+        IsActive = true;
     }
 
     /// <summary>

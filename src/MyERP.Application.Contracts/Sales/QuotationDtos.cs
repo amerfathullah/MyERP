@@ -27,6 +27,9 @@ public class QuotationDto : FullAuditedEntityDto<Guid>
     public decimal PerOrdered { get; set; }
     /// <summary>Order conversion status: Not Ordered, Partially Ordered, Ordered.</summary>
     public string OrderStatus { get; set; } = "Not Ordered";
+    public Guid? RevisionOfId { get; set; }
+    public int RevisionIndex { get; set; }
+    public bool IsActive { get; set; } = true;
     public List<QuotationItemDto> Items { get; set; } = new();
     public List<MyERP.CRM.CompetitorDetailDto> Competitors { get; set; } = new();
 }
