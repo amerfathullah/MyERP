@@ -1010,7 +1010,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         {
             var routingRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Routing, Guid>>();
             var routing = await routingRepo.GetAsync(bom.RoutingId.Value, includeDetails: true);
-            jobCards = await jobCardManager.CreateJobCardsFromWorkOrderAsync(wo, routing, CurrentTenant.Id);
+            jobCards = await jobCardManager.CreateJobCardsFromWorkOrderAsync(wo, routing, CurrentTenant.Id, bom);
             return jobCards.Select(jc => new WorkOrderJobCardDto
             {
                 Id = jc.Id,
@@ -1025,7 +1025,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
         else
         {
-            jobCards = await jobCardManager.CreateJobCardsFromBomOperationsAsync(wo, bom.Operations, CurrentTenant.Id);
+            jobCards = await jobCardManager.CreateJobCardsFromBomOperationsAsync(wo, bom.Operations, CurrentTenant.Id, bom);
             return jobCards.Select(jc => new WorkOrderJobCardDto
             {
                 Id = jc.Id,

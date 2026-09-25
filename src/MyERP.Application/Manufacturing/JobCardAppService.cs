@@ -127,6 +127,10 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                     sec.Idx);
             }
         }
+        else
+        {
+            JobCardManager.PopulateSecondaryItemsFromBom(jc, bom, jc.ForQuantity);
+        }
 
         await _repository.InsertAsync(jc);
 
@@ -419,6 +423,27 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                     wo.ItemId, wo.FgWarehouseId.Value, -delta, wo.TenantId);
             }
 
+            // Add secondary items from Job Card (scrap, co-product, by-product) per ERPNext PR #59436 / commit 1d1562a68e
+            var bomRepoForSec = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var bomForSec = await bomRepoForSec.FindAsync(wo.BomId);
+            foreach (var sec in jc.SecondaryItems)
+            {
+                if (sec.StockQty <= 0) continue;
+                var secWarehouseId = sec.SecondaryItemType == SecondaryItemType.Scrap
+                    ? (wo.ScrapWarehouseId ?? bomForSec?.ScrapWarehouseId ?? wo.FgWarehouseId)
+                    : wo.FgWarehouseId;
+                if (secWarehouseId.HasValue)
+                {
+                    entry.AddItem(
+                        itemId: sec.ItemId,
+                        quantity: sec.StockQty,
+                        sourceWarehouseId: null,
+                        targetWarehouseId: secWarehouseId.Value,
+                        valuationRate: 0m,
+                        secondaryItemType: sec.SecondaryItemType.ToString());
+                }
+            }
+
             var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
             await seRepo.InsertAsync(entry, autoSave: true);
 
@@ -667,6 +692,90 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         var anyTransferred = matchingItems.Any(i => i.TransferredQuantity > 0);
         jc.UpdateTransferStatus(allTransferred, anyTransferred);
         await _repository.UpdateAsync(jc);
+
+        return ObjectMapper.Map<Inventory.Entities.StockEntry, Inventory.StockEntryDto>(entry);
+    }
+
+    /// <summary>
+    /// Creates a Manufacture Stock Entry for the Job Card's semi-finished good item.
+    /// Per ERPNext PR #59436 (commit 1d1562a68e) / job_card.make_stock_entry_for_semi_fg_item.
+    /// Includes secondary items (scrap, byproduct) recorded on the Job Card.
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<Inventory.StockEntryDto> CreateStockEntryForSemiFgItemAsync(Guid id)
+    {
+        var jc = (await _repository.WithDetailsAsync()).First(j => j.Id == id);
+        if (jc.Status is JobCardStatus.Cancelled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "JobCard")
+                .WithData("status", jc.Status.ToString());
+        }
+
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var wo = await woRepo.GetAsync(jc.WorkOrderId, includeDetails: true);
+        var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
+        var bom = await bomRepo.GetAsync(wo.BomId, includeDetails: true);
+
+        var postingOrchestrator = LazyServiceProvider
+            .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+        await postingOrchestrator.ValidatePostingPeriodAsync(wo.CompanyId, DateTime.UtcNow, "WorkOrder");
+
+        var numberGen = LazyServiceProvider.LazyGetRequiredService<IDocumentNumberGenerator>();
+        var produceQty = jc.CompletedQty > 0 ? jc.CompletedQty : jc.ForQuantity;
+
+        var targetWh = jc.WipWarehouseId ?? wo.WipWarehouseId ?? wo.FgWarehouseId;
+        var entry = new Inventory.Entities.StockEntry(
+            GuidGenerator.Create(), wo.CompanyId, StockEntryType.Manufacture,
+            DateTime.UtcNow.Date, CurrentTenant.Id)
+        {
+            WorkOrderId = wo.Id,
+            JobCardId = jc.Id,
+            EntryNumber = await numberGen.GenerateAsync("SE", wo.CompanyId),
+            FgCompletedQty = produceQty,
+            ProcessLossQty = jc.ProcessLossQty,
+            Notes = $"Semi-FG production recorded — Job Card {jc.Id} (WO {wo.WorkOrderNumber})"
+        };
+
+        // Output semi-finished good item
+        var semiFgItemId = jc.FinishedGoodItemId ?? wo.ItemId;
+        if (targetWh.HasValue && produceQty > 0)
+        {
+            entry.AddItem(
+                itemId: semiFgItemId,
+                quantity: produceQty,
+                sourceWarehouseId: null,
+                targetWarehouseId: targetWh.Value,
+                valuationRate: 0m);
+        }
+
+        // Secondary items (scrap, byproduct) from Job Card
+        foreach (var sec in jc.SecondaryItems)
+        {
+            if (sec.StockQty <= 0) continue;
+            var secWarehouseId = sec.SecondaryItemType == SecondaryItemType.Scrap
+                ? (wo.ScrapWarehouseId ?? bom.ScrapWarehouseId ?? targetWh)
+                : targetWh;
+            if (secWarehouseId.HasValue)
+            {
+                entry.AddItem(
+                    itemId: sec.ItemId,
+                    quantity: sec.StockQty,
+                    sourceWarehouseId: null,
+                    targetWarehouseId: secWarehouseId.Value,
+                    valuationRate: 0m,
+                    secondaryItemType: sec.SecondaryItemType.ToString());
+            }
+        }
+
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+        await seRepo.InsertAsync(entry, autoSave: true);
+
+        var stockPostingService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockPostingService>();
+        await stockPostingService.PostStockEntryAsync(entry);
+        await FlushPendingChangesAsync();
+        await postingOrchestrator.PostStockEntryAsync(entry);
+        await seRepo.UpdateAsync(entry, autoSave: true);
 
         return ObjectMapper.Map<Inventory.Entities.StockEntry, Inventory.StockEntryDto>(entry);
     }

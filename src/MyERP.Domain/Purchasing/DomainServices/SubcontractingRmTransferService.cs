@@ -55,41 +55,12 @@ public class SubcontractingRmTransferService : DomainService
         {
             if (!scoItem.BomId.HasValue) continue;
 
-            var bom = await _bomRepository.GetAsync(scoItem.BomId.Value);
-            var bomQty = bom.Quantity > 0 ? bom.Quantity : 1m;
-            var ratio = scoItem.Qty / bomQty;
-
-            foreach (var bomItem in bom.Items)
-            {
-                // Per ERPNext: phantom items have their own BOM and must be recursively exploded
-                // For now, treat all BOM items as direct RM
-                var requiredQty = bomItem.Quantity * ratio;
-
-                // Apply CEIL for whole-number UOM items
-                // Per DO-NOT: "Use CEIL rounding for subcontracting material transfer"
-                requiredQty = Math.Ceiling(requiredQty * 10000m) / 10000m;
-
-                var existing = requirements.FirstOrDefault(r =>
-                    r.ItemId == bomItem.ItemId && r.WarehouseId == scoItem.WarehouseId);
-
-                if (existing != null)
-                {
-                    existing.RequiredQty += requiredQty;
-                }
-                else
-                {
-                    requirements.Add(new SubcontractingRmRequirement
-                    {
-                        ItemId = bomItem.ItemId,
-                        ItemName = bomItem.ItemName,
-                        RequiredQty = requiredQty,
-                        WarehouseId = scoItem.WarehouseId,
-                        SourceWarehouseId = null,
-                        ScoItemId = scoItem.Id,
-                        BomItemId = bomItem.Id,
-                    });
-                }
-            }
+            await ExplodeBomToRequirementsAsync(
+                scoItem.BomId.Value,
+                scoItem.Qty,
+                scoItem.Id,
+                scoItem.WarehouseId,
+                requirements);
         }
 
         // Deduct already-transferred quantities
@@ -103,6 +74,63 @@ public class SubcontractingRmTransferService : DomainService
         }
 
         return requirements;
+    }
+
+    /// <summary>
+    /// Recursively explodes BOM items into raw material requirements.
+    /// Explodes phantom BOM rows by their stock qty per ERPNext PR #59445 (commit fd8e6230f3).
+    /// </summary>
+    private async Task ExplodeBomToRequirementsAsync(
+        Guid bomId,
+        decimal multiplier,
+        Guid scoItemId,
+        Guid? warehouseId,
+        List<SubcontractingRmRequirement> requirements)
+    {
+        var bom = await _bomRepository.GetAsync(bomId);
+        var bomQty = bom.Quantity > 0 ? bom.Quantity : 1m;
+
+        foreach (var bomItem in bom.Items)
+        {
+            var itemQty = (bomItem.StockQty / bomQty) * multiplier;
+
+            if (bomItem.IsPhantom && bomItem.SubBomId.HasValue && !bomItem.DoNotExplode)
+            {
+                // Phantom: explode sub-BOM and bubble up components (PR #59445)
+                await ExplodeBomToRequirementsAsync(
+                    bomItem.SubBomId.Value,
+                    itemQty,
+                    scoItemId,
+                    warehouseId,
+                    requirements);
+            }
+            else
+            {
+                // Raw material: apply CEIL rounding for subcontracting material transfer
+                var requiredQty = Math.Ceiling(itemQty * 10000m) / 10000m;
+
+                var existing = requirements.FirstOrDefault(r =>
+                    r.ItemId == bomItem.ItemId && r.WarehouseId == warehouseId);
+
+                if (existing != null)
+                {
+                    existing.RequiredQty += requiredQty;
+                }
+                else
+                {
+                    requirements.Add(new SubcontractingRmRequirement
+                    {
+                        ItemId = bomItem.ItemId,
+                        ItemName = bomItem.ItemName,
+                        RequiredQty = requiredQty,
+                        WarehouseId = warehouseId,
+                        SourceWarehouseId = null,
+                        ScoItemId = scoItemId,
+                        BomItemId = bomItem.Id,
+                    });
+                }
+            }
+        }
     }
 
     /// <summary>

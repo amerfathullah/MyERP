@@ -32,7 +32,7 @@ public class JobCardManager : DomainService
     /// Per ERPNext: one JC per batch × operation.
     /// </summary>
     public async Task<JobCard[]> CreateJobCardsFromWorkOrderAsync(
-        WorkOrder wo, Routing routing, Guid? tenantId = null)
+        WorkOrder wo, Routing routing, Guid? tenantId = null, BillOfMaterials? bom = null)
     {
         var jobCards = new System.Collections.Generic.List<JobCard>();
         var sequence = 0;
@@ -48,7 +48,7 @@ public class JobCardManager : DomainService
                 sequence++;
 
                 var jc = new JobCard(
-                    GuidGenerator.Create(),
+                    LazyServiceProvider != null ? GuidGenerator.Create() : Guid.NewGuid(),
                     wo.CompanyId,
                     wo.Id,
                     op.OperationId,
@@ -64,6 +64,8 @@ public class JobCardManager : DomainService
                     BatchSplit = op.BatchSplit,
                     WeightPerPiece = op.WeightPerPiece
                 };
+
+                PopulateSecondaryItemsFromBom(jc, bom, qty);
 
                 jobCards.Add(jc);
                 remaining -= qty;
@@ -83,7 +85,7 @@ public class JobCardManager : DomainService
     /// Maps to ERPNext manufacturing/doctype/bom_operation/bom_operation.py.
     /// </summary>
     public async Task<JobCard[]> CreateJobCardsFromBomOperationsAsync(
-        WorkOrder wo, IEnumerable<BomOperation> bomOperations, Guid? tenantId = null)
+        WorkOrder wo, IEnumerable<BomOperation> bomOperations, Guid? tenantId = null, BillOfMaterials? bom = null)
     {
         var jobCards = new System.Collections.Generic.List<JobCard>();
         var sequence = 0;
@@ -99,7 +101,7 @@ public class JobCardManager : DomainService
                 sequence++;
 
                 var jc = new JobCard(
-                    GuidGenerator.Create(),
+                    LazyServiceProvider != null ? GuidGenerator.Create() : Guid.NewGuid(),
                     wo.CompanyId,
                     wo.Id,
                     op.OperationId,
@@ -117,6 +119,8 @@ public class JobCardManager : DomainService
                     WeightPerPiece = op.WeightPerPiece
                 };
 
+                PopulateSecondaryItemsFromBom(jc, bom, qty);
+
                 jobCards.Add(jc);
                 remaining -= qty;
             }
@@ -128,6 +132,34 @@ public class JobCardManager : DomainService
         }
 
         return jobCards.ToArray();
+    }
+
+    /// <summary>
+    /// Distributes secondary items (scrap, byproduct, co-product) from BOM to Job Card proportionally to batch qty.
+    /// Per ERPNext PR #59436 (commit 1d1562a68e): preserves secondary items across split job cards.
+    /// </summary>
+    public static void PopulateSecondaryItemsFromBom(JobCard jc, BillOfMaterials? bom, decimal forQty)
+    {
+        if (bom?.SecondaryItems == null || bom.SecondaryItems.Count == 0 || forQty <= 0)
+            return;
+
+        var bomQty = bom.Quantity > 0 ? bom.Quantity : 1m;
+        foreach (var sec in bom.SecondaryItems)
+        {
+            var secQty = (sec.Quantity / bomQty) * forQty;
+            secQty -= secQty * (sec.ProcessLossPercentage / 100m);
+            if (secQty > 0)
+            {
+                jc.AddSecondaryItem(
+                    sec.ItemId,
+                    sec.ItemName ?? string.Empty,
+                    secQty,
+                    sec.StockUom ?? "Unit",
+                    sec.SecondaryItemType,
+                    description: null,
+                    bomSecondaryItemId: sec.Id);
+            }
+        }
     }
 
     /// <summary>
