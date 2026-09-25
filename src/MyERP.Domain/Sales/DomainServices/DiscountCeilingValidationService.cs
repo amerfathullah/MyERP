@@ -76,7 +76,7 @@ public class DiscountCeilingValidationService : DomainService
         }
 
         var itemIds = discountList.Select(d => d.ItemId).Distinct().ToList();
-        var items = await _itemRepository.GetListAsync(i => itemIds.Contains(i.Id));
+        var items = await _itemRepository.GetListAsync(i => itemIds.Contains(i.Id)) ?? new List<Item>();
         var itemMap = items.ToDictionary(i => i.Id);
 
         foreach (var (itemId, discountPercentage) in discountList)

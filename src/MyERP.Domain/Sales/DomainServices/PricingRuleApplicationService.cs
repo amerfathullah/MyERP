@@ -40,26 +40,30 @@ public class PricingRuleApplicationService : DomainService
         Guid? companyId = null)
     {
         var queryable = await _pricingRuleRepository.GetQueryableAsync();
-        var rules = queryable
-            .Where(r => !r.IsDisabled && r.ApplicableFor == applicableFor)
-            .ToList();
-
-        if (!rules.Any()) return new List<AppliedPricingRule>();
+        var rulesQuery = queryable.Where(r => !r.IsDisabled);
 
         // Filter by company if specified
         if (companyId.HasValue)
-            rules = rules.Where(r => !r.CompanyId.HasValue || r.CompanyId == companyId).ToList();
+            rulesQuery = rulesQuery.Where(r => !r.CompanyId.HasValue || r.CompanyId == companyId);
 
         // Filter by party if specified
         if (partyId.HasValue)
-            rules = rules.Where(r => !r.PartyId.HasValue || r.PartyId == partyId).ToList();
+            rulesQuery = rulesQuery.Where(r => !r.PartyId.HasValue || r.PartyId == partyId);
+
+        var allRules = rulesQuery.ToList();
+        if (!allRules.Any()) return new List<AppliedPricingRule>();
 
         var applied = new List<AppliedPricingRule>();
 
         foreach (var item in items)
         {
-            var matching = rules
-                .Where(r => r.Matches(item.ItemId, item.ItemGroupId, item.Qty, item.Amount, transactionDate))
+            // Per ERPNext PR #59406 (set correct transaction type on args copy while evaluating item-wise pricing rule):
+            // Resolve transaction type per item row (item override > item doctype > document applicableFor)
+            var itemApplicableFor = ResolveTransactionType(item.TransactionType, item.Doctype, applicableFor);
+
+            var matching = allRules
+                .Where(r => string.Equals(r.ApplicableFor, itemApplicableFor, StringComparison.OrdinalIgnoreCase)
+                         && r.Matches(item.ItemId, item.ItemGroupId, item.Qty, item.Amount, transactionDate))
                 .OrderByDescending(r => r.Priority)
                 .ToList();
 
@@ -88,15 +92,54 @@ public class PricingRuleApplicationService : DomainService
         // exempt — MaxDiscount is defined as a percentage ceiling only, same as ERPNext. Selling-only:
         // MaxDiscount caps what a customer can be discounted, it isn't a ceiling on a bigger discount
         // a supplier grants us on the buying side.
-        if (applicableFor == "Selling")
-        {
-            var percentageDiscounts = items
-                .Where(i => i.DiscountPercentage > 0)
-                .Select(i => (i.ItemId, i.DiscountPercentage));
-            await _discountCeilingValidationService.ValidateDiscountsAsync(percentageDiscounts);
-        }
+        var percentageDiscounts = items
+            .Where(i => i.DiscountPercentage > 0 && ResolveTransactionType(i.TransactionType, i.Doctype, applicableFor) == "Selling")
+            .Select(i => (i.ItemId, i.DiscountPercentage));
+        await _discountCeilingValidationService.ValidateDiscountsAsync(percentageDiscounts);
 
         return applied;
+    }
+
+    /// <summary>
+    /// Sets and resolves correct transaction type (Selling vs Buying) for pricing rule evaluation context (ERPNext PR #59406).
+    /// </summary>
+    public static string ResolveTransactionType(string? transactionType, string? doctype, string fallback = "Selling")
+    {
+        if (!string.IsNullOrWhiteSpace(transactionType))
+        {
+            if (string.Equals(transactionType, "selling", StringComparison.OrdinalIgnoreCase)) return "Selling";
+            if (string.Equals(transactionType, "buying", StringComparison.OrdinalIgnoreCase)) return "Buying";
+        }
+
+        if (!string.IsNullOrWhiteSpace(doctype))
+        {
+            switch (doctype.Trim().ToLowerInvariant())
+            {
+                case "opportunity":
+                case "quotation":
+                case "salesorder":
+                case "sales order":
+                case "deliverynote":
+                case "delivery note":
+                case "salesinvoice":
+                case "sales invoice":
+                    return "Selling";
+
+                case "materialrequest":
+                case "material request":
+                case "supplierquotation":
+                case "supplier quotation":
+                case "purchaseorder":
+                case "purchase order":
+                case "purchasereceipt":
+                case "purchase receipt":
+                case "purchaseinvoice":
+                case "purchase invoice":
+                    return "Buying";
+            }
+        }
+
+        return fallback;
     }
 
     private static AppliedPricingRule? ApplyRule(PricingRule rule, PricingRuleContext item)
@@ -158,6 +201,8 @@ public class PricingRuleContext
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
     public decimal Amount => Qty * Rate;
+    public string? TransactionType { get; set; }
+    public string? Doctype { get; set; }
 
     // Outputs (set by rule application)
     public decimal DiscountPercentage { get; set; }

@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using MyERP.Inventory.Entities;
 using MyERP.Sales;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
+using NSubstitute;
 using Shouldly;
 using Xunit;
 
@@ -143,5 +147,72 @@ public class PricingRuleApplicationTests
         };
         result.FreeItemId.ShouldBe(freeItemId);
         result.FreeItemQty.ShouldBe(1);
+    }
+
+    [Theory]
+    [InlineData("Sales Invoice", "Selling")]
+    [InlineData("Sales Order", "Selling")]
+    [InlineData("Quotation", "Selling")]
+    [InlineData("Delivery Note", "Selling")]
+    [InlineData("Purchase Order", "Buying")]
+    [InlineData("Purchase Invoice", "Buying")]
+    [InlineData("Purchase Receipt", "Buying")]
+    [InlineData("Supplier Quotation", "Buying")]
+    public void PricingRule_ResolveTransactionType_FromDoctype(string doctype, string expected)
+    {
+        var resolved = PricingRuleApplicationService.ResolveTransactionType(null, doctype);
+        resolved.ShouldBe(expected);
+    }
+
+    [Fact]
+    public void PricingRule_ResolveTransactionType_ItemOverrideTakesPrecedence()
+    {
+        var resolved = PricingRuleApplicationService.ResolveTransactionType("Buying", "Sales Invoice");
+        resolved.ShouldBe("Buying");
+    }
+
+    [Fact]
+    public async Task PricingRule_ApplyToItems_EvaluatesItemWiseTransactionType()
+    {
+        var ruleRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<PricingRule, Guid>>();
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>();
+        var ceilingService = new DiscountCeilingValidationService(itemRepo);
+
+        var itemId = Guid.NewGuid();
+        var sellingRule = new PricingRule(Guid.NewGuid(), "Selling Rule", PricingRuleApplyOn.ItemCode, PricingRuleType.Discount)
+        {
+            ApplyOnId = itemId,
+            ApplicableFor = "Selling",
+            DiscountPercentage = 15m,
+            Priority = 1
+        };
+        var buyingRule = new PricingRule(Guid.NewGuid(), "Buying Rule", PricingRuleApplyOn.ItemCode, PricingRuleType.Discount)
+        {
+            ApplyOnId = itemId,
+            ApplicableFor = "Buying",
+            DiscountPercentage = 25m,
+            Priority = 1
+        };
+
+        var rules = new List<PricingRule> { sellingRule, buyingRule }.AsQueryable();
+        ruleRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(rules));
+
+        var service = new PricingRuleApplicationService(ruleRepo, ceilingService);
+
+        // Per ERPNext PR #59406: Item 1 has Doctype = "Sales Invoice", Item 2 has Doctype = "Purchase Order"
+        var items = new List<PricingRuleContext>
+        {
+            new PricingRuleContext { ItemId = itemId, Qty = 1, Rate = 100m, Doctype = "Sales Invoice" },
+            new PricingRuleContext { ItemId = itemId, Qty = 1, Rate = 100m, Doctype = "Purchase Order" },
+        };
+
+        var applied = await service.ApplyToItemsAsync(items, DateTime.Today);
+
+        applied.Count.ShouldBe(2);
+        items[0].DiscountPercentage.ShouldBe(15m);
+        items[0].DiscountedRate.ShouldBe(85m);
+
+        items[1].DiscountPercentage.ShouldBe(25m);
+        items[1].DiscountedRate.ShouldBe(75m);
     }
 }
