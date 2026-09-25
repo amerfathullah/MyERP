@@ -1405,6 +1405,11 @@ export interface RegisterFilterDto {
   companyId?: string;
   fromDate?: string | null;
   toDate?: string | null;
+  customerId?: string | null;
+  customerGroupId?: string | null;
+  supplierId?: string | null;
+  supplierGroupId?: string | null;
+  includePayments?: boolean;
 }
 
 export interface RegisterReportDto<T> {
@@ -1655,6 +1660,8 @@ export interface SalesRegisterLineDto {
   postingDate?: string;
   customerId?: string;
   customerName?: string | null;
+  customerGroupId?: string | null;
+  customerGroupName?: string | null;
   netTotal?: number;
   taxAmount?: number;
   grandTotal?: number;

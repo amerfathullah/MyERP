@@ -11,6 +11,8 @@ public class SalesRegisterLineDto
     public DateTime PostingDate { get; set; }
     public Guid CustomerId { get; set; }
     public string? CustomerName { get; set; }
+    public Guid? CustomerGroupId { get; set; }
+    public string? CustomerGroupName { get; set; }
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }

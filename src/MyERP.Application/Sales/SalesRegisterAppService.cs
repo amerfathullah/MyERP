@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
+using MyERP.Core.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -18,13 +19,19 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
 {
     private readonly IRepository<SalesInvoice, Guid> _invoiceRepository;
     private readonly IRepository<PaymentEntry, Guid> _paymentRepository;
+    private readonly IRepository<Customer, Guid>? _customerRepository;
+    private readonly IRepository<CustomerGroup, Guid>? _customerGroupRepository;
 
     public SalesRegisterAppService(
         IRepository<SalesInvoice, Guid> invoiceRepository,
-        IRepository<PaymentEntry, Guid> paymentRepository)
+        IRepository<PaymentEntry, Guid> paymentRepository,
+        IRepository<Customer, Guid>? customerRepository = null,
+        IRepository<CustomerGroup, Guid>? customerGroupRepository = null)
     {
         _invoiceRepository = invoiceRepository;
         _paymentRepository = paymentRepository;
+        _customerRepository = customerRepository;
+        _customerGroupRepository = customerGroupRepository;
     }
 
     private async Task<IQueryable<PaymentEntry>> GetPaymentQueryableWithTaxesAsync()
@@ -58,12 +65,31 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
             invoicesQuery = invoicesQuery.Where(si => si.CustomerId == input.CustomerId.Value);
         }
 
+        if (input.CustomerGroupId.HasValue && _customerRepository != null)
+        {
+            var custQuery = await _customerRepository.GetQueryableAsync();
+            var matchedCustomerIds = custQuery
+                .Where(c => c.CustomerGroupId == input.CustomerGroupId.Value)
+                .Select(c => c.Id)
+                .ToList();
+            invoicesQuery = invoicesQuery.Where(si => matchedCustomerIds.Contains(si.CustomerId));
+        }
+
         var invoices = invoicesQuery.ToList();
 
         // If IncludePayments and CustomerId provided: merge opening balance, invoices, and payments (with deductions per PR #58437)
         if (input.IncludePayments && input.CustomerId.HasValue)
         {
             var customerId = input.CustomerId.Value;
+
+            if (input.CustomerGroupId.HasValue && _customerRepository != null)
+            {
+                var cust = await _customerRepository.FindAsync(customerId);
+                if (cust == null || cust.CustomerGroupId != input.CustomerGroupId.Value)
+                {
+                    return new RegisterReportDto<SalesRegisterLineDto>();
+                }
+            }
             var peQuery = await GetPaymentQueryableWithTaxesAsync();
 
             // Calculate opening balance before 'from' date
@@ -170,6 +196,8 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
             var allItems = new List<SalesRegisterLineDto> { openingRow };
             allItems.AddRange(orderedDetails);
 
+            await PopulateCustomerDetailsAsync(allItems);
+
             return new RegisterReportDto<SalesRegisterLineDto>
             {
                 Count = allItems.Count,
@@ -182,29 +210,64 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
 
         // Standard register (invoices only)
         var sortedInvoices = invoices.OrderByDescending(si => si.IssueDate).ToList();
+        var items = sortedInvoices.Select(si => new SalesRegisterLineDto
+        {
+            VoucherType = si.IsReturn ? "Credit Note" : "Sales Invoice",
+            InvoiceId = si.Id,
+            InvoiceNumber = si.InvoiceNumber ?? "",
+            PostingDate = si.IssueDate,
+            CustomerId = si.CustomerId,
+            NetTotal = si.NetTotal,
+            TaxAmount = si.TaxAmount,
+            GrandTotal = si.GrandTotal,
+            AmountPaid = si.AmountPaid,
+            Outstanding = si.OutstandingAmount,
+            IsReturn = si.IsReturn,
+            Debit = si.IsReturn ? 0 : si.GrandTotal,
+            Credit = (si.IsReturn ? Math.Abs(si.GrandTotal) : 0) + GetInInvoiceReceivableCredit(si),
+        }).ToList();
+
+        await PopulateCustomerDetailsAsync(items);
+
         return new RegisterReportDto<SalesRegisterLineDto>
         {
-            Count = sortedInvoices.Count,
-            Items = sortedInvoices.Select(si => new SalesRegisterLineDto
-            {
-                VoucherType = si.IsReturn ? "Credit Note" : "Sales Invoice",
-                InvoiceId = si.Id,
-                InvoiceNumber = si.InvoiceNumber ?? "",
-                PostingDate = si.IssueDate,
-                CustomerId = si.CustomerId,
-                NetTotal = si.NetTotal,
-                TaxAmount = si.TaxAmount,
-                GrandTotal = si.GrandTotal,
-                AmountPaid = si.AmountPaid,
-                Outstanding = si.OutstandingAmount,
-                IsReturn = si.IsReturn,
-                Debit = si.IsReturn ? 0 : si.GrandTotal,
-                Credit = (si.IsReturn ? Math.Abs(si.GrandTotal) : 0) + GetInInvoiceReceivableCredit(si),
-            }).ToList(),
+            Count = items.Count,
+            Items = items,
             TotalNet = sortedInvoices.Sum(si => si.NetTotal),
             TotalTax = sortedInvoices.Sum(si => si.TaxAmount),
             TotalGrand = sortedInvoices.Sum(si => si.GrandTotal),
         };
+    }
+
+    private async Task PopulateCustomerDetailsAsync(List<SalesRegisterLineDto> lines)
+    {
+        if (_customerRepository == null || lines.Count == 0) return;
+
+        var customerIds = lines.Select(l => l.CustomerId).Distinct().ToList();
+        var custQuery = await _customerRepository.GetQueryableAsync();
+        var customers = custQuery.Where(c => customerIds.Contains(c.Id)).ToList();
+        var customerMap = customers.ToDictionary(c => c.Id);
+
+        var groupIds = customers.Where(c => c.CustomerGroupId.HasValue).Select(c => c.CustomerGroupId!.Value).Distinct().ToList();
+        Dictionary<Guid, string>? groupMap = null;
+        if (_customerGroupRepository != null && groupIds.Count > 0)
+        {
+            var groupQuery = await _customerGroupRepository.GetQueryableAsync();
+            groupMap = groupQuery.Where(g => groupIds.Contains(g.Id)).ToDictionary(g => g.Id, g => g.Name);
+        }
+
+        foreach (var line in lines)
+        {
+            if (customerMap.TryGetValue(line.CustomerId, out var customer))
+            {
+                line.CustomerName = customer.Name;
+                line.CustomerGroupId = customer.CustomerGroupId;
+                if (customer.CustomerGroupId.HasValue && groupMap != null && groupMap.TryGetValue(customer.CustomerGroupId.Value, out var groupName))
+                {
+                    line.CustomerGroupName = groupName;
+                }
+            }
+        }
     }
 
     /// <summary>

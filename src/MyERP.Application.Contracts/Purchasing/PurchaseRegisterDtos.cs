@@ -12,6 +12,8 @@ public class PurchaseRegisterLineDto
     public DateTime PostingDate { get; set; }
     public Guid SupplierId { get; set; }
     public string? SupplierName { get; set; }
+    public Guid? SupplierGroupId { get; set; }
+    public string? SupplierGroupName { get; set; }
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }

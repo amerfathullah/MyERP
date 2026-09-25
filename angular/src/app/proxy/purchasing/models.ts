@@ -666,6 +666,8 @@ export interface PurchaseRegisterLineDto {
   postingDate?: string;
   supplierId?: string;
   supplierName?: string | null;
+  supplierGroupId?: string | null;
+  supplierGroupName?: string | null;
   netTotal?: number;
   taxAmount?: number;
   grandTotal?: number;

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
+using MyERP.Core.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales;
@@ -19,13 +20,19 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
 {
     private readonly IRepository<PurchaseInvoice, Guid> _invoiceRepository;
     private readonly IRepository<PaymentEntry, Guid> _paymentRepository;
+    private readonly IRepository<Supplier, Guid>? _supplierRepository;
+    private readonly IRepository<SupplierGroup, Guid>? _supplierGroupRepository;
 
     public PurchaseRegisterAppService(
         IRepository<PurchaseInvoice, Guid> invoiceRepository,
-        IRepository<PaymentEntry, Guid> paymentRepository)
+        IRepository<PaymentEntry, Guid> paymentRepository,
+        IRepository<Supplier, Guid>? supplierRepository = null,
+        IRepository<SupplierGroup, Guid>? supplierGroupRepository = null)
     {
         _invoiceRepository = invoiceRepository;
         _paymentRepository = paymentRepository;
+        _supplierRepository = supplierRepository;
+        _supplierGroupRepository = supplierGroupRepository;
     }
 
     private async Task<IQueryable<PaymentEntry>> GetPaymentQueryableWithTaxesAsync()
@@ -59,12 +66,31 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
             invoicesQuery = invoicesQuery.Where(pi => pi.SupplierId == input.SupplierId.Value);
         }
 
+        if (input.SupplierGroupId.HasValue && _supplierRepository != null)
+        {
+            var suppQuery = await _supplierRepository.GetQueryableAsync();
+            var matchedSupplierIds = suppQuery
+                .Where(s => s.SupplierGroupId == input.SupplierGroupId.Value)
+                .Select(s => s.Id)
+                .ToList();
+            invoicesQuery = invoicesQuery.Where(pi => matchedSupplierIds.Contains(pi.SupplierId));
+        }
+
         var invoices = invoicesQuery.ToList();
 
         // If IncludePayments and SupplierId provided: merge opening balance, invoices, and payments (with deductions per PR #58437)
         if (input.IncludePayments && input.SupplierId.HasValue)
         {
             var supplierId = input.SupplierId.Value;
+
+            if (input.SupplierGroupId.HasValue && _supplierRepository != null)
+            {
+                var supp = await _supplierRepository.FindAsync(supplierId);
+                if (supp == null || supp.SupplierGroupId != input.SupplierGroupId.Value)
+                {
+                    return new RegisterReportDto<PurchaseRegisterLineDto>();
+                }
+            }
             var peQuery = await GetPaymentQueryableWithTaxesAsync();
 
             // Calculate opening balance before 'from' date (payables ledger: credits increase liability, debits decrease)
@@ -170,6 +196,8 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
             var allItems = new List<PurchaseRegisterLineDto> { openingRow };
             allItems.AddRange(orderedDetails);
 
+            await PopulateSupplierDetailsAsync(allItems);
+
             return new RegisterReportDto<PurchaseRegisterLineDto>
             {
                 Count = allItems.Count,
@@ -182,28 +210,63 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
 
         // Standard register (invoices only)
         var sortedInvoices = invoices.OrderByDescending(pi => pi.IssueDate).ToList();
+        var items = sortedInvoices.Select(pi => new PurchaseRegisterLineDto
+        {
+            VoucherType = pi.IsReturn ? "Debit Note" : "Purchase Invoice",
+            InvoiceId = pi.Id,
+            InvoiceNumber = pi.InvoiceNumber ?? "",
+            PostingDate = pi.IssueDate,
+            SupplierId = pi.SupplierId,
+            NetTotal = pi.NetTotal,
+            TaxAmount = pi.TaxAmount,
+            GrandTotal = pi.GrandTotal,
+            AmountPaid = pi.AmountPaid,
+            Outstanding = pi.OutstandingAmount,
+            IsReturn = pi.IsReturn,
+            Debit = pi.IsReturn ? Math.Abs(pi.GrandTotal) : 0,
+            Credit = pi.IsReturn ? 0 : pi.GrandTotal,
+        }).ToList();
+
+        await PopulateSupplierDetailsAsync(items);
+
         return new RegisterReportDto<PurchaseRegisterLineDto>
         {
-            Count = sortedInvoices.Count,
-            Items = sortedInvoices.Select(pi => new PurchaseRegisterLineDto
-            {
-                VoucherType = pi.IsReturn ? "Debit Note" : "Purchase Invoice",
-                InvoiceId = pi.Id,
-                InvoiceNumber = pi.InvoiceNumber ?? "",
-                PostingDate = pi.IssueDate,
-                SupplierId = pi.SupplierId,
-                NetTotal = pi.NetTotal,
-                TaxAmount = pi.TaxAmount,
-                GrandTotal = pi.GrandTotal,
-                AmountPaid = pi.AmountPaid,
-                Outstanding = pi.OutstandingAmount,
-                IsReturn = pi.IsReturn,
-                Debit = pi.IsReturn ? Math.Abs(pi.GrandTotal) : 0,
-                Credit = pi.IsReturn ? 0 : pi.GrandTotal,
-            }).ToList(),
+            Count = items.Count,
+            Items = items,
             TotalNet = sortedInvoices.Sum(pi => pi.NetTotal),
             TotalTax = sortedInvoices.Sum(pi => pi.TaxAmount),
             TotalGrand = sortedInvoices.Sum(pi => pi.GrandTotal),
         };
+    }
+
+    private async Task PopulateSupplierDetailsAsync(List<PurchaseRegisterLineDto> lines)
+    {
+        if (_supplierRepository == null || lines.Count == 0) return;
+
+        var supplierIds = lines.Select(l => l.SupplierId).Distinct().ToList();
+        var supplierQuery = await _supplierRepository.GetQueryableAsync();
+        var suppliers = supplierQuery.Where(s => supplierIds.Contains(s.Id)).ToList();
+        var supplierMap = suppliers.ToDictionary(s => s.Id);
+
+        var groupIds = suppliers.Where(s => s.SupplierGroupId.HasValue).Select(s => s.SupplierGroupId!.Value).Distinct().ToList();
+        Dictionary<Guid, string>? groupMap = null;
+        if (_supplierGroupRepository != null && groupIds.Count > 0)
+        {
+            var groupQuery = await _supplierGroupRepository.GetQueryableAsync();
+            groupMap = groupQuery.Where(g => groupIds.Contains(g.Id)).ToDictionary(g => g.Id, g => g.Name);
+        }
+
+        foreach (var line in lines)
+        {
+            if (supplierMap.TryGetValue(line.SupplierId, out var supplier))
+            {
+                line.SupplierName = supplier.Name;
+                line.SupplierGroupId = supplier.SupplierGroupId;
+                if (supplier.SupplierGroupId.HasValue && groupMap != null && groupMap.TryGetValue(supplier.SupplierGroupId.Value, out var groupName))
+                {
+                    line.SupplierGroupName = groupName;
+                }
+            }
+        }
     }
 }

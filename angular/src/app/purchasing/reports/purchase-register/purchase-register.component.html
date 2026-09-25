@@ -2,14 +2,21 @@
   <div class="card mb-4">
     <div class="card-body">
       <form [formGroup]="filters" (ngSubmit)="generate()" class="row g-3 align-items-end">
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label">{{ 'Company' | abpLocalization }}</label>
           <select class="form-select" formControlName="companyId">
             <option value="" disabled>{{ 'SelectCompany' | abpLocalization }}</option>
             @for (c of companies(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
           </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
+          <label class="form-label">{{ 'SupplierGroup' | abpLocalization }}</label>
+          <select class="form-select" formControlName="supplierGroupId">
+            <option value="">-- {{ 'All' | abpLocalization }} --</option>
+            @for (sg of supplierGroups(); track sg.id) { <option [value]="sg.id">{{ sg.name }}</option> }
+          </select>
+        </div>
+        <div class="col-md-2">
           <label class="form-label">{{ 'Supplier' | abpLocalization }}</label>
           <select class="form-select" formControlName="supplierId">
             <option value="">-- {{ 'All' | abpLocalization }} --</option>
@@ -54,6 +61,7 @@
                   <th class="ps-3">{{ 'VoucherType' | abpLocalization }}</th>
                   <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
                   <th>{{ 'Date' | abpLocalization }}</th>
+                  <th>{{ 'Supplier' | abpLocalization }}</th>
                   <th class="text-end">{{ 'Debit' | abpLocalization }}</th>
                   <th class="text-end">{{ 'Credit' | abpLocalization }}</th>
                   <th class="text-end pe-3">{{ 'Balance' | abpLocalization }}</th>
@@ -62,6 +70,8 @@
                 <tr>
                   <th class="ps-3">{{ 'InvoiceNumber' | abpLocalization }}</th>
                   <th>{{ 'Date' | abpLocalization }}</th>
+                  <th>{{ 'Supplier' | abpLocalization }}</th>
+                  <th>{{ 'SupplierGroup' | abpLocalization }}</th>
                   <th class="text-end">{{ 'NetTotal' | abpLocalization }}</th>
                   <th class="text-end">{{ 'Tax' | abpLocalization }}</th>
                   <th class="text-end">{{ 'GrandTotal' | abpLocalization }}</th>
@@ -81,6 +91,7 @@
                     </td>
                     <td>{{ item.invoiceNumber }}</td>
                     <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
+                    <td>{{ item.supplierName || '-' }}</td>
                     <td class="text-end font-monospace text-success">{{ (item.debit ?? 0) ? (item.debit | number:'1.2-2') : '' }}</td>
                     <td class="text-end font-monospace">{{ (item.credit ?? 0) ? (item.credit | number:'1.2-2') : '' }}</td>
                     <td class="text-end pe-3 font-monospace fw-bold" [class.text-danger]="(item.balance ?? 0) > 0">{{ item.balance | number:'1.2-2' }}</td>
@@ -92,6 +103,8 @@
                       @if (item.isReturn) { <span class="badge bg-info ms-1">{{ '::DebitNote' | abpLocalization }}</span> }
                     </td>
                     <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
+                    <td>{{ item.supplierName || '-' }}</td>
+                    <td>{{ item.supplierGroupName || '-' }}</td>
                     <td class="text-end font-monospace">{{ item.netTotal | number:'1.2-2' }}</td>
                     <td class="text-end font-monospace">{{ item.taxAmount | number:'1.2-2' }}</td>
                     <td class="text-end font-monospace fw-bold">{{ item.grandTotal | number:'1.2-2' }}</td>
@@ -104,7 +117,7 @@
             <tfoot>
               @if (!filters.get('includePayments')?.value) {
                 <tr class="fw-bold table-light">
-                  <td class="ps-3" colspan="2">{{ 'Total' | abpLocalization }}</td>
+                  <td class="ps-3" colspan="4">{{ 'Total' | abpLocalization }}</td>
                   <td class="text-end font-monospace">{{ r.totalNet | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ r.totalTax | number:'1.2-2' }}</td>
                   <td class="text-end font-monospace">{{ r.totalGrand | number:'1.2-2' }}</td>

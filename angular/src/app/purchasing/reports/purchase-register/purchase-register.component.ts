@@ -8,9 +8,10 @@ import { CompanyContextService } from '../../../shared/services/company-context.
 import { exportToCsv } from '../../../shared/utils/csv-export';
 import { PurchaseRegisterService } from '../../../proxy/purchasing/purchase-register.service';
 import { SupplierService } from '../../../proxy/purchasing/supplier.service';
+import { SupplierGroupService } from '../../../proxy/core/supplier-group.service';
 import type { PurchaseRegisterLineDto, SupplierDto } from '../../../proxy/purchasing/models';
 import type { RegisterReportDto } from '../../../proxy/sales/models';
-import type { CompanyDto } from '../../../proxy/core/models';
+import type { CompanyDto, SupplierGroupDto } from '../../../proxy/core/models';
 
 @Component({
   selector: 'app-purchase-register',
@@ -23,11 +24,13 @@ export class PurchaseRegisterComponent implements OnInit {
   private fb = inject(FormBuilder);
   private registerService = inject(PurchaseRegisterService);
   private supplierService = inject(SupplierService);
+  private supplierGroupService = inject(SupplierGroupService);
   private companyService = inject(CompanyService);
   private companyContext = inject(CompanyContextService);
 
   filters = this.fb.group({
     companyId: ['', Validators.required],
+    supplierGroupId: [''],
     supplierId: [''],
     fromDate: [new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]],
     toDate: [new Date().toISOString().split('T')[0]],
@@ -35,6 +38,7 @@ export class PurchaseRegisterComponent implements OnInit {
   });
 
   companies = signal<CompanyDto[]>([]);
+  supplierGroups = signal<SupplierGroupDto[]>([]);
   suppliers = signal<SupplierDto[]>([]);
   report = signal<RegisterReportDto<PurchaseRegisterLineDto> | null>(null);
   isLoading = signal(false);
@@ -52,6 +56,11 @@ export class PurchaseRegisterComponent implements OnInit {
         }
       });
 
+    this.supplierGroupService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any)
+      .subscribe(res => {
+        this.supplierGroups.set(res.items ?? []);
+      });
+
     this.supplierService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any)
       .subscribe(res => {
         this.suppliers.set(res.items ?? []);
@@ -61,12 +70,13 @@ export class PurchaseRegisterComponent implements OnInit {
   generate(): void {
     if (this.filters.invalid) { this.filters.markAllAsTouched(); return; }
     this.isLoading.set(true);
-    const { companyId, fromDate, toDate, supplierId, includePayments } = this.filters.getRawValue();
+    const { companyId, fromDate, toDate, supplierId, supplierGroupId, includePayments } = this.filters.getRawValue();
     this.registerService.getReport({
       companyId: companyId!,
       fromDate: fromDate!,
       toDate: toDate!,
       supplierId: supplierId || undefined,
+      supplierGroupId: supplierGroupId || undefined,
       includePayments: includePayments || false,
     } as any).subscribe({
       next: data => { this.report.set(data); this.isLoading.set(false); },
@@ -79,8 +89,8 @@ export class PurchaseRegisterComponent implements OnInit {
     if (!r?.items?.length) return;
     const isPayments = this.filters.get('includePayments')?.value;
     const cols = isPayments
-      ? ['voucherType', 'invoiceNumber', 'postingDate', 'debit', 'credit', 'balance', 'outstanding']
-      : ['invoiceNumber', 'postingDate', 'netTotal', 'taxAmount', 'grandTotal', 'amountPaid', 'outstanding', 'isReturn'];
+      ? ['voucherType', 'invoiceNumber', 'postingDate', 'supplierName', 'supplierGroupName', 'debit', 'credit', 'balance', 'outstanding']
+      : ['invoiceNumber', 'postingDate', 'supplierName', 'supplierGroupName', 'netTotal', 'taxAmount', 'grandTotal', 'amountPaid', 'outstanding', 'isReturn'];
     exportToCsv('purchase-register.csv', r.items, cols);
   }
 }
