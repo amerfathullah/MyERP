@@ -10,6 +10,8 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import type { WorkOrderDto, BomOperationDto, WorkOrderJobCardDto, ProductionCostBreakdownDto } from '../../proxy/manufacturing/models';
 import { ItemService } from '../../proxy/inventory/item.service';
+import { StockReservationService } from '../../proxy/inventory/stock-reservation.service';
+import type { StockReservationEntryDto } from '../../proxy/inventory/models';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -136,6 +138,11 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
             <button class="btn btn-outline-info btn-sm" (click)="checkMaterialAvailability()" [disabled]="isCheckingMaterials()">
               @if (isCheckingMaterials()) { <span class="spinner-border spinner-border-sm me-1"></span> }
               <i class="fa fa-boxes-stacked me-1"></i> {{ '::CheckMaterialAvailability' | abpLocalization }}
+            </button>
+          }
+          @if (hasHeldStockReservation) {
+            <button class="btn btn-outline-warning btn-sm" (click)="showUnreserveModal.set(true)">
+              <i class="fa fa-ban me-1"></i>{{ '::UnreserveStock' | abpLocalization }}
             </button>
           }
         </div>
@@ -432,6 +439,52 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
           </div>
         </div>
       }
+
+      <!-- Unreserve Stock Modal (PR #59424 / commit dbada3f461) -->
+      @if (showUnreserveModal()) {
+        <div class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+          <div class="modal-dialog modal-md modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="fa fa-ban me-2 text-warning"></i>{{ '::UnreserveStock' | abpLocalization }}</h6>
+                <button type="button" class="btn-close" (click)="showUnreserveModal.set(false)"></button>
+              </div>
+              <div class="modal-body p-0">
+                <table class="table table-sm mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>{{ '::Item' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Reserved' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::HeldQty' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Action' | abpLocalization }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (sre of stockReservations(); track sre.id) {
+                      @if (getHeldQty(sre) > 0) {
+                        <tr>
+                          <td>{{ sre.itemId }}</td>
+                          <td class="text-end">{{ sre.reservedQty | number:'1.2-2' }}</td>
+                          <td class="text-end fw-bold">{{ getHeldQty(sre) | number:'1.2-2' }}</td>
+                          <td class="text-end">
+                            <button class="btn btn-sm btn-outline-danger" (click)="unreserve(sre)" [disabled]="isUnreserving()">
+                              @if (isUnreserving()) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                              {{ '::UnreserveStock' | abpLocalization }}
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <div class="modal-footer py-2">
+                <button class="btn btn-sm btn-secondary" (click)="showUnreserveModal.set(false)">{{ '::Close' | abpLocalization }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
     </abp-page>
   `,
 })
@@ -443,9 +496,13 @@ export class WorkOrderDetailComponent implements OnInit {
   private toaster = inject(ToasterService);
   private manufacturingService = inject(ManufacturingService);
   private itemService = inject(ItemService);
+  private stockReservationService = inject(StockReservationService);
   private l = inject(LocalizationService);
 
   wo = signal<WorkOrderDto | null>(null);
+  stockReservations = signal<StockReservationEntryDto[]>([]);
+  showUnreserveModal = signal(false);
+  isUnreserving = signal(false);
   operations = signal<BomOperationDto[]>([]);
   jobCards = signal<WorkOrderJobCardDto[]>([]);
   isLoading = signal(false);
@@ -495,10 +552,51 @@ export class WorkOrderDetailComponent implements OnInit {
               error: () => {},
             });
           }
+
+          if (w.id) {
+            this.loadStockReservations(w.id);
+          }
         },
         error: () => this.isLoading.set(false),
       });
     }
+  }
+
+  loadStockReservations(workOrderId: string): void {
+    this.stockReservationService.getList({
+      voucherId: workOrderId,
+      skipCount: 0,
+      maxResultCount: 100
+    } as any).subscribe({
+      next: res => this.stockReservations.set((res.items ?? []).filter(s => s.status === 1)),
+      error: () => this.stockReservations.set([])
+    });
+  }
+
+  getHeldQty(sre: StockReservationEntryDto): number {
+    return Math.max(0, (sre.reservedQty ?? 0) - (sre.deliveredQty ?? 0) - (sre.transferredQty ?? 0) - (sre.consumedQty ?? 0));
+  }
+
+  get hasHeldStockReservation(): boolean {
+    return this.stockReservations().some(sre => this.getHeldQty(sre) > 0);
+  }
+
+  unreserve(sre: StockReservationEntryDto): void {
+    if (!sre.id) return;
+    this.isUnreserving.set(true);
+    this.stockReservationService.cancel(sre.id).subscribe({
+      next: () => {
+        this.toaster.success(this.l.instant('::OperationSuccessful'));
+        this.isUnreserving.set(false);
+        if (this.wo()?.id) {
+          this.loadStockReservations(this.wo()!.id!);
+        }
+      },
+      error: (err: any) => {
+        this.toaster.error(err.message ?? this.l.instant('::Error'));
+        this.isUnreserving.set(false);
+      }
+    });
   }
 
   start() {

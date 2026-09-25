@@ -400,6 +400,13 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         {
                             existingWoItem.TransferredQuantity = Math.Max(0, existingWoItem.TransferredQuantity - seItem.Quantity);
                         }
+
+                        if (seItem.SourceWarehouseId.HasValue)
+                        {
+                            var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+                            await sreManager.RevertWorkOrderTransferAsync(
+                                wo.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.Quantity, seItem.BatchId);
+                        }
                     }
                     await woRepo.UpdateAsync(wo, autoSave: true);
                 }
@@ -440,6 +447,14 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                                 VoucherDetailReference = seItem.Id,
                             };
                             wo.RequiredItems.Add(addlItem);
+                        }
+
+                        // Per ERPNext PR #59424 / commit dbada3f461: apply transfer on work order reservations with batch matching
+                        if (seItem.SourceWarehouseId.HasValue)
+                        {
+                            var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+                            await sreManager.ApplyWorkOrderTransferAsync(
+                                wo.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.Quantity, seItem.BatchId);
                         }
                     }
 
@@ -482,6 +497,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 {
                     reqItem.ConsumedQuantity += seItem.Quantity;
                 }
+
+                // Per ERPNext PR #59424 / commit dbada3f461: apply consumption on work order reservations with batch matching
+                var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+                await sreManager.ApplyWorkOrderConsumptionAsync(
+                    wo.Id, seItem.ItemId, seItem.SourceWarehouseId!.Value, seItem.Quantity, seItem.BatchId);
             }
 
             if (fgQty > 0 || processLoss > 0)
@@ -736,6 +756,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                     {
                         reqItem.ConsumedQuantity = Math.Max(0, reqItem.ConsumedQuantity - seItem.Quantity);
                     }
+
+                    // Per ERPNext PR #59424 / commit dbada3f461: revert consumption on work order reservations with batch matching
+                    var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+                    await sreManager.RevertWorkOrderConsumptionAsync(
+                        producingWorkOrder.Id, seItem.ItemId, seItem.SourceWarehouseId!.Value, seItem.Quantity, seItem.BatchId);
                 }
 
                 producingWorkOrder.ReverseProduction(fgQty, processLoss: processLoss);
@@ -856,6 +881,14 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                             if (reqItem != null)
                             {
                                 reqItem.TransferredQuantity = Math.Max(0, reqItem.TransferredQuantity - seItem.Quantity);
+                            }
+
+                            // Per ERPNext PR #59424 / commit dbada3f461: revert transfer on work order reservations with batch matching
+                            if (seItem.SourceWarehouseId.HasValue)
+                            {
+                                var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+                                await sreManager.RevertWorkOrderTransferAsync(
+                                    woForTransfer.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.Quantity, seItem.BatchId);
                             }
                         }
                     }

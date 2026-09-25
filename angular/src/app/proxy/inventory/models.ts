@@ -1931,7 +1931,10 @@ export interface StockReservationEntryDto extends EntityDto<string> {
   fromVoucherDetailId?: string | null;
   reservedQty?: number;
   deliveredQty?: number;
+  transferredQty?: number;
+  consumedQty?: number;
   availableQty?: number;
+  batchId?: string | null;
   status?: number;
   creationTime?: string;
 }

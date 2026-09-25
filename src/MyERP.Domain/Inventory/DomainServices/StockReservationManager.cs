@@ -95,10 +95,11 @@ public class StockReservationManager : DomainService
     /// <summary>
     /// Consumes reserved stock when delivery is made (FIFO by creation date).
     /// Per ERPNext PR #49082 (commit dbaa44688e): filters delivered_qty < reserved_qty.
+    /// Per ERPNext PR #59424 (commit dbada3f461): count only matched batches on reservations.
     /// Returns list of consumed SRE IDs with quantities.
     /// </summary>
     public async Task<ReservationConsumption[]> ConsumeOnDeliveryAsync(
-        Guid itemId, Guid warehouseId, decimal deliveredQty, Guid? salesOrderId = null)
+        Guid itemId, Guid warehouseId, decimal deliveredQty, Guid? salesOrderId = null, Guid? batchId = null)
     {
         var queryable = await _sreRepository.GetQueryableAsync();
         var activeSres = queryable
@@ -106,8 +107,10 @@ public class StockReservationManager : DomainService
                 && s.WarehouseId == warehouseId
                 && s.Status == DocumentStatus.Submitted
                 && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0
-                && (salesOrderId == null || s.VoucherId == salesOrderId))
-            .OrderBy(s => s.CreationTime)
+                && (salesOrderId == null || s.VoucherId == salesOrderId)
+                && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
+            .OrderByDescending(s => s.BatchId == batchId && batchId != null)
+            .ThenBy(s => s.CreationTime)
             .ToList();
 
         var consumed = new System.Collections.Generic.List<ReservationConsumption>();
@@ -139,9 +142,10 @@ public class StockReservationManager : DomainService
     /// <summary>
     /// Restores reserved stock when a delivery document (DN or update_stock SI) is cancelled (reverses FIFO consumption).
     /// Per ERPNext PR #58613 / commit 7ecfa6b356: restores DeliveredQty on active SREs in LIFO order so reserved stock becomes available again.
+    /// Per ERPNext PR #59424 / commit dbada3f461: match batch where applicable.
     /// </summary>
     public async Task<ReservationConsumption[]> RestoreOnCancelDeliveryAsync(
-        Guid itemId, Guid warehouseId, decimal deliveredQty, Guid? voucherId = null)
+        Guid itemId, Guid warehouseId, decimal deliveredQty, Guid? voucherId = null, Guid? batchId = null)
     {
         if (deliveredQty <= 0) return Array.Empty<ReservationConsumption>();
 
@@ -151,7 +155,8 @@ public class StockReservationManager : DomainService
                 && s.WarehouseId == warehouseId
                 && s.Status == DocumentStatus.Submitted
                 && s.DeliveredQty > 0
-                && (voucherId == null || s.VoucherId == voucherId))
+                && (voucherId == null || s.VoucherId == voucherId)
+                && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
             .OrderByDescending(s => s.CreationTime)
             .ToList();
 
@@ -443,6 +448,174 @@ public class StockReservationManager : DomainService
         }
 
         return activeSres;
+    }
+
+    /// <summary>
+    /// Gets remaining held reserved quantity on a Stock Reservation Entry (PR #59424 / commit dbada3f461).
+    /// </summary>
+    public static decimal GetHeldQty(StockReservationEntry sre)
+    {
+        return Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
+    }
+
+    /// <summary>
+    /// Updates transferred quantity on active Work Order reservations during Material Transfer.
+    /// Per ERPNext PR #59424 / commit dbada3f461: only consumes reservations matching the transferred batch.
+    /// </summary>
+    public async Task<ReservationConsumption[]> ApplyWorkOrderTransferAsync(
+        Guid workOrderId, Guid itemId, Guid sourceWarehouseId, decimal transferredQty, Guid? batchId = null, Guid? workOrderItemId = null)
+    {
+        if (transferredQty <= 0) return Array.Empty<ReservationConsumption>();
+
+        var queryable = await _sreRepository.GetQueryableAsync();
+        var activeSres = queryable
+            .Where(s => s.VoucherType == "WorkOrder"
+                && s.VoucherId == workOrderId
+                && s.ItemId == itemId
+                && s.WarehouseId == sourceWarehouseId
+                && s.Status == DocumentStatus.Submitted
+                && (workOrderItemId == null || s.VoucherDetailId == workOrderItemId)
+                && (s.ReservedQty - s.TransferredQty - s.ConsumedQty) > 0
+                && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
+            .OrderByDescending(s => s.BatchId == batchId && batchId != null)
+            .ThenBy(s => s.CreationTime)
+            .ToList();
+
+        var consumed = new System.Collections.Generic.List<ReservationConsumption>();
+        var remaining = transferredQty;
+
+        foreach (var sre in activeSres)
+        {
+            if (remaining <= 0) break;
+            var available = sre.AvailableQty;
+            if (available <= 0) continue;
+
+            var transfer = Math.Min(remaining, available);
+            sre.TransferredQty += transfer;
+            await _sreRepository.UpdateAsync(sre);
+
+            consumed.Add(new ReservationConsumption
+            {
+                StockReservationEntryId = sre.Id,
+                ConsumedQty = transfer
+            });
+
+            remaining -= transfer;
+        }
+
+        return consumed.ToArray();
+    }
+
+    /// <summary>
+    /// Reverts transferred quantity on Work Order reservations when a Material Transfer is cancelled.
+    /// </summary>
+    public async Task RevertWorkOrderTransferAsync(
+        Guid workOrderId, Guid itemId, Guid sourceWarehouseId, decimal revertedQty, Guid? batchId = null, Guid? workOrderItemId = null)
+    {
+        if (revertedQty <= 0) return;
+
+        var queryable = await _sreRepository.GetQueryableAsync();
+        var activeSres = queryable
+            .Where(s => s.VoucherType == "WorkOrder"
+                && s.VoucherId == workOrderId
+                && s.ItemId == itemId
+                && s.WarehouseId == sourceWarehouseId
+                && s.Status == DocumentStatus.Submitted
+                && (workOrderItemId == null || s.VoucherDetailId == workOrderItemId)
+                && s.TransferredQty > 0
+                && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
+            .OrderByDescending(s => s.CreationTime)
+            .ToList();
+
+        var remaining = revertedQty;
+        foreach (var sre in activeSres)
+        {
+            if (remaining <= 0) break;
+            var canRevert = Math.Min(remaining, sre.TransferredQty);
+            sre.TransferredQty = Math.Max(0, sre.TransferredQty - canRevert);
+            await _sreRepository.UpdateAsync(sre);
+            remaining -= canRevert;
+        }
+    }
+
+    /// <summary>
+    /// Updates consumed quantity on active Work Order reservations during Manufacture / Material Consumption.
+    /// Per ERPNext PR #59424 / commit dbada3f461: only consumes reservations matching the consumed batch.
+    /// </summary>
+    public async Task<ReservationConsumption[]> ApplyWorkOrderConsumptionAsync(
+        Guid workOrderId, Guid itemId, Guid warehouseId, decimal consumedQty, Guid? batchId = null, Guid? workOrderItemId = null)
+    {
+        if (consumedQty <= 0) return Array.Empty<ReservationConsumption>();
+
+        var queryable = await _sreRepository.GetQueryableAsync();
+        var activeSres = queryable
+            .Where(s => s.VoucherType == "WorkOrder"
+                && s.VoucherId == workOrderId
+                && s.ItemId == itemId
+                && s.WarehouseId == warehouseId
+                && s.Status == DocumentStatus.Submitted
+                && (workOrderItemId == null || s.VoucherDetailId == workOrderItemId)
+                && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0
+                && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
+            .OrderByDescending(s => s.BatchId == batchId && batchId != null)
+            .ThenBy(s => s.CreationTime)
+            .ToList();
+
+        var consumed = new System.Collections.Generic.List<ReservationConsumption>();
+        var remaining = consumedQty;
+
+        foreach (var sre in activeSres)
+        {
+            if (remaining <= 0) break;
+            var available = sre.AvailableQty;
+            if (available <= 0) continue;
+
+            var consume = Math.Min(remaining, available);
+            sre.ConsumedQty += consume;
+            await _sreRepository.UpdateAsync(sre);
+
+            consumed.Add(new ReservationConsumption
+            {
+                StockReservationEntryId = sre.Id,
+                ConsumedQty = consume
+            });
+
+            remaining -= consume;
+        }
+
+        return consumed.ToArray();
+    }
+
+    /// <summary>
+    /// Reverts consumed quantity on Work Order reservations when a Manufacture / Material Consumption entry is cancelled.
+    /// </summary>
+    public async Task RevertWorkOrderConsumptionAsync(
+        Guid workOrderId, Guid itemId, Guid warehouseId, decimal revertedQty, Guid? batchId = null, Guid? workOrderItemId = null)
+    {
+        if (revertedQty <= 0) return;
+
+        var queryable = await _sreRepository.GetQueryableAsync();
+        var activeSres = queryable
+            .Where(s => s.VoucherType == "WorkOrder"
+                && s.VoucherId == workOrderId
+                && s.ItemId == itemId
+                && s.WarehouseId == warehouseId
+                && s.Status == DocumentStatus.Submitted
+                && (workOrderItemId == null || s.VoucherDetailId == workOrderItemId)
+                && s.ConsumedQty > 0
+                && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
+            .OrderByDescending(s => s.CreationTime)
+            .ToList();
+
+        var remaining = revertedQty;
+        foreach (var sre in activeSres)
+        {
+            if (remaining <= 0) break;
+            var canRevert = Math.Min(remaining, sre.ConsumedQty);
+            sre.ConsumedQty = Math.Max(0, sre.ConsumedQty - canRevert);
+            await _sreRepository.UpdateAsync(sre);
+            remaining -= canRevert;
+        }
     }
 }
 

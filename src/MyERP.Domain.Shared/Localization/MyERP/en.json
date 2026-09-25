@@ -4924,6 +4924,10 @@
     "MyERP:03007": "Shipping Account does not belong to the selected Company.",
     "DefaultAccount": "Default Account",
     "MyERP:01052": "{customerName} is blocked so this transaction cannot proceed.",
-    "BlockCustomer": "Block Customer"
+    "BlockCustomer": "Block Customer",
+    "DefaultSourceWarehouse": "Default source Warehouse",
+    "UnreserveStock": "Unreserve Stock",
+    "NoReservedStockToUnreserve": "No reserved stock to unreserve.",
+    "HeldQty": "Held Qty"
   }
 }

@@ -778,7 +778,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     if (itemEntity == null || !itemEntity.MaintainStock) continue;
 
                     await sreManager.ConsumeOnDeliveryAsync(
-                        item.ItemId, item.WarehouseId ?? dn.WarehouseId, item.StockQty, dn.SalesOrderId);
+                        item.ItemId, item.WarehouseId ?? dn.WarehouseId, item.StockQty, dn.SalesOrderId, item.BatchId);
                 }
             }
 
@@ -1009,7 +1009,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 var sreManager = LazyServiceProvider
                     .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
                 await sreManager.RestoreOnCancelDeliveryAsync(
-                    item.ItemId, itemWarehouseId, stockQty, dn.SalesOrderId);
+                    item.ItemId, itemWarehouseId, stockQty, dn.SalesOrderId, item.BatchId);
             }
         }
 

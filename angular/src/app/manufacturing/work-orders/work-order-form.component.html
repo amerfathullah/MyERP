@@ -39,7 +39,7 @@
             <input type="date" class="form-control" formControlName="plannedEndDate" />
           </div>
           <div class="col-12 col-md-4 mb-3">
-            <label class="form-label">{{ '::SourceWarehouse' | abpLocalization }}</label>
+            <label class="form-label">{{ '::DefaultSourceWarehouse' | abpLocalization }}</label>
             <select class="form-select" formControlName="sourceWarehouseId">
               <option value="">{{ '::SelectWarehouse' | abpLocalization }}</option>
               @for (w of warehouses(); track w.id) {

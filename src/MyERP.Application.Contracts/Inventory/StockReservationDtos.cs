@@ -17,7 +17,10 @@ public class StockReservationEntryDto : EntityDto<Guid>
     public Guid? FromVoucherDetailId { get; set; }
     public decimal ReservedQty { get; set; }
     public decimal DeliveredQty { get; set; }
+    public decimal TransferredQty { get; set; }
+    public decimal ConsumedQty { get; set; }
     public decimal AvailableQty { get; set; }
+    public Guid? BatchId { get; set; }
     public int Status { get; set; }
     public DateTime CreationTime { get; set; }
 }
