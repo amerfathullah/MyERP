@@ -12,6 +12,7 @@ public class RepostItemValuationDto : EntityDto<Guid>
     public DateTime PostingDate { get; set; }
     public int Status { get; set; }
     public bool RepostGlEntries { get; set; }
+    public bool RepostOnlyAccountingLedgers { get; set; }
     public int TotalAffectedEntries { get; set; }
     public int CurrentIndex { get; set; }
     public string? ErrorLog { get; set; }
@@ -29,6 +30,7 @@ public class CreateRepostItemValuationDto
     public Guid? WarehouseId { get; set; }
     public DateTime PostingDate { get; set; }
     public bool RepostGlEntries { get; set; } = true;
+    public bool RepostOnlyAccountingLedgers { get; set; }
     public string? VoucherType { get; set; }
     public Guid? VoucherId { get; set; }
 }

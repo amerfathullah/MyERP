@@ -32,3 +32,24 @@ public class StockGlWarehouseComparisonDto
     public Guid? StockAccountId { get; set; }
     public string? StockAccountName { get; set; }
 }
+
+public class CreateGlRepostingInputDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime FromDate { get; set; }
+    public List<GlRepostVoucherDto> Vouchers { get; set; } = new();
+}
+
+public class GlRepostVoucherDto
+{
+    public string VoucherType { get; set; } = string.Empty;
+    public Guid VoucherId { get; set; }
+}
+
+public class CreateGlRepostingResultDto
+{
+    public int CreatedCount { get; set; }
+    public int SkippedCount { get; set; }
+    public List<Guid> RepostIds { get; set; } = new();
+    public string Message { get; set; } = string.Empty;
+}

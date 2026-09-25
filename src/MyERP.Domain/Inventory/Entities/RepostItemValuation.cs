@@ -40,6 +40,9 @@ public class RepostItemValuation : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Whether to also repost GL entries after valuation fix.</summary>
     public bool RepostGlEntries { get; set; } = true;
 
+    /// <summary>Whether this repost is only for accounting ledgers (GL), leaving stock ledgers and valuation rates untouched (PR #59307 / commit 18093079d9).</summary>
+    public bool RepostOnlyAccountingLedgers { get; set; }
+
     /// <summary>Total SLE entries affected by this repost.</summary>
     public int TotalAffectedEntries { get; set; }
 
@@ -122,11 +125,41 @@ public class RepostItemValuation : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = RepostStatus.Cancelled;
     }
 
+    public void ResetRepostOnlyAccountingLedgers()
+    {
+        if (RepostOnlyAccountingLedgers && BasedOn != RepostMethod.Transaction)
+        {
+            RepostOnlyAccountingLedgers = false;
+        }
+    }
+
+    public void ValidateRepostOnlyAccountingLedgers()
+    {
+        if (!RepostOnlyAccountingLedgers)
+            return;
+
+        if (string.Equals(VoucherType, "GL Entry", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "GL reposting is not allowed against the voucher type GL Entry.");
+        }
+    }
+
     /// <summary>Check if another repost makes this one redundant (covers same or broader scope).</summary>
     public bool IsCoveredBy(RepostItemValuation other)
     {
         if (other.Status == RepostStatus.Completed || other.Status == RepostStatus.Skipped || other.Status == RepostStatus.Cancelled)
             return false; // Already done/cancelled, not covering
+
+        // GL-only repost and full valuation repost do not cover each other
+        if (other.RepostOnlyAccountingLedgers != RepostOnlyAccountingLedgers)
+            return false;
+
+        // Transaction-based repost: exact voucher match
+        if (BasedOn == RepostMethod.Transaction && other.BasedOn == RepostMethod.Transaction)
+        {
+            return other.VoucherType == VoucherType && other.VoucherId == VoucherId;
+        }
 
         // Entire company covers everything
         if (other.BasedOn == RepostMethod.EntireCompany && other.CompanyId == CompanyId)
@@ -144,7 +177,8 @@ public enum RepostMethod
 {
     ItemAndWarehouse = 0,
     ItemWise = 1,
-    EntireCompany = 2
+    EntireCompany = 2,
+    Transaction = 3
 }
 
 public enum RepostStatus

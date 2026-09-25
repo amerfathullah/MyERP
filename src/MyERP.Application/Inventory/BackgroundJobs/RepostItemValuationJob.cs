@@ -120,6 +120,28 @@ public class RepostItemValuationJob : AsyncBackgroundJob<RepostItemValuationArgs
 
         try
         {
+            if (repostEntry?.RepostOnlyAccountingLedgers == true)
+            {
+                // PR #59307 / commit 18093079d9: Repost only accounting ledgers (GL), leaving stock ledgers
+                // and valuation rates untouched.
+                if (!string.IsNullOrEmpty(repostEntry.VoucherType) && repostEntry.VoucherId.HasValue)
+                {
+                    await RepostSingleVoucherGlAsync(args.CompanyId, repostEntry.VoucherType, repostEntry.VoucherId.Value);
+                }
+                else
+                {
+                    await RepostAffectedGlEntriesAsync(args);
+                }
+
+                _logger.LogInformation(
+                    "GL-only repost item valuation completed: VoucherType={VoucherType}, VoucherId={VoucherId}",
+                    repostEntry.VoucherType, repostEntry.VoucherId);
+
+                repostEntry.Complete(1);
+                await repostRepo.UpdateAsync(repostEntry);
+                return;
+            }
+
             // Step 1: Recalculate all SLE valuations from the given date
             await _valuationService.RevaluateFromDateAsync(args.ItemId, args.WarehouseId, args.FromDate);
 
@@ -242,6 +264,18 @@ public class RepostItemValuationJob : AsyncBackgroundJob<RepostItemValuationArgs
                 "GL repost complete: {Reposted} reposted, {Skipped} skipped for Item={ItemId}, Warehouse={WarehouseId}",
                 repostedCount, skippedCount, args.ItemId, args.WarehouseId);
         }
+    }
+
+    private async Task RepostSingleVoucherGlAsync(Guid companyId, string voucherType, Guid voucherId)
+    {
+        if (!GlRepostService.IsRepostAllowed(voucherType))
+            return;
+
+        var document = await LoadAccountableDocumentAsync(voucherType, voucherId);
+        if (document == null)
+            return;
+
+        await _glRepostService.RepostForVoucherAsync(companyId, voucherType, voucherId, document);
     }
 
     /// <summary>

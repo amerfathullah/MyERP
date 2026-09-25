@@ -72,8 +72,12 @@ public class RepostItemValuationAppService : ApplicationService, IRepostItemValu
             (RepostMethod)input.BasedOn, input.PostingDate, input.ItemId, input.WarehouseId,
             CurrentTenant.Id);
         entity.RepostGlEntries = input.RepostGlEntries;
+        entity.RepostOnlyAccountingLedgers = input.RepostOnlyAccountingLedgers;
         entity.VoucherType = input.VoucherType;
         entity.VoucherId = input.VoucherId;
+
+        entity.ResetRepostOnlyAccountingLedgers();
+        entity.ValidateRepostOnlyAccountingLedgers();
 
         // Check if covered by existing queued/in-progress repost
         var query = await _repository.GetQueryableAsync();
@@ -170,6 +174,7 @@ public class RepostItemValuationAppService : ApplicationService, IRepostItemValu
             PostingDate = entity.PostingDate,
             Status = (int)entity.Status,
             RepostGlEntries = entity.RepostGlEntries,
+            RepostOnlyAccountingLedgers = entity.RepostOnlyAccountingLedgers,
             TotalAffectedEntries = entity.TotalAffectedEntries,
             CurrentIndex = entity.CurrentIndex,
             ErrorLog = entity.ErrorLog,
