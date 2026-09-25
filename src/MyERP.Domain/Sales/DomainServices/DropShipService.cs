@@ -77,6 +77,8 @@ public class DropShipService : DomainService
             var supplier = await _supplierRepository.FindAsync(supplierId);
             var company = await _companyRepository.FindAsync(salesOrder.CompanyId);
             po.CurrencyCode = supplier?.DefaultCurrency ?? company?.CurrencyCode ?? "MYR";
+            po.CustomerId = salesOrder.CustomerId;
+            po.ShippingAddressId = salesOrder.ShippingAddressId;
             po.Notes = $"Drop-ship order for SO {salesOrder.OrderNumber}";
 
             foreach (var soItem in supplierGroup)
@@ -87,7 +89,8 @@ public class DropShipService : DomainService
                     soItem.Quantity,
                     soItem.UnitPrice, // buying rate should ideally come from supplier pricing
                     soItem.TaxAmount,
-                    soItem.Uom);
+                    soItem.Uom,
+                    deliveredBySupplier: true);
             }
 
             await _poRepository.InsertAsync(po, autoSave: true);

@@ -24,6 +24,10 @@ public class PurchaseOrderDto : EntityDto<Guid>
     public decimal PerAdvancePaid { get; set; }
     public string AdvancePaymentStatus { get; set; } = "Not Initiated";
     public string? Notes { get; set; }
+    public string? Remarks { get; set; }
+    public Guid? ShippingAddressId { get; set; }
+    public Guid? CustomerId { get; set; }
+    public bool IsDropShip { get; set; }
 
     // Supplier Confirmation Tracking
     public string? SupplierConfirmationNumber { get; set; }
@@ -74,6 +78,9 @@ public class CreatePurchaseOrderDto
     /// <summary>Buying Price List. When omitted, defaults from Supplier.DefaultPriceListId.</summary>
     public Guid? PriceListId { get; set; }
     public string? Notes { get; set; }
+    public string? Remarks { get; set; }
+    public Guid? ShippingAddressId { get; set; }
+    public Guid? CustomerId { get; set; }
     [Required][MinLength(1)] public List<CreatePurchaseOrderItemDto> Items { get; set; } = new();
 }
 

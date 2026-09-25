@@ -103,6 +103,9 @@ export interface CreatePurchaseOrderDto {
   projectId?: string | null;
   priceListId?: string | null;
   notes?: string | null;
+  remarks?: string | null;
+  shippingAddressId?: string | null;
+  customerId?: string | null;
   items: CreatePurchaseOrderItemDto[];
 }
 
@@ -561,6 +564,10 @@ export interface PurchaseOrderDto extends EntityDto<string> {
   perAdvancePaid?: number;
   advancePaymentStatus?: string;
   notes?: string | null;
+  remarks?: string | null;
+  shippingAddressId?: string | null;
+  customerId?: string | null;
+  isDropShip?: boolean;
   supplierConfirmationNumber?: string | null;
   supplierConfirmationDate?: string | null;
   supplierPromisedDate?: string | null;

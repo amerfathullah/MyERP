@@ -87,6 +87,9 @@ export class PurchaseOrderFormComponent implements OnInit {
     exchangeRate: [1],
     priceListId: [''],
     notes: [''],
+    remarks: [''],
+    shippingAddressId: [''],
+    customerId: [''],
     warehouseId: [''],
     items: this.fb.array([], Validators.minLength(1)),
   });
@@ -135,6 +138,9 @@ export class PurchaseOrderFormComponent implements OnInit {
           orderDate: po.orderDate,
           expectedDeliveryDate: po.expectedDeliveryDate ?? '',
           notes: '',
+          remarks: (po as any).remarks ?? '',
+          shippingAddressId: (po as any).shippingAddressId ?? '',
+          customerId: (po as any).customerId ?? '',
           warehouseId: itemWarehouse,
           priceListId: po.priceListId ?? '',
         });
@@ -223,11 +229,13 @@ export class PurchaseOrderFormComponent implements OnInit {
     this.loadSupplierQuotations();
 
     const companyId = this.form.get('companyId')?.value || undefined;
+    const isDropShip = (this.form.get('items')?.value as any[])?.some(i => i.deliveredBySupplier);
     this.partyDetailsService.getSupplierDetails({ partyId: supplierId, companyId }).subscribe({
       next: (details: any) => {
         if (details?.tin) this.supplierTin.set(details.tin);
         const parts = [details?.addressLine1, details?.city, details?.state, details?.postalCode].filter(Boolean);
-        if (parts.length > 0) this.supplierAddress.set(parts.join(', '));
+        // Keep customer shipping address on drop ship purchase order (PR #59415)
+        if (!isDropShip && parts.length > 0) this.supplierAddress.set(parts.join(', '));
         // Price list fallback reset (ERPNext PR #58893)
         this.form.patchValue({ priceListId: details?.priceListId ?? '' });
       },

@@ -58,6 +58,12 @@
             <small class="text-muted d-block">{{ '::ExpectedDelivery' | abpLocalization }}</small>
             <span class="fw-semibold">{{ order.expectedDeliveryDate | date:'dd/MM/yyyy' }}</span>
           </div>
+          @if (order.remarks) {
+            <div class="col-12 col-md-3 mb-3">
+              <small class="text-muted d-block">{{ '::Remarks' | abpLocalization }}</small>
+              <span>{{ order.remarks }}</span>
+            </div>
+          }
         </div>
         @if (supplierContact(); as contact) {
           @if (contact.phone || contact.email || contact.contactPerson) {

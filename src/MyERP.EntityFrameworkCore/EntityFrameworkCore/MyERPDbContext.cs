@@ -1143,6 +1143,8 @@ public class MyERPDbContext :
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.QuotationNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.CustomerId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.RevisionOfId });
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.IsActive });
         });
 
         builder.Entity<QuotationLostReason>(b =>
@@ -1318,6 +1320,7 @@ public class MyERPDbContext :
             b.Property(x => x.GrandTotal).HasColumnType("decimal(18,4)");
             b.Property(x => x.Terms).HasMaxLength(PurchaseOrderConsts.MaxTermsLength);
             b.Property(x => x.Notes).HasMaxLength(PurchaseOrderConsts.MaxNoteLength);
+            b.Property(x => x.Remarks).HasMaxLength(1000);
             b.Property(x => x.AdvancePaymentStatus).HasMaxLength(50);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasOne<Supplier>().WithMany().HasForeignKey(x => x.SupplierId).IsRequired();
@@ -1612,6 +1615,7 @@ public class MyERPDbContext :
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.ItemId, x.WarehouseId, x.PostingDate });
+            b.HasIndex(x => new { x.TenantId, x.CompanyId, x.VoucherId, x.VoucherType, x.Status });
         });
 
         // Payment Entry

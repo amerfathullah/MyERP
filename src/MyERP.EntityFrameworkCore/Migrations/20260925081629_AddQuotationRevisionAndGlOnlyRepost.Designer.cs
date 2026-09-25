@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MyERP.EntityFrameworkCore;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Volo.Abp.EntityFrameworkCore;
 namespace MyERP.Migrations
 {
     [DbContext(typeof(MyERPDbContext))]
-    partial class MyERPDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260925081629_AddQuotationRevisionAndGlOnlyRepost")]
+    partial class AddQuotationRevisionAndGlOnlyRepost
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -24408,9 +24411,6 @@ namespace MyERP.Migrations
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
 
-                    b.Property<Guid?>("CustomerId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid?>("DeleterId")
                         .HasColumnType("uuid")
                         .HasColumnName("DeleterId");
@@ -24480,9 +24480,6 @@ namespace MyERP.Migrations
                     b.Property<string>("Remarks")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
-
-                    b.Property<Guid?>("ShippingAddressId")
-                        .HasColumnType("uuid");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");

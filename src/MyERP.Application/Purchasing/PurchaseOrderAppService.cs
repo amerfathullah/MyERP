@@ -274,6 +274,9 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             po.CostCenterId = input.CostCenterId;
         }
 
+        po.Notes = input.Notes;
+        po.Remarks = input.Remarks;
+
         // Per ERPNext: Price List defaults from the supplier's own default when not given explicitly, if active (commit fd492100b0).
         po.PriceListId = input.PriceListId;
         if (!po.PriceListId.HasValue)
@@ -292,10 +295,22 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
 
         await _transactionValidation.ValidatePriceListAsync(po.PriceListId);
 
+        po.Remarks = input.Remarks;
+        po.CustomerId = input.CustomerId;
+        po.ShippingAddressId = input.ShippingAddressId;
+
         // Auto-fill billing address from supplier master
         var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
         var billingAddress = await partyDefaults.GetPrimaryAddressAsync("Supplier", input.SupplierId);
         if (billingAddress != null) po.BillingAddressId = billingAddress.Id;
+
+        // Auto-fill shipping address from supplier if not already set and not drop-ship
+        // Per ERPNext PR #59415 (commit 56e9e6f8ed): keep customer shipping address on drop ship purchase order
+        if (!po.ShippingAddressId.HasValue && !input.Items.Any(i => i.DeliveredBySupplier))
+        {
+            var shippingAddress = await partyDefaults.GetShippingAddressAsync("Supplier", input.SupplierId);
+            if (shippingAddress != null) po.ShippingAddressId = shippingAddress.Id;
+        }
 
         foreach (var item in input.Items)
         {
@@ -740,6 +755,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         amended.PriceListId = original.PriceListId;
         amended.Terms = original.Terms;
         amended.Notes = original.Notes;
+        amended.Remarks = original.Remarks;
 
         foreach (var item in original.Items)
         {
@@ -875,6 +891,9 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         order.SupplierId = input.SupplierId;
         order.PriceListId = input.PriceListId;
         order.Notes = input.Notes;
+        order.Remarks = input.Remarks;
+        order.CustomerId = input.CustomerId;
+        order.ShippingAddressId = input.ShippingAddressId;
 
         await _transactionValidation.ValidatePriceListAsync(order.PriceListId);
 
@@ -882,6 +901,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         foreach (var item in input.Items)
         {
             order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.WarehouseId, item.ExpenseAccountId, item.ProjectId);
+            order.Items[^1].DeliveredBySupplier = item.DeliveredBySupplier;
             if (item.BlanketOrderId.HasValue)
                 order.Items[^1].BlanketOrderId = item.BlanketOrderId;
             if (item.MaterialRequestItemId.HasValue)

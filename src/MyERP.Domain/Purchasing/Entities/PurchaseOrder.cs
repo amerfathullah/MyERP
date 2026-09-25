@@ -39,6 +39,15 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     /// <summary>Primary billing address (auto-resolved from Supplier on create).</summary>
     public Guid? BillingAddressId { get; set; }
 
+    /// <summary>Shipping address (defaults to warehouse/company, or customer address for drop ship orders per PR #59415).</summary>
+    public Guid? ShippingAddressId { get; set; }
+
+    /// <summary>Linked Customer for drop ship orders (PR #59415).</summary>
+    public Guid? CustomerId { get; set; }
+
+    /// <summary>Whether this PO contains drop-ship items delivered directly by supplier to customer.</summary>
+    public bool IsDropShip => _items.Any(i => i.DeliveredBySupplier);
+
     /// <summary>Total advance payment made against this order.</summary>
     public decimal AdvancePaid { get; set; }
 
@@ -95,6 +104,8 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
 
     public string? Terms { get; set; }
     public string? Notes { get; set; }
+    /// <summary>Remarks for additional instructions/notes (PR #59420 / commit e10129ef5e).</summary>
+    public string? Remarks { get; set; }
 
     // Amendment support
     public Guid? AmendedFromId { get; set; }
@@ -159,7 +170,7 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", Guid? warehouseId = null, Guid? expenseAccountId = null, Guid? projectId = null)
+    public PurchaseOrderItem AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", Guid? warehouseId = null, Guid? expenseAccountId = null, Guid? projectId = null, bool deliveredBySupplier = false)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -169,11 +180,13 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
         var item = new PurchaseOrderItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, projectId ?? ProjectId)
         {
             WarehouseId = warehouseId,
-            ExpenseAccountId = expenseAccountId
+            ExpenseAccountId = expenseAccountId,
+            DeliveredBySupplier = deliveredBySupplier
         };
         item.Idx = _items.Count;
         _items.Add(item);
         RecalculateTotals();
+        return item;
     }
 
     /// <summary>Clear all items (Draft only). Used during edit to replace items.</summary>
