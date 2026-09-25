@@ -263,7 +263,7 @@ public class GlRepostService : DomainService
     /// </remarks>
     private async Task<UpdateStockSplit?> ResolveUpdateStockSplitAsync(PurchaseInvoice invoice)
     {
-        if (!invoice.UpdateStock || !invoice.WarehouseId.HasValue || invoice.IsReturn) return null;
+        if (!invoice.UpdateStock || !invoice.WarehouseId.HasValue) return null;
 
         var itemRepository = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
         var warehouseAccountService = LazyServiceProvider
@@ -284,24 +284,24 @@ public class GlRepostService : DomainService
                 ? item.UnitPrice / item.ConversionFactor
                 : item.UnitPrice;
 
-            if (item.StockQty > 0)
+            if (item.StockQty != 0)
             {
                 var warehouseId = item.WarehouseId ?? invoice.WarehouseId.Value;
                 valueByWarehouse.TryGetValue(warehouseId, out var prior);
-                valueByWarehouse[warehouseId] = prior + (item.StockQty * ratePerStockUnit);
+                valueByWarehouse[warehouseId] = prior + (Math.Abs(item.StockQty) * ratePerStockUnit);
             }
 
-            // Rejected warehouse (PR #59257 & #59258):
+            // Rejected warehouse (PR #59257 & #59258, #59280):
             // Material that nothing paid for carries no value and still books nothing.
             // When billed on this invoice or an internal transfer, value goes to rejected warehouse.
             var rejWarehouseId = item.RejectedWarehouseId ?? invoice.RejectedWarehouseId;
-            if (rejWarehouseId.HasValue && item.RejectedQty > 0)
+            if (rejWarehouseId.HasValue && item.RejectedQty != 0)
             {
                 var isValued = item.BillsRejectedQuantity || item.FromWarehouseId.HasValue;
                 if (isValued)
                 {
                     valueByWarehouse.TryGetValue(rejWarehouseId.Value, out var priorRej);
-                    valueByWarehouse[rejWarehouseId.Value] = priorRej + (item.RejectedStockQty * ratePerStockUnit);
+                    valueByWarehouse[rejWarehouseId.Value] = priorRej + (Math.Abs(item.RejectedStockQty) * ratePerStockUnit);
                 }
             }
         }

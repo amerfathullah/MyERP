@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.Entities;
@@ -52,6 +53,51 @@ public abstract class PosCompanyGuardTests<TStartupModule> : MyERPApplicationTes
                     },
                     AmountReceived = 10m,
                 }));
+        });
+    }
+
+    [Fact]
+    public async Task CompleteSaleAsync_BlockedCustomer_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var fiscalYearRepository = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var customerRepository = GetRequiredService<IRepository<Customer, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var posOpeningRepository = GetRequiredService<IRepository<PosOpeningEntry, Guid>>();
+            var posAppService = GetRequiredService<IPosAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "POS Hold Co"), autoSave: true);
+            await fiscalYearRepository.InsertAsync(
+                new FiscalYear(Guid.NewGuid(), company.Id, "FY Test", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)),
+                autoSave: true);
+
+            var customer = await customerRepository.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Blocked POS Customer")
+            {
+                OnHold = true,
+                ReleaseDate = null
+            }, autoSave: true);
+
+            var item = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "POS-HOLD-1", "POS Hold Item", ItemType.Goods), autoSave: true);
+
+            await posOpeningRepository.InsertAsync(
+                new PosOpeningEntry(Guid.NewGuid(), company.Id, Guid.NewGuid(), Guid.NewGuid()), autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                posAppService.CompleteSaleAsync(new CreatePosInvoiceDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customer.Id,
+                    Items =
+                    {
+                        new PosLineItemDto { ItemId = item.Id, Description = "Item", Quantity = 1, UnitPrice = 10m, TaxAmount = 0m },
+                    },
+                    AmountReceived = 10m,
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.CustomerBlocked);
         });
     }
 }

@@ -162,8 +162,8 @@ public class PurchaseInvoiceManager : DomainService
     {
         if (!returnInvoice.IsReturn) return;
 
-        // Must have negative quantities and at least one item with negative quantity (PR #57645 / commit d44ed5357d)
-        if (returnInvoice.Items.Any(i => i.Quantity > 0) || !returnInvoice.Items.Any(i => i.Quantity < 0))
+        // Must have negative quantities and at least one item with negative quantity (PR #57645 / commit d44ed5357d, PR #59280 / commit b3d55db893)
+        if (returnInvoice.Items.Any(i => i.Quantity > 0 || i.RejectedQty > 0) || !returnInvoice.Items.Any(i => i.Quantity < 0 || i.RejectedQty < 0))
         {
             throw new BusinessException("MyERP:08001")
                 .WithData("documentType", "Purchase Invoice");
@@ -205,9 +205,13 @@ public class PurchaseInvoiceManager : DomainService
             .SelectMany(pi => pi.Items)
             .ToList();
 
-        var priorReturnedByItem = priorReturns
+        var priorReturnedAcceptedByItem = priorReturns
             .GroupBy(i => i.ItemId)
             .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m))));
+
+        var priorReturnedRejectedByItem = priorReturns
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.RejectedQty * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m))));
 
         // Return qty per item cannot exceed (original qty - already_returned)
         // Uses stock qty comparison to support different UOM returns (ERPNext commit abf94bc72d).
@@ -218,19 +222,41 @@ public class PurchaseInvoiceManager : DomainService
 
             var returnFactor = returnItem.ConversionFactor > 0 ? returnItem.ConversionFactor : 1m;
             var originalFactor = originalItem.ConversionFactor > 0 ? originalItem.ConversionFactor : 1m;
-            var originalStockQty = originalItem.Quantity * originalFactor;
-            var returnStockQty = Math.Abs(returnItem.Quantity) * returnFactor;
 
-            var alreadyReturnedStock = priorReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
-            var maxReturnableStock = originalStockQty - alreadyReturnedStock;
-
-            if (returnStockQty > maxReturnableStock + 0.0000001m)
+            if (returnItem.Quantity < 0)
             {
-                throw new BusinessException("MyERP:08004")
-                    .WithData("itemName", returnItem.Description)
-                    .WithData("originalQty", originalItem.Quantity)
-                    .WithData("alreadyReturned", alreadyReturnedStock / returnFactor)
-                    .WithData("returnQty", Math.Abs(returnItem.Quantity));
+                var originalStockQty = originalItem.Quantity * originalFactor;
+                var returnStockQty = Math.Abs(returnItem.Quantity) * returnFactor;
+
+                var alreadyReturnedStock = priorReturnedAcceptedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+                var maxReturnableStock = originalStockQty - alreadyReturnedStock;
+
+                if (returnStockQty > maxReturnableStock + 0.0000001m)
+                {
+                    throw new BusinessException("MyERP:08004")
+                        .WithData("itemName", returnItem.Description)
+                        .WithData("originalQty", originalItem.Quantity)
+                        .WithData("alreadyReturned", alreadyReturnedStock / returnFactor)
+                        .WithData("returnQty", Math.Abs(returnItem.Quantity));
+                }
+            }
+
+            if (returnItem.RejectedQty < 0)
+            {
+                var originalRejectedStock = originalItem.RejectedQty * originalFactor;
+                var returnRejectedStock = Math.Abs(returnItem.RejectedQty) * returnFactor;
+
+                var alreadyReturnedRejected = priorReturnedRejectedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+                var maxReturnableRejected = originalRejectedStock - alreadyReturnedRejected;
+
+                if (returnRejectedStock > maxReturnableRejected + 0.0000001m)
+                {
+                    throw new BusinessException("MyERP:08004")
+                        .WithData("itemName", returnItem.Description)
+                        .WithData("originalQty", originalItem.RejectedQty)
+                        .WithData("alreadyReturned", alreadyReturnedRejected / returnFactor)
+                        .WithData("returnQty", Math.Abs(returnItem.RejectedQty));
+                }
             }
         }
     }
@@ -282,7 +308,7 @@ public class PurchaseInvoiceManager : DomainService
     {
         if (!invoice.IsReturn || !invoice.UpdateStock) return;
 
-        var zeroQtyRows = invoice.Items.Where(i => i.Quantity == 0).ToList();
+        var zeroQtyRows = invoice.Items.Where(i => i.Quantity == 0 && i.RejectedQty == 0).ToList();
         if (zeroQtyRows.Any())
         {
             throw new BusinessException(MyERPDomainErrorCodes.ReturnWithStockZeroQty)

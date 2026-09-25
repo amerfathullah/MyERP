@@ -131,14 +131,22 @@ public class PosAppService : ApplicationService, IPosAppService
             }
         }
 
+        var customerId = input.CustomerId
+            ?? throw new Volo.Abp.BusinessException("MyERP:01007")
+                .WithData("documentType", "POS Invoice — CustomerId is required");
+
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+        var customer = await customerRepo.GetAsync(customerId);
+        var partyValidation = LazyServiceProvider.LazyGetRequiredService<PartyValidationService>();
+        await partyValidation.ValidatePartyForTransactionAsync("Customer", isDisabled: !customer.IsActive, isFrozen: customer.IsFrozen, customer.Name, input.CompanyId);
+        partyValidation.ValidateCustomerNotBlocked(customer.OnHold, customer.ReleaseDate, customer.Name, DateTime.UtcNow);
+
         var invoiceNumber = await _numberGenerator.GenerateAsync("POS", input.CompanyId);
 
         var invoice = new SalesInvoice(
             GuidGenerator.Create(),
             input.CompanyId,
-            input.CustomerId
-                ?? throw new Volo.Abp.BusinessException("MyERP:01007")
-                    .WithData("documentType", "POS Invoice — CustomerId is required"),
+            customerId,
             invoiceNumber,
             DateTime.UtcNow,
             CurrentTenant.Id);

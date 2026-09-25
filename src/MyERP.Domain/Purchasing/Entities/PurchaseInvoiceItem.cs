@@ -28,7 +28,7 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>When true, this item bills the rejected quantity on a stock updating invoice (PR #59258 / commit 16b1be814c).</summary>
     public bool BillsRejectedQuantity { get; set; }
     /// <summary>Quantity billed to supplier: Quantity + RejectedQty when BillsRejectedQuantity is true, else Quantity.</summary>
-    public decimal BilledQuantity => (BillsRejectedQuantity && RejectedQty > 0) ? (Quantity + RejectedQty) : Quantity;
+    public decimal BilledQuantity => (BillsRejectedQuantity && RejectedQty != 0) ? (Quantity + RejectedQty) : Quantity;
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
 

@@ -180,4 +180,98 @@ public class PurchaseInvoiceRejectedMaterialTests
         invoice.Submit();
         invoice.Status.ShouldBe(DocumentStatus.Submitted);
     }
+
+    [Fact]
+    public void ReturnInvoice_WhenFullyRejected_AllowsSubmitAndCalculatesNegativeBilledQty()
+    {
+        // Per ERPNext PR #59280 (commit b3d55db893):
+        // Returning a fully rejected invoice has Quantity = 0 and RejectedQty = -10.
+        // It must allow submit and calculate negative billed quantity and line total.
+        var returnInvoice = new PurchaseInvoice(
+            Guid.NewGuid(), _companyId, _supplierId,
+            "PI-RET-001", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = Guid.NewGuid(),
+            UpdateStock = true,
+            WarehouseId = _warehouseId,
+            RejectedWarehouseId = _rejectedWarehouseId,
+            BillsRejectedQuantity = true
+        };
+
+        returnInvoice.AddItem(
+            Guid.NewGuid(), "Fully Rejected Return", quantity: 0m, unitPrice: 50m, taxAmount: 0m,
+            warehouseId: _warehouseId, receivedQty: -10m, rejectedQty: -10m, rejectedWarehouseId: _rejectedWarehouseId);
+
+        var item = returnInvoice.Items[0];
+        item.BilledQuantity.ShouldBe(-10m);
+        item.LineTotal.ShouldBe(-500m);
+        returnInvoice.NetTotal.ShouldBe(-500m);
+        returnInvoice.GrandTotal.ShouldBe(-500m);
+
+        returnInvoice.Submit();
+        returnInvoice.Status.ShouldBe(DocumentStatus.Submitted);
+    }
+
+    [Fact]
+    public void ReturnWithStockNoZeroQty_AllowsRowWhenQuantityZeroButRejectedQtyNegative()
+    {
+        // Per ERPNext PR #59280:
+        // validate_zero_qty_for_return_invoices_with_stock allows rows where rejected_qty is non-zero
+        var returnInvoice = new PurchaseInvoice(
+            Guid.NewGuid(), _companyId, _supplierId,
+            "PI-RET-002", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = Guid.NewGuid(),
+            UpdateStock = true,
+            WarehouseId = _warehouseId,
+            RejectedWarehouseId = _rejectedWarehouseId
+        };
+
+        returnInvoice.AddItem(
+            Guid.NewGuid(), "Valid Rejected Return", quantity: 0m, unitPrice: 50m, taxAmount: 0m,
+            warehouseId: _warehouseId, receivedQty: -5m, rejectedQty: -5m, rejectedWarehouseId: _rejectedWarehouseId);
+
+        // Does not throw because RejectedQty is non-zero
+        MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.ValidateReturnWithStockNoZeroQty(returnInvoice);
+
+        // Add a truly empty row (quantity=0 and rejectedQty=0)
+        returnInvoice.AddItem(
+            Guid.NewGuid(), "Invalid Zero Row", quantity: 0m, unitPrice: 50m, taxAmount: 0m,
+            warehouseId: _warehouseId, receivedQty: 0m, rejectedQty: 0m);
+
+        var ex = Should.Throw<BusinessException>(() =>
+            MyERP.Purchasing.DomainServices.PurchaseInvoiceManager.ValidateReturnWithStockNoZeroQty(returnInvoice));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnWithStockZeroQty);
+    }
+
+    [Fact]
+    public void ReturnInvoice_WhenBillsRejectedQuantityFalse_BilledQuantityIsZeroForFullyRejected()
+    {
+        // When rejected goods were not billed originally, return has 0 billed qty
+        var returnInvoice = new PurchaseInvoice(
+            Guid.NewGuid(), _companyId, _supplierId,
+            "PI-RET-003", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = Guid.NewGuid(),
+            UpdateStock = true,
+            WarehouseId = _warehouseId,
+            RejectedWarehouseId = _rejectedWarehouseId,
+            BillsRejectedQuantity = false
+        };
+
+        returnInvoice.AddItem(
+            Guid.NewGuid(), "Unbilled Rejected Return", quantity: 0m, unitPrice: 50m, taxAmount: 0m,
+            warehouseId: _warehouseId, receivedQty: -8m, rejectedQty: -8m, rejectedWarehouseId: _rejectedWarehouseId);
+
+        var item = returnInvoice.Items[0];
+        item.BilledQuantity.ShouldBe(0m);
+        item.LineTotal.ShouldBe(0m);
+        returnInvoice.NetTotal.ShouldBe(0m);
+
+        returnInvoice.Submit();
+        returnInvoice.Status.ShouldBe(DocumentStatus.Submitted);
+    }
 }
