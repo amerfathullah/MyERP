@@ -20,6 +20,13 @@ public class StockEntryManager : DomainService
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly CompanyRestrictionValidationService _companyRestriction;
 
+    protected StockEntryManager()
+    {
+        _warehouseRepository = null!;
+        _itemRepository = null!;
+        _companyRestriction = null!;
+    }
+
     public StockEntryManager(
         IRepository<Warehouse, Guid> warehouseRepository,
         IRepository<Item, Guid> itemRepository,
@@ -183,9 +190,25 @@ public class StockEntryManager : DomainService
     /// Exception: returns and "Material Transferred" backflush mode.
     /// </summary>
     public void ValidateTransferQty(decimal requiredQty, decimal transferredQty, decimal requestedQty,
-        bool isReturn = false, bool isMaterialTransferredMode = false, decimal extraMaterialPercentage = 0m, int qtyPrecision = 6)
+        bool isReturn = false, bool isMaterialTransferredMode = false, decimal extraMaterialPercentage = 0m, int qtyPrecision = 6,
+        decimal? consumedQty = null)
     {
-        if (isReturn || isMaterialTransferredMode) return;
+        if (isReturn)
+        {
+            // Per ERPNext PR #59616 / commit 73cb8718a9: component return cannot exceed unconsumed materials in WIP
+            if (consumedQty.HasValue)
+            {
+                var returnableQty = Math.Max(0, transferredQty - consumedQty.Value);
+                var roundedReturnRequest = Math.Round(requestedQty, qtyPrecision);
+                var roundedReturnable = Math.Round(returnableQty, qtyPrecision);
+                if (roundedReturnRequest > roundedReturnable)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Return quantity {requestedQty} cannot exceed available unconsumed quantity {returnableQty}.");
+                }
+            }
+            return;
+        }
 
         var extraQty = extraMaterialPercentage > 0 ? (requiredQty * extraMaterialPercentage / 100m) : 0m;
         var maxAllowedTotal = requiredQty + extraQty;

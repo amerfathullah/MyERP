@@ -288,6 +288,35 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             await seManager.ValidateDuplicateManufactureEntryAsync(entry, woRepo, _repository, overproductionPct);
         }
 
+        if (entry.EntryType == StockEntryType.MaterialTransferForManufacture && entry.WorkOrderId.HasValue && entry.IsReturn)
+        {
+            var wo = await woRepo.FindAsync(entry.WorkOrderId.Value);
+            if (wo != null)
+            {
+                // Per ERPNext PR #59617 / commit b4d6595f94: components can be returned only after Work Order is Completed or Closed
+                if (wo.Status is not (WorkOrderStatus.Completed or WorkOrderStatus.Closed))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                        .WithData("detail", $"Components can be returned only after Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()} is Completed or Closed");
+                }
+
+                foreach (var seItem in entry.Items)
+                {
+                    var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
+                    if (existingWoItem != null)
+                    {
+                        // Per ERPNext PR #59616 / commit 73cb8718a9: return cannot exceed unconsumed materials in WIP
+                        var returnable = Math.Max(0, existingWoItem.TransferredQuantity - existingWoItem.ConsumedQuantity);
+                        if (seItem.Quantity > returnable)
+                        {
+                            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                                .WithData("detail", $"Return quantity {seItem.Quantity} for item {existingWoItem.ItemName} exceeds unconsumed transferred quantity {returnable}.");
+                        }
+                    }
+                }
+            }
+        }
+
         // Material Request over-fulfillment guard + fulfillment tracking (Transfer/Issue MR types).
         // Per DO-NOT: "Allow Material Request over-fulfillment beyond mr_qty_allowance percentage" —
         // this was the one MR-consuming document with zero cap; PO/RFQ already enforce pending qty
@@ -392,12 +421,27 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 var totalTransferredQty = entry.Items.Sum(i => i.Quantity);
                 if (entry.IsReturn)
                 {
+                    // Per ERPNext PR #59617 / commit b4d6595f94: components can be returned only after Work Order is Completed or Closed
+                    if (wo.Status is not (WorkOrderStatus.Completed or WorkOrderStatus.Closed))
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                            .WithData("detail", $"Components can be returned only after Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()} is Completed or Closed");
+                    }
+
                     wo.MaterialTransferred = Math.Max(0, wo.MaterialTransferred - totalTransferredQty);
                     foreach (var seItem in entry.Items)
                     {
                         var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
                         if (existingWoItem != null)
                         {
+                            // Per ERPNext PR #59616 / commit 73cb8718a9: return cannot exceed unconsumed materials in WIP
+                            var returnable = Math.Max(0, existingWoItem.TransferredQuantity - existingWoItem.ConsumedQuantity);
+                            if (seItem.Quantity > returnable)
+                            {
+                                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                                    .WithData("detail", $"Return quantity {seItem.Quantity} for item {existingWoItem.ItemName} exceeds unconsumed transferred quantity {returnable}.");
+                            }
+
                             existingWoItem.TransferredQuantity = Math.Max(0, existingWoItem.TransferredQuantity - seItem.Quantity);
                         }
 

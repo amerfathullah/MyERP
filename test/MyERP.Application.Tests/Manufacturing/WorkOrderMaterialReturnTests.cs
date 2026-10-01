@@ -58,6 +58,7 @@ public abstract class WorkOrderMaterialReturnTests<TStartupModule> : MyERPApplic
             wo.RequiredItems.Add(woItem);
             wo.Submit();
             wo.Start();
+            wo.Close();
             await woRepo.InsertAsync(wo, autoSave: true);
 
             var result = await mfgAppService.CreateMaterialReturnForManufactureAsync(wo.Id);
@@ -117,6 +118,7 @@ public abstract class WorkOrderMaterialReturnTests<TStartupModule> : MyERPApplic
             wo.RequiredItems.Add(woItem);
             wo.Submit();
             wo.Start();
+            wo.Close();
             await woRepo.InsertAsync(wo, autoSave: true);
 
             var result = await mfgAppService.CreateMaterialReturnForManufactureAsync(wo.Id);
@@ -164,6 +166,7 @@ public abstract class WorkOrderMaterialReturnTests<TStartupModule> : MyERPApplic
             wo.RequiredItems.Add(woItem);
             wo.Submit();
             wo.Start();
+            wo.Close();
             await woRepo.InsertAsync(wo, autoSave: true);
 
             await Should.ThrowAsync<BusinessException>(() => mfgAppService.CreateMaterialReturnForManufactureAsync(wo.Id));
@@ -260,6 +263,52 @@ public abstract class WorkOrderMaterialReturnTests<TStartupModule> : MyERPApplic
 
             var cancelledWo = await woRepo.GetAsync(wo.Id, includeDetails: true);
             cancelledWo.RequiredItems.First().ConsumedQuantity.ShouldBe(0m);
+        });
+    }
+
+    [Fact]
+    public async Task CreateMaterialReturn_Throws_WhenWorkOrderIsInProcess()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var woRepo = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var mfgAppService = GetRequiredService<IManufacturingAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Return Test Co 5"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SE Series 5", "SE", "SE5-"), autoSave: true);
+
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "FG-RET-5", "Finished Good 5", ItemType.Goods), autoSave: true);
+            var rmItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "RM-RET-5", "Raw Material 5", ItemType.Goods), autoSave: true);
+
+            var storesWh = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Stores Wh 5"), autoSave: true);
+            var wipWh = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "WIP Wh 5"), autoSave: true);
+
+            var bom = await bomRepo.InsertAsync(new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-RET-5", fgItem.Id), autoSave: true);
+
+            var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-RET-005", fgItem.Id, bom.Id, quantity: 10m)
+            {
+                SourceWarehouseId = storesWh.Id,
+                WipWarehouseId = wipWh.Id,
+            };
+            var woItem = new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItem.Id, "Raw Material 5", requiredQuantity: 10m)
+            {
+                SourceWarehouseId = storesWh.Id,
+                TransferredQuantity = 10m,
+                ConsumedQuantity = 2m,
+            };
+            wo.RequiredItems.Add(woItem);
+            wo.Submit();
+            wo.Start(); // InProcess status (not Completed or Closed)
+            await woRepo.InsertAsync(wo, autoSave: true);
+
+            // Per ERPNext PR #59617 / commit b4d6595f94: returns must be rejected on in-process Work Orders
+            var ex = await Should.ThrowAsync<BusinessException>(() => mfgAppService.CreateMaterialReturnForManufactureAsync(wo.Id));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
         });
     }
 }

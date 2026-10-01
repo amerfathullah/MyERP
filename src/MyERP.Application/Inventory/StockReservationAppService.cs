@@ -83,6 +83,21 @@ public class StockReservationAppService : ApplicationService, IStockReservationA
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<ItemTransactionValidationService>();
         await itemValidation.ValidateItemAsync(input.ItemId);
 
+        // Validate warehouse belongs to company and is non-group (ERPNext PR #59647 / commit c7a9f069b7)
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+        var warehouse = await whRepo.GetAsync(input.WarehouseId);
+        if (warehouse.IsGroup)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.GroupWarehouseCannotReceiveStock)
+                .WithData("warehouse", warehouse.Name);
+        }
+        if (warehouse.CompanyId != input.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("warehouseCompany", warehouse.CompanyId)
+                .WithData("voucherCompany", input.CompanyId);
+        }
+
         // Validate availability using domain service
         var reservationManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
         await reservationManager.ValidateAvailabilityAsync(input.ItemId, input.WarehouseId, input.ReservedQty, input.BatchId);

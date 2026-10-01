@@ -24,6 +24,13 @@ public class StockReservationManager : DomainService
     private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
     private readonly IRepository<Warehouse, Guid>? _warehouseRepository;
 
+    protected StockReservationManager()
+    {
+        _sreRepository = null!;
+        _binRepository = null!;
+        _sleRepository = null!;
+    }
+
     public StockReservationManager(
         IRepository<StockReservationEntry, Guid> sreRepository,
         IRepository<Bin, Guid> binRepository,

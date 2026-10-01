@@ -1811,9 +1811,10 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     {
         var wo = await _workOrderRepository.GetAsync(workOrderId, includeDetails: true);
 
-        if (wo.Status is WorkOrderStatus.Draft or WorkOrderStatus.Cancelled)
+        // Per ERPNext PR #59617 / commit b4d6595f94: components can be returned only after Work Order is Completed or Closed
+        if (wo.Status is not (WorkOrderStatus.Completed or WorkOrderStatus.Closed))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("detail", "Work Order cannot return materials in Draft or Cancelled status");
+                .WithData("detail", $"Components can be returned only after Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()} is Completed or Closed");
 
         var wipWarehouseId = wo.WipWarehouseId ?? wo.SourceWarehouseId;
         if (!wipWarehouseId.HasValue)
