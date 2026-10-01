@@ -1,4 +1,4 @@
-import type { CreateUpdateCustomerDto, CustomerDto, GetCustomerListDto } from './models';
+import type { CreateUpdateCustomerDto, CustomerDto, GetCustomerListDto, CustomerOverviewDto, GetCustomerOverviewInputDto, CustomerTransactionDto, GetCustomerTransactionsInputDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -50,6 +50,29 @@ export class CustomerService {
       method: 'PUT',
       url: `/api/app/customer/${id}`,
       body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  getCustomerOverview = (input: GetCustomerOverviewInputDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CustomerOverviewDto>({
+      method: 'GET',
+      url: '/api/app/customer/customer-overview',
+      params: { customerId: input.customerId, companyId: input.companyId, period: input.period },
+    },
+    { apiName: this.apiName,...config });
+
+  getCustomerTransactions = (input: GetCustomerTransactionsInputDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CustomerTransactionDto[]>({
+      method: 'GET',
+      url: '/api/app/customer/customer-transactions',
+      params: { customerId: input.customerId, companyId: input.companyId, docType: input.docType, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+
+  getCustomerCompanies = (customerId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, string[]>({
+      method: 'GET',
+      url: `/api/app/customer/${customerId}/customer-companies`,
     },
     { apiName: this.apiName,...config });
 }

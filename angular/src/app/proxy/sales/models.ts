@@ -1897,3 +1897,115 @@ export interface SalesPaymentSummaryReportDto {
   totalOutstanding?: number;
 }
 
+export interface GetCustomerOverviewInputDto {
+  customerId?: string;
+  companyId?: string;
+  period?: string;
+}
+
+export interface CustomerMetricDto {
+  value?: number;
+  count?: number;
+  delta?: number | null;
+  deltaPositiveIsGood?: boolean;
+}
+
+export interface CustomerOutstandingMetricDto {
+  value?: number;
+  unpaidCount?: number;
+  daysToPay?: number | null;
+}
+
+export interface CustomerCreditMetricDto {
+  limit?: number;
+  usedPct?: number | null;
+}
+
+export interface CustomerPositionDto {
+  netSales?: CustomerMetricDto;
+  outstanding?: CustomerOutstandingMetricDto;
+  overdue?: CustomerMetricDto;
+  credit?: CustomerCreditMetricDto;
+}
+
+export interface CustomerTrendPointDto {
+  label?: string;
+  value?: number;
+  isMtd?: boolean;
+}
+
+export interface CustomerTrendDto {
+  points?: CustomerTrendPointDto[];
+  average?: number;
+  hasMtd?: boolean;
+}
+
+export interface CustomerAgeingBucketDto {
+  key?: string;
+  label?: string;
+  value?: number;
+  isOverdue?: boolean;
+}
+
+export interface CustomerAgeingDto {
+  buckets?: CustomerAgeingBucketDto[];
+  total?: number;
+  overdue?: number;
+  overduePct?: number;
+}
+
+export interface CustomerPipelineTileDto {
+  value?: number;
+  count?: number;
+}
+
+export interface CustomerDeliveryTileDto extends CustomerPipelineTileDto {
+  pastDue?: number;
+}
+
+export interface CustomerInvoiceTileDto extends CustomerPipelineTileDto {
+  overdue?: number;
+}
+
+export interface CustomerPipelineDto {
+  quotations?: CustomerPipelineTileDto;
+  delivery?: CustomerDeliveryTileDto;
+  billing?: CustomerPipelineTileDto;
+  invoices?: CustomerInvoiceTileDto;
+}
+
+export interface CustomerOverviewDto {
+  customerId?: string;
+  customerName?: string;
+  companyId?: string;
+  currency?: string;
+  period?: string;
+  fromDate?: string;
+  toDate?: string;
+  asOfDate?: string;
+  position?: CustomerPositionDto;
+  trend?: CustomerTrendDto;
+  ageing?: CustomerAgeingDto;
+  pipeline?: CustomerPipelineDto;
+  unallocatedAdvances?: number;
+}
+
+export interface GetCustomerTransactionsInputDto {
+  customerId?: string;
+  companyId?: string;
+  docType?: string;
+  maxResultCount?: number;
+}
+
+export interface CustomerTransactionDto {
+  id?: string;
+  transactionNumber?: string;
+  docType?: string;
+  typeLabel?: string;
+  date?: string;
+  status?: string;
+  amount?: number;
+  outstandingAmount?: number | null;
+}
+
+

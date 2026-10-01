@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
 using MyERP.Core;
-using MyERP.Sales.Entities;
+using MyERP.Core.Entities;
 using MyERP.Permissions;
+using MyERP.Sales.Entities;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -258,6 +261,464 @@ public class CustomerAppService :
         entity.LeadId = input.LeadId;
         entity.OpportunityId = input.OpportunityId;
         entity.ProspectId = input.ProspectId;
+    }
+
+    /// <summary>
+    /// Returns the KPIs, receivables ageing, monthly sales trend, and sales pipeline for a customer and company.
+    /// Per ERPNext selling/doctype/customer/customer_overview.py (PR #59376 / commit 64ec181ba9).
+    /// </summary>
+    public async Task<CustomerOverviewDto> GetCustomerOverviewAsync(GetCustomerOverviewInputDto input)
+    {
+        var customer = await Repository.GetAsync(input.CustomerId);
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        var company = await companyRepo.GetAsync(input.CompanyId);
+
+        var asOfDate = DateTime.UtcNow.Date;
+        var (fromDate, toDate) = await ResolvePeriodAsync(input.Period, input.CompanyId, asOfDate);
+
+        var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+        var siQ = await siRepo.GetQueryableAsync();
+
+        // All non-draft non-cancelled posted/submitted sales invoices for this customer & company
+        var customerInvoices = siQ
+            .Where(si => si.CustomerId == input.CustomerId
+                && si.CompanyId == input.CompanyId
+                && (si.Status == DocumentStatus.Posted || si.Status == DocumentStatus.Submitted))
+            .ToList();
+
+        // 1. Position: Net Sales, Outstanding, Overdue, Credit
+        var currentPeriodInvoices = customerInvoices
+            .Where(si => !si.IsReturn && si.IssueDate >= fromDate && si.IssueDate <= toDate)
+            .ToList();
+        var currentNetSales = currentPeriodInvoices.Sum(si => si.NetTotal > 0 ? si.NetTotal : si.GrandTotal);
+
+        var prevFromDate = fromDate.AddYears(-1);
+        var prevToDate = toDate.AddYears(-1);
+        var prevPeriodInvoices = customerInvoices
+            .Where(si => !si.IsReturn && si.IssueDate >= prevFromDate && si.IssueDate <= prevToDate)
+            .ToList();
+        var prevNetSales = prevPeriodInvoices.Sum(si => si.NetTotal > 0 ? si.NetTotal : si.GrandTotal);
+
+        var outstandingInvoices = customerInvoices
+            .Where(si => !si.IsReturn && (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0)
+            .ToList();
+        var outstandingTotal = outstandingInvoices.Sum(si => si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance);
+
+        // Days to pay (DSO) = outstanding / (trailing annual sales / 365)
+        var trailing365Start = asOfDate.AddDays(-365);
+        var trailingSales = customerInvoices
+            .Where(si => !si.IsReturn && si.IssueDate >= trailing365Start && si.IssueDate <= asOfDate)
+            .Sum(si => si.NetTotal > 0 ? si.NetTotal : si.GrandTotal);
+        int? daysToPay = null;
+        if (trailingSales > 0)
+        {
+            var dailySales = trailingSales / 365m;
+            if (dailySales > 0)
+            {
+                var dso = (int)Math.Round(outstandingTotal / dailySales);
+                if (dso <= 730) daysToPay = dso;
+            }
+        }
+
+        var overdueInvoices = outstandingInvoices
+            .Where(si => si.DueDate.HasValue && si.DueDate.Value < asOfDate)
+            .ToList();
+        var overdueTotal = overdueInvoices.Sum(si => si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance);
+
+        var asOf30DaysAgo = asOfDate.AddDays(-30);
+        var overdue30Total = customerInvoices
+            .Where(si => !si.IsReturn
+                && (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0
+                && si.DueDate.HasValue && si.DueDate.Value < asOf30DaysAgo)
+            .Sum(si => si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance);
+
+        // Credit limit resolution
+        var creditLimitRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CustomerCreditLimit, Guid>>();
+        var creditQ = await creditLimitRepo.GetQueryableAsync();
+        var companyCreditLimit = creditQ.FirstOrDefault(cl => cl.CustomerId == input.CustomerId && cl.CompanyId == input.CompanyId);
+        var creditLimit = companyCreditLimit != null && !companyCreditLimit.BypassCreditLimitCheck
+            ? companyCreditLimit.CreditLimit
+            : customer.CreditLimit;
+
+        // 2. Trend: monthly net sales
+        var points = new List<CustomerTrendPointDto>();
+        var closedMonthTotals = new List<decimal>();
+        var cursor = new DateTime(fromDate.Year, fromDate.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var endMonth = new DateTime(toDate.Year, toDate.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var currentMonthStart = new DateTime(asOfDate.Year, asOfDate.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        while (cursor <= endMonth)
+        {
+            var isMtd = cursor == currentMonthStart;
+            var monthSales = customerInvoices
+                .Where(si => !si.IsReturn && si.IssueDate.Year == cursor.Year && si.IssueDate.Month == cursor.Month)
+                .Sum(si => si.NetTotal > 0 ? si.NetTotal : si.GrandTotal);
+
+            points.Add(new CustomerTrendPointDto
+            {
+                Label = cursor.ToString("MMM"),
+                Value = Math.Round(monthSales, 2),
+                IsMtd = isMtd
+            });
+
+            if (!isMtd)
+            {
+                closedMonthTotals.Add(monthSales);
+            }
+
+            cursor = cursor.AddMonths(1);
+        }
+
+        // 3. Ageing: Not Due, 1-30, 31-60, 61-90, 90+
+        decimal notDueAmount = 0m, b1Amount = 0m, b2Amount = 0m, b3Amount = 0m, b4Amount = 0m;
+        foreach (var inv in outstandingInvoices)
+        {
+            var bal = inv.GrandTotal - inv.AmountPaid - inv.WriteOffAmount - inv.TotalAdvance;
+            if (!inv.DueDate.HasValue || inv.DueDate.Value >= asOfDate)
+            {
+                notDueAmount += bal;
+            }
+            else
+            {
+                var overdueDays = (int)(asOfDate - inv.DueDate.Value).TotalDays;
+                if (overdueDays <= 30) b1Amount += bal;
+                else if (overdueDays <= 60) b2Amount += bal;
+                else if (overdueDays <= 90) b3Amount += bal;
+                else b4Amount += bal;
+            }
+        }
+
+        var buckets = new List<CustomerAgeingBucketDto>
+        {
+            new() { Key = "not_due", Label = "Not due", Value = Math.Round(notDueAmount, 2), IsOverdue = false },
+            new() { Key = "b1", Label = "1–30 days", Value = Math.Round(b1Amount, 2), IsOverdue = true },
+            new() { Key = "b2", Label = "31–60 days", Value = Math.Round(b2Amount, 2), IsOverdue = true },
+            new() { Key = "b3", Label = "61–90 days", Value = Math.Round(b3Amount, 2), IsOverdue = true },
+            new() { Key = "b4", Label = "90+ days", Value = Math.Round(b4Amount, 2), IsOverdue = true },
+        };
+        var totalAgeing = Math.Round(notDueAmount + b1Amount + b2Amount + b3Amount + b4Amount, 2);
+        var totalOverdue = Math.Round(b1Amount + b2Amount + b3Amount + b4Amount, 2);
+
+        // 4. Pipeline: Quotations, Delivery, Billing, Invoices
+        var quoteRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
+        var quoteQ = await quoteRepo.GetQueryableAsync();
+        var openQuotes = quoteQ
+            .Where(q => q.CustomerId == input.CustomerId
+                && q.CompanyId == input.CompanyId
+                && q.Status == DocumentStatus.Submitted
+                && q.ConvertedToSalesOrderId == null)
+            .ToList();
+
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+        var soQ = await soRepo.GetQueryableAsync();
+        var openSos = soQ
+            .Where(so => so.CustomerId == input.CustomerId
+                && so.CompanyId == input.CompanyId
+                && so.Status != DocumentStatus.Draft
+                && so.Status != DocumentStatus.Cancelled
+                && so.Status != DocumentStatus.Closed)
+            .ToList();
+
+        var deliverySos = openSos.Where(so => so.PerDelivered < 100 && !so.SkipDeliveryNote).ToList();
+        var deliveryValue = deliverySos.Sum(so => so.GrandTotal * (100m - so.PerDelivered) / 100m);
+        var pastDueDelivery = deliverySos.Count(so => so.DeliveryDate.HasValue && so.DeliveryDate.Value < asOfDate);
+
+        var billingSos = openSos.Where(so => so.PerBilled < 100).ToList();
+        var billingValue = billingSos.Sum(so => so.GrandTotal * (100m - so.PerBilled) / 100m);
+
+        // 5. Advances: unallocated customer payments
+        var peRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PaymentEntry, Guid>>();
+        var peQ = await peRepo.GetQueryableAsync();
+        var advancesList = peQ
+            .Where(pe => pe.CompanyId == input.CompanyId
+                && pe.PartyType == "Customer"
+                && pe.PartyId == input.CustomerId
+                && (pe.Status == DocumentStatus.Submitted || pe.Status == DocumentStatus.Posted))
+            .ToList();
+        var advances = advancesList.Sum(pe => pe.UnallocatedAmount);
+
+        return new CustomerOverviewDto
+        {
+            CustomerId = customer.Id,
+            CustomerName = customer.Name,
+            CompanyId = input.CompanyId,
+            Currency = company.CurrencyCode,
+            Period = input.Period,
+            FromDate = fromDate,
+            ToDate = toDate,
+            AsOfDate = asOfDate,
+            Position = new CustomerPositionDto
+            {
+                NetSales = new CustomerMetricDto
+                {
+                    Value = Math.Round(currentNetSales, 2),
+                    Count = currentPeriodInvoices.Count,
+                    Delta = CalculatePctChange(currentNetSales, prevNetSales),
+                    DeltaPositiveIsGood = true
+                },
+                Outstanding = new CustomerOutstandingMetricDto
+                {
+                    Value = Math.Round(outstandingTotal, 2),
+                    UnpaidCount = outstandingInvoices.Count,
+                    DaysToPay = daysToPay
+                },
+                Overdue = new CustomerMetricDto
+                {
+                    Value = Math.Round(overdueTotal, 2),
+                    Count = overdueInvoices.Count,
+                    Delta = CalculatePctChange(overdueTotal, overdue30Total),
+                    DeltaPositiveIsGood = false
+                },
+                Credit = new CustomerCreditMetricDto
+                {
+                    Limit = creditLimit,
+                    UsedPct = creditLimit > 0 ? Math.Round(outstandingTotal / creditLimit * 100m, 1) : null
+                }
+            },
+            Trend = new CustomerTrendDto
+            {
+                Points = points,
+                Average = closedMonthTotals.Count > 0 ? Math.Round(closedMonthTotals.Average(), 2) : 0m,
+                HasMtd = points.Any(p => p.IsMtd)
+            },
+            Ageing = new CustomerAgeingDto
+            {
+                Buckets = buckets,
+                Total = totalAgeing,
+                Overdue = totalOverdue,
+                OverduePct = totalAgeing > 0 ? Math.Round(totalOverdue / totalAgeing * 100m, 1) : 0m
+            },
+            Pipeline = new CustomerPipelineDto
+            {
+                Quotations = new CustomerPipelineTileDto
+                {
+                    Value = Math.Round(openQuotes.Sum(q => q.GrandTotal), 2),
+                    Count = openQuotes.Count
+                },
+                Delivery = new CustomerDeliveryTileDto
+                {
+                    Value = Math.Round(deliveryValue, 2),
+                    Count = deliverySos.Count,
+                    PastDue = pastDueDelivery
+                },
+                Billing = new CustomerPipelineTileDto
+                {
+                    Value = Math.Round(billingValue, 2),
+                    Count = billingSos.Count
+                },
+                Invoices = new CustomerInvoiceTileDto
+                {
+                    Value = Math.Round(outstandingTotal, 2),
+                    Count = outstandingInvoices.Count,
+                    Overdue = overdueInvoices.Count
+                }
+            },
+            UnallocatedAdvances = Math.Round(advances, 2)
+        };
+    }
+
+    /// <summary>
+    /// Fetches recent transactions across Sales Invoices, Sales Orders, and Payment Entries for customer.
+    /// Per ERPNext selling/doctype/customer/customer_overview.py get_customer_transactions().
+    /// </summary>
+    public async Task<List<CustomerTransactionDto>> GetCustomerTransactionsAsync(GetCustomerTransactionsInputDto input)
+    {
+        var limit = Math.Clamp(input.MaxResultCount, 1, 100);
+        var rows = new List<CustomerTransactionDto>();
+
+        var docType = input.DocType ?? "All";
+
+        if (string.Equals(docType, "All", StringComparison.OrdinalIgnoreCase) || string.Equals(docType, "Sales Invoice", StringComparison.OrdinalIgnoreCase))
+        {
+            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+            var siQ = await siRepo.GetQueryableAsync();
+            var siList = siQ
+                .Where(si => si.CustomerId == input.CustomerId && si.CompanyId == input.CompanyId && (si.Status == DocumentStatus.Posted || si.Status == DocumentStatus.Submitted))
+                .OrderByDescending(si => si.IssueDate)
+                .ThenByDescending(si => si.CreationTime)
+                .Take(limit)
+                .ToList();
+
+            foreach (var si in siList)
+            {
+                var outstanding = Math.Max(0m, si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance);
+                rows.Add(new CustomerTransactionDto
+                {
+                    Id = si.Id,
+                    TransactionNumber = si.InvoiceNumber ?? si.Id.ToString(),
+                    DocType = "Sales Invoice",
+                    TypeLabel = "Sales Invoice",
+                    Date = si.IssueDate,
+                    Status = si.IsReturn ? "Return" : si.Status.ToString(),
+                    Amount = si.GrandTotal,
+                    OutstandingAmount = outstanding
+                });
+            }
+        }
+
+        if (string.Equals(docType, "All", StringComparison.OrdinalIgnoreCase) || string.Equals(docType, "Sales Order", StringComparison.OrdinalIgnoreCase))
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+            var soQ = await soRepo.GetQueryableAsync();
+            var soList = soQ
+                .Where(so => so.CustomerId == input.CustomerId && so.CompanyId == input.CompanyId && so.Status != DocumentStatus.Draft && so.Status != DocumentStatus.Cancelled)
+                .OrderByDescending(so => so.OrderDate)
+                .ThenByDescending(so => so.CreationTime)
+                .Take(limit)
+                .ToList();
+
+            foreach (var so in soList)
+            {
+                rows.Add(new CustomerTransactionDto
+                {
+                    Id = so.Id,
+                    TransactionNumber = so.OrderNumber ?? so.Id.ToString(),
+                    DocType = "Sales Order",
+                    TypeLabel = "Sales Order",
+                    Date = so.OrderDate,
+                    Status = so.Status.ToString(),
+                    Amount = so.GrandTotal,
+                    OutstandingAmount = null
+                });
+            }
+        }
+
+        if (string.Equals(docType, "All", StringComparison.OrdinalIgnoreCase) || string.Equals(docType, "Payment Entry", StringComparison.OrdinalIgnoreCase))
+        {
+            var peRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PaymentEntry, Guid>>();
+            var peQ = await peRepo.GetQueryableAsync();
+            var peList = peQ
+                .Where(pe => pe.CompanyId == input.CompanyId && pe.PartyType == "Customer" && pe.PartyId == input.CustomerId && (pe.Status == DocumentStatus.Submitted || pe.Status == DocumentStatus.Posted))
+                .OrderByDescending(pe => pe.PostingDate)
+                .ThenByDescending(pe => pe.CreationTime)
+                .Take(limit)
+                .ToList();
+
+            foreach (var pe in peList)
+            {
+                rows.Add(new CustomerTransactionDto
+                {
+                    Id = pe.Id,
+                    TransactionNumber = pe.PaymentNumber ?? pe.Id.ToString(),
+                    DocType = "Payment Entry",
+                    TypeLabel = "Payment Entry",
+                    Date = pe.PostingDate,
+                    Status = pe.Status.ToString(),
+                    Amount = pe.PaidAmount,
+                    OutstandingAmount = pe.UnallocatedAmount > 0 ? pe.UnallocatedAmount : null
+                });
+            }
+        }
+
+        return rows
+            .OrderByDescending(r => r.Date)
+            .ThenByDescending(r => r.Id)
+            .Take(limit)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Fetches all distinct company names where the customer has submitted transactions.
+    /// Per ERPNext get_customer_companies().
+    /// </summary>
+    public async Task<List<string>> GetCustomerCompaniesAsync(Guid customerId)
+    {
+        var companyIds = new HashSet<Guid>();
+
+        var custRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+        var customer = await custRepo.FindAsync(customerId);
+        if (customer != null && customer.CompanyId != Guid.Empty)
+        {
+            companyIds.Add(customer.CompanyId);
+        }
+
+        var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+        var siQ = await siRepo.GetQueryableAsync();
+        var siCompanyIds = siQ
+            .Where(si => si.CustomerId == customerId && (si.Status == DocumentStatus.Posted || si.Status == DocumentStatus.Submitted))
+            .Select(si => si.CompanyId)
+            .Distinct()
+            .ToList();
+        foreach (var cId in siCompanyIds)
+            companyIds.Add(cId);
+
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+        var soQ = await soRepo.GetQueryableAsync();
+        var soCompanyIds = soQ
+            .Where(so => so.CustomerId == customerId && so.Status != DocumentStatus.Draft && so.Status != DocumentStatus.Cancelled)
+            .Select(so => so.CompanyId)
+            .Distinct()
+            .ToList();
+        foreach (var cId in soCompanyIds)
+            companyIds.Add(cId);
+
+        var quoteRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
+        var quoteQ = await quoteRepo.GetQueryableAsync();
+        var quoteCompanyIds = quoteQ
+            .Where(q => q.CustomerId == customerId && q.Status == DocumentStatus.Submitted)
+            .Select(q => q.CompanyId)
+            .Distinct()
+            .ToList();
+        foreach (var cId in quoteCompanyIds)
+            companyIds.Add(cId);
+
+        var peRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PaymentEntry, Guid>>();
+        var peQ = await peRepo.GetQueryableAsync();
+        var peCompanyIds = peQ
+            .Where(pe => pe.PartyType == "Customer" && pe.PartyId == customerId && (pe.Status == DocumentStatus.Submitted || pe.Status == DocumentStatus.Posted))
+            .Select(pe => pe.CompanyId)
+            .Distinct()
+            .ToList();
+        foreach (var cId in peCompanyIds)
+            companyIds.Add(cId);
+
+        if (companyIds.Count == 0) return new List<string>();
+
+        var compRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        var compQ = await compRepo.GetQueryableAsync();
+        return compQ.Where(c => companyIds.Contains(c.Id)).Select(c => c.Name).OrderBy(n => n).ToList();
+    }
+
+    private async Task<(DateTime fromDate, DateTime toDate)> ResolvePeriodAsync(string period, Guid companyId, DateTime asOfDate)
+    {
+        if (string.Equals(period, "Last 12 months", StringComparison.OrdinalIgnoreCase))
+        {
+            return (asOfDate.AddMonths(-12), asOfDate);
+        }
+
+        if (string.Equals(period, "This quarter", StringComparison.OrdinalIgnoreCase))
+        {
+            var quarterStartMonth = ((asOfDate.Month - 1) / 3) * 3 + 1;
+            var from = new DateTime(asOfDate.Year, quarterStartMonth, 1, 0, 0, 0, DateTimeKind.Utc);
+            return (from, asOfDate);
+        }
+
+        var fyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<FiscalYear, Guid>>();
+        var fyQ = await fyRepo.GetQueryableAsync();
+        var currentFy = fyQ.FirstOrDefault(fy => fy.CompanyId == companyId && fy.StartDate <= asOfDate && fy.EndDate >= asOfDate);
+
+        if (currentFy == null)
+        {
+            return (asOfDate.AddMonths(-12), asOfDate);
+        }
+
+        if (string.Equals(period, "Last fiscal year", StringComparison.OrdinalIgnoreCase))
+        {
+            var prevDate = currentFy.StartDate.AddDays(-1);
+            var prevFy = fyQ.FirstOrDefault(fy => fy.CompanyId == companyId && fy.StartDate <= prevDate && fy.EndDate >= prevDate);
+            if (prevFy != null)
+            {
+                return (prevFy.StartDate, prevFy.EndDate);
+            }
+        }
+
+        return (currentFy.StartDate, asOfDate < currentFy.EndDate ? asOfDate : currentFy.EndDate);
+    }
+
+    private static decimal? CalculatePctChange(decimal current, decimal previous)
+    {
+        if (previous == 0) return null;
+        return Math.Round((current - previous) / Math.Abs(previous) * 100m, 1);
     }
 }
 

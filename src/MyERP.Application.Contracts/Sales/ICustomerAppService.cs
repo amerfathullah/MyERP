@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 
@@ -16,4 +18,7 @@ public interface ICustomerAppService :
         GetCustomerListDto,
         CreateUpdateCustomerDto>
 {
+    Task<CustomerOverviewDto> GetCustomerOverviewAsync(GetCustomerOverviewInputDto input);
+    Task<System.Collections.Generic.List<CustomerTransactionDto>> GetCustomerTransactionsAsync(GetCustomerTransactionsInputDto input);
+    Task<System.Collections.Generic.List<string>> GetCustomerCompaniesAsync(Guid customerId);
 }
