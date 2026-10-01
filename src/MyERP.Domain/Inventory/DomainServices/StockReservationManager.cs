@@ -27,8 +27,16 @@ public class StockReservationManager : DomainService
     public StockReservationManager(
         IRepository<StockReservationEntry, Guid> sreRepository,
         IRepository<Bin, Guid> binRepository,
+        IRepository<StockLedgerEntry, Guid> sleRepository)
+        : this(sreRepository, binRepository, sleRepository, null)
+    {
+    }
+
+    public StockReservationManager(
+        IRepository<StockReservationEntry, Guid> sreRepository,
+        IRepository<Bin, Guid> binRepository,
         IRepository<StockLedgerEntry, Guid> sleRepository,
-        IRepository<Warehouse, Guid>? warehouseRepository = null)
+        IRepository<Warehouse, Guid>? warehouseRepository)
     {
         _sreRepository = sreRepository;
         _binRepository = binRepository;

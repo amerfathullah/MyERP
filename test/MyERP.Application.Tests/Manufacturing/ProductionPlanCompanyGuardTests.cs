@@ -5,6 +5,8 @@ using MyERP.Core.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing.Entities;
+using MyERP.Purchasing;
+using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using Shouldly;
 using Volo.Abp;
@@ -310,4 +312,161 @@ public abstract class ProductionPlanCompanyGuardTests<TStartupModule> : MyERPApp
             updated.PlannedItems[0].PlannedQty.ShouldBe(8);
         });
     }
+
+    [Fact]
+    public async Task CreateProductionPlanAsync_MaterialRequestFromDifferentCompany_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var mrRepository = GetRequiredService<IRepository<MaterialRequest, Guid>>();
+            var productionPlanAppService = GetRequiredService<IProductionPlanAppService>();
+
+            var ownerCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "PP MR Owner Co"), autoSave: true);
+            var otherCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "PP MR Other Co"), autoSave: true);
+
+            var fgOwner = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), ownerCompany.Id, "PP-GUARD-FG-MR", "PP Guard FG MR", ItemType.Goods), autoSave: true);
+            var rmOwner = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), ownerCompany.Id, "PP-GUARD-RM-MR", "PP Guard RM MR", ItemType.Goods), autoSave: true);
+
+            var bomOwner = new BillOfMaterials(Guid.NewGuid(), ownerCompany.Id, "BOM-PP-MR", fgOwner.Id)
+            {
+                Quantity = 1,
+                IsActive = true
+            };
+            bomOwner.Items.Add(new BomItem(Guid.NewGuid(), bomOwner.Id, rmOwner.Id, "RM MR", 1, 10));
+            await bomRepository.InsertAsync(bomOwner, autoSave: true);
+
+            var fgOther = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), otherCompany.Id, "PP-GUARD-FG-OTHER-MR", "PP Guard FG Other MR", ItemType.Goods), autoSave: true);
+
+            var mrOther = new MaterialRequest(Guid.NewGuid(), otherCompany.Id, "MR-OTHER-001", MaterialRequestType.Manufacture, DateTime.UtcNow);
+            mrOther.AddItem(fgOther.Id, fgOther.ItemName, 5, "Unit");
+            mrOther.Submit();
+            await mrRepository.InsertAsync(mrOther, autoSave: true);
+
+            await Should.ThrowAsync<BusinessException>(() =>
+                productionPlanAppService.CreateAsync(new CreateProductionPlanDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    PostingDate = DateTime.UtcNow,
+                    Items = new List<CreateProductionPlanItemDto>
+                    {
+                        new()
+                        {
+                            ItemId = fgOwner.Id,
+                            ItemName = fgOwner.ItemName,
+                            BomId = bomOwner.Id,
+                            PlannedQty = 5,
+                            MaterialRequestId = mrOther.Id
+                        }
+                    }
+                }));
+        });
+    }
+
+    [Fact]
+    public async Task CreateProductionPlanAsync_MaterialRequestNotSubmitted_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var mrRepository = GetRequiredService<IRepository<MaterialRequest, Guid>>();
+            var productionPlanAppService = GetRequiredService<IProductionPlanAppService>();
+
+            var ownerCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "PP MR Draft Co"), autoSave: true);
+
+            var fgOwner = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), ownerCompany.Id, "PP-GUARD-FG-DRAFTMR", "PP Guard FG DraftMR", ItemType.Goods), autoSave: true);
+            var rmOwner = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), ownerCompany.Id, "PP-GUARD-RM-DRAFTMR", "PP Guard RM DraftMR", ItemType.Goods), autoSave: true);
+
+            var bomOwner = new BillOfMaterials(Guid.NewGuid(), ownerCompany.Id, "BOM-PP-DRAFTMR", fgOwner.Id)
+            {
+                Quantity = 1,
+                IsActive = true
+            };
+            bomOwner.Items.Add(new BomItem(Guid.NewGuid(), bomOwner.Id, rmOwner.Id, "RM DraftMR", 1, 10));
+            await bomRepository.InsertAsync(bomOwner, autoSave: true);
+
+            var mrDraft = new MaterialRequest(Guid.NewGuid(), ownerCompany.Id, "MR-DRAFT-001", MaterialRequestType.Manufacture, DateTime.UtcNow);
+            mrDraft.AddItem(fgOwner.Id, fgOwner.ItemName, 5, "Unit");
+            await mrRepository.InsertAsync(mrDraft, autoSave: true);
+
+            await Should.ThrowAsync<BusinessException>(() =>
+                productionPlanAppService.CreateAsync(new CreateProductionPlanDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    PostingDate = DateTime.UtcNow,
+                    Items = new List<CreateProductionPlanItemDto>
+                    {
+                        new()
+                        {
+                            ItemId = fgOwner.Id,
+                            ItemName = fgOwner.ItemName,
+                            BomId = bomOwner.Id,
+                            PlannedQty = 5,
+                            MaterialRequestId = mrDraft.Id
+                        }
+                    }
+                }));
+        });
+    }
+
+    [Fact]
+    public async Task CreateProductionPlanAsync_MaterialRequestNotManufactureType_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var mrRepository = GetRequiredService<IRepository<MaterialRequest, Guid>>();
+            var productionPlanAppService = GetRequiredService<IProductionPlanAppService>();
+
+            var ownerCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "PP MR Purchase Co"), autoSave: true);
+
+            var fgOwner = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), ownerCompany.Id, "PP-GUARD-FG-PURCHMR", "PP Guard FG PurchMR", ItemType.Goods), autoSave: true);
+            var rmOwner = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), ownerCompany.Id, "PP-GUARD-RM-PURCHMR", "PP Guard RM PurchMR", ItemType.Goods), autoSave: true);
+
+            var bomOwner = new BillOfMaterials(Guid.NewGuid(), ownerCompany.Id, "BOM-PP-PURCHMR", fgOwner.Id)
+            {
+                Quantity = 1,
+                IsActive = true
+            };
+            bomOwner.Items.Add(new BomItem(Guid.NewGuid(), bomOwner.Id, rmOwner.Id, "RM PurchMR", 1, 10));
+            await bomRepository.InsertAsync(bomOwner, autoSave: true);
+
+            var mrPurchase = new MaterialRequest(Guid.NewGuid(), ownerCompany.Id, "MR-PURCH-001", MaterialRequestType.Purchase, DateTime.UtcNow);
+            mrPurchase.AddItem(fgOwner.Id, fgOwner.ItemName, 5, "Unit");
+            mrPurchase.Submit();
+            await mrRepository.InsertAsync(mrPurchase, autoSave: true);
+
+            await Should.ThrowAsync<BusinessException>(() =>
+                productionPlanAppService.CreateAsync(new CreateProductionPlanDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    PostingDate = DateTime.UtcNow,
+                    Items = new List<CreateProductionPlanItemDto>
+                    {
+                        new()
+                        {
+                            ItemId = fgOwner.Id,
+                            ItemName = fgOwner.ItemName,
+                            BomId = bomOwner.Id,
+                            PlannedQty = 5,
+                            MaterialRequestId = mrPurchase.Id
+                        }
+                    }
+                }));
+        });
+    }
 }
+

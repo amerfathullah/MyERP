@@ -66,16 +66,24 @@ public class PaymentLedgerService : DomainService
     /// <summary>
     /// Get all outstanding invoices for a party (for payment allocation).
     /// Returns only those with non-zero outstanding.
+    /// Per ERPNext PR #59515 (commit 88dbf5e0e7): evaluates each party account on its own so
+    /// vouchers spanning multiple receivable/payable accounts are not netted to zero and dropped.
     /// </summary>
-    public async Task<List<OutstandingVoucher>> GetOutstandingVouchersAsync(string partyType, Guid partyId)
+    public async Task<List<OutstandingVoucher>> GetOutstandingVouchersAsync(string partyType, Guid partyId, Guid? accountId = null)
     {
         var query = await _pleRepository.GetQueryableAsync();
 
+        query = query.Where(p => p.PartyType == partyType && p.PartyId == partyId && !p.Delinked);
+        if (accountId.HasValue)
+        {
+            query = query.Where(p => p.AccountId == accountId.Value);
+        }
+
         var grouped = query
-            .Where(p => p.PartyType == partyType && p.PartyId == partyId && !p.Delinked)
-            .GroupBy(p => new { p.AgainstVoucherType, p.AgainstVoucherId })
+            .GroupBy(p => new { p.AccountId, p.AgainstVoucherType, p.AgainstVoucherId })
             .Select(g => new OutstandingVoucher
             {
+                AccountId = g.Key.AccountId,
                 VoucherType = g.Key.AgainstVoucherType,
                 VoucherId = g.Key.AgainstVoucherId,
                 Outstanding = g.Sum(p => p.AmountInAccountCurrency),
@@ -214,7 +222,9 @@ public class PaymentLedgerService : DomainService
 /// <summary>Summary of outstanding amount for a voucher.</summary>
 public class OutstandingVoucher
 {
+    public Guid? AccountId { get; set; }
     public string VoucherType { get; set; } = null!;
     public Guid VoucherId { get; set; }
     public decimal Outstanding { get; set; }
 }
+

@@ -241,6 +241,50 @@ public class PaymentLedgerServiceTests
         overdueOutstanding.ShouldBe(400m);
     }
 
+    [Fact]
+    public void Outstanding_JudgesEachPartyAccountSeparately_DoesNotNetToZero()
+    {
+        // Per ERPNext PR #59515 (commit 88dbf5e0e7):
+        // Each party account must be judged on its own.
+        // A voucher with +100 on account A and -100 on account B must not net to 0.
+        var voucherId = Guid.NewGuid();
+        var accountA = Guid.NewGuid();
+        var accountB = Guid.NewGuid();
+
+        var pleA = new PaymentLedgerEntry(
+            Guid.NewGuid(), _companyId, DateTime.Today,
+            accountA, "Customer", _customerId,
+            "JournalEntry", voucherId,
+            "JournalEntry", voucherId,
+            100m, 100m, "MYR");
+
+        var pleB = new PaymentLedgerEntry(
+            Guid.NewGuid(), _companyId, DateTime.Today,
+            accountB, "Customer", _customerId,
+            "JournalEntry", voucherId,
+            "JournalEntry", voucherId,
+            -100m, -100m, "MYR");
+
+        var entries = new[] { pleA, pleB };
+
+        // Group by AccountId, AgainstVoucherType, AgainstVoucherId
+        var grouped = entries
+            .Where(p => !p.Delinked)
+            .GroupBy(p => new { p.AccountId, p.AgainstVoucherType, p.AgainstVoucherId })
+            .Select(g => new
+            {
+                g.Key.AccountId,
+                g.Key.AgainstVoucherId,
+                Outstanding = g.Sum(p => p.AmountInAccountCurrency)
+            })
+            .Where(v => v.Outstanding != 0)
+            .ToList();
+
+        grouped.Count.ShouldBe(2);
+        grouped.First(g => g.AccountId == accountA).Outstanding.ShouldBe(100m);
+        grouped.First(g => g.AccountId == accountB).Outstanding.ShouldBe(-100m);
+    }
+
     // === Helper ===
 
     private static PaymentLedgerEntry CreatePle(Guid invoiceId, decimal amount)

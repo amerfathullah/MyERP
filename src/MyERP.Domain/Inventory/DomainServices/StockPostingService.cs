@@ -96,6 +96,7 @@ public class StockPostingService : DomainService
             // the OTHER constructor overload (with postingTime/voucherType params) and stays 0
             // here, which silently zeroed out every stock-in Bin value until caught live-testing
             // round 78's JobCard fix (GL showed the correct 100, Bin.StockValue showed 0).
+            decimal outwardStockValue = 0m;
             if (item.SourceWarehouseId.HasValue)
             {
                 var rate = item.ValuationRate ?? 0m;
@@ -117,12 +118,22 @@ public class StockPostingService : DomainService
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, item.SourceWarehouseId.Value,
                     -item.Quantity, sle.StockValue, stockEntry.TenantId);
+
+                outwardStockValue = Math.Abs(sle.StockValueDifference != 0 ? sle.StockValueDifference : sle.StockValue);
             }
 
             // Target warehouse: stock-in (positive qty) — same reasoning as above.
             if (item.TargetWarehouseId.HasValue)
             {
                 var rate = item.ValuationRate ?? 0;
+
+                // Per ERPNext PR #59546 (commit 801a524f80): value a transfer's inward leg at what left the source + additional cost
+                if (item.SourceWarehouseId.HasValue && item.Quantity > 0)
+                {
+                    var totalInwardValue = outwardStockValue + item.AdditionalCost;
+                    rate = totalInwardValue / item.Quantity;
+                }
+
                 var bundleRepo = LazyServiceProvider.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
                 SerialAndBatchBundle? bundle = null;
                 if (bundleRepo != null)

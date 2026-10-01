@@ -152,6 +152,9 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             }
         }
 
+        // Validate Material Requests belong to company, are submitted, are of type Manufacture, and not stopped/closed (ERPNext PR #59584 / commit 6e24ef9cce)
+        await ValidateMaterialRequestsAsync(input.CompanyId, input.Items);
+
         // Validate warehouses belong to company
         var warehouseIds = input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value)
             .Concat(new[] { input.RawMaterialGroupWarehouseId, input.ForWarehouseId }.Where(w => w.HasValue).Select(w => w!.Value))
@@ -264,6 +267,9 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 }
             }
         }
+
+        // Validate Material Requests belong to company, are submitted, are of type Manufacture, and not stopped/closed (ERPNext PR #59584 / commit 6e24ef9cce)
+        await ValidateMaterialRequestsAsync(input.CompanyId, input.Items);
 
         // Validate warehouses belong to company
         var warehouseIds = input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value)
@@ -663,6 +669,24 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         {
             throw new BusinessException(MyERPDomainErrorCodes.BomNotFound)
                 .WithData("items", string.Join(", ", missingBomItems));
+        }
+
+        // Validate linked Material Requests are not stopped or cancelled (ERPNext PR #59584 / commit 6e24ef9cce)
+        var linkedMrIds = itemsNeedingWo
+            .Where(i => i.Item.MaterialRequestId.HasValue)
+            .Select(i => i.Item.MaterialRequestId!.Value)
+            .Distinct()
+            .ToList();
+        if (linkedMrIds.Count > 0)
+        {
+            var mrQuery = await _materialRequestRepository.GetQueryableAsync();
+            var mrs = mrQuery.Where(m => linkedMrIds.Contains(m.Id)).ToList();
+            var stoppedMr = mrs.FirstOrDefault(m => m.Status == Core.DocumentStatus.Closed || m.Status == Core.DocumentStatus.Cancelled);
+            if (stoppedMr != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot create Work Orders from a stopped or closed Material Request {stoppedMr.RequestNumber}.");
+            }
         }
 
         foreach (var (item, qtyToOrder) in itemsNeedingWo)
@@ -1194,5 +1218,52 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             });
         }
     }
+
+    /// <summary>
+    /// Validates linked Material Requests: must belong to same company, must be submitted,
+    /// must be of type Manufacture, and must not be stopped or closed (ERPNext PR #59584 / commit 6e24ef9cce).
+    /// </summary>
+    private async Task ValidateMaterialRequestsAsync(Guid companyId, IEnumerable<CreateProductionPlanItemDto> items)
+    {
+        var mrIds = items
+            .Where(i => i.MaterialRequestId.HasValue)
+            .Select(i => i.MaterialRequestId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (mrIds.Count == 0) return;
+
+        var mrQuery = await _materialRequestRepository.GetQueryableAsync();
+        var mrs = mrQuery.Where(m => mrIds.Contains(m.Id)).ToList();
+
+        foreach (var mr in mrs)
+        {
+            if (mr.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("materialRequestCompany", mr.CompanyId)
+                    .WithData("productionPlanCompany", companyId);
+            }
+
+            if (mr.Status != Core.DocumentStatus.Submitted)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Material Request {mr.RequestNumber} must be submitted to create Work Orders.");
+            }
+
+            if (mr.RequestType != Purchasing.MaterialRequestType.Manufacture)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Material Request {mr.RequestNumber} must be of type Manufacture.");
+            }
+
+            if (mr.Status == Core.DocumentStatus.Closed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot create Work Orders from a stopped or closed Material Request {mr.RequestNumber}.");
+            }
+        }
+    }
 }
+
 

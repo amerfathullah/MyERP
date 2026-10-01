@@ -55,6 +55,7 @@ public class UnreconcileDto
 
 public class OutstandingInvoiceDto
 {
+    public Guid? AccountId { get; set; }
     public Guid VoucherId { get; set; }
     public string VoucherType { get; set; } = null!;
     public decimal Outstanding { get; set; }

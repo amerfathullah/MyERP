@@ -58,11 +58,12 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
     /// <summary>
     /// Get all outstanding invoices for a party (for reconciliation UI).
     /// </summary>
-    public async Task<List<OutstandingInvoiceDto>> GetOutstandingInvoicesAsync(string partyType, Guid partyId)
+    public async Task<List<OutstandingInvoiceDto>> GetOutstandingInvoicesAsync(string partyType, Guid partyId, Guid? accountId = null)
     {
-        var vouchers = await _pleService.GetOutstandingVouchersAsync(partyType, partyId);
+        var vouchers = await _pleService.GetOutstandingVouchersAsync(partyType, partyId, accountId);
         return vouchers.Select(v => new OutstandingInvoiceDto
         {
+            AccountId = v.AccountId,
             VoucherId = v.VoucherId,
             VoucherType = v.VoucherType,
             Outstanding = v.Outstanding,

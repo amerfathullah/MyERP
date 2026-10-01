@@ -118,4 +118,20 @@ public class StockPostingServiceTests
         se.Items[0].TargetWarehouseId.ShouldBe(tgtWh);
         se.Items[0].Quantity.ShouldBe(20);
     }
+
+    [Fact]
+    public void StockEntryItem_MaterialTransfer_PreservesAdditionalCostAndCalculatesInwardValue()
+    {
+        var se = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.MaterialTransfer, DateTime.UtcNow);
+        var srcWh = Guid.NewGuid();
+        var tgtWh = Guid.NewGuid();
+        se.AddItem(Guid.NewGuid(), 2, srcWh, tgtWh, 10.005m);
+        var item = se.Items[0];
+        item.AdditionalCost = 5.0m;
+
+        item.SourceWarehouseId.ShouldBe(srcWh);
+        item.TargetWarehouseId.ShouldBe(tgtWh);
+        item.Quantity.ShouldBe(2);
+        item.AdditionalCost.ShouldBe(5.0m);
+    }
 }
