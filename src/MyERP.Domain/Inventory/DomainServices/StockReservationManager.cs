@@ -121,6 +121,58 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
+    /// Gets the available unreserved quantities for a list of batches in a warehouse.
+    /// Per ERPNext PR #59601 (commit 92d24ba583): skips batch qty reserved by other vouchers in manufacture entries.
+    /// </summary>
+    public virtual async Task<Dictionary<Guid, decimal>> GetUnreservedBatchQuantitiesAsync(
+        Guid itemId,
+        Guid warehouseId,
+        IEnumerable<Guid> batchIds,
+        string? ignoreVoucherType = null,
+        Guid? ignoreVoucherId = null)
+    {
+        var batchIdList = batchIds.Distinct().ToList();
+        if (!batchIdList.Any()) return new();
+
+        var sreQueryable = await _sreRepository.GetQueryableAsync();
+        var reservations = sreQueryable
+            .Where(s => s.ItemId == itemId
+                && s.WarehouseId == warehouseId
+                && s.BatchId.HasValue
+                && batchIdList.Contains(s.BatchId.Value)
+                && s.Status == DocumentStatus.Submitted
+                && (ignoreVoucherId == null || !(s.VoucherType == ignoreVoucherType && s.VoucherId == ignoreVoucherId))
+                && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
+            .GroupBy(s => s.BatchId!.Value)
+            .Select(g => new { BatchId = g.Key, Reserved = g.Sum(s => s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) })
+            .ToList();
+
+        var reservedMap = reservations.ToDictionary(r => r.BatchId, r => r.Reserved);
+
+        // Get actual stock per batch from SLE
+        var sleQueryable = await _sleRepository.GetQueryableAsync();
+        var result = new Dictionary<Guid, decimal>();
+
+        foreach (var bId in batchIdList)
+        {
+            var lastSle = sleQueryable
+                .Where(s => s.ItemId == itemId
+                    && s.WarehouseId == warehouseId
+                    && s.BatchId == bId
+                    && !s.IsCancelled)
+                .OrderByDescending(s => s.PostingDate)
+                .ThenByDescending(s => s.CreationTime)
+                .FirstOrDefault();
+
+            var actual = lastSle?.BalanceQuantity ?? 0m;
+            var reserved = reservedMap.TryGetValue(bId, out var res) ? res : 0m;
+            result[bId] = Math.Max(0, actual - reserved);
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Consumes reserved stock when delivery is made (FIFO by creation date).
     /// Per ERPNext PR #49082 (commit dbaa44688e): filters delivered_qty < reserved_qty.
     /// Per ERPNext PR #59424 (commit dbada3f461): count only matched batches on reservations.

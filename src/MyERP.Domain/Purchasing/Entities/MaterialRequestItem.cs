@@ -28,6 +28,12 @@ public class MaterialRequestItem : Entity<Guid>
     /// <summary>Linked project for budgeting and tracking (ERPNext commit 9eab434ae8).</summary>
     public Guid? ProjectId { get; set; }
 
+    /// <summary>Production Plan ID when MR was created from Production Plan.</summary>
+    public Guid? ProductionPlanId { get; set; }
+
+    /// <summary>Production Plan Material Requirement Item ID when MR was created from Production Plan (ERPNext PR #59615).</summary>
+    public Guid? ProductionPlanMrItemId { get; set; }
+
     protected MaterialRequestItem() { }
 
     public MaterialRequestItem(Guid id, Guid materialRequestId, Guid itemId,

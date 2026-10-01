@@ -1237,6 +1237,26 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             Notes = $"Production recorded — WO {wo.WorkOrderNumber}",
         };
 
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+        var priorStockEntries = await seRepo.GetListAsync(
+            se => se.WorkOrderId == wo.Id
+                && (se.Status == Core.DocumentStatus.Submitted || se.Status == Core.DocumentStatus.Posted),
+            includeDetails: true);
+
+        var transferItems = priorStockEntries
+            .Where(se => se.EntryType == StockEntryType.MaterialTransferForManufacture)
+            .SelectMany(se => se.Items)
+            .ToList();
+
+        var priorConsumedItems = priorStockEntries
+            .Where(se => se.EntryType == StockEntryType.Manufacture || se.EntryType == StockEntryType.MaterialConsumptionForManufacture)
+            .SelectMany(se => se.Items)
+            .Where(i => !i.IsFinishedItem)
+            .ToList();
+
+        var stockReservationManager = LazyServiceProvider
+            .LazyGetService<Inventory.DomainServices.StockReservationManager>();
+
         // Issue raw materials and track total cost for FG valuation
         decimal totalRmCost = 0;
         foreach (var rmItem in consumptionItems)
@@ -1248,15 +1268,54 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             {
                 var rmBalance = await _valuationService.GetCurrentBalanceAsync(rmItem.ItemId, warehouseId.Value);
                 var rmRate = rmBalance.ValuationRate;
-                totalRmCost += rmItem.Quantity * rmRate;
 
-                entry.AddItem(
-                    itemId: rmItem.ItemId, quantity: rmItem.Quantity,
-                    sourceWarehouseId: warehouseId.Value, targetWarehouseId: null,
-                    valuationRate: rmRate);
+                var itemTransfers = transferItems.Where(i => i.ItemId == rmItem.ItemId && i.BatchId.HasValue).ToList();
+                if (itemTransfers.Any())
+                {
+                    var candidateBatchIds = itemTransfers.Select(i => i.BatchId!.Value).Distinct().ToList();
+                    Dictionary<Guid, decimal>? unreservedMap = null;
 
-                await _binService.UpdateReservedQtyForProductionAsync(
-                    rmItem.ItemId, warehouseId.Value, -rmItem.Quantity, wo.TenantId);
+                    if (stockReservationManager != null)
+                    {
+                        unreservedMap = await stockReservationManager.GetUnreservedBatchQuantitiesAsync(
+                            rmItem.ItemId,
+                            warehouseId.Value,
+                            candidateBatchIds,
+                            ignoreVoucherType: "Work Order",
+                            ignoreVoucherId: wo.Id);
+                    }
+
+                    var batchSplits = productionService.CalculateTransferredBatchConsumption(
+                        rmItem.ItemId,
+                        rmItem.Quantity,
+                        transferItems,
+                        priorConsumedItems,
+                        unreservedMap);
+
+                    foreach (var split in batchSplits)
+                    {
+                        totalRmCost += split.Quantity * rmRate;
+                        entry.AddItem(
+                            itemId: rmItem.ItemId, quantity: split.Quantity,
+                            sourceWarehouseId: warehouseId.Value, targetWarehouseId: null,
+                            valuationRate: rmRate, batchId: split.BatchId);
+
+                        await _binService.UpdateReservedQtyForProductionAsync(
+                            rmItem.ItemId, warehouseId.Value, -split.Quantity, wo.TenantId);
+                    }
+                }
+                else
+                {
+                    totalRmCost += rmItem.Quantity * rmRate;
+
+                    entry.AddItem(
+                        itemId: rmItem.ItemId, quantity: rmItem.Quantity,
+                        sourceWarehouseId: warehouseId.Value, targetWarehouseId: null,
+                        valuationRate: rmRate);
+
+                    await _binService.UpdateReservedQtyForProductionAsync(
+                        rmItem.ItemId, warehouseId.Value, -rmItem.Quantity, wo.TenantId);
+                }
             }
 
             // Track consumed qty on Work Order item (per ERPNext work_order.py update_consumed_qty)
@@ -1348,7 +1407,6 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         await FlushPendingChangesAsync();
         await postingOrchestrator.PostStockEntryAsync(entry);
 
-        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
         await seRepo.InsertAsync(entry, autoSave: true);
 
         // Notify the user who recorded production when the WO completes. Was previously created
@@ -1953,6 +2011,26 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var backflushMethod = settings?.BackflushRawMaterialsBasedOn ?? "BOM";
         var consumptionItems = productionService.CalculateRawMaterialConsumption(wo, input.FgQuantity, backflushMethod);
 
+        // Load prior transfers and consumptions for Work Order (ERPNext PR #59600 & #59601)
+        var priorStockEntries = await seRepo.GetListAsync(
+            se => se.WorkOrderId == wo.Id
+                && (se.Status == Core.DocumentStatus.Submitted || se.Status == Core.DocumentStatus.Posted),
+            includeDetails: true);
+
+        var transferItems = priorStockEntries
+            .Where(se => se.EntryType == StockEntryType.MaterialTransferForManufacture)
+            .SelectMany(se => se.Items)
+            .ToList();
+
+        var priorConsumedItems = priorStockEntries
+            .Where(se => se.EntryType == StockEntryType.Manufacture || se.EntryType == StockEntryType.MaterialConsumptionForManufacture)
+            .SelectMany(se => se.Items)
+            .Where(i => !i.IsFinishedItem)
+            .ToList();
+
+        var stockReservationManager = LazyServiceProvider
+            .LazyGetService<Inventory.DomainServices.StockReservationManager>();
+
         foreach (var rmItem in consumptionItems)
         {
             var sourceWh = (wo.SkipTransfer && !wo.FromWipWarehouse)
@@ -1962,14 +2040,54 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
             var balance = await _valuationService.GetCurrentBalanceAsync(rmItem.ItemId, sourceWh.Value);
             var rate = balance.ValuationRate;
-            totalRmCost += rmItem.Quantity * rate;
 
-            entry.AddItem(
-                itemId: rmItem.ItemId,
-                quantity: rmItem.Quantity,
-                sourceWarehouseId: sourceWh.Value,
-                targetWarehouseId: null,
-                valuationRate: rate);
+            var itemTransfers = transferItems.Where(i => i.ItemId == rmItem.ItemId && i.BatchId.HasValue).ToList();
+            if (itemTransfers.Any())
+            {
+                var candidateBatchIds = itemTransfers.Select(i => i.BatchId!.Value).Distinct().ToList();
+                Dictionary<Guid, decimal>? unreservedMap = null;
+
+                if (stockReservationManager != null)
+                {
+                    unreservedMap = await stockReservationManager.GetUnreservedBatchQuantitiesAsync(
+                        rmItem.ItemId,
+                        sourceWh.Value,
+                        candidateBatchIds,
+                        ignoreVoucherType: "Work Order",
+                        ignoreVoucherId: wo.Id);
+                }
+
+                var batchSplits = productionService.CalculateTransferredBatchConsumption(
+                    rmItem.ItemId,
+                    rmItem.Quantity,
+                    transferItems,
+                    priorConsumedItems,
+                    unreservedMap);
+
+                foreach (var split in batchSplits)
+                {
+                    totalRmCost += split.Quantity * rate;
+
+                    entry.AddItem(
+                        itemId: rmItem.ItemId,
+                        quantity: split.Quantity,
+                        sourceWarehouseId: sourceWh.Value,
+                        targetWarehouseId: null,
+                        valuationRate: rate,
+                        batchId: split.BatchId);
+                }
+            }
+            else
+            {
+                totalRmCost += rmItem.Quantity * rate;
+
+                entry.AddItem(
+                    itemId: rmItem.ItemId,
+                    quantity: rmItem.Quantity,
+                    sourceWarehouseId: sourceWh.Value,
+                    targetWarehouseId: null,
+                    valuationRate: rate);
+            }
         }
 
         // Fold in RM value already recorded via a prior, separate Material Consumption entry —

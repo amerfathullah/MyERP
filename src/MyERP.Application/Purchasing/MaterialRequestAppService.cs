@@ -125,10 +125,13 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
                 item.SalesOrderId,
                 item.SalesOrderItemId,
                 item.ProjectId ?? input.ProjectId,
-                item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
+                item.ConversionFactor > 0 ? item.ConversionFactor : 1m,
+                item.ProductionPlanId,
+                item.ProductionPlanMrItemId);
         }
 
         await ValidateItemsAgainstSalesOrderAsync(entity);
+        await ValidateProductionPlanQuantitiesAsync(entity);
 
         await _repository.InsertAsync(entity);
         return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
@@ -187,10 +190,13 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
                 item.SalesOrderId,
                 item.SalesOrderItemId,
                 item.ProjectId ?? input.ProjectId,
-                item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
+                item.ConversionFactor > 0 ? item.ConversionFactor : 1m,
+                item.ProductionPlanId,
+                item.ProductionPlanMrItemId);
         }
 
         await ValidateItemsAgainstSalesOrderAsync(entity);
+        await ValidateProductionPlanQuantitiesAsync(entity);
 
         await _repository.UpdateAsync(entity);
         return ObjectMapper.Map<MaterialRequest, MaterialRequestDto>(entity);
@@ -216,6 +222,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         }
 
         await ValidateItemsAgainstSalesOrderAsync(entity);
+        await ValidateProductionPlanQuantitiesAsync(entity);
 
         // Budget validation (Level 1: MR enforcement) — only for Purchase type
         if (entity.RequestType == MaterialRequestType.Purchase)
@@ -414,6 +421,9 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
     /// </summary>
     private async Task ValidateItemsAgainstSalesOrderAsync(MaterialRequest mr)
     {
+        if (!mr.Items.Any(i => i.SalesOrderId.HasValue))
+            return;
+
         var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
         var mrManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.MaterialRequestManager>();
         await mrManager.ValidateWithSalesOrderAsync(mr, soRepo);
@@ -531,5 +541,48 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             "MaterialRequest", companyId,
             itemIds: itemIds,
             warehouseIds: allWarehouseIds.Count > 0 ? allWarehouseIds : null);
+    }
+
+    /// <summary>
+    /// Validates requested quantities against linked Production Plan items.
+    /// Per ERPNext PR #59615 (commit ee3346fe4f): validates that neither an individual row nor
+    /// the combined requested quantity across repeated references to the same plan item exceeds available_qty.
+    /// </summary>
+    private async Task ValidateProductionPlanQuantitiesAsync(MaterialRequest entity)
+    {
+        var planLinkedItems = entity.Items
+            .Where(i => i.ProductionPlanMrItemId.HasValue)
+            .ToList();
+
+        if (!planLinkedItems.Any()) return;
+
+        var planItemIds = planLinkedItems
+            .Select(i => i.ProductionPlanMrItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        var ppItemRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<Manufacturing.Entities.ProductionPlanMrItem, Guid>>();
+        var ppItems = (await ppItemRepo.GetListAsync(pi => planItemIds.Contains(pi.Id))) ?? new List<Manufacturing.Entities.ProductionPlanMrItem>();
+        var ppItemMap = ppItems.ToDictionary(pi => pi.Id);
+
+        var requestedTotals = planLinkedItems
+            .GroupBy(i => i.ProductionPlanMrItemId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+
+        foreach (var item in planLinkedItems)
+        {
+            if (!ppItemMap.TryGetValue(item.ProductionPlanMrItemId!.Value, out var planRow))
+                continue;
+
+            var limit = planRow.AvailableQty > 0 ? planRow.AvailableQty : planRow.PlannedQty;
+            var combinedTotal = requestedTotals[item.ProductionPlanMrItemId!.Value];
+
+            if (item.Quantity > limit || combinedTotal > limit)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Quantity cannot be greater than {limit} for Item {item.ItemName}");
+            }
+        }
     }
 }

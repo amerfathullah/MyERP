@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Inventory.Entities;
 using MyERP.Manufacturing.Entities;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -243,6 +244,108 @@ public class WorkOrderProductionService : DomainService
 
         return grouped;
     }
+
+    /// <summary>
+    /// Calculates the batch breakdown for raw material consumption from Work Order transfers.
+    /// Per ERPNext PR #59600 (commit c9ece88a12):
+    /// - Accumulates batches across ALL Material Transfer for Manufacture entries (not just the last one).
+    /// - Deducts already consumed batch quantities (using Math.Abs(qty)) from prior manufacture/consumption entries.
+    /// Per ERPNext PR #59601 (commit 92d24ba583):
+    /// - Transferred batches are capped at the qty other vouchers have not reserved, when that still covers the required qty.
+    /// - Otherwise, the picks stay as they were and submit reports the reservation conflict.
+    /// Allocates the required consumption quantity across the available batches.
+    /// </summary>
+    public List<(Guid? BatchId, decimal Quantity)> CalculateTransferredBatchConsumption(
+        Guid itemId,
+        decimal requiredQty,
+        IEnumerable<StockEntryItem> transferredItems,
+        IEnumerable<StockEntryItem> priorConsumedItems,
+        IReadOnlyDictionary<Guid, decimal>? unreservedBatchQuantities = null)
+    {
+        var result = new List<(Guid? BatchId, decimal Quantity)>();
+        if (requiredQty <= 0) return result;
+
+        // Accumulate batches across ALL transfers (ERPNext PR #59600 / commit c9ece88a12)
+        var transferredBatches = new Dictionary<Guid, decimal>();
+        decimal nonBatchedTransferred = 0m;
+
+        foreach (var item in transferredItems.Where(i => i.ItemId == itemId && !i.IsFinishedItem))
+        {
+            if (item.BatchId.HasValue)
+            {
+                var bId = item.BatchId.Value;
+                transferredBatches[bId] = transferredBatches.GetValueOrDefault(bId) + Math.Abs(item.Quantity);
+            }
+            else
+            {
+                nonBatchedTransferred += Math.Abs(item.Quantity);
+            }
+        }
+
+        // Deduct already consumed batch quantities using abs(qty) (commit c9ece88a12)
+        foreach (var item in priorConsumedItems.Where(i => i.ItemId == itemId && !i.IsFinishedItem))
+        {
+            if (item.BatchId.HasValue)
+            {
+                var bId = item.BatchId.Value;
+                if (transferredBatches.ContainsKey(bId))
+                {
+                    transferredBatches[bId] = Math.Max(0m, transferredBatches[bId] - Math.Abs(item.Quantity));
+                }
+            }
+            else
+            {
+                nonBatchedTransferred = Math.Max(0m, nonBatchedTransferred - Math.Abs(item.Quantity));
+            }
+        }
+
+        var availableBatches = transferredBatches.Where(kv => kv.Value > 0).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+        // If no batches were ever transferred for this item, return non-batched line
+        if (availableBatches.Count == 0)
+        {
+            result.Add((null, Math.Round(requiredQty, 4)));
+            return result;
+        }
+
+        // Per ERPNext PR #59601 (commit 92d24ba583):
+        // Transferred batches are capped at the qty other vouchers have not reserved,
+        // when that still covers the row. Otherwise the picks stay as they are and submit reports the reservation conflict.
+        var batchesToConsume = availableBatches;
+        if (unreservedBatchQuantities != null)
+        {
+            var cappedBatches = new Dictionary<Guid, decimal>();
+            foreach (var (batchId, batchQty) in availableBatches)
+            {
+                if (unreservedBatchQuantities.TryGetValue(batchId, out var unreserved) && unreserved > 0)
+                {
+                    cappedBatches[batchId] = Math.Min(batchQty, unreserved);
+                }
+            }
+
+            if (Math.Round(cappedBatches.Values.Sum(), 4) >= Math.Round(requiredQty, 4))
+            {
+                batchesToConsume = cappedBatches;
+            }
+        }
+
+        // Allocate requiredQty across batchesToConsume
+        var remaining = requiredQty;
+        foreach (var (batchId, batchQty) in batchesToConsume.Where(kv => kv.Value > 0))
+        {
+            if (remaining <= 0) break;
+            var alloc = Math.Min(remaining, batchQty);
+            result.Add((batchId, Math.Round(alloc, 4)));
+            remaining -= alloc;
+        }
+
+        if (remaining > 0)
+        {
+            result.Add((null, Math.Round(remaining, 4)));
+        }
+
+        return result;
+    }
 }
 
 /// <summary>Raw material consumption line for production stock entry.</summary>
@@ -251,7 +354,8 @@ public record MaterialConsumptionItem(
     string ItemName,
     decimal Quantity,
     Guid? SourceWarehouseId,
-    Guid? OriginalItemId = null);
+    Guid? OriginalItemId = null,
+    Guid? BatchId = null);
 
 /// <summary>Validated production parameters for stock entry creation.</summary>
 public record ProductionParameters(

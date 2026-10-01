@@ -75,7 +75,7 @@ public class CompanyRestrictionValidationService : DomainService
     /// <param name="supplierIds">Supplier IDs referenced (usually 0 or 1).</param>
     /// <param name="accountIds">GL Account IDs referenced (JE lines, payment from/to accounts, etc.).</param>
     /// <param name="warehouseIds">Warehouse IDs referenced (stock movement source/target).</param>
-    public async Task ValidateTransactionCompanyAsync(
+    public virtual async Task ValidateTransactionCompanyAsync(
         string documentType,
         Guid companyId,
         IReadOnlyCollection<Guid>? itemIds = null,

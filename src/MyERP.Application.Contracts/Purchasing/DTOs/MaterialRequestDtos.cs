@@ -44,6 +44,8 @@ public class MaterialRequestItemDto
     public Guid? SalesOrderId { get; set; }
     public Guid? SalesOrderItemId { get; set; }
     public Guid? ProjectId { get; set; }
+    public Guid? ProductionPlanId { get; set; }
+    public Guid? ProductionPlanMrItemId { get; set; }
 }
 
 public class CreateMaterialRequestDto
@@ -91,6 +93,8 @@ public class CreateMaterialRequestItemDto
     public Guid? SalesOrderId { get; set; }
     public Guid? SalesOrderItemId { get; set; }
     public Guid? ProjectId { get; set; }
+    public Guid? ProductionPlanId { get; set; }
+    public Guid? ProductionPlanMrItemId { get; set; }
 }
 
 public class GetMaterialRequestListDto : PagedAndSortedResultRequestDto
