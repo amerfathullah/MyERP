@@ -968,6 +968,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
     /// </summary>
     public async Task<ManufactureItemsDto> GetManufactureItemsAsync(Guid workOrderId, decimal produceQty)
     {
+        // Enforce Work Order read permissions (ERPNext PR #59678 / commit 982cdca33f)
+        await AuthorizationService.CheckAsync(MyERPPermissions.Manufacturing.Default);
+
         var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
         var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
 

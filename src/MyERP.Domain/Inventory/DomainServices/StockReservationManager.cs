@@ -22,15 +22,18 @@ public class StockReservationManager : DomainService
     private readonly IRepository<StockReservationEntry, Guid> _sreRepository;
     private readonly IRepository<Bin, Guid> _binRepository;
     private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
+    private readonly IRepository<Warehouse, Guid>? _warehouseRepository;
 
     public StockReservationManager(
         IRepository<StockReservationEntry, Guid> sreRepository,
         IRepository<Bin, Guid> binRepository,
-        IRepository<StockLedgerEntry, Guid> sleRepository)
+        IRepository<StockLedgerEntry, Guid> sleRepository,
+        IRepository<Warehouse, Guid>? warehouseRepository = null)
     {
         _sreRepository = sreRepository;
         _binRepository = binRepository;
         _sleRepository = sleRepository;
+        _warehouseRepository = warehouseRepository;
     }
 
     /// <summary>
@@ -300,6 +303,18 @@ public class StockReservationManager : DomainService
         qty = Math.Round(qty, 4);
         if (qty <= 0) return;
 
+        // Validate reservation warehouse belongs to the company (ERPNext PR #59647 / commit c7a9f069b7)
+        if (_warehouseRepository != null)
+        {
+            var warehouse = await _warehouseRepository.FindAsync(warehouseId);
+            if (warehouse != null && warehouse.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("warehouseCompany", warehouse.CompanyId)
+                    .WithData("companyId", companyId);
+            }
+        }
+
         await ValidateAvailabilityAsync(itemId, warehouseId, qty, batchId, postingDate);
 
         var demandQty = voucherDemandQty.HasValue ? Math.Round(voucherDemandQty.Value, 4) : qty;
@@ -397,6 +412,18 @@ public class StockReservationManager : DomainService
         qty = Math.Round(qty, 4);
         if (qty <= 0)
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive).WithData("field", nameof(qty));
+
+        // Validate reservation warehouse belongs to the company (ERPNext PR #59647 / commit c7a9f069b7)
+        if (_warehouseRepository != null)
+        {
+            var warehouse = await _warehouseRepository.FindAsync(warehouseId);
+            if (warehouse != null && warehouse.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("warehouseCompany", warehouse.CompanyId)
+                    .WithData("companyId", companyId);
+            }
+        }
 
         await ValidateAvailabilityAsync(itemId, warehouseId, qty, batchId);
 

@@ -1790,17 +1790,6 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         await seRepo.InsertAsync(entry);
 
-        // Update WO item transferred quantities (per ERPNext PR #52856 / commit 8e14249335: use stock_qty)
-        foreach (var seItem in entry.Items)
-        {
-            var woItem = wo.RequiredItems.FirstOrDefault(i => i.ItemId == seItem.ItemId);
-            if (woItem != null)
-            {
-                woItem.TransferredQuantity += seItem.StockQty > 0 ? seItem.StockQty : seItem.Quantity;
-            }
-        }
-        await _workOrderRepository.UpdateAsync(wo);
-
         return new StockEntryResultDto
         {
             StockEntryId = entry.Id,
@@ -1875,18 +1864,6 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 .WithData("detail", "No valid return items could be added");
 
         await seRepo.InsertAsync(entry);
-
-        // Update WO item transferred quantities and material transferred
-        foreach (var seItem in entry.Items)
-        {
-            var woItem = wo.RequiredItems.FirstOrDefault(i => i.ItemId == seItem.ItemId);
-            if (woItem != null)
-            {
-                woItem.TransferredQuantity = Math.Max(0, woItem.TransferredQuantity - (seItem.StockQty > 0 ? seItem.StockQty : seItem.Quantity));
-            }
-            wo.MaterialTransferred = Math.Max(0, wo.MaterialTransferred - seItem.Quantity);
-        }
-        await _workOrderRepository.UpdateAsync(wo);
 
         return new StockEntryResultDto
         {

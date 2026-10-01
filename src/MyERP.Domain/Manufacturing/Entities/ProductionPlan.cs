@@ -68,6 +68,10 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         if (PlannedItems.Count == 0)
             throw new BusinessException(MyERPDomainErrorCodes.ProductionPlanHasNoItems);
+        // Per ERPNext PR #59555: Planned Qty must be strictly greater than 0
+        if (PlannedItems.Any(i => i.PlannedQty <= 0))
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "PlannedQty");
         Status = ProductionPlanStatus.Submitted;
         AddLocalEvent(new MyERP.Manufacturing.Events.ProductionPlanSubmittedEvent(Id, TenantId));
     }

@@ -6,6 +6,8 @@ using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Purchasing.Entities;
+using MyERP.Sales;
+using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -30,6 +32,7 @@ public class CompanyRestrictionValidationService : DomainService
     private readonly IRepository<Supplier, Guid> _supplierRepo;
     private readonly IRepository<Account, Guid> _accountRepo;
     private readonly IRepository<Warehouse, Guid> _warehouseRepo;
+    private readonly PartySpecificItemFilterService? _partySpecificFilterService;
 
     /// <summary>
     /// Document types exempt from company restriction validation.
@@ -49,7 +52,8 @@ public class CompanyRestrictionValidationService : DomainService
         IRepository<Customer, Guid> customerRepo,
         IRepository<Supplier, Guid> supplierRepo,
         IRepository<Account, Guid> accountRepo,
-        IRepository<Warehouse, Guid> warehouseRepo)
+        IRepository<Warehouse, Guid> warehouseRepo,
+        PartySpecificItemFilterService? partySpecificFilterService = null)
     {
         _restrictionEntryRepo = restrictionEntryRepo;
         _itemRepo = itemRepo;
@@ -57,6 +61,7 @@ public class CompanyRestrictionValidationService : DomainService
         _supplierRepo = supplierRepo;
         _accountRepo = accountRepo;
         _warehouseRepo = warehouseRepo;
+        _partySpecificFilterService = partySpecificFilterService;
     }
 
     /// <summary>
@@ -77,7 +82,8 @@ public class CompanyRestrictionValidationService : DomainService
         IReadOnlyCollection<Guid>? customerIds = null,
         IReadOnlyCollection<Guid>? supplierIds = null,
         IReadOnlyCollection<Guid>? accountIds = null,
-        IReadOnlyCollection<Guid>? warehouseIds = null)
+        IReadOnlyCollection<Guid>? warehouseIds = null,
+        bool isReturn = false)
     {
         if (IsExemptDocumentType(documentType))
             return;
@@ -128,6 +134,42 @@ public class CompanyRestrictionValidationService : DomainService
                 .WithData("documentType", documentType)
                 .WithData("blockedMasters", string.Join(", ", blockedNames))
                 .WithData("companyId", companyId);
+        }
+
+        // Enforce party-specific item restrictions (ERPNext PR #59636 / commit 5a8a0f9f34)
+        if (!isReturn && itemIds is { Count: > 0 } && _partySpecificFilterService != null)
+        {
+            if (customerIds is { Count: > 0 })
+            {
+                var custQueryable = await _customerRepo.GetQueryableAsync();
+                var customers = custQueryable
+                    .Where(c => customerIds.Contains(c.Id))
+                    .Select(c => new { c.Id, c.Name, c.CustomerGroupId })
+                    .ToList();
+                foreach (var cust in customers)
+                {
+                    await _partySpecificFilterService.ValidatePartySpecificItemsAsync(
+                        PartySpecificItemPartyType.Customer, cust.Id,
+                        PartySpecificItemPartyType.CustomerGroup, cust.CustomerGroupId,
+                        itemIds, cust.Name);
+                }
+            }
+
+            if (supplierIds is { Count: > 0 })
+            {
+                var suppQueryable = await _supplierRepo.GetQueryableAsync();
+                var suppliers = suppQueryable
+                    .Where(s => supplierIds.Contains(s.Id))
+                    .Select(s => new { s.Id, s.Name, s.SupplierGroupId })
+                    .ToList();
+                foreach (var supp in suppliers)
+                {
+                    await _partySpecificFilterService.ValidatePartySpecificItemsAsync(
+                        PartySpecificItemPartyType.Supplier, supp.Id,
+                        PartySpecificItemPartyType.SupplierGroup, supp.SupplierGroupId,
+                        itemIds, supp.Name);
+                }
+            }
         }
     }
 

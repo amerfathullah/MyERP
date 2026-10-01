@@ -18,13 +18,60 @@ public class PartySpecificItemFilterService : DomainService
 {
     private readonly IRepository<PartySpecificItem, Guid> _repository;
     private readonly IRepository<Brand, Guid> _brandRepository;
+    private readonly IRepository<Item, Guid>? _itemRepository;
 
     public PartySpecificItemFilterService(
         IRepository<PartySpecificItem, Guid> repository,
-        IRepository<Brand, Guid> brandRepository)
+        IRepository<Brand, Guid> brandRepository,
+        IRepository<Item, Guid>? itemRepository = null)
     {
         _repository = repository;
         _brandRepository = brandRepository;
+        _itemRepository = itemRepository;
+    }
+
+    /// <summary>
+    /// Validates that items in a transaction are not restricted for the specified customer/supplier.
+    /// Per ERPNext PR #59636 (commit 5a8a0f9f34): enforce party-specific item restrictions on save and submit.
+    /// </summary>
+    public async Task ValidatePartySpecificItemsAsync(
+        PartySpecificItemPartyType directPartyType,
+        Guid partyId,
+        PartySpecificItemPartyType groupPartyType,
+        Guid? groupId,
+        IReadOnlyCollection<Guid> itemIds,
+        string partyDisplayName = "Party")
+    {
+        if (itemIds == null || itemIds.Count == 0)
+            return;
+
+        var filter = await GetItemFilterAsync(directPartyType, partyId, groupPartyType, groupId);
+        if (filter.IsEmpty)
+            return;
+
+        if (_itemRepository == null)
+            return;
+
+        var itemQueryable = await _itemRepository.GetQueryableAsync();
+        var referencedItems = itemQueryable
+            .Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemGroupId, i.Brand })
+            .ToList();
+
+        foreach (var item in referencedItems)
+        {
+            bool isRestricted = filter.ExcludedItemIds.Contains(item.Id)
+                || (item.ItemGroupId.HasValue && filter.ExcludedItemGroupIds.Contains(item.ItemGroupId.Value))
+                || (!string.IsNullOrEmpty(item.Brand) && filter.ExcludedBrandNames.Contains(item.Brand));
+
+            if (isRestricted)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemRestrictedForParty)
+                    .WithData("itemCode", item.ItemCode)
+                    .WithData("partyType", directPartyType.ToString())
+                    .WithData("partyName", partyDisplayName);
+            }
+        }
     }
 
     /// <summary>

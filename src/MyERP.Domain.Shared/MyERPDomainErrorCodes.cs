@@ -571,6 +571,7 @@ public static class MyERPDomainErrorCodes
     public const string BankAccountCompanyMismatch = "MyERP:02094";
     public const string PriceListDisabled = "MyERP:01051";
     public const string CustomerBlocked = "MyERP:01052";
+    public const string ItemRestrictedForParty = "MyERP:01053";
 
 
     // Item Batch & Retain Sample (PR #58911 / gotcha rules)
