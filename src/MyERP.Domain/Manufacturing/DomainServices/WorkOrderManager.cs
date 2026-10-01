@@ -81,10 +81,45 @@ public class WorkOrderManager : DomainService
     /// Calculates proportional raw material quantities for a given production quantity.
     /// bomItem.Quantity × (produceQty / bom.Quantity)
     /// Per ERPNext PR #58231: falls back to Item default warehouse, then ItemGroup default warehouse.
+    /// Per ERPNext PR #59445 (commit fd8e6230f3): explodes phantom BOM rows recursively by their stock qty.
     /// </summary>
     public async Task<WorkOrderMaterialRequirement[]> CalculateMaterialRequirementsAsync(
         Guid bomId, decimal produceQty, IRepository<ItemGroup, Guid>? itemGroupRepository = null)
     {
+        var collected = new System.Collections.Generic.List<WorkOrderMaterialRequirement>();
+        var visitedBoms = new System.Collections.Generic.HashSet<Guid>();
+        await ExplodeMaterialRequirementsInternalAsync(bomId, produceQty, collected, itemGroupRepository, visitedBoms);
+
+        // Aggregate identical items at the same source warehouse
+        return collected
+            .GroupBy(c => new { c.ItemId, c.SourceWarehouseId })
+            .Select(g =>
+            {
+                var totalQty = g.Sum(x => x.RequiredQty);
+                var totalCost = g.Sum(x => x.RequiredQty * x.Rate);
+                var rate = totalQty > 0 ? totalCost / totalQty : g.First().Rate;
+                return new WorkOrderMaterialRequirement
+                {
+                    ItemId = g.Key.ItemId,
+                    ItemName = g.First().ItemName,
+                    RequiredQty = Math.Round(totalQty, 4),
+                    Rate = rate,
+                    SourceWarehouseId = g.Key.SourceWarehouseId
+                };
+            })
+            .ToArray();
+    }
+
+    private async Task ExplodeMaterialRequirementsInternalAsync(
+        Guid bomId,
+        decimal produceQty,
+        System.Collections.Generic.List<WorkOrderMaterialRequirement> collected,
+        IRepository<ItemGroup, Guid>? itemGroupRepository,
+        System.Collections.Generic.HashSet<Guid> visitedBoms)
+    {
+        if (visitedBoms.Contains(bomId)) return;
+        visitedBoms.Add(bomId);
+
         var bom = await _bomRepository.GetAsync(bomId);
         var itemIds = bom.Items.Select(i => i.ItemId).Distinct().ToList();
         var itemQuery = await _itemRepository.GetQueryableAsync();
@@ -103,9 +138,17 @@ public class WorkOrderManager : DomainService
             }
         }
 
-        return bom.Items
-            .Where(i => !i.IsPhantom) // phantom items bubble up, don't consume directly
-            .Select(i =>
+        var bomOutputQty = bom.Quantity > 0 ? bom.Quantity : 1m;
+
+        foreach (var i in bom.Items)
+        {
+            if (i.IsPhantom && i.SubBomId.HasValue && !i.DoNotExplode)
+            {
+                // Explode phantom sub-BOM by stock qty per ERPNext PR #59445
+                var subProduceQty = (i.StockQty / bomOutputQty) * produceQty;
+                await ExplodeMaterialRequirementsInternalAsync(i.SubBomId.Value, subProduceQty, collected, itemGroupRepository, visitedBoms);
+            }
+            else if (!i.IsPhantom)
             {
                 itemMap.TryGetValue(i.ItemId, out var item);
                 ItemGroup? group = null;
@@ -116,15 +159,18 @@ public class WorkOrderManager : DomainService
                     ?? item?.DefaultWarehouseId
                     ?? group?.DefaultWarehouseId;
 
-                return new WorkOrderMaterialRequirement
+                collected.Add(new WorkOrderMaterialRequirement
                 {
                     ItemId = i.ItemId,
-                    RequiredQty = bom.Quantity > 0 ? i.Quantity * (produceQty / bom.Quantity) : 0,
+                    ItemName = i.ItemName,
+                    RequiredQty = (i.Quantity / bomOutputQty) * produceQty,
                     Rate = i.Rate,
                     SourceWarehouseId = sourceWarehouseId
-                };
-            })
-            .ToArray();
+                });
+            }
+        }
+
+        visitedBoms.Remove(bomId);
     }
 
     /// <summary>
@@ -372,6 +418,7 @@ public class WorkOrderManager : DomainService
 public class WorkOrderMaterialRequirement
 {
     public Guid ItemId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
     public decimal RequiredQty { get; set; }
     public decimal Rate { get; set; }
     public Guid? SourceWarehouseId { get; set; }

@@ -244,7 +244,13 @@ export class PosClosingFormComponent implements OnInit {
   updateDifference(index: number) {
     const group = this.paymentsArray.at(index);
     const expected = group.get('expectedAmount')!.value || 0;
-    const closing = group.get('closingAmount')!.value || 0;
+    let closing = group.get('closingAmount')!.value;
+    // Per ERPNext PR #59426 (commit ec775eb782): default closing amount for payment modes not in POS opening entry
+    if ((closing === null || closing === undefined || closing === 0) && expected > 0) {
+      group.get('closingAmount')!.setValue(expected);
+      closing = expected;
+    }
+    closing = closing || 0;
     group.get('difference')!.setValue(closing - expected);
     this.recalculateTotals();
   }

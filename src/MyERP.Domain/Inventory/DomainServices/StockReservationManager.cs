@@ -37,8 +37,16 @@ public class StockReservationManager : DomainService
     /// Validates that sufficient unreserved stock exists before creating a reservation.
     /// Available = ActualQty (as of postingDate, ignoring future stock) - SUM(active SRE reserved qty for same item+warehouse).
     /// Per ERPNext PR #58303 (commit 478a2f4f4b): ignore future stock during batch/stock reservation.
+    /// Per ERPNext PR #59425 (commit 4dd9f3bf67): exclude the voucher's own active reservation (releases reservation for preview/transfer).
     /// </summary>
-    public async Task ValidateAvailabilityAsync(Guid itemId, Guid warehouseId, decimal requestedQty, Guid? batchId = null, DateTime? asOfDate = null)
+    public async Task ValidateAvailabilityAsync(
+        Guid itemId,
+        Guid warehouseId,
+        decimal requestedQty,
+        Guid? batchId = null,
+        DateTime? asOfDate = null,
+        string? ignoreVoucherType = null,
+        Guid? ignoreVoucherId = null)
     {
         // Round to stock reservation precision to avoid floating-point / sub-unit representation rejections (ERPNext PR #46973 / commit 860699ee7b)
         requestedQty = Math.Round(requestedQty, 4);
@@ -71,12 +79,14 @@ public class StockReservationManager : DomainService
 
         // Get already reserved
         // Per ERPNext PR #47049 / commit 27d674d54a: deduct delivered, transferred, and consumed quantities
+        // Per ERPNext PR #59425 / commit 4dd9f3bf67: exclude own voucher reservation from blocking itself
         var sreQueryable = await _sreRepository.GetQueryableAsync();
         var reservedQty = sreQueryable
             .Where(s => s.ItemId == itemId
                 && s.WarehouseId == warehouseId
                 && (batchId == null || s.BatchId == batchId)
                 && s.Status == DocumentStatus.Submitted
+                && (ignoreVoucherId == null || !(s.VoucherType == ignoreVoucherType && s.VoucherId == ignoreVoucherId))
                 && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
             .Sum(s => s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty);
 

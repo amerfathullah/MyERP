@@ -608,16 +608,17 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         };
         wo.SetPlannedDates(plannedStartDate, plannedEndDate);
 
-        // Populate required items from BOM first so all raw material warehouses can be checked
-        var multiplier = input.Quantity / (bom.Quantity > 0 ? bom.Quantity : 1);
-        foreach (var bi in bom.Items)
+        // Populate required items from BOM (with recursive phantom explosion per PR #59445)
+        var itemGroupRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.ItemGroup, Guid>>();
+        var reqs = await woManager.CalculateMaterialRequirementsAsync(bom.Id, input.Quantity, itemGroupRepo);
+        foreach (var req in reqs)
         {
-            var rawWarehouseId = bi.SourceWarehouseId
+            var rawWarehouseId = req.SourceWarehouseId
                 ?? sourceWarehouseId
-                ?? await itemDefaultsService.ResolveWarehouseAsync(bi.ItemId, wo.CompanyId);
+                ?? await itemDefaultsService.ResolveWarehouseAsync(req.ItemId, wo.CompanyId);
 
             wo.RequiredItems.Add(new WorkOrderItem(
-                GuidGenerator.Create(), wo.Id, bi.ItemId, bi.ItemName, bi.Quantity * multiplier)
+                GuidGenerator.Create(), wo.Id, req.ItemId, req.ItemName, req.RequiredQty)
             { SourceWarehouseId = rawWarehouseId });
         }
 
@@ -628,7 +629,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         await ValidateWorkOrderCompanyAsync(
             input.CompanyId,
             input.ItemId,
-            bom.Items.Select(i => i.ItemId),
+            wo.RequiredItems.Select(r => r.ItemId),
             sourceWarehouseId,
             wipWarehouseId,
             fgWarehouseId,
@@ -731,17 +732,18 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.Notes = input.Notes;
         wo.SetPlannedDates(plannedStartDate, plannedEndDate);
 
-        // Repopulate required items
+        // Repopulate required items (with recursive phantom explosion per PR #59445)
         wo.ClearRequiredItems();
-        var multiplier = input.Quantity / (bom.Quantity > 0 ? bom.Quantity : 1);
-        foreach (var bi in bom.Items)
+        var itemGroupRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.ItemGroup, Guid>>();
+        var reqs = await woManager.CalculateMaterialRequirementsAsync(bom.Id, input.Quantity, itemGroupRepo);
+        foreach (var req in reqs)
         {
-            var rawWarehouseId = bi.SourceWarehouseId
+            var rawWarehouseId = req.SourceWarehouseId
                 ?? sourceWarehouseId
-                ?? await itemDefaultsService.ResolveWarehouseAsync(bi.ItemId, wo.CompanyId);
+                ?? await itemDefaultsService.ResolveWarehouseAsync(req.ItemId, wo.CompanyId);
 
             wo.RequiredItems.Add(new WorkOrderItem(
-                GuidGenerator.Create(), wo.Id, bi.ItemId, bi.ItemName, bi.Quantity * multiplier)
+                GuidGenerator.Create(), wo.Id, req.ItemId, req.ItemName, req.RequiredQty)
             { SourceWarehouseId = rawWarehouseId });
         }
 
@@ -751,7 +753,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         await ValidateWorkOrderCompanyAsync(
             input.CompanyId,
             input.ItemId,
-            bom.Items.Select(i => i.ItemId),
+            wo.RequiredItems.Select(r => r.ItemId),
             sourceWarehouseId,
             wipWarehouseId,
             fgWarehouseId,

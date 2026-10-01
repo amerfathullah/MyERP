@@ -989,16 +989,18 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             SourceWarehouseId = wo.SourceWarehouseId ?? bom.SourceWarehouseId,
         };
 
-        // Raw material consumption items
-        foreach (var bomItem in bom.Items.Where(i => !i.IsPhantom))
+        // Raw material consumption items (with recursive phantom explosion per PR #59445)
+        var woManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.DomainServices.WorkOrderManager>();
+        var reqs = await woManager.CalculateMaterialRequirementsAsync(bom.Id, produceQty);
+        foreach (var req in reqs)
         {
             result.Items.Add(new ManufactureItemLineDto
             {
-                ItemId = bomItem.ItemId,
-                ItemName = bomItem.ItemName,
-                RequiredQty = Math.Round(bomItem.Quantity * multiplier, 4),
-                Rate = bomItem.Rate,
-                SourceWarehouseId = bomItem.SourceWarehouseId ?? result.SourceWarehouseId,
+                ItemId = req.ItemId,
+                ItemName = req.ItemName,
+                RequiredQty = Math.Round(req.RequiredQty, 4),
+                Rate = req.Rate,
+                SourceWarehouseId = req.SourceWarehouseId ?? result.SourceWarehouseId,
                 IsRawMaterial = true,
             });
         }

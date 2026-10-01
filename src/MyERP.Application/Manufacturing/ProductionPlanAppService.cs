@@ -685,17 +685,18 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             };
             wo.SetPlannedDates(item.PlannedStartDate, null);
 
-            // Populate required items from BOM (ERPNext PR #58663)
+            // Populate required items from BOM (with recursive phantom explosion per PR #59445)
             var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
-            var multiplier = qtyToOrder / (bom.Quantity > 0 ? bom.Quantity : 1);
-            foreach (var bi in bom.Items)
+            var woManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.DomainServices.WorkOrderManager>();
+            var reqs = await woManager.CalculateMaterialRequirementsAsync(bom.Id, qtyToOrder);
+            foreach (var req in reqs)
             {
-                var rawWarehouseId = bi.SourceWarehouseId
+                var rawWarehouseId = req.SourceWarehouseId
                     ?? bom.SourceWarehouseId
-                    ?? await itemDefaultsService.ResolveWarehouseAsync(bi.ItemId, plan.CompanyId);
+                    ?? await itemDefaultsService.ResolveWarehouseAsync(req.ItemId, plan.CompanyId);
 
                 wo.RequiredItems.Add(new WorkOrderItem(
-                    GuidGenerator.Create(), wo.Id, bi.ItemId, bi.ItemName, bi.Quantity * multiplier)
+                    GuidGenerator.Create(), wo.Id, req.ItemId, req.ItemName, req.RequiredQty)
                 { SourceWarehouseId = rawWarehouseId });
             }
 

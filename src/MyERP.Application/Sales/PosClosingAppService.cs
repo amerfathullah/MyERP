@@ -78,7 +78,13 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
             entry.AddInvoice(inv.PosInvoiceId, inv.InvoiceNumber, inv.GrandTotal);
 
         foreach (var pay in input.Payments)
-            entry.AddPayment(pay.ModeOfPaymentId, pay.ModeName, pay.ExpectedAmount, pay.ClosingAmount);
+        {
+            // Per ERPNext PR #59426 (commit ec775eb782): default closing amount to expected amount for modes added during closing
+            var closingAmount = pay.ClosingAmount > 0 || pay.ExpectedAmount == 0
+                ? pay.ClosingAmount
+                : pay.ExpectedAmount;
+            entry.AddPayment(pay.ModeOfPaymentId, pay.ModeName, pay.ExpectedAmount, closingAmount);
+        }
 
         await _repository.InsertAsync(entry, autoSave: true);
         return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);
