@@ -259,3 +259,26 @@ export interface StockReconciliationItemDto extends EntityDto<string> {
   quantityDifference?: number;
   differenceAmount?: number;
 }
+
+export interface GetStockReconciliationItemsInputDto {
+  companyId: string;
+  warehouseId: string;
+  postingDate: string;
+  itemId?: string | null;
+  ignoreEmptyStock?: boolean;
+}
+
+export interface StockReconciliationItemPreviewDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  warehouseId: string;
+  stockUom?: string | null;
+  currentQuantity: number;
+  currentValuationRate: number;
+  batchId?: string | null;
+  batchNo?: string | null;
+  hasBatchNo: boolean;
+  hasSerialNo: boolean;
+}
+

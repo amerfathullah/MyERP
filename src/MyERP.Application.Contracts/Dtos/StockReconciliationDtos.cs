@@ -63,3 +63,28 @@ public class GetStockReconciliationListDto : PagedAndSortedResultRequestDto
     public Guid? CompanyId { get; set; }
     public string? Filter { get; set; }
 }
+
+public class GetStockReconciliationItemsInputDto
+{
+    public Guid CompanyId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public DateTime PostingDate { get; set; }
+    public Guid? ItemId { get; set; }
+    public bool IgnoreEmptyStock { get; set; }
+}
+
+public class StockReconciliationItemPreviewDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public Guid WarehouseId { get; set; }
+    public string? StockUom { get; set; }
+    public decimal CurrentQuantity { get; set; }
+    public decimal CurrentValuationRate { get; set; }
+    public Guid? BatchId { get; set; }
+    public string? BatchNo { get; set; }
+    public bool HasBatchNo { get; set; }
+    public bool HasSerialNo { get; set; }
+}
+

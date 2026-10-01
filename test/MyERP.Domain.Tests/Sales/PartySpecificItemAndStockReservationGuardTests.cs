@@ -176,6 +176,132 @@ public class PartySpecificItemAndStockReservationGuardTests
     }
 
     // =========================================================================
+    // ERPNext PR #59710 / commit af30285fea:
+    // Party specific item rule matching across different bases and item group hierarchy
+    // =========================================================================
+
+    [Fact]
+    public async Task PartySpecificItem_CrossBases_AllowsItemWhenCustomerHasItemRuleEvenWithOtherBrandRule()
+    {
+        var partyRuleRepo = Substitute.For<IRepository<PartySpecificItem, Guid>>();
+        var brandRepo = Substitute.For<IRepository<Brand, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var custRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var suppRepo = Substitute.For<IRepository<Supplier, Guid>>();
+        var restrictionRepo = Substitute.For<IRepository<CompanyRestrictionEntry, Guid>>();
+        var acctRepo = Substitute.For<IRepository<Account, Guid>>();
+        var whRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+
+        var brandId = Guid.NewGuid();
+        var brand = new Brand(brandId, "_Test Brand");
+        brandRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Brand> { brand }.AsQueryable()));
+
+        // Item A has Brand "_Test Brand"
+        var itemA = new Item(_itemAId, _companyId, "ITEM-A", "Item A", ItemType.Goods) { Brand = "_Test Brand" };
+        itemRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { itemA }.AsQueryable()));
+
+        var customerCId = Guid.NewGuid();
+        var custA = new Customer(_customerAId, _companyId, "Customer A");
+        var custB = new Customer(_customerBId, _companyId, "Customer B");
+        var custC = new Customer(customerCId, _companyId, "Customer C");
+        custRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Customer> { custA, custB, custC }.AsQueryable()));
+
+        // Rule 1: Customer A restricted to Brand "_Test Brand"
+        var ruleA = new PartySpecificItem(
+            Guid.NewGuid(), PartySpecificItemPartyType.Customer,
+            _customerAId, PartySpecificItemRestrictBasedOn.Brand, brandId);
+
+        // Rule 2: Customer B restricted to Item A
+        var ruleB = new PartySpecificItem(
+            Guid.NewGuid(), PartySpecificItemPartyType.Customer,
+            _customerBId, PartySpecificItemRestrictBasedOn.Item, _itemAId);
+
+        var rules = new List<PartySpecificItem> { ruleA, ruleB }.AsQueryable();
+        partyRuleRepo.GetQueryableAsync().Returns(Task.FromResult(rules));
+
+        var filterService = new PartySpecificItemFilterService(partyRuleRepo, brandRepo, itemRepo);
+        var companyRestriction = new CompanyRestrictionValidationService(
+            restrictionRepo, itemRepo, custRepo, suppRepo, acctRepo, whRepo, filterService);
+
+        // 1. Customer B buys Item A -> Allowed because B has an Item rule for Item A
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "SalesOrder", _companyId,
+            itemIds: new[] { _itemAId },
+            customerIds: new[] { _customerBId });
+
+        // 2. Customer A buys Item A -> Allowed because A has a Brand rule for "_Test Brand"
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "SalesOrder", _companyId,
+            itemIds: new[] { _itemAId },
+            customerIds: new[] { _customerAId });
+
+        // 3. Customer C buys Item A -> Blocked because Item A is reserved for other parties
+        var ex = await Should.ThrowAsync<BusinessException>(async () =>
+        {
+            await companyRestriction.ValidateTransactionCompanyAsync(
+                "SalesOrder", _companyId,
+                itemIds: new[] { _itemAId },
+                customerIds: new[] { customerCId });
+        });
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ItemRestrictedForParty);
+    }
+
+    [Fact]
+    public async Task PartySpecificItem_ItemGroupSubtree_ParentGroupRuleCoversChildGroup()
+    {
+        var partyRuleRepo = Substitute.For<IRepository<PartySpecificItem, Guid>>();
+        var brandRepo = Substitute.For<IRepository<Brand, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var custRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var suppRepo = Substitute.For<IRepository<Supplier, Guid>>();
+        var restrictionRepo = Substitute.For<IRepository<CompanyRestrictionEntry, Guid>>();
+        var acctRepo = Substitute.For<IRepository<Account, Guid>>();
+        var whRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var itemGroupRepo = Substitute.For<IRepository<ItemGroup, Guid>>();
+
+        var parentGroupId = Guid.NewGuid();
+        var childGroupId = Guid.NewGuid();
+        var parentGroup = new ItemGroup(parentGroupId, "ParentGroup", isGroup: true);
+        var childGroup = new ItemGroup(childGroupId, "ChildGroup", isGroup: false, parentId: parentGroupId);
+        itemGroupRepo.GetQueryableAsync().Returns(Task.FromResult(new List<ItemGroup> { parentGroup, childGroup }.AsQueryable()));
+
+        // Item B belongs to child group
+        var itemB = new Item(_itemBId, _companyId, "ITEM-B", "Item B", ItemType.Goods) { ItemGroupId = childGroupId };
+        itemRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { itemB }.AsQueryable()));
+
+        var custA = new Customer(_customerAId, _companyId, "Customer A");
+        var custB = new Customer(_customerBId, _companyId, "Customer B");
+        custRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Customer> { custA, custB }.AsQueryable()));
+
+        // Rule: Customer A has rule on ParentGroup
+        var ruleA = new PartySpecificItem(
+            Guid.NewGuid(), PartySpecificItemPartyType.Customer,
+            _customerAId, PartySpecificItemRestrictBasedOn.ItemGroup, parentGroupId);
+
+        partyRuleRepo.GetQueryableAsync().Returns(Task.FromResult(new List<PartySpecificItem> { ruleA }.AsQueryable()));
+
+        var filterService = new PartySpecificItemFilterService(partyRuleRepo, brandRepo, itemRepo, itemGroupRepo);
+        var companyRestriction = new CompanyRestrictionValidationService(
+            restrictionRepo, itemRepo, custRepo, suppRepo, acctRepo, whRepo, filterService);
+
+        // Customer A can buy child group Item B
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "SalesOrder", _companyId,
+            itemIds: new[] { _itemBId },
+            customerIds: new[] { _customerAId });
+
+        // Customer B cannot buy child group Item B (covered by parent rule for Customer A)
+        var ex = await Should.ThrowAsync<BusinessException>(async () =>
+        {
+            await companyRestriction.ValidateTransactionCompanyAsync(
+                "SalesOrder", _companyId,
+                itemIds: new[] { _itemBId },
+                customerIds: new[] { _customerBId });
+        });
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ItemRestrictedForParty);
+    }
+
+    // =========================================================================
     // ERPNext PR #59647 / commit c7a9f069b7:
     // Filter reservation warehouses by company
     // =========================================================================

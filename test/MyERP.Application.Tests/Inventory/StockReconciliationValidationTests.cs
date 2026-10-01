@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
 using MyERP.Dtos;
@@ -167,6 +168,157 @@ public abstract class StockReconciliationValidationTests<TStartupModule> : MyERP
                     }.ToArray()
                 }));
             ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
+
+    [Fact]
+    public async Task GetItemsForReconciliationAsync_BatchedItem_FetchesBatchWiseValuationRate()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var batchRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Batch, Guid>>();
+            var sleRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.StockLedgerEntry, Guid>>();
+            var srAppService = GetRequiredService<IStockReconciliationAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SR Preview Co"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "SR Preview WH"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "BATCH-ITEM-1", "Batch Item 1", MyERP.Inventory.ItemType.Goods)
+            {
+                HasBatchNo = true,
+                StandardBuyingPrice = 10m
+            }, autoSave: true);
+
+            var batch1 = await batchRepo.InsertAsync(new MyERP.Inventory.Entities.Batch(Guid.NewGuid(), item.Id, "BATCH-001"), autoSave: true);
+            var batch2 = await batchRepo.InsertAsync(new MyERP.Inventory.Entities.Batch(Guid.NewGuid(), item.Id, "BATCH-002"), autoSave: true);
+
+            var today = DateTime.Today;
+            // Batch 1 has 10 units with valuation rate 15 (StockValueDifference = 150)
+            await sleRepo.InsertAsync(new MyERP.Inventory.Entities.StockLedgerEntry(
+                Guid.NewGuid(), company.Id, item.Id, wh.Id, today.AddDays(-2),
+                quantityChange: 10m, valuationRate: 15m, balanceQuantity: 10m, balanceValue: 150m)
+            {
+                BatchId = batch1.Id,
+                StockValueDifference = 150m
+            }, autoSave: true);
+
+            // Batch 2 has 20 units with valuation rate 25 (StockValueDifference = 500)
+            await sleRepo.InsertAsync(new MyERP.Inventory.Entities.StockLedgerEntry(
+                Guid.NewGuid(), company.Id, item.Id, wh.Id, today.AddDays(-1),
+                quantityChange: 20m, valuationRate: 25m, balanceQuantity: 30m, balanceValue: 650m)
+            {
+                BatchId = batch2.Id,
+                StockValueDifference = 500m
+            }, autoSave: true);
+
+            var preview = await srAppService.GetItemsForReconciliationAsync(new GetStockReconciliationItemsInputDto
+            {
+                CompanyId = company.Id,
+                WarehouseId = wh.Id,
+                PostingDate = today,
+                ItemId = item.Id
+            });
+
+            // Per ERPNext commit b132e3f22a: each batch returns its individual batch valuation rate
+            preview.Count.ShouldBe(2);
+
+            var b1Row = preview.First(r => r.BatchId == batch1.Id);
+            b1Row.BatchNo.ShouldBe("BATCH-001");
+            b1Row.CurrentQuantity.ShouldBe(10m);
+            b1Row.CurrentValuationRate.ShouldBe(15m);
+
+            var b2Row = preview.First(r => r.BatchId == batch2.Id);
+            b2Row.BatchNo.ShouldBe("BATCH-002");
+            b2Row.CurrentQuantity.ShouldBe(20m);
+            b2Row.CurrentValuationRate.ShouldBe(25m);
+        });
+    }
+
+    [Fact]
+    public async Task GetItemsForReconciliationAsync_NonBatchedItem_FetchesPreviousSleBalanceAndRate()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var sleRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.StockLedgerEntry, Guid>>();
+            var srAppService = GetRequiredService<IStockReconciliationAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SR Preview Co 2"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "SR Preview WH 2"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "REG-ITEM-1", "Regular Item 1", MyERP.Inventory.ItemType.Goods)
+            {
+                HasBatchNo = false,
+                StandardBuyingPrice = 12m
+            }, autoSave: true);
+
+            var today = DateTime.Today;
+            await sleRepo.InsertAsync(new MyERP.Inventory.Entities.StockLedgerEntry(
+                Guid.NewGuid(), company.Id, item.Id, wh.Id, today.AddDays(-1),
+                quantityChange: 7m, valuationRate: 35m, balanceQuantity: 7m, balanceValue: 245m), autoSave: true);
+
+            var preview = await srAppService.GetItemsForReconciliationAsync(new GetStockReconciliationItemsInputDto
+            {
+                CompanyId = company.Id,
+                WarehouseId = wh.Id,
+                PostingDate = today,
+                ItemId = item.Id
+            });
+
+            preview.Count.ShouldBe(1);
+            preview[0].ItemId.ShouldBe(item.Id);
+            preview[0].CurrentQuantity.ShouldBe(7m);
+            preview[0].CurrentValuationRate.ShouldBe(35m);
+            preview[0].HasBatchNo.ShouldBeFalse();
+        });
+    }
+
+    [Fact]
+    public async Task GetItemsForReconciliationAsync_IgnoreEmptyStock_FiltersOutZeroBalance()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var srAppService = GetRequiredService<IStockReconciliationAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SR Preview Co 3"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "SR Preview WH 3"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "EMPTY-ITEM-1", "Empty Item 1", MyERP.Inventory.ItemType.Goods)
+            {
+                HasBatchNo = false,
+                StandardBuyingPrice = 10m
+            }, autoSave: true);
+
+            var today = DateTime.Today;
+
+            // With IgnoreEmptyStock = true: should be empty
+            var previewEmpty = await srAppService.GetItemsForReconciliationAsync(new GetStockReconciliationItemsInputDto
+            {
+                CompanyId = company.Id,
+                WarehouseId = wh.Id,
+                PostingDate = today,
+                ItemId = item.Id,
+                IgnoreEmptyStock = true
+            });
+            previewEmpty.ShouldBeEmpty();
+
+            // With IgnoreEmptyStock = false: should return 1 row with 0 qty
+            var previewAll = await srAppService.GetItemsForReconciliationAsync(new GetStockReconciliationItemsInputDto
+            {
+                CompanyId = company.Id,
+                WarehouseId = wh.Id,
+                PostingDate = today,
+                ItemId = item.Id,
+                IgnoreEmptyStock = false
+            });
+            previewAll.Count.ShouldBe(1);
+            previewAll[0].CurrentQuantity.ShouldBe(0m);
+            previewAll[0].CurrentValuationRate.ShouldBe(10m);
         });
     }
 }
