@@ -210,6 +210,8 @@ public class StockEntryManager : DomainService
             return;
         }
 
+        if (isMaterialTransferredMode) return;
+
         var extraQty = extraMaterialPercentage > 0 ? (requiredQty * extraMaterialPercentage / 100m) : 0m;
         var maxAllowedTotal = requiredQty + extraQty;
 

@@ -9,6 +9,7 @@ using MyERP.Core.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Manufacturing;
 using MyERP.Manufacturing.Entities;
 using MyERP.Settings;
 using NSubstitute;
@@ -32,22 +33,25 @@ public class UpstreamBatch59600To59679Tests
     [Theory]
     [InlineData(0)]
     [InlineData(-5)]
-    public void ProductionPlan_AddPlannedItem_Throws_WhenPlannedQtyZeroOrNegative(decimal plannedQty)
+    public void ProductionPlan_Submit_Throws_WhenPlannedQtyZeroOrNegative(decimal plannedQty)
     {
         var plan = new ProductionPlan(Guid.NewGuid(), _companyId, "PP-001", DateTime.UtcNow);
         var item = new ProductionPlanItem(Guid.NewGuid(), plan.Id, _itemId, "FG Item", Guid.NewGuid(), plannedQty);
+        plan.AddPlannedItem(item);
 
-        var ex = Should.Throw<BusinessException>(() => plan.AddPlannedItem(item));
+        var ex = Should.Throw<BusinessException>(() => plan.Submit());
         ex.Code.ShouldBe(MyERPDomainErrorCodes.AmountMustBePositive);
     }
 
     [Fact]
-    public void ProductionPlan_AddPlannedItem_Succeeds_WhenPlannedQtyPositive()
+    public void ProductionPlan_Submit_Succeeds_WhenPlannedQtyPositive()
     {
         var plan = new ProductionPlan(Guid.NewGuid(), _companyId, "PP-001", DateTime.UtcNow);
         var item = new ProductionPlanItem(Guid.NewGuid(), plan.Id, _itemId, "FG Item", Guid.NewGuid(), 10m);
 
         plan.AddPlannedItem(item);
+        plan.Submit();
+        plan.Status.ShouldBe(ProductionPlanStatus.Submitted);
         plan.PlannedItems.Count.ShouldBe(1);
         plan.PlannedItems[0].PlannedQty.ShouldBe(10m);
     }

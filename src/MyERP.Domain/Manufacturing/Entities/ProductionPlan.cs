@@ -178,11 +178,6 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != ProductionPlanStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        // Per ERPNext PR #59555 / commit 25a892ee5f: planned qty must be strictly positive
-        if (item.PlannedQty <= 0)
-            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
-                .WithData("field", "PlannedQty")
-                .WithData("item", item.ItemName);
         PlannedItems.Add(item);
     }
 
