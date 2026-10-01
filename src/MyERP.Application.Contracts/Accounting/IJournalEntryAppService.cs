@@ -11,6 +11,7 @@ public interface IJournalEntryAppService : IApplicationService
     Task<JournalEntryDto> GetAsync(Guid id);
     Task<PagedResultDto<JournalEntryDto>> GetListAsync(CompanyFilteredPagedRequestDto input);
     Task<JournalEntryDto> CreateAsync(CreateJournalEntryDto input);
+    Task<JournalEntryDto> UpdateAsync(Guid id, CreateJournalEntryDto input);
     Task<JournalEntryDto> PostAsync(Guid id);
     Task<JournalEntryDto> CancelAsync(Guid id);
     Task<JournalEntryDto> AmendAsync(Guid id);

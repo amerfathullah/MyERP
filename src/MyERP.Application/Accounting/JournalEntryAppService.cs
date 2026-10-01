@@ -136,6 +136,47 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         return ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
     }
 
+    [Authorize(MyERPPermissions.JournalEntries.Create)]
+    public async Task<JournalEntryDto> UpdateAsync(Guid id, CreateJournalEntryDto input)
+    {
+        var entry = await _repository.GetAsync(id, includeDetails: true);
+        if (entry.Status != Core.DocumentStatus.Draft)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "JournalEntry")
+                .WithData("status", entry.Status.ToString());
+        }
+
+        if (input.CompanyId != Guid.Empty && input.CompanyId != entry.CompanyId)
+        {
+            entry.SetCompany(input.CompanyId);
+        }
+
+        entry.PostingDate = input.PostingDate;
+        entry.VoucherType = input.VoucherType;
+        entry.ReferenceType = input.ReferenceType;
+        entry.ReferenceId = input.ReferenceId;
+        entry.ReferenceNumber = input.ReferenceNumber;
+        entry.Narration = input.Narration;
+
+        entry.ClearLines();
+        foreach (var line in input.Lines)
+        {
+            entry.AddLine(line.AccountId, line.Amount, line.IsDebit, line.Description);
+        }
+
+        // Validate account heads belong to company on save (ERPNext PR #59655 / commit a7ee553218)
+        var accountIds = input.Lines.Select(l => l.AccountId).ToArray();
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync("JournalEntry", entry.CompanyId, accountIds: accountIds);
+
+        // Validate double-entry balance before saving
+        entry.Validate();
+
+        await _repository.UpdateAsync(entry, autoSave: true);
+        return ObjectMapper.Map<JournalEntry, JournalEntryDto>(entry);
+    }
+
     [Authorize(MyERPPermissions.JournalEntries.Post)]
     public async Task<JournalEntryDto> PostAsync(Guid id)
     {
@@ -389,6 +430,11 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         {
             amended.AddLine(line.AccountId, line.Amount, line.IsDebit, line.Description);
         }
+
+        // Validate account heads belong to company on save (ERPNext PR #59655 / commit a7ee553218)
+        var accountIds = amended.Lines.Select(l => l.AccountId).ToArray();
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync("JournalEntry", amended.CompanyId, accountIds: accountIds);
 
         amended.Validate();
         await _repository.InsertAsync(amended, autoSave: true);

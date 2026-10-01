@@ -323,5 +323,46 @@ public class JournalEntryTests
         reversal.ReferenceNumber.ShouldBe("CHQ-123456");
         reversal.Narration.ShouldStartWith("Reversal of Journal Entry");
     }
+
+    [Fact]
+    public void JournalEntry_ClearLines_ClearsAndRecalculatesTotals()
+    {
+        var entry = CreateJournalEntry();
+        entry.AddLine(Guid.NewGuid(), 100m, isDebit: true);
+        entry.AddLine(Guid.NewGuid(), 100m, isDebit: false);
+
+        entry.TotalDebit.ShouldBe(100m);
+        entry.TotalCredit.ShouldBe(100m);
+        entry.Lines.Count.ShouldBe(2);
+
+        entry.ClearLines();
+
+        entry.Lines.Count.ShouldBe(0);
+        entry.TotalDebit.ShouldBe(0m);
+        entry.TotalCredit.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void JournalEntry_SetCompany_DraftStatus_UpdatesCompany()
+    {
+        var entry = CreateJournalEntry();
+        var newCompanyId = Guid.NewGuid();
+
+        entry.SetCompany(newCompanyId);
+
+        entry.CompanyId.ShouldBe(newCompanyId);
+    }
+
+    [Fact]
+    public void JournalEntry_SetCompany_PostedStatus_ThrowsInvalidStatusTransition()
+    {
+        var entry = CreateJournalEntry();
+        entry.AddLine(Guid.NewGuid(), 500m, isDebit: true);
+        entry.AddLine(Guid.NewGuid(), 500m, isDebit: false);
+        entry.Post();
+
+        var ex = Should.Throw<BusinessException>(() => entry.SetCompany(Guid.NewGuid()));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
+    }
 }
 

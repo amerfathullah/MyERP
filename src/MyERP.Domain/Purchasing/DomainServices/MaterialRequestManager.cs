@@ -170,6 +170,25 @@ public class MaterialRequestManager : DomainService
                     }
                 }
             }
+
+            // Validate combined requested qty per SO line item (ERPNext PR #59615 / commit ee3346fe4f)
+            var itemsBySoItem = soItemRows.Where(i => i.SalesOrderItemId.HasValue).GroupBy(i => i.SalesOrderItemId!.Value);
+            foreach (var group in itemsBySoItem)
+            {
+                var targetSoItem = so.Items.FirstOrDefault(i => i.Id == group.Key);
+                if (targetSoItem != null)
+                {
+                    var availableToRequest = Math.Max(0, targetSoItem.Quantity - targetSoItem.RequestedQty);
+                    var totalRequestedInThisMr = group.Sum(i => i.Quantity);
+                    if (totalRequestedInThisMr > availableToRequest)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.QtyExceedsPendingSalesOrder)
+                            .WithData("item", targetSoItem.Description ?? targetSoItem.ItemId.ToString())
+                            .WithData("maxAllowed", availableToRequest)
+                            .WithData("requested", totalRequestedInThisMr);
+                    }
+                }
+            }
         }
     }
 }

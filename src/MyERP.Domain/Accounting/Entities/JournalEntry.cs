@@ -82,6 +82,23 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
+    public void SetCompany(Guid companyId)
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        CompanyId = Check.NotDefaultOrNull<Guid>(companyId, nameof(companyId));
+    }
+
+    public void ClearLines()
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        _lines.Clear();
+        RecalculateTotals();
+    }
+
     public void AddLine(Guid accountId, decimal amount, bool isDebit, string? description = null)
     {
         if (Status != DocumentStatus.Draft)

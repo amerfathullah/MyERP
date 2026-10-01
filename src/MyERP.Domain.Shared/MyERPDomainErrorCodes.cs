@@ -361,6 +361,7 @@ public static class MyERPDomainErrorCodes
     // Overdue Billing
     public const string OverdueBillingThresholdExceeded = "MyERP:03043";
     public const string LinkedSalesOrderClosed = "MyERP:03044";
+    public const string QtyExceedsPendingSalesOrder = "MyERP:03045";
 
     // Lead
     public const string DuplicateLeadEmail = "MyERP:03022";
