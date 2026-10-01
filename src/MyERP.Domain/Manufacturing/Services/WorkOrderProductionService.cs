@@ -95,6 +95,15 @@ public class WorkOrderProductionService : DomainService
         if (workOrder.Status != WorkOrderStatus.InProcess)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        // Per ERPNext PR #59567 / commit c625a6bafa: finished good quantity must exceed process loss
+        if (produceQty <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", processLossQty > 0
+                    ? $"Qty for Manufacture must be greater than the process loss of {processLossQty} to produce a finished good."
+                    : "Produce quantity must be greater than zero.");
+        }
+
         // Per gotcha #524: fg_completed_qty = produce_qty + process_loss_qty
         var totalQty = produceQty + processLossQty;
 

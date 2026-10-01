@@ -50,7 +50,7 @@ public class WarehouseAccountService : DomainService
     /// Per ERPNext: used for DR on stock-in (PR/Manufacture/Receipt) and CR on stock-out (DN/Issue).
     /// If Company.EnableItemWiseInventoryAccount is true and an item is provided, checks item/item-group account first.
     /// </summary>
-    public async Task<Guid> ResolveStockAccountAsync(Guid warehouseId, Guid companyId, Guid? itemId = null)
+    public virtual async Task<Guid> ResolveStockAccountAsync(Guid warehouseId, Guid companyId, Guid? itemId = null)
     {
         var company = await _companyRepository.GetAsync(companyId);
 
@@ -127,7 +127,7 @@ public class WarehouseAccountService : DomainService
     /// Resolves the SRBNB (Stock Received But Not Billed) account for purchase receipts.
     /// Per ERPNext: DR Stock, CR SRBNB on Purchase Receipt submit.
     /// </summary>
-    public async Task<Guid> ResolveSrbnbAccountAsync(Guid warehouseId, Guid companyId)
+    public virtual async Task<Guid> ResolveSrbnbAccountAsync(Guid warehouseId, Guid companyId)
     {
         var warehouseAccount = await _warehouseAccountRepository.FindAsync(
             wa => wa.WarehouseId == warehouseId && wa.CompanyId == companyId);
@@ -145,7 +145,7 @@ public class WarehouseAccountService : DomainService
     /// Resolves the SDBNB (Stock Delivered But Not Billed) account for delivery notes.
     /// Per ERPNext gotcha #2864: DN 4-branch SDBNB logic.
     /// </summary>
-    public async Task<Guid> ResolveSdbnbAccountAsync(Guid warehouseId, Guid companyId)
+    public virtual async Task<Guid> ResolveSdbnbAccountAsync(Guid warehouseId, Guid companyId)
     {
         var warehouseAccount = await _warehouseAccountRepository.FindAsync(
             wa => wa.WarehouseId == warehouseId && wa.CompanyId == companyId);
@@ -162,7 +162,7 @@ public class WarehouseAccountService : DomainService
     /// <summary>
     /// Resolves the stock adjustment account for stock reconciliation entries.
     /// </summary>
-    public async Task<Guid> ResolveStockAdjustmentAccountAsync(Guid warehouseId, Guid companyId)
+    public virtual async Task<Guid> ResolveStockAdjustmentAccountAsync(Guid warehouseId, Guid companyId)
     {
         var warehouseAccount = await _warehouseAccountRepository.FindAsync(
             wa => wa.WarehouseId == warehouseId && wa.CompanyId == companyId);

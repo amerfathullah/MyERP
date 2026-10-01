@@ -142,6 +142,12 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
         if (input.Invoices.Count == 0)
             throw new BusinessException(MyERPDomainErrorCodes.InvoiceDiscountingNoInvoices);
 
+        // Per ERPNext PR #59549 / commit 8a0bcfd9ec: validate discounting accounts belong to company and are non-group
+        await ValidateAccountsAsync(input.CompanyId,
+            input.ShortTermLoanAccountId, input.BankAccountId, input.BankChargesAccountId,
+            input.AccountsReceivableCreditAccountId, input.AccountsReceivableDiscountedAccountId,
+            input.AccountsReceivableUnpaidAccountId);
+
         await ValidateInvoicesEligibleAsync(input.Invoices, excludeInvoiceDiscountingId: null);
 
         var doc = new InvoiceDiscounting(
@@ -373,5 +379,27 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
         }).ToList();
 
         return dto;
+    }
+
+    private async Task ValidateAccountsAsync(Guid companyId, params Guid[] accountIds)
+    {
+        var validIds = accountIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (!validIds.Any()) return;
+
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var accountQuery = await accountRepo.GetQueryableAsync();
+        var validAccounts = accountQuery
+            .Where(a => validIds.Contains(a.Id) && a.CompanyId == companyId && !a.IsGroup)
+            .Select(a => a.Id)
+            .ToHashSet();
+
+        foreach (var id in validIds)
+        {
+            if (!validAccounts.Contains(id))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Account {id} does not belong to company {companyId} or is a group account.");
+            }
+        }
     }
 }

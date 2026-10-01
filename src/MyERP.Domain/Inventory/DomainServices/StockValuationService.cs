@@ -411,11 +411,43 @@ public class StockValuationService : DomainService
         await _ledgerRepository.UpdateManyAsync(entries);
     }
 
-    public async Task<StockLedgerEntry?> GetPreviousSleAsync(Guid itemId, Guid warehouseId, DateTime postingDate)
+    /// <summary>
+    /// Gets the latest preceding Stock Ledger Entry for an item and warehouse.
+    /// Per ERPNext PR #59370 / commit b76f793ec8: creation time only breaks ties when posting_datetime is equal.
+    /// </summary>
+    public async Task<StockLedgerEntry?> GetPreviousSleAsync(
+        Guid itemId,
+        Guid warehouseId,
+        DateTime postingDate,
+        DateTime? creationTime = null,
+        Guid? excludeSleId = null,
+        Guid? excludeVoucherId = null)
     {
         var query = await _ledgerRepository.GetQueryableAsync();
+        query = query.Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && !e.IsCancelled);
+
+        if (excludeSleId.HasValue)
+        {
+            query = query.Where(e => e.Id != excludeSleId.Value);
+        }
+
+        if (excludeVoucherId.HasValue)
+        {
+            query = query.Where(e => e.VoucherId != excludeVoucherId.Value);
+        }
+
+        if (creationTime.HasValue)
+        {
+            query = query.Where(e =>
+                (e.PostingDateTime < postingDate || (e.PostingDateTime == postingDate && e.CreationTime < creationTime.Value))
+                || (e.PostingDate < postingDate || (e.PostingDate == postingDate && e.CreationTime < creationTime.Value)));
+        }
+        else
+        {
+            query = query.Where(e => e.PostingDateTime <= postingDate || e.PostingDate <= postingDate);
+        }
+
         return query
-            .Where(e => e.ItemId == itemId && e.WarehouseId == warehouseId && (e.PostingDateTime <= postingDate || e.PostingDate <= postingDate) && !e.IsCancelled)
             .OrderByDescending(e => e.PostingDateTime)
             .ThenByDescending(e => e.CreationTime)
             .FirstOrDefault();

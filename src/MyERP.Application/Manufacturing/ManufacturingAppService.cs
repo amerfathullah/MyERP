@@ -1899,6 +1899,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", "FG Quantity");
 
+        // Per ERPNext PR #59567 / commit c625a6bafa: manufacture qty must exceed process loss to produce a finished good
+        if (input.ProcessLossQty > 0 && (input.FgQuantity - input.ProcessLossQty) <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Qty for Manufacture must be greater than the process loss of {input.ProcessLossQty} to produce a finished good.");
+        }
+
         // Overproduction check
         var settings = await GetManufacturingSettingsAsync(wo.CompanyId);
         var overproductionPct = settings?.OverproductionPercentage ?? 5m;

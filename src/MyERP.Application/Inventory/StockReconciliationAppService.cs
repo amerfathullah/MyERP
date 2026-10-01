@@ -387,6 +387,20 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
 
         sr.Cancel();
 
+        // Per ERPNext PR #59530 / commit e13c2d99fe: cancel existing reconciliation SLEs so that
+        // recreating stock ledgers does not compare against still-active entries of the cancelled voucher
+        var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        var existingSles = await sleRepo.GetListAsync(
+            e => e.VoucherType == "StockReconciliation" && e.VoucherId == sr.Id && !e.IsCancelled);
+        foreach (var sle in existingSles)
+        {
+            sle.IsCancelled = true;
+        }
+        if (existingSles.Any())
+        {
+            await sleRepo.UpdateManyAsync(existingSles);
+        }
+
         // Reverse SLE entries for each item
         foreach (var item in sr.Items)
         {

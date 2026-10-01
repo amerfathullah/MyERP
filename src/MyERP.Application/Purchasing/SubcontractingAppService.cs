@@ -832,7 +832,8 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 retItem.ItemId,
                 retItem.ItemName,
                 negativeQty,
-                retItem.Rate > 0 ? retItem.Rate : origItem.Rate,
+                // Per ERPNext PR #59597 / commit c7917bfc3e: value returns strictly at original receipt rate
+                origItem.Rate,
                 origItem.ProjectId)
             {
                 WarehouseId = retItem.WarehouseId ?? origItem.WarehouseId ?? original.WarehouseId,

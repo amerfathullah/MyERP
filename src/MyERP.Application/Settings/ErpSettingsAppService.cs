@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Permissions;
 using MyERP.Settings;
+using Volo.Abp;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -68,6 +70,20 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
     [Authorize(MyERPPermissions.Settings.Edit)]
     public async Task SetAsync(string name, string value)
     {
+        // Per ERPNext PR #59573 / commit f4cb14c720: cannot disable serial / batch tracking if items exist with serial/batch enabled
+        if (name == MyERPSettings.Stock.EnableSerialAndBatchNoForItem &&
+            (string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) || value == "0"))
+        {
+            var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+            var itemQ = await itemRepo.GetQueryableAsync();
+            var hasTrackedItems = itemQ.Any(i => i.HasSerialNo || i.HasBatchNo);
+            if (hasTrackedItems)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot disable Serial and Batch No for Item, as there are items with serial / batch enabled.");
+            }
+        }
+
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         var prevValue = await _settingProvider.GetOrNullAsync(name);
         await _settingManager.SetGlobalAsync(name, value);
@@ -92,6 +108,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Stock.ActionIfQualityInspectionRejected,
             MyERPSettings.Stock.PickSerialAndBatchBasedOn,
             MyERPSettings.Stock.ItemNamingBy,
+            MyERPSettings.Stock.EnableSerialAndBatchNoForItem,
         ],
         "Selling" => [
             MyERPSettings.Selling.DefaultPriceList,
