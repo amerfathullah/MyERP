@@ -218,7 +218,12 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </div>
                   <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top small text-muted">
                     <span>{{ ov.position?.overdue?.count ?? 0 }} overdue</span>
-                    @if ((ov.position?.overdue?.value ?? 0) > 0) {
+                    @if (ov.position?.overdue?.delta !== null && ov.position?.overdue?.delta !== undefined) {
+                      <span class="badge" [class.bg-success]="(ov.position?.overdue?.delta ?? 0) <= 0" [class.bg-danger]="(ov.position?.overdue?.delta ?? 0) > 0">
+                        <i class="fas" [class.fa-arrow-down]="(ov.position?.overdue?.delta ?? 0) <= 0" [class.fa-arrow-up]="(ov.position?.overdue?.delta ?? 0) > 0"></i>
+                        {{ ov.position?.overdue?.delta | number:'1.1-1' }}%
+                      </span>
+                    } @else if ((ov.position?.overdue?.value ?? 0) > 0) {
                       <span class="badge bg-danger">Action required</span>
                     }
                   </div>
