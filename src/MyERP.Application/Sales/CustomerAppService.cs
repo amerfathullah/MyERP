@@ -672,6 +672,16 @@ public class CustomerAppService :
         foreach (var cId in peCompanyIds)
             companyIds.Add(cId);
 
+        var pleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PaymentLedgerEntry, Guid>>();
+        var pleQ = await pleRepo.GetQueryableAsync();
+        var pleCompanyIds = pleQ
+            .Where(ple => ple.PartyType == "Customer" && ple.PartyId == customerId && !ple.Delinked)
+            .Select(ple => ple.CompanyId)
+            .Distinct()
+            .ToList();
+        foreach (var cId in pleCompanyIds)
+            companyIds.Add(cId);
+
         if (companyIds.Count == 0) return new List<string>();
 
         var compRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();

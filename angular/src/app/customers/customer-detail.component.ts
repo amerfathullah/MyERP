@@ -96,19 +96,21 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
         <div class="card mb-4 bg-light">
           <div class="card-body py-2">
             <div class="row g-2 align-items-center">
-              <div class="col-sm-6 col-md-4">
-                <div class="input-group input-group-sm">
-                  <span class="input-group-text"><i class="fas fa-building me-1"></i>{{ '::Company' | abpLocalization }}</span>
-                  <select
-                    class="form-select"
-                    [ngModel]="selectedCompanyId()"
-                    (ngModelChange)="onCompanyChange($event)">
-                    @for (comp of companies(); track comp.id) {
-                      <option [value]="comp.id">{{ comp.name }}</option>
-                    }
-                  </select>
+              @if (companies().length > 1) {
+                <div class="col-sm-6 col-md-4">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fas fa-building me-1"></i>{{ '::Company' | abpLocalization }}</span>
+                    <select
+                      class="form-select"
+                      [ngModel]="selectedCompanyId()"
+                      (ngModelChange)="onCompanyChange($event)">
+                      @for (comp of companies(); track comp.id) {
+                        <option [value]="comp.id">{{ comp.name }}</option>
+                      }
+                    </select>
+                  </div>
                 </div>
-              </div>
+              }
               <div class="col-sm-6 col-md-4">
                 <div class="input-group input-group-sm">
                   <span class="input-group-text"><i class="fas fa-calendar-alt me-1"></i>{{ '::Period' | abpLocalization }}</span>
@@ -141,7 +143,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
         } @else if (overview(); as ov) {
           <!-- Unallocated Advances Banner -->
           @if (ov.unallocatedAdvances && ov.unallocatedAdvances > 0) {
-            <div class="alert alert-warning d-flex align-items-center justify-content-between mb-4 shadow-sm" role="alert">
+            <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4 shadow-sm" role="alert">
               <div>
                 <i class="fas fa-exclamation-triangle me-2 fs-5 text-warning"></i>
                 <span>
@@ -149,12 +151,17 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   <strong>{{ ov.currency }} {{ ov.unallocatedAdvances | number:'1.2-2' }}</strong>.
                 </span>
               </div>
-              <a
-                routerLink="/accounting/payments"
-                [queryParams]="{ partyType: 'Customer', partyId: entityId }"
-                class="btn btn-sm btn-outline-dark">
-                <i class="fas fa-hand-holding-usd me-1"></i> Allocate Payments
-              </a>
+              @if ((ov.position?.outstanding?.unpaidCount ?? 0) > 0) {
+                <a
+                  routerLink="/accounting/payment-reconciliation"
+                  [queryParams]="{ partyType: 'Customer', partyId: entityId }"
+                  class="btn btn-sm btn-dark">
+                  <i class="fas fa-hand-holding-usd me-1"></i>
+                  Reconcile with {{ ov.position?.outstanding?.unpaidCount }} unpaid {{ ((ov.position?.outstanding?.unpaidCount ?? 0) === 1 ? 'invoice' : 'invoices') }}
+                </a>
+              } @else {
+                <span class="badge bg-light text-dark border">Credit balance, no invoices to apply it to</span>
+              }
             </div>
           }
 
@@ -235,7 +242,9 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                     <div class="mt-2 pt-1 border-top">
                       <div class="d-flex justify-content-between small text-muted mb-1">
                         <span>{{ '::CreditUsage' | abpLocalization }}</span>
-                        <span class="fw-semibold">{{ ov.position?.credit?.usedPct | number:'1.0-0' }}%</span>
+                        <span class="fw-semibold" [class.text-danger]="(ov.position?.credit?.usedPct ?? 0) > 100">
+                          {{ ov.position?.credit?.usedPct | number:'1.0-0' }}%
+                        </span>
                       </div>
                       <div class="progress" style="height: 6px;">
                         <div
@@ -243,9 +252,14 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                           [class.bg-success]="(ov.position?.credit?.usedPct ?? 0) < 70"
                           [class.bg-warning]="(ov.position?.credit?.usedPct ?? 0) >= 70 && (ov.position?.credit?.usedPct ?? 0) < 90"
                           [class.bg-danger]="(ov.position?.credit?.usedPct ?? 0) >= 90"
-                          [style.width.%]="ov.position?.credit?.usedPct ?? 0">
+                          [style.width.%]="(ov.position?.credit?.usedPct ?? 0) > 100 ? 100 : (ov.position?.credit?.usedPct ?? 0)">
                         </div>
                       </div>
+                      @if ((ov.position?.credit?.usedPct ?? 0) > 100) {
+                        <div class="text-danger small mt-1 fw-semibold">
+                          <i class="fas fa-exclamation-circle me-1"></i>Over credit limit
+                        </div>
+                      }
                     </div>
                   } @else {
                     <div class="mt-2 pt-1 border-top small text-muted">

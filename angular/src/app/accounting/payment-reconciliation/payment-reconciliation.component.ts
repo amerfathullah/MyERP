@@ -1,6 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { LocalizationService } from '@abp/ng.core';
@@ -24,7 +25,8 @@ interface OutstandingInvoice {
   imports: [CommonModule, FormsModule, LocalizationPipe],
   templateUrl: './payment-reconciliation.component.html',
 })
-export class PaymentReconciliationComponent {
+export class PaymentReconciliationComponent implements OnInit {
+  private route = inject(ActivatedRoute);
   private reconciliationService = inject(PaymentReconciliationService);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
@@ -37,6 +39,19 @@ export class PaymentReconciliationComponent {
   loading = signal(false);
   reconciling = signal(false);
   successMessage = signal<string | null>(null);
+
+  ngOnInit(): void {
+    const qp = this.route.snapshot.queryParams;
+    if (qp['partyType']) {
+      this.partyType.set(qp['partyType']);
+    }
+    if (qp['partyId']) {
+      this.partyId.set(qp['partyId']);
+    }
+    if (this.partyId()) {
+      this.fetchOutstanding();
+    }
+  }
 
   fetchOutstanding() {
     if (!this.partyId()) return;

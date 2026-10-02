@@ -34,29 +34,34 @@ public class SerialNoValidationService : DomainService
         var itemList = items.ToList();
         if (!itemList.Any()) return;
 
-        // Check for duplicate serial numbers within the transaction
-        var serialStrings = itemList
+        // Check for duplicate serial numbers for the same item within the transaction
+        // Per ERPNext PR #59049: allow shared serial numbers across different items
+        var itemSerialPairs = itemList
             .Where(i => !string.IsNullOrWhiteSpace(i.SerialNumber))
-            .Select(i => i.SerialNumber!.Trim())
+            .Select(i => (i.ItemId, Serial: i.SerialNumber!.Trim()))
             .ToList();
 
-        if (serialStrings.Count != serialStrings.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+        if (itemSerialPairs.Count != itemSerialPairs.DistinctBy(p => (p.ItemId, Serial: p.Serial.ToUpperInvariant())).Count())
         {
-            var duplicate = serialStrings.GroupBy(s => s, StringComparer.OrdinalIgnoreCase)
+            var duplicate = itemSerialPairs
+                .GroupBy(p => (p.ItemId, Serial: p.Serial.ToUpperInvariant()))
                 .First(g => g.Count() > 1).Key;
             throw new BusinessException(MyERPDomainErrorCodes.SerialNoDuplicate)
-                .WithData("serialNo", duplicate);
+                .WithData("serialNo", duplicate.Serial);
         }
 
-        var serialNos = await _serialNoRepository.GetListAsync(s => serialStrings.Contains(s.SerialNumber));
-        var serialMap = serialNos.ToDictionary(s => s.SerialNumber, StringComparer.OrdinalIgnoreCase);
+        var serialStrings = itemSerialPairs.Select(p => p.Serial).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var itemIds = itemSerialPairs.Select(p => p.ItemId).Distinct().ToList();
+
+        var serialNos = await _serialNoRepository.GetListAsync(s => itemIds.Contains(s.ItemId) && serialStrings.Contains(s.SerialNumber));
+        var serialMap = serialNos.ToDictionary(s => (s.ItemId, s.SerialNumber.Trim().ToUpperInvariant()));
 
         foreach (var item in itemList)
         {
             if (string.IsNullOrWhiteSpace(item.SerialNumber))
                 continue;
 
-            if (!serialMap.TryGetValue(item.SerialNumber.Trim(), out var serial))
+            if (!serialMap.TryGetValue((item.ItemId, item.SerialNumber.Trim().ToUpperInvariant()), out var serial))
             {
                 throw new BusinessException(MyERPDomainErrorCodes.SerialNoNotFound)
                     .WithData("serialNo", item.SerialNumber)

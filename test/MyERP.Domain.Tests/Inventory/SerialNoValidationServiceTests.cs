@@ -44,7 +44,7 @@ public class SerialNoValidationServiceTests
     }
 
     [Fact]
-    public async Task ValidateForStockOutAsync_DuplicateSerialInTransaction_ThrowsException()
+    public async Task ValidateForStockOutAsync_DuplicateSerialForSameItemInTransaction_ThrowsException()
     {
         var items = new List<SerialNoValidationItem>
         {
@@ -54,6 +54,25 @@ public class SerialNoValidationServiceTests
 
         var ex = await Should.ThrowAsync<BusinessException>(() => _service.ValidateForStockOutAsync(items));
         ex.Code.ShouldBe(MyERPDomainErrorCodes.SerialNoDuplicate);
+    }
+
+    [Fact]
+    public async Task ValidateForStockOutAsync_SameSerialAcrossDifferentItems_Succeeds()
+    {
+        var item2Id = Guid.NewGuid();
+        var serial1 = new SerialNo(Guid.NewGuid(), _itemId, "SN-001", _companyId, _warehouseId);
+        var serial2 = new SerialNo(Guid.NewGuid(), item2Id, "SN-001", _companyId, _warehouseId);
+
+        _serialNoRepo.GetListAsync(Arg.Any<Expression<Func<SerialNo, bool>>>())
+            .Returns(Task.FromResult(new List<SerialNo> { serial1, serial2 }));
+
+        var items = new List<SerialNoValidationItem>
+        {
+            new(_itemId, "SN-001", _warehouseId, "Item 1"),
+            new(item2Id, "SN-001", _warehouseId, "Item 2")
+        };
+
+        await _service.ValidateForStockOutAsync(items);
     }
 
     [Fact]

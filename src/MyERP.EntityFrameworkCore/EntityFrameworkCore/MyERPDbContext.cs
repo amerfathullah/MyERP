@@ -2359,7 +2359,7 @@ public class MyERPDbContext :
             b.Property(x => x.PurchaseRate).HasColumnType("decimal(18,4)");
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
-            b.HasIndex(x => new { x.TenantId, x.SerialNumber }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.ItemId, x.SerialNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.ItemId, x.WarehouseId, x.Status });
         });
 
