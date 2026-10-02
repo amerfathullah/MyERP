@@ -135,4 +135,55 @@ describe('PaymentEntryDetailComponent Logic', () => {
       expect(refs).toHaveLength(0);
     });
   });
+
+  describe('Unreconcile Logic', () => {
+    it('allAllocationsSelected returns true when all rows selected', () => {
+      const allocs = [{ selected: true }, { selected: true }];
+      const allSelected = allocs.length > 0 && allocs.every(a => a.selected);
+      expect(allSelected).toBe(true);
+    });
+
+    it('allAllocationsSelected returns false when some row unselected', () => {
+      const allocs = [{ selected: true }, { selected: false }];
+      const allSelected = allocs.length > 0 && allocs.every(a => a.selected);
+      expect(allSelected).toBe(false);
+    });
+
+    it('selectedAllocationsCount counts selected rows correctly', () => {
+      const allocs = [{ selected: true }, { selected: false }, { selected: true }];
+      const count = allocs.filter(a => a.selected).length;
+      expect(count).toBe(2);
+    });
+
+    it('builds unreconcile DTOs correctly from selected allocations', () => {
+      const peId = 'pe-123';
+      const allocs = [
+        { referenceType: 'SalesInvoice', referenceId: 'si-1', selected: true },
+        { referenceType: 'PurchaseInvoice', referenceId: 'pi-2', selected: false },
+        { referenceType: 'SalesInvoice', referenceId: 'si-3', selected: true },
+      ];
+      const selected = allocs.filter(a => a.selected);
+      const inputs = selected.map(a => ({
+        paymentVoucherType: 'PaymentEntry',
+        paymentVoucherId: peId,
+        invoiceVoucherType: a.referenceType,
+        invoiceVoucherId: a.referenceId,
+      }));
+      expect(inputs).toEqual([
+        {
+          paymentVoucherType: 'PaymentEntry',
+          paymentVoucherId: 'pe-123',
+          invoiceVoucherType: 'SalesInvoice',
+          invoiceVoucherId: 'si-1',
+        },
+        {
+          paymentVoucherType: 'PaymentEntry',
+          paymentVoucherId: 'pe-123',
+          invoiceVoucherType: 'SalesInvoice',
+          invoiceVoucherId: 'si-3',
+        },
+      ]);
+    });
+  });
 });
+

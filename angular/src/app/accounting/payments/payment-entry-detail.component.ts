@@ -12,7 +12,8 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { PaymentEntryPrintLayoutComponent } from '../../shared/components/pe-print-layout/pe-print-layout.component';
 import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
-import type { PaymentEntryDto } from '../../proxy/accounting/models';
+import { PaymentReconciliationService } from '../../proxy/accounting/payment-reconciliation.service';
+import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../../proxy/accounting/models';
 
 @Component({
   selector: 'app-payment-entry-detail',
@@ -37,9 +38,16 @@ import type { PaymentEntryDto } from '../../proxy/accounting/models';
             </div>
           }
           @if (entry()!.status === 'Posted') {
-            <button class="btn btn-sm btn-outline-secondary" (click)="printReceipt()">
-              <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}
-            </button>
+            <div class="btn-group btn-group-sm">
+              @if (linkedAllocations().length > 0) {
+                <button class="btn btn-outline-warning" (click)="openUnreconcileModal()">
+                  <i class="fa fa-undo me-1"></i>{{ 'Unreconcile' | abpLocalization }}
+                </button>
+              }
+              <button class="btn btn-outline-secondary" (click)="printReceipt()">
+                <i class="fa fa-print me-1"></i>{{ 'Print' | abpLocalization }}
+              </button>
+            </div>
           }
         </div>
         <app-document-workflow [actions]="workflowActions" (actionClicked)="onAction($event)" />
@@ -188,6 +196,62 @@ import type { PaymentEntryDto } from '../../proxy/accounting/models';
           [againstInvoiceNumber]="''"
           [amountInWords]="''"
         />
+
+        <!-- Unreconcile Dialog Modal -->
+        @if (showUnreconcileModal()) {
+          <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title"><i class="fa fa-undo me-2"></i>{{ 'Unreconcile' | abpLocalization }}</h5>
+                  <button type="button" class="btn-close" (click)="closeUnreconcileModal()"></button>
+                </div>
+                <div class="modal-body">
+                  <p class="text-muted small">
+                    {{ 'SelectAllocationsToUnreconcile' | abpLocalization }}
+                  </p>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th style="width: 40px">
+                            <input type="checkbox" class="form-check-input" [checked]="allAllocationsSelected" (change)="toggleSelectAllAllocations($event)" />
+                          </th>
+                          <th>{{ 'VoucherType' | abpLocalization }}</th>
+                          <th>{{ 'VoucherNo' | abpLocalization }}</th>
+                          <th>{{ 'PostingDate' | abpLocalization }}</th>
+                          <th class="text-end">{{ 'AllocatedAmount' | abpLocalization }}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (alloc of linkedAllocations(); track $index) {
+                          <tr>
+                            <td>
+                              <input type="checkbox" class="form-check-input" [checked]="alloc.selected" (change)="toggleAllocation(alloc)" />
+                            </td>
+                            <td><span class="badge bg-secondary">{{ alloc.referenceType }}</span></td>
+                            <td>{{ alloc.referenceNumber || alloc.referenceId?.substring(0, 8) }}</td>
+                            <td>{{ alloc.postingDate | date:'dd/MM/yyyy' }}</td>
+                            <td class="text-end fw-bold">{{ alloc.currency }} {{ alloc.allocatedAmount | number:'1.2-2' }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" (click)="closeUnreconcileModal()">{{ 'Cancel' | abpLocalization }}</button>
+                  <button type="button" class="btn btn-warning" [disabled]="selectedAllocationsCount === 0 || unreconciling()" (click)="confirmUnreconcile()">
+                    @if (unreconciling()) {
+                      <i class="fa fa-spinner fa-spin me-1"></i>
+                    }
+                    {{ 'Unreconcile' | abpLocalization }} ({{ selectedAllocationsCount }})
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
       }
     </abp-page>
   `
@@ -196,6 +260,7 @@ export class PaymentEntryDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private paymentEntryService = inject(PaymentEntryService);
+  private paymentReconciliationService = inject(PaymentReconciliationService);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
   private companyService = inject(CompanyService);
@@ -203,8 +268,72 @@ export class PaymentEntryDetailComponent implements OnInit {
   entry = signal<PaymentEntryDto | null>(null);
   references = signal<any[]>([]);
   taxes = signal<any[]>([]);
+  linkedAllocations = signal<(LinkedAllocationDto & { selected?: boolean })[]>([]);
+  showUnreconcileModal = signal(false);
+  unreconciling = signal(false);
   companyData = signal<{ name: string; tin: string; sst: string; address: string; phone: string }>({ name: '', tin: '', sst: '', address: '', phone: '' });
   totalTaxes = computed(() => this.taxes().reduce((sum: number, t: any) => sum + (t.taxAmount ?? 0), 0));
+
+  get allAllocationsSelected(): boolean {
+    return this.linkedAllocations().length > 0 && this.linkedAllocations().every(a => a.selected);
+  }
+
+  get selectedAllocationsCount(): number {
+    return this.linkedAllocations().filter(a => a.selected).length;
+  }
+
+  toggleSelectAllAllocations(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const checked = target.checked;
+    this.linkedAllocations.update(list => list.map(a => ({ ...a, selected: checked })));
+  }
+
+  toggleAllocation(alloc: LinkedAllocationDto & { selected?: boolean }): void {
+    this.linkedAllocations.update(list =>
+      list.map(a => (a === alloc ? { ...a, selected: !a.selected } : a))
+    );
+  }
+
+  openUnreconcileModal(): void {
+    this.showUnreconcileModal.set(true);
+  }
+
+  closeUnreconcileModal(): void {
+    this.showUnreconcileModal.set(false);
+  }
+
+  confirmUnreconcile(): void {
+    const selected = this.linkedAllocations().filter(a => a.selected);
+    if (selected.length === 0) return;
+
+    this.unreconciling.set(true);
+    const inputs: UnreconcileDto[] = selected.map(a => ({
+      paymentVoucherType: 'PaymentEntry',
+      paymentVoucherId: this.entry()!.id,
+      invoiceVoucherType: a.referenceType || '',
+      invoiceVoucherId: a.referenceId || '',
+    }));
+
+    this.paymentReconciliationService.unreconcileAllocations(inputs).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullyUnreconciled');
+        this.unreconciling.set(false);
+        this.closeUnreconcileModal();
+        this.reload();
+      },
+      error: (err: any) => {
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+        this.unreconciling.set(false);
+      }
+    });
+  }
+
+  private fetchLinkedAllocations(id: string): void {
+    this.paymentReconciliationService.getLinkedAllocations('PaymentEntry', id).subscribe({
+      next: (allocs) => this.linkedAllocations.set((allocs || []).map(a => ({ ...a, selected: true }))),
+      error: () => this.linkedAllocations.set([]),
+    });
+  }
 
   get workflowActions(): WorkflowAction[] {
     const e = this.entry();
@@ -231,6 +360,9 @@ export class PaymentEntryDetailComponent implements OnInit {
       this.entry.set(data);
       this.references.set((data as any).references || []);
       this.taxes.set((data as any).taxes || []);
+      if (data.status === 'Posted') {
+        this.fetchLinkedAllocations(id);
+      }
       // Load company data for print layout
       if ((data as any).companyId) {
         this.companyService.get((data as any).companyId).subscribe({
@@ -272,6 +404,11 @@ export class PaymentEntryDetailComponent implements OnInit {
       next: (data) => {
         this.entry.set(data);
         this.references.set((data as any).references || []);
+        if (data.status === 'Posted') {
+          this.fetchLinkedAllocations(id);
+        } else {
+          this.linkedAllocations.set([]);
+        }
       },
       error: () => {}
     });

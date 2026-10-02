@@ -1,4 +1,4 @@
-import type { OutstandingInvoiceDto, ReconcileAllocationDto, ReconcilePaymentDto, UnreconcileDto, UnreconciledPaymentDto } from './models';
+import type { LinkedAllocationDto, OutstandingInvoiceDto, ReconcileAllocationDto, ReconcilePaymentDto, UnreconcileDto, UnreconciledPaymentDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -51,6 +51,22 @@ export class PaymentReconciliationService {
       method: 'POST',
       url: '/api/app/payment-reconciliation/unreconcile',
       body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  getLinkedAllocations = (voucherType: string, voucherId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, LinkedAllocationDto[]>({
+      method: 'GET',
+      url: `/api/app/payment-reconciliation/linked-allocations/${voucherId}`,
+      params: { voucherType },
+    },
+    { apiName: this.apiName,...config });
+
+  unreconcileAllocations = (inputs: UnreconcileDto[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'POST',
+      url: '/api/app/payment-reconciliation/unreconcile-allocations',
+      body: inputs,
     },
     { apiName: this.apiName,...config });
 }

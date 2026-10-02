@@ -2577,6 +2577,15 @@ export interface TrialBalanceRowDto {
   closingCredit?: number;
 }
 
+export interface LinkedAllocationDto {
+  referenceType?: string;
+  referenceId?: string;
+  referenceNumber?: string | null;
+  allocatedAmount?: number;
+  currency?: string | null;
+  postingDate?: string;
+}
+
 export interface UnreconcileDto {
   paymentVoucherType: string;
   paymentVoucherId: string;
