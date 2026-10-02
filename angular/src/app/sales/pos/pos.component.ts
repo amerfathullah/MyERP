@@ -54,6 +54,7 @@ export class PosComponent implements OnInit {
   selectedItemGroupId = signal<string | null>(null);
   posProfileId = signal<string | null>(null);
   private searchSubject = new Subject<string>();
+  private searchEpoch = 0;
 
   // Cart
   cart: CartItem[] = [];
@@ -120,13 +121,16 @@ export class PosComponent implements OnInit {
   }
 
   loadItems(): void {
+    const epoch = ++this.searchEpoch;
     this.posService.searchItems({
       search: this.searchQuery,
       posProfileId: this.posProfileId() ?? undefined,
       itemGroupId: this.selectedItemGroupId() ?? undefined,
       maxResultCount: 30
     }).subscribe((result) => {
-      this.items.set(result.items ?? []);
+      if (epoch === this.searchEpoch) {
+        this.items.set(result.items ?? []);
+      }
     });
   }
 
@@ -253,6 +257,7 @@ export class PosComponent implements OnInit {
   makeNewInvoice(): void {
     this.clearCart();
     this.lastInvoice = null;
+    this.loadItems();
   }
 
   clearCart(): void {
@@ -336,6 +341,7 @@ export class PosComponent implements OnInit {
         this.lastInvoice = result.invoiceNumber ?? null;
         this.toaster.success(this.localization.instant('::SaleCompleted'));
         this.clearCart();
+        this.loadItems();
       },
       error: (err) => {
         this.isProcessing = false;
