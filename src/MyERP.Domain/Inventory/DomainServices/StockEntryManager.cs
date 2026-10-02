@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Manufacturing;
+using MyERP.Manufacturing.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -226,6 +228,46 @@ public class StockEntryManager : DomainService
                 .WithData("transferred", transferredQty)
                 .WithData("requested", requestedQty)
                 .WithData("allowed", allowed);
+        }
+    }
+
+    /// <summary>
+    /// Validates that component returns against a Work Order are allowed only after the Work Order is Completed or Closed.
+    /// Per ERPNext PR #59617 (commit b4d6595f94).
+    /// </summary>
+    public void ValidateWorkOrderStatusForReturn(StockEntry entry, WorkOrder? wo)
+    {
+        if (!entry.IsReturn || !entry.WorkOrderId.HasValue || wo == null)
+            return;
+
+        if (wo.Status is not (WorkOrderStatus.Completed or WorkOrderStatus.Closed))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", $"Components can be returned only after Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()} is Completed or Closed");
+        }
+    }
+
+    /// <summary>
+    /// Validates component return quantities against unconsumed transferred materials in a Work Order.
+    /// Per ERPNext PR #59616 (commit 73cb8718a9).
+    /// </summary>
+    public void ValidateWorkOrderReturnItems(StockEntry entry, WorkOrder? wo)
+    {
+        if (!entry.IsReturn || !entry.WorkOrderId.HasValue || wo == null)
+            return;
+
+        foreach (var seItem in entry.Items)
+        {
+            var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
+            if (existingWoItem != null)
+            {
+                var returnable = Math.Max(0, existingWoItem.TransferredQuantity - existingWoItem.ConsumedQuantity);
+                if (seItem.Quantity > returnable)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Return quantity {seItem.Quantity} for item {existingWoItem.ItemName} exceeds unconsumed transferred quantity {returnable}.");
+                }
+            }
         }
     }
 

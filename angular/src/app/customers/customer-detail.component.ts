@@ -284,7 +284,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                 </span>
               }
             </div>
-            <div class="card-body">
+            <div class="card-body" [class.co-loading]="overviewLoading()" [attr.aria-busy]="overviewLoading()">
               @if ((ov.trend?.points?.length ?? 0) > 0) {
                 <div class="trend-chart-container">
                   @for (point of ov.trend?.points; track point.label) {
@@ -853,6 +853,11 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
     .trend-bar-wrapper:hover .trend-tooltip {
       visibility: visible;
       opacity: 1;
+    }
+    .co-loading {
+      opacity: 0.4;
+      pointer-events: none;
+      transition: opacity 150ms ease-in-out;
     }
   `],
 })

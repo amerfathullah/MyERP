@@ -94,6 +94,13 @@ export class PosComponent implements OnInit {
       this.posService.getItemGroups(profileId).subscribe((groups) => {
         this.itemGroups.set(groups ?? []);
       });
+      // Deterministic default item group via LCA (PR #59720)
+      this.posService.getParentItemGroup(profileId).subscribe((parent) => {
+        if (parent?.id && parent.id !== '00000000-0000-0000-0000-000000000000') {
+          this.selectedItemGroupId.set(parent.id);
+          this.loadItems();
+        }
+      });
     }
 
     this.loadItems();
