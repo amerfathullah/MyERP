@@ -311,4 +311,89 @@ public abstract class WorkOrderMaterialReturnTests<TStartupModule> : MyERPApplic
             ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
         });
     }
+
+    [Fact]
+    public async Task CreateMaterialReturn_WithBatches_NetsOffPriorReturns()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var woRepo = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var seRepo = GetRequiredService<IRepository<StockEntry, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var mfgAppService = GetRequiredService<IManufacturingAppService>();
+            var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Return Batch Co"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SE Series Ret", "StockEntry", "SERET-"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SE Series Ret2", "SE", "SERET2-"), autoSave: true);
+
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "FG-RTN-B", "Finished Good Batch", ItemType.Goods), autoSave: true);
+            var rmItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "RM-RTN-B", "Raw Material Batch", ItemType.Goods), autoSave: true);
+
+            var storesWh = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Stores Wh Ret"), autoSave: true);
+            var wipWh = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "WIP Wh Ret"), autoSave: true);
+
+            var bom = await bomRepo.InsertAsync(new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-RTN-B", fgItem.Id), autoSave: true);
+
+            var batchId = Guid.NewGuid();
+
+            var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-RTN-B", fgItem.Id, bom.Id, quantity: 4m)
+            {
+                SourceWarehouseId = storesWh.Id,
+                WipWarehouseId = wipWh.Id,
+            };
+            var woItem = new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItem.Id, "Raw Material Batch", requiredQuantity: 4m)
+            {
+                SourceWarehouseId = storesWh.Id,
+                TransferredQuantity = 4m,
+                ConsumedQuantity = 0m,
+            };
+            wo.RequiredItems.Add(woItem);
+            wo.Submit();
+            wo.Start();
+            wo.Close();
+            await woRepo.InsertAsync(wo, autoSave: true);
+
+            // Record initial transfer stock entry of 4 units with batchId
+            var transferSe = new StockEntry(
+                Guid.NewGuid(), company.Id, StockEntryType.MaterialTransferForManufacture,
+                DateTime.UtcNow.Date)
+            {
+                WorkOrderId = wo.Id,
+                EntryNumber = "SERET-0001",
+            };
+            transferSe.AddItem(rmItem.Id, 4m, storesWh.Id, wipWh.Id, valuationRate: 10m, batchId: batchId);
+            transferSe.Submit();
+            await seRepo.InsertAsync(transferSe, autoSave: true);
+
+            // 1st return created
+            var firstReturnResult = await mfgAppService.CreateMaterialReturnForManufactureAsync(wo.Id);
+            firstReturnResult.ShouldNotBeNull();
+            var firstReturnSe = await seRepo.GetAsync(firstReturnResult.StockEntryId);
+            firstReturnSe.Items.Count.ShouldBe(1);
+            firstReturnSe.Items.First().BatchId.ShouldBe(batchId);
+            firstReturnSe.Items.First().Quantity.ShouldBe(4m);
+
+            // Submit partial return of 1 unit
+            firstReturnSe.ClearItems();
+            firstReturnSe.AddItem(rmItem.Id, 1m, wipWh.Id, storesWh.Id, valuationRate: 10m, batchId: batchId);
+            await seRepo.UpdateAsync(firstReturnSe, autoSave: true);
+            await stockEntryAppService.SubmitAsync(firstReturnSe.Id);
+
+            // 2nd return created: unconsumed = 3, batch allocation = 3 (ERPNext PR #59616)
+            var secondReturnResult = await mfgAppService.CreateMaterialReturnForManufactureAsync(wo.Id);
+            secondReturnResult.ShouldNotBeNull();
+            var secondReturnSe = await seRepo.GetAsync(secondReturnResult.StockEntryId);
+            secondReturnSe.Items.Count.ShouldBe(1);
+            var secondItem = secondReturnSe.Items.First();
+            secondItem.BatchId.ShouldBe(batchId);
+            secondItem.Quantity.ShouldBe(3m);
+            secondItem.SourceWarehouseId.ShouldBe(wipWh.Id);
+            secondItem.TargetWarehouseId.ShouldBe(storesWh.Id);
+        });
+    }
 }

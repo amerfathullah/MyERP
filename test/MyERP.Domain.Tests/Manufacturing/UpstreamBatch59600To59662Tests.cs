@@ -395,4 +395,36 @@ public class UpstreamBatch59600To59662Tests
         result[0].BatchId.ShouldBe(batch1);
         result[0].Quantity.ShouldBe(15m);
     }
+
+    // =========================================================================
+    // PR #59616: Net Work Order Component Returns off Transferred Materials
+    // =========================================================================
+    [Fact]
+    public void WorkOrderProductionService_CalculateTransferredBatchConsumption_NetsOffReturnedBatches()
+    {
+        var service = new WorkOrderProductionService(
+            Substitute.For<IRepository<WorkOrder, Guid>>());
+
+        var batch1 = Guid.NewGuid();
+
+        // Transferred: Batch 1 (4 units)
+        var transferred = new List<StockEntryItem>
+        {
+            new StockEntryItem(Guid.NewGuid(), Guid.NewGuid(), _itemId, 4m, _warehouseId, _wipWarehouseId) { BatchId = batch1 }
+        };
+
+        // Returned: Batch 1 (1 unit) - passed in priorConsumed / returned items
+        var priorReturnsOrConsumed = new List<StockEntryItem>
+        {
+            new StockEntryItem(Guid.NewGuid(), Guid.NewGuid(), _itemId, 1m, _wipWarehouseId, _warehouseId) { BatchId = batch1 }
+        };
+
+        // When requesting remaining 3 units, Batch 1 satisfies 3 units (4 - 1 = 3 available)
+        var result = service.CalculateTransferredBatchConsumption(
+            _itemId, 3m, transferred, priorReturnsOrConsumed);
+
+        result.Count.ShouldBe(1);
+        result[0].BatchId.ShouldBe(batch1);
+        result[0].Quantity.ShouldBe(3m);
+    }
 }

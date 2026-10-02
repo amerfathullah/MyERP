@@ -1244,12 +1244,14 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             includeDetails: true);
 
         var transferItems = priorStockEntries
-            .Where(se => se.EntryType == StockEntryType.MaterialTransferForManufacture)
+            .Where(se => se.EntryType == StockEntryType.MaterialTransferForManufacture && !se.IsReturn)
             .SelectMany(se => se.Items)
             .ToList();
 
         var priorConsumedItems = priorStockEntries
-            .Where(se => se.EntryType == StockEntryType.Manufacture || se.EntryType == StockEntryType.MaterialConsumptionForManufacture)
+            .Where(se => se.EntryType == StockEntryType.Manufacture
+                || se.EntryType == StockEntryType.MaterialConsumptionForManufacture
+                || (se.EntryType == StockEntryType.MaterialTransferForManufacture && se.IsReturn))
             .SelectMany(se => se.Items)
             .Where(i => !i.IsFinishedItem)
             .ToList();
@@ -1890,6 +1892,27 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 .WithData("detail", "No unconsumed materials available to return for this Work Order");
 
         var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
+        var priorStockEntries = await seRepo.GetListAsync(
+            se => se.WorkOrderId == wo.Id
+                && (se.Status == Core.DocumentStatus.Submitted || se.Status == Core.DocumentStatus.Posted),
+            includeDetails: true);
+
+        var transferItems = priorStockEntries
+            .Where(se => se.EntryType == StockEntryType.MaterialTransferForManufacture && !se.IsReturn)
+            .SelectMany(se => se.Items)
+            .ToList();
+
+        var priorConsumedItems = priorStockEntries
+            .Where(se => se.EntryType == StockEntryType.Manufacture
+                || se.EntryType == StockEntryType.MaterialConsumptionForManufacture
+                || (se.EntryType == StockEntryType.MaterialTransferForManufacture && se.IsReturn))
+            .SelectMany(se => se.Items)
+            .Where(i => !i.IsFinishedItem)
+            .ToList();
+
+        var productionService = LazyServiceProvider
+            .LazyGetRequiredService<Manufacturing.Services.WorkOrderProductionService>();
+
         var entry = new Inventory.Entities.StockEntry(
             GuidGenerator.Create(), wo.CompanyId,
             StockEntryType.MaterialTransferForManufacture,
@@ -1908,14 +1931,48 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 continue;
 
             var returnQty = item.TransferredQuantity - item.ConsumedQuantity;
+            var itemTransferred = transferItems.Where(i => i.ItemId == item.ItemId).Sum(i => i.Quantity);
+            var itemConsumedOrReturned = priorConsumedItems.Where(i => i.ItemId == item.ItemId).Sum(i => i.Quantity);
+            if (itemTransferred > 0)
+            {
+                var netAvailable = Math.Max(0m, itemTransferred - itemConsumedOrReturned);
+                returnQty = Math.Min(returnQty, netAvailable);
+            }
+
+            if (returnQty <= 0)
+                continue;
+
             var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, wipWarehouseId.Value);
 
-            entry.AddItem(
-                itemId: item.ItemId,
-                quantity: returnQty,
-                sourceWarehouseId: wipWarehouseId.Value,
-                targetWarehouseId: targetWarehouseId.Value,
-                valuationRate: balance.ValuationRate);
+            var itemTransfers = transferItems.Where(i => i.ItemId == item.ItemId && i.BatchId.HasValue).ToList();
+            if (itemTransfers.Any())
+            {
+                var batchSplits = productionService.CalculateTransferredBatchConsumption(
+                    item.ItemId,
+                    returnQty,
+                    transferItems,
+                    priorConsumedItems);
+
+                foreach (var split in batchSplits)
+                {
+                    entry.AddItem(
+                        itemId: item.ItemId,
+                        quantity: split.Quantity,
+                        sourceWarehouseId: wipWarehouseId.Value,
+                        targetWarehouseId: targetWarehouseId.Value,
+                        valuationRate: balance.ValuationRate,
+                        batchId: split.BatchId);
+                }
+            }
+            else
+            {
+                entry.AddItem(
+                    itemId: item.ItemId,
+                    quantity: returnQty,
+                    sourceWarehouseId: wipWarehouseId.Value,
+                    targetWarehouseId: targetWarehouseId.Value,
+                    valuationRate: balance.ValuationRate);
+            }
         }
 
         if (!entry.Items.Any())
@@ -2018,12 +2075,14 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             includeDetails: true);
 
         var transferItems = priorStockEntries
-            .Where(se => se.EntryType == StockEntryType.MaterialTransferForManufacture)
+            .Where(se => se.EntryType == StockEntryType.MaterialTransferForManufacture && !se.IsReturn)
             .SelectMany(se => se.Items)
             .ToList();
 
         var priorConsumedItems = priorStockEntries
-            .Where(se => se.EntryType == StockEntryType.Manufacture || se.EntryType == StockEntryType.MaterialConsumptionForManufacture)
+            .Where(se => se.EntryType == StockEntryType.Manufacture
+                || se.EntryType == StockEntryType.MaterialConsumptionForManufacture
+                || (se.EntryType == StockEntryType.MaterialTransferForManufacture && se.IsReturn))
             .SelectMany(se => se.Items)
             .Where(i => !i.IsFinishedItem)
             .ToList();
