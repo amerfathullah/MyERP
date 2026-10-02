@@ -6,6 +6,7 @@ using MyERP.Core.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing;
 using MyERP.Manufacturing.Entities;
+using MyERP.Purchasing.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -228,6 +229,43 @@ public class StockEntryManager : DomainService
                 .WithData("transferred", transferredQty)
                 .WithData("requested", requestedQty)
                 .WithData("allowed", allowed);
+        }
+    }
+
+    /// <summary>
+    /// Validates that Stock Entry rows linked to Material Request rows match the MR Item.
+    /// Per ERPNext PR #59679 (commit bd4bf5ee25): unlinked rows must not abort validation of subsequent rows.
+    /// </summary>
+    public async Task ValidateMaterialRequestItemsAsync(
+        StockEntry entry,
+        IRepository<MaterialRequest, Guid> mrRepository)
+    {
+        var mrLinkedRows = entry.Items.Where(i => i.MaterialRequestItemId.HasValue).ToList();
+        if (!mrLinkedRows.Any())
+            return;
+
+        var mrItemIds = mrLinkedRows.Select(i => i.MaterialRequestItemId!.Value).Distinct().ToList();
+        var mrQuery = await mrRepository.GetQueryableAsync();
+        var affectedMRs = mrQuery.Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id))).ToList();
+        var mrItemMap = affectedMRs.SelectMany(mr => mr.Items).ToDictionary(i => i.Id);
+
+        for (int idx = 0; idx < entry.Items.Count; idx++)
+        {
+            var row = entry.Items[idx];
+            if (!row.MaterialRequestItemId.HasValue)
+                continue; // ERPNext PR #59679 / commit bd4bf5ee25: skip unlinked row, do not return!
+
+            if (!mrItemMap.TryGetValue(row.MaterialRequestItemId.Value, out var mrItem))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.MaterialRequestItemNotFound)
+                    .WithData("materialRequestItemId", row.MaterialRequestItemId.Value);
+            }
+
+            if (mrItem.ItemId != row.ItemId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Item for row {idx + 1} does not match Material Request.");
+            }
         }
     }
 

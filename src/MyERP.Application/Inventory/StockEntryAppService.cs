@@ -205,6 +205,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         seManager.ValidateRepackItems(entry);
         seManager.ValidateManufactureItems(entry);
         seManager.ValidateBatchSplit(entry);
+        var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+        await seManager.ValidateMaterialRequestItemsAsync(entry, mrRepo);
 
         var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
         var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();
@@ -311,8 +313,10 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         List<(Guid MaterialRequestItemId, decimal Quantity)>? mrFulfillmentLines = null;
         if (mrLinkedItems.Any())
         {
-            var mrManager = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.MaterialRequestManager>();
             var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+            await seManager.ValidateMaterialRequestItemsAsync(entry, mrRepo);
+
+            var mrManager = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.MaterialRequestManager>();
             var mrItemIds = mrLinkedItems.Select(i => i.MaterialRequestItemId!.Value).Distinct().ToList();
             var mrQuery = await mrRepo.GetQueryableAsync();
             var affectedMRs = mrQuery.Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id))).ToList();
@@ -1181,6 +1185,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         seManager.ValidateRepackItems(entry);
         seManager.ValidateManufactureItems(entry);
         seManager.ValidateBatchSplit(entry);
+        var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+        await seManager.ValidateMaterialRequestItemsAsync(entry, mrRepo);
 
         var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
         var altRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemAlternative, Guid>>();

@@ -86,6 +86,111 @@ public abstract class MaterialRequestStockEntryFulfillmentTests<TStartupModule> 
     }
 
     [Fact]
+    public async Task Create_WithMismatchedItemForMaterialRequest_Throws()
+    {
+        var (company, item, sourceWh, targetWh, _, mrItemId) = await SeedAsync("MISMATCH", 10m);
+        var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+        var differentItem = await itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "ITEM-DIFF", "Different Item", ItemType.Goods), autoSave: true);
+
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            stockEntryAppService.CreateAsync(new CreateStockEntryDto
+            {
+                CompanyId = company.Id,
+                EntryType = StockEntryType.MaterialTransfer,
+                PostingDate = DateTime.Today,
+                Items =
+                {
+                    new CreateStockEntryItemDto
+                    {
+                        ItemId = differentItem.Id,
+                        Quantity = 2m,
+                        SourceWarehouseId = sourceWh,
+                        TargetWarehouseId = targetWh,
+                        MaterialRequestItemId = mrItemId,
+                    }
+                }
+            }));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public async Task Create_WithUnlinkedRow_ValidatesSubsequentLinkedRows()
+    {
+        // Per ERPNext PR #59679 / commit bd4bf5ee25:
+        // An unlinked row must NOT return early and skip validation of subsequent linked rows.
+        var (company, item, sourceWh, targetWh, _, mrItemId) = await SeedAsync("UNLINKED", 10m);
+        var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+        var unlinkedItem = await itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "ITEM-UNLINKED", "Unlinked Item", ItemType.Goods), autoSave: true);
+        var mismatchedItem = await itemRepository.InsertAsync(
+            new Item(Guid.NewGuid(), company.Id, "ITEM-MIS", "Mismatched Item", ItemType.Goods), autoSave: true);
+
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            stockEntryAppService.CreateAsync(new CreateStockEntryDto
+            {
+                CompanyId = company.Id,
+                EntryType = StockEntryType.MaterialTransfer,
+                PostingDate = DateTime.Today,
+                Items =
+                {
+                    new CreateStockEntryItemDto
+                    {
+                        ItemId = unlinkedItem.Id,
+                        Quantity = 1m,
+                        SourceWarehouseId = sourceWh,
+                        TargetWarehouseId = targetWh,
+                        MaterialRequestItemId = null,
+                    },
+                    new CreateStockEntryItemDto
+                    {
+                        ItemId = mismatchedItem.Id,
+                        Quantity = 2m,
+                        SourceWarehouseId = sourceWh,
+                        TargetWarehouseId = targetWh,
+                        MaterialRequestItemId = mrItemId,
+                    }
+                }
+            }));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public async Task Create_WithNonExistentMaterialRequestItem_Throws()
+    {
+        var (company, item, sourceWh, targetWh, _, _) = await SeedAsync("NOTFOUND", 10m);
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+        var fakeMrItemId = Guid.NewGuid();
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            stockEntryAppService.CreateAsync(new CreateStockEntryDto
+            {
+                CompanyId = company.Id,
+                EntryType = StockEntryType.MaterialTransfer,
+                PostingDate = DateTime.Today,
+                Items =
+                {
+                    new CreateStockEntryItemDto
+                    {
+                        ItemId = item.Id,
+                        Quantity = 2m,
+                        SourceWarehouseId = sourceWh,
+                        TargetWarehouseId = targetWh,
+                        MaterialRequestItemId = fakeMrItemId,
+                    }
+                }
+            }));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.MaterialRequestItemNotFound);
+    }
+
+    [Fact]
     public async Task Cancel_ReversesOrderedQuantity()
     {
         var (company, item, sourceWh, _, mr, mrItemId) = await SeedAsync("CXL", 10m);
