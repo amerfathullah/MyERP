@@ -290,7 +290,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                       </div>
                       @if ((ov.position?.credit?.usedPct ?? 0) > 100) {
                         <div class="text-danger small mt-1 fw-semibold">
-                          <i class="fas fa-exclamation-circle me-1"></i>Over credit limit
+                          <i class="fas fa-exclamation-circle me-1"></i>Over credit limit by {{ ov.currency }} {{ ((ov.position?.outstanding?.value ?? 0) - (ov.position?.credit?.limit ?? 0)) | number:'1.2-2' }}
                         </div>
                       }
                     </div>

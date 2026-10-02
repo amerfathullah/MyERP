@@ -126,6 +126,35 @@ public class PurchaseOrderFulfillmentTests
         po.Status.ShouldBe(Core.DocumentStatus.Completed);
     }
 
+    [Fact]
+    public void SetAdvancePaymentStatus_Initiated_SetsStatusToToPay()
+    {
+        var po = CreatePurchaseOrder();
+        po.AddItem(Guid.NewGuid(), "Raw Material", 10, 100, 0);
+        po.Submit();
+        po.Status.ShouldBe(Core.DocumentStatus.ToDeliverAndBill);
+
+        po.SetAdvancePaymentStatus("Initiated");
+        po.AdvancePaymentStatus.ShouldBe("Initiated");
+        po.Status.ShouldBe(Core.DocumentStatus.ToPay);
+
+        po.SetAdvancePaymentStatus("Not Initiated");
+        po.AdvancePaymentStatus.ShouldBe("Not Initiated");
+        po.Status.ShouldBe(Core.DocumentStatus.ToDeliverAndBill);
+    }
+
+    [Fact]
+    public void SetAdvancePaymentStatus_FullyReceived_PrioritizesToBillOverToPay()
+    {
+        var po = CreatePurchaseOrder();
+        po.AddItem(Guid.NewGuid(), "Raw Material", 10, 100, 0);
+        po.Submit();
+        po.Items[0].ReceivedQty = 10;
+        po.SetAdvancePaymentStatus("Initiated");
+
+        po.Status.ShouldBe(Core.DocumentStatus.ToBill);
+    }
+
     private static PurchaseOrder CreatePurchaseOrder() =>
         new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-001", DateTime.UtcNow);
 }

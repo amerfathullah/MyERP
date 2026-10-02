@@ -682,6 +682,20 @@ public class CustomerAppService :
         foreach (var cId in pleCompanyIds)
             companyIds.Add(cId);
 
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+        var jeLineRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntryLine, Guid>>();
+        var jeLineQ = await jeLineRepo.GetQueryableAsync();
+        var jeQ = await jeRepo.GetQueryableAsync();
+        var jeCompanyIds = (from line in jeLineQ
+                            join je in jeQ on line.JournalEntryId equals je.Id
+                            where line.PartyType == "Customer" && line.PartyId == customerId
+                               && (je.Status == DocumentStatus.Submitted || je.Status == DocumentStatus.Posted)
+                            select je.CompanyId)
+                            .Distinct()
+                            .ToList();
+        foreach (var cId in jeCompanyIds)
+            companyIds.Add(cId);
+
         if (companyIds.Count == 0) return new List<string>();
 
         var compRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();

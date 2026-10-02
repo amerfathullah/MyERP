@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive' | 'ToDeliverAndBill' | 'ToDeliver' | 'ToBill' | 'Completed' | 'Closed' | 'NotApplicable' | 'Unfulfilled' | 'PartiallyFulfilled' | 'Fulfilled' | 'Lapsed' | 'Return' | 'ReturnIssued' | 'PartiallyBilled' | 'Ordered' | 'PartiallyOrdered' | 'Open' | 'Lost' | 'Converted' | 'Quotation';
+export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive' | 'ToDeliverAndBill' | 'ToDeliver' | 'ToBill' | 'Completed' | 'Closed' | 'NotApplicable' | 'Unfulfilled' | 'PartiallyFulfilled' | 'Fulfilled' | 'Lapsed' | 'Return' | 'ReturnIssued' | 'PartiallyBilled' | 'Ordered' | 'PartiallyOrdered' | 'Open' | 'Lost' | 'Converted' | 'Quotation' | 'ToPay';
 
 interface StatusConfig {
   icon: string;
@@ -23,6 +23,7 @@ const STATUS_MAP: Record<DocumentStatus, StatusConfig> = {
   ToDeliverAndBill: { icon: 'fa fa-truck', badgeClass: 'bg-info' },
   ToDeliver: { icon: 'fa fa-truck', badgeClass: 'bg-warning text-dark' },
   ToBill: { icon: 'fa fa-file-invoice', badgeClass: 'bg-warning text-dark' },
+  ToPay: { icon: 'fa fa-money-bill-wave', badgeClass: 'bg-info' },
   Completed: { icon: 'fa fa-check-double', badgeClass: 'bg-success' },
   Closed: { icon: 'fa fa-lock', badgeClass: 'bg-dark' },
   NotApplicable: { icon: 'fa fa-minus', badgeClass: 'bg-secondary' },

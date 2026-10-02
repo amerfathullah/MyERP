@@ -177,4 +177,39 @@ public abstract class CustomerOverviewTests<TStartupModule> : MyERPApplicationTe
             companies.ShouldContain("Co Unique Name 4");
         });
     }
+
+    [Fact]
+    public async Task GetCustomerCompaniesAsync_WithJournalEntry_ReturnsCompany()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var jeRepo = GetRequiredService<IRepository<JournalEntry, Guid>>();
+            var jeLineRepo = GetRequiredService<IRepository<JournalEntryLine, Guid>>();
+            var customerService = GetRequiredService<ICustomerAppService>();
+
+            var companyA = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Co A Direct Cust"), autoSave: true);
+            var companyB = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Co B Journal Entry"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), companyA.Id, "Cust With JE"), autoSave: true);
+
+            var je = new JournalEntry(Guid.NewGuid(), companyB.Id, Guid.NewGuid(), DateTime.UtcNow.Date);
+            je.AddLine(Guid.NewGuid(), 100m, true);
+            je.AddLine(Guid.NewGuid(), 100m, false);
+            je.Post();
+            await jeRepo.InsertAsync(je, autoSave: true);
+
+            var jeLine = new JournalEntryLine(Guid.NewGuid(), je.Id, Guid.NewGuid(), 100m, true)
+            {
+                PartyType = "Customer",
+                PartyId = customer.Id
+            };
+            await jeLineRepo.InsertAsync(jeLine, autoSave: true);
+
+            var companies = await customerService.GetCustomerCompaniesAsync(customer.Id);
+            companies.ShouldNotBeNull();
+            companies.ShouldContain("Co A Direct Cust");
+            companies.ShouldContain("Co B Journal Entry");
+        });
+    }
 }
