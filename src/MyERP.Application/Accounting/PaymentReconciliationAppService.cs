@@ -255,4 +255,206 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
             }
         }
     }
+
+    /// <summary>
+    /// Unreconciles a batch of selected allocations in a document.
+    /// Per ERPNext PR #59677 (commit dbcb87fae8): dialog retains selection and unreconciles only chosen rows.
+    /// </summary>
+    public async Task UnreconcileAllocationsAsync(List<UnreconcileDto> inputs)
+    {
+        if (inputs == null || inputs.Count == 0)
+            return;
+
+        foreach (var item in inputs)
+        {
+            await UnreconcileAsync(item);
+        }
+    }
+
+    /// <summary>
+    /// Returns all active (non-delinked) allocations for a voucher (Payment, Invoice, or Journal).
+    /// Used by the Unreconcile Dialog.
+    /// </summary>
+    public async Task<List<LinkedAllocationDto>> GetLinkedAllocationsAsync(string voucherType, Guid voucherId)
+    {
+        var pleQuery = await _pleRepository.GetQueryableAsync();
+        var result = new List<LinkedAllocationDto>();
+
+        bool isPaymentVoucher = voucherType is "PaymentEntry" or "JournalEntry";
+
+        if (isPaymentVoucher)
+        {
+            var entries = pleQuery
+                .Where(p => p.VoucherType == voucherType
+                         && p.VoucherId == voucherId
+                         && p.AgainstVoucherId != voucherId
+                         && !p.Delinked
+                         && !p.IsReversal)
+                .ToList();
+
+            if (entries.Count == 0)
+                return result;
+
+            string paymentNumber = string.Empty;
+            DateTime paymentDate = DateTime.UtcNow;
+
+            if (voucherType == "PaymentEntry")
+            {
+                var pe = await _paymentEntryRepository.FindAsync(voucherId);
+                if (pe != null)
+                {
+                    paymentNumber = pe.PaymentNumber ?? string.Empty;
+                    paymentDate = pe.PostingDate;
+                }
+            }
+            else if (voucherType == "JournalEntry")
+            {
+                var je = await _journalEntryRepository.FindAsync(voucherId);
+                if (je != null)
+                {
+                    paymentNumber = je.EntryNumber ?? string.Empty;
+                    paymentDate = je.PostingDate;
+                }
+            }
+
+            var grouped = entries
+                .GroupBy(p => new { p.AgainstVoucherType, p.AgainstVoucherId, p.AccountCurrency })
+                .Select(g => new
+                {
+                    g.Key.AgainstVoucherType,
+                    g.Key.AgainstVoucherId,
+                    g.Key.AccountCurrency,
+                    AllocatedAmount = g.Sum(x => Math.Abs(x.AmountInAccountCurrency))
+                })
+                .Where(x => x.AllocatedAmount > 0)
+                .ToList();
+
+            foreach (var item in grouped)
+            {
+                string invoiceNumber = string.Empty;
+                DateTime invoiceDate = DateTime.UtcNow;
+
+                if (item.AgainstVoucherType == "SalesInvoice")
+                {
+                    var si = await _salesInvoiceRepository.FindAsync(item.AgainstVoucherId);
+                    if (si != null)
+                    {
+                        invoiceNumber = si.InvoiceNumber ?? string.Empty;
+                        invoiceDate = si.IssueDate;
+                    }
+                }
+                else if (item.AgainstVoucherType == "PurchaseInvoice")
+                {
+                    var pi = await _purchaseInvoiceRepository.FindAsync(item.AgainstVoucherId);
+                    if (pi != null)
+                    {
+                        invoiceNumber = pi.InvoiceNumber ?? string.Empty;
+                        invoiceDate = pi.IssueDate;
+                    }
+                }
+
+                result.Add(new LinkedAllocationDto
+                {
+                    PaymentVoucherType = voucherType,
+                    PaymentVoucherId = voucherId,
+                    PaymentVoucherNumber = paymentNumber,
+                    PaymentDate = paymentDate,
+                    InvoiceVoucherType = item.AgainstVoucherType,
+                    InvoiceVoucherId = item.AgainstVoucherId,
+                    InvoiceVoucherNumber = invoiceNumber,
+                    InvoiceDate = invoiceDate,
+                    AllocatedAmount = item.AllocatedAmount,
+                    AccountCurrency = item.AccountCurrency
+                });
+            }
+        }
+        else // Invoice voucher: SalesInvoice or PurchaseInvoice
+        {
+            var entries = pleQuery
+                .Where(p => p.AgainstVoucherType == voucherType
+                         && p.AgainstVoucherId == voucherId
+                         && p.VoucherId != voucherId
+                         && !p.Delinked
+                         && !p.IsReversal)
+                .ToList();
+
+            if (entries.Count == 0)
+                return result;
+
+            string invoiceNumber = string.Empty;
+            DateTime invoiceDate = DateTime.UtcNow;
+
+            if (voucherType == "SalesInvoice")
+            {
+                var si = await _salesInvoiceRepository.FindAsync(voucherId);
+                if (si != null)
+                {
+                    invoiceNumber = si.InvoiceNumber ?? string.Empty;
+                    invoiceDate = si.IssueDate;
+                }
+            }
+            else if (voucherType == "PurchaseInvoice")
+            {
+                var pi = await _purchaseInvoiceRepository.FindAsync(voucherId);
+                if (pi != null)
+                {
+                    invoiceNumber = pi.InvoiceNumber ?? string.Empty;
+                    invoiceDate = pi.IssueDate;
+                }
+            }
+
+            var grouped = entries
+                .GroupBy(p => new { p.VoucherType, p.VoucherId, p.AccountCurrency })
+                .Select(g => new
+                {
+                    g.Key.VoucherType,
+                    g.Key.VoucherId,
+                    g.Key.AccountCurrency,
+                    AllocatedAmount = g.Sum(x => Math.Abs(x.AmountInAccountCurrency))
+                })
+                .Where(x => x.AllocatedAmount > 0)
+                .ToList();
+
+            foreach (var item in grouped)
+            {
+                string paymentNumber = string.Empty;
+                DateTime paymentDate = DateTime.UtcNow;
+
+                if (item.VoucherType == "PaymentEntry")
+                {
+                    var pe = await _paymentEntryRepository.FindAsync(item.VoucherId);
+                    if (pe != null)
+                    {
+                        paymentNumber = pe.PaymentNumber ?? string.Empty;
+                        paymentDate = pe.PostingDate;
+                    }
+                }
+                else if (item.VoucherType == "JournalEntry")
+                {
+                    var je = await _journalEntryRepository.FindAsync(item.VoucherId);
+                    if (je != null)
+                    {
+                        paymentNumber = je.EntryNumber ?? string.Empty;
+                        paymentDate = je.PostingDate;
+                    }
+                }
+
+                result.Add(new LinkedAllocationDto
+                {
+                    PaymentVoucherType = item.VoucherType,
+                    PaymentVoucherId = item.VoucherId,
+                    PaymentVoucherNumber = paymentNumber,
+                    PaymentDate = paymentDate,
+                    InvoiceVoucherType = voucherType,
+                    InvoiceVoucherId = voucherId,
+                    InvoiceVoucherNumber = invoiceNumber,
+                    InvoiceDate = invoiceDate,
+                    AllocatedAmount = item.AllocatedAmount,
+                    AccountCurrency = item.AccountCurrency
+                });
+            }
+        }
+
+        return result;
+    }
 }

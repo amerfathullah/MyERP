@@ -72,3 +72,19 @@ public class UnreconciledPaymentDto
     public string CurrencyCode { get; set; } = null!;
     public decimal ExchangeRate { get; set; }
 }
+
+public class LinkedAllocationDto
+{
+    public string PaymentVoucherType { get; set; } = null!;
+    public Guid PaymentVoucherId { get; set; }
+    public string PaymentVoucherNumber { get; set; } = string.Empty;
+    public DateTime PaymentDate { get; set; }
+
+    public string InvoiceVoucherType { get; set; } = null!;
+    public Guid InvoiceVoucherId { get; set; }
+    public string InvoiceVoucherNumber { get; set; } = string.Empty;
+    public DateTime InvoiceDate { get; set; }
+
+    public decimal AllocatedAmount { get; set; }
+    public string AccountCurrency { get; set; } = "MYR";
+}
