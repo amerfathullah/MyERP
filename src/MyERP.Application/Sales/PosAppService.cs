@@ -257,16 +257,41 @@ public class PosAppService : ApplicationService, IPosAppService
 
         var hideUnavailable = input.HideUnavailableItems;
         Guid? warehouseId = input.WarehouseId;
+        HashSet<Guid>? allowedItemGroupIds = null;
 
         if (input.PosProfileId.HasValue)
         {
             var posProfileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
-            var profile = await posProfileRepo.FindAsync(input.PosProfileId.Value);
+            var profileQuery = await posProfileRepo.WithDetailsAsync(x => x.ItemGroups);
+            var profile = await AsyncExecuter.FirstOrDefaultAsync(profileQuery.Where(x => x.Id == input.PosProfileId.Value));
             if (profile != null)
             {
                 hideUnavailable = hideUnavailable || profile.HideUnavailableItems;
                 warehouseId ??= profile.WarehouseId;
+
+                if (profile.ItemGroups.Any())
+                {
+                    allowedItemGroupIds = await GetAllDescendantAndSelfItemGroupIdsAsync(profile.ItemGroups.Select(g => g.ItemGroupId).ToList());
+                }
             }
+        }
+
+        if (input.ItemGroupId.HasValue)
+        {
+            var selectedGroupTree = await GetAllDescendantAndSelfItemGroupIdsAsync(new[] { input.ItemGroupId.Value });
+            if (allowedItemGroupIds != null)
+            {
+                allowedItemGroupIds.IntersectWith(selectedGroupTree);
+            }
+            else
+            {
+                allowedItemGroupIds = selectedGroupTree;
+            }
+        }
+
+        if (allowedItemGroupIds != null)
+        {
+            query = query.Where(i => i.ItemGroupId.HasValue && allowedItemGroupIds.Contains(i.ItemGroupId.Value));
         }
 
         if (hideUnavailable && warehouseId.HasValue)
@@ -390,6 +415,128 @@ public class PosAppService : ApplicationService, IPosAppService
             Subject = subject,
             Message = message,
         };
+    }
+
+    /// <summary>
+    /// Computes deterministic default/parent Item Group for a POS Profile using Lowest Common Ancestor (PR #59720).
+    /// </summary>
+    [Authorize(MyERPPermissions.SalesInvoices.Default)]
+    public async Task<ParentItemGroupDto> GetParentItemGroupAsync(Guid posProfileId)
+    {
+        var posProfileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
+        var profileQuery = await posProfileRepo.WithDetailsAsync(x => x.ItemGroups);
+        var profile = await AsyncExecuter.FirstOrDefaultAsync(profileQuery.Where(x => x.Id == posProfileId));
+
+        var itemGroupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.ItemGroup, Guid>>();
+        var allGroups = await itemGroupRepo.GetListAsync();
+
+        if (profile?.ItemGroups.Any() == true)
+        {
+            var targetIds = profile.ItemGroups.Select(g => g.ItemGroupId).Distinct().ToList();
+            var lca = GetLowestCommonAncestorItemGroup(allGroups, targetIds);
+            if (lca != null)
+            {
+                return new ParentItemGroupDto { Id = lca.Id, Name = lca.Name };
+            }
+        }
+
+        var rootGroup = allGroups.FirstOrDefault(g => !g.ParentId.HasValue && g.IsGroup)
+            ?? allGroups.FirstOrDefault(g => !g.ParentId.HasValue)
+            ?? allGroups.FirstOrDefault();
+
+        return rootGroup != null
+            ? new ParentItemGroupDto { Id = rootGroup.Id, Name = rootGroup.Name }
+            : new ParentItemGroupDto { Id = Guid.Empty, Name = "All Item Groups" };
+    }
+
+    [Authorize(MyERPPermissions.SalesInvoices.Default)]
+    public async Task<List<ParentItemGroupDto>> GetItemGroupsAsync(Guid posProfileId)
+    {
+        var parent = await GetParentItemGroupAsync(posProfileId);
+        var itemGroupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.ItemGroup, Guid>>();
+        var allGroups = await itemGroupRepo.GetListAsync();
+
+        if (parent.Id == Guid.Empty)
+        {
+            return allGroups.Select(g => new ParentItemGroupDto { Id = g.Id, Name = g.Name }).ToList();
+        }
+
+        var descendants = await GetAllDescendantAndSelfItemGroupIdsAsync(new[] { parent.Id });
+        return allGroups
+            .Where(g => descendants.Contains(g.Id))
+            .Select(g => new ParentItemGroupDto { Id = g.Id, Name = g.Name })
+            .ToList();
+    }
+
+    private async Task<HashSet<Guid>> GetAllDescendantAndSelfItemGroupIdsAsync(IEnumerable<Guid> seedGroupIds)
+    {
+        var itemGroupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.ItemGroup, Guid>>();
+        var allGroups = await itemGroupRepo.GetListAsync();
+        var childrenLookup = allGroups
+            .Where(g => g.ParentId.HasValue)
+            .GroupBy(g => g.ParentId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Id).ToList());
+
+        var result = new HashSet<Guid>(seedGroupIds);
+        var queue = new Queue<Guid>(seedGroupIds);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (childrenLookup.TryGetValue(current, out var children))
+            {
+                foreach (var child in children)
+                {
+                    if (result.Add(child))
+                    {
+                        queue.Enqueue(child);
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    public static Inventory.Entities.ItemGroup? GetLowestCommonAncestorItemGroup(
+        List<Inventory.Entities.ItemGroup> allGroups,
+        List<Guid> groupIds)
+    {
+        if (groupIds == null || groupIds.Count == 0) return null;
+        if (groupIds.Count == 1) return allGroups.FirstOrDefault(g => g.Id == groupIds[0]);
+
+        var groupMap = allGroups.ToDictionary(g => g.Id);
+        var paths = new List<List<Guid>>();
+
+        foreach (var id in groupIds)
+        {
+            var path = new List<Guid>();
+            var current = id;
+            var visited = new HashSet<Guid>();
+            while (groupMap.TryGetValue(current, out var node) && visited.Add(current))
+            {
+                path.Add(current);
+                if (!node.ParentId.HasValue) break;
+                current = node.ParentId.Value;
+            }
+            if (path.Count > 0)
+            {
+                paths.Add(path);
+            }
+        }
+
+        if (paths.Count == 0) return null;
+
+        var firstPath = paths[0];
+        foreach (var ancestorId in firstPath)
+        {
+            if (paths.All(p => p.Contains(ancestorId)))
+            {
+                return groupMap.GetValueOrDefault(ancestorId);
+            }
+        }
+
+        return null;
     }
 }
 

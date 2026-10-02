@@ -2,11 +2,12 @@ import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { PageModule } from '@abp/ng.components/page';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PosService } from '../../proxy/sales/pos.service';
-import type { PosItemDto } from '../../proxy/sales/models';
+import type { PosItemDto, ParentItemGroupDto } from '../../proxy/sales/models';
 import { debounceTime, Subject } from 'rxjs';
 
 interface CartItem {
@@ -42,12 +43,16 @@ interface HeldOrder {
 })
 export class PosComponent implements OnInit {
   private posService = inject(PosService);
+  private route = inject(ActivatedRoute);
   private toaster = inject(ToasterService);
   private localization = inject(LocalizationService);
 
   // Search & Items
   searchQuery = '';
   items = signal<PosItemDto[]>([]);
+  itemGroups = signal<ParentItemGroupDto[]>([]);
+  selectedItemGroupId = signal<string | null>(null);
+  posProfileId = signal<string | null>(null);
   private searchSubject = new Subject<string>();
 
   // Cart
@@ -83,19 +88,39 @@ export class PosComponent implements OnInit {
   paymentModes = ['Cash', 'Credit Card', 'Bank Transfer', 'E-Wallet', 'Cheque'];
 
   ngOnInit(): void {
-    this.posService.searchItems({ maxResultCount: 30 }).subscribe((result) => {
-      this.items.set(result.items ?? []);
-    });
-
-    this.searchSubject.pipe(debounceTime(300)).subscribe((query) => {
-      this.posService.searchItems({ search: query, maxResultCount: 20 }).subscribe((result) => {
-        this.items.set(result.items ?? []);
+    const profileId = this.route.snapshot.queryParams['posProfileId'] || null;
+    this.posProfileId.set(profileId);
+    if (profileId) {
+      this.posService.getItemGroups(profileId).subscribe((groups) => {
+        this.itemGroups.set(groups ?? []);
       });
+    }
+
+    this.loadItems();
+
+    this.searchSubject.pipe(debounceTime(300)).subscribe(() => {
+      this.loadItems();
     });
 
     // Load held orders from session storage
     const saved = sessionStorage.getItem('pos_held_orders');
     if (saved) this.heldOrders = JSON.parse(saved);
+  }
+
+  selectItemGroup(id: string | null): void {
+    this.selectedItemGroupId.set(id);
+    this.loadItems();
+  }
+
+  loadItems(): void {
+    this.posService.searchItems({
+      search: this.searchQuery,
+      posProfileId: this.posProfileId() ?? undefined,
+      itemGroupId: this.selectedItemGroupId() ?? undefined,
+      maxResultCount: 30
+    }).subscribe((result) => {
+      this.items.set(result.items ?? []);
+    });
   }
 
   onSearchChange(query: string): void {

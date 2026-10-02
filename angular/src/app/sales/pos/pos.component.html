@@ -38,6 +38,26 @@
       }
     </div>
 
+    <!-- Item Groups Chips (PR #59720) -->
+    @if (itemGroups().length > 0) {
+      <div class="d-flex gap-1 overflow-auto py-1">
+        <button class="btn btn-sm rounded-pill"
+          [class.btn-primary]="selectedItemGroupId() === null"
+          [class.btn-outline-secondary]="selectedItemGroupId() !== null"
+          (click)="selectItemGroup(null)">
+          {{ '::All' | abpLocalization }}
+        </button>
+        @for (grp of itemGroups(); track grp.id) {
+          <button class="btn btn-sm rounded-pill text-nowrap"
+            [class.btn-primary]="selectedItemGroupId() === grp.id"
+            [class.btn-outline-secondary]="selectedItemGroupId() !== grp.id"
+            (click)="selectItemGroup(grp.id ?? null)">
+            {{ grp.name }}
+          </button>
+        }
+      </div>
+    }
+
     <!-- Item grid -->
     <div class="row g-2 overflow-auto flex-grow-1">
       @for (item of items(); track item.id) {

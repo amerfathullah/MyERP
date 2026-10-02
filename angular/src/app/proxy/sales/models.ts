@@ -583,6 +583,8 @@ export interface CreateUpdatePosProfileDto {
   receiptEmailTemplateId?: string | null;
   paymentMethods?: CreateUpdatePosProfilePaymentMethodDto[];
   users?: CreateUpdatePosProfileUserDto[];
+  itemGroupIds?: string[];
+  customerGroupIds?: string[];
 }
 
 export interface CreateUpdatePosProfilePaymentMethodDto {
@@ -1124,6 +1126,7 @@ export interface PosItemSearchDto {
   maxResultCount?: number;
   warehouseId?: string | null;
   posProfileId?: string | null;
+  itemGroupId?: string | null;
   hideUnavailableItems?: boolean;
 }
 
@@ -1175,6 +1178,25 @@ export interface PosProfileDto extends FullAuditedEntityDto<string> {
   receiptEmailTemplateName?: string | null;
   paymentMethods?: PosProfilePaymentMethodDto[];
   users?: PosProfileUserDto[];
+  itemGroups?: PosProfileItemGroupDto[];
+  customerGroups?: PosProfileCustomerGroupDto[];
+}
+
+export interface PosProfileItemGroupDto extends EntityDto<string> {
+  posProfileId?: string;
+  itemGroupId?: string;
+  itemGroupName?: string;
+}
+
+export interface PosProfileCustomerGroupDto extends EntityDto<string> {
+  posProfileId?: string;
+  customerGroupId?: string;
+  customerGroupName?: string;
+}
+
+export interface ParentItemGroupDto {
+  id?: string;
+  name?: string;
 }
 
 export interface PosProfilePaymentMethodDto extends EntityDto<string> {

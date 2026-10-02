@@ -1,4 +1,4 @@
-import type { BarcodeScanResultDto, CreatePosInvoiceDto, PosInvoiceDto, PosItemDto, PosItemSearchDto, ScanBarcodeInput } from './models';
+import type { BarcodeScanResultDto, CreatePosInvoiceDto, ParentItemGroupDto, PosInvoiceDto, PosItemDto, PosItemSearchDto, ScanBarcodeInput } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -34,6 +34,20 @@ export class PosService {
       method: 'POST',
       url: '/api/app/pos/search-items',
       body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  getParentItemGroup = (posProfileId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ParentItemGroupDto>({
+      method: 'GET',
+      url: `/api/app/pos/parent-item-group/${posProfileId}`,
+    },
+    { apiName: this.apiName,...config });
+
+  getItemGroups = (posProfileId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ParentItemGroupDto[]>({
+      method: 'GET',
+      url: `/api/app/pos/item-groups/${posProfileId}`,
     },
     { apiName: this.apiName,...config });
 }

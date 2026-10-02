@@ -29,6 +29,8 @@ public class PosProfileDto : FullAuditedEntityDto<Guid>
     public string? ReceiptEmailTemplateName { get; set; }
     public List<PosProfilePaymentMethodDto> PaymentMethods { get; set; } = new();
     public List<PosProfileUserDto> Users { get; set; } = new();
+    public List<PosProfileItemGroupDto> ItemGroups { get; set; } = new();
+    public List<PosProfileCustomerGroupDto> CustomerGroups { get; set; } = new();
 }
 
 public class PosProfilePaymentMethodDto : EntityDto<Guid>
@@ -44,6 +46,26 @@ public class PosProfileUserDto : EntityDto<Guid>
     public Guid PosProfileId { get; set; }
     public Guid UserId { get; set; }
     public bool IsDefault { get; set; }
+}
+
+public class PosProfileItemGroupDto : EntityDto<Guid>
+{
+    public Guid PosProfileId { get; set; }
+    public Guid ItemGroupId { get; set; }
+    public string ItemGroupName { get; set; } = string.Empty;
+}
+
+public class PosProfileCustomerGroupDto : EntityDto<Guid>
+{
+    public Guid PosProfileId { get; set; }
+    public Guid CustomerGroupId { get; set; }
+    public string CustomerGroupName { get; set; } = string.Empty;
+}
+
+public class ParentItemGroupDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
 }
 
 public class CreateUpdatePosProfileDto
@@ -82,6 +104,8 @@ public class CreateUpdatePosProfileDto
     public Guid? ReceiptEmailTemplateId { get; set; }
     public List<CreateUpdatePosProfilePaymentMethodDto> PaymentMethods { get; set; } = new();
     public List<CreateUpdatePosProfileUserDto> Users { get; set; } = new();
+    public List<Guid> ItemGroupIds { get; set; } = new();
+    public List<Guid> CustomerGroupIds { get; set; } = new();
 }
 
 public class CreateUpdatePosProfilePaymentMethodDto

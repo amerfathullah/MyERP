@@ -13,6 +13,8 @@ public interface IPosAppService : IApplicationService
     Task<PagedResultDto<PosItemDto>> SearchItemsAsync(PosItemSearchDto input);
     Task<BarcodeScanResultDto> ScanBarcodeAsync(ScanBarcodeInput input);
     Task<PosReceiptEmailContentDto> GetReceiptEmailContentAsync(Guid invoiceId);
+    Task<ParentItemGroupDto> GetParentItemGroupAsync(Guid posProfileId);
+    Task<List<ParentItemGroupDto>> GetItemGroupsAsync(Guid posProfileId);
 }
 
 public class PosReceiptEmailContentDto
@@ -85,6 +87,7 @@ public class PosItemSearchDto
     public int MaxResultCount { get; set; } = 20;
     public Guid? WarehouseId { get; set; }
     public Guid? PosProfileId { get; set; }
+    public Guid? ItemGroupId { get; set; }
     public bool HideUnavailableItems { get; set; }
 }
 

@@ -58,7 +58,7 @@ public class PosProfileAppService : CrudAppService<
 
     public override async Task<PosProfileDto> GetAsync(Guid id)
     {
-        var query = await _posProfileRepository.WithDetailsAsync(x => x.PaymentMethods, x => x.Users);
+        var query = await _posProfileRepository.WithDetailsAsync(x => x.PaymentMethods, x => x.Users, x => x.ItemGroups, x => x.CustomerGroups);
         var entity = await AsyncExecuter.FirstOrDefaultAsync(query.Where(x => x.Id == id));
         if (entity == null)
         {
@@ -72,6 +72,37 @@ public class PosProfileAppService : CrudAppService<
             var template = await emailTemplateRepo.FindAsync(entity.ReceiptEmailTemplateId.Value);
             dto.ReceiptEmailTemplateName = template?.Name;
         }
+
+        if (entity.ItemGroups.Any())
+        {
+            var itemGroupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.ItemGroup, Guid>>();
+            var groupIds = entity.ItemGroups.Select(g => g.ItemGroupId).ToList();
+            var itemGroupList = await itemGroupRepo.GetListAsync(g => groupIds.Contains(g.Id));
+            var groupMap = itemGroupList.ToDictionary(g => g.Id, g => g.Name);
+            dto.ItemGroups = entity.ItemGroups.Select(g => new PosProfileItemGroupDto
+            {
+                Id = g.Id,
+                PosProfileId = g.PosProfileId,
+                ItemGroupId = g.ItemGroupId,
+                ItemGroupName = groupMap.GetValueOrDefault(g.ItemGroupId, string.Empty)
+            }).ToList();
+        }
+
+        if (entity.CustomerGroups.Any())
+        {
+            var custGroupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.CustomerGroup, Guid>>();
+            var custGroupIds = entity.CustomerGroups.Select(c => c.CustomerGroupId).ToList();
+            var custGroupList = await custGroupRepo.GetListAsync(c => custGroupIds.Contains(c.Id));
+            var custGroupMap = custGroupList.ToDictionary(c => c.Id, c => c.Name);
+            dto.CustomerGroups = entity.CustomerGroups.Select(c => new PosProfileCustomerGroupDto
+            {
+                Id = c.Id,
+                PosProfileId = c.PosProfileId,
+                CustomerGroupId = c.CustomerGroupId,
+                CustomerGroupName = custGroupMap.GetValueOrDefault(c.CustomerGroupId, string.Empty)
+            }).ToList();
+        }
+
         return dto;
     }
 
@@ -142,13 +173,29 @@ public class PosProfileAppService : CrudAppService<
             }
         }
 
+        if (input.ItemGroupIds != null)
+        {
+            foreach (var gid in input.ItemGroupIds.Distinct())
+            {
+                entity.AddItemGroup(gid);
+            }
+        }
+
+        if (input.CustomerGroupIds != null)
+        {
+            foreach (var cid in input.CustomerGroupIds.Distinct())
+            {
+                entity.AddCustomerGroup(cid);
+            }
+        }
+
         await _posProfileRepository.InsertAsync(entity, autoSave: true);
         return ObjectMapper.Map<PosProfile, PosProfileDto>(entity);
     }
 
     public override async Task<PosProfileDto> UpdateAsync(Guid id, CreateUpdatePosProfileDto input)
     {
-        var query = await _posProfileRepository.WithDetailsAsync(x => x.PaymentMethods, x => x.Users);
+        var query = await _posProfileRepository.WithDetailsAsync(x => x.PaymentMethods, x => x.Users, x => x.ItemGroups, x => x.CustomerGroups);
         var entity = await AsyncExecuter.FirstOrDefaultAsync(query.Where(x => x.Id == id));
         if (entity == null)
         {
@@ -238,6 +285,24 @@ public class PosProfileAppService : CrudAppService<
             foreach (var userDto in input.Users)
             {
                 entity.AddUser(userDto.UserId, userDto.IsDefault);
+            }
+        }
+
+        entity.ClearItemGroups();
+        if (input.ItemGroupIds != null)
+        {
+            foreach (var gid in input.ItemGroupIds.Distinct())
+            {
+                entity.AddItemGroup(gid);
+            }
+        }
+
+        entity.ClearCustomerGroups();
+        if (input.CustomerGroupIds != null)
+        {
+            foreach (var cid in input.CustomerGroupIds.Distinct())
+            {
+                entity.AddCustomerGroup(cid);
             }
         }
 

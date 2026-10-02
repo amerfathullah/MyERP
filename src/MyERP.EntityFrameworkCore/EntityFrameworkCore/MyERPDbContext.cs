@@ -183,6 +183,8 @@ public class MyERPDbContext :
     public DbSet<PosProfile> PosProfiles { get; set; }
     public DbSet<PosProfilePaymentMethod> PosProfilePaymentMethods { get; set; }
     public DbSet<PosProfileUser> PosProfileUsers { get; set; }
+    public DbSet<PosProfileItemGroup> PosProfileItemGroups { get; set; }
+    public DbSet<PosProfileCustomerGroup> PosProfileCustomerGroups { get; set; }
     public DbSet<InstallationNote> InstallationNotes { get; set; }
     public DbSet<InstallationNoteItem> InstallationNoteItems { get; set; }
     public DbSet<CouponCode> CouponCodes { get; set; }
@@ -4369,6 +4371,10 @@ public class MyERPDbContext :
             b.Navigation(x => x.PaymentMethods).AutoInclude();
             b.HasMany(x => x.Users).WithOne().HasForeignKey(x => x.PosProfileId).IsRequired();
             b.Navigation(x => x.Users).AutoInclude();
+            b.HasMany(x => x.ItemGroups).WithOne().HasForeignKey(x => x.PosProfileId).IsRequired();
+            b.Navigation(x => x.ItemGroups).AutoInclude();
+            b.HasMany(x => x.CustomerGroups).WithOne().HasForeignKey(x => x.PosProfileId).IsRequired();
+            b.Navigation(x => x.CustomerGroups).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.IsDisabled });
         });
 
@@ -4384,6 +4390,20 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.HasIndex(x => new { x.TenantId, x.PosProfileId, x.UserId }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.UserId, x.IsDefault });
+        });
+
+        builder.Entity<PosProfileItemGroup>(b =>
+        {
+            b.ToTable("Sal_PosProfileItemGroups", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasIndex(x => new { x.TenantId, x.PosProfileId, x.ItemGroupId }).IsUnique();
+        });
+
+        builder.Entity<PosProfileCustomerGroup>(b =>
+        {
+            b.ToTable("Sal_PosProfileCustomerGroups", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasIndex(x => new { x.TenantId, x.PosProfileId, x.CustomerGroupId }).IsUnique();
         });
 
         // Installation Note

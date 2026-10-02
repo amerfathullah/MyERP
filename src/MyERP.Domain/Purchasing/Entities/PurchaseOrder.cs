@@ -229,7 +229,9 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
             }
         }
 
-        Status = DocumentStatus.ToDeliverAndBill; // "To Receive and Bill"
+        Status = AdvancePaymentStatus == "Initiated"
+            ? DocumentStatus.ToPay
+            : DocumentStatus.ToDeliverAndBill; // "To Receive and Bill"
     }
 
     /// <summary>
@@ -293,8 +295,19 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
             Status = DocumentStatus.ToBill;
         else if (fullyBilled)
             Status = DocumentStatus.ToDeliver; // "To Receive"
+        else if (AdvancePaymentStatus == "Initiated")
+            Status = DocumentStatus.ToPay;
         else
             Status = DocumentStatus.ToDeliverAndBill;
+    }
+
+    /// <summary>
+    /// Syncs advance payment status and recalculates fulfillment status (PR #59727).
+    /// </summary>
+    public void SetAdvancePaymentStatus(string status)
+    {
+        AdvancePaymentStatus = status;
+        UpdateFulfillmentStatus();
     }
 
     private void RecalculateTotals()

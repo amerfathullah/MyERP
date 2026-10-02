@@ -91,6 +91,14 @@ public class PosProfile : FullAuditedAggregateRoot<Guid>, IMultiTenant
     private readonly List<PosProfileUser> _users = new();
     public IReadOnlyList<PosProfileUser> Users => _users.AsReadOnly();
 
+    /// <summary>Configured Item Groups for POS filtering (ERPNext pos_profile.json: item_groups).</summary>
+    private readonly List<PosProfileItemGroup> _itemGroups = new();
+    public IReadOnlyList<PosProfileItemGroup> ItemGroups => _itemGroups.AsReadOnly();
+
+    /// <summary>Configured Customer Groups for POS filtering (ERPNext pos_profile.json: customer_groups).</summary>
+    private readonly List<PosProfileCustomerGroup> _customerGroups = new();
+    public IReadOnlyList<PosProfileCustomerGroup> CustomerGroups => _customerGroups.AsReadOnly();
+
     protected PosProfile() { }
 
     public PosProfile(Guid id, Guid companyId, string profileName, Guid warehouseId, Guid? tenantId = null)
@@ -129,6 +137,40 @@ public class PosProfile : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void ClearUsers()
     {
         _users.Clear();
+    }
+
+    public void AddItemGroup(Guid itemGroupId)
+    {
+        if (_itemGroups.Any(g => g.ItemGroupId == itemGroupId))
+            return;
+        _itemGroups.Add(new PosProfileItemGroup(Guid.NewGuid(), Id, itemGroupId, TenantId));
+    }
+
+    public void RemoveItemGroup(Guid itemGroupId)
+    {
+        _itemGroups.RemoveAll(g => g.ItemGroupId == itemGroupId);
+    }
+
+    public void ClearItemGroups()
+    {
+        _itemGroups.Clear();
+    }
+
+    public void AddCustomerGroup(Guid customerGroupId)
+    {
+        if (_customerGroups.Any(g => g.CustomerGroupId == customerGroupId))
+            return;
+        _customerGroups.Add(new PosProfileCustomerGroup(Guid.NewGuid(), Id, customerGroupId, TenantId));
+    }
+
+    public void RemoveCustomerGroup(Guid customerGroupId)
+    {
+        _customerGroups.RemoveAll(g => g.CustomerGroupId == customerGroupId);
+    }
+
+    public void ClearCustomerGroups()
+    {
+        _customerGroups.Clear();
     }
 
     public void Disable()

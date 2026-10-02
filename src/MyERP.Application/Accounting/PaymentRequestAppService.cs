@@ -211,6 +211,7 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
         var pr = await _repository.GetAsync(id);
         pr.Submit();
         await _repository.UpdateAsync(pr);
+        await SyncReferenceAdvancePaymentStatusAsync(pr);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -229,6 +230,7 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
         var pr = await _repository.GetAsync(id);
         pr.Cancel();
         await _repository.UpdateAsync(pr);
+        await SyncReferenceAdvancePaymentStatusAsync(pr, isCancel: true);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -324,6 +326,7 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
         pr.OutstandingAmount = 0;
         pr.MarkPaid(pe.Id);
         await _repository.UpdateAsync(pr, autoSave: true);
+        await SyncReferenceAdvancePaymentStatusAsync(pr, explicitStatus: "Fully Paid");
 
         var activityLogRepo2 = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo2.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -446,5 +449,37 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
             Rate = p.Rate,
             Amount = p.Amount
         }).ToList();
+    }
+
+    private async Task SyncReferenceAdvancePaymentStatusAsync(PaymentRequest pr, string? explicitStatus = null, bool isCancel = false)
+    {
+        if (string.Equals(pr.ReferenceDoctype, "PurchaseOrder", StringComparison.OrdinalIgnoreCase))
+        {
+            var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+            var po = await poRepo.FindAsync(pr.ReferenceId);
+            if (po != null)
+            {
+                if (explicitStatus != null)
+                {
+                    po.SetAdvancePaymentStatus(explicitStatus);
+                }
+                else if (isCancel)
+                {
+                    var prQuery = await _repository.GetQueryableAsync();
+                    var hasOtherInitiated = prQuery.Any(p => p.Id != pr.Id
+                        && p.ReferenceDoctype == pr.ReferenceDoctype
+                        && p.ReferenceId == pr.ReferenceId
+                        && p.Status == PaymentRequestStatus.Initiated);
+
+                    po.SetAdvancePaymentStatus(hasOtherInitiated ? "Initiated" : "Not Initiated");
+                }
+                else
+                {
+                    po.SetAdvancePaymentStatus("Initiated");
+                }
+
+                await poRepo.UpdateAsync(po);
+            }
+        }
     }
 }

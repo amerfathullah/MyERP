@@ -1923,6 +1923,24 @@ public partial class PosProfileUserMapper : MapperBase<Sales.Entities.PosProfile
     public override partial void Map(Sales.Entities.PosProfileUser source, Sales.PosProfileUserDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class PosProfileItemGroupMapper : MapperBase<Sales.Entities.PosProfileItemGroup, Sales.PosProfileItemGroupDto>
+{
+    [MapperIgnoreTarget(nameof(Sales.PosProfileItemGroupDto.ItemGroupName))]
+    public override partial Sales.PosProfileItemGroupDto Map(Sales.Entities.PosProfileItemGroup source);
+    [MapperIgnoreTarget(nameof(Sales.PosProfileItemGroupDto.ItemGroupName))]
+    public override partial void Map(Sales.Entities.PosProfileItemGroup source, Sales.PosProfileItemGroupDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class PosProfileCustomerGroupMapper : MapperBase<Sales.Entities.PosProfileCustomerGroup, Sales.PosProfileCustomerGroupDto>
+{
+    [MapperIgnoreTarget(nameof(Sales.PosProfileCustomerGroupDto.CustomerGroupName))]
+    public override partial Sales.PosProfileCustomerGroupDto Map(Sales.Entities.PosProfileCustomerGroup source);
+    [MapperIgnoreTarget(nameof(Sales.PosProfileCustomerGroupDto.CustomerGroupName))]
+    public override partial void Map(Sales.Entities.PosProfileCustomerGroup source, Sales.PosProfileCustomerGroupDto destination);
+}
+
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.None)]
 public partial class PosProfileMapper : MapperBase<Sales.Entities.PosProfile, Sales.PosProfileDto>
 {
