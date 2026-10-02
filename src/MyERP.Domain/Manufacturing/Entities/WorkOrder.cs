@@ -49,6 +49,8 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? ProductionPlanId { get; set; }
     public Guid? ProductionPlanItemId { get; set; }
     public Guid? ProductionPlanSubAssemblyItemId { get; set; }
+    public Guid? MaterialRequestId { get; set; }
+    public Guid? MaterialRequestItemId { get; set; }
     public Guid? SourceWarehouseId { get; set; }
     public Guid? WipWarehouseId { get; set; }
     public Guid? FgWarehouseId { get; set; }

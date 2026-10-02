@@ -1,4 +1,5 @@
 import type { CreateMaterialRequestDto, GetMaterialRequestListDto, MaterialRequestDto, MrFulfillmentStatusDto } from './dtos/models';
+import type { BatchCreateWorkOrdersResultDto } from '../manufacturing/models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -81,6 +82,14 @@ export class MaterialRequestService {
     this.restService.request<any, MaterialRequestDto>({
       method: 'POST',
       url: `/api/app/material-request/${id}/reopen`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  raiseWorkOrders = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BatchCreateWorkOrdersResultDto>({
+      method: 'POST',
+      url: `/api/app/material-request/${id}/raise-work-orders`,
     },
     { apiName: this.apiName,...config });
 }

@@ -61,6 +61,9 @@ export class MaterialRequestDetailComponent implements OnInit {
       if (this.entity.requestType === 1 || this.entity.requestType === 2) { // Transfer/Issue
         actions.push({ name: 'createSE', label: 'Create Stock Entry', icon: 'truck', color: 'info' });
       }
+      if (this.entity.requestType === 3 && (this.entity.perOrdered ?? 0) < 100) { // Manufacture (ERPNext PR #59584)
+        actions.push({ name: 'createWO', label: 'Create Work Order', icon: 'cogs', color: 'primary' });
+      }
       actions.push({ name: 'stop', label: 'Stop', icon: 'stop-circle', color: 'warning' });
       actions.push({ name: 'cancel', label: 'Cancel', icon: 'ban', color: 'danger' });
     }
@@ -108,6 +111,7 @@ export class MaterialRequestDetailComponent implements OnInit {
       case 'createRFQ': this.createRFQ(); break;
       case 'splitBySupplier': this.openSplitPanel(); break;
       case 'createSE': this.createStockEntry(); break;
+      case 'createWO': this.createWorkOrders(); break;
       case 'stop': this.stopMR(); break;
       case 'reopen': this.reopenMR(); break;
       case 'cancel': this.cancelMR(); break;
@@ -122,6 +126,26 @@ export class MaterialRequestDetailComponent implements OnInit {
         this.actionLoading.set(false);
         this.toaster.success('::SuccessfullyCreatedRFQ');
         this.router.navigate(['/purchasing/rfq']);
+      },
+      error: (err: any) => {
+        this.actionLoading.set(false);
+        this.toaster.error(err?.error?.error?.message || '::OperationFailed');
+      }
+    });
+  }
+
+  createWorkOrders(): void {
+    if (!this.entity?.id) return;
+    this.actionLoading.set(true);
+    this.service.raiseWorkOrders(this.entity.id).subscribe({
+      next: (res) => {
+        this.actionLoading.set(false);
+        if ((res?.createdCount ?? 0) > 0) {
+          this.toaster.success(`Successfully created ${res.createdCount} Work Order(s).`);
+          this.reload();
+        } else {
+          this.toaster.warn('No Work Orders were created (all items fulfilled or missing BOMs).');
+        }
       },
       error: (err: any) => {
         this.actionLoading.set(false);

@@ -3194,6 +3194,7 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.WorkOrderNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.ProductionPlanId });
+            b.HasIndex(x => new { x.TenantId, x.MaterialRequestId });
         });
 
         builder.Entity<WorkOrderItem>(b =>

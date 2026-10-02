@@ -185,6 +185,8 @@ public class WorkOrderDto : AuditedEntityDto<Guid>
     public Guid? ProductionPlanId { get; set; }
     public Guid? ProductionPlanItemId { get; set; }
     public Guid? ProductionPlanSubAssemblyItemId { get; set; }
+    public Guid? MaterialRequestId { get; set; }
+    public Guid? MaterialRequestItemId { get; set; }
     public DateTime? PlannedStartDate { get; set; }
     public DateTime? PlannedEndDate { get; set; }
     public DateTime? ActualStartDate { get; set; }
@@ -222,6 +224,8 @@ public class CreateWorkOrderDto
     public Guid? ProductionPlanId { get; set; }
     public Guid? ProductionPlanItemId { get; set; }
     public Guid? ProductionPlanSubAssemblyItemId { get; set; }
+    public Guid? MaterialRequestId { get; set; }
+    public Guid? MaterialRequestItemId { get; set; }
     public Guid? SourceWarehouseId { get; set; }
     public Guid? WipWarehouseId { get; set; }
     public Guid? FgWarehouseId { get; set; }
@@ -396,6 +400,9 @@ public interface IManufacturingAppService : IApplicationService
 
     // Batch WO from Sales Order
     Task<BatchCreateWorkOrdersResultDto> CreateWorkOrdersFromSalesOrderAsync(Guid salesOrderId);
+
+    // Batch WO from Material Request (ERPNext PR #59584 / commit 6e24ef9cce)
+    Task<BatchCreateWorkOrdersResultDto> CreateWorkOrdersFromMaterialRequestAsync(Guid materialRequestId);
 
     // Cost Analysis
     Task<ProductionCostBreakdownDto> GetProductionCostBreakdownAsync(Guid workOrderId);

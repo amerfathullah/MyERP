@@ -587,4 +587,15 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             }
         }
     }
+
+    /// <summary>
+    /// Creates Work Orders from this Material Request if it is a submitted Manufacture request.
+    /// Per ERPNext stock/doctype/material_request/material_request.py:raise_work_orders (PR #59584 / commit 6e24ef9cce).
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Create)]
+    public async Task<MyERP.Manufacturing.BatchCreateWorkOrdersResultDto> RaiseWorkOrdersAsync(Guid id)
+    {
+        var mfgAppService = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.IManufacturingAppService>();
+        return await mfgAppService.CreateWorkOrdersFromMaterialRequestAsync(id);
+    }
 }

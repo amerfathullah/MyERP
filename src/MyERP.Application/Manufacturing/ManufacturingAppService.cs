@@ -598,6 +598,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             ProductionPlanId = input.ProductionPlanId,
             ProductionPlanItemId = input.ProductionPlanItemId,
             ProductionPlanSubAssemblyItemId = input.ProductionPlanSubAssemblyItemId,
+            MaterialRequestId = input.MaterialRequestId,
+            MaterialRequestItemId = input.MaterialRequestItemId,
             SourceWarehouseId = sourceWarehouseId,
             WipWarehouseId = wipWarehouseId,
             FgWarehouseId = fgWarehouseId,
@@ -723,6 +725,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.ProductionPlanId = input.ProductionPlanId;
         wo.ProductionPlanItemId = input.ProductionPlanItemId;
         wo.ProductionPlanSubAssemblyItemId = input.ProductionPlanSubAssemblyItemId;
+        wo.MaterialRequestId = input.MaterialRequestId;
+        wo.MaterialRequestItemId = input.MaterialRequestItemId;
         wo.SourceWarehouseId = sourceWarehouseId;
         wo.WipWarehouseId = wipWarehouseId;
         wo.FgWarehouseId = fgWarehouseId;
@@ -949,9 +953,137 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         };
     }
 
+    /// <summary>
+    /// Creates Work Orders from a submitted Manufacture Material Request.
+    /// Per ERPNext stock/doctype/material_request/material_request.py:raise_work_orders (PR #59584 / commit 6e24ef9cce).
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Create)]
+    public async Task<BatchCreateWorkOrdersResultDto> CreateWorkOrdersFromMaterialRequestAsync(Guid materialRequestId)
+    {
+        await AuthorizationService.CheckAsync(MyERPPermissions.MaterialRequests.Default);
+
+        var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+        var mr = await mrRepo.GetAsync(materialRequestId, includeDetails: true);
+
+        if (mr.Status == Core.DocumentStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot create Work Orders from a stopped Material Request.");
+        }
+
+        if (mr.Status != Core.DocumentStatus.Submitted)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", "Material Request must be submitted to create Work Orders.");
+        }
+
+        if (mr.RequestType != Purchasing.MaterialRequestType.Manufacture)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Material Request type must be Manufacture.");
+        }
+
+        var companyId = mr.CompanyId;
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+        var company = await companyRepo.FindAsync(companyId);
+        var defaultWipWarehouse = company?.DefaultWipWarehouseId;
+
+        var bomQuery = await _bomRepository.GetQueryableAsync();
+        var activeBoms = bomQuery.Where(b => b.IsActive && b.CompanyId == companyId).ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+
+        var created = new List<CreatedWorkOrderInfo>();
+        var skipped = 0;
+        var fulfilledLines = new List<(Guid MaterialRequestItemId, decimal Quantity)>();
+
+        foreach (var item in mr.Items)
+        {
+            var pendingQty = (item.StockQty > 0 ? item.StockQty : item.Quantity) - item.OrderedQuantity;
+            if (pendingQty <= 0)
+            {
+                skipped++;
+                continue;
+            }
+
+            var bom = activeBoms.FirstOrDefault(b => b.ItemId == item.ItemId && b.IsDefault)
+                      ?? activeBoms.FirstOrDefault(b => b.ItemId == item.ItemId);
+
+            if (bom == null)
+            {
+                var itemEntity = await itemRepo.FindAsync(item.ItemId);
+                if (itemEntity?.VariantOfId.HasValue == true)
+                {
+                    var templateItemId = itemEntity.VariantOfId.Value;
+                    bom = activeBoms.FirstOrDefault(b => b.ItemId == templateItemId && b.IsDefault)
+                          ?? activeBoms.FirstOrDefault(b => b.ItemId == templateItemId);
+                }
+            }
+
+            if (bom == null)
+            {
+                skipped++;
+                continue;
+            }
+
+            try
+            {
+                var input = new CreateWorkOrderDto
+                {
+                    ItemId = item.ItemId,
+                    BomId = bom.Id,
+                    Quantity = pendingQty,
+                    CompanyId = companyId,
+                    MaterialRequestId = mr.Id,
+                    MaterialRequestItemId = item.Id,
+                    SalesOrderId = item.SalesOrderId,
+                    SalesOrderItemId = item.SalesOrderItemId,
+                    SourceWarehouseId = bom.SourceWarehouseId,
+                    WipWarehouseId = defaultWipWarehouse,
+                    FgWarehouseId = item.WarehouseId ?? bom.TargetWarehouseId,
+                    PlannedStartDate = mr.RequestDate,
+                    PlannedEndDate = mr.RequiredByDate,
+                };
+
+                var wo = await CreateWorkOrderAsync(input);
+                created.Add(new CreatedWorkOrderInfo
+                {
+                    WorkOrderId = wo.Id,
+                    WorkOrderNumber = wo.WorkOrderNumber,
+                    ItemName = item.ItemName,
+                    Quantity = pendingQty
+                });
+                fulfilledLines.Add((item.Id, pendingQty));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to create Work Order for Material Request item {ItemId}", item.ItemId);
+                skipped++;
+            }
+        }
+
+        if (fulfilledLines.Count > 0)
+        {
+            var mrManager = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.MaterialRequestManager>();
+            await mrManager.UpdateFulfillmentForItemsAsync(fulfilledLines);
+        }
+
+        return new BatchCreateWorkOrdersResultDto
+        {
+            CreatedCount = created.Count,
+            SkippedCount = skipped,
+            WorkOrders = created
+        };
+    }
+
     [Authorize(MyERPPermissions.Manufacturing.Delete)]
     public async Task DeleteWorkOrderAsync(Guid id)
     {
+        var wo = await _workOrderRepository.FindAsync(id);
+        if (wo != null && wo.MaterialRequestItemId.HasValue)
+        {
+            var mrManager = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.MaterialRequestManager>();
+            await mrManager.UpdateFulfillmentForItemsAsync(new[] { (wo.MaterialRequestItemId.Value, wo.Quantity) }, reverse: true);
+        }
         await _workOrderRepository.DeleteAsync(id);
     }
 
@@ -1601,6 +1733,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         // Cancel any active stock reservations for this Work Order (per ERPNext PR #50773 / commit 9b5d215a7a)
         var cancelSreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
         await cancelSreManager.CancelReservationsForVoucherAsync(wo.Id);
+
+        // Reverse Material Request item fulfillment if created from MR
+        if (wo.MaterialRequestItemId.HasValue)
+        {
+            var mrManager = LazyServiceProvider.LazyGetRequiredService<Purchasing.DomainServices.MaterialRequestManager>();
+            await mrManager.UpdateFulfillmentForItemsAsync(new[] { (wo.MaterialRequestItemId.Value, wo.Quantity) }, reverse: true);
+        }
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(

@@ -801,6 +801,8 @@ export interface CreateWorkOrderDto {
   productionPlanId?: string | null;
   productionPlanItemId?: string | null;
   productionPlanSubAssemblyItemId?: string | null;
+  materialRequestId?: string | null;
+  materialRequestItemId?: string | null;
   sourceWarehouseId?: string | null;
   wipWarehouseId?: string | null;
   fgWarehouseId?: string | null;
@@ -1027,6 +1029,8 @@ export interface WorkOrderDto extends AuditedEntityDto<string> {
   productionPlanId?: string | null;
   productionPlanItemId?: string | null;
   productionPlanSubAssemblyItemId?: string | null;
+  materialRequestId?: string | null;
+  materialRequestItemId?: string | null;
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
   actualStartDate?: string | null;
@@ -1205,4 +1209,17 @@ export interface MrpOrdersCreatedDto {
   purchaseOrdersCount?: number;
   workOrdersCount?: number;
   message?: string;
+}
+
+export interface BatchCreateWorkOrdersResultDto {
+  createdCount?: number;
+  skippedCount?: number;
+  workOrders?: CreatedWorkOrderInfo[];
+}
+
+export interface CreatedWorkOrderInfo {
+  workOrderId?: string;
+  workOrderNumber?: string;
+  itemName?: string;
+  quantity?: number;
 }
