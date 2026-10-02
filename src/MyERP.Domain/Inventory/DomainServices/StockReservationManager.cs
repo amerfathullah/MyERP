@@ -386,8 +386,36 @@ public class StockReservationManager : DomainService
 
         var demandQty = voucherDemandQty.HasValue ? Math.Round(voucherDemandQty.Value, 4) : qty;
 
+        // Per ERPNext PR #59604 (commit 62bf0ff1ae): prevent duplicate serial and batch reservations
+        // Check allowed quantity across all entries for the voucher row across all warehouses.
+        if (voucherDemandQty.HasValue)
+        {
+            var sreQueryable = await _sreRepository.GetQueryableAsync();
+            var rowReservedQuery = sreQueryable
+                .Where(s => s.VoucherType == voucherType
+                    && s.VoucherId == voucherId
+                    && s.ItemId == itemId
+                    && s.Status == DocumentStatus.Submitted);
+
+            if (voucherDetailId.HasValue)
+            {
+                rowReservedQuery = rowReservedQuery.Where(s => s.VoucherDetailId == voucherDetailId);
+            }
+
+            var existingRowReserved = rowReservedQuery
+                .ToList()
+                .Sum(s => s.ReservedQty - s.TransferredQty - s.DeliveredQty - s.ConsumedQty);
+
+            var allowedQty = Math.Max(0m, demandQty - existingRowReserved);
+            if (qty > allowedQty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot reserve more than allowed quantity of {allowedQty} for item against {voucherType} {voucherId}. Already reserved: {existingRowReserved}, Required: {demandQty}.");
+            }
+        }
+
         var sre = new StockReservationEntry(
-            GuidGenerator.Create(), companyId, itemId, warehouseId,
+            GuidGenerator?.Create() ?? Guid.NewGuid(), companyId, itemId, warehouseId,
             voucherType, voucherId, qty, voucherQty: demandQty, tenantId: tenantId)
         {
             BatchId = batchId,
@@ -441,7 +469,7 @@ public class StockReservationManager : DomainService
             await _sreRepository.UpdateAsync(src);
 
             var newSre = new StockReservationEntry(
-                GuidGenerator.Create(),
+                GuidGenerator?.Create() ?? Guid.NewGuid(),
                 src.CompanyId,
                 src.ItemId,
                 src.WarehouseId,
@@ -495,7 +523,7 @@ public class StockReservationManager : DomainService
         await ValidateAvailabilityAsync(itemId, warehouseId, qty, batchId);
 
         var sre = new StockReservationEntry(
-            GuidGenerator.Create(), companyId, itemId, warehouseId,
+            GuidGenerator?.Create() ?? Guid.NewGuid(), companyId, itemId, warehouseId,
             voucherType, voucherId, qty, voucherQty: qty, tenantId: tenantId)
         {
             BatchId = batchId,
