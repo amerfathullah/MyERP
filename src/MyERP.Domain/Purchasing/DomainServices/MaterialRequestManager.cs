@@ -52,8 +52,12 @@ public class MaterialRequestManager : DomainService
             .Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id)))
             .ToList();
 
+        var binService = LazyServiceProvider?.LazyGetService<MyERP.Inventory.DomainServices.BinService>();
+
         foreach (var mr in affectedMRs)
         {
+            var typeSign = mr.RequestType == MaterialRequestType.MaterialIssue ? -1 : 1;
+
             foreach (var line in lineList)
             {
                 var mrItem = mr.Items.FirstOrDefault(i => i.Id == line.MaterialRequestItemId);
@@ -61,6 +65,15 @@ public class MaterialRequestManager : DomainService
 
                 var delta = reverse ? -line.Quantity : line.Quantity;
                 mrItem.OrderedQuantity = Math.Max(0, mrItem.OrderedQuantity + delta);
+
+                if (binService != null && mrItem.WarehouseId.HasValue)
+                {
+                    // Downstream fulfillment decrements pending inward indented qty towards 0 (or increments outward toward 0).
+                    // Reversing fulfillment (cancel) restores pending indented qty.
+                    var indentedChange = (reverse ? 1 : -1) * typeSign * line.Quantity;
+                    await binService.UpdateIndentedQtyAsync(
+                        mrItem.ItemId, mrItem.WarehouseId.Value, indentedChange, mr.TenantId);
+                }
             }
             await _mrRepository.UpdateAsync(mr);
         }

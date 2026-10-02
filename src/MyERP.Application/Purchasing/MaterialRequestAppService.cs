@@ -361,9 +361,10 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
 
     /// <summary>
     /// Per material-request-rfq-full.md's Submit/Cancel effects: updates Bin.IndentedQty ("requested
-    /// but not yet fulfilled") for every stock item with a warehouse set — sign=+1 on submit, -1 on
-    /// cancel (revert). Applies to every MR type per the doc's unconditional "Submit Effects" list;
-    /// only the separate ordered_qty/received_qty fulfillment tracking distinguishes Purchase MRs.
+    /// but not yet fulfilled") for every stock item with a warehouse set.
+    /// Per ERPNext PR #59652 / commit 3e6deac96e (stock_balance.py get_indented_qty):
+    /// Inward types (Purchase, Manufacture, Customer Provided, Material Transfer) increase indented qty (+sign).
+    /// Outward types (Material Issue) decrease indented qty (-sign) because outward requested qty reduces projected stock.
     /// </summary>
     private async Task ApplyIndentedQtyAsync(MaterialRequest entity, int sign)
     {
@@ -379,10 +380,11 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         if (stockItemIds.Count == 0) return;
 
         var binService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.BinService>();
+        var typeSign = entity.RequestType == MaterialRequestType.MaterialIssue ? -1 : 1;
         foreach (var item in entity.Items.Where(i => i.WarehouseId.HasValue && stockItemIds.Contains(i.ItemId)))
         {
             await binService.UpdateIndentedQtyAsync(
-                item.ItemId, item.WarehouseId!.Value, sign * item.Quantity, entity.TenantId);
+                item.ItemId, item.WarehouseId!.Value, sign * typeSign * item.Quantity, entity.TenantId);
         }
     }
 

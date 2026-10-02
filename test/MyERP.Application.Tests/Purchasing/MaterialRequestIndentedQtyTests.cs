@@ -106,4 +106,63 @@ public abstract class MaterialRequestIndentedQtyTests<TStartupModule> : MyERPApp
             bins.ShouldBeEmpty();
         });
     }
+
+    [Fact]
+    public async Task SubmitAsync_MaterialIssue_DecreasesBinIndentedQty()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var mrRepository = GetRequiredService<IRepository<MaterialRequest, Guid>>();
+            var binRepository = GetRequiredService<IRepository<Bin, Guid>>();
+            var mrAppService = GetRequiredService<IMaterialRequestAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "MR Indented Qty Test Co 4"), autoSave: true);
+            var warehouse = await warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "MR Indented WH 4"), autoSave: true);
+            var item = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "MR-INDENT-4", "MR Indented Item 4", ItemType.Goods), autoSave: true);
+
+            var mr = new MaterialRequest(Guid.NewGuid(), company.Id, "MR-INDENT-004", MaterialRequestType.MaterialIssue, DateTime.UtcNow.Date, company.TenantId);
+            mr.AddItem(item.Id, "MR Indented Item 4", quantity: 18m, uom: "Unit", warehouseId: warehouse.Id);
+            await mrRepository.InsertAsync(mr, autoSave: true);
+
+            await mrAppService.SubmitAsync(mr.Id);
+
+            var bin = (await binRepository.GetQueryableAsync())
+                .Single(b => b.ItemId == item.Id && b.WarehouseId == warehouse.Id);
+            bin.IndentedQty.ShouldBe(-18m);
+        });
+    }
+
+    [Fact]
+    public async Task CancelAsync_MaterialIssue_RevertsBinIndentedQty()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var mrRepository = GetRequiredService<IRepository<MaterialRequest, Guid>>();
+            var binRepository = GetRequiredService<IRepository<Bin, Guid>>();
+            var mrAppService = GetRequiredService<IMaterialRequestAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "MR Indented Qty Test Co 5"), autoSave: true);
+            var warehouse = await warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "MR Indented WH 5"), autoSave: true);
+            var item = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "MR-INDENT-5", "MR Indented Item 5", ItemType.Goods), autoSave: true);
+
+            var mr = new MaterialRequest(Guid.NewGuid(), company.Id, "MR-INDENT-005", MaterialRequestType.MaterialIssue, DateTime.UtcNow.Date, company.TenantId);
+            mr.AddItem(item.Id, "MR Indented Item 5", quantity: 12m, uom: "Unit", warehouseId: warehouse.Id);
+            await mrRepository.InsertAsync(mr, autoSave: true);
+
+            await mrAppService.SubmitAsync(mr.Id);
+            await mrAppService.CancelAsync(mr.Id);
+
+            var bin = (await binRepository.GetQueryableAsync())
+                .Single(b => b.ItemId == item.Id && b.WarehouseId == warehouse.Id);
+            bin.IndentedQty.ShouldBe(0m);
+        });
+    }
 }
