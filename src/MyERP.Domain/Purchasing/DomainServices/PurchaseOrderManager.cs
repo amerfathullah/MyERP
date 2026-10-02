@@ -360,6 +360,26 @@ public class PurchaseOrderManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Validates that items are not duplicated when AllowMultipleItems is disabled in Buying Settings.
+    /// Per ERPNext buying/utils.py validate_duplicate_items.
+    /// </summary>
+    public void ValidateDuplicateItems(PurchaseOrder order, bool allowMultipleItems)
+    {
+        if (allowMultipleItems)
+            return;
+
+        var duplicates = order.Items
+            .GroupBy(i => i.ItemId)
+            .Any(g => g.Count() > 1);
+
+        if (duplicates)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Same item cannot be entered multiple times.");
+        }
+    }
 }
 
 /// <summary>Summary of overdue items in a Purchase Order.</summary>

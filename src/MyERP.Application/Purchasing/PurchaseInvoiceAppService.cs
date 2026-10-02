@@ -791,6 +791,10 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        var allowMultiple = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);
+        var piManagerCreate = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseInvoiceManager>();
+        piManagerCreate.ValidateDuplicateItems(invoice, allowMultiple);
+
         await _repository.InsertAsync(invoice, autoSave: true);
 
         // Auto-generate payment schedule from Payment Terms Template or resolve DueDate (ERPNext PR #49232 / commit 77478303fe)
@@ -941,6 +945,10 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        var allowMultipleUpdate = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);
+        var piManagerUpdate = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseInvoiceManager>();
+        piManagerUpdate.ValidateDuplicateItems(invoice, allowMultipleUpdate);
+
         await _repository.UpdateAsync(invoice, autoSave: true);
         return ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(invoice);
     }
@@ -960,6 +968,9 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         // Buying controller validations via domain manager
         var piManager = LazyServiceProvider
             .LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseInvoiceManager>();
+
+        var allowMultipleSubmit = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);
+        piManager.ValidateDuplicateItems(invoice, allowMultipleSubmit);
 
         // Duplicate supplier invoice detection (FY-scoped per ERPNext)
         if (!invoice.IsReturn)

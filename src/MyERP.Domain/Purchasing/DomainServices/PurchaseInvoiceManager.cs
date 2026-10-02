@@ -515,4 +515,26 @@ public class PurchaseInvoiceManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Validates that items are not duplicated when AllowMultipleItems is disabled in Buying Settings.
+    /// Per ERPNext PR #59598 (commit 5a699ec5d3):
+    /// Rows from different purchase receipts or orders do not count as duplicates,
+    /// so the unique key is (ItemId, PurchaseReceiptItemId, PurchaseOrderItemId).
+    /// </summary>
+    public void ValidateDuplicateItems(PurchaseInvoice invoice, bool allowMultipleItems)
+    {
+        if (allowMultipleItems)
+            return;
+
+        var duplicates = invoice.Items
+            .GroupBy(i => (i.ItemId, i.PurchaseReceiptItemId, i.PurchaseOrderItemId))
+            .Any(g => g.Count() > 1);
+
+        if (duplicates)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Same item cannot be entered multiple times.");
+        }
+    }
 }

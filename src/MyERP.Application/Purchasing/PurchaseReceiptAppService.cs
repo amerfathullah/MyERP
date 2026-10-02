@@ -318,6 +318,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             }
         }
 
+        var allowMultiple = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);
+        var prManagerCreate = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseReceiptManager>();
+        prManagerCreate.ValidateDuplicateItems(receipt, allowMultiple);
+
         await _repository.InsertAsync(receipt, autoSave: true);
         return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
     }
@@ -461,6 +465,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 item.ReceivedQty);
         }
 
+        var allowMultipleUpdate = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);
+        var prManagerUpdate = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseReceiptManager>();
+        prManagerUpdate.ValidateDuplicateItems(receipt, allowMultipleUpdate);
+
         await _repository.UpdateAsync(receipt, autoSave: true);
         return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
     }
@@ -480,6 +488,9 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         // Buying controller validations via domain manager
         var prManager = LazyServiceProvider
             .LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseReceiptManager>();
+
+        var allowMultipleSubmit = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);
+        prManager.ValidateDuplicateItems(receipt, allowMultipleSubmit);
 
         // Mandatory PO linkage (Buying Settings: "Is Purchase Order required for Purchase Receipt?")
         var poRequired = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.PoRequired);

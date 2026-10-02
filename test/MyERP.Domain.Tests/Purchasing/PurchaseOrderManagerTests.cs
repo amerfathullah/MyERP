@@ -319,4 +319,41 @@ public class PurchaseOrderManagerTests
     {
         return new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-001", DateTime.UtcNow);
     }
+
+    [Fact]
+    public void ValidateDuplicateItems_WhenAllowed_DoesNotThrow()
+    {
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, null!);
+        var po = CreatePO();
+        var itemId = Guid.NewGuid();
+        po.AddItem(itemId, "Widget", 1, 10m, 0m);
+        po.AddItem(itemId, "Widget", 2, 10m, 0m);
+
+        manager.ValidateDuplicateItems(po, allowMultipleItems: true);
+    }
+
+    [Fact]
+    public void ValidateDuplicateItems_WhenDisallowed_DuplicateItem_Throws()
+    {
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, null!);
+        var po = CreatePO();
+        var itemId = Guid.NewGuid();
+        po.AddItem(itemId, "Widget", 1, 10m, 0m);
+        po.AddItem(itemId, "Widget", 2, 10m, 0m);
+
+        var ex = Should.Throw<BusinessException>(() =>
+            manager.ValidateDuplicateItems(po, allowMultipleItems: false));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void ValidateDuplicateItems_WhenDisallowed_DistinctItems_Succeeds()
+    {
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, null!);
+        var po = CreatePO();
+        po.AddItem(Guid.NewGuid(), "Widget 1", 1, 10m, 0m);
+        po.AddItem(Guid.NewGuid(), "Widget 2", 2, 10m, 0m);
+
+        manager.ValidateDuplicateItems(po, allowMultipleItems: false);
+    }
 }

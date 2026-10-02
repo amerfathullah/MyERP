@@ -338,4 +338,45 @@ public class PurchaseReceiptManagerTests
     {
         "MyERP:01010".ShouldNotBeNullOrEmpty();
     }
+
+    [Fact]
+    public void ValidateDuplicateItems_WhenAllowed_DoesNotThrow()
+    {
+        var manager = new DomainServices.PurchaseReceiptManager(null!, null!);
+        var pr = CreateReceipt();
+        var itemId = Guid.NewGuid();
+        pr.AddItem(itemId, "Widget", 1, 10m, 0m);
+        pr.AddItem(itemId, "Widget", 2, 10m, 0m);
+
+        manager.ValidateDuplicateItems(pr, allowMultipleItems: true);
+    }
+
+    [Fact]
+    public void ValidateDuplicateItems_WhenDisallowed_DuplicateItemSameOrder_Throws()
+    {
+        var manager = new DomainServices.PurchaseReceiptManager(null!, null!);
+        var pr = CreateReceipt();
+        var itemId = Guid.NewGuid();
+        var poItemId = Guid.NewGuid();
+
+        pr.AddItem(itemId, "Widget", 1, 10m, 0m, purchaseOrderItemId: poItemId);
+        pr.AddItem(itemId, "Widget", 2, 10m, 0m, purchaseOrderItemId: poItemId);
+
+        var ex = Should.Throw<BusinessException>(() =>
+            manager.ValidateDuplicateItems(pr, allowMultipleItems: false));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void ValidateDuplicateItems_WhenDisallowed_SameItemDifferentOrder_Succeeds()
+    {
+        var manager = new DomainServices.PurchaseReceiptManager(null!, null!);
+        var pr = CreateReceipt();
+        var itemId = Guid.NewGuid();
+
+        pr.AddItem(itemId, "Widget", 1, 10m, 0m, purchaseOrderItemId: Guid.NewGuid());
+        pr.AddItem(itemId, "Widget", 2, 10m, 0m, purchaseOrderItemId: Guid.NewGuid());
+
+        manager.ValidateDuplicateItems(pr, allowMultipleItems: false);
+    }
 }

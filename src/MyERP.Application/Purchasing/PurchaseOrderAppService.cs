@@ -367,6 +367,9 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var poManager = LazyServiceProvider.LazyGetRequiredService<PurchaseOrderManager>();
         await poManager.AutoFillExpectedDeliveryDatesAsync(po);
 
+        var allowMultiple = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);
+        _purchaseOrderManager.ValidateDuplicateItems(po, allowMultiple);
+
         await _repository.InsertAsync(po, autoSave: true);
         return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(po);
     }
@@ -375,6 +378,9 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
     public async Task<PurchaseOrderDto> SubmitAsync(Guid id)
     {
         var po = await _repository.GetAsync(id);
+
+        var allowMultiple = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);
+        _purchaseOrderManager.ValidateDuplicateItems(po, allowMultiple);
 
         // Authorization control: high-value transaction approval check
         // Per ERPNext: Authorization Rules check based on GrandTotal/Discount
@@ -909,6 +915,9 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             if (item.SupplierQuotationItemId.HasValue)
                 order.Items[^1].SupplierQuotationItemId = item.SupplierQuotationItemId;
         }
+
+        var allowMultipleUpdate = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);
+        _purchaseOrderManager.ValidateDuplicateItems(order, allowMultipleUpdate);
 
         await _repository.UpdateAsync(order, autoSave: true);
         return ObjectMapper.Map<PurchaseOrder, PurchaseOrderDto>(order);

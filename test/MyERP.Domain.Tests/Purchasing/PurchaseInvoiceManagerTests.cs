@@ -167,4 +167,68 @@ public class PurchaseInvoiceManagerTests
 
         await manager.ValidateExchangeRateWithPurchaseReceiptAsync(pi, prRepo, isPerpetualInventory: true, setLandedCostBasedOnPiRate: false);
     }
+
+    [Fact]
+    public void ValidateDuplicateItems_WhenAllowed_DoesNotThrow()
+    {
+        var manager = new DomainServices.PurchaseInvoiceManager(null!, null!, null!);
+        var pi = CreatePI();
+        var itemId = Guid.NewGuid();
+        pi.AddItem(itemId, "Widget", 1, 10m, 0m);
+        pi.AddItem(itemId, "Widget", 2, 10m, 0m);
+
+        manager.ValidateDuplicateItems(pi, allowMultipleItems: true);
+    }
+
+    [Fact]
+    public void ValidateDuplicateItems_WhenDisallowed_SameItemWithoutLinks_Throws()
+    {
+        var manager = new DomainServices.PurchaseInvoiceManager(null!, null!, null!);
+        var pi = CreatePI();
+        var itemId = Guid.NewGuid();
+        pi.AddItem(itemId, "Widget", 1, 10m, 0m);
+        pi.AddItem(itemId, "Widget", 2, 10m, 0m);
+
+        var ex = Should.Throw<BusinessException>(() =>
+            manager.ValidateDuplicateItems(pi, allowMultipleItems: false));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void ValidateDuplicateItems_WhenDisallowed_SameItemWithDifferentReceiptOrOrder_Succeeds()
+    {
+        var manager = new DomainServices.PurchaseInvoiceManager(null!, null!, null!);
+        var pi = CreatePI();
+        var itemId = Guid.NewGuid();
+        pi.AddItem(itemId, "Widget", 1, 10m, 0m);
+        pi.AddItem(itemId, "Widget", 2, 10m, 0m);
+
+        // Different PurchaseReceiptItemId per ERPNext PR #59598
+        pi.Items[0].PurchaseReceiptItemId = Guid.NewGuid();
+        pi.Items[1].PurchaseReceiptItemId = Guid.NewGuid();
+
+        manager.ValidateDuplicateItems(pi, allowMultipleItems: false);
+    }
+
+    [Fact]
+    public void ValidateDuplicateItems_WhenDisallowed_SameItemWithSameReceiptAndOrder_Throws()
+    {
+        var manager = new DomainServices.PurchaseInvoiceManager(null!, null!, null!);
+        var pi = CreatePI();
+        var itemId = Guid.NewGuid();
+        var prItemId = Guid.NewGuid();
+        var poItemId = Guid.NewGuid();
+
+        pi.AddItem(itemId, "Widget", 1, 10m, 0m);
+        pi.AddItem(itemId, "Widget", 2, 10m, 0m);
+
+        pi.Items[0].PurchaseReceiptItemId = prItemId;
+        pi.Items[0].PurchaseOrderItemId = poItemId;
+        pi.Items[1].PurchaseReceiptItemId = prItemId;
+        pi.Items[1].PurchaseOrderItemId = poItemId;
+
+        var ex = Should.Throw<BusinessException>(() =>
+            manager.ValidateDuplicateItems(pi, allowMultipleItems: false));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
 }

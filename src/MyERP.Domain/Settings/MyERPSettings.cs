@@ -77,6 +77,7 @@ public static class MyERPSettings
         public const string DefaultPriceList = G + ".DefaultPriceList";
         public const string PoRequired = G + ".PoRequired";
         public const string PrRequired = G + ".PrRequired";
+        public const string AllowMultipleItems = G + ".AllowMultipleItems";
         public const string MaintainSameRate = G + ".MaintainSameRate";
         public const string MaintainSameRateAction = G + ".MaintainSameRateAction";
         public const string RoleToOverrideStopAction = G + ".RoleToOverrideStopAction";

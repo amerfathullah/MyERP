@@ -292,4 +292,24 @@ public class PurchaseReceiptManager : DomainService
                 .WithData("dependent", "Purchase Invoice");
         }
     }
+
+    /// <summary>
+    /// Validates that items are not duplicated when AllowMultipleItems is disabled in Buying Settings.
+    /// Per ERPNext: rows from different purchase orders do not count as duplicates.
+    /// </summary>
+    public void ValidateDuplicateItems(PurchaseReceipt receipt, bool allowMultipleItems)
+    {
+        if (allowMultipleItems)
+            return;
+
+        var duplicates = receipt.Items
+            .GroupBy(i => (i.ItemId, i.PurchaseOrderItemId))
+            .Any(g => g.Count() > 1);
+
+        if (duplicates)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Same item cannot be entered multiple times.");
+        }
+    }
 }

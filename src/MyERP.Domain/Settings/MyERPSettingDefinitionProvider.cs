@@ -55,6 +55,7 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
         context.Add(
             new SettingDefinition(MyERPSettings.Buying.PoRequired, "false"),
             new SettingDefinition(MyERPSettings.Buying.PrRequired, "false"),
+            new SettingDefinition(MyERPSettings.Buying.AllowMultipleItems, "true"),
             new SettingDefinition(MyERPSettings.Buying.MaintainSameRate, "false"),
             new SettingDefinition(MyERPSettings.Buying.MaintainSameRateAction, "Stop"),
             new SettingDefinition(MyERPSettings.Buying.RoleToOverrideStopAction, ""),
