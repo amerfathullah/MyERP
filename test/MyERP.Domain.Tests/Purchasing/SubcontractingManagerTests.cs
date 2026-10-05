@@ -82,6 +82,21 @@ public class SubcontractingAndWiringTests
     }
 
     [Fact]
+    public void CalculateRmConsumption_ReturnReceipt_CalculatesNegativeConsumedQty()
+    {
+        var mgr = new SubcontractingManager(null!, null!);
+        var sco = CreateSco();
+        sco.AddSuppliedItem(new SubcontractingOrderSuppliedItem(
+            Guid.NewGuid(), sco.Id, Guid.NewGuid(), "RM Steel", 200m));
+
+        // When receiving return of -20 FG items against 100 ordered, RM should be -40 (returned to supplier)
+        var result = mgr.CalculateRmConsumption(sco, receivedFgQty: -20m, isReturn: true);
+
+        result.Length.ShouldBe(1);
+        result[0].ConsumedQty.ShouldBe(-40m); // 200 × (-20/100) = -40
+    }
+
+    [Fact]
     public void SubcontractingOrder_PerReceived_DefaultsZero()
     {
         var sco = CreateSco();

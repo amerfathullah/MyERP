@@ -652,7 +652,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
 
         foreach (var rm in rmConsumptions)
         {
-            if (rm.ConsumedQty <= 0 || !rm.WarehouseId.HasValue) continue;
+            if (rm.ConsumedQty == 0 || !rm.WarehouseId.HasValue) continue;
 
             // Update SCO supplied item consumed qty
             var suppliedItem = sco.SuppliedItems.FirstOrDefault(si => si.ItemId == rm.ItemId);
@@ -661,7 +661,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 suppliedItem.ConsumedQty += rm.ConsumedQty;
             }
 
-            // Create SLE for RM consumption (stock-out from supplier warehouse)
+            // Create SLE for RM consumption (stock-out from supplier warehouse if positive, stock-in if negative)
             await _stockValuationService.CreateLedgerEntryAsync(
                 scr.CompanyId, rm.ItemId, rm.WarehouseId.Value, scr.PostingDate,
                 -rm.ConsumedQty, 0, "SubcontractingReceipt", scr.Id, scr.TenantId);
@@ -713,11 +713,13 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         // Reverse RM consumption
         var totalReceivedFgQty = scr.Items.Sum(i => i.Qty);
         var sco = await _scoRepository.GetAsync(scr.SubcontractingOrderId);
-        var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty);
+        var backflushSetting = await SettingProvider.GetOrNullAsync(
+            MyERPSettings.Buying.BackflushSubcontractBasedOn) ?? "BOM";
+        var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty, backflushSetting, scr.IsReturn);
 
         foreach (var rm in rmConsumptions)
         {
-            if (rm.ConsumedQty <= 0 || !rm.WarehouseId.HasValue) continue;
+            if (rm.ConsumedQty == 0 || !rm.WarehouseId.HasValue) continue;
 
             var suppliedItem = sco.SuppliedItems.FirstOrDefault(si => si.ItemId == rm.ItemId);
             if (suppliedItem != null)
@@ -725,7 +727,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 suppliedItem.ConsumedQty = Math.Max(0, suppliedItem.ConsumedQty - rm.ConsumedQty);
             }
 
-            // Reverse SLE for RM consumption (stock back in)
+            // Reverse SLE for RM consumption (stock back in / out)
             await _stockValuationService.CreateLedgerEntryAsync(
                 scr.CompanyId, rm.ItemId, rm.WarehouseId.Value, scr.PostingDate,
                 rm.ConsumedQty, 0, "SubcontractingReceipt", scr.Id, scr.TenantId);
