@@ -56,6 +56,15 @@ public class UnreconcilePaymentAppService : ApplicationService, IUnreconcilePaym
     [Authorize(MyERPPermissions.UnreconcilePayments.Create)]
     public async Task<UnreconcilePaymentDto> CreateAsync(CreateUnreconcilePaymentDto input)
     {
+        // Authorize write permission on the underlying target voucher (ERPNext PR #59358)
+        var voucherPermission = input.VoucherType switch
+        {
+            UnreconcileVoucherType.PaymentEntry => MyERPPermissions.PaymentEntries.Edit,
+            UnreconcileVoucherType.JournalEntry => MyERPPermissions.JournalEntries.Post,
+            _ => throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+        };
+        await CheckPolicyAsync(voucherPermission);
+
         var voucherTypeName = input.VoucherType.ToString(); // "PaymentEntry" or "JournalEntry"
 
         var pleQuery = await _pleRepository.GetQueryableAsync();

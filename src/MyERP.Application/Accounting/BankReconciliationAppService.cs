@@ -99,8 +99,10 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         // is — feed it into ClearanceDate so the Bank Reconciliation Statement (which reads
         // ClearanceDate, not BankTransaction.IsReconciled) actually reflects statement matches
         // instead of only entries separately marked cleared via BankClearanceAppService.
+        // Authorize write permission on the underlying target voucher (ERPNext PR #59358).
         if (input.PaymentEntryId.HasValue)
         {
+            await CheckPolicyAsync(MyERPPermissions.PaymentEntries.Edit);
             var pe = await _paymentEntryRepository.GetAsync(input.PaymentEntryId.Value);
             tx.Reconcile(pe.Id, input.MatchedDocumentRef);
             pe.SetClearanceDate(tx.TransactionDate);
@@ -108,6 +110,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         }
         else
         {
+            await CheckPolicyAsync(MyERPPermissions.JournalEntries.Post);
             var je = await _journalEntryRepository.GetAsync(input.JournalEntryId!.Value);
             tx.ReconcileWithJournalEntry(je.Id, input.MatchedDocumentRef);
             je.SetClearanceDate(tx.TransactionDate);
@@ -129,6 +132,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
 
         if (previousPaymentEntryId.HasValue)
         {
+            await CheckPolicyAsync(MyERPPermissions.PaymentEntries.Edit);
             var pe = await _paymentEntryRepository.FindAsync(previousPaymentEntryId.Value);
             if (pe != null && pe.ClearanceDate == tx.TransactionDate)
             {
@@ -138,6 +142,7 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         }
         else if (previousJournalEntryId.HasValue)
         {
+            await CheckPolicyAsync(MyERPPermissions.JournalEntries.Post);
             var je = await _journalEntryRepository.FindAsync(previousJournalEntryId.Value);
             if (je != null && je.ClearanceDate == tx.TransactionDate)
             {
