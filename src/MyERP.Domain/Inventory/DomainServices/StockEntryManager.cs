@@ -1142,4 +1142,81 @@ public class StockEntryManager : DomainService
             await bundleRepo.UpdateManyAsync(updatedBundles);
         }
     }
+
+    /// <summary>
+    /// Applies batch reservations to Stock Entry lines for Material Transfer for Manufacture.
+    /// Per ERPNext StockEntrySABB.set_serial_batch_based_on_reservation (PR #59755 & PR #59756):
+    /// Distributes reserved batches up to the line quantity, and leaves any unreserved remainder on a row without batch.
+    /// </summary>
+    public async Task ApplyBatchReservationsForTransferAsync(StockEntry entry, StockReservationManager sreManager)
+    {
+        if (entry.EntryType != StockEntryType.MaterialTransferForManufacture || !entry.WorkOrderId.HasValue)
+            return;
+
+        var voucherId = entry.WorkOrderId.Value;
+        var reservedMaterials = await sreManager.GetReservedMaterialsAsync("WorkOrder", voucherId);
+        if (!reservedMaterials.Any(r => r.BatchId.HasValue))
+            return;
+
+        var itemsToProcess = entry.Items.Where(i => !i.BatchId.HasValue && i.SourceWarehouseId.HasValue).ToList();
+        if (!itemsToProcess.Any()) return;
+
+        var reservedBatches = reservedMaterials
+            .Where(r => r.BatchId.HasValue && r.AvailableQty > 0)
+            .GroupBy(r => (r.ItemId, r.WarehouseId))
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var newItems = new List<StockEntryItem>();
+
+        foreach (var item in itemsToProcess)
+        {
+            var key = (item.ItemId, item.SourceWarehouseId!.Value);
+            if (!reservedBatches.TryGetValue(key, out var batchList) || !batchList.Any(b => b.AvailableQty > 0))
+                continue;
+
+            var remaining = item.Quantity;
+            bool firstAllocated = false;
+
+            foreach (var batch in batchList)
+            {
+                if (remaining <= 0) break;
+                if (batch.AvailableQty <= 0) continue;
+
+                var allocQty = Math.Min(remaining, batch.AvailableQty);
+                batch.AvailableQty -= allocQty;
+                remaining -= allocQty;
+
+                if (!firstAllocated)
+                {
+                    item.BatchId = batch.BatchId;
+                    item.Quantity = allocQty;
+                    firstAllocated = true;
+                }
+                else
+                {
+                    var added = entry.AddItem(
+                        item.ItemId, allocQty, item.SourceWarehouseId, item.TargetWarehouseId,
+                        item.ValuationRate, isFinishedItem: false, batchId: batch.BatchId,
+                        conversionFactor: item.ConversionFactor, stockUom: item.StockUom);
+                    added.CostCenterId = item.CostCenterId;
+                    added.ExpenseAccountId = item.ExpenseAccountId;
+                    added.ProjectId = item.ProjectId;
+                    added.MaterialRequestItemId = item.MaterialRequestItemId;
+                }
+            }
+
+            if (remaining > 0 && firstAllocated)
+            {
+                // Unreserved remainder row (PR #59755)
+                var unreserved = entry.AddItem(
+                    item.ItemId, remaining, item.SourceWarehouseId, item.TargetWarehouseId,
+                    item.ValuationRate, isFinishedItem: false, batchId: null,
+                    conversionFactor: item.ConversionFactor, stockUom: item.StockUom);
+                unreserved.CostCenterId = item.CostCenterId;
+                unreserved.ExpenseAccountId = item.ExpenseAccountId;
+                unreserved.ProjectId = item.ProjectId;
+                unreserved.MaterialRequestItemId = item.MaterialRequestItemId;
+            }
+        }
+    }
 }

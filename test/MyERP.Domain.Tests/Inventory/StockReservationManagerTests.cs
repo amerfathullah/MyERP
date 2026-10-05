@@ -238,6 +238,133 @@ public class StockReservationManagerTests
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
     }
 
+    [Fact]
+    public async Task AllocateReservedMaterialsForTransferAsync_TakesReservedBatchesUpToRequestedQty()
+    {
+        // ERPNext PR #59755 (commit 43fed6e512): test_transfer_takes_reserved_batches_up_to_requested_qty
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var workOrderId = Guid.NewGuid();
+        var batch1Id = Guid.NewGuid();
+        var batch2Id = Guid.NewGuid();
+
+        var sre1 = new StockReservationEntry(Guid.NewGuid(), Guid.NewGuid(), itemId, warehouseId, "WorkOrder", workOrderId, reservedQty: 2) { BatchId = batch1Id };
+        sre1.Submit();
+        var sre2 = new StockReservationEntry(Guid.NewGuid(), Guid.NewGuid(), itemId, warehouseId, "WorkOrder", workOrderId, reservedQty: 10) { BatchId = batch2Id };
+        sre2.Submit();
+
+        var manager = CreateManager(new List<StockReservationEntry> { sre1, sre2 });
+
+        // Request 5: should allocate 2 from batch1, 3 from batch2
+        var alloc1 = await manager.AllocateReservedMaterialsForTransferAsync("WorkOrder", workOrderId, itemId, warehouseId, requestedQty: 5);
+        alloc1.Count.ShouldBe(2);
+        alloc1[0].BatchId.ShouldBe(batch1Id);
+        alloc1[0].Quantity.ShouldBe(2);
+        alloc1[1].BatchId.ShouldBe(batch2Id);
+        alloc1[1].Quantity.ShouldBe(3);
+
+        // Apply transfer of 5
+        await manager.ApplyWorkOrderTransferAsync(workOrderId, itemId, warehouseId, 2, batch1Id);
+        await manager.ApplyWorkOrderTransferAsync(workOrderId, itemId, warehouseId, 3, batch2Id);
+
+        // Request 7: batch1 has 0 remaining, batch2 has 7 remaining
+        var alloc2 = await manager.AllocateReservedMaterialsForTransferAsync("WorkOrder", workOrderId, itemId, warehouseId, requestedQty: 7);
+        alloc2.Count.ShouldBe(1);
+        alloc2[0].BatchId.ShouldBe(batch2Id);
+        alloc2[0].Quantity.ShouldBe(7);
+    }
+
+    [Fact]
+    public async Task AllocateReservedMaterialsForTransferAsync_AddsUnreservedRowForShortReservation()
+    {
+        // ERPNext PR #59755 (commit 43fed6e512): test_transfer_adds_unreserved_row_for_short_reservation
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var workOrderId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        var sre = new StockReservationEntry(Guid.NewGuid(), Guid.NewGuid(), itemId, warehouseId, "WorkOrder", workOrderId, reservedQty: 4) { BatchId = batchId };
+        sre.Submit();
+
+        var manager = CreateManager(new List<StockReservationEntry> { sre });
+
+        // Request 10: 4 covered by batch, 6 unreserved row
+        var alloc = await manager.AllocateReservedMaterialsForTransferAsync("WorkOrder", workOrderId, itemId, warehouseId, requestedQty: 10);
+        alloc.Count.ShouldBe(2);
+        alloc[0].BatchId.ShouldBe(batchId);
+        alloc[0].Quantity.ShouldBe(4);
+        alloc[1].BatchId.ShouldBeNull();
+        alloc[1].Quantity.ShouldBe(6);
+    }
+
+    [Fact]
+    public async Task AllocateReservedMaterialsForTransferAsync_TakesUntransferredQtyOfReservedBatches()
+    {
+        // ERPNext PR #59756 (commit 0ee92cb885): test_transfer_takes_untransferred_qty_of_reserved_batches
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var workOrderId = Guid.NewGuid();
+        var batch1Id = Guid.NewGuid();
+        var batch2Id = Guid.NewGuid();
+
+        var sre1 = new StockReservationEntry(Guid.NewGuid(), Guid.NewGuid(), itemId, warehouseId, "WorkOrder", workOrderId, reservedQty: 10) { BatchId = batch1Id };
+        sre1.Submit();
+        var sre2 = new StockReservationEntry(Guid.NewGuid(), Guid.NewGuid(), itemId, warehouseId, "WorkOrder", workOrderId, reservedQty: 2) { BatchId = batch2Id };
+        sre2.Submit();
+
+        var manager = CreateManager(new List<StockReservationEntry> { sre1, sre2 });
+
+        // Transfer 1 of qty 5
+        var alloc1 = await manager.AllocateReservedMaterialsForTransferAsync("WorkOrder", workOrderId, itemId, warehouseId, requestedQty: 5);
+        alloc1.Count.ShouldBe(1);
+        alloc1[0].BatchId.ShouldBe(batch1Id);
+        alloc1[0].Quantity.ShouldBe(5);
+
+        // Apply transfer 1 (takes 5 from batch 1)
+        await manager.ApplyWorkOrderTransferAsync(workOrderId, itemId, warehouseId, 5, batch1Id);
+
+        // Transfer 2 of qty 7: batch1 has 5 left, batch2 has 2 left
+        var alloc2 = await manager.AllocateReservedMaterialsForTransferAsync("WorkOrder", workOrderId, itemId, warehouseId, requestedQty: 7);
+        alloc2.Count.ShouldBe(2);
+        alloc2[0].BatchId.ShouldBe(batch1Id);
+        alloc2[0].Quantity.ShouldBe(5);
+        alloc2[1].BatchId.ShouldBe(batch2Id);
+        alloc2[1].Quantity.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task ApplyBatchReservationsForTransferAsync_StockEntryManager_SplitsAndAddsUnreservedRow()
+    {
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var targetWarehouseId = Guid.NewGuid();
+        var workOrderId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        var sre = new StockReservationEntry(Guid.NewGuid(), Guid.NewGuid(), itemId, warehouseId, "WorkOrder", workOrderId, reservedQty: 4) { BatchId = batchId };
+        sre.Submit();
+
+        var sreManager = CreateManager(new List<StockReservationEntry> { sre });
+        var seManager = new DomainServices.StockEntryManager(
+            Substitute.For<IRepository<Warehouse, Guid>>(),
+            Substitute.For<IRepository<Item, Guid>>(),
+            null!);
+
+        var entry = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.MaterialTransferForManufacture, DateTime.UtcNow)
+        {
+            WorkOrderId = workOrderId
+        };
+        entry.AddItem(itemId, quantity: 10, sourceWarehouseId: warehouseId, targetWarehouseId: targetWarehouseId);
+
+        await seManager.ApplyBatchReservationsForTransferAsync(entry, sreManager);
+
+        entry.Items.Count.ShouldBe(2);
+        entry.Items[0].BatchId.ShouldBe(batchId);
+        entry.Items[0].Quantity.ShouldBe(4);
+        entry.Items[1].BatchId.ShouldBeNull();
+        entry.Items[1].Quantity.ShouldBe(6);
+    }
+
     private static DomainServices.StockReservationManager CreateManager(
         List<StockReservationEntry> entries,
         List<StockLedgerEntry>? sles = null,

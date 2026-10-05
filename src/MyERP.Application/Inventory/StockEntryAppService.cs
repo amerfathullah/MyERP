@@ -192,9 +192,15 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             StockEntryManager.DistributeAdditionalCosts(entry);
         }
 
+        var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
+        if (entry.EntryType == StockEntryType.MaterialTransferForManufacture && entry.WorkOrderId.HasValue)
+        {
+            var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+            await seManager.ApplyBatchReservationsForTransferAsync(entry, sreManager);
+        }
+
         // Delegate purpose-specific validation to StockEntryManager (DDD pattern)
         // Per DO-NOT: same-warehouse transfers blocked, group warehouses blocked
-        var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
         await seManager.ValidateWarehousesAsync(entry);
         await seManager.ValidateDifferenceAccountAsync(entry);
         // ValidateRepackItems/ValidateManufactureItems were domain-service methods with no
@@ -1105,6 +1111,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.Notes = $"Material Transfer for Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}";
 
         // Add raw materials (only pending qty not yet transferred)
+        var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
         foreach (var woItem in wo.RequiredItems)
         {
             var pendingQty = woItem.RequiredQuantity - woItem.TransferredQuantity;
@@ -1117,12 +1124,19 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             // Per ERPNext: source from WO item-specific warehouse → BOM item → WO default → BOM default
             var itemSourceWarehouse = woItem.SourceWarehouseId ?? sourceWarehouseId.Value;
 
-            entry.AddItem(
-                itemId: woItem.ItemId,
-                quantity: pendingQty,
-                sourceWarehouseId: itemSourceWarehouse,
-                targetWarehouseId: wipWarehouseId.Value,
-                valuationRate: rate);
+            var allocations = await sreManager.AllocateReservedMaterialsForTransferAsync(
+                "WorkOrder", wo.Id, woItem.ItemId, itemSourceWarehouse, pendingQty, woItem.Id);
+
+            foreach (var alloc in allocations)
+            {
+                var seItem = entry.AddItem(
+                    itemId: woItem.ItemId,
+                    quantity: alloc.Quantity,
+                    sourceWarehouseId: itemSourceWarehouse,
+                    targetWarehouseId: wipWarehouseId.Value,
+                    valuationRate: rate);
+                seItem.BatchId = alloc.BatchId;
+            }
         }
 
         if (!entry.Items.Any())

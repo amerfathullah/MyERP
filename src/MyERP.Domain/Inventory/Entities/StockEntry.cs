@@ -129,7 +129,7 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
         TenantId = tenantId;
     }
 
-    public void AddItem(
+    public StockEntryItem AddItem(
         Guid itemId, decimal quantity, Guid? sourceWarehouseId = null, Guid? targetWarehouseId = null,
         decimal? valuationRate = null, bool isFinishedItem = false, Guid? batchId = null,
         string? secondaryItemType = null, decimal processLossPercentage = 0,
@@ -152,6 +152,7 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
             BomSecondaryItemId = bomSecondaryItemId
         };
         _items.Add(item);
+        return item;
     }
 
     /// <summary>Clear all items (Draft only). Used during edit to replace items.</summary>

@@ -1975,12 +1975,20 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             var transferQty = Math.Min(pendingQty, balance.Quantity); // Cap at available
             if (transferQty <= 0) continue;
 
-            entry.AddItem(
-                itemId: item.ItemId,
-                quantity: transferQty,
-                sourceWarehouseId: sourceWarehouseId.Value,
-                targetWarehouseId: wipWarehouseId.Value,
-                valuationRate: balance.ValuationRate);
+            var sreManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.StockReservationManager>();
+            var allocations = await sreManager.AllocateReservedMaterialsForTransferAsync(
+                "WorkOrder", wo.Id, item.ItemId, sourceWarehouseId.Value, transferQty, item.Id);
+
+            foreach (var alloc in allocations)
+            {
+                var seItem = entry.AddItem(
+                    itemId: item.ItemId,
+                    quantity: alloc.Quantity,
+                    sourceWarehouseId: sourceWarehouseId.Value,
+                    targetWarehouseId: wipWarehouseId.Value,
+                    valuationRate: balance.ValuationRate);
+                seItem.BatchId = alloc.BatchId;
+            }
         }
 
         if (!entry.Items.Any())

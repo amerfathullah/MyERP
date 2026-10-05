@@ -98,21 +98,6 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                     .WithData("field", "PlannedQty");
         }
 
-        var number = await _numberGenerator.GenerateAsync("PP", input.CompanyId);
-        var plan = new ProductionPlan(
-            GuidGenerator.Create(), input.CompanyId, number, input.PostingDate, CurrentTenant.Id)
-        {
-            CombineItems = input.CombineItems,
-            IgnoreExistingOrderedQty = input.IgnoreExistingOrderedQty,
-            ConsiderMinimumOrderQty = input.ConsiderMinimumOrderQty,
-            IncludeSafetyStock = input.IncludeSafetyStock,
-            SkipAvailableSubAssemblyItem = input.SkipAvailableSubAssemblyItem,
-            RawMaterialGroupWarehouseId = input.RawMaterialGroupWarehouseId,
-            ForWarehouseId = input.ForWarehouseId,
-            ReserveStock = input.ReserveStock,
-            Notes = input.Notes,
-        };
-
         // Validate Raw Material Group Warehouse hierarchy (ERPNext PR #56948)
         await ValidateRawMaterialGroupWarehouseAsync(input.CompanyId, input.RawMaterialGroupWarehouseId, input.ForWarehouseId);
 
@@ -165,6 +150,14 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
             var whQuery = await whRepo.GetQueryableAsync();
             var warehouses = whQuery.Where(w => warehouseIds.Contains(w.Id)).ToList();
+            if (warehouses.Count != warehouseIds.Count)
+            {
+                var foundIds = warehouses.Select(w => w.Id).ToHashSet();
+                var missingId = warehouseIds.First(id => !foundIds.Contains(id));
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("warehouseId", missingId)
+                    .WithData("productionPlanCompany", input.CompanyId);
+            }
             foreach (var wh in warehouses)
             {
                 if (wh.CompanyId != input.CompanyId)
@@ -182,6 +175,21 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             "ProductionPlan", input.CompanyId,
             itemIds: input.Items.Select(i => i.ItemId).Distinct().ToArray(),
             warehouseIds: warehouseIds.Count > 0 ? warehouseIds.ToArray() : null);
+
+        var number = await _numberGenerator.GenerateAsync("PP", input.CompanyId);
+        var plan = new ProductionPlan(
+            GuidGenerator.Create(), input.CompanyId, number, input.PostingDate, CurrentTenant.Id)
+        {
+            CombineItems = input.CombineItems,
+            IgnoreExistingOrderedQty = input.IgnoreExistingOrderedQty,
+            ConsiderMinimumOrderQty = input.ConsiderMinimumOrderQty,
+            IncludeSafetyStock = input.IncludeSafetyStock,
+            SkipAvailableSubAssemblyItem = input.SkipAvailableSubAssemblyItem,
+            RawMaterialGroupWarehouseId = input.RawMaterialGroupWarehouseId,
+            ForWarehouseId = input.ForWarehouseId,
+            ReserveStock = input.ReserveStock,
+            Notes = input.Notes,
+        };
 
         foreach (var item in input.Items)
         {
@@ -281,6 +289,14 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
             var whQuery = await whRepo.GetQueryableAsync();
             var warehouses = whQuery.Where(w => warehouseIds.Contains(w.Id)).ToList();
+            if (warehouses.Count != warehouseIds.Count)
+            {
+                var foundIds = warehouses.Select(w => w.Id).ToHashSet();
+                var missingId = warehouseIds.First(id => !foundIds.Contains(id));
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("warehouseId", missingId)
+                    .WithData("productionPlanCompany", input.CompanyId);
+            }
             foreach (var wh in warehouses)
             {
                 if (wh.CompanyId != input.CompanyId)
@@ -454,6 +470,13 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
         if (plan.Status is not (ProductionPlanStatus.Draft or ProductionPlanStatus.Submitted))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Per ERPNext PR #59759: A group warehouse without a For Warehouse is rejected when raw materials are fetched
+        if (plan.RawMaterialGroupWarehouseId.HasValue && !plan.ForWarehouseId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "For Warehouse is required when Raw Material Group Warehouse is selected.");
+        }
 
         // Clear existing material requirements for recalculation
         plan.MaterialRequirements.Clear();
@@ -878,8 +901,8 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var groupWh = await whRepo.FindAsync(rawMaterialGroupWarehouseId.Value);
         if (groupWh == null || groupWh.CompanyId != companyId)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound)
-                .WithData("reason", "Raw Material Group Warehouse not found for this company");
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("reason", "Raw Material Group Warehouse not found or belongs to another company");
         }
         if (!groupWh.IsGroup)
         {
@@ -889,8 +912,21 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
         if (forWarehouseId.HasValue)
         {
+            // Per ERPNext PR #59759: A group warehouse itself is rejected as For Warehouse
+            if (forWarehouseId.Value == rawMaterialGroupWarehouseId.Value)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "For Warehouse cannot be the Raw Material Group Warehouse itself");
+            }
+
             var forWh = await whRepo.FindAsync(forWarehouseId.Value);
-            if (forWh != null && forWh.ParentWarehouseId != groupWh.Id)
+            if (forWh == null || forWh.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("reason", "For Warehouse not found or belongs to another company");
+            }
+
+            if (forWh.ParentWarehouseId != groupWh.Id)
             {
                 var allWhs = (await whRepo.GetQueryableAsync()).Where(w => w.CompanyId == companyId).ToList();
                 var curr = forWh;

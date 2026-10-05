@@ -603,7 +603,7 @@ public class StockReservationManager : DomainService
 
         var queryable = await _sreRepository.GetQueryableAsync();
         var activeSres = queryable
-            .Where(s => s.VoucherType == "WorkOrder"
+            .Where(s => (s.VoucherType == "WorkOrder" || s.VoucherType == "Work Order")
                 && s.VoucherId == workOrderId
                 && s.ItemId == itemId
                 && s.WarehouseId == sourceWarehouseId
@@ -650,7 +650,7 @@ public class StockReservationManager : DomainService
 
         var queryable = await _sreRepository.GetQueryableAsync();
         var activeSres = queryable
-            .Where(s => s.VoucherType == "WorkOrder"
+            .Where(s => (s.VoucherType == "WorkOrder" || s.VoucherType == "Work Order")
                 && s.VoucherId == workOrderId
                 && s.ItemId == itemId
                 && s.WarehouseId == sourceWarehouseId
@@ -683,7 +683,7 @@ public class StockReservationManager : DomainService
 
         var queryable = await _sreRepository.GetQueryableAsync();
         var activeSres = queryable
-            .Where(s => s.VoucherType == "WorkOrder"
+            .Where(s => (s.VoucherType == "WorkOrder" || s.VoucherType == "Work Order")
                 && s.VoucherId == workOrderId
                 && s.ItemId == itemId
                 && s.WarehouseId == warehouseId
@@ -730,7 +730,7 @@ public class StockReservationManager : DomainService
 
         var queryable = await _sreRepository.GetQueryableAsync();
         var activeSres = queryable
-            .Where(s => s.VoucherType == "WorkOrder"
+            .Where(s => (s.VoucherType == "WorkOrder" || s.VoucherType == "Work Order")
                 && s.VoucherId == workOrderId
                 && s.ItemId == itemId
                 && s.WarehouseId == warehouseId
@@ -751,10 +751,130 @@ public class StockReservationManager : DomainService
             remaining -= canRevert;
         }
     }
+
+    /// <summary>
+    /// Gets active reserved materials for a voucher (Work Order, Subcontracting Order, etc.).
+    /// Returns only untransferred and undelivered quantities (ERPNext PR #59756 / commit 0ee92cb885).
+    /// </summary>
+    public async Task<List<ReservedMaterialInfo>> GetReservedMaterialsAsync(string voucherType, Guid voucherId)
+    {
+        var sreQueryable = await _sreRepository.GetQueryableAsync();
+        var entries = sreQueryable
+            .Where(s => (s.VoucherType == voucherType || s.VoucherType == voucherType.Replace(" ", ""))
+                && s.VoucherId == voucherId
+                && s.Status == DocumentStatus.Submitted
+                && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
+            .OrderBy(s => s.CreationTime)
+            .ToList();
+
+        return entries.Select(s => new ReservedMaterialInfo
+        {
+            StockReservationEntryId = s.Id,
+            ItemId = s.ItemId,
+            WarehouseId = s.WarehouseId,
+            BatchId = s.BatchId,
+            VoucherDetailId = s.VoucherDetailId,
+            AvailableQty = Math.Max(0m, s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty)
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Allocates reserved batches up to the requested transfer quantity.
+    /// Caps each batch row at the quantity still to allocate, and puts any quantity that no reserved batch covers on an unreserved row.
+    /// Per ERPNext PR #59755 (commit 43fed6e512) and PR #59756 (commit 0ee92cb885).
+    /// </summary>
+    public async Task<List<MaterialTransferAllocation>> AllocateReservedMaterialsForTransferAsync(
+        string voucherType,
+        Guid voucherId,
+        Guid itemId,
+        Guid warehouseId,
+        decimal requestedQty,
+        Guid? voucherDetailId = null)
+    {
+        var result = new List<MaterialTransferAllocation>();
+        if (requestedQty <= 0) return result;
+
+        var reservedMaterials = await GetReservedMaterialsAsync(voucherType, voucherId);
+        var activeForLine = reservedMaterials
+            .Where(r => r.ItemId == itemId
+                && r.WarehouseId == warehouseId
+                && (voucherDetailId == null || r.VoucherDetailId == null || r.VoucherDetailId == voucherDetailId))
+            .ToList();
+
+        if (!activeForLine.Any())
+        {
+            result.Add(new MaterialTransferAllocation
+            {
+                BatchId = null,
+                Quantity = requestedQty
+            });
+            return result;
+        }
+
+        var remaining = requestedQty;
+        var batchEntries = activeForLine.Where(r => r.BatchId.HasValue).ToList();
+
+        if (batchEntries.Any())
+        {
+            foreach (var batchEntry in batchEntries)
+            {
+                if (remaining <= 0) break;
+                if (batchEntry.AvailableQty <= 0) continue;
+
+                var allocQty = Math.Min(remaining, batchEntry.AvailableQty);
+                result.Add(new MaterialTransferAllocation
+                {
+                    BatchId = batchEntry.BatchId,
+                    Quantity = allocQty,
+                    StockReservationEntryId = batchEntry.StockReservationEntryId
+                });
+                remaining -= allocQty;
+            }
+
+            // Cap each batch row at the qty still to allocate, and put the qty that no reserved batch covers on an unreserved row.
+            // (PR #59755 test_transfer_adds_unreserved_row_for_short_reservation)
+            if (remaining > 0)
+            {
+                result.Add(new MaterialTransferAllocation
+                {
+                    BatchId = null,
+                    Quantity = remaining
+                });
+            }
+        }
+        else
+        {
+            // Only unreserved entries exist
+            result.Add(new MaterialTransferAllocation
+            {
+                BatchId = null,
+                Quantity = requestedQty
+            });
+        }
+
+        return result;
+    }
 }
 
 public class ReservationConsumption
 {
     public Guid StockReservationEntryId { get; set; }
     public decimal ConsumedQty { get; set; }
+}
+
+public class ReservedMaterialInfo
+{
+    public Guid StockReservationEntryId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public Guid? BatchId { get; set; }
+    public Guid? VoucherDetailId { get; set; }
+    public decimal AvailableQty { get; set; }
+}
+
+public class MaterialTransferAllocation
+{
+    public Guid? BatchId { get; set; }
+    public decimal Quantity { get; set; }
+    public Guid? StockReservationEntryId { get; set; }
 }
