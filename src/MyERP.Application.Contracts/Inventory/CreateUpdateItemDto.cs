@@ -81,6 +81,14 @@ public class CreateUpdateItemDto
     [StringLength(ItemConsts.MaxUomLength)]
     public string Uom { get; set; } = "Unit";
 
+    [StringLength(ItemConsts.MaxUomLength)]
+    public string? SalesUom { get; set; }
+
+    [StringLength(ItemConsts.MaxUomLength)]
+    public string? PurchaseUom { get; set; }
+
+    public Guid? VariantOfId { get; set; }
+
     public ValuationMethod ValuationMethod { get; set; } = ValuationMethod.FIFO;
 
     [Range(0, double.MaxValue)]

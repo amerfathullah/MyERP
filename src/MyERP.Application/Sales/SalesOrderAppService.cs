@@ -266,6 +266,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         // Validate all items are active before creating the order
         var itemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
+        await _itemValidation.ValidateItemUomsForTransactionAsync(input.CompanyId, input.Items.Select(i => (i.ItemId, (string?)i.Uom)));
 
         await ValidateCompanyBoundariesAsync(input, input.CompanyId);
 
@@ -1136,6 +1137,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         var updateItemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(updateItemIds);
+        await _itemValidation.ValidateItemUomsForTransactionAsync(order.CompanyId, input.Items.Select(i => (i.ItemId, (string?)i.Uom)));
 
         var customerForStatus = await _customerRepository.GetAsync(input.CustomerId);
         var partyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();

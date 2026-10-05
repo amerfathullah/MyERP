@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Inventory.Entities;
+using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
 
@@ -148,5 +150,49 @@ public class UomConversionService : DomainService
         }
 
         return qty;
+    }
+
+    /// <summary>
+    /// Validates whether the given transaction UOMs are permitted for the items.
+    /// Per ERPNext PR #59754 (commit 8ba7a8ee34):
+    /// When AllowUomWithConversionRateDefinedInItem is enabled, any UOM different from the stock UOM
+    /// must have an explicit conversion rate defined in the item (or its variant template) with conversion_factor > 0.
+    /// </summary>
+    public async Task ValidateItemUomsAsync(
+        IEnumerable<(Item item, string? uom)> rows,
+        bool isRestrictionEnabled)
+    {
+        if (!isRestrictionEnabled) return;
+
+        var rowsToValidate = rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.uom) && !string.Equals(r.uom, r.item.Uom, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (!rowsToValidate.Any()) return;
+
+        var itemIds = rowsToValidate.Select(r => r.item.Id)
+            .Concat(rowsToValidate.Where(r => r.item.VariantOfId.HasValue).Select(r => r.item.VariantOfId!.Value))
+            .Distinct()
+            .ToList();
+
+        var query = await _repository.GetQueryableAsync();
+        var conversions = query
+            .Where(c => c.ItemId.HasValue && itemIds.Contains(c.ItemId.Value) && c.ConversionFactor > 0)
+            .ToList();
+
+        foreach (var (item, uom) in rowsToValidate)
+        {
+            var allowedForThisItem = conversions.Any(c =>
+                (c.ItemId == item.Id || (item.VariantOfId.HasValue && c.ItemId == item.VariantOfId.Value))
+                && ((string.Equals(c.FromUom, uom, StringComparison.OrdinalIgnoreCase) && string.Equals(c.ToUom, item.Uom, StringComparison.OrdinalIgnoreCase))
+                    || (string.Equals(c.FromUom, item.Uom, StringComparison.OrdinalIgnoreCase) && string.Equals(c.ToUom, uom, StringComparison.OrdinalIgnoreCase))));
+
+            if (!allowedForThisItem)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.UomNotConfiguredForItem)
+                    .WithData("uom", uom ?? string.Empty)
+                    .WithData("item", item.ItemCode ?? string.Empty);
+            }
+        }
     }
 }

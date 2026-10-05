@@ -85,6 +85,14 @@ import { ToasterService } from '@abp/ng.theme.shared';
                   <label class="form-check-label" for="enableReserv">Enable Stock Reservation</label>
                 </div>
               </div>
+              <div class="col-md-4 mt-3">
+                <div class="form-check form-switch">
+                  <input type="checkbox" class="form-check-input" id="allowUomConv"
+                    [ngModel]="settings['MyERP.Stock.AllowUomWithConversionRateDefinedInItem'] === 'true'"
+                    (ngModelChange)="settings['MyERP.Stock.AllowUomWithConversionRateDefinedInItem'] = $event ? 'true' : 'false'" name="allowUomConv" />
+                  <label class="form-check-label" for="allowUomConv">{{ 'MyERP::AllowUomWithConversionRateDefinedInItem' | abpLocalization }}</label>
+                </div>
+              </div>
             </div>
 
             <h6 class="text-muted mb-3 mt-4">Quality Inspection</h6>

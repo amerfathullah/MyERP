@@ -591,4 +591,7 @@ public static class MyERPDomainErrorCodes
 
     // Stock Reservation (ERPNext PR #59838 / commit ec3dbd2e37)
     public const string SalesOrderItemDoesNotBelongToOrder = "MyERP:05084";
+
+    // UOM Restrictions (ERPNext PR #59754 / commit 8ba7a8ee34)
+    public const string UomNotConfiguredForItem = "MyERP:05085";
 }

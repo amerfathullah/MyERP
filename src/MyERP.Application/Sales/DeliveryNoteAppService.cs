@@ -141,6 +141,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         // Validate all items are active
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
+        await _itemValidation.ValidateItemUomsForTransactionAsync(input.CompanyId, input.Items.Select(i => (i.ItemId, (string?)i.Uom)));
 
         // ERPNext validate_party_frozen_disabled: no delivery to a disabled customer
         var partyCustomer = await LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>().FindAsync(input.CustomerId);
@@ -391,6 +392,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
         var updateItemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(updateItemIds);
+        await _itemValidation.ValidateItemUomsForTransactionAsync(dn.CompanyId, input.Items.Select(i => (i.ItemId, (string?)i.Uom)));
 
         var updateCompanyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
         await updateCompanyRestriction.ValidateTransactionCompanyAsync(

@@ -4945,6 +4945,8 @@
     "MyERP:05082": "Raw material {rawMaterial} is already mapped and cannot be changed after entry is submitted.",
     "MyERP:05083": "Finished good mapping is only allowed for Manufacture and Repack entries.",
     "MyERP:05084": "Sales Order Item {itemId} does not belong to Sales Order {orderNumber}.",
-    "AutoMapRawMaterialsToFinishedGoods": "Auto Map Raw Materials to Finished Goods"
+    "AutoMapRawMaterialsToFinishedGoods": "Auto Map Raw Materials to Finished Goods",
+    "MyERP:05085": "UOM {uom} has no conversion factor in Item {item}. Add it to the Item's UOMs table or disable UOM conversion restriction.",
+    "AllowUomWithConversionRateDefinedInItem": "Allow UOM with conversion rate defined in Item"
   }
 }

@@ -160,6 +160,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         // Validate all items are active
         var itemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(itemIds);
+        await _itemValidation.ValidateItemUomsForTransactionAsync(input.CompanyId, input.Items.Select(i => (i.ItemId, (string?)i.Uom)));
 
         // ERPNext validate_party_frozen_disabled: no receipt from a disabled supplier
         var partySupplier = await LazyServiceProvider.LazyGetRequiredService<IRepository<Supplier, Guid>>().FindAsync(input.SupplierId);
@@ -433,6 +434,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
         var updateItemIds = input.Items.Select(i => i.ItemId).ToList();
         await _itemValidation.ValidateItemsForTransactionAsync(updateItemIds);
+        await _itemValidation.ValidateItemUomsForTransactionAsync(receipt.CompanyId, input.Items.Select(i => (i.ItemId, (string?)i.Uom)));
 
         var updateCompanyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
         await updateCompanyRestriction.ValidateTransactionCompanyAsync(

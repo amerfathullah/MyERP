@@ -87,6 +87,11 @@ public class ItemStandardCostAppService : ApplicationService, IItemStandardCostA
     [Authorize(MyERPPermissions.StockEntries.Create)]
     public async Task<ItemStandardCostDto> CreateAsync(CreateItemStandardCostDto input)
     {
+        // Enforce company restriction (ERPNext PR #59840 / commit b0b91d9a0a)
+        var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();
+        await companyRestriction.ValidateTransactionCompanyAsync(
+            "ItemStandardCost", input.CompanyId, itemIds: new[] { input.ItemId });
+
         // Validate against last SLE
         var sleQuery = await _sleRepository.GetQueryableAsync();
         var lastSleDate = sleQuery

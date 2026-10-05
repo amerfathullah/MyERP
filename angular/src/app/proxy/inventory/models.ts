@@ -524,6 +524,9 @@ export interface CreateUpdateItemDto {
   itemGroup?: string | null;
   brand?: string | null;
   uom: string;
+  salesUom?: string | null;
+  purchaseUom?: string | null;
+  variantOfId?: string | null;
   valuationMethod?: ValuationMethod;
   standardSellingPrice?: number | null;
   standardBuyingPrice?: number | null;
@@ -1097,6 +1100,8 @@ export interface ItemDto extends FullAuditedEntityDto<string> {
   itemGroup?: string | null;
   brand?: string | null;
   uom?: string;
+  salesUom?: string | null;
+  purchaseUom?: string | null;
   valuationMethod?: ValuationMethod;
   standardSellingPrice?: number | null;
   standardBuyingPrice?: number | null;

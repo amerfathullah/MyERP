@@ -209,8 +209,7 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
             if (item.SourceWarehouseId.HasValue && item.TargetWarehouseId.HasValue
                 && item.SourceWarehouseId.Value == item.TargetWarehouseId.Value)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", "Source Warehouse and Target Warehouse cannot be the same.");
+                throw new BusinessException(MyERPDomainErrorCodes.SameWarehouseTransfer);
             }
         }
 

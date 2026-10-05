@@ -413,6 +413,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         // Validate all items are active
         var siItemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(siItemIds);
+        await _itemValidation.ValidateItemUomsForTransactionAsync(input.CompanyId, input.Items.Select(i => (i.ItemId, (string?)i.Uom)));
 
         if (input.CostCenterId.HasValue)
         {

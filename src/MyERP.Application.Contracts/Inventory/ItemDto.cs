@@ -43,6 +43,8 @@ public class ItemDto : FullAuditedEntityDto<Guid>
     public string? ItemGroup { get; set; }
     public string? Brand { get; set; }
     public string Uom { get; set; } = null!;
+    public string? SalesUom { get; set; }
+    public string? PurchaseUom { get; set; }
     public ValuationMethod ValuationMethod { get; set; }
     public decimal? StandardSellingPrice { get; set; }
     public decimal? StandardBuyingPrice { get; set; }

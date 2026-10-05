@@ -415,6 +415,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         // Validate all items are active
         var piItemIds = input.Items.Select(i => i.ItemId).ToArray();
         await _itemValidation.ValidateItemsForTransactionAsync(piItemIds);
+        await _itemValidation.ValidateItemUomsForTransactionAsync(input.CompanyId, input.Items.Select(i => (i.ItemId, (string?)i.Uom)));
 
         if (input.CostCenterId.HasValue)
         {

@@ -36,6 +36,7 @@ public static class MyERPSettings
         public const string DoNotUseBatchwiseValuation = G + ".DoNotUseBatchwiseValuation";
         public const string EnableSerialAndBatchNoForItem = G + ".EnableSerialAndBatchNoForItem";
         public const string AutoMapRawMaterialsToFinishedGoods = G + ".AutoMapRawMaterialsToFinishedGoods";
+        public const string AllowUomWithConversionRateDefinedInItem = G + ".AllowUomWithConversionRateDefinedInItem";
     }
 
     // ═══════════════════════════════════════════════════

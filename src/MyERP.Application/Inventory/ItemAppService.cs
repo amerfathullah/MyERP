@@ -3,16 +3,19 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
+using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
+using MyERP.Settings;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.ObjectMapping;
+using Volo.Abp.Settings;
 
 namespace MyERP.Inventory;
 
@@ -35,12 +38,19 @@ public class ItemAppService :
         DeletePolicyName = MyERPPermissions.Items.Delete;
     }
 
+    public override async Task<ItemDto> CreateAsync(CreateUpdateItemDto input)
+    {
+        await ValidateDefaultUomsAsync(Guid.Empty, input);
+        return await base.CreateAsync(input);
+    }
+
     /// <summary>
     /// Override UpdateAsync to prevent deactivation of items in active orders.
     /// Per DO-NOT: "Show disabled/variant-template/expired items in link field queries"
     /// </summary>
     public override async Task<ItemDto> UpdateAsync(Guid id, CreateUpdateItemDto input)
     {
+        await ValidateDefaultUomsAsync(id, input);
         var existing = await Repository.GetAsync(id);
 
         // If deactivating (was active → now inactive), validate no active orders use this item
@@ -118,6 +128,43 @@ public class ItemAppService :
             throw new BusinessException("MyERP:05017")
                 .WithData("itemId", itemId)
                 .WithData("reason", "Item is used in active Purchase Orders.");
+        }
+    }
+
+    private async Task ValidateDefaultUomsAsync(Guid itemId, CreateUpdateItemDto input)
+    {
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        var company = await companyRepo.FindAsync(input.CompanyId);
+        var globalSetting = await SettingProvider.IsTrueAsync(MyERPSettings.Stock.AllowUomWithConversionRateDefinedInItem);
+        var isEnabled = (company?.AllowUomWithConversionRateDefinedInItem ?? false) || globalSetting;
+
+        if (!isEnabled) return;
+
+        var stockUom = input.Uom;
+        var uomsToCheck = new List<string>();
+        if (!string.IsNullOrWhiteSpace(input.SalesUom) && !string.Equals(input.SalesUom, stockUom, StringComparison.OrdinalIgnoreCase))
+            uomsToCheck.Add(input.SalesUom);
+        if (!string.IsNullOrWhiteSpace(input.PurchaseUom) && !string.Equals(input.PurchaseUom, stockUom, StringComparison.OrdinalIgnoreCase))
+            uomsToCheck.Add(input.PurchaseUom);
+
+        if (!uomsToCheck.Any()) return;
+
+        var uomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<UomConversion, Guid>>();
+        var query = await uomRepo.GetQueryableAsync();
+
+        foreach (var uom in uomsToCheck)
+        {
+            var hasConversion = query.Any(c =>
+                ((c.ItemId == itemId) || (input.VariantOfId.HasValue && c.ItemId == input.VariantOfId.Value))
+                && ((string.Equals(c.FromUom, uom, StringComparison.OrdinalIgnoreCase) && string.Equals(c.ToUom, stockUom, StringComparison.OrdinalIgnoreCase) && c.ConversionFactor > 0)
+                    || (string.Equals(c.FromUom, stockUom, StringComparison.OrdinalIgnoreCase) && string.Equals(c.ToUom, uom, StringComparison.OrdinalIgnoreCase) && c.ConversionFactor > 0)));
+
+            if (!hasConversion)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.UomNotConfiguredForItem)
+                    .WithData("uom", uom)
+                    .WithData("item", input.ItemCode);
+            }
         }
     }
 
@@ -283,6 +330,12 @@ public class ItemAppService :
         entity.ItemGroup = input.ItemGroup;
         entity.Brand = input.Brand;
         entity.Uom = input.Uom;
+        entity.SalesUom = input.SalesUom;
+        entity.PurchaseUom = input.PurchaseUom;
+        if (input.VariantOfId.HasValue)
+        {
+            entity.VariantOfId = input.VariantOfId.Value;
+        }
         entity.ValuationMethod = input.ValuationMethod;
         entity.StandardSellingPrice = input.StandardSellingPrice;
         entity.StandardBuyingPrice = input.StandardBuyingPrice;
