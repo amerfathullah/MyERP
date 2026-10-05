@@ -552,11 +552,15 @@ public class AssetAppService : ApplicationService, IAssetAppService
     /// <summary>
     /// Fetches asset header and item values from a Purchase Receipt or Purchase Invoice
     /// for manually or semi-automatically creating an asset (per ERPNext PR #57618 / commit 46e01c2d92).
+    /// Per ERPNext PR #59788 (commit 04d0bb5492): verifies caller has Asset.Create and read on purchase doc.
     /// </summary>
     public async Task<AssetPurchaseDocValuesDto> GetValuesFromPurchaseDocAsync(string purchaseDocType, Guid purchaseDocId, Guid? itemId = null)
     {
+        await CheckPolicyAsync(MyERPPermissions.Assets.Create);
+
         if (string.Equals(purchaseDocType, "PurchaseReceipt", StringComparison.OrdinalIgnoreCase))
         {
+            await CheckPolicyAsync(MyERPPermissions.PurchaseReceipts.Default);
             var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseReceipt, Guid>>();
             var pr = await prRepo.GetAsync(purchaseDocId, includeDetails: true);
             var item = itemId.HasValue
@@ -583,6 +587,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         }
         else if (string.Equals(purchaseDocType, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase))
         {
+            await CheckPolicyAsync(MyERPPermissions.PurchaseInvoices.Default);
             var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
             var pi = await piRepo.GetAsync(purchaseDocId, includeDetails: true);
             var item = itemId.HasValue

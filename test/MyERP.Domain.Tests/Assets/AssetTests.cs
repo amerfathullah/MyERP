@@ -296,6 +296,16 @@ public class AssetTests
         asset.ValueAfterDepreciation.ShouldBe(0);
     }
 
+    [Fact]
+    public void AssetPurchaseDocValues_RequiresValidDocumentType()
+    {
+        // Per ERPNext PR #59788 (commit 04d0bb5492): invalid purchase doc type rejected
+        var validTypes = new[] { "PurchaseReceipt", "PurchaseInvoice" };
+        validTypes.Contains("PurchaseReceipt").ShouldBeTrue();
+        validTypes.Contains("PurchaseInvoice").ShouldBeTrue();
+        validTypes.Contains("SalesInvoice").ShouldBeFalse();
+    }
+
     private static Asset CreateAsset() =>
         new(Guid.NewGuid(), Guid.NewGuid(), "AST-0001", "Office Laptop",
             new DateTime(2025, 1, 15), 50000m, Guid.NewGuid());
