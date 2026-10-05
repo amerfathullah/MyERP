@@ -991,4 +991,155 @@ public class StockEntryManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Resolves finished good serial numbers and batch numbers produced in this Stock Entry (Manufacture/Repack).
+    /// Per ERPNext PR #59706 (commit d4f5d39ee8).
+    /// </summary>
+    public static async Task<List<(string? FgSerialNo, string? FgBatchNo)>> GetFinishedGoodTargetsAsync(
+        StockEntry entry,
+        IRepository<SerialAndBatchBundle, Guid> bundleRepo,
+        IRepository<Batch, Guid>? batchRepo = null)
+    {
+        var targets = new List<(string? FgSerialNo, string? FgBatchNo)>();
+        if (entry.EntryType != StockEntryType.Manufacture && entry.EntryType != StockEntryType.Repack)
+            return targets;
+
+        var fgItems = entry.Items.Where(i => i.IsFinishedItem && i.TargetWarehouseId.HasValue).ToList();
+        if (!fgItems.Any()) return targets;
+
+        var fgItemDetailIds = fgItems.Select(i => i.Id).ToList();
+        var bundles = (await bundleRepo.WithDetailsAsync(b => b.Entries))
+            .Where(b => b.VoucherType == "StockEntry" && b.VoucherId == entry.Id && b.VoucherDetailId.HasValue && fgItemDetailIds.Contains(b.VoucherDetailId.Value) && !b.IsCancelled)
+            .ToList();
+
+        var bundleMap = bundles.ToDictionary(b => b.VoucherDetailId!.Value);
+
+        Dictionary<Guid, string>? batchIdToNo = null;
+        if (batchRepo != null)
+        {
+            var batchIds = fgItems.Where(i => i.BatchId.HasValue).Select(i => i.BatchId!.Value)
+                .Concat(bundles.SelectMany(b => b.Entries).Where(e => e.BatchId.HasValue).Select(e => e.BatchId!.Value))
+                .Distinct().ToList();
+            if (batchIds.Any())
+            {
+                var bQuery = await batchRepo.GetQueryableAsync();
+                batchIdToNo = bQuery.Where(b => batchIds.Contains(b.Id)).ToDictionary(b => b.Id, b => b.BatchNo);
+            }
+        }
+
+        foreach (var item in fgItems)
+        {
+            if (bundleMap.TryGetValue(item.Id, out var bundle) && bundle.Entries.Any())
+            {
+                var serialized = bundle.Entries.Any(e => !string.IsNullOrWhiteSpace(e.SerialNo));
+                foreach (var e in bundle.Entries)
+                {
+                    if (serialized && !string.IsNullOrWhiteSpace(e.SerialNo))
+                    {
+                        if (!targets.Any(t => t.FgSerialNo == e.SerialNo))
+                            targets.Add((e.SerialNo, null));
+                    }
+                    else if (e.BatchId.HasValue)
+                    {
+                        var bNo = (batchIdToNo != null && batchIdToNo.TryGetValue(e.BatchId.Value, out var bn)) ? bn : e.BatchId.Value.ToString();
+                        if (!targets.Any(t => t.FgBatchNo == bNo))
+                            targets.Add((null, bNo));
+                    }
+                }
+            }
+            else if (item.BatchId.HasValue)
+            {
+                var bNo = (batchIdToNo != null && batchIdToNo.TryGetValue(item.BatchId.Value, out var bn)) ? bn : item.BatchId.Value.ToString();
+                if (!targets.Any(t => t.FgBatchNo == bNo))
+                    targets.Add((null, bNo));
+            }
+        }
+
+        return targets;
+    }
+
+    /// <summary>
+    /// Validates raw material serial / batch mappings against produced finished goods.
+    /// Per ERPNext PR #59706 (commit d4f5d39ee8).
+    /// </summary>
+    public static async Task ValidateFinishedGoodMappingsAsync(
+        StockEntry entry,
+        IRepository<SerialAndBatchBundle, Guid> bundleRepo,
+        IRepository<Batch, Guid>? batchRepo = null)
+    {
+        if (entry.EntryType != StockEntryType.Manufacture && entry.EntryType != StockEntryType.Repack)
+            return;
+
+        var fgTargets = await GetFinishedGoodTargetsAsync(entry, bundleRepo, batchRepo);
+        var fgSerialSet = fgTargets.Where(t => !string.IsNullOrWhiteSpace(t.FgSerialNo)).Select(t => t.FgSerialNo!).ToHashSet();
+        var fgBatchSet = fgTargets.Where(t => !string.IsNullOrWhiteSpace(t.FgBatchNo)).Select(t => t.FgBatchNo!).ToHashSet();
+
+        var rmItems = entry.Items.Where(i => !i.IsFinishedItem && i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue).ToList();
+        if (!rmItems.Any()) return;
+
+        var rmDetailIds = rmItems.Select(i => i.Id).ToList();
+        var rmBundles = (await bundleRepo.WithDetailsAsync(b => b.Entries))
+            .Where(b => b.VoucherType == "StockEntry" && b.VoucherId == entry.Id && b.VoucherDetailId.HasValue && rmDetailIds.Contains(b.VoucherDetailId.Value) && !b.IsCancelled)
+            .ToList();
+
+        foreach (var bundle in rmBundles)
+        {
+            foreach (var e in bundle.Entries)
+            {
+                if (!string.IsNullOrWhiteSpace(e.FgSerialNo) && !fgSerialSet.Contains(e.FgSerialNo))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidFinishedGoodMapping)
+                        .WithData("rawMaterial", e.SerialNo ?? e.BatchId?.ToString() ?? "Raw Material")
+                        .WithData("target", e.FgSerialNo);
+                }
+                if (!string.IsNullOrWhiteSpace(e.FgBatchNo) && !fgBatchSet.Contains(e.FgBatchNo))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidFinishedGoodMapping)
+                        .WithData("rawMaterial", e.SerialNo ?? e.BatchId?.ToString() ?? "Raw Material")
+                        .WithData("target", e.FgBatchNo);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Auto-maps raw materials to finished goods in order when auto_map_raw_materials_to_finished_goods is enabled.
+    /// Per ERPNext PR #59706 (commit d4f5d39ee8).
+    /// </summary>
+    public static async Task AutoMapRawMaterialsToFinishedGoodsAsync(
+        StockEntry entry,
+        IRepository<SerialAndBatchBundle, Guid> bundleRepo,
+        IRepository<Batch, Guid>? batchRepo = null)
+    {
+        if (entry.EntryType != StockEntryType.Manufacture && entry.EntryType != StockEntryType.Repack)
+            return;
+
+        var fgTargets = await GetFinishedGoodTargetsAsync(entry, bundleRepo, batchRepo);
+        if (!fgTargets.Any()) return;
+
+        var rmItems = entry.Items.Where(i => !i.IsFinishedItem && i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue).ToList();
+        if (!rmItems.Any()) return;
+
+        var rmDetailIds = rmItems.Select(i => i.Id).ToList();
+        var rmBundles = (await bundleRepo.WithDetailsAsync(b => b.Entries))
+            .Where(b => b.VoucherType == "StockEntry" && b.VoucherId == entry.Id && b.VoucherDetailId.HasValue && rmDetailIds.Contains(b.VoucherDetailId.Value) && !b.IsCancelled)
+            .ToList();
+
+        var updatedBundles = new List<SerialAndBatchBundle>();
+        foreach (var bundle in rmBundles)
+        {
+            var hasUnmapped = bundle.Entries.Any(e => string.IsNullOrWhiteSpace(e.FgSerialNo) && string.IsNullOrWhiteSpace(e.FgBatchNo));
+            if (hasUnmapped)
+            {
+                bundle.AutoMapToFinishedGoods(fgTargets);
+                updatedBundles.Add(bundle);
+            }
+        }
+
+        if (updatedBundles.Any())
+        {
+            await bundleRepo.UpdateManyAsync(updatedBundles);
+        }
+    }
 }

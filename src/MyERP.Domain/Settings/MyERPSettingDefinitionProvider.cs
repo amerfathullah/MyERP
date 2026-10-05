@@ -22,7 +22,8 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Stock.AllowToMakeQualityInspectionAfterPurchaseOrDelivery, "false"),
             new SettingDefinition(MyERPSettings.Stock.PickSerialAndBatchBasedOn, "FIFO"),
             new SettingDefinition(MyERPSettings.Stock.ItemNamingBy, "Item Code"),
-            new SettingDefinition(MyERPSettings.Stock.EnableSerialAndBatchNoForItem, "true")
+            new SettingDefinition(MyERPSettings.Stock.EnableSerialAndBatchNoForItem, "true"),
+            new SettingDefinition(MyERPSettings.Stock.AutoMapRawMaterialsToFinishedGoods, "false")
         );
 
         // ═══════════ Selling Settings ═══════════

@@ -35,6 +35,7 @@ public static class MyERPSettings
         public const string SampleRetentionWarehouse = G + ".SampleRetentionWarehouse";
         public const string DoNotUseBatchwiseValuation = G + ".DoNotUseBatchwiseValuation";
         public const string EnableSerialAndBatchNoForItem = G + ".EnableSerialAndBatchNoForItem";
+        public const string AutoMapRawMaterialsToFinishedGoods = G + ".AutoMapRawMaterialsToFinishedGoods";
     }
 
     // ═══════════════════════════════════════════════════

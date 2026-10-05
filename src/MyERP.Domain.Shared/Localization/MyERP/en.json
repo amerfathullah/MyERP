@@ -4937,6 +4937,11 @@
     "DefaultSourceWarehouse": "Default source Warehouse",
     "UnreserveStock": "Unreserve Stock",
     "NoReservedStockToUnreserve": "No reserved stock to unreserve.",
-    "HeldQty": "Held Qty"
+    "HeldQty": "Held Qty",
+    "MyERP:05080": "Raw material {rawMaterial} is mapped to {target}, which is not a finished good produced by this entry.",
+    "MyERP:05081": "Finished good mapping cannot be changed for a cancelled entry.",
+    "MyERP:05082": "Raw material {rawMaterial} is already mapped and cannot be changed after entry is submitted.",
+    "MyERP:05083": "Finished good mapping is only allowed for Manufacture and Repack entries.",
+    "AutoMapRawMaterialsToFinishedGoods": "Auto Map Raw Materials to Finished Goods"
   }
 }

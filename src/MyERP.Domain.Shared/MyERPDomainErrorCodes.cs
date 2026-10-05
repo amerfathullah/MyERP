@@ -580,4 +580,10 @@ public static class MyERPDomainErrorCodes
     public const string BatchSeriesMustEndWithHash = "MyERP:05077";
     public const string RetainSampleOnlyForBatchItems = "MyERP:05078";
     public const string SampleQuantityMustBeGreaterThanZero = "MyERP:05079";
+
+    // Raw Material to Finished Good Traceability Mapping (PR #59706 / commit d4f5d39ee8)
+    public const string InvalidFinishedGoodMapping = "MyERP:05080";
+    public const string FinishedGoodMappingNotAllowedForCancelled = "MyERP:05081";
+    public const string FinishedGoodMappingAlreadySet = "MyERP:05082";
+    public const string FinishedGoodMappingNotAllowed = "MyERP:05083";
 }

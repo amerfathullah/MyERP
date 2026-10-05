@@ -1,4 +1,4 @@
-import type { CreateStockEntryDto, CreateTransitTransferDto, ManufactureItemsDto, MaterialRequestItemsForSeDto, PendingTransitTransferDto, StockEntryDto } from './models';
+import type { CreateStockEntryDto, CreateTransitTransferDto, ManufactureItemsDto, MapRawMaterialsToFinishedGoodsInput, MaterialRequestItemsForSeDto, PendingTransitTransferDto, StockEntryDto, StockEntryFgMappingDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -125,6 +125,21 @@ export class StockEntryService {
     this.restService.request<any, StockEntryDto>({
       method: 'PUT',
       url: `/api/app/stock-entry/${id}`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  getFinishedGoodMapping = (stockEntryId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryFgMappingDto>({
+      method: 'GET',
+      url: `/api/app/stock-entry/finished-good-mapping/${stockEntryId}`,
+    },
+    { apiName: this.apiName,...config });
+
+  mapRawMaterialsToFinishedGoods = (stockEntryId: string, input: MapRawMaterialsToFinishedGoodsInput, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryFgMappingDto>({
+      method: 'POST',
+      url: `/api/app/stock-entry/map-raw-materials-to-finished-goods/${stockEntryId}`,
       body: input,
     },
     { apiName: this.apiName,...config });

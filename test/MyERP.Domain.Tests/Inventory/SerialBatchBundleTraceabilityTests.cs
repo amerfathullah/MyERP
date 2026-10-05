@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using MyERP.Inventory;
 using MyERP.Inventory.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
 using Xunit;
@@ -125,5 +129,123 @@ public class SerialBatchBundleTraceabilityTests
 
         e1.FgSerialNo.ShouldBe("EXISTING-FG");
         e2.FgSerialNo.ShouldBe("NEW-FG");
+    }
+
+    [Fact]
+    public async Task GetFinishedGoodTargetsAsync_ExtractsSerialAndBatchTargets()
+    {
+        var companyId = Guid.NewGuid();
+        var entry = new StockEntry(Guid.NewGuid(), companyId, StockEntryType.Manufacture, DateTime.UtcNow);
+        var fgItemId = Guid.NewGuid();
+        var targetWhId = Guid.NewGuid();
+        entry.AddItem(fgItemId, 2m, null, targetWhId, 100m, isFinishedItem: true);
+        var fgItemRow = entry.Items[0];
+
+        var fgBundle = new SerialAndBatchBundle(
+            Guid.NewGuid(), companyId, fgItemId, targetWhId,
+            BundleTransactionType.Inward, "StockEntry", entry.Id, DateTime.UtcNow)
+        {
+            VoucherDetailId = fgItemRow.Id
+        };
+        fgBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), fgBundle.Id, 1m, 100m, serialNo: "FG-SN-001"));
+        fgBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), fgBundle.Id, 1m, 100m, serialNo: "FG-SN-002"));
+
+        var bundleRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<SerialAndBatchBundle, Guid>>();
+        bundleRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<SerialAndBatchBundle, object>>[]>())
+            .Returns(Task.FromResult(new List<SerialAndBatchBundle> { fgBundle }.AsQueryable()));
+
+        var targets = await MyERP.Inventory.DomainServices.StockEntryManager.GetFinishedGoodTargetsAsync(entry, bundleRepo);
+
+        targets.Count.ShouldBe(2);
+        targets.ShouldContain(t => t.FgSerialNo == "FG-SN-001" && t.FgBatchNo == null);
+        targets.ShouldContain(t => t.FgSerialNo == "FG-SN-002" && t.FgBatchNo == null);
+    }
+
+    [Fact]
+    public async Task ValidateFinishedGoodMappingsAsync_WithInvalidTarget_Throws()
+    {
+        var companyId = Guid.NewGuid();
+        var entry = new StockEntry(Guid.NewGuid(), companyId, StockEntryType.Manufacture, DateTime.UtcNow);
+        var fgItemId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+        var sourceWhId = Guid.NewGuid();
+        var targetWhId = Guid.NewGuid();
+
+        entry.AddItem(fgItemId, 1m, null, targetWhId, 100m, isFinishedItem: true);
+        entry.AddItem(rmItemId, 1m, sourceWhId, null, 50m, isFinishedItem: false);
+        var fgRow = entry.Items[0];
+        var rmRow = entry.Items[1];
+
+        var fgBundle = new SerialAndBatchBundle(
+            Guid.NewGuid(), companyId, fgItemId, targetWhId,
+            BundleTransactionType.Inward, "StockEntry", entry.Id, DateTime.UtcNow)
+        {
+            VoucherDetailId = fgRow.Id
+        };
+        fgBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), fgBundle.Id, 1m, 100m, serialNo: "FG-VALID-01"));
+
+        var rmBundle = new SerialAndBatchBundle(
+            Guid.NewGuid(), companyId, rmItemId, sourceWhId,
+            BundleTransactionType.Outward, "StockEntry", entry.Id, DateTime.UtcNow)
+        {
+            VoucherDetailId = rmRow.Id
+        };
+        // Mapped to invalid target
+        rmBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), rmBundle.Id, 1m, 50m, serialNo: "RM-01", fgSerialNo: "NON-EXISTENT-FG"));
+
+        var bundleRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<SerialAndBatchBundle, Guid>>();
+        bundleRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<SerialAndBatchBundle, object>>[]>())
+            .Returns(Task.FromResult(new List<SerialAndBatchBundle> { fgBundle, rmBundle }.AsQueryable()));
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            MyERP.Inventory.DomainServices.StockEntryManager.ValidateFinishedGoodMappingsAsync(entry, bundleRepo));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidFinishedGoodMapping);
+    }
+
+    [Fact]
+    public async Task AutoMapRawMaterialsToFinishedGoodsAsync_MapsUnmappedEntriesInOrder()
+    {
+        var companyId = Guid.NewGuid();
+        var entry = new StockEntry(Guid.NewGuid(), companyId, StockEntryType.Manufacture, DateTime.UtcNow);
+        var fgItemId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+        var sourceWhId = Guid.NewGuid();
+        var targetWhId = Guid.NewGuid();
+
+        entry.AddItem(fgItemId, 2m, null, targetWhId, 100m, isFinishedItem: true);
+        entry.AddItem(rmItemId, 2m, sourceWhId, null, 50m, isFinishedItem: false);
+        var fgRow = entry.Items[0];
+        var rmRow = entry.Items[1];
+
+        var fgBundle = new SerialAndBatchBundle(
+            Guid.NewGuid(), companyId, fgItemId, targetWhId,
+            BundleTransactionType.Inward, "StockEntry", entry.Id, DateTime.UtcNow)
+        {
+            VoucherDetailId = fgRow.Id
+        };
+        fgBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), fgBundle.Id, 1m, 100m, serialNo: "FG-A"));
+        fgBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), fgBundle.Id, 1m, 100m, serialNo: "FG-B"));
+
+        var rmBundle = new SerialAndBatchBundle(
+            Guid.NewGuid(), companyId, rmItemId, sourceWhId,
+            BundleTransactionType.Outward, "StockEntry", entry.Id, DateTime.UtcNow)
+        {
+            VoucherDetailId = rmRow.Id
+        };
+        var rmEntry1 = new SerialAndBatchEntry(Guid.NewGuid(), rmBundle.Id, 1m, 50m, serialNo: "RM-01");
+        var rmEntry2 = new SerialAndBatchEntry(Guid.NewGuid(), rmBundle.Id, 1m, 50m, serialNo: "RM-02");
+        rmBundle.AddEntry(rmEntry1);
+        rmBundle.AddEntry(rmEntry2);
+
+        var bundleRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<SerialAndBatchBundle, Guid>>();
+        bundleRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<SerialAndBatchBundle, object>>[]>())
+            .Returns(Task.FromResult(new List<SerialAndBatchBundle> { fgBundle, rmBundle }.AsQueryable()));
+
+        await MyERP.Inventory.DomainServices.StockEntryManager.AutoMapRawMaterialsToFinishedGoodsAsync(entry, bundleRepo);
+
+        rmEntry1.FgSerialNo.ShouldBe("FG-A");
+        rmEntry2.FgSerialNo.ShouldBe("FG-B");
+        await bundleRepo.Received(1).UpdateManyAsync(Arg.Is<IEnumerable<SerialAndBatchBundle>>(list => list.Contains(rmBundle)));
     }
 }

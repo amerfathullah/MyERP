@@ -199,3 +199,52 @@ public class MaterialRequestItemLineDto
     public Guid? WarehouseId { get; set; }
     public Guid MaterialRequestItemId { get; set; }
 }
+
+public class StockEntryFinishedGoodTargetDto
+{
+    public string? SerialNo { get; set; }
+    public Guid? BatchId { get; set; }
+    public string? BatchNo { get; set; }
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public string TargetType { get; set; } = null!;
+}
+
+public class RawMaterialMappingItemDto
+{
+    public Guid EntryId { get; set; }
+    public Guid BundleId { get; set; }
+    public Guid ItemId { get; set; }
+    public string? ItemName { get; set; }
+    public string? SerialNo { get; set; }
+    public Guid? BatchId { get; set; }
+    public string? BatchNo { get; set; }
+    public decimal Quantity { get; set; }
+    public string? FgSerialNo { get; set; }
+    public string? FgBatchNo { get; set; }
+    public bool IsMapped => !string.IsNullOrWhiteSpace(FgSerialNo) || !string.IsNullOrWhiteSpace(FgBatchNo);
+}
+
+public class StockEntryFgMappingDto
+{
+    public Guid StockEntryId { get; set; }
+    public string? EntryNumber { get; set; }
+    public StockEntryType EntryType { get; set; }
+    public string Status { get; set; } = null!;
+    public List<StockEntryFinishedGoodTargetDto> FinishedGoods { get; set; } = new();
+    public List<RawMaterialMappingItemDto> RawMaterials { get; set; } = new();
+}
+
+public class MapRawMaterialsToFinishedGoodsInput
+{
+    [Required]
+    public List<RawMaterialFgMappingItemInput> Mappings { get; set; } = new();
+}
+
+public class RawMaterialFgMappingItemInput
+{
+    [Required]
+    public Guid EntryId { get; set; }
+    public string? FgSerialNo { get; set; }
+    public string? FgBatchNo { get; set; }
+}

@@ -2093,3 +2093,46 @@ export interface StockAgeingReportDto {
   overallAverageAgeDays: number;
   agedOver90Count: number;
 }
+
+export interface StockEntryFinishedGoodTargetDto {
+  serialNo?: string | null;
+  batchId?: string | null;
+  batchNo?: string | null;
+  itemId: string;
+  itemName?: string | null;
+  targetType: string;
+}
+
+export interface RawMaterialMappingItemDto {
+  entryId: string;
+  bundleId: string;
+  itemId: string;
+  itemName?: string | null;
+  serialNo?: string | null;
+  batchId?: string | null;
+  batchNo?: string | null;
+  quantity: number;
+  fgSerialNo?: string | null;
+  fgBatchNo?: string | null;
+  isMapped?: boolean;
+}
+
+export interface StockEntryFgMappingDto {
+  stockEntryId: string;
+  entryNumber?: string | null;
+  entryType: StockEntryType;
+  status: string;
+  finishedGoods: StockEntryFinishedGoodTargetDto[];
+  rawMaterials: RawMaterialMappingItemDto[];
+}
+
+export interface MapRawMaterialsToFinishedGoodsInput {
+  mappings: RawMaterialFgMappingItemInput[];
+}
+
+export interface RawMaterialFgMappingItemInput {
+  entryId: string;
+  fgSerialNo?: string | null;
+  fgBatchNo?: string | null;
+}
+
