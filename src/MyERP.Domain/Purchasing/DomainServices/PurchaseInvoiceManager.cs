@@ -176,6 +176,9 @@ public class PurchaseInvoiceManager : DomainService
                 .WithData("documentType", "Purchase Invoice");
         }
 
+        // Per ERPNext PR #59612 / commit 8260d62362: Keep the original invoice's advances out of the return
+        returnInvoice.TotalAdvance = 0;
+
         // Load original to validate exchange rate and qty caps
         var original = await _invoiceRepository.GetAsync(returnInvoice.ReturnAgainstId.Value);
 

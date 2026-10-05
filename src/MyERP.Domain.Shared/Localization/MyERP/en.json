@@ -4944,6 +4944,7 @@
     "MyERP:05081": "Finished good mapping cannot be changed for a cancelled entry.",
     "MyERP:05082": "Raw material {rawMaterial} is already mapped and cannot be changed after entry is submitted.",
     "MyERP:05083": "Finished good mapping is only allowed for Manufacture and Repack entries.",
+    "MyERP:05084": "Sales Order Item {itemId} does not belong to Sales Order {orderNumber}.",
     "AutoMapRawMaterialsToFinishedGoods": "Auto Map Raw Materials to Finished Goods"
   }
 }

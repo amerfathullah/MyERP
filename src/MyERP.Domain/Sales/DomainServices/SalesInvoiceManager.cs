@@ -100,6 +100,9 @@ public class SalesInvoiceManager : DomainService
                 .WithData("documentType", "Sales Invoice");
         }
 
+        // Per ERPNext PR #59612 / commit 8260d62362: Keep the original invoice's advances out of the return
+        returnInvoice.TotalAdvance = 0;
+
         var original = await _invoiceRepository.GetAsync(returnInvoice.ReturnAgainstId.Value);
 
         // Party account (debit_to) must match original

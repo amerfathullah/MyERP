@@ -588,4 +588,7 @@ public static class MyERPDomainErrorCodes
     public const string FinishedGoodMappingNotAllowedForCancelled = "MyERP:05081";
     public const string FinishedGoodMappingAlreadySet = "MyERP:05082";
     public const string FinishedGoodMappingNotAllowed = "MyERP:05083";
+
+    // Stock Reservation (ERPNext PR #59838 / commit ec3dbd2e37)
+    public const string SalesOrderItemDoesNotBelongToOrder = "MyERP:05084";
 }

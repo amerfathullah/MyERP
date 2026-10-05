@@ -98,6 +98,22 @@ public class StockReservationAppService : ApplicationService, IStockReservationA
                 .WithData("voucherCompany", input.CompanyId);
         }
 
+        // Validate voucher detail belongs to voucher (ERPNext PR #59838 / commit ec3dbd2e37)
+        if (input.VoucherDetailId.HasValue &&
+            (string.Equals(input.VoucherType, "SalesOrder", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(input.VoucherType, "Sales Order", StringComparison.OrdinalIgnoreCase)))
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var so = await soRepo.GetAsync(input.VoucherId);
+            var soItem = so.Items.FirstOrDefault(i => i.Id == input.VoucherDetailId.Value);
+            if (soItem == null || soItem.ItemId != input.ItemId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.SalesOrderItemDoesNotBelongToOrder)
+                    .WithData("itemId", input.VoucherDetailId.Value)
+                    .WithData("orderNumber", so.OrderNumber);
+            }
+        }
+
         // Validate availability using domain service
         var reservationManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
         await reservationManager.ValidateAvailabilityAsync(input.ItemId, input.WarehouseId, input.ReservedQty, input.BatchId);

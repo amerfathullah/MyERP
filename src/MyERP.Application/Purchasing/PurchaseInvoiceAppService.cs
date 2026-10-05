@@ -606,6 +606,11 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.IsReturnRefund = input.IsReturnRefund;
         invoice.IsSubcontracted = input.IsSubcontracted;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
+        if (invoice.IsReturn)
+        {
+            // Per ERPNext PR #59612 / commit 8260d62362: Keep original invoice's advances out of the return.
+            invoice.TotalAdvance = 0;
+        }
 
         Guid? returnAgainstPriceListId = null;
         if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)

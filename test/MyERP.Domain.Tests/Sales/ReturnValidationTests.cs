@@ -386,4 +386,62 @@ public class ReturnValidationTests
 
         await manager.ValidateReturnAsync(returnDn);
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task SalesInvoice_ValidateReturnAsync_ClearsTotalAdvance()
+    {
+        var siRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<SalesInvoice, Guid>>();
+        var soRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<SalesOrder, Guid>>();
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var manager = new MyERP.Sales.DomainServices.SalesInvoiceManager(siRepo, soRepo, itemRepo);
+
+        var origId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var original = new SalesInvoice(origId, Guid.NewGuid(), Guid.NewGuid(), "INV-ORIG", DateTime.UtcNow);
+        original.AddItem(itemId, "Item A", 10m, 100m, 0m);
+        siRepo.GetAsync(origId).Returns(System.Threading.Tasks.Task.FromResult(original));
+
+        var returnInvoice = new SalesInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "CN-001", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = origId,
+            TotalAdvance = 250m
+        };
+        returnInvoice.AddItem(itemId, "Item A", -2m, 100m, 0m);
+
+        siRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new System.Collections.Generic.List<SalesInvoice> { original, returnInvoice }.AsQueryable()));
+
+        await manager.ValidateReturnAsync(returnInvoice);
+        returnInvoice.TotalAdvance.ShouldBe(0m);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task PurchaseInvoice_ValidateReturnAsync_ClearsTotalAdvance()
+    {
+        var supplierRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+        var piRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>>();
+        var poRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+        var manager = new MyERP.Purchasing.DomainServices.PurchaseInvoiceManager(supplierRepo, piRepo, poRepo);
+
+        var origId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var original = new MyERP.Purchasing.Entities.PurchaseInvoice(origId, Guid.NewGuid(), Guid.NewGuid(), "PINV-ORIG", DateTime.UtcNow);
+        original.AddItem(itemId, "Item A", 10m, 100m, 0m);
+        piRepo.GetAsync(origId).Returns(System.Threading.Tasks.Task.FromResult(original));
+
+        var returnInvoice = new MyERP.Purchasing.Entities.PurchaseInvoice(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "DN-001", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = origId,
+            TotalAdvance = 150m
+        };
+        returnInvoice.AddItem(itemId, "Item A", -2m, 100m, 0m);
+
+        piRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new System.Collections.Generic.List<MyERP.Purchasing.Entities.PurchaseInvoice> { original, returnInvoice }.AsQueryable()));
+
+        await manager.ValidateReturnAsync(returnInvoice);
+        returnInvoice.TotalAdvance.ShouldBe(0m);
+    }
 }
