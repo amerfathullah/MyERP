@@ -203,6 +203,41 @@ public class StockReservationManagerTests
             voucherDemandQty: 10m, voucherDetailId: workOrderItemId);
     }
 
+    [Fact]
+    public async Task ReserveStockAsync_WorkOrder_ConsumedStockStaysCountedInLimit()
+    {
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var workOrderId = Guid.NewGuid();
+        var workOrderItemId = Guid.NewGuid();
+
+        var bin = new Bin(Guid.NewGuid(), itemId, warehouseId) { ActualQty = 50m };
+
+        // 10 units required, 4 units already reserved and consumed
+        var initialSre = new StockReservationEntry(
+            Guid.NewGuid(), companyId, itemId, warehouseId,
+            "Work Order", workOrderId, reservedQty: 10m, voucherQty: 10m)
+        {
+            VoucherDetailId = workOrderItemId,
+            ConsumedQty = 4m
+        };
+        initialSre.Submit();
+
+        var sres = new List<StockReservationEntry> { initialSre };
+        var manager = CreateManager(sres, bins: new List<Bin> { bin });
+
+        // Per ERPNext PR #59604: consumed stock stays counted in the row reservation limit
+        // so trying to reserve another 1 unit against the 10-unit row requirement must throw
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            manager.ReserveStockAsync(
+                itemId, warehouseId, companyId,
+                qty: 1m, voucherType: "Work Order", voucherId: workOrderId,
+                voucherDemandQty: 10m, voucherDetailId: workOrderItemId));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
     private static DomainServices.StockReservationManager CreateManager(
         List<StockReservationEntry> entries,
         List<StockLedgerEntry>? sles = null,

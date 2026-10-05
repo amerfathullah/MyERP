@@ -386,7 +386,7 @@ public class StockReservationManager : DomainService
 
         var demandQty = voucherDemandQty.HasValue ? Math.Round(voucherDemandQty.Value, 4) : qty;
 
-        // Per ERPNext PR #59604 (commit 62bf0ff1ae): prevent duplicate serial and batch reservations
+        // Per ERPNext PR #59604 (commit 62bf0ff1ae): prevent duplicate serial and batch reservations.
         // Check allowed quantity across all entries for the voucher row across all warehouses.
         if (voucherDemandQty.HasValue)
         {
@@ -402,9 +402,11 @@ public class StockReservationManager : DomainService
                 rowReservedQuery = rowReservedQuery.Where(s => s.VoucherDetailId == voucherDetailId);
             }
 
+            // For Work Order and Subcontracting Order, consumed stock stays counted in the row reservation limit
+            // so the row cannot be reserved past its required quantity.
             var existingRowReserved = rowReservedQuery
                 .ToList()
-                .Sum(s => s.ReservedQty - s.TransferredQty - s.DeliveredQty - s.ConsumedQty);
+                .Sum(s => s.ReservedQty - s.TransferredQty - s.DeliveredQty - (voucherType is "Work Order" or "Subcontracting Order" ? 0m : s.ConsumedQty));
 
             var allowedQty = Math.Max(0m, demandQty - existingRowReserved);
             if (qty > allowedQty)
