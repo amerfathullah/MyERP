@@ -408,7 +408,19 @@ public class StockValuationService : DomainService
                 break;
         }
 
-        await _ledgerRepository.UpdateManyAsync(entries);
+        // Per ERPNext PR #59768 (commit 3c866acc40): do not revive cancelled stock ledger entry during reposting.
+        // Check database to ensure no entry was cancelled while revaluation was computing.
+        var entryIds = entries.Select(e => e.Id).ToList();
+        var cancelledIds = (await _ledgerRepository.GetQueryableAsync())
+            .Where(e => entryIds.Contains(e.Id) && e.IsCancelled)
+            .Select(e => e.Id)
+            .ToHashSet();
+
+        var activeEntries = entries.Where(e => !cancelledIds.Contains(e.Id) && !e.IsCancelled).ToList();
+        if (activeEntries.Count > 0)
+        {
+            await _ledgerRepository.UpdateManyAsync(activeEntries);
+        }
     }
 
     /// <summary>

@@ -421,15 +421,17 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         if (fiscalYear != null)
         {
             var budgetItems = new List<BudgetCheckItem>();
+            var conversionRate = po.ExchangeRate > 0 ? po.ExchangeRate : 1m;
             foreach (var poItem in po.Items)
             {
                 // Falls back to Item Default -> Item Group hierarchy when the item has no expense account of its own
                 var expenseAccountId = await _itemDefaultsResolution.ResolveExpenseAccountAsync(poItem.ItemId, po.CompanyId);
                 if (!expenseAccountId.HasValue) continue;
 
+                // Per ERPNext PR #59161 (commit 5dec6d6464): convert foreign currency PO amount to company currency
                 budgetItems.Add(new BudgetCheckItem(
                     expenseAccountId.Value,
-                    poItem.Quantity * poItem.UnitPrice));
+                    poItem.Quantity * poItem.UnitPrice * conversionRate));
             }
 
             if (budgetItems.Any())

@@ -264,6 +264,7 @@ public class BudgetValidationService : DomainService
 
             foreach (var po in activePos)
             {
+                var conversionRate = po.ExchangeRate > 0 ? po.ExchangeRate : 1m;
                 foreach (var item in po.Items)
                 {
                     var unbilledQty = Math.Max(0, item.Quantity - item.BilledQty);
@@ -275,7 +276,8 @@ public class BudgetValidationService : DomainService
 
                     if (accId.HasValue && accId.Value != Guid.Empty)
                     {
-                        result[accId.Value] = result.GetValueOrDefault(accId.Value, 0m) + (unbilledQty * item.UnitPrice);
+                        // Per ERPNext PR #59161 (commit 5dec6d6464): convert foreign currency PO unbilled amount to company currency
+                        result[accId.Value] = result.GetValueOrDefault(accId.Value, 0m) + (unbilledQty * item.UnitPrice * conversionRate);
                     }
                 }
             }

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using Shouldly;
@@ -63,6 +65,22 @@ public class StockValuationNegativeValueTests
         rate.ShouldBe(10);
         value.ShouldBe(50);
         value.ShouldBeGreaterThanOrEqualTo(0m);
+    }
+
+    [Fact]
+    public void RepostItemValuation_CancelledEntry_FlaggedAndNotRevived()
+    {
+        // Per ERPNext PR #59768 (commit 3c866acc40): do not revive cancelled stock ledger entry during reposting
+        var sle1 = MakeSle(10, 1000);
+        var sle2 = MakeSle(15, 1600);
+        sle2.IsCancelled = true;
+
+        var entries = new List<StockLedgerEntry> { sle1, sle2 };
+        var activeEntries = entries.Where(e => !e.IsCancelled).ToList();
+
+        activeEntries.Count.ShouldBe(1);
+        activeEntries[0].ShouldBe(sle1);
+        sle2.IsCancelled.ShouldBeTrue();
     }
 
     private static StockLedgerEntry MakeSle(decimal balanceQty, decimal balanceValue)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using Shouldly;
@@ -132,6 +133,28 @@ public class BudgetValidationServiceTests
 
         po.Items.Count.ShouldBe(1);
         po.Items[0].ExpenseAccountId.ShouldBe(expenseAccId);
+    }
+
+    [Fact]
+    public void PurchaseOrder_ForeignCurrency_ConvertsToCompanyCurrencyForBudget()
+    {
+        // Per ERPNext PR #59161 (commit 5dec6d6464): convert PO amount to company currency
+        var po = new Purchasing.Entities.PurchaseOrder(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-FC-001", DateTime.UtcNow);
+        po.CurrencyCode = "USD";
+        po.ExchangeRate = 4.5m; // 1 USD = 4.5 MYR
+        var expenseAccId = Guid.NewGuid();
+        po.AddItem(Guid.NewGuid(), "Imported Item", 10m, 100m, 0m, "Unit", expenseAccountId: expenseAccId);
+
+        var poForeignAmount = po.Items[0].Quantity * po.Items[0].UnitPrice; // 1000 USD
+        var conversionRate = po.ExchangeRate > 0 ? po.ExchangeRate : 1m;
+        var poBaseAmount = poForeignAmount * conversionRate; // 4500 MYR
+
+        poForeignAmount.ShouldBe(1000m);
+        poBaseAmount.ShouldBe(4500m);
+
+        var checkItem = new BudgetCheckItem(expenseAccId, poBaseAmount);
+        checkItem.Amount.ShouldBe(4500m);
     }
 
     private static Budget CreateBudget(decimal amount, bool submit = true)

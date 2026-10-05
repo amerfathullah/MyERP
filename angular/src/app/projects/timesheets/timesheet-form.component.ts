@@ -47,6 +47,35 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
           </div>
         </div>
 
+        @if (details.length > 0) {
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <div class="card border-0 bg-light">
+                <div class="card-body py-2 text-center">
+                  <div class="text-muted small">{{ 'TotalHours' | abpLocalization }}</div>
+                  <div class="fs-4 fw-bold text-primary">{{ totalHours | number:'1.1-1' }}h</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card border-0 bg-light">
+                <div class="card-body py-2 text-center">
+                  <div class="text-muted small">{{ 'BillableHours' | abpLocalization }}</div>
+                  <div class="fs-4 fw-bold text-success">{{ totalBillableHours | number:'1.1-1' }}h</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card border-0 bg-light">
+                <div class="card-body py-2 text-center">
+                  <div class="text-muted small">{{ 'TotalBillingAmount' | abpLocalization }}</div>
+                  <div class="fs-4 fw-bold">{{ totalBillingAmount | number:'1.2-2' }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
         <div class="card mb-3">
           <div class="card-header d-flex justify-content-between align-items-center">
             <span class="fw-bold">{{ 'TimeEntries' | abpLocalization }}</span>
@@ -111,6 +140,23 @@ export class TimesheetFormComponent implements OnInit {
   });
 
   get details(): FormArray { return this.form.get('details') as FormArray; }
+
+  // Per ERPNext PR #59725 (commit 632004d6de): recalculate totals when adding or changing time log rows
+  get totalHours(): number {
+    return (this.details.value as any[]).reduce((acc, row) => acc + (Number(row.hours) || 0), 0);
+  }
+
+  get totalBillableHours(): number {
+    return (this.details.value as any[])
+      .filter(row => row.isBillable)
+      .reduce((acc, row) => acc + (Number(row.hours) || 0), 0);
+  }
+
+  get totalBillingAmount(): number {
+    return (this.details.value as any[])
+      .filter(row => row.isBillable)
+      .reduce((acc, row) => acc + ((Number(row.hours) || 0) * (Number(row.billingRate) || 0)), 0);
+  }
 
   ngOnInit(): void {
     const cid = this.companyContext.currentCompanyId();
