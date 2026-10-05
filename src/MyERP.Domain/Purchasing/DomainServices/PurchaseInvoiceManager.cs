@@ -213,50 +213,69 @@ public class PurchaseInvoiceManager : DomainService
             .GroupBy(i => i.ItemId)
             .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.RejectedQty * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m))));
 
-        // Return qty per item cannot exceed (original qty - already_returned)
-        // Uses stock qty comparison to support different UOM returns (ERPNext commit abf94bc72d).
+        // Validate that all return items exist in the original Purchase Invoice (ERPNext PR #59820)
+        var validItemIds = original.Items.Select(i => i.ItemId).ToHashSet();
         foreach (var returnItem in returnInvoice.Items)
         {
-            var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
-            if (originalItem == null) continue;
+            if (!validItemIds.Contains(returnItem.ItemId))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ReturnItemNotFoundInOriginal)
+                    .WithData("item", returnItem.Description)
+                    .WithData("referenceDoc", original.InvoiceNumber);
+            }
+        }
 
+        // Return qty per item cannot exceed (original qty - already_returned)
+        // Uses stock qty comparison to support different UOM returns (ERPNext commit abf94bc72d).
+        var accumulatedReturnedAcceptedByItem = priorReturnedAcceptedByItem.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        var accumulatedReturnedRejectedByItem = priorReturnedRejectedByItem.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+        foreach (var returnItem in returnInvoice.Items)
+        {
             var returnFactor = returnItem.ConversionFactor > 0 ? returnItem.ConversionFactor : 1m;
-            var originalFactor = originalItem.ConversionFactor > 0 ? originalItem.ConversionFactor : 1m;
 
             if (returnItem.Quantity < 0)
             {
-                var originalStockQty = originalItem.Quantity * originalFactor;
                 var returnStockQty = Math.Abs(returnItem.Quantity) * returnFactor;
+                var originalStockQty = original.Items
+                    .Where(i => i.ItemId == returnItem.ItemId)
+                    .Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
 
-                var alreadyReturnedStock = priorReturnedAcceptedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+                var alreadyReturnedStock = accumulatedReturnedAcceptedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
                 var maxReturnableStock = originalStockQty - alreadyReturnedStock;
 
                 if (returnStockQty > maxReturnableStock + 0.0000001m)
                 {
                     throw new BusinessException("MyERP:08004")
                         .WithData("itemName", returnItem.Description)
-                        .WithData("originalQty", originalItem.Quantity)
+                        .WithData("originalQty", originalStockQty / returnFactor)
                         .WithData("alreadyReturned", alreadyReturnedStock / returnFactor)
                         .WithData("returnQty", Math.Abs(returnItem.Quantity));
                 }
+
+                accumulatedReturnedAcceptedByItem[returnItem.ItemId] = alreadyReturnedStock + returnStockQty;
             }
 
             if (returnItem.RejectedQty < 0)
             {
-                var originalRejectedStock = originalItem.RejectedQty * originalFactor;
                 var returnRejectedStock = Math.Abs(returnItem.RejectedQty) * returnFactor;
+                var originalRejectedStock = original.Items
+                    .Where(i => i.ItemId == returnItem.ItemId)
+                    .Sum(i => i.RejectedQty * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
 
-                var alreadyReturnedRejected = priorReturnedRejectedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+                var alreadyReturnedRejected = accumulatedReturnedRejectedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
                 var maxReturnableRejected = originalRejectedStock - alreadyReturnedRejected;
 
                 if (returnRejectedStock > maxReturnableRejected + 0.0000001m)
                 {
                     throw new BusinessException("MyERP:08004")
                         .WithData("itemName", returnItem.Description)
-                        .WithData("originalQty", originalItem.RejectedQty)
+                        .WithData("originalQty", originalRejectedStock / returnFactor)
                         .WithData("alreadyReturned", alreadyReturnedRejected / returnFactor)
                         .WithData("returnQty", Math.Abs(returnItem.RejectedQty));
                 }
+
+                accumulatedReturnedRejectedByItem[returnItem.ItemId] = alreadyReturnedRejected + returnRejectedStock;
             }
         }
     }

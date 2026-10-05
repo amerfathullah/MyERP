@@ -517,16 +517,18 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             }
         }
 
+        if (dn.IsReturn && dn.ReturnAgainstId.HasValue)
+        {
+            var dnManager = LazyServiceProvider.LazyGetRequiredService<DeliveryNoteManager>();
+            await dnManager.ValidateReturnAsync(dn);
+        }
+
         dn.Submit();
 
         if (dn.IsReturn)
         {
-            // Validate return qty does not exceed original delivery qty (domain service)
             if (dn.ReturnAgainstId.HasValue)
             {
-                var dnManager = LazyServiceProvider.LazyGetRequiredService<DeliveryNoteManager>();
-                await dnManager.ValidateReturnAsync(dn);
-
                 // Per ERPNext PR #58953 / commit be8208e7cb & PR #58869 / commit f864333afa: update original DN returned_qty & recalculate billing
                 var originalDn = await _repository.FindAsync(dn.ReturnAgainstId.Value);
                 if (originalDn != null)

@@ -133,32 +133,51 @@ public class SalesInvoiceManager : DomainService
             .GroupBy(i => i.ItemId)
             .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m))));
 
+        // Validate that all return items exist in the original Sales Invoice (ERPNext PR #59820)
+        var validItemIds = original.Items.Select(i => i.ItemId).ToHashSet();
+        foreach (var returnItem in returnInvoice.Items)
+        {
+            if (!validItemIds.Contains(returnItem.ItemId))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ReturnItemNotFoundInOriginal)
+                    .WithData("item", returnItem.Description)
+                    .WithData("referenceDoc", original.InvoiceNumber);
+            }
+        }
+
         // Return qty per item cannot exceed (original qty - already_returned); return rate cannot exceed original
         // rate (Moving Average valuation items are exempt — their rate legitimately fluctuates).
         // Uses stock qty comparison to support different UOM returns (ERPNext commit abf94bc72d).
+        var accumulatedReturnedByItem = priorReturnedByItem.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
         foreach (var returnItem in returnInvoice.Items)
         {
-            var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
-            if (originalItem == null) continue;
-
             var returnFactor = returnItem.ConversionFactor > 0 ? returnItem.ConversionFactor : 1m;
-            var originalFactor = originalItem.ConversionFactor > 0 ? originalItem.ConversionFactor : 1m;
-            var originalStockQty = originalItem.Quantity * originalFactor;
+            // PR #59823: calculate current return stock qty directly from current qty & factor
             var returnStockQty = Math.Abs(returnItem.Quantity) * returnFactor;
 
-            var alreadyReturnedStock = priorReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
-            var maxReturnableStock = originalStockQty - alreadyReturnedStock;
+            // Total invoiced stock qty for this item across all original rows (PR #59820)
+            var originalItemStockQty = original.Items
+                .Where(i => i.ItemId == returnItem.ItemId)
+                .Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+
+            var alreadyReturnedStock = accumulatedReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+            var maxReturnableStock = originalItemStockQty - alreadyReturnedStock;
 
             if (returnStockQty > maxReturnableStock + 0.0000001m)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
                     .WithData("itemName", returnItem.Description)
-                    .WithData("originalQty", originalItem.Quantity)
+                    .WithData("originalQty", originalItemStockQty / returnFactor)
                     .WithData("alreadyReturned", alreadyReturnedStock / returnFactor)
                     .WithData("returnQty", Math.Abs(returnItem.Quantity));
             }
 
-            if (returnItem.UnitPrice > originalItem.UnitPrice)
+            // Accumulate returned qty for this item so multiple rows in this same return document are bounded (PR #59820)
+            accumulatedReturnedByItem[returnItem.ItemId] = alreadyReturnedStock + returnStockQty;
+
+            var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
+            if (originalItem != null && returnItem.UnitPrice > originalItem.UnitPrice)
             {
                 var item = await _itemRepository.FindAsync(returnItem.ItemId);
                 if (item?.ValuationMethod != ValuationMethod.WeightedAverage)

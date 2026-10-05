@@ -89,7 +89,11 @@ public class DeliveryNoteManager : DomainService
 
     /// <summary>
     /// Validates return DN (goods return from customer) business rules.
-    /// Return qty per item cannot exceed original DN qty.
+    /// Per ERPNext PR #59820 (commit 13ccd6e49f), PR #59816 (commit dc898340dc), and PR #59823 (commit 1623fcde72):
+    /// 1. All return rows must reference items delivered in the original DN.
+    /// 2. Return quantities across all rows (with or without detail links) must not exceed total delivered qty net of prior returns.
+    /// 3. Returns of batch items cannot exceed the quantity delivered from each batch net of prior returns.
+    /// 4. Return rates cannot exceed original sale rates (weighted-average valuation exempt).
     /// </summary>
     public async Task ValidateReturnAsync(DeliveryNote returnDN)
     {
@@ -119,44 +123,140 @@ public class DeliveryNoteManager : DomainService
                 .WithData("originalCustomer", original.CustomerId);
         }
 
+        // Validate that all return items exist in the original Delivery Note (ERPNext PR #59820)
+        var validItemIds = original.Items.Select(i => i.ItemId).ToHashSet();
+        foreach (var returnItem in returnDN.Items)
+        {
+            if (!validItemIds.Contains(returnItem.ItemId))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ReturnItemNotFoundInOriginal)
+                    .WithData("item", returnItem.Description)
+                    .WithData("referenceDoc", original.DeliveryNumber);
+            }
+        }
+
         // Query prior submitted/posted returns against this same original delivery note
         var dnQuery = await _dnRepository.GetQueryableAsync();
-        var priorReturns = dnQuery
+        var priorReturnDocs = dnQuery
             .Where(dn => dn.ReturnAgainstId == original.Id
                 && dn.Id != returnDN.Id
                 && (dn.Status == Core.DocumentStatus.Submitted || dn.Status == Core.DocumentStatus.Posted))
+            .ToList();
+
+        var priorReturns = priorReturnDocs
             .SelectMany(dn => dn.Items)
             .ToList();
 
-        var priorReturnedByItem = priorReturns
+        // Seed accumulated return trackers with quantities from prior submitted returns
+        var accumulatedReturnedByItem = priorReturns
             .GroupBy(i => i.ItemId)
             .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m))));
 
+        // Seed batch-level returns: direct BatchId on DeliveryNoteItem
+        var accumulatedReturnedBatchStock = priorReturns
+            .Where(i => i.BatchId.HasValue)
+            .GroupBy(i => (i.ItemId, i.BatchId!.Value))
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m))));
+
+        // Also check if SerialAndBatchBundle exists in LazyServiceProvider
+        var bundleRepo = LazyServiceProvider?.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
+        var originalBundleBatches = new Dictionary<(Guid ItemId, Guid BatchId), decimal>();
+        var priorBundleReturnedBatches = new Dictionary<(Guid ItemId, Guid BatchId), decimal>();
+
+        if (bundleRepo != null)
+        {
+            var priorReturnIds = priorReturnDocs.Select(d => d.Id).ToHashSet();
+            var bundleQuery = await bundleRepo.GetQueryableAsync();
+            var relevantBundles = bundleQuery
+                .Where(b => (b.VoucherType == "DeliveryNote" || b.VoucherType == "Delivery Note")
+                    && (b.VoucherId == original.Id || priorReturnIds.Contains(b.VoucherId))
+                    && !b.IsCancelled)
+                .ToList();
+
+            foreach (var bundle in relevantBundles)
+            {
+                var isOrig = bundle.VoucherId == original.Id;
+                foreach (var entry in bundle.Entries.Where(e => e.BatchId.HasValue))
+                {
+                    var key = (bundle.ItemId, entry.BatchId!.Value);
+                    var entryQty = Math.Abs(entry.Qty);
+                    if (isOrig)
+                    {
+                        originalBundleBatches[key] = originalBundleBatches.GetValueOrDefault(key, 0m) + entryQty;
+                    }
+                    else
+                    {
+                        priorBundleReturnedBatches[key] = priorBundleReturnedBatches.GetValueOrDefault(key, 0m) + entryQty;
+                    }
+                }
+            }
+
+            foreach (var kvp in priorBundleReturnedBatches)
+            {
+                accumulatedReturnedBatchStock[kvp.Key] = accumulatedReturnedBatchStock.GetValueOrDefault(kvp.Key, 0m) + kvp.Value;
+            }
+        }
+
         foreach (var returnItem in returnDN.Items)
         {
-            var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
-            if (originalItem == null) continue;
-
             var returnFactor = returnItem.ConversionFactor > 0 ? returnItem.ConversionFactor : 1m;
-            var originalFactor = originalItem.ConversionFactor > 0 ? originalItem.ConversionFactor : 1m;
-            var originalStockQty = originalItem.Quantity * originalFactor;
+            // PR #59823: calculate current return stock qty directly from current qty & factor
             var returnStockQty = Math.Abs(returnItem.Quantity) * returnFactor;
 
-            var alreadyReturnedStock = priorReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
-            var maxReturnableStock = originalStockQty - alreadyReturnedStock;
+            // Total delivered stock qty for this item across all original rows (PR #59820)
+            var originalItemStockQty = original.Items
+                .Where(i => i.ItemId == returnItem.ItemId)
+                .Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+
+            var alreadyReturnedStock = accumulatedReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+            var maxReturnableStock = originalItemStockQty - alreadyReturnedStock;
 
             if (returnStockQty > maxReturnableStock + 0.0000001m)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
                     .WithData("itemName", returnItem.Description)
-                    .WithData("originalQty", originalItem.Quantity)
+                    .WithData("originalQty", originalItemStockQty / returnFactor)
                     .WithData("alreadyReturned", alreadyReturnedStock / returnFactor)
                     .WithData("returnQty", Math.Abs(returnItem.Quantity));
             }
 
+            // Accumulate returned qty for this item so multiple rows in this same return document are bounded (PR #59820)
+            accumulatedReturnedByItem[returnItem.ItemId] = alreadyReturnedStock + returnStockQty;
+
+            // Batch validation: limit sales returns to qty delivered from each batch (PR #59816)
+            if (returnItem.BatchId.HasValue)
+            {
+                var batchKey = (returnItem.ItemId, returnItem.BatchId.Value);
+
+                // Delivered batch qty from original DN items + bundles
+                var originalDeliveredBatchStock = original.Items
+                    .Where(i => i.ItemId == returnItem.ItemId && i.BatchId == returnItem.BatchId.Value)
+                    .Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m))
+                    + originalBundleBatches.GetValueOrDefault(batchKey, 0m);
+
+                var alreadyReturnedBatchStock = accumulatedReturnedBatchStock.GetValueOrDefault(batchKey, 0m);
+                var remainingBatchStock = originalDeliveredBatchStock - alreadyReturnedBatchStock;
+
+                if (returnStockQty > remainingBatchStock + 0.0000001m)
+                {
+                    var batchRepo = LazyServiceProvider?.LazyGetService<IRepository<Batch, Guid>>();
+                    var batch = batchRepo != null ? await batchRepo.FindAsync(returnItem.BatchId.Value) : null;
+                    var batchNo = batch?.BatchNo ?? returnItem.BatchId.Value.ToString();
+
+                    throw new BusinessException(MyERPDomainErrorCodes.ReturnBatchQtyExceedsDelivered)
+                        .WithData("item", returnItem.Description)
+                        .WithData("batch", batchNo)
+                        .WithData("returnQty", Math.Abs(returnItem.Quantity))
+                        .WithData("deliveredQty", Math.Max(0m, remainingBatchStock / returnFactor));
+                }
+
+                accumulatedReturnedBatchStock[batchKey] = alreadyReturnedBatchStock + returnStockQty;
+            }
+
             // Return rate cannot exceed original sale rate — Moving Average items are exempt
             // (their rate legitimately fluctuates). Per returns-inter-company skill.
-            if (returnItem.UnitPrice > originalItem.UnitPrice)
+            var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
+            if (originalItem != null && returnItem.UnitPrice > originalItem.UnitPrice)
             {
                 var item = await _itemRepository.FindAsync(returnItem.ItemId);
                 if (item?.ValuationMethod != ValuationMethod.WeightedAverage)
