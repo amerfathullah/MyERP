@@ -82,9 +82,24 @@ public class CreditLimitService : DomainService
                 {
                     bypass = true;
                 }
-                else
+                else if (companyLimit.CreditLimit > 0)
                 {
                     creditLimit = companyLimit.CreditLimit;
+                }
+                // If companyLimit.CreditLimit == 0, keep customer.CreditLimit fallback (PR #59376 / commit 932ec6305c: "Set to 0 to use the Customer Group or Company credit limit, if set")
+            }
+        }
+
+        // Fallback to CustomerGroup.DefaultCreditLimit if customer credit limit is not set
+        if (!bypass && creditLimit <= 0 && customer.CustomerGroupId.HasValue)
+        {
+            var customerGroupRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.CustomerGroup, Guid>>();
+            if (customerGroupRepo != null)
+            {
+                var group = await customerGroupRepo.FindAsync(customer.CustomerGroupId.Value);
+                if (group != null && group.DefaultCreditLimit > 0)
+                {
+                    creditLimit = group.DefaultCreditLimit;
                 }
             }
         }
