@@ -448,4 +448,71 @@ public class StatementOfAccountsPaymentDeductionTests
         // PendingBillingQty: 10.00004 - 5.00002 = 5.00002 rounded to 4 decimals = 5.0000m
         Assert.Equal(5.0000m, item.PendingBillingQty);
     }
+
+    [Fact]
+    public async Task SalesRegister_WithMissingCustomerRecord_GuardsAndPreservesDetails()
+    {
+        var missingCustId = Guid.NewGuid();
+        var si = new SalesInvoice(Guid.NewGuid(), _companyId, missingCustId, "SINV-MISSING-CUST", DateTime.UtcNow);
+        si.AddItem(Guid.NewGuid(), "Item Test", 1m, 100m, 0m);
+        si.Submit();
+        si.Post();
+
+        _siRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SalesInvoice> { si }.AsQueryable()));
+        SetupPaymentRepo(new List<PaymentEntry>());
+
+        var customerRepoMock = Substitute.For<IRepository<Customer, Guid>>();
+        customerRepoMock.GetQueryableAsync().Returns(Task.FromResult(new List<Customer>().AsQueryable()));
+
+        var appService = new SalesRegisterAppService(_siRepo, _peRepo, customerRepoMock);
+
+        var filter = new RegisterFilterDto
+        {
+            CompanyId = _companyId,
+            FromDate = DateTime.UtcNow.AddDays(-1),
+            ToDate = DateTime.UtcNow.AddDays(1)
+        };
+
+        var result = await appService.GetReportAsync(filter);
+
+        Assert.NotNull(result);
+        Assert.Single(result.Items);
+        var item = result.Items[0];
+        Assert.Equal(missingCustId, item.CustomerId);
+        Assert.Equal(missingCustId.ToString(), item.CustomerName);
+    }
+
+    [Fact]
+    public async Task PurchaseRegister_WithMissingSupplierRecord_GuardsAndPreservesDetails()
+    {
+        var missingSupId = Guid.NewGuid();
+        var pi = new PurchaseInvoice(Guid.NewGuid(), _companyId, missingSupId, "PINV-MISSING-SUP", DateTime.UtcNow);
+        pi.AddItem(Guid.NewGuid(), "Item Test", 1m, 100m, 0m);
+        pi.Submit();
+        pi.Post();
+
+        _piRepo.GetQueryableAsync().Returns(Task.FromResult(new List<PurchaseInvoice> { pi }.AsQueryable()));
+        SetupPaymentRepo(new List<PaymentEntry>());
+
+        var supplierRepoMock = Substitute.For<IRepository<Supplier, Guid>>();
+        supplierRepoMock.GetQueryableAsync().Returns(Task.FromResult(new List<Supplier>().AsQueryable()));
+
+        var appService = new PurchaseRegisterAppService(_piRepo, _peRepo, supplierRepoMock);
+
+        var filter = new RegisterFilterDto
+        {
+            CompanyId = _companyId,
+            FromDate = DateTime.UtcNow.AddDays(-1),
+            ToDate = DateTime.UtcNow.AddDays(1)
+        };
+
+        var result = await appService.GetReportAsync(filter);
+
+        Assert.NotNull(result);
+        Assert.Single(result.Items);
+        var item = result.Items[0];
+        Assert.Equal(missingSupId, item.SupplierId);
+        Assert.Equal(missingSupId.ToString(), item.SupplierName);
+    }
 }
+

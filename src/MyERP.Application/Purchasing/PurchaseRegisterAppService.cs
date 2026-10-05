@@ -239,21 +239,44 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
         };
     }
 
+    private IDisposable? TryDisableSoftDelete()
+    {
+        try
+        {
+            return LazyServiceProvider?.LazyGetService<Volo.Abp.Data.IDataFilter>()?.Disable<Volo.Abp.ISoftDelete>();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private async Task PopulateSupplierDetailsAsync(List<PurchaseRegisterLineDto> lines)
     {
-        if (_supplierRepository == null || lines.Count == 0) return;
+        if (lines.Count == 0) return;
 
-        var supplierIds = lines.Select(l => l.SupplierId).Distinct().ToList();
-        var supplierQuery = await _supplierRepository.GetQueryableAsync();
-        var suppliers = supplierQuery.Where(s => supplierIds.Contains(s.Id)).ToList();
-        var supplierMap = suppliers.ToDictionary(s => s.Id);
-
-        var groupIds = suppliers.Where(s => s.SupplierGroupId.HasValue).Select(s => s.SupplierGroupId!.Value).Distinct().ToList();
+        Dictionary<Guid, Supplier> supplierMap = new();
         Dictionary<Guid, string>? groupMap = null;
-        if (_supplierGroupRepository != null && groupIds.Count > 0)
+
+        if (_supplierRepository != null)
         {
-            var groupQuery = await _supplierGroupRepository.GetQueryableAsync();
-            groupMap = groupQuery.Where(g => groupIds.Contains(g.Id)).ToDictionary(g => g.Id, g => g.Name);
+            using (TryDisableSoftDelete())
+            {
+                var supplierIds = lines.Select(l => l.SupplierId).Where(id => id != Guid.Empty).Distinct().ToList();
+                if (supplierIds.Count > 0)
+                {
+                    var supplierQuery = await _supplierRepository.GetQueryableAsync();
+                    var suppliers = supplierQuery.Where(s => supplierIds.Contains(s.Id)).ToList();
+                    supplierMap = suppliers.ToDictionary(s => s.Id);
+
+                    var groupIds = suppliers.Where(s => s.SupplierGroupId.HasValue).Select(s => s.SupplierGroupId!.Value).Distinct().ToList();
+                    if (_supplierGroupRepository != null && groupIds.Count > 0)
+                    {
+                        var groupQuery = await _supplierGroupRepository.GetQueryableAsync();
+                        groupMap = groupQuery.Where(g => groupIds.Contains(g.Id)).ToDictionary(g => g.Id, g => g.Name);
+                    }
+                }
+            }
         }
 
         foreach (var line in lines)
@@ -266,6 +289,13 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
                 {
                     line.SupplierGroupName = groupName;
                 }
+            }
+            else
+            {
+                // Guard against missing supplier and preserve existing name/group
+                line.SupplierName = !string.IsNullOrWhiteSpace(line.SupplierName)
+                    ? line.SupplierName
+                    : (line.SupplierId != Guid.Empty ? line.SupplierId.ToString() : string.Empty);
             }
         }
     }

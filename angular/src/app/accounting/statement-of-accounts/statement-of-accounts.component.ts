@@ -163,6 +163,13 @@ import type { StatementOfAccountsDto, SupplierStatementDto } from '../../proxy/a
               <td></td><td></td>
               <td class="text-end"><strong>{{ r.openingBalance | number:'1.2-2' }}</strong></td>
             </tr>
+            @if ((r.entries?.length ?? 0) === 0) {
+              <tr>
+                <td colspan="6" class="text-center text-muted py-3">
+                  <i class="fa fa-info-circle me-1"></i>{{ '::NoRecordsFound' | abpLocalization }}
+                </td>
+              </tr>
+            }
             @for (entry of r.entries; track $index) {
               <tr [class.table-danger]="isEntryOverdue(entry)">
                 <td>{{ entry.date | date:'dd/MM/yyyy' }}</td>
@@ -348,12 +355,20 @@ export class StatementOfAccountsComponent implements OnInit {
     if (this.partyType === 'Customer') {
       this.statementService.getCustomerStatement(this.partyId, companyId, this.fromDate, this.toDate).subscribe({
         next: data => { this.customerResult.set(data); this.isLoading.set(false); },
-        error: () => { this.toaster.error('::FailedToLoad'); this.isLoading.set(false); }
+        error: (err: any) => {
+          const msg = err?.error?.error?.message || err?.message || '::FailedToLoad';
+          this.toaster.error(msg);
+          this.isLoading.set(false);
+        }
       });
     } else {
       this.statementService.getSupplierStatement(this.partyId, companyId, this.fromDate, this.toDate).subscribe({
         next: data => { this.supplierResult.set(data); this.isLoading.set(false); },
-        error: () => { this.toaster.error('::FailedToLoad'); this.isLoading.set(false); }
+        error: (err: any) => {
+          const msg = err?.error?.error?.message || err?.message || '::FailedToLoad';
+          this.toaster.error(msg);
+          this.isLoading.set(false);
+        }
       });
     }
   }
@@ -429,9 +444,10 @@ export class StatementOfAccountsComponent implements OnInit {
         this.showEmailDialog.set(false);
         this.toaster.success(this.l.instant('::SuccessfullySent'));
       },
-      error: () => {
+      error: (err: any) => {
         this.isSendingEmail.set(false);
-        this.toaster.error('::FailedToSendEmail');
+        const msg = err?.error?.error?.message || err?.message || '::FailedToSendEmail';
+        this.toaster.error(msg);
       }
     });
   }

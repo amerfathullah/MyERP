@@ -239,21 +239,44 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
         };
     }
 
+    private IDisposable? TryDisableSoftDelete()
+    {
+        try
+        {
+            return LazyServiceProvider?.LazyGetService<Volo.Abp.Data.IDataFilter>()?.Disable<Volo.Abp.ISoftDelete>();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private async Task PopulateCustomerDetailsAsync(List<SalesRegisterLineDto> lines)
     {
-        if (_customerRepository == null || lines.Count == 0) return;
+        if (lines.Count == 0) return;
 
-        var customerIds = lines.Select(l => l.CustomerId).Distinct().ToList();
-        var custQuery = await _customerRepository.GetQueryableAsync();
-        var customers = custQuery.Where(c => customerIds.Contains(c.Id)).ToList();
-        var customerMap = customers.ToDictionary(c => c.Id);
-
-        var groupIds = customers.Where(c => c.CustomerGroupId.HasValue).Select(c => c.CustomerGroupId!.Value).Distinct().ToList();
+        Dictionary<Guid, Customer> customerMap = new();
         Dictionary<Guid, string>? groupMap = null;
-        if (_customerGroupRepository != null && groupIds.Count > 0)
+
+        if (_customerRepository != null)
         {
-            var groupQuery = await _customerGroupRepository.GetQueryableAsync();
-            groupMap = groupQuery.Where(g => groupIds.Contains(g.Id)).ToDictionary(g => g.Id, g => g.Name);
+            using (TryDisableSoftDelete())
+            {
+                var customerIds = lines.Select(l => l.CustomerId).Where(id => id != Guid.Empty).Distinct().ToList();
+                if (customerIds.Count > 0)
+                {
+                    var custQuery = await _customerRepository.GetQueryableAsync();
+                    var customers = custQuery.Where(c => customerIds.Contains(c.Id)).ToList();
+                    customerMap = customers.ToDictionary(c => c.Id);
+
+                    var groupIds = customers.Where(c => c.CustomerGroupId.HasValue).Select(c => c.CustomerGroupId!.Value).Distinct().ToList();
+                    if (_customerGroupRepository != null && groupIds.Count > 0)
+                    {
+                        var groupQuery = await _customerGroupRepository.GetQueryableAsync();
+                        groupMap = groupQuery.Where(g => groupIds.Contains(g.Id)).ToDictionary(g => g.Id, g => g.Name);
+                    }
+                }
+            }
         }
 
         foreach (var line in lines)
@@ -266,6 +289,13 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
                 {
                     line.CustomerGroupName = groupName;
                 }
+            }
+            else
+            {
+                // Per ERPNext PR #59624 (commits e591af5f58, ec9e9863fb): guard against missing customer and preserve existing name/group
+                line.CustomerName = !string.IsNullOrWhiteSpace(line.CustomerName)
+                    ? line.CustomerName
+                    : (line.CustomerId != Guid.Empty ? line.CustomerId.ToString() : string.Empty);
             }
         }
     }
