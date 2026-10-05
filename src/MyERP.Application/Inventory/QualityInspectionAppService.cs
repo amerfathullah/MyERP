@@ -86,11 +86,17 @@ public class QualityInspectionAppService : ApplicationService, IQualityInspectio
             ManualInspection = input.ManualInspection,
         };
 
+        if (input.ManualInspection && input.Status.HasValue)
+        {
+            qi.SetStatus(input.Status.Value);
+        }
+
         if (input.Readings != null && input.Readings.Any())
         {
             foreach (var r in input.Readings)
                 qi.AddReading(r.Specification, r.ExpectedValue, r.MinValue, r.MaxValue,
-                    r.ReadingValue, r.IsNumeric, r.FormulaBased, r.Formula);
+                    r.ReadingValue, r.IsNumeric, r.FormulaBased, r.Formula,
+                    r.ManualInspection, r.Status ?? InspectionStatus.Draft);
         }
         else
         {

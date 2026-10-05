@@ -33,6 +33,7 @@ public class QualityInspectionReadingDto : EntityDto<Guid>
     public string? ReadingValue { get; set; }
     public bool IsNumeric { get; set; }
     public bool FormulaBased { get; set; }
+    public bool ManualInspection { get; set; }
     public InspectionStatus Status { get; set; }
 }
 
@@ -48,6 +49,7 @@ public class CreateQualityInspectionDto
     public decimal SampleSize { get; set; }
     public DateTime InspectionDate { get; set; }
     public bool ManualInspection { get; set; }
+    public InspectionStatus? Status { get; set; }
     public CreateQualityInspectionReadingDto[] Readings { get; set; } = [];
 }
 
@@ -61,6 +63,8 @@ public class CreateQualityInspectionReadingDto
     public bool IsNumeric { get; set; }
     public bool FormulaBased { get; set; }
     public string? Formula { get; set; }
+    public bool ManualInspection { get; set; }
+    public InspectionStatus? Status { get; set; }
 }
 
 public class GetQualityInspectionListDto : PagedAndSortedResultRequestDto

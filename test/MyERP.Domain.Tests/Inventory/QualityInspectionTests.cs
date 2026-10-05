@@ -164,4 +164,38 @@ public class QualityInspectionTests
         qi.Submit();
         qi.DocStatus.ShouldBe(Core.DocumentStatus.Submitted);
     }
+
+    // --- ERPNext PR #59808: Keep manual reading status on inspections ---
+
+    [Fact]
+    public void Evaluate_ManualReadingStatus_PreservesManuallyRejectedReading()
+    {
+        var qi = CreateQI();
+        // Reading matches expected "OK", but manual inspection has explicitly rejected it
+        qi.AddReading("Finish", "OK", null, null, "OK",
+            manualInspection: true, status: InspectionStatus.Rejected);
+
+        qi.Evaluate();
+
+        // Reading status must stay Rejected despite value matching expected "OK"
+        qi.Readings[0].Status.ShouldBe(InspectionStatus.Rejected);
+        qi.Status.ShouldBe(InspectionStatus.Rejected);
+    }
+
+    [Fact]
+    public void Evaluate_ManualInspection_PreservesExplicitInspectionStatus()
+    {
+        var qi = CreateQI();
+        qi.ManualInspection = true;
+        qi.SetStatus(InspectionStatus.Rejected);
+
+        // Reading evaluates to Accepted
+        qi.AddReading("Color", "Red", null, null, "Red");
+
+        qi.Evaluate();
+
+        // Reading is accepted, but inspector's overall manual status remains Rejected
+        qi.Readings[0].Status.ShouldBe(InspectionStatus.Accepted);
+        qi.Status.ShouldBe(InspectionStatus.Rejected);
+    }
 }

@@ -57,22 +57,30 @@ public class QualityInspection : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
-    public void AddReading(string specification, string? expectedValue,
+    public QualityInspectionReading AddReading(string specification, string? expectedValue,
         decimal? minValue, decimal? maxValue, string? readingValue,
-        bool isNumeric = false, bool formulaBased = false, string? formula = null)
+        bool isNumeric = false, bool formulaBased = false, string? formula = null,
+        bool manualInspection = false, InspectionStatus status = InspectionStatus.Draft)
     {
         if (DocStatus != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
         var reading = new QualityInspectionReading(
             Guid.NewGuid(), Id, specification, expectedValue,
-            minValue, maxValue, readingValue, isNumeric, formulaBased, formula);
+            minValue, maxValue, readingValue, isNumeric, formulaBased, formula, manualInspection)
+        {
+            Status = status
+        };
         _readings.Add(reading);
+        return reading;
     }
 
     /// <summary>
     /// Evaluates all readings and determines overall inspection status.
     /// If ANY reading is Rejected and ManualInspection is false → Rejected.
+    /// If ManualInspection is true, inspector's manual decision is preserved when set;
+    /// otherwise derived from readings.
+    /// Per ERPNext PR #59808 / commit 67631bc059.
     /// </summary>
     public void Evaluate()
     {
@@ -81,14 +89,26 @@ public class QualityInspection : FullAuditedAggregateRoot<Guid>, IMultiTenant
             reading.Evaluate();
         }
 
-        if (!ManualInspection && _readings.Any(r => r.Status == InspectionStatus.Rejected))
+        if (ManualInspection)
         {
-            Status = InspectionStatus.Rejected;
+            if (Status == InspectionStatus.Draft)
+            {
+                Status = InspectionStatus.Accepted;
+            }
         }
         else
         {
-            Status = InspectionStatus.Accepted;
+            Status = _readings.Any(r => r.Status == InspectionStatus.Rejected)
+                ? InspectionStatus.Rejected
+                : InspectionStatus.Accepted;
         }
+    }
+
+    public void SetStatus(InspectionStatus status)
+    {
+        if (DocStatus != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = status;
     }
 
     public void Submit()

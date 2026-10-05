@@ -101,6 +101,7 @@ export interface CreateQualityInspectionDto {
   sampleSize?: number;
   inspectionDate?: string;
   manualInspection?: boolean;
+  status?: InspectionStatus;
   readings?: CreateQualityInspectionReadingDto[];
 }
 
@@ -113,6 +114,8 @@ export interface CreateQualityInspectionReadingDto {
   isNumeric?: boolean;
   formulaBased?: boolean;
   formula?: string | null;
+  manualInspection?: boolean;
+  status?: InspectionStatus;
 }
 
 export interface CreateStockReconciliationDto {
@@ -231,6 +234,7 @@ export interface QualityInspectionReadingDto extends EntityDto<string> {
   readingValue?: string | null;
   isNumeric?: boolean;
   formulaBased?: boolean;
+  manualInspection?: boolean;
   status?: InspectionStatus;
 }
 

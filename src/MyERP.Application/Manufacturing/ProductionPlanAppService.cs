@@ -895,9 +895,27 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
     private async Task ValidateRawMaterialGroupWarehouseAsync(Guid companyId, Guid? rawMaterialGroupWarehouseId, Guid? forWarehouseId)
     {
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+
+        // Per ERPNext PR #59759: For Warehouse must belong to the plan's company and must be a non-group warehouse
+        Inventory.Entities.Warehouse? forWh = null;
+        if (forWarehouseId.HasValue)
+        {
+            forWh = await whRepo.FindAsync(forWarehouseId.Value);
+            if (forWh == null || forWh.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("reason", "For Warehouse not found or belongs to another company");
+            }
+            if (forWh.IsGroup)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "For Warehouse must be a non-group warehouse");
+            }
+        }
+
         if (!rawMaterialGroupWarehouseId.HasValue) return;
 
-        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
         var groupWh = await whRepo.FindAsync(rawMaterialGroupWarehouseId.Value);
         if (groupWh == null || groupWh.CompanyId != companyId)
         {
@@ -910,20 +928,13 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 .WithData("detail", "Raw Material Group Warehouse must be a group warehouse");
         }
 
-        if (forWarehouseId.HasValue)
+        if (forWarehouseId.HasValue && forWh != null)
         {
             // Per ERPNext PR #59759: A group warehouse itself is rejected as For Warehouse
             if (forWarehouseId.Value == rawMaterialGroupWarehouseId.Value)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", "For Warehouse cannot be the Raw Material Group Warehouse itself");
-            }
-
-            var forWh = await whRepo.FindAsync(forWarehouseId.Value);
-            if (forWh == null || forWh.CompanyId != companyId)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                    .WithData("reason", "For Warehouse not found or belongs to another company");
             }
 
             if (forWh.ParentWarehouseId != groupWh.Id)

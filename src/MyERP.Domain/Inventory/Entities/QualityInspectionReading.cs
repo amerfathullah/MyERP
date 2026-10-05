@@ -28,6 +28,7 @@ public class QualityInspectionReading : FullAuditedEntity<Guid>
     public bool IsNumeric { get; set; }
     public bool FormulaBased { get; set; }
     public string? Formula { get; set; }
+    public bool ManualInspection { get; set; }
 
     public InspectionStatus Status { get; internal set; } = InspectionStatus.Draft;
 
@@ -36,7 +37,8 @@ public class QualityInspectionReading : FullAuditedEntity<Guid>
     public QualityInspectionReading(Guid id, Guid qualityInspectionId,
         string specification, string? expectedValue,
         decimal? minValue, decimal? maxValue, string? readingValue,
-        bool isNumeric, bool formulaBased, string? formula)
+        bool isNumeric, bool formulaBased, string? formula,
+        bool manualInspection = false)
         : base(id)
     {
         QualityInspectionId = qualityInspectionId;
@@ -48,14 +50,19 @@ public class QualityInspectionReading : FullAuditedEntity<Guid>
         IsNumeric = isNumeric;
         FormulaBased = formulaBased;
         Formula = formula;
+        ManualInspection = manualInspection;
     }
 
     /// <summary>
     /// Evaluates this reading against criteria.
     /// Value-based: exact match. Numeric: min ≤ value ≤ max. Formula: truthy result.
+    /// Per ERPNext PR #59808 / commit 67631bc059: preserves manual reading status when ManualInspection is true.
     /// </summary>
     public void Evaluate()
     {
+        if (ManualInspection && Status != InspectionStatus.Draft)
+            return;
+
         if (FormulaBased)
         {
             if (string.IsNullOrWhiteSpace(Formula))

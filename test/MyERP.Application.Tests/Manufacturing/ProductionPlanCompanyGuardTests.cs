@@ -592,6 +592,46 @@ public abstract class ProductionPlanCompanyGuardTests<TStartupModule> : MyERPApp
     }
 
     [Fact]
+    public async Task CreateProductionPlanAsync_ForWarehouseIsGroupWarehouse_Throws()
+    {
+        // ERPNext PR #59759: test_group_warehouse_itself_or_of_another_company_is_rejected
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var productionPlanAppService = GetRequiredService<IProductionPlanAppService>();
+
+            var ownerCompany = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "PP Group ForWh Co"), autoSave: true);
+
+            var fg = await itemRepository.InsertAsync(new Item(Guid.NewGuid(), ownerCompany.Id, "PP-GROUP-FG", "PP GROUP FG", ItemType.Goods), autoSave: true);
+            var rm = await itemRepository.InsertAsync(new Item(Guid.NewGuid(), ownerCompany.Id, "PP-GROUP-RM", "PP GROUP RM", ItemType.Goods), autoSave: true);
+
+            var bom = new BillOfMaterials(Guid.NewGuid(), ownerCompany.Id, "BOM-PP-GROUP-FORWH", fg.Id) { Quantity = 1, IsActive = true };
+            bom.Items.Add(new BomItem(Guid.NewGuid(), bom.Id, rm.Id, "RM", 1, 10));
+            await bomRepository.InsertAsync(bom, autoSave: true);
+
+            var groupForWh = await warehouseRepository.InsertAsync(
+                new Warehouse(Guid.NewGuid(), ownerCompany.Id, "Group For WH") { IsGroup = true }, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                productionPlanAppService.CreateAsync(new CreateProductionPlanDto
+                {
+                    CompanyId = ownerCompany.Id,
+                    PostingDate = DateTime.UtcNow,
+                    ForWarehouseId = groupForWh.Id,
+                    Items = new List<CreateProductionPlanItemDto>
+                    {
+                        new() { ItemId = fg.Id, ItemName = fg.ItemName, BomId = bom.Id, PlannedQty = 5 }
+                    }
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
+
+    [Fact]
     public async Task CalculateMaterialRequirementsAsync_GroupWarehouseWithoutForWarehouse_Throws()
     {
         // ERPNext PR #59759: test_for_warehouse_required_with_group_when_getting_raw_materials
