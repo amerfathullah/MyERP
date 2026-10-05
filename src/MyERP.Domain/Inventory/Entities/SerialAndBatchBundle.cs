@@ -142,6 +142,58 @@ public class SerialAndBatchBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("bundleQty", TotalQty)
                 .WithData("transactionQty", absTransactionQty);
     }
+
+    /// <summary>
+    /// Maps raw material entry to finished good serial or batch for traceability (ERPNext PR #59706).
+    /// </summary>
+    public void MapEntryToFinishedGood(Guid entryId, string? fgSerialNo, string? fgBatchNo)
+    {
+        if (IsCancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("reason", "Bundle is cancelled");
+
+        var entry = Entries.FirstOrDefault(e => e.Id == entryId)
+            ?? throw new BusinessException(MyERPDomainErrorCodes.ItemNotFound)
+                .WithData("entryId", entryId);
+
+        entry.SetFinishedGoodMapping(fgSerialNo, fgBatchNo);
+    }
+
+    /// <summary>
+    /// Auto-maps raw material serial / batch entries to finished good serial / batches for traceability (ERPNext PR #59706).
+    /// Spreads serialized raw materials evenly across finished goods; links batch raw material when single finished good.
+    /// </summary>
+    public void AutoMapToFinishedGoods(IEnumerable<(string? FgSerialNo, string? FgBatchNo)> finishedGoods)
+    {
+        var fgList = finishedGoods.ToList();
+        if (fgList.Count == 0) return;
+
+        var unmapped = Entries.Where(e => string.IsNullOrWhiteSpace(e.FgSerialNo) && string.IsNullOrWhiteSpace(e.FgBatchNo)).ToList();
+        if (unmapped.Count == 0) return;
+
+        if (fgList.Count == 1)
+        {
+            var singleFg = fgList[0];
+            foreach (var entry in unmapped)
+            {
+                entry.SetFinishedGoodMapping(singleFg.FgSerialNo, singleFg.FgBatchNo);
+            }
+        }
+        else
+        {
+            // For multiple finished goods, spread serialized entries evenly across FGs
+            var fgIndex = 0;
+            foreach (var entry in unmapped)
+            {
+                if (!string.IsNullOrWhiteSpace(entry.SerialNo))
+                {
+                    var fg = fgList[fgIndex % fgList.Count];
+                    entry.SetFinishedGoodMapping(fg.FgSerialNo, fg.FgBatchNo);
+                    fgIndex++;
+                }
+            }
+        }
+    }
 }
 
 /// <summary>
@@ -158,6 +210,12 @@ public class SerialAndBatchEntry : FullAuditedEntity<Guid>, IMultiTenant
 
     /// <summary>Batch number (for batch-tracked items).</summary>
     public Guid? BatchId { get; set; }
+
+    /// <summary>Finished good serial no this raw material was consumed into (Manufacture / Repack). Per ERPNext PR #59706.</summary>
+    public string? FgSerialNo { get; set; }
+
+    /// <summary>Finished good batch this raw material was consumed into (Manufacture / Repack). Per ERPNext PR #59706.</summary>
+    public string? FgBatchNo { get; set; }
 
     /// <summary>Quantity for this entry (usually 1 for serial, variable for batch).</summary>
     public decimal Qty { get; set; }
@@ -177,7 +235,8 @@ public class SerialAndBatchEntry : FullAuditedEntity<Guid>, IMultiTenant
     protected SerialAndBatchEntry() { }
 
     public SerialAndBatchEntry(Guid id, Guid serialAndBatchBundleId, decimal qty, decimal incomingRate,
-        string? serialNo = null, Guid? batchId = null, Guid? tenantId = null)
+        string? serialNo = null, Guid? batchId = null, Guid? tenantId = null,
+        string? fgSerialNo = null, string? fgBatchNo = null)
         : base(id)
     {
         SerialAndBatchBundleId = serialAndBatchBundleId;
@@ -186,6 +245,14 @@ public class SerialAndBatchEntry : FullAuditedEntity<Guid>, IMultiTenant
         SerialNo = serialNo;
         BatchId = batchId;
         TenantId = tenantId;
+        FgSerialNo = fgSerialNo;
+        FgBatchNo = fgBatchNo;
+    }
+
+    public void SetFinishedGoodMapping(string? fgSerialNo, string? fgBatchNo)
+    {
+        FgSerialNo = fgSerialNo;
+        FgBatchNo = fgBatchNo;
     }
 }
 

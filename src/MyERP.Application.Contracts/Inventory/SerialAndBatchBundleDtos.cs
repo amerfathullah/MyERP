@@ -35,4 +35,6 @@ public class BundleEntryDto
     public string? BatchNo { get; set; }
     public decimal Qty { get; set; }
     public decimal Rate { get; set; }
+    public string? FgSerialNo { get; set; }
+    public string? FgBatchNo { get; set; }
 }

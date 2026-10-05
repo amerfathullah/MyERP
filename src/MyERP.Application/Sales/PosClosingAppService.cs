@@ -393,5 +393,77 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
 
         return result;
     }
+
+    /// <summary>
+    /// Helper representation of an individual payment row for POS shift reconciliation.
+    /// Per ERPNext PR #59514 (commit 83904a65a1).
+    /// </summary>
+    public class PosPaymentRow
+    {
+        public Guid InvoiceId { get; set; }
+        public Guid ModeOfPaymentId { get; set; }
+        public string ModeName { get; set; } = null!;
+        public Guid? AccountId { get; set; }
+        public string Type { get; set; } = "Cash"; // "Cash", "Bank", etc.
+        public decimal Amount { get; set; }
+    }
+
+    /// <summary>
+    /// Resolves which payment row change was returned from.
+    /// Priority per ERPNext PR #59514 (commit 83904a65a1):
+    /// 1. Cash row on the change account
+    /// 2. Any row on the change account
+    /// 3. Any Cash row
+    /// This prevents change deduction from bleeding into other payment modes or multiple cash accounts.
+    /// </summary>
+    public static PosPaymentRow? GetChangePaymentRow(
+        IEnumerable<PosPaymentRow> rows,
+        Guid? changeAccountId)
+    {
+        var rowList = rows.ToList();
+        var changeAccountRows = changeAccountId.HasValue
+            ? rowList.Where(r => r.AccountId == changeAccountId.Value).ToList()
+            : new List<PosPaymentRow>();
+
+        return changeAccountRows.FirstOrDefault(r => string.Equals(r.Type, "Cash", StringComparison.OrdinalIgnoreCase))
+            ?? changeAccountRows.FirstOrDefault()
+            ?? rowList.FirstOrDefault(r => string.Equals(r.Type, "Cash", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Deducts change amount from exactly one payment row per invoice and aggregates by payment mode.
+    /// Per ERPNext PR #59514 (commit 83904a65a1).
+    /// </summary>
+    public static Dictionary<Guid, decimal> AggregatePaymentsWithChangeDeduction(
+        IEnumerable<PosPaymentRow> allPaymentRows,
+        IEnumerable<(Guid InvoiceId, decimal ChangeAmount, Guid? ChangeAccountId)> invoiceChanges)
+    {
+        var rowsByInvoice = allPaymentRows
+            .GroupBy(r => r.InvoiceId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var (invoiceId, changeAmount, changeAccountId) in invoiceChanges)
+        {
+            if (changeAmount <= 0) continue;
+            if (!rowsByInvoice.TryGetValue(invoiceId, out var rows) || rows.Count == 0) continue;
+
+            var targetRow = GetChangePaymentRow(rows, changeAccountId);
+            if (targetRow != null)
+            {
+                targetRow.Amount -= changeAmount;
+            }
+        }
+
+        var amountByMode = new Dictionary<Guid, decimal>();
+        foreach (var rows in rowsByInvoice.Values)
+        {
+            foreach (var row in rows)
+            {
+                amountByMode[row.ModeOfPaymentId] = amountByMode.GetValueOrDefault(row.ModeOfPaymentId) + row.Amount;
+            }
+        }
+
+        return amountByMode;
+    }
 }
 

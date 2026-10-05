@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MyERP.Sales.Entities;
 using Shouldly;
 using Volo.Abp;
@@ -112,6 +113,96 @@ public class PosClosingEntryTests
 
         Should.Throw<BusinessException>(() =>
             entry.AddInvoice(Guid.NewGuid(), "POS-002", 300));
+    }
+
+    [Fact]
+    public void GetChangePaymentRow_PrefersCashRowOnMatchingAccount()
+    {
+        var changeAccountId = Guid.NewGuid();
+        var otherAccountId = Guid.NewGuid();
+        var mopId = Guid.NewGuid();
+
+        var rows = new List<PosClosingAppService.PosPaymentRow>
+        {
+            new() { InvoiceId = Guid.NewGuid(), ModeOfPaymentId = mopId, AccountId = otherAccountId, Type = "Cash", Amount = 100 },
+            new() { InvoiceId = Guid.NewGuid(), ModeOfPaymentId = mopId, AccountId = changeAccountId, Type = "Bank", Amount = 100 },
+            new() { InvoiceId = Guid.NewGuid(), ModeOfPaymentId = mopId, AccountId = changeAccountId, Type = "Cash", Amount = 100 },
+        };
+
+        var target = PosClosingAppService.GetChangePaymentRow(rows, changeAccountId);
+
+        target.ShouldNotBeNull();
+        target.AccountId.ShouldBe(changeAccountId);
+        target.Type.ShouldBe("Cash");
+        target.ShouldBe(rows[2]);
+    }
+
+    [Fact]
+    public void GetChangePaymentRow_FallsBackToAnyRowOnMatchingAccount()
+    {
+        var changeAccountId = Guid.NewGuid();
+        var otherAccountId = Guid.NewGuid();
+        var mopId = Guid.NewGuid();
+
+        var rows = new List<PosClosingAppService.PosPaymentRow>
+        {
+            new() { InvoiceId = Guid.NewGuid(), ModeOfPaymentId = mopId, AccountId = otherAccountId, Type = "Bank", Amount = 100 },
+            new() { InvoiceId = Guid.NewGuid(), ModeOfPaymentId = mopId, AccountId = changeAccountId, Type = "Bank", Amount = 100 },
+        };
+
+        var target = PosClosingAppService.GetChangePaymentRow(rows, changeAccountId);
+
+        target.ShouldNotBeNull();
+        target.AccountId.ShouldBe(changeAccountId);
+        target.ShouldBe(rows[1]);
+    }
+
+    [Fact]
+    public void GetChangePaymentRow_FallsBackToAnyCashRow_WhenNoAccountMatch()
+    {
+        var changeAccountId = Guid.NewGuid();
+        var otherAccountId = Guid.NewGuid();
+        var mopId = Guid.NewGuid();
+
+        var rows = new List<PosClosingAppService.PosPaymentRow>
+        {
+            new() { InvoiceId = Guid.NewGuid(), ModeOfPaymentId = mopId, AccountId = otherAccountId, Type = "Bank", Amount = 50 },
+            new() { InvoiceId = Guid.NewGuid(), ModeOfPaymentId = mopId, AccountId = otherAccountId, Type = "Cash", Amount = 100 },
+        };
+
+        var target = PosClosingAppService.GetChangePaymentRow(rows, changeAccountId);
+
+        target.ShouldNotBeNull();
+        target.Type.ShouldBe("Cash");
+        target.ShouldBe(rows[1]);
+    }
+
+    [Fact]
+    public void AggregatePaymentsWithChangeDeduction_DeductsFromSingleRowPerInvoice()
+    {
+        var invoice1 = Guid.NewGuid();
+        var invoice2 = Guid.NewGuid();
+        var cashMop = Guid.NewGuid();
+        var cardMop = Guid.NewGuid();
+        var cashAccount = Guid.NewGuid();
+
+        var paymentRows = new List<PosClosingAppService.PosPaymentRow>
+        {
+            new() { InvoiceId = invoice1, ModeOfPaymentId = cashMop, AccountId = cashAccount, Type = "Cash", Amount = 100 },
+            new() { InvoiceId = invoice1, ModeOfPaymentId = cardMop, AccountId = Guid.NewGuid(), Type = "Bank", Amount = 50 },
+            new() { InvoiceId = invoice2, ModeOfPaymentId = cashMop, AccountId = cashAccount, Type = "Cash", Amount = 80 },
+        };
+
+        var changes = new List<(Guid InvoiceId, decimal ChangeAmount, Guid? ChangeAccountId)>
+        {
+            (invoice1, 20m, cashAccount), // 100 Cash - 20 = 80 Cash; Card remains 50
+            (invoice2, 10m, cashAccount), // 80 Cash - 10 = 70 Cash
+        };
+
+        var result = PosClosingAppService.AggregatePaymentsWithChangeDeduction(paymentRows, changes);
+
+        result[cashMop].ShouldBe(150m); // 80 + 70 = 150
+        result[cardMop].ShouldBe(50m);  // Card untouched
     }
 
     private static PosClosingEntry CreateEntry()

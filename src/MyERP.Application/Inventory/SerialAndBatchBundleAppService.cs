@@ -103,6 +103,8 @@ public class SerialAndBatchBundleAppService : ApplicationService, ISerialAndBatc
                 BatchNo = e.BatchId?.ToString(),
                 Qty = e.Qty,
                 Rate = e.IncomingRate,
+                FgSerialNo = e.FgSerialNo,
+                FgBatchNo = e.FgBatchNo,
             }).ToList(),
         };
     }

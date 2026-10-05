@@ -213,6 +213,8 @@ export interface BundleEntryDto {
   batchNo?: string | null;
   qty?: number;
   rate?: number;
+  fgSerialNo?: string | null;
+  fgBatchNo?: string | null;
 }
 
 export interface CalculateArrivalTimesInput {

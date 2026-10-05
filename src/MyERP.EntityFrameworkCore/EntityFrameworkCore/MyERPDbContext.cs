@@ -1589,6 +1589,8 @@ public class MyERPDbContext :
             b.ToTable("Inv_SerialAndBatchEntries", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.Property(x => x.SerialNo).HasMaxLength(140);
+            b.Property(x => x.FgSerialNo).HasMaxLength(140);
+            b.Property(x => x.FgBatchNo).HasMaxLength(140);
             b.Property(x => x.Qty).HasColumnType("decimal(18,4)");
             b.Property(x => x.IncomingRate).HasColumnType("decimal(18,4)");
             b.Property(x => x.StockQueue).HasMaxLength(4000);
