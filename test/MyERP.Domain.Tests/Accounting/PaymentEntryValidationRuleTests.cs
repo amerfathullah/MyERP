@@ -2,6 +2,7 @@ using System;
 using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
+using Shouldly;
 using Volo.Abp;
 using Xunit;
 
@@ -157,5 +158,47 @@ public class PaymentEntryValidationRuleTests
 
         pe.Submit();
         Assert.Equal(global::MyERP.Core.DocumentStatus.Submitted, pe.Status);
+    }
+
+    [Fact]
+    public void ValidateReferenceAllocation_AtPrecision_AcceptsAllocatedEqualToOutstandingWithResidue()
+    {
+        // Per ERPNext PR #59783 / commit 15ed5321dc & 280bffe251:
+        // Multi-currency calculation leaves floating residue (e.g. 259.9999904 vs 260.00)
+        // Comparison at 2-decimal currency precision must succeed.
+        var allocated = 260.00m;
+        var outstanding = 259.99999039999966m;
+
+        Should.NotThrow(() =>
+            MyERP.Accounting.DomainServices.PaymentEntryManager.ValidateReferenceAllocation(allocated, outstanding, "INV-001"));
+    }
+
+    [Fact]
+    public void ValidateReferenceAllocation_Throws_WhenAllocatedExceedsOutstandingAtPrecision()
+    {
+        var allocated = 260.01m;
+        var outstanding = 260.00m;
+
+        var ex = Should.Throw<BusinessException>(() =>
+            MyERP.Accounting.DomainServices.PaymentEntryManager.ValidateReferenceAllocation(allocated, outstanding, "INV-001"));
+
+        Assert.Equal(MyERPDomainErrorCodes.OverAllocation, ex.Code);
+    }
+
+    [Fact]
+    public void ValidateReferenceAllocation_NegativeReturn_ValidatesCorrectly()
+    {
+        // Return invoice / credit note with negative outstanding
+        var allocated = -50.00m;
+        var outstanding = -49.9999999m;
+
+        Should.NotThrow(() =>
+            MyERP.Accounting.DomainServices.PaymentEntryManager.ValidateReferenceAllocation(allocated, outstanding, "RET-001"));
+
+        var excessiveAllocated = -50.05m;
+        var ex = Should.Throw<BusinessException>(() =>
+            MyERP.Accounting.DomainServices.PaymentEntryManager.ValidateReferenceAllocation(excessiveAllocated, -50.00m, "RET-001"));
+
+        Assert.Equal(MyERPDomainErrorCodes.OverAllocation, ex.Code);
     }
 }

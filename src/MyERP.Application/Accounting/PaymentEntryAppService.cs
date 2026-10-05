@@ -587,13 +587,9 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 {
                     var si = await _salesInvoiceRepository.GetAsync(refRow.ReferenceId);
 
-                    // Stale outstanding validation per reference (prevents concurrent over-allocation)
-                    if (si.OutstandingAmount > 0 && refRow.AllocatedAmount > si.OutstandingAmount)
-                    {
-                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverAllocation)
-                            .WithData("outstanding", si.OutstandingAmount)
-                            .WithData("allocated", refRow.AllocatedAmount);
-                    }
+                    // Stale outstanding validation per reference at currency precision (ERPNext PR #59783)
+                    PaymentEntryManager.ValidateReferenceAllocation(
+                        refRow.AllocatedAmount, si.OutstandingAmount, si.InvoiceNumber);
 
                     await UpdateInvoiceAmountPaidAsync("SalesInvoice", refRow.ReferenceId, refRow.AllocatedAmount);
 
@@ -617,12 +613,9 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                             .WithData("invoiceNumber", pi.InvoiceNumber);
                     }
 
-                    if (pi.OutstandingAmount > 0 && refRow.AllocatedAmount > pi.OutstandingAmount)
-                    {
-                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverAllocation)
-                            .WithData("outstanding", pi.OutstandingAmount)
-                            .WithData("allocated", refRow.AllocatedAmount);
-                    }
+                    // Stale outstanding validation per reference at currency precision (ERPNext PR #59783)
+                    PaymentEntryManager.ValidateReferenceAllocation(
+                        refRow.AllocatedAmount, pi.OutstandingAmount, pi.InvoiceNumber);
 
                     await UpdateInvoiceAmountPaidAsync("PurchaseInvoice", refRow.ReferenceId, refRow.AllocatedAmount);
 

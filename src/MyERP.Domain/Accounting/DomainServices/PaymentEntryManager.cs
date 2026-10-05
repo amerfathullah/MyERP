@@ -54,12 +54,18 @@ public class PaymentEntryManager : DomainService
                 s.ParentId == reference.ReferenceId &&
                 s.Id == reference.PaymentTermId);
 
-            if (scheduleEntry != null && reference.AllocatedAmount > scheduleEntry.Outstanding)
+            if (scheduleEntry != null)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.PaymentTermOutstandingExceeded)
-                    .WithData("allocatedAmount", reference.AllocatedAmount)
-                    .WithData("termOutstanding", scheduleEntry.Outstanding)
-                    .WithData("paymentTerm", scheduleEntry.Description ?? "");
+                // Round to currency precision (2 decimals) per ERPNext PR #59783 (commits 15ed5321dc, 280bffe251)
+                var roundedAllocated = Math.Round(reference.AllocatedAmount, 2);
+                var roundedOutstanding = Math.Round(scheduleEntry.Outstanding, 2);
+                if (roundedAllocated > roundedOutstanding)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.PaymentTermOutstandingExceeded)
+                        .WithData("allocatedAmount", reference.AllocatedAmount)
+                        .WithData("termOutstanding", scheduleEntry.Outstanding)
+                        .WithData("paymentTerm", scheduleEntry.Description ?? "");
+                }
             }
         }
     }
@@ -67,19 +73,55 @@ public class PaymentEntryManager : DomainService
     /// <summary>
     /// Validates that allocated amount does not exceed latest outstanding (stale data guard).
     /// Must be called at post time — concurrent users may have reduced outstanding since allocation.
+    /// Per ERPNext PR #59783 (commits 15ed5321dc, 280bffe251): compares at currency precision (2 decimals)
+    /// to avoid rejecting multi-currency allocations due to floating-point residue.
     /// </summary>
     public void ValidateAllocationNotExceedsOutstanding(
         PaymentEntry paymentEntry,
-        decimal currentOutstanding)
+        decimal currentOutstanding,
+        int precision = 2)
     {
         if (paymentEntry.PaidAmount <= 0) return;
 
+        var roundedPaid = Math.Round(paymentEntry.PaidAmount, precision);
+        var roundedOutstanding = Math.Round(currentOutstanding, precision);
+
         // Only validate when there IS an outstanding to exceed
-        if (currentOutstanding > 0 && paymentEntry.PaidAmount > currentOutstanding)
+        if (roundedOutstanding > 0 && roundedPaid > roundedOutstanding)
         {
             throw new BusinessException(MyERPDomainErrorCodes.OverAllocation)
                 .WithData("outstanding", currentOutstanding)
                 .WithData("allocated", paymentEntry.PaidAmount);
+        }
+    }
+
+    /// <summary>
+    /// Validates allocated amount against reference row outstanding at currency precision (PR #59783).
+    /// Prevents false rejection of multi-currency allocations due to floating-point / division residue.
+    /// </summary>
+    public static void ValidateReferenceAllocation(
+        decimal allocatedAmount,
+        decimal outstandingAmount,
+        string? referenceName = null,
+        int precision = 2)
+    {
+        var allocated = Math.Round(allocatedAmount, precision);
+        var outstanding = Math.Round(outstandingAmount, precision);
+
+        if (allocated > 0 && allocated > outstanding)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.OverAllocation)
+                .WithData("reference", referenceName ?? "")
+                .WithData("allocated", allocatedAmount)
+                .WithData("outstanding", outstandingAmount);
+        }
+
+        if (allocated < 0 && allocated < outstanding)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.OverAllocation)
+                .WithData("reference", referenceName ?? "")
+                .WithData("allocated", allocatedAmount)
+                .WithData("outstanding", outstandingAmount);
         }
     }
 }
