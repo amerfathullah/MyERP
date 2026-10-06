@@ -240,7 +240,7 @@ public class UpstreamPR57140And57571Tests
         se.AddItem(Guid.NewGuid(), 5, whId, whId); // Same source and target
 
         var ex = Assert.Throws<BusinessException>(() => se.Submit());
-        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Equal(MyERPDomainErrorCodes.SameWarehouseTransfer, ex.Code);
     }
 
     [Fact]

@@ -239,7 +239,7 @@ public class UpstreamBatch59600To59679Tests
         whRepo.GetAsync(_warehouseId).Returns(warehouse);
 
         var itemValidation = Substitute.For<ItemTransactionValidationService>(
-            Substitute.For<IRepository<Item, Guid>>());
+            Substitute.For<IRepository<Item, Guid>>(), null, null, null);
 
         var lazySp = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
         lazySp.LazyGetRequiredService<IRepository<Warehouse, Guid>>().Returns(whRepo);
@@ -277,7 +277,7 @@ public class UpstreamBatch59600To59679Tests
         whRepo.GetAsync(_warehouseId).Returns(warehouse);
 
         var itemValidation = Substitute.For<ItemTransactionValidationService>(
-            Substitute.For<IRepository<Item, Guid>>());
+            Substitute.For<IRepository<Item, Guid>>(), null, null, null);
 
         var lazySp = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
         lazySp.LazyGetRequiredService<IRepository<Warehouse, Guid>>().Returns(whRepo);
