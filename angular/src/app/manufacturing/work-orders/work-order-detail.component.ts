@@ -261,6 +261,24 @@ import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/v
                   <span>{{ w.plannedEndDate | date:'dd/MM/yyyy' }}</span>
                 </div>
               }
+              @if (w.actualStartDate) {
+                <div class="col-md-4 mb-2">
+                  <small class="text-muted d-block">{{ '::ActualStartDate' | abpLocalization }}</small>
+                  <span>{{ w.actualStartDate | date:'dd/MM/yyyy HH:mm' }}</span>
+                </div>
+              }
+              @if (w.actualEndDate) {
+                <div class="col-md-4 mb-2">
+                  <small class="text-muted d-block">{{ '::ActualEndDate' | abpLocalization }}</small>
+                  <span>{{ w.actualEndDate | date:'dd/MM/yyyy HH:mm' }}</span>
+                </div>
+              }
+              @if (w.leadTime !== null && w.leadTime !== undefined) {
+                <div class="col-md-4 mb-2">
+                  <small class="text-muted d-block">{{ '::LeadTime' | abpLocalization }}</small>
+                  <span>{{ w.leadTime | number:'1.0-2' }} min</span>
+                </div>
+              }
             </div>
           </div>
         </div>

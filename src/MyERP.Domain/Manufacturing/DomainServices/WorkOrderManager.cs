@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Inventory;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing.Entities;
 using Volo.Abp;
@@ -409,6 +410,91 @@ public class WorkOrderManager : DomainService
 
         var plannedQty = activeOrders.Sum(w => w.Quantity - w.ProducedQuantity);
         await binService.SetPlannedQtyAsync(itemId, warehouseId, Math.Max(0m, plannedQty), tenantId);
+    }
+
+    /// <summary>
+    /// Updates actual start date, actual end date, and lead time on a Work Order.
+    /// Derives dates from Job Cards if operations/Job Cards exist, otherwise derives from submitted Stock Entries
+    /// (Material Transfer for Manufacture or Manufacture).
+    /// Per ERPNext PR #60196 (commit 1e3b9e39be / e3306050b5).
+    /// </summary>
+    public async Task UpdateActualDatesAsync(
+        WorkOrder workOrder,
+        IRepository<StockEntry, Guid> stockEntryRepository,
+        IRepository<JobCard, Guid>? jobCardRepository = null,
+        StockEntry? currentStockEntry = null)
+    {
+        bool hasJobCards = false;
+        if (jobCardRepository != null)
+        {
+            var jcQuery = await jobCardRepository.GetQueryableAsync();
+            var jobCards = jcQuery
+                .Where(j => j.WorkOrderId == workOrder.Id && j.Status != JobCardStatus.Cancelled)
+                .ToList();
+
+            if (jobCards.Count > 0)
+            {
+                hasJobCards = true;
+                var startDates = jobCards
+                    .Select(j => j.StartedAt ?? (j.TimeLogs.Count > 0 ? j.TimeLogs.Min(t => t.FromTime) : (DateTime?)null))
+                    .Where(d => d.HasValue)
+                    .Select(d => d!.Value)
+                    .ToList();
+
+                var actualStartDate = startDates.Count > 0 ? startDates.Min() : (DateTime?)null;
+
+                DateTime? actualEndDate = null;
+                if (workOrder.Status == WorkOrderStatus.Completed)
+                {
+                    var endDates = jobCards
+                        .Select(j => j.CompletedAt ?? (j.TimeLogs.Count > 0 ? j.TimeLogs.Max(t => t.ToTime) : (DateTime?)null))
+                        .Where(d => d.HasValue)
+                        .Select(d => d!.Value)
+                        .ToList();
+
+                    if (endDates.Count > 0)
+                    {
+                        actualEndDate = endDates.Max();
+                    }
+                }
+
+                workOrder.SetActualDates(actualStartDate, actualEndDate);
+            }
+        }
+
+        if (!hasJobCards)
+        {
+            var seQuery = await stockEntryRepository.GetQueryableAsync();
+            var submittedEntries = seQuery
+                .Where(se => se.WorkOrderId == workOrder.Id
+                    && se.Status == Core.DocumentStatus.Posted
+                    && (se.EntryType == StockEntryType.MaterialTransferForManufacture || se.EntryType == StockEntryType.Manufacture))
+                .ToList();
+
+            if (currentStockEntry != null && currentStockEntry.WorkOrderId == workOrder.Id)
+            {
+                if (currentStockEntry.Status != Core.DocumentStatus.Posted)
+                {
+                    submittedEntries.RemoveAll(se => se.Id == currentStockEntry.Id);
+                }
+                else if (!submittedEntries.Any(se => se.Id == currentStockEntry.Id))
+                {
+                    submittedEntries.Add(currentStockEntry);
+                }
+            }
+
+            if (submittedEntries.Count > 0)
+            {
+                var postingDates = submittedEntries.Select(se => se.PostingDate).ToList();
+                var actualStartDate = postingDates.Min();
+                var actualEndDate = workOrder.Status == WorkOrderStatus.Completed ? postingDates.Max() : (DateTime?)null;
+                workOrder.SetActualDates(actualStartDate, actualEndDate);
+            }
+            else
+            {
+                workOrder.SetActualDates(null, null);
+            }
+        }
     }
 }
 

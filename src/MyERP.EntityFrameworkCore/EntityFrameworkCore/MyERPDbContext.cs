@@ -3191,6 +3191,7 @@ public class MyERPDbContext :
             b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.ProducedQuantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.MaterialTransferred).HasColumnType("decimal(18,4)");
+            b.Property(x => x.LeadTime).HasColumnType("decimal(18,2)");
             b.HasMany(x => x.RequiredItems).WithOne().HasForeignKey(x => x.WorkOrderId).IsRequired();
             b.Navigation(x => x.RequiredItems).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.WorkOrderNumber }).IsUnique();

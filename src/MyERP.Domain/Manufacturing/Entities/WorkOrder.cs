@@ -60,6 +60,11 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public DateTime? PlannedEndDate { get; set; }
     public DateTime? ActualStartDate { get; set; }
     public DateTime? ActualEndDate { get; set; }
+    /// <summary>
+    /// Lead time in minutes calculated from actual start and end dates.
+    /// Maps to ERPNext manufacturing/doctype/work_order/work_order.json (lead_time).
+    /// </summary>
+    public decimal? LeadTime { get; set; }
 
     public string? Notes { get; set; }
     public bool TrackSemiFinishedGoods { get; set; }
@@ -167,6 +172,35 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             Status = WorkOrderStatus.Completed;
             ActualEndDate = DateTime.UtcNow;
+            CalculateLeadTime();
+        }
+    }
+
+    /// <summary>
+    /// Sets actual start and end dates and recalculates lead time.
+    /// Per ERPNext PR #60196 / commit 1e3b9e39be.
+    /// </summary>
+    public void SetActualDates(DateTime? actualStartDate, DateTime? actualEndDate)
+    {
+        ActualStartDate = actualStartDate;
+        ActualEndDate = actualEndDate;
+        CalculateLeadTime();
+    }
+
+    /// <summary>
+    /// Calculates lead time in minutes from actual start and end dates.
+    /// Maps to ERPNext manufacturing/doctype/work_order/services/operations.py (set_lead_time).
+    /// </summary>
+    public void CalculateLeadTime()
+    {
+        if (ActualStartDate.HasValue && ActualEndDate.HasValue && ActualEndDate.Value >= ActualStartDate.Value)
+        {
+            var diffInMinutes = (decimal)(ActualEndDate.Value - ActualStartDate.Value).TotalMinutes;
+            LeadTime = Math.Max(0m, Math.Round(diffInMinutes, 2));
+        }
+        else
+        {
+            LeadTime = null;
         }
     }
 
@@ -186,6 +220,7 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             Status = WorkOrderStatus.InProcess;
             ActualEndDate = null;
+            LeadTime = null;
         }
     }
 
@@ -210,6 +245,7 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             Status = WorkOrderStatus.Completed;
             ActualEndDate ??= DateTime.UtcNow;
+            CalculateLeadTime();
         }
     }
 

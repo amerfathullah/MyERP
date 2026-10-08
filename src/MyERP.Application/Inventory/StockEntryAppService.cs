@@ -453,6 +453,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                                 wo.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.Quantity, seItem.BatchId);
                         }
                     }
+                    var dateWoManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+                    var dateJcRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
+                    await dateWoManager.UpdateActualDatesAsync(wo, _repository, dateJcRepo, currentStockEntry: entry);
                     await woRepo.UpdateAsync(wo, autoSave: true);
                 }
                 else
@@ -503,6 +506,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         }
                     }
 
+                    var dateWoManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+                    var dateJcRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
+                    await dateWoManager.UpdateActualDatesAsync(wo, _repository, dateJcRepo, currentStockEntry: entry);
                     await woRepo.UpdateAsync(wo, autoSave: true);
                 }
             }
@@ -563,6 +569,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 }
 
                 wo.RecordProduction(fgQty, overproductionPercentage: overproductionPct, processLoss: processLoss);
+                var dateWoManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+                var dateJcRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
+                await dateWoManager.UpdateActualDatesAsync(wo, _repository, dateJcRepo, currentStockEntry: entry);
                 await woRepo.UpdateAsync(wo, autoSave: true);
 
                 var planItemRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.ProductionPlanItem, Guid>>();
@@ -809,6 +818,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 }
 
                 producingWorkOrder.ReverseProduction(fgQty, processLoss: processLoss);
+                var dateWoManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+                var dateJcRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
+                await dateWoManager.UpdateActualDatesAsync(producingWorkOrder, _repository, dateJcRepo, currentStockEntry: entry);
                 await workOrderRepoForProduction.UpdateAsync(producingWorkOrder);
 
                 var planItemRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.ProductionPlanItem, Guid>>();
@@ -939,6 +951,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                     }
                 }
 
+                var dateWoManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+                var dateJcRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
+                await dateWoManager.UpdateActualDatesAsync(woForTransfer, _repository, dateJcRepo, currentStockEntry: entry);
                 await workOrderRepoForTransfer.UpdateAsync(woForTransfer);
             }
         }

@@ -1035,6 +1035,7 @@ export interface WorkOrderDto extends AuditedEntityDto<string> {
   plannedEndDate?: string | null;
   actualStartDate?: string | null;
   actualEndDate?: string | null;
+  leadTime?: number | null;
   notes?: string | null;
   skipTransfer?: boolean;
   fromWipWarehouse?: boolean;

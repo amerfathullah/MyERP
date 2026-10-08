@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using MyERP.Core.DomainServices;
 using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
+using MyERP.Inventory.Entities;
 using MyERP.Manufacturing.DomainServices;
 using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
@@ -271,6 +272,13 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
 
         jc.Start();
         await _repository.UpdateAsync(jc);
+
+        var woManager = LazyServiceProvider.LazyGetRequiredService<WorkOrderManager>();
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
+        var wo = await woRepo.GetAsync(jc.WorkOrderId);
+        await woManager.UpdateActualDatesAsync(wo, seRepo, _repository);
+        await woRepo.UpdateAsync(wo, autoSave: true);
+
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);
     }
 
@@ -484,6 +492,11 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             await woRepo.UpdateAsync(wo, autoSave: true);
         }
 
+        var woManagerFinal = LazyServiceProvider.LazyGetRequiredService<WorkOrderManager>();
+        var seRepoFinal = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
+        await woManagerFinal.UpdateActualDatesAsync(wo, seRepoFinal, _repository);
+        await woRepo.UpdateAsync(wo, autoSave: true);
+
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);
     }
 
@@ -509,6 +522,17 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         var jc = await _repository.GetAsync(id);
         jc.Cancel();
         await _repository.UpdateAsync(jc);
+
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var wo = await woRepo.FindAsync(jc.WorkOrderId);
+        if (wo != null)
+        {
+            var woManager = LazyServiceProvider.LazyGetRequiredService<WorkOrderManager>();
+            var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
+            await woManager.UpdateActualDatesAsync(wo, seRepo, _repository);
+            await woRepo.UpdateAsync(wo, autoSave: true);
+        }
+
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);
     }
 

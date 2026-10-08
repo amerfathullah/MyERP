@@ -1290,6 +1290,8 @@
     "ScheduledVisits": "Scheduled Visits",
     "ScheduledDate": "Scheduled Date",
     "ActualDate": "Actual Date",
+    "ActualStartDate": "Actual Start Date",
+    "ActualEndDate": "Actual End Date",
     "ScheduleDetails": "Schedule Details",
     "TotalVisits": "Total Visits",
     "Visits": "Visits",

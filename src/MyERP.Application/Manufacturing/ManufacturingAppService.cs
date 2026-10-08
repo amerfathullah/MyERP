@@ -1579,6 +1579,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             }
         }
 
+        var woDateManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+        var jcRepo = LazyServiceProvider.LazyGetService<IRepository<JobCard, Guid>>();
+        await woDateManager.UpdateActualDatesAsync(wo, seRepo, jcRepo, currentStockEntry: entry);
         await _workOrderRepository.UpdateAsync(wo);
 
         // Per ERPNext PR #59419 / commit d687024b88: refresh planned qty after status update

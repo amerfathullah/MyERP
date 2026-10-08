@@ -191,6 +191,7 @@ public class WorkOrderDto : AuditedEntityDto<Guid>
     public DateTime? PlannedEndDate { get; set; }
     public DateTime? ActualStartDate { get; set; }
     public DateTime? ActualEndDate { get; set; }
+    public decimal? LeadTime { get; set; }
     public Guid? SourceWarehouseId { get; set; }
     public Guid? WipWarehouseId { get; set; }
     public Guid? FgWarehouseId { get; set; }

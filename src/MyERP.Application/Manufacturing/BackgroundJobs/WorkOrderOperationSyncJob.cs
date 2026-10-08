@@ -6,6 +6,7 @@ using MyERP.Accounting.DomainServices;
 using MyERP.Core.DomainServices;
 using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
+using MyERP.Manufacturing.DomainServices;
 using MyERP.Manufacturing.Entities;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.DependencyInjection;
@@ -36,6 +37,7 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
     private readonly ICurrentTenant _currentTenant;
     private readonly IUnitOfWorkManager _uowManager;
     private readonly ILogger<WorkOrderOperationSyncJob> _logger;
+    private readonly WorkOrderManager _woManager;
 
     public WorkOrderOperationSyncJob(
         IRepository<WorkOrder, Guid> workOrderRepository,
@@ -50,7 +52,8 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
         IGuidGenerator guidGenerator,
         ICurrentTenant currentTenant,
         IUnitOfWorkManager uowManager,
-        ILogger<WorkOrderOperationSyncJob> logger)
+        ILogger<WorkOrderOperationSyncJob> logger,
+        WorkOrderManager woManager)
     {
         _workOrderRepository = workOrderRepository;
         _jobCardRepository = jobCardRepository;
@@ -65,6 +68,7 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
         _currentTenant = currentTenant;
         _uowManager = uowManager;
         _logger = logger;
+        _woManager = woManager;
     }
 
     public override async Task ExecuteAsync(WorkOrderOperationSyncJobArgs args)
@@ -193,6 +197,7 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
         await _postingOrchestrator.PostStockEntryAsync(entry);
 
         await _stockEntryRepository.InsertAsync(entry, autoSave: true);
+        await _woManager.UpdateActualDatesAsync(wo, _stockEntryRepository, _jobCardRepository, currentStockEntry: entry);
         await _workOrderRepository.UpdateAsync(wo, autoSave: true);
     }
 }
