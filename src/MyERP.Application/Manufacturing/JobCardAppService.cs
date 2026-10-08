@@ -409,6 +409,18 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                 }
             }
 
+            // Operating cost from BOM operations (ERPNext PR #59804 / commit 27a344c438)
+            var bomRepoForSec = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var bomForSec = await bomRepoForSec.FindAsync(wo.BomId);
+            var unitOperatingCost = (bomForSec?.Quantity > 0 && bomForSec.OperatingCost > 0)
+                ? bomForSec.OperatingCost / bomForSec.Quantity
+                : 0m;
+            var opCost = Math.Round(unitOperatingCost * delta, 4);
+            if (opCost > 0)
+            {
+                entry.TotalAdditionalCosts += opCost;
+            }
+
             // Receive finished goods at absorbed cost
             if (wo.FgWarehouseId.HasValue && delta > 0)
             {
@@ -417,15 +429,13 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                 entry.AddItem(
                     itemId: wo.ItemId, quantity: delta,
                     sourceWarehouseId: null, targetWarehouseId: wo.FgWarehouseId.Value,
-                    valuationRate: fgRate);
+                    valuationRate: fgRate, isFinishedItem: true);
 
                 await binService.UpdatePlannedQtyAsync(
                     wo.ItemId, wo.FgWarehouseId.Value, -delta, wo.TenantId);
             }
 
             // Add secondary items from Job Card (scrap, co-product, by-product) per ERPNext PR #59436 / commit 1d1562a68e
-            var bomRepoForSec = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
-            var bomForSec = await bomRepoForSec.FindAsync(wo.BomId);
             foreach (var sec in jc.SecondaryItems)
             {
                 if (sec.StockQty <= 0) continue;
@@ -442,6 +452,11 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                         valuationRate: 0m,
                         secondaryItemType: sec.SecondaryItemType.ToString());
                 }
+            }
+
+            if (entry.TotalAdditionalCosts > 0)
+            {
+                Inventory.DomainServices.StockEntryManager.DistributeAdditionalCosts(entry);
             }
 
             var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();

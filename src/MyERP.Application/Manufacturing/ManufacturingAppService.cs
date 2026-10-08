@@ -1475,6 +1475,16 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var fgCostAllocationPct = bom.FgCostAllocationPercentage;
         var fgAllocatedCost = totalRmCost * (fgCostAllocationPct / 100m);
 
+        // Operating cost from BOM operations (ERPNext PR #59804 / commit 27a344c438)
+        var unitOperatingCost = (bom.Quantity > 0 && bom.OperatingCost > 0)
+            ? bom.OperatingCost / bom.Quantity
+            : 0m;
+        var operatingCost = Math.Round(unitOperatingCost * quantity, 4);
+        if (operatingCost > 0)
+        {
+            entry.TotalAdditionalCosts += operatingCost;
+        }
+
         // Per PR #57334: when consumed RM cost is known to be zero (free inputs),
         // the FG rate should also be zero — don't fall back to BOM cost/valuation rate.
         // has_consumption_basis = true when any RM was consumed (even at zero rate)
@@ -1492,7 +1502,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             entry.AddItem(
                 itemId: wo.ItemId, quantity: quantity,
                 sourceWarehouseId: null, targetWarehouseId: productionParams.TargetWarehouseId.Value,
-                valuationRate: fgRate);
+                valuationRate: fgRate, isFinishedItem: true);
 
             await _binService.UpdatePlannedQtyAsync(
                 wo.ItemId, productionParams.TargetWarehouseId.Value, -quantity, wo.TenantId);
@@ -1523,6 +1533,12 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                     secondaryItemType: secItem.SecondaryItemType.ToString(),
                     processLossPercentage: secItem.ProcessLossPercentage);
             }
+        }
+
+        // Distribute operating / additional costs to finished items
+        if (entry.TotalAdditionalCosts > 0)
+        {
+            Inventory.DomainServices.StockEntryManager.DistributeAdditionalCosts(entry);
         }
 
         // Process loss: consumed materials but no FG output for the loss portion
@@ -2301,6 +2317,17 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         // (so it isn't re-issued), but its value must still land in the FG's cost.
         totalRmCost += await GetPriorMaterialConsumptionValueAsync(wo.Id);
 
+        // Operating cost from BOM operations (ERPNext PR #59804 / commit 27a344c438)
+        var bom = await _bomRepository.GetAsync(wo.BomId, includeDetails: true);
+        var unitOperatingCost = (bom.Quantity > 0 && bom.OperatingCost > 0)
+            ? bom.OperatingCost / bom.Quantity
+            : 0m;
+        var operatingCost = Math.Round(unitOperatingCost * input.FgQuantity, 4);
+        if (operatingCost > 0)
+        {
+            entry.TotalAdditionalCosts += operatingCost;
+        }
+
         // Add FG production item (incoming to FG warehouse)
         // FG rate = total RM cost / fg_qty (absorbed costing)
         // Per PR #57334: when consumed cost is known (RM rows present) but zero (free inputs),
@@ -2314,7 +2341,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             quantity: input.FgQuantity,
             sourceWarehouseId: null,
             targetWarehouseId: fgWarehouseId.Value,
-            valuationRate: fgRate);
+            valuationRate: fgRate,
+            isFinishedItem: true);
+
+        if (entry.TotalAdditionalCosts > 0)
+        {
+            Inventory.DomainServices.StockEntryManager.DistributeAdditionalCosts(entry);
+        }
 
         await seRepo.InsertAsync(entry);
 

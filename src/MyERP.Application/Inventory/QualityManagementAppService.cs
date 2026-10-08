@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Permissions;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Domain.Repositories;
@@ -47,12 +48,14 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
     }
 
     // ─── Quality Goal ──────────────────────────────────────────────────
+    [Authorize(MyERPPermissions.QualityGoals.Default)]
     public async Task<QualityGoalDto> GetGoalAsync(Guid id)
     {
         var entity = await _goalRepository.GetAsync(id);
         return new QualityGoalMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityGoals.Default)]
     public async Task<PagedResultDto<QualityGoalDto>> GetGoalListAsync(PagedAndSortedResultRequestDto input)
     {
         var query = await _goalRepository.GetQueryableAsync();
@@ -68,6 +71,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         );
     }
 
+    [Authorize(MyERPPermissions.QualityGoals.Create)]
     public async Task<QualityGoalDto> CreateGoalAsync(CreateUpdateQualityGoalDto input)
     {
         var entity = new QualityGoal(GuidGenerator.Create(), input.Name, input.Frequency, input.TargetValue, CurrentTenant.Id)
@@ -93,6 +97,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new QualityGoalMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityGoals.Edit)]
     public async Task<QualityGoalDto> UpdateGoalAsync(Guid id, CreateUpdateQualityGoalDto input)
     {
         var entity = await _goalRepository.GetAsync(id);
@@ -120,6 +125,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new QualityGoalMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityGoals.Delete)]
     public async Task DeleteGoalAsync(Guid id)
     {
         await _goalRepository.DeleteAsync(id);
@@ -130,6 +136,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
     /// TargetValue (QualityGoalTrackingService.EvaluateGoalAsync) — an alternative to the manual
     /// CreateReviewAsync + user-judged EvaluateReviewAsync two-step flow.
     /// </summary>
+    [Authorize(MyERPPermissions.QualityGoals.Edit)]
     public async Task<QualityReviewDto> EvaluateGoalAsync(Guid id, EvaluateGoalDto input)
     {
         var review = await _goalTrackingService.EvaluateGoalAsync(id, input.ActualValue, input.ReviewDate, input.Notes);
@@ -137,12 +144,14 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
     }
 
     // ─── Quality Review ────────────────────────────────────────────────
+    [Authorize(MyERPPermissions.QualityReviews.Default)]
     public async Task<QualityReviewDto> GetReviewAsync(Guid id)
     {
         var entity = await _reviewRepository.GetAsync(id);
         return new QualityReviewMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityReviews.Default)]
     public async Task<PagedResultDto<QualityReviewDto>> GetReviewListAsync(PagedAndSortedResultRequestDto input)
     {
         var query = await _reviewRepository.GetQueryableAsync();
@@ -158,6 +167,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         );
     }
 
+    [Authorize(MyERPPermissions.QualityReviews.Create)]
     public async Task<QualityReviewDto> CreateReviewAsync(CreateQualityReviewDto input)
     {
         var entity = new QualityReview(GuidGenerator.Create(), input.QualityGoalId, input.ReviewDate, CurrentTenant.Id)
@@ -198,6 +208,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new QualityReviewMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityReviews.Edit)]
     public async Task<QualityReviewDto> EvaluateReviewAsync(Guid id, EvaluateQualityReviewDto input)
     {
         var entity = await _reviewRepository.GetAsync(id);
@@ -214,12 +225,14 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
     }
 
     // ─── Quality Action ────────────────────────────────────────────────
+    [Authorize(MyERPPermissions.QualityActions.Default)]
     public async Task<QualityActionDto> GetActionAsync(Guid id)
     {
         var entity = await _actionRepository.GetAsync(id);
         return new QualityActionMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityActions.Default)]
     public async Task<PagedResultDto<QualityActionDto>> GetActionListAsync(PagedAndSortedResultRequestDto input)
     {
         var query = await _actionRepository.GetQueryableAsync();
@@ -235,6 +248,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         );
     }
 
+    [Authorize(MyERPPermissions.QualityActions.Create)]
     public async Task<QualityActionDto> CreateActionAsync(CreateUpdateQualityActionDto input)
     {
         var entity = new QualityAction(GuidGenerator.Create(), input.CompanyId, input.ActionType, input.ProblemDescription, CurrentTenant.Id)
@@ -258,6 +272,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new QualityActionMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityActions.Edit)]
     public async Task<QualityActionDto> UpdateActionAsync(Guid id, CreateUpdateQualityActionDto input)
     {
         var entity = await _actionRepository.GetAsync(id);
@@ -283,6 +298,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new QualityActionMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityActions.Edit)]
     public async Task<QualityActionDto> ResolveActionAsync(Guid id, ResolveQualityActionDto input)
     {
         var entity = await _actionRepository.GetAsync(id);
@@ -291,6 +307,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new QualityActionMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityActions.Edit)]
     public async Task<QualityActionDto> CloseActionAsync(Guid id)
     {
         var entity = await _actionRepository.GetAsync(id);
@@ -300,12 +317,14 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
     }
 
     // ─── Quality Procedure ─────────────────────────────────────────────
+    [Authorize(MyERPPermissions.QualityProcedures.Default)]
     public async Task<QualityProcedureDto> GetProcedureAsync(Guid id)
     {
         var entity = await _procedureRepository.GetAsync(id);
         return new QualityProcedureMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityProcedures.Default)]
     public async Task<PagedResultDto<QualityProcedureDto>> GetProcedureListAsync(PagedAndSortedResultRequestDto input)
     {
         var query = await _procedureRepository.GetQueryableAsync();
@@ -321,6 +340,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         );
     }
 
+    [Authorize(MyERPPermissions.QualityProcedures.Default)]
     public async Task<List<QualityProcedureDto>> GetProcedureTreeAsync()
     {
         var query = await _procedureRepository.GetQueryableAsync();
@@ -328,6 +348,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return entities.Select(e => new QualityProcedureMapper().Map(e)).ToList();
     }
 
+    [Authorize(MyERPPermissions.QualityProcedures.Create)]
     public async Task<QualityProcedureDto> CreateProcedureAsync(CreateUpdateQualityProcedureDto input)
     {
         if (input.Steps != null)
@@ -367,6 +388,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new QualityProcedureMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityProcedures.Edit)]
     public async Task<QualityProcedureDto> UpdateProcedureAsync(Guid id, CreateUpdateQualityProcedureDto input)
     {
         if (input.Steps != null)
@@ -407,6 +429,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new QualityProcedureMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityProcedures.Delete)]
     public async Task DeleteProcedureAsync(Guid id)
     {
         // Clear child procedure references from other procedure steps (Gotcha #830 / #831)
@@ -428,12 +451,14 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
     }
 
     // ─── Non-Conformance ───────────────────────────────────────────────
+    [Authorize(MyERPPermissions.NonConformances.Default)]
     public async Task<NonConformanceDto> GetNonConformanceAsync(Guid id)
     {
         var entity = await _nonConformanceRepository.GetAsync(id);
         return new NonConformanceMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.NonConformances.Default)]
     public async Task<PagedResultDto<NonConformanceDto>> GetNonConformanceListAsync(PagedAndSortedResultRequestDto input)
     {
         var query = await _nonConformanceRepository.GetQueryableAsync();
@@ -449,6 +474,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         );
     }
 
+    [Authorize(MyERPPermissions.NonConformances.Create)]
     public async Task<NonConformanceDto> CreateNonConformanceAsync(CreateUpdateNonConformanceDto input)
     {
         var entity = new NonConformance(GuidGenerator.Create(), input.CompanyId, input.Subject, input.ProcedureId, CurrentTenant.Id)
@@ -462,6 +488,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new NonConformanceMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.NonConformances.Edit)]
     public async Task<NonConformanceDto> UpdateNonConformanceAsync(Guid id, CreateUpdateNonConformanceDto input)
     {
         var entity = await _nonConformanceRepository.GetAsync(id);
@@ -476,6 +503,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new NonConformanceMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.NonConformances.Edit)]
     public async Task<NonConformanceDto> ResolveNonConformanceAsync(Guid id, ResolveNonConformanceDto input)
     {
         var entity = await _nonConformanceRepository.GetAsync(id);
@@ -484,6 +512,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new NonConformanceMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.NonConformances.Edit)]
     public async Task<NonConformanceDto> CancelNonConformanceAsync(Guid id)
     {
         var entity = await _nonConformanceRepository.GetAsync(id);
@@ -493,12 +522,14 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
     }
 
     // ─── Quality Meeting ───────────────────────────────────────────────
+    [Authorize(MyERPPermissions.QualityMeetings.Default)]
     public async Task<QualityMeetingDto> GetMeetingAsync(Guid id)
     {
         var entity = await _meetingRepository.GetAsync(id);
         return new QualityMeetingMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityMeetings.Default)]
     public async Task<PagedResultDto<QualityMeetingDto>> GetMeetingListAsync(PagedAndSortedResultRequestDto input)
     {
         var query = await _meetingRepository.GetQueryableAsync();
@@ -514,6 +545,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         );
     }
 
+    [Authorize(MyERPPermissions.QualityMeetings.Create)]
     public async Task<QualityMeetingDto> CreateMeetingAsync(CreateUpdateQualityMeetingDto input)
     {
         var entity = new QualityMeeting(GuidGenerator.Create(), input.CompanyId, input.MeetingDate, input.Chairperson, CurrentTenant.Id)
@@ -541,6 +573,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new QualityMeetingMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityMeetings.Edit)]
     public async Task<QualityMeetingDto> CloseMeetingAsync(Guid id)
     {
         var entity = await _meetingRepository.GetAsync(id);
@@ -550,12 +583,14 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
     }
 
     // ─── Quality Feedback Template & Feedback ─────────────────────────
+    [Authorize(MyERPPermissions.QualityFeedbacks.Default)]
     public async Task<QualityFeedbackTemplateDto> GetFeedbackTemplateAsync(Guid id)
     {
         var entity = await _feedbackTemplateRepository.GetAsync(id);
         return new QualityFeedbackTemplateMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityFeedbacks.Default)]
     public async Task<PagedResultDto<QualityFeedbackTemplateDto>> GetFeedbackTemplateListAsync(PagedAndSortedResultRequestDto input)
     {
         var query = await _feedbackTemplateRepository.GetQueryableAsync();
@@ -571,6 +606,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         );
     }
 
+    [Authorize(MyERPPermissions.QualityFeedbacks.Create)]
     public async Task<QualityFeedbackTemplateDto> CreateFeedbackTemplateAsync(CreateUpdateQualityFeedbackTemplateDto input)
     {
         var entity = new QualityFeedbackTemplate(GuidGenerator.Create(), input.TemplateName, CurrentTenant.Id);
@@ -585,12 +621,14 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         return new QualityFeedbackTemplateMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityFeedbacks.Default)]
     public async Task<QualityFeedbackDto> GetFeedbackAsync(Guid id)
     {
         var entity = await _feedbackRepository.GetAsync(id);
         return new QualityFeedbackMapper().Map(entity);
     }
 
+    [Authorize(MyERPPermissions.QualityFeedbacks.Default)]
     public async Task<PagedResultDto<QualityFeedbackDto>> GetFeedbackListAsync(PagedAndSortedResultRequestDto input)
     {
         var query = await _feedbackRepository.GetQueryableAsync();
@@ -606,6 +644,7 @@ public class QualityManagementAppService : MyERPAppService, IQualityManagementAp
         );
     }
 
+    [Authorize(MyERPPermissions.QualityFeedbacks.Create)]
     public async Task<QualityFeedbackDto> CreateFeedbackAsync(CreateQualityFeedbackDto input)
     {
         var entity = new QualityFeedback(GuidGenerator.Create(), input.CompanyId, input.DocumentType, input.DocumentName, input.TemplateId, CurrentTenant.Id)

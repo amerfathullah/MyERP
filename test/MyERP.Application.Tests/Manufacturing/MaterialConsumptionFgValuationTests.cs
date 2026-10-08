@@ -339,6 +339,86 @@ public abstract class MaterialConsumptionFgValuationTests<TStartupModule> : MyER
         });
     }
 
+    [Fact]
+    public async Task CreateManufactureStockEntryAsync_WithBomOperatingCost_IncludesOperatingCostInValuationAndAdditionalCosts()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var woRepository = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var bomRepository = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var settingsRepository = GetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+            var seRepository = GetRequiredService<IRepository<StockEntry, Guid>>();
+            var sleRepository = GetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+            var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var manufacturingAppService = GetRequiredService<IManufacturingAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Op Cost Test Co"), autoSave: true);
+            await seriesRepository.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SE Series OPC1", "SE", "SEOPC1-"), autoSave: true);
+            var fgItem = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "FG-OPC1", "Operating Cost FG", ItemType.Goods), autoSave: true);
+            var rmItem = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "RM-OPC1", "Operating Cost RM", ItemType.Goods), autoSave: true);
+            var sourceWarehouse = await warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "RM Store OPC1"), autoSave: true);
+            var fgWarehouse = await warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "FG Store OPC1"), autoSave: true);
+
+            await settingsRepository.InsertAsync(
+                new ManufacturingSettings(Guid.NewGuid(), company.Id) { MaterialConsumption = false }, autoSave: true);
+
+            // BOM: Quantity = 10, OperatingCost = 200 (unit operating cost = 20)
+            var bom = new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-OPC1", fgItem.Id)
+            {
+                Quantity = 10m,
+                OperatingCost = 200m,
+                WithOperations = true,
+            };
+            await bomRepository.InsertAsync(bom, autoSave: true);
+
+            var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-OPC1", fgItem.Id, bom.Id, quantity: 10m)
+            {
+                SourceWarehouseId = sourceWarehouse.Id,
+                FgWarehouseId = fgWarehouse.Id,
+            };
+            // RM requirement: 10 units at rate 10 -> total RM cost = 100
+            var woItem = new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItem.Id, "Operating Cost RM", requiredQuantity: 10m)
+            {
+                SourceWarehouseId = sourceWarehouse.Id,
+                TransferredQuantity = 10m,
+            };
+            wo.RequiredItems.Add(woItem);
+            wo.Submit();
+            wo.Start();
+            await woRepository.InsertAsync(wo, autoSave: true);
+
+            await sleRepository.InsertAsync(new StockLedgerEntry(
+                Guid.NewGuid(), company.Id, rmItem.Id, sourceWarehouse.Id,
+                DateTime.Today.AddDays(-1), quantityChange: 100m, valuationRate: 10m,
+                balanceQuantity: 100m, balanceValue: 1000m)
+            {
+                StockQueue = "[[100,10]]",
+            }, autoSave: true);
+
+            // Produce 5 FG units:
+            // RM cost = 5 units * 10 = 50.
+            // Operating cost = 5 units * 20 = 100.
+            // Total FG cost = 150 -> ValuationRate = 150 / 5 = 30.
+            var result = await manufacturingAppService.CreateManufactureStockEntryAsync(new CreateManufactureStockEntryDto
+            {
+                WorkOrderId = wo.Id,
+                FgQuantity = 5m,
+            });
+
+            var entry = await seRepository.GetAsync(result.StockEntryId);
+            entry.TotalAdditionalCosts.ShouldBe(100m);
+
+            var fgLine = entry.Items.Single(i => i.ItemId == fgItem.Id);
+            fgLine.AdditionalCost.ShouldBe(100m);
+            fgLine.ValuationRate.ShouldBe(30m);
+        });
+    }
+
     /// <summary>Mirrors DisassemblySourceResolutionTests' identically-named helper — minimal GL
     /// scaffolding so DocumentPostingOrchestrator.PostStockEntryAsync can complete without
     /// asserting anything about Stock Entry GL correctness itself.</summary>
