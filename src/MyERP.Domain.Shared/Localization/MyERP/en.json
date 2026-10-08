@@ -2046,6 +2046,8 @@
     "NoPeriodClosingVouchersYet": "No period closing vouchers yet. Create one to close a fiscal year.",
     "ClosingAccount": "Closing Account",
     "TotalAmount": "Total Amount",
+    "AcceptedStockDifference": "Accepted Stock Difference",
+    "StockValueMismatch": "Stock Value Mismatch",
     "Remarks": "Remarks",
     "PaymentDetails": "Payment Details",
     "PaidAmount": "Paid Amount",

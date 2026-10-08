@@ -35,6 +35,12 @@ public class PeriodClosingVoucher : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Total P&L balance transferred (sum of absolute values).</summary>
     public decimal TotalClosingAmount { get; private set; }
 
+    /// <summary>
+    /// Difference between Stock Asset accounts balance and Stock Balance report accepted while submitting.
+    /// Per ERPNext PR #60170: allowed when stock value difference is within 1% tolerance.
+    /// </summary>
+    public decimal? StockValueDifference { get; private set; }
+
     private readonly List<PeriodClosingEntry> _entries = new();
     public IReadOnlyList<PeriodClosingEntry> Entries => _entries.AsReadOnly();
 
@@ -63,6 +69,14 @@ public class PeriodClosingVoucher : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         _entries.Add(new PeriodClosingEntry(Guid.NewGuid(), Id, accountId, costCenterId, amount, isDebit));
         TotalClosingAmount = _entries.Sum(e => Math.Abs(e.Amount));
+    }
+
+    public void SetStockValueDifference(decimal? difference)
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        StockValueDifference = difference;
     }
 
     public void Submit()

@@ -2222,9 +2222,23 @@ export interface PeriodClosingVoucherDto extends EntityDto<string> {
   closingAccountId?: string;
   closingAccountName?: string | null;
   totalClosingAmount?: number;
+  stockValueDifference?: number | null;
   status?: number;
   remarks?: string | null;
   entryCount?: number;
+}
+
+export interface PeriodClosingStockDifferenceDto {
+  accountBalance?: number;
+  stockValue?: number;
+  difference?: number;
+  tolerance?: number;
+  withinTolerance?: boolean;
+  hasStockTransactions?: boolean;
+}
+
+export interface SubmitPeriodClosingVoucherDto {
+  stockValueDifference?: number | null;
 }
 
 export interface PreviewDeferredAccountingInput {

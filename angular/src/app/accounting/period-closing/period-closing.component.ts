@@ -129,7 +129,32 @@ export class PeriodClosingComponent implements OnInit {
   }
 
   submit(id: string) {
-    this.service.submit(id).subscribe({
+    this.service.getStockValueDifference(id).subscribe({
+      next: (diffRes: any) => {
+        if (diffRes?.hasStockTransactions && diffRes?.difference !== 0) {
+          if (diffRes.withinTolerance) {
+            const msg = `The closing balance ${diffRes.accountBalance?.toFixed(2)} of the Stock Asset accounts differs from the closing value ${diffRes.stockValue?.toFixed(2)} of the Stock Balance report by ${diffRes.difference?.toFixed(2)}, which is within the allowed ${diffRes.tolerance}% tolerance. Submit the Period Closing Voucher with this difference?`;
+            this.confirmation.warn(msg, '::StockValueMismatch').subscribe(status => {
+              if (status !== Confirmation.Status.confirm) return;
+              this.executeSubmit(id, diffRes.difference);
+            });
+            return;
+          } else {
+            this.toaster.error(
+              `The closing balance ${diffRes.accountBalance?.toFixed(2)} of the Stock Asset accounts does not match the closing value ${diffRes.stockValue?.toFixed(2)} of the Stock Balance report. The difference ${diffRes.difference?.toFixed(2)} must be reconciled before closing the period.`,
+              '::StockValueMismatch'
+            );
+            return;
+          }
+        }
+        this.executeSubmit(id);
+      },
+      error: () => this.executeSubmit(id),
+    });
+  }
+
+  private executeSubmit(id: string, stockValueDifference?: number) {
+    this.service.submit(id, stockValueDifference !== undefined ? { stockValueDifference } : undefined).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullySubmitted');
         this.loadData();

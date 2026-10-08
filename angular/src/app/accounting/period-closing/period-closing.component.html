@@ -79,6 +79,7 @@
                 <th>{{ '::PostingDate' | abpLocalization }}</th>
                 <th>{{ '::ClosingAccount' | abpLocalization }}</th>
                 <th class="text-end">{{ '::TotalAmount' | abpLocalization }}</th>
+                <th class="text-end">{{ '::AcceptedStockDifference' | abpLocalization }}</th>
                 <th>{{ '::Status' | abpLocalization }}</th>
                 <th>{{ '::Remarks' | abpLocalization }}</th>
                 <th></th>
@@ -90,6 +91,7 @@
                   <td>{{ item.postingDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ getAccountName(item.closingAccountId) }}</td>
                   <td class="text-end fw-bold">{{ item.totalClosingAmount | number:'1.2-2' }}</td>
+                  <td class="text-end text-muted">@if (item.stockValueDifference) { {{ item.stockValueDifference | number:'1.2-2' }} } @else { — }</td>
                   <td><app-status-badge [status]="getStatusLabel(item.status)" /></td>
                   <td>{{ item.remarks }}</td>
                   <td class="text-end">
@@ -112,7 +114,7 @@
                 </tr>
                 @if (expandedPcvId() === item.id && glEntries().length > 0) {
                   <tr>
-                    <td colspan="6" class="p-0">
+                    <td colspan="7" class="p-0">
                       <div class="bg-light p-3">
                         <h6 class="mb-2"><i class="fa fa-list-ol me-1"></i>{{ '::LedgerEntries' | abpLocalization }} ({{ glEntries().length }})</h6>
                         <table class="table table-sm table-bordered mb-0">

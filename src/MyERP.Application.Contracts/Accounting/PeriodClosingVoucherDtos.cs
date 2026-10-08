@@ -14,9 +14,25 @@ public class PeriodClosingVoucherDto : EntityDto<Guid>
     public Guid ClosingAccountId { get; set; }
     public string? ClosingAccountName { get; set; }
     public decimal TotalClosingAmount { get; set; }
+    public decimal? StockValueDifference { get; set; }
     public int Status { get; set; }
     public string? Remarks { get; set; }
     public int EntryCount { get; set; }
+}
+
+public class SubmitPeriodClosingVoucherDto
+{
+    public decimal? StockValueDifference { get; set; }
+}
+
+public class PeriodClosingStockDifferenceDto
+{
+    public decimal AccountBalance { get; set; }
+    public decimal StockValue { get; set; }
+    public decimal Difference { get; set; }
+    public decimal Tolerance { get; set; } = 1.0m;
+    public bool WithinTolerance { get; set; }
+    public bool HasStockTransactions { get; set; }
 }
 
 public class PcvGlEntryDto

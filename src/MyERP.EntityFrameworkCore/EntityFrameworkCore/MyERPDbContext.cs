@@ -3841,6 +3841,7 @@ public class MyERPDbContext :
             b.Property(x => x.VoucherNumber).HasMaxLength(50);
             b.Property(x => x.Remarks).HasMaxLength(2000);
             b.Property(x => x.TotalClosingAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.StockValueDifference).HasColumnType("decimal(18,2)");
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasOne<FiscalYear>().WithMany().HasForeignKey(x => x.FiscalYearId).IsRequired();
             b.HasOne<Account>().WithMany().HasForeignKey(x => x.ClosingAccountId).IsRequired();

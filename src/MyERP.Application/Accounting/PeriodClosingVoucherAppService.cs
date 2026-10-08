@@ -107,10 +107,33 @@ public class PeriodClosingVoucherAppService : ApplicationService, IPeriodClosing
         return ObjectMapper.Map<PeriodClosingVoucher, PeriodClosingVoucherDto>(pcv);
     }
 
+    public async Task<PeriodClosingStockDifferenceDto> GetStockValueDifferenceAsync(Guid id)
+    {
+        var pcv = await _repository.GetAsync(id);
+        var pcvPostingService = LazyServiceProvider.LazyGetRequiredService<PeriodClosingPostingService>();
+        var (accountBalance, stockValue, difference, tolerance, withinTolerance, hasStockTransactions) =
+            await pcvPostingService.GetStockValueDifferenceAsync(pcv.CompanyId, pcv.PostingDate);
+
+        return new PeriodClosingStockDifferenceDto
+        {
+            AccountBalance = accountBalance,
+            StockValue = stockValue,
+            Difference = difference,
+            Tolerance = tolerance,
+            WithinTolerance = withinTolerance,
+            HasStockTransactions = hasStockTransactions,
+        };
+    }
+
     [Authorize(MyERPPermissions.Accounts.Create)]
-    public async Task<PeriodClosingVoucherDto> SubmitAsync(Guid id)
+    public async Task<PeriodClosingVoucherDto> SubmitAsync(Guid id, SubmitPeriodClosingVoucherDto? input = null)
     {
         var pcv = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
+
+        if (input?.StockValueDifference.HasValue == true)
+        {
+            pcv.SetStockValueDifference(input.StockValueDifference.Value);
+        }
 
         // Validate posting period is not frozen/closed
         await _postingOrchestrator.ValidatePostingPeriodAsync(
@@ -126,9 +149,9 @@ public class PeriodClosingVoucherAppService : ApplicationService, IPeriodClosing
 
         await ValidatePreviousYearClosedAsync(pcv);
 
-        // Validate closing account via dedicated domain service (type + currency checks)
+        // Validate closing account via dedicated domain service (type + currency checks, stock tolerance)
         var pcvPostingService = LazyServiceProvider.LazyGetRequiredService<PeriodClosingPostingService>();
-        await pcvPostingService.ValidateForSubmitAsync(pcv);
+        await pcvPostingService.ValidateForSubmitAsync(pcv, input?.StockValueDifference);
 
         // Calculate P&L closing entries via domain service (per-account per-CC aggregation)
         var result = await pcvPostingService.CalculateClosingEntriesAsync(

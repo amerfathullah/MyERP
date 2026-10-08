@@ -1,4 +1,4 @@
-import type { CreatePeriodClosingVoucherDto, PcvGlEntryDto, PeriodClosingVoucherDto } from './models';
+import type { CreatePeriodClosingVoucherDto, PcvGlEntryDto, PeriodClosingStockDifferenceDto, PeriodClosingVoucherDto, SubmitPeriodClosingVoucherDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -45,6 +45,14 @@ export class PeriodClosingVoucherService {
     { apiName: this.apiName,...config });
   
 
+  getStockValueDifference = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PeriodClosingStockDifferenceDto>({
+      method: 'GET',
+      url: `/api/app/period-closing-voucher/${id}/stock-value-difference`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PeriodClosingVoucherDto>>({
       method: 'GET',
@@ -54,10 +62,11 @@ export class PeriodClosingVoucherService {
     { apiName: this.apiName,...config });
   
 
-  submit = (id: string, config?: Partial<Rest.Config>) =>
+  submit = (id: string, input?: SubmitPeriodClosingVoucherDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PeriodClosingVoucherDto>({
       method: 'POST',
       url: `/api/app/period-closing-voucher/${id}/submit`,
+      body: input,
     },
     { apiName: this.apiName,...config });
 }

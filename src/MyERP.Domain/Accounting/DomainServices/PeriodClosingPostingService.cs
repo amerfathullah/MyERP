@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
+using MyERP.Inventory.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
@@ -28,12 +29,16 @@ namespace MyERP.Accounting.DomainServices;
 /// </summary>
 public class PeriodClosingPostingService : DomainService
 {
+    public const decimal StockValueTolerancePercent = 1.0m;
+
     private readonly IRepository<JournalEntry, Guid> _journalRepository;
     private readonly IRepository<JournalEntryLine, Guid> _lineRepository;
     private readonly IRepository<Account, Guid> _accountRepository;
     private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly AccountClosingBalanceService _closingBalanceService;
+    private readonly IRepository<StockLedgerEntry, Guid>? _sleRepository;
+    private readonly IRepository<StockClosingEntry, Guid>? _stockClosingRepository;
 
     public PeriodClosingPostingService(
         IRepository<JournalEntry, Guid> journalRepository,
@@ -41,7 +46,9 @@ public class PeriodClosingPostingService : DomainService
         IRepository<Account, Guid> accountRepository,
         IRepository<FiscalYear, Guid> fiscalYearRepository,
         IRepository<Company, Guid> companyRepository,
-        AccountClosingBalanceService closingBalanceService)
+        AccountClosingBalanceService closingBalanceService,
+        IRepository<StockLedgerEntry, Guid>? sleRepository = null,
+        IRepository<StockClosingEntry, Guid>? stockClosingRepository = null)
     {
         _journalRepository = journalRepository;
         _lineRepository = lineRepository;
@@ -49,14 +56,17 @@ public class PeriodClosingPostingService : DomainService
         _fiscalYearRepository = fiscalYearRepository;
         _companyRepository = companyRepository;
         _closingBalanceService = closingBalanceService;
+        _sleRepository = sleRepository;
+        _stockClosingRepository = stockClosingRepository;
     }
 
     /// <summary>
     /// Validates PCV configuration before submission.
     /// Per gotchas #317-318: closing account must be Liability/Equity type and in company currency.
     /// Per gotcha #256: blocks if a future PCV exists for the same company.
+    /// Per ERPNext PR #60170: validates stock closing entry and stock accounts balance with 1% tolerance.
     /// </summary>
-    public async Task ValidateForSubmitAsync(PeriodClosingVoucher pcv)
+    public async Task ValidateForSubmitAsync(PeriodClosingVoucher pcv, decimal? acceptedDifference = null)
     {
         // 1. Closing account root_type must be Liability or Equity
         var closingAccount = await _accountRepository.GetAsync(pcv.ClosingAccountId);
@@ -85,6 +95,117 @@ public class PeriodClosingPostingService : DomainService
                 .WithData("frozenTill", company.AccountsFrozenTillDate.Value.ToString("yyyy-MM-dd"))
                 .WithData("postingDate", pcv.PostingDate.ToString("yyyy-MM-dd"));
         }
+
+        // 4. Stock validation under perpetual inventory (ERPNext PR #60170)
+        if (await HasStockTransactionsAsync(pcv.CompanyId, pcv.PostingDate))
+        {
+            await ValidateStockClosingEntryAsync(pcv.CompanyId, pcv.PostingDate);
+            await ValidateStockAccountsBalanceAsync(pcv.CompanyId, pcv.PostingDate, acceptedDifference ?? pcv.StockValueDifference);
+        }
+    }
+
+    public async Task ValidateStockClosingEntryAsync(Guid companyId, DateTime postingDate)
+    {
+        if (_stockClosingRepository == null) return;
+
+        var query = await _stockClosingRepository.GetQueryableAsync();
+        var hasClosing = query.Any(c =>
+            c.CompanyId == companyId &&
+            c.Status == StockClosingStatus.Submitted &&
+            c.ToDate >= postingDate);
+
+        if (!hasClosing)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Create a Stock Closing Entry for the entire company with To Date as {postingDate:dd/MM/yyyy} before submitting the Period Closing Voucher.");
+        }
+    }
+
+    public async Task ValidateStockAccountsBalanceAsync(Guid companyId, DateTime postingDate, decimal? acceptedDifference)
+    {
+        var (accountBalance, stockValue, difference, tolerance, withinTolerance, hasStockTransactions) =
+            await GetStockValueDifferenceAsync(companyId, postingDate);
+
+        if (!hasStockTransactions || difference == 0)
+            return;
+
+        if (withinTolerance && acceptedDifference.HasValue && Math.Round(acceptedDifference.Value, 2) == difference)
+            return;
+
+        var company = await _companyRepository.GetAsync(companyId);
+        var currency = company.CurrencyCode ?? "MYR";
+
+        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+            .WithData("title", "Stock Value Mismatch")
+            .WithData("detail", $"The closing balance {accountBalance:N2} {currency} of the Stock Asset accounts does not match the closing value {stockValue:N2} {currency} of the Stock Balance report as on {postingDate:dd/MM/yyyy}. The difference {difference:N2} {currency} must be reconciled before closing the period.");
+    }
+
+    public async Task<(decimal AccountBalance, decimal StockValue, decimal Difference, decimal Tolerance, bool WithinTolerance, bool HasStockTransactions)>
+        GetStockValueDifferenceAsync(Guid companyId, DateTime postingDate)
+    {
+        if (!await HasStockTransactionsAsync(companyId, postingDate))
+        {
+            return (0m, 0m, 0m, StockValueTolerancePercent, true, false);
+        }
+
+        var accountBalance = await GetStockAccountsBalanceAsync(companyId, postingDate);
+        var stockValue = await GetStockValueOnAsync(companyId, postingDate);
+        var difference = Math.Round(accountBalance - stockValue, 2);
+        var withinTolerance = Math.Abs(difference) <= Math.Round(Math.Abs(stockValue) * StockValueTolerancePercent / 100m, 2);
+
+        return (accountBalance, stockValue, difference, StockValueTolerancePercent, withinTolerance, true);
+    }
+
+    public async Task<bool> HasStockTransactionsAsync(Guid companyId, DateTime postingDate)
+    {
+        if (_sleRepository == null) return false;
+
+        var company = await _companyRepository.FindAsync(companyId);
+        if (company == null || !company.EnablePerpetualInventory)
+            return false;
+
+        var sleQuery = await _sleRepository.GetQueryableAsync();
+        return sleQuery.Any(s => s.CompanyId == companyId && s.PostingDate <= postingDate);
+    }
+
+    public async Task<decimal> GetStockAccountsBalanceAsync(Guid companyId, DateTime postingDate)
+    {
+        var accounts = await _accountRepository.GetListAsync(a =>
+            a.CompanyId == companyId &&
+            !a.IsGroup &&
+            a.IsActive &&
+            (a.AccountSubType == AccountSubType.Stock || (a.AccountType == AccountType.Asset && a.AccountSubType == AccountSubType.Stock)));
+
+        if (!accounts.Any())
+            return 0m;
+
+        var stockAccountIds = accounts.Select(a => a.Id).ToHashSet();
+
+        var journals = await _journalRepository.GetListAsync(je =>
+            je.CompanyId == companyId &&
+            je.Status == DocumentStatus.Posted &&
+            je.PostingDate <= postingDate);
+
+        if (!journals.Any())
+            return 0m;
+
+        var journalIds = journals.Select(j => j.Id).ToHashSet();
+        var lines = await _lineRepository.GetListAsync(l => journalIds.Contains(l.JournalEntryId) && stockAccountIds.Contains(l.AccountId));
+
+        return Math.Round(lines.Sum(l => l.IsDebit ? l.Amount : -l.Amount), 2);
+    }
+
+    public async Task<decimal> GetStockValueOnAsync(Guid companyId, DateTime postingDate)
+    {
+        if (_sleRepository == null) return 0m;
+
+        var sleQuery = await _sleRepository.GetQueryableAsync();
+        var delta = sleQuery
+            .Where(s => s.CompanyId == companyId && s.PostingDate <= postingDate)
+            .Select(s => s.StockValueDifference != 0 ? s.StockValueDifference : s.StockValue)
+            .ToList();
+
+        return Math.Round(delta.Sum(), 2);
     }
 
     /// <summary>
