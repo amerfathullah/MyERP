@@ -80,41 +80,43 @@ public class StockPostingService : DomainService
                         .WithData("warehouse", sourceWh.Name);
                 }
             }
+        }
 
-            // Source warehouse: stock-out (negative qty). Goes through
-            // StockValuationService.CreateLedgerEntryAsync (not a direct StockLedgerEntry
-            // construction) so FIFO/LIFO items get their StockQueue lot-tracking updated —
-            // building the entry directly here left StockQueue permanently empty for any
-            // item received via a Stock Entry, causing the NEXT stock-out through the
-            // FIFO-aware path (e.g. a Sales/Delivery Note) to compute its balance from an
-            // empty queue and throw InsufficientStock despite real stock being available
-            // (round-77 fix — found while verifying round-76's DN cancel fix).
-            //
-            // Use the entry's StockValue field for the Bin update, not StockValueDifference —
-            // the 9-arg StockLedgerEntry constructor CreateLedgerEntryAsync calls only sets
-            // StockValue (= quantityChange * valuationRate); StockValueDifference is set only by
-            // the OTHER constructor overload (with postingTime/voucherType params) and stays 0
-            // here, which silently zeroed out every stock-in Bin value until caught live-testing
-            // round 78's JobCard fix (GL showed the correct 100, Bin.StockValue showed 0).
-            decimal outwardStockValue = 0m;
-            var bundleRepo = LazyServiceProvider?.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
-            SerialAndBatchBundle? outwardBundle = null;
+        var bundleRepo = LazyServiceProvider?.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
+        var outwardStockValueByItem = new Dictionary<Guid, decimal>();
+        decimal totalRawMaterialOutwardValue = 0m;
+        bool hasOutwardBundles = false;
 
-            if (bundleRepo != null)
-            {
-                var bundleQuery = await bundleRepo.WithDetailsAsync(b => b.Entries);
-                outwardBundle = bundleQuery.FirstOrDefault(b =>
-                    b.VoucherType == "StockEntry" &&
-                    b.VoucherId == stockEntry.Id &&
-                    b.VoucherDetailId == item.Id &&
-                    b.TypeOfTransaction == BundleTransactionType.Outward &&
-                    !b.IsCancelled);
-            }
+        // Pass 1: Source warehouse deductions (stock-out)
+        // Per ERPNext PR #60214 / commit fc069b5516 & f8ac29ea0f: source entries post first to establish consumed cost
+        foreach (var item in stockEntry.Items)
+        {
+            if (item.Quantity <= 0)
+                continue;
+
+            var itemEntity = await _itemRepository.FindAsync(item.ItemId);
+            if (itemEntity != null && !itemEntity.MaintainStock)
+                continue;
 
             if (item.SourceWarehouseId.HasValue)
             {
+                decimal outwardStockValue = 0m;
+                SerialAndBatchBundle? outwardBundle = null;
+
+                if (bundleRepo != null)
+                {
+                    var bundleQuery = await bundleRepo.WithDetailsAsync(b => b.Entries);
+                    outwardBundle = bundleQuery.FirstOrDefault(b =>
+                        b.VoucherType == "StockEntry" &&
+                        b.VoucherId == stockEntry.Id &&
+                        b.VoucherDetailId == item.Id &&
+                        b.TypeOfTransaction == BundleTransactionType.Outward &&
+                        !b.IsCancelled);
+                }
+
                 if (outwardBundle != null && outwardBundle.Entries.Any())
                 {
+                    hasOutwardBundles = true;
                     decimal totalOutwardValue = 0m;
                     foreach (var entry in outwardBundle.Entries)
                     {
@@ -178,25 +180,74 @@ public class StockPostingService : DomainService
 
                     outwardStockValue = Math.Abs(sle.StockValueDifference != 0 ? sle.StockValueDifference : sle.StockValue);
                 }
-            }
 
-            // Target warehouse: stock-in (positive qty) — same reasoning as above.
+                outwardStockValueByItem[item.Id] = outwardStockValue;
+                if (!item.TargetWarehouseId.HasValue)
+                {
+                    totalRawMaterialOutwardValue += outwardStockValue;
+                }
+            }
+        }
+
+        // Pass 2: Target warehouse additions (stock-in)
+        // Per ERPNext PR #60214 / commit ef827e263b & f8ac29ea0f: recalculate target leg incoming rates from consumed costs
+        foreach (var item in stockEntry.Items)
+        {
+            if (item.Quantity <= 0)
+                continue;
+
+            var itemEntity = await _itemRepository.FindAsync(item.ItemId);
+            if (itemEntity != null && !itemEntity.MaintainStock)
+                continue;
+
             if (item.TargetWarehouseId.HasValue)
             {
-                var rate = item.ValuationRate ?? 0;
+                var rate = item.ValuationRate ?? 0m;
                 var isTransfer = item.SourceWarehouseId.HasValue && item.Quantity > 0;
 
                 // Per ERPNext PR #59546 (commit 801a524f80): value a transfer's inward leg at what left the source + additional cost
                 if (isTransfer)
                 {
+                    var outwardStockValue = outwardStockValueByItem.GetValueOrDefault(item.Id, 0m);
                     var totalInwardValue = outwardStockValue + item.AdditionalCost;
-                    rate = totalInwardValue / item.Quantity;
+                    rate = item.Quantity > 0 ? totalInwardValue / item.Quantity : rate;
+                }
+                else if (stockEntry.EntryType == StockEntryType.Repack &&
+                         (item.IsFinishedItem || !item.SourceWarehouseId.HasValue) &&
+                         (!item.SetBasicRateManually || rate <= 0 || hasOutwardBundles))
+                {
+                    // Per ERPNext PR #60214 / commit ef827e263b & f8ac29ea0f:
+                    // Repack finished good values at consumed raw materials cost + additional cost
+                    var totalFgInwardValue = totalRawMaterialOutwardValue + item.AdditionalCost;
+                    rate = item.Quantity > 0 ? totalFgInwardValue / item.Quantity : rate;
+                    item.ValuationRate = rate;
+                }
+                else if (stockEntry.EntryType == StockEntryType.Manufacture &&
+                         !stockEntry.WorkOrderId.HasValue &&
+                         (item.IsFinishedItem || !item.SourceWarehouseId.HasValue) &&
+                         (!item.SetBasicRateManually || rate <= 0))
+                {
+                    // Standalone manufacture without work order derives FG valuation rate from consumed raw materials
+                    var totalFgInwardValue = totalRawMaterialOutwardValue + item.AdditionalCost;
+                    rate = item.Quantity > 0 ? totalFgInwardValue / item.Quantity : rate;
+                    item.ValuationRate = rate;
                 }
 
+                SerialAndBatchBundle? outwardBundle = null;
                 SerialAndBatchBundle? inwardBundle = null;
                 if (bundleRepo != null)
                 {
                     var bundleQuery = await bundleRepo.WithDetailsAsync(b => b.Entries);
+                    if (isTransfer)
+                    {
+                        outwardBundle = bundleQuery.FirstOrDefault(b =>
+                            b.VoucherType == "StockEntry" &&
+                            b.VoucherId == stockEntry.Id &&
+                            b.VoucherDetailId == item.Id &&
+                            b.TypeOfTransaction == BundleTransactionType.Outward &&
+                            !b.IsCancelled);
+                    }
+
                     inwardBundle = bundleQuery.FirstOrDefault(b =>
                         b.VoucherType == "StockEntry" &&
                         b.VoucherId == stockEntry.Id &&
@@ -229,6 +280,12 @@ public class StockPostingService : DomainService
                     foreach (var entry in inwardBundle.Entries)
                     {
                         var entryRate = entry.IncomingRate > 0 ? entry.IncomingRate : rate;
+                        if ((stockEntry.EntryType == StockEntryType.Repack || (stockEntry.EntryType == StockEntryType.Manufacture && !stockEntry.WorkOrderId.HasValue)) && (!item.SetBasicRateManually || entry.IncomingRate <= 0))
+                        {
+                            entryRate = rate;
+                            entry.IncomingRate = rate;
+                        }
+
                         var sle = await _valuationService.CreateLedgerEntryAsync(
                             stockEntry.CompanyId, item.ItemId, item.TargetWarehouseId.Value,
                             stockEntry.PostingDate, entry.Qty, entryRate,
@@ -239,6 +296,12 @@ public class StockPostingService : DomainService
                         sle.IncomingRate = entryRate;
                         await _sleRepository.UpdateAsync(sle);
                         totalStockValue += sle.StockValue;
+                    }
+
+                    if ((stockEntry.EntryType == StockEntryType.Repack || (stockEntry.EntryType == StockEntryType.Manufacture && !stockEntry.WorkOrderId.HasValue)) && !item.SetBasicRateManually)
+                    {
+                        inwardBundle.Recalculate();
+                        await bundleRepo!.UpdateAsync(inwardBundle);
                     }
 
                     await _binService.ApplyStockMovementAsync(

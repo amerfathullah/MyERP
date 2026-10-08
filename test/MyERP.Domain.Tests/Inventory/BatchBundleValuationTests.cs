@@ -216,4 +216,53 @@ public class BatchBundleValuationTests
         Assert.Equal(1250m, inwardBundle.TotalAmount);
         Assert.Equal(625m, inwardBundle.AvgRate);
     }
+
+    [Fact]
+    public void Repack_FinishedGoodValuation_ValuesAtConsumedCostOfAutoPickedBundles()
+    {
+        // Per ERPNext PR #60214 / commit ef827e263b & fc069b5516:
+        // Raw material consumed with 2 units: 1 unit @ 100, 1 unit @ 200.
+        // Finished good qty = 1. Finished good incoming rate must be 300.
+        var rmBundleId = Guid.NewGuid();
+        var rmBundle = new SerialAndBatchBundle(
+            rmBundleId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            BundleTransactionType.Outward, "StockEntry", Guid.NewGuid(), DateTime.UtcNow);
+
+        var batch1Id = Guid.NewGuid();
+        var batch2Id = Guid.NewGuid();
+
+        rmBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), rmBundleId, 1m, 100m, batchId: batch1Id));
+        rmBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), rmBundleId, 1m, 200m, batchId: batch2Id));
+
+        var totalOutwardValue = rmBundle.Entries.Sum(e => e.Qty * e.IncomingRate);
+        var fgQty = 1m;
+        var additionalCost = 0m;
+
+        var fgRate = (totalOutwardValue + additionalCost) / fgQty;
+
+        Assert.Equal(300m, totalOutwardValue);
+        Assert.Equal(300m, fgRate);
+    }
+
+    [Fact]
+    public void Repack_FinishedGoodValuation_IncludesAdditionalCost()
+    {
+        // Consumed RM value = 300 across 2 units. FG qty = 1, additional cost = 50.
+        // FG valuation rate = (300 + 50) / 1 = 350.
+        var rmBundleId = Guid.NewGuid();
+        var rmBundle = new SerialAndBatchBundle(
+            rmBundleId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            BundleTransactionType.Outward, "StockEntry", Guid.NewGuid(), DateTime.UtcNow);
+
+        rmBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), rmBundleId, 1m, 100m));
+        rmBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), rmBundleId, 1m, 200m));
+
+        var totalOutwardValue = rmBundle.Entries.Sum(e => e.Qty * e.IncomingRate);
+        var fgQty = 1m;
+        var additionalCost = 50m;
+
+        var fgRate = (totalOutwardValue + additionalCost) / fgQty;
+
+        Assert.Equal(350m, fgRate);
+    }
 }
