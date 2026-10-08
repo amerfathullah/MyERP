@@ -194,6 +194,64 @@ public class SerialAndBatchBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
             }
         }
     }
+
+    /// <summary>
+    /// Calculates transfer incoming rates by batch/serial from an outward bundle and row additional cost.
+    /// Per ERPNext PR #59657 / commit 1cf560fbc7:
+    /// Keeps each batch's rate through a material transfer, adding proportional additional cost.
+    /// </summary>
+    public static Dictionary<(string? SerialNo, Guid? BatchId), decimal> CalculateTransferRates(
+        SerialAndBatchBundle outwardBundle,
+        decimal additionalCost,
+        decimal transferQty)
+    {
+        var rates = new Dictionary<(string? SerialNo, Guid? BatchId), decimal>();
+        var additionalCostPerUnit = transferQty > 0 ? (additionalCost / transferQty) : 0m;
+
+        foreach (var entry in outwardBundle.Entries)
+        {
+            var key = (entry.SerialNo, entry.BatchId);
+            rates[key] = entry.IncomingRate + additionalCostPerUnit;
+        }
+
+        return rates;
+    }
+
+    /// <summary>
+    /// Applies transfer rates from an outward bundle to this inward bundle.
+    /// Preserves batch-wise valuation rates plus additional costs across material transfer.
+    /// </summary>
+    public void ApplyTransferRates(SerialAndBatchBundle outwardBundle, decimal additionalCost, decimal transferQty)
+    {
+        var rates = CalculateTransferRates(outwardBundle, additionalCost, transferQty);
+        var additionalCostPerUnit = transferQty > 0 ? (additionalCost / transferQty) : 0m;
+
+        foreach (var entry in Entries)
+        {
+            if (rates.TryGetValue((entry.SerialNo, entry.BatchId), out var transferRate))
+            {
+                entry.IncomingRate = transferRate;
+            }
+            else if (entry.BatchId.HasValue)
+            {
+                var match = outwardBundle.Entries.FirstOrDefault(e => e.BatchId == entry.BatchId);
+                if (match != null)
+                {
+                    entry.IncomingRate = match.IncomingRate + additionalCostPerUnit;
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(entry.SerialNo))
+            {
+                var match = outwardBundle.Entries.FirstOrDefault(e => e.SerialNo == entry.SerialNo);
+                if (match != null)
+                {
+                    entry.IncomingRate = match.IncomingRate + additionalCostPerUnit;
+                }
+            }
+        }
+
+        Recalculate();
+    }
 }
 
 /// <summary>

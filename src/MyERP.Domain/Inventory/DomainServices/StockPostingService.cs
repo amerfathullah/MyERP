@@ -97,58 +97,136 @@ public class StockPostingService : DomainService
             // here, which silently zeroed out every stock-in Bin value until caught live-testing
             // round 78's JobCard fix (GL showed the correct 100, Bin.StockValue showed 0).
             decimal outwardStockValue = 0m;
+            var bundleRepo = LazyServiceProvider?.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
+            SerialAndBatchBundle? outwardBundle = null;
+
+            if (bundleRepo != null)
+            {
+                var bundleQuery = await bundleRepo.WithDetailsAsync(b => b.Entries);
+                outwardBundle = bundleQuery.FirstOrDefault(b =>
+                    b.VoucherType == "StockEntry" &&
+                    b.VoucherId == stockEntry.Id &&
+                    b.VoucherDetailId == item.Id &&
+                    b.TypeOfTransaction == BundleTransactionType.Outward &&
+                    !b.IsCancelled);
+            }
+
             if (item.SourceWarehouseId.HasValue)
             {
-                var rate = item.ValuationRate ?? 0m;
-                if (rate <= 0)
+                if (outwardBundle != null && outwardBundle.Entries.Any())
                 {
-                    rate = await _valuationService.GetValuationRateAsync(
-                        item.ItemId, item.SourceWarehouseId.Value, item.BatchId,
-                        asOfDate: stockEntry.PostingDate,
-                        excludeVoucherId: stockEntry.Id,
-                        postingDateTime: stockEntry.PostingDate);
+                    decimal totalOutwardValue = 0m;
+                    foreach (var entry in outwardBundle.Entries)
+                    {
+                        var entryRate = entry.IncomingRate > 0 ? entry.IncomingRate : (item.ValuationRate ?? 0m);
+                        if (entryRate <= 0)
+                        {
+                            entryRate = await _valuationService.GetValuationRateAsync(
+                                item.ItemId, item.SourceWarehouseId.Value, entry.BatchId,
+                                asOfDate: stockEntry.PostingDate,
+                                excludeVoucherId: stockEntry.Id,
+                                postingDateTime: stockEntry.PostingDate);
+                            entry.IncomingRate = entryRate;
+                        }
+
+                        var sle = await _valuationService.CreateLedgerEntryAsync(
+                            stockEntry.CompanyId, item.ItemId, item.SourceWarehouseId.Value,
+                            stockEntry.PostingDate, -Math.Abs(entry.Qty), entryRate,
+                            voucherType: "StockEntry", voucherId: stockEntry.Id,
+                            tenantId: stockEntry.TenantId, batchId: entry.BatchId);
+                        sle.SerialAndBatchBundleId = outwardBundle.Id;
+                        sle.VoucherDetailNo = item.Id;
+                        sle.OutgoingRate = entryRate;
+                        await _sleRepository.UpdateAsync(sle);
+
+                        totalOutwardValue += Math.Abs(sle.StockValueDifference != 0 ? sle.StockValueDifference : sle.StockValue);
+                    }
+
+                    outwardBundle.Recalculate();
+                    await bundleRepo!.UpdateAsync(outwardBundle);
+
+                    await _binService.ApplyStockMovementAsync(
+                        item.ItemId, item.SourceWarehouseId.Value,
+                        -item.Quantity, -totalOutwardValue, stockEntry.TenantId);
+
+                    outwardStockValue = totalOutwardValue;
                 }
+                else
+                {
+                    var rate = item.ValuationRate ?? 0m;
+                    if (rate <= 0)
+                    {
+                        rate = await _valuationService.GetValuationRateAsync(
+                            item.ItemId, item.SourceWarehouseId.Value, item.BatchId,
+                            asOfDate: stockEntry.PostingDate,
+                            excludeVoucherId: stockEntry.Id,
+                            postingDateTime: stockEntry.PostingDate);
+                    }
 
-                var sle = await _valuationService.CreateLedgerEntryAsync(
-                    stockEntry.CompanyId, item.ItemId, item.SourceWarehouseId.Value,
-                    stockEntry.PostingDate, -item.Quantity, rate,
-                    voucherType: "StockEntry", voucherId: stockEntry.Id,
-                    tenantId: stockEntry.TenantId, batchId: item.BatchId);
+                    var sle = await _valuationService.CreateLedgerEntryAsync(
+                        stockEntry.CompanyId, item.ItemId, item.SourceWarehouseId.Value,
+                        stockEntry.PostingDate, -item.Quantity, rate,
+                        voucherType: "StockEntry", voucherId: stockEntry.Id,
+                        tenantId: stockEntry.TenantId, batchId: item.BatchId);
+                    sle.VoucherDetailNo = item.Id;
+                    sle.OutgoingRate = rate;
+                    await _sleRepository.UpdateAsync(sle);
 
-                await _binService.ApplyStockMovementAsync(
-                    item.ItemId, item.SourceWarehouseId.Value,
-                    -item.Quantity, sle.StockValue, stockEntry.TenantId);
+                    await _binService.ApplyStockMovementAsync(
+                        item.ItemId, item.SourceWarehouseId.Value,
+                        -item.Quantity, sle.StockValue, stockEntry.TenantId);
 
-                outwardStockValue = Math.Abs(sle.StockValueDifference != 0 ? sle.StockValueDifference : sle.StockValue);
+                    outwardStockValue = Math.Abs(sle.StockValueDifference != 0 ? sle.StockValueDifference : sle.StockValue);
+                }
             }
 
             // Target warehouse: stock-in (positive qty) — same reasoning as above.
             if (item.TargetWarehouseId.HasValue)
             {
                 var rate = item.ValuationRate ?? 0;
+                var isTransfer = item.SourceWarehouseId.HasValue && item.Quantity > 0;
 
                 // Per ERPNext PR #59546 (commit 801a524f80): value a transfer's inward leg at what left the source + additional cost
-                if (item.SourceWarehouseId.HasValue && item.Quantity > 0)
+                if (isTransfer)
                 {
                     var totalInwardValue = outwardStockValue + item.AdditionalCost;
                     rate = totalInwardValue / item.Quantity;
                 }
 
-                var bundleRepo = LazyServiceProvider.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
-                SerialAndBatchBundle? bundle = null;
+                SerialAndBatchBundle? inwardBundle = null;
                 if (bundleRepo != null)
                 {
-                    bundle = await bundleRepo.FirstOrDefaultAsync(b =>
+                    var bundleQuery = await bundleRepo.WithDetailsAsync(b => b.Entries);
+                    inwardBundle = bundleQuery.FirstOrDefault(b =>
                         b.VoucherType == "StockEntry" &&
                         b.VoucherId == stockEntry.Id &&
                         b.VoucherDetailId == item.Id &&
+                        b.TypeOfTransaction == BundleTransactionType.Inward &&
                         !b.IsCancelled);
+
+                    if (inwardBundle == null)
+                    {
+                        inwardBundle = bundleQuery.FirstOrDefault(b =>
+                            b.VoucherType == "StockEntry" &&
+                            b.VoucherId == stockEntry.Id &&
+                            b.VoucherDetailId == item.Id &&
+                            (outwardBundle == null || b.Id != outwardBundle.Id) &&
+                            !b.IsCancelled);
+                    }
                 }
 
-                if (bundle != null && bundle.Entries.Any())
+                if (inwardBundle != null && inwardBundle.Entries.Any())
                 {
+                    // Per ERPNext PR #59657 (commit 1cf560fbc7):
+                    // Keep each batch's rate through a material transfer, adding proportional additional cost.
+                    if (isTransfer && outwardBundle != null && outwardBundle.Entries.Any())
+                    {
+                        inwardBundle.ApplyTransferRates(outwardBundle, item.AdditionalCost, item.Quantity);
+                        await bundleRepo!.UpdateAsync(inwardBundle);
+                    }
+
                     decimal totalStockValue = 0m;
-                    foreach (var entry in bundle.Entries)
+                    foreach (var entry in inwardBundle.Entries)
                     {
                         var entryRate = entry.IncomingRate > 0 ? entry.IncomingRate : rate;
                         var sle = await _valuationService.CreateLedgerEntryAsync(
@@ -156,8 +234,34 @@ public class StockPostingService : DomainService
                             stockEntry.PostingDate, entry.Qty, entryRate,
                             voucherType: "StockEntry", voucherId: stockEntry.Id,
                             tenantId: stockEntry.TenantId, batchId: entry.BatchId);
-                        sle.SerialAndBatchBundleId = bundle.Id;
+                        sle.SerialAndBatchBundleId = inwardBundle.Id;
                         sle.VoucherDetailNo = item.Id;
+                        sle.IncomingRate = entryRate;
+                        await _sleRepository.UpdateAsync(sle);
+                        totalStockValue += sle.StockValue;
+                    }
+
+                    await _binService.ApplyStockMovementAsync(
+                        item.ItemId, item.TargetWarehouseId.Value,
+                        item.Quantity, totalStockValue, stockEntry.TenantId);
+                }
+                else if (isTransfer && outwardBundle != null && outwardBundle.Entries.Any())
+                {
+                    // Transfer with outward bundle but no separate inward bundle:
+                    // Propagate each batch from outward bundle to target warehouse preserving batch rate + additional cost.
+                    var additionalCostPerUnit = item.Quantity > 0 ? (item.AdditionalCost / item.Quantity) : 0m;
+                    decimal totalStockValue = 0m;
+                    foreach (var outwardEntry in outwardBundle.Entries)
+                    {
+                        var entryRate = outwardEntry.IncomingRate + additionalCostPerUnit;
+                        var sle = await _valuationService.CreateLedgerEntryAsync(
+                            stockEntry.CompanyId, item.ItemId, item.TargetWarehouseId.Value,
+                            stockEntry.PostingDate, outwardEntry.Qty, entryRate,
+                            voucherType: "StockEntry", voucherId: stockEntry.Id,
+                            tenantId: stockEntry.TenantId, batchId: outwardEntry.BatchId);
+                        sle.SerialAndBatchBundleId = outwardBundle.Id;
+                        sle.VoucherDetailNo = item.Id;
+                        sle.IncomingRate = entryRate;
                         await _sleRepository.UpdateAsync(sle);
                         totalStockValue += sle.StockValue;
                     }
@@ -173,6 +277,9 @@ public class StockPostingService : DomainService
                         stockEntry.PostingDate, item.Quantity, rate,
                         voucherType: "StockEntry", voucherId: stockEntry.Id,
                         tenantId: stockEntry.TenantId, batchId: item.BatchId);
+                    sle.VoucherDetailNo = item.Id;
+                    sle.IncomingRate = rate;
+                    await _sleRepository.UpdateAsync(sle);
 
                     await _binService.ApplyStockMovementAsync(
                         item.ItemId, item.TargetWarehouseId.Value,

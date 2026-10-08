@@ -205,6 +205,8 @@ public class StockValuationService : DomainService
             BatchId = batchId,
             IsAdjustmentEntry = isAdjustment,
             StockValueDifference = Math.Round(newBalanceValue - (previousSle?.BalanceValue ?? 0), 2),
+            IncomingRate = quantityChange > 0 ? incomingRate : 0m,
+            OutgoingRate = quantityChange < 0 ? valuationRate : 0m,
         };
 
         await _ledgerRepository.InsertAsync(entry);

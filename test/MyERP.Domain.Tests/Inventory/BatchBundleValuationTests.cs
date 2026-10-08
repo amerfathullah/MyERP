@@ -130,4 +130,90 @@ public class BatchBundleValuationTests
 
         Assert.Equal(16m, rate);
     }
+
+    [Fact]
+    public void CalculateTransferRates_AddsProportionalAdditionalCost_ToEachOutwardBatch()
+    {
+        // Per ERPNext PR #59657 / commit 1cf560fbc7:
+        // Batch 1 @ 100, Batch 2 @ 200, row additional cost 20 across 2 units.
+        // Batch 1 gets 100 + 10 = 110, Batch 2 gets 200 + 10 = 210.
+        var outwardBundleId = Guid.NewGuid();
+        var outwardBundle = new SerialAndBatchBundle(
+            outwardBundleId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            BundleTransactionType.Outward, "StockEntry", Guid.NewGuid(), DateTime.UtcNow);
+
+        var batch1Id = Guid.NewGuid();
+        var batch2Id = Guid.NewGuid();
+
+        outwardBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), outwardBundleId, 1m, 100m, batchId: batch1Id));
+        outwardBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), outwardBundleId, 1m, 200m, batchId: batch2Id));
+
+        var rates = SerialAndBatchBundle.CalculateTransferRates(outwardBundle, additionalCost: 20m, transferQty: 2m);
+
+        Assert.Equal(110m, rates[(null, batch1Id)]);
+        Assert.Equal(210m, rates[(null, batch2Id)]);
+    }
+
+    [Fact]
+    public void ApplyTransferRates_UpdatesInwardBundleEntries_PreservingBatchWiseValuation()
+    {
+        // Per ERPNext PR #59657 / commit 1cf560fbc7:
+        // Inward bundle receives each batch with outward rate + additional cost, avoiding value shifting.
+        var outwardBundleId = Guid.NewGuid();
+        var outwardBundle = new SerialAndBatchBundle(
+            outwardBundleId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            BundleTransactionType.Outward, "StockEntry", Guid.NewGuid(), DateTime.UtcNow);
+
+        var batch1Id = Guid.NewGuid();
+        var batch2Id = Guid.NewGuid();
+
+        outwardBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), outwardBundleId, 1m, 100m, batchId: batch1Id));
+        outwardBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), outwardBundleId, 1m, 200m, batchId: batch2Id));
+
+        var inwardBundleId = Guid.NewGuid();
+        var inwardBundle = new SerialAndBatchBundle(
+            inwardBundleId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            BundleTransactionType.Inward, "StockEntry", Guid.NewGuid(), DateTime.UtcNow);
+
+        var inEntry1 = new SerialAndBatchEntry(Guid.NewGuid(), inwardBundleId, 1m, 0m, batchId: batch1Id);
+        var inEntry2 = new SerialAndBatchEntry(Guid.NewGuid(), inwardBundleId, 1m, 0m, batchId: batch2Id);
+        inwardBundle.AddEntry(inEntry1);
+        inwardBundle.AddEntry(inEntry2);
+
+        inwardBundle.ApplyTransferRates(outwardBundle, additionalCost: 20m, transferQty: 2m);
+
+        Assert.Equal(110m, inEntry1.IncomingRate);
+        Assert.Equal(210m, inEntry2.IncomingRate);
+        Assert.Equal(320m, inwardBundle.TotalAmount);
+        Assert.Equal(160m, inwardBundle.AvgRate);
+    }
+
+    [Fact]
+    public void ApplyTransferRates_SupportsSerializedItems_WithAdditionalCost()
+    {
+        var outwardBundleId = Guid.NewGuid();
+        var outwardBundle = new SerialAndBatchBundle(
+            outwardBundleId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            BundleTransactionType.Outward, "StockEntry", Guid.NewGuid(), DateTime.UtcNow);
+
+        outwardBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), outwardBundleId, 1m, 500m, serialNo: "SN-001"));
+        outwardBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), outwardBundleId, 1m, 700m, serialNo: "SN-002"));
+
+        var inwardBundleId = Guid.NewGuid();
+        var inwardBundle = new SerialAndBatchBundle(
+            inwardBundleId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            BundleTransactionType.Inward, "StockEntry", Guid.NewGuid(), DateTime.UtcNow);
+
+        var inEntry1 = new SerialAndBatchEntry(Guid.NewGuid(), inwardBundleId, 1m, 0m, serialNo: "SN-001");
+        var inEntry2 = new SerialAndBatchEntry(Guid.NewGuid(), inwardBundleId, 1m, 0m, serialNo: "SN-002");
+        inwardBundle.AddEntry(inEntry1);
+        inwardBundle.AddEntry(inEntry2);
+
+        inwardBundle.ApplyTransferRates(outwardBundle, additionalCost: 50m, transferQty: 2m);
+
+        Assert.Equal(525m, inEntry1.IncomingRate);
+        Assert.Equal(725m, inEntry2.IncomingRate);
+        Assert.Equal(1250m, inwardBundle.TotalAmount);
+        Assert.Equal(625m, inwardBundle.AvgRate);
+    }
 }
