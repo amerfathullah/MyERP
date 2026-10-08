@@ -851,6 +851,11 @@ export interface GrossProfitLineDto {
   cost?: number;
   grossProfit?: number;
   grossProfitPercentage?: number;
+  projectId?: string | null;
+  projectName?: string | null;
+  paymentTerm?: string | null;
+  salesPersonId?: string | null;
+  salesPerson?: string | null;
 }
 
 export interface GrossProfitReportDto {
@@ -868,6 +873,7 @@ export interface GrossProfitRequestDto {
   groupBy?: string;
   customerId?: string | null;
   itemId?: string | null;
+  projectId?: string | null;
 }
 
 export interface InstallationNoteDto extends EntityDto<string> {

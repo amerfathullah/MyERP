@@ -78,11 +78,17 @@ export class GrossProfitReportComponent implements OnInit {
       columns = ['itemCode', 'itemName', 'itemGroup', 'quantity', 'sellingRate', 'valuationRate', 'revenue', 'cost', 'grossProfit', 'grossProfitPercentage'];
     } else if (groupBy === 'Customer') {
       columns = ['customerName', 'quantity', 'revenue', 'cost', 'grossProfit', 'grossProfitPercentage'];
+    } else if (groupBy === 'Project') {
+      columns = ['projectName', 'quantity', 'revenue', 'cost', 'grossProfit', 'grossProfitPercentage'];
+    } else if (groupBy === 'Payment Term') {
+      columns = ['paymentTerm', 'quantity', 'revenue', 'cost', 'grossProfit', 'grossProfitPercentage'];
+    } else if (groupBy === 'Sales Person') {
+      columns = ['salesPerson', 'quantity', 'revenue', 'cost', 'grossProfit', 'grossProfitPercentage'];
     } else {
       // Per ERPNext PR #58631: include item_name in export
       columns = ['invoiceNumber', 'issueDate', 'customerName', 'itemCode', 'itemName', 'quantity', 'sellingRate', 'valuationRate', 'revenue', 'cost', 'grossProfit', 'grossProfitPercentage'];
     }
 
-    exportToCsv(`gross-profit-${groupBy.toLowerCase()}.csv`, r.items, columns);
+    exportToCsv(`gross-profit-${groupBy.toLowerCase().replace(/\s+/g, '-')}.csv`, r.items, columns);
   }
 }

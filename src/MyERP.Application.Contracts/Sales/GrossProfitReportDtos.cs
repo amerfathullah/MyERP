@@ -35,6 +35,11 @@ public class GrossProfitLineDto
     public decimal Cost { get; set; }
     public decimal GrossProfit { get; set; }
     public decimal GrossProfitPercentage { get; set; }
+    public Guid? ProjectId { get; set; }
+    public string? ProjectName { get; set; }
+    public string? PaymentTerm { get; set; }
+    public Guid? SalesPersonId { get; set; }
+    public string? SalesPerson { get; set; }
 }
 
 public class GrossProfitRequestDto
@@ -43,9 +48,10 @@ public class GrossProfitRequestDto
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
     /// <summary>
-    /// Grouping dimension: "Invoice" (default), "Item", or "Customer".
+    /// Grouping dimension: "Invoice" (default), "Item", "Customer", "Project", "Payment Term", or "Sales Person".
     /// </summary>
     public string GroupBy { get; set; } = "Invoice";
     public Guid? CustomerId { get; set; }
     public Guid? ItemId { get; set; }
+    public Guid? ProjectId { get; set; }
 }

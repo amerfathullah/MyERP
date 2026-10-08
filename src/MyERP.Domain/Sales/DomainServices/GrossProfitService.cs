@@ -40,7 +40,8 @@ public class GrossProfitService : DomainService
 
     /// <summary>
     /// Calculates aggregate gross profit metrics for an invoice.
-    /// Supports drop-ship unit buying rates per ERPNext PR #58226 (commit d40679cffe).
+    /// Supports drop-ship unit buying rates per ERPNext PR #58226 (commit d40679cffe)
+    /// and PR #59885 (commit 9f03f19f65) with SalesOrderItemId fallback to ItemId.
     /// </summary>
     public GrossProfitResult CalculateForInvoice(
         SalesInvoice invoice,
@@ -48,9 +49,18 @@ public class GrossProfitService : DomainService
     {
         var itemDetails = invoice.Items.Select(i =>
         {
-            var costRate = (dropShipUnitBuyingRates != null && dropShipUnitBuyingRates.TryGetValue(i.ItemId, out var dropShipRate))
-                ? dropShipRate
-                : i.ValuationRate;
+            var costRate = i.ValuationRate;
+            if (dropShipUnitBuyingRates != null)
+            {
+                if (i.SalesOrderItemId.HasValue && dropShipUnitBuyingRates.TryGetValue(i.SalesOrderItemId.Value, out var soRate) && soRate > 0)
+                {
+                    costRate = soRate;
+                }
+                else if (dropShipUnitBuyingRates.TryGetValue(i.ItemId, out var itemRate) && itemRate > 0)
+                {
+                    costRate = itemRate;
+                }
+            }
 
             var revenue = i.Quantity * i.UnitPrice;
             var cost = i.Quantity * costRate;
@@ -82,6 +92,26 @@ public class GrossProfitService : DomainService
             GrossProfitPercentage = Math.Round(grossProfitPercent, 2),
             ItemDetails = itemDetails
         };
+    }
+
+    /// <summary>
+    /// Calculates the effective incoming rate from delivery note items for a sales order item.
+    /// Per ERPNext PR #59885 (commit 3aa0af6844): guards against division by zero when
+    /// deliveries have been fully returned (sum of stock qty is 0), falling back to valuation rate.
+    /// </summary>
+    public decimal CalculateDeliveryIncomingRate(
+        IEnumerable<DeliveryNoteItem> deliveryItems,
+        decimal fallbackValuationRate)
+    {
+        var items = deliveryItems.ToList();
+        var totalStockQty = items.Sum(d => d.StockQty);
+        if (totalStockQty <= 0)
+        {
+            return fallbackValuationRate;
+        }
+
+        var totalIncomingValue = items.Sum(d => d.StockQty * (d.ValuationRate > 0 ? d.ValuationRate : fallbackValuationRate));
+        return Math.Round(totalIncomingValue / totalStockQty, 4);
     }
 }
 

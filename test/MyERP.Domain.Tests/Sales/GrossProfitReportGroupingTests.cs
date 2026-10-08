@@ -4,9 +4,12 @@ using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Projects.Entities;
+using MyERP.Purchasing.Entities;
 using MyERP.Sales;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
@@ -263,6 +266,307 @@ public class GrossProfitReportGroupingTests
         c2Row.GrossProfit.ShouldBe(100m);
     }
 
+    [Fact]
+    public async Task GrossProfitReportAppService_DropShipNotYetBilled_FallsBackToPurchaseOrderRate()
+    {
+        // Per ERPNext PR #59885 (commit 9f03f19f65):
+        // When supplier has not invoiced drop-ship item yet, fall back to PO rate instead of 0 cost / 100% margin.
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var invoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var warehouseRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var poRepo = Substitute.For<IRepository<PurchaseOrder, Guid>>();
+        var grossProfitService = new GrossProfitService(null!);
+
+        var item = new Item(itemId, companyId, "DROP-01", "Drop Ship Item", ItemType.Goods);
+        itemRepo.GetListAsync(Arg.Any<Expression<Func<Item, bool>>>()).Returns(new List<Item> { item });
+        customerRepo.GetListAsync(Arg.Any<Expression<Func<Customer, bool>>>()).Returns(new List<Customer>());
+        warehouseRepo.GetListAsync(Arg.Any<Expression<Func<Warehouse, bool>>>()).Returns(new List<Warehouse>());
+
+        var si = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-2026-0001", new DateTime(2026, 6, 1));
+        si.AddItem(itemId, "Drop Ship Item", 10m, 100m, 0m);
+        si.Items[0].ValuationRate = 0m; // No stock valuation on drop-ship
+        si.Submit();
+        si.Post();
+
+        invoiceRepo.GetQueryableAsync().Returns(new List<SalesInvoice> { si }.AsQueryable());
+
+        // PO created for drop ship @ RM70/unit
+        var po = new PurchaseOrder(Guid.NewGuid(), companyId, Guid.NewGuid(), "PO-2026-0001", new DateTime(2026, 5, 20));
+        po.AddItem(itemId, "Drop Ship Item", 10m, 70m, 0m, deliveredBySupplier: true);
+        po.Submit();
+
+        poRepo.GetListAsync(Arg.Any<Expression<Func<PurchaseOrder, bool>>>()).Returns(new List<PurchaseOrder> { po });
+
+        var appService = new GrossProfitReportAppService(
+            invoiceRepo, grossProfitService, customerRepo, itemRepo, warehouseRepo,
+            purchaseInvoiceRepository: null, purchaseOrderRepository: poRepo);
+
+        var report = await appService.GetReportAsync(new GrossProfitRequestDto
+        {
+            CompanyId = companyId,
+            FromDate = new DateTime(2026, 1, 1),
+            ToDate = new DateTime(2026, 12, 31)
+        });
+
+        report.ShouldNotBeNull();
+        report.TotalRevenue.ShouldBe(1000m);
+        report.TotalCost.ShouldBe(700m); // 10 * 70 from PO fallback!
+        report.GrossProfit.ShouldBe(300m);
+        report.GrossProfitPercentage.ShouldBe(30m);
+    }
+
+    [Fact]
+    public async Task GrossProfitReportAppService_NonStockItem_UsesDiscountedPurchaseRate()
+    {
+        // Per ERPNext PR #59885 (commit e8496405d4):
+        // Non-stock items priced at last net purchase rate (discounted base_net_rate).
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var invoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var warehouseRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var piRepo = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
+        var grossProfitService = new GrossProfitService(null!);
+
+        var item = new Item(itemId, companyId, "SERV-01", "Consulting Service", ItemType.Service);
+        itemRepo.GetListAsync(Arg.Any<Expression<Func<Item, bool>>>()).Returns(new List<Item> { item });
+        customerRepo.GetListAsync(Arg.Any<Expression<Func<Customer, bool>>>()).Returns(new List<Customer>());
+        warehouseRepo.GetListAsync(Arg.Any<Expression<Func<Warehouse, bool>>>()).Returns(new List<Warehouse>());
+
+        var si = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-2026-0001", new DateTime(2026, 6, 1));
+        si.AddItem(itemId, "Consulting", 1m, 200m, 0m);
+        si.Items[0].ValuationRate = 0m;
+        si.Submit();
+        si.Post();
+
+        invoiceRepo.GetQueryableAsync().Returns(new List<SalesInvoice> { si }.AsQueryable());
+
+        // PI has RM100 rate with 10% discount -> net rate is RM90
+        var pi = new PurchaseInvoice(Guid.NewGuid(), companyId, Guid.NewGuid(), "PI-2026-0001", new DateTime(2026, 5, 10));
+        pi.AddItem(itemId, "Subcontract", 10m, 100m, 0m);
+        pi.AdditionalDiscountPercentage = 10m;
+        pi.Submit();
+        pi.Post();
+
+        piRepo.GetListAsync(Arg.Any<Expression<Func<PurchaseInvoice, bool>>>()).Returns(new List<PurchaseInvoice> { pi });
+
+        var appService = new GrossProfitReportAppService(
+            invoiceRepo, grossProfitService, customerRepo, itemRepo, warehouseRepo,
+            purchaseInvoiceRepository: piRepo);
+
+        var report = await appService.GetReportAsync(new GrossProfitRequestDto
+        {
+            CompanyId = companyId,
+            FromDate = new DateTime(2026, 1, 1),
+            ToDate = new DateTime(2026, 12, 31)
+        });
+
+        report.ShouldNotBeNull();
+        report.TotalRevenue.ShouldBe(200m);
+        report.TotalCost.ShouldBe(90m); // Discounted net purchase rate
+        report.GrossProfit.ShouldBe(110m);
+        report.GrossProfitPercentage.ShouldBe(55m);
+    }
+
+    [Fact]
+    public void GrossProfitService_CalculateDeliveryIncomingRate_GuardsAgainstZeroDeliveredQty()
+    {
+        // Per ERPNext PR #59885 (commit 3aa0af6844):
+        // Guard sales order delivery rate against zero delivered qty (when delivery is fully returned).
+        var service = new GrossProfitService(null!);
+
+        var dnItem1 = new DeliveryNoteItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Widget", 2m, 100m, 0m);
+        dnItem1.ValuationRate = 80m;
+        var dnItem2 = new DeliveryNoteItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Widget", -2m, 100m, 0m);
+        dnItem2.ValuationRate = 80m;
+
+        // Sum of stock qty is 0. Must not throw DivideByZeroException; falls back to valuation rate 65.
+        var rate = service.CalculateDeliveryIncomingRate(new[] { dnItem1, dnItem2 }, 65m);
+        rate.ShouldBe(65m);
+    }
+
+    [Fact]
+    public async Task GrossProfitReportAppService_GroupByProject_AggregatesAndResolvesProjectName()
+    {
+        // Per ERPNext PR #59885 (commit 202c50d475):
+        // Group by Project resolves project name and aggregates metrics.
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var projectId = Guid.NewGuid();
+
+        var invoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var warehouseRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var projectRepo = Substitute.For<IRepository<Project, Guid>>();
+        var grossProfitService = new GrossProfitService(null!);
+
+        var item = new Item(itemId, companyId, "ITEM-01", "Widget", ItemType.Goods);
+        itemRepo.GetListAsync(Arg.Any<Expression<Func<Item, bool>>>()).Returns(new List<Item> { item });
+        customerRepo.GetListAsync(Arg.Any<Expression<Func<Customer, bool>>>()).Returns(new List<Customer>());
+        warehouseRepo.GetListAsync(Arg.Any<Expression<Func<Warehouse, bool>>>()).Returns(new List<Warehouse>());
+
+        var project = new Project(projectId, companyId, "PRJ-001", "Solar Installation");
+        projectRepo.GetListAsync(Arg.Any<Expression<Func<Project, bool>>>()).Returns(new List<Project> { project });
+
+        var si = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-2026-0001", new DateTime(2026, 6, 1))
+        {
+            ProjectId = projectId
+        };
+        si.AddItem(itemId, "Solar Panel", 5m, 200m, 0m);
+        si.Items[0].ValuationRate = 120m;
+        si.Submit();
+        si.Post();
+
+        invoiceRepo.GetQueryableAsync().Returns(new List<SalesInvoice> { si }.AsQueryable());
+
+        var appService = new GrossProfitReportAppService(
+            invoiceRepo, grossProfitService, customerRepo, itemRepo, warehouseRepo,
+            projectRepository: projectRepo);
+
+        var report = await appService.GetReportAsync(new GrossProfitRequestDto
+        {
+            CompanyId = companyId,
+            FromDate = new DateTime(2026, 1, 1),
+            ToDate = new DateTime(2026, 12, 31),
+            GroupBy = "Project"
+        });
+
+        report.ShouldNotBeNull();
+        report.Items.Count.ShouldBe(1);
+        report.Items[0].ProjectId.ShouldBe(projectId);
+        report.Items[0].ProjectName.ShouldBe("Solar Installation");
+        report.Items[0].Revenue.ShouldBe(1000m);
+        report.Items[0].Cost.ShouldBe(600m);
+        report.Items[0].GrossProfit.ShouldBe(400m);
+    }
+
+    [Fact]
+    public async Task GrossProfitReportAppService_GroupByPaymentTerm_InvoicesWithoutScheduleCountAt100Percent()
+    {
+        // Per ERPNext PR #59885 (commit cc0d7021b1):
+        // Count invoices without payment schedule (or returns) at 100% under "No Terms".
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var invoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var warehouseRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var psRepo = Substitute.For<IRepository<PaymentScheduleEntry, Guid>>();
+        var grossProfitService = new GrossProfitService(null!);
+
+        var item = new Item(itemId, companyId, "ITEM-01", "Widget", ItemType.Goods);
+        itemRepo.GetListAsync(Arg.Any<Expression<Func<Item, bool>>>()).Returns(new List<Item> { item });
+        customerRepo.GetListAsync(Arg.Any<Expression<Func<Customer, bool>>>()).Returns(new List<Customer>());
+        warehouseRepo.GetListAsync(Arg.Any<Expression<Func<Warehouse, bool>>>()).Returns(new List<Warehouse>());
+        psRepo.GetListAsync(Arg.Any<Expression<Func<PaymentScheduleEntry, bool>>>()).Returns(new List<PaymentScheduleEntry>());
+
+        // POS invoice has no payment schedule entries
+        var si = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "POS-0001", new DateTime(2026, 6, 1))
+        {
+            IsPos = true
+        };
+        si.AddItem(itemId, "Over the counter", 5m, 100m, 0m);
+        si.Items[0].ValuationRate = 40m;
+        si.Submit();
+        si.Post();
+
+        invoiceRepo.GetQueryableAsync().Returns(new List<SalesInvoice> { si }.AsQueryable());
+
+        var appService = new GrossProfitReportAppService(
+            invoiceRepo, grossProfitService, customerRepo, itemRepo, warehouseRepo,
+            paymentScheduleRepository: psRepo);
+
+        var report = await appService.GetReportAsync(new GrossProfitRequestDto
+        {
+            CompanyId = companyId,
+            FromDate = new DateTime(2026, 1, 1),
+            ToDate = new DateTime(2026, 12, 31),
+            GroupBy = "Payment Term"
+        });
+
+        report.ShouldNotBeNull();
+        report.Items.Count.ShouldBe(1);
+        report.Items[0].PaymentTerm.ShouldBe("No Terms");
+        report.Items[0].Revenue.ShouldBe(500m); // Counts 100%, not 0!
+        report.Items[0].Cost.ShouldBe(200m);
+        report.Items[0].GrossProfit.ShouldBe(300m);
+    }
+
+    [Fact]
+    public async Task GrossProfitReportAppService_GroupBySalesPerson_SharedInvoiceCountedOnceInGrandTotal()
+    {
+        // Per ERPNext PR #59885 (commit 2152a7d848):
+        // Count shared invoices once in the sales person total.
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var sp1Id = Guid.NewGuid();
+        var sp2Id = Guid.NewGuid();
+
+        var invoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var warehouseRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var spRepo = Substitute.For<IRepository<SalesPerson, Guid>>();
+        var teamRepo = Substitute.For<IRepository<SalesTeamEntry, Guid>>();
+        var grossProfitService = new GrossProfitService(null!);
+
+        var item = new Item(itemId, companyId, "ITEM-01", "Widget", ItemType.Goods);
+        itemRepo.GetListAsync(Arg.Any<Expression<Func<Item, bool>>>()).Returns(new List<Item> { item });
+        customerRepo.GetListAsync(Arg.Any<Expression<Func<Customer, bool>>>()).Returns(new List<Customer>());
+        warehouseRepo.GetListAsync(Arg.Any<Expression<Func<Warehouse, bool>>>()).Returns(new List<Warehouse>());
+
+        var sp1 = new SalesPerson(sp1Id, "Alice");
+        var sp2 = new SalesPerson(sp2Id, "Bob");
+        spRepo.GetListAsync(Arg.Any<Expression<Func<SalesPerson, bool>>>()).Returns(new List<SalesPerson> { sp1, sp2 });
+
+        var si = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-2026-0001", new DateTime(2026, 6, 1));
+        si.AddItem(itemId, "Widget", 10m, 100m, 0m); // Revenue 1000
+        si.Items[0].ValuationRate = 60m; // Cost 600, Profit 400
+        si.Submit();
+        si.Post();
+
+        invoiceRepo.GetQueryableAsync().Returns(new List<SalesInvoice> { si }.AsQueryable());
+
+        // Invoice shared 50/50 between Alice and Bob
+        var team1 = new SalesTeamEntry(Guid.NewGuid(), sp1Id, "SalesInvoice", si.Id, 50m, 1000m, 5m);
+        var team2 = new SalesTeamEntry(Guid.NewGuid(), sp2Id, "SalesInvoice", si.Id, 50m, 1000m, 5m);
+        teamRepo.GetListAsync(Arg.Any<Expression<Func<SalesTeamEntry, bool>>>()).Returns(new List<SalesTeamEntry> { team1, team2 });
+
+        var appService = new GrossProfitReportAppService(
+            invoiceRepo, grossProfitService, customerRepo, itemRepo, warehouseRepo,
+            salesPersonRepository: spRepo, salesTeamRepository: teamRepo);
+
+        var report = await appService.GetReportAsync(new GrossProfitRequestDto
+        {
+            CompanyId = companyId,
+            FromDate = new DateTime(2026, 1, 1),
+            ToDate = new DateTime(2026, 12, 31),
+            GroupBy = "Sales Person"
+        });
+
+        report.ShouldNotBeNull();
+        // Repeated under Alice and Bob in line rows
+        report.Items.Count.ShouldBe(2);
+
+        // But Grand Total counts the shared invoice only ONCE!
+        report.TotalRevenue.ShouldBe(1000m); // NOT 2000!
+        report.TotalCost.ShouldBe(600m);    // NOT 1200!
+        report.GrossProfit.ShouldBe(400m);  // NOT 800!
+    }
+
     [Theory]
     [InlineData("SellingRate")]
     [InlineData("AvgSellingRate")]
@@ -277,3 +581,4 @@ public class GrossProfitReportGroupingTests
         Assert.Contains($"\"{key}\"", content);
     }
 }
+

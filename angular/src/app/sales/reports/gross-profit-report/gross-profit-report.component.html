@@ -25,6 +25,9 @@
             <option value="Invoice">{{ 'Invoice' | abpLocalization }}</option>
             <option value="Item">{{ 'Item' | abpLocalization }}</option>
             <option value="Customer">{{ 'Customer' | abpLocalization }}</option>
+            <option value="Project">{{ 'Project' | abpLocalization }}</option>
+            <option value="Payment Term">{{ 'PaymentTerms' | abpLocalization }}</option>
+            <option value="Sales Person">{{ 'SalesPerson' | abpLocalization }}</option>
           </select>
         </div>
         <div class="col-md-3 d-flex gap-2">
@@ -116,6 +119,33 @@
                     <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
                     <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
                   </tr>
+                } @else if (filters.get('groupBy')?.value === 'Project') {
+                  <tr>
+                    <th>{{ 'Project' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+                  </tr>
+                } @else if (filters.get('groupBy')?.value === 'Payment Term') {
+                  <tr>
+                    <th>{{ 'PaymentTerms' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+                  </tr>
+                } @else if (filters.get('groupBy')?.value === 'Sales Person') {
+                  <tr>
+                    <th>{{ 'SalesPerson' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Quantity' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Revenue' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'Cost' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'GrossProfit' | abpLocalization }}</th>
+                    <th class="text-end">{{ 'GrossMargin' | abpLocalization }}</th>
+                  </tr>
                 } @else {
                   <tr>
                     <th>{{ 'InvoiceNumber' | abpLocalization }}</th>
@@ -165,6 +195,45 @@
                         {{ item.grossProfitPercentage | number:'1.1-1' }}%
                       </td>
                     </tr>
+                  } @else if (filters.get('groupBy')?.value === 'Project') {
+                    <tr>
+                      <td class="fw-semibold">{{ item.projectName ?? ('Project' | abpLocalization) }}</td>
+                      <td class="text-end">{{ item.quantity | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.revenue | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.cost | number:'1.2-2' }}</td>
+                      <td class="text-end fw-semibold" [class.text-success]="(item.grossProfit ?? 0) >= 0" [class.text-danger]="(item.grossProfit ?? 0) < 0">
+                        {{ item.grossProfit | number:'1.2-2' }}
+                      </td>
+                      <td class="text-end" [class.text-success]="(item.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(item.grossProfitPercentage ?? 0) < 0">
+                        {{ item.grossProfitPercentage | number:'1.1-1' }}%
+                      </td>
+                    </tr>
+                  } @else if (filters.get('groupBy')?.value === 'Payment Term') {
+                    <tr>
+                      <td class="fw-semibold">{{ item.paymentTerm }}</td>
+                      <td class="text-end">{{ item.quantity | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.revenue | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.cost | number:'1.2-2' }}</td>
+                      <td class="text-end fw-semibold" [class.text-success]="(item.grossProfit ?? 0) >= 0" [class.text-danger]="(item.grossProfit ?? 0) < 0">
+                        {{ item.grossProfit | number:'1.2-2' }}
+                      </td>
+                      <td class="text-end" [class.text-success]="(item.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(item.grossProfitPercentage ?? 0) < 0">
+                        {{ item.grossProfitPercentage | number:'1.1-1' }}%
+                      </td>
+                    </tr>
+                  } @else if (filters.get('groupBy')?.value === 'Sales Person') {
+                    <tr>
+                      <td class="fw-semibold">{{ item.salesPerson }}</td>
+                      <td class="text-end">{{ item.quantity | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.revenue | number:'1.2-2' }}</td>
+                      <td class="text-end">{{ item.cost | number:'1.2-2' }}</td>
+                      <td class="text-end fw-semibold" [class.text-success]="(item.grossProfit ?? 0) >= 0" [class.text-danger]="(item.grossProfit ?? 0) < 0">
+                        {{ item.grossProfit | number:'1.2-2' }}
+                      </td>
+                      <td class="text-end" [class.text-success]="(item.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(item.grossProfitPercentage ?? 0) < 0">
+                        {{ item.grossProfitPercentage | number:'1.1-1' }}%
+                      </td>
+                    </tr>
                   } @else {
                     <tr>
                       <td class="fw-semibold">{{ item.invoiceNumber }}</td>
@@ -199,7 +268,7 @@
                     <td class="text-end" [class.text-success]="(r.grossProfitPercentage ?? 0) >= 0" [class.text-danger]="(r.grossProfitPercentage ?? 0) < 0">
                       {{ r.grossProfitPercentage | number:'1.1-1' }}%
                     </td>
-                  } @else if (filters.get('groupBy')?.value === 'Customer') {
+                  } @else if (filters.get('groupBy')?.value === 'Customer' || filters.get('groupBy')?.value === 'Project' || filters.get('groupBy')?.value === 'Payment Term' || filters.get('groupBy')?.value === 'Sales Person') {
                     <td colspan="2">{{ 'Total' | abpLocalization }}</td>
                     <td class="text-end">{{ r.totalRevenue | number:'1.2-2' }}</td>
                     <td class="text-end">{{ r.totalCost | number:'1.2-2' }}</td>
