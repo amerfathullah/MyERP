@@ -6,6 +6,7 @@ using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.CRM;
 using MyERP.CRM.Entities;
+using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -195,6 +196,75 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         return soDto;
     }
 
+    private async Task<(decimal AllowancePct, Dictionary<string, bool> WholeNumberUoms)> GetDeliveryAllowanceContextAsync(SalesOrder salesOrder)
+    {
+        var companyRepo = LazyServiceProvider.LazyGetService<IRepository<Company, Guid>>();
+        var allowancePct = 0m;
+        if (companyRepo != null)
+        {
+            var company = await companyRepo.FindAsync(salesOrder.CompanyId);
+            if (company != null)
+            {
+                allowancePct = company.OverDeliveryReceiptAllowance;
+            }
+        }
+
+        var uomRepo = LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
+        Dictionary<string, bool> wholeNumberUoms = new(StringComparer.OrdinalIgnoreCase);
+        if (uomRepo != null)
+        {
+            var uomNames = salesOrder.Items.Select(i => i.Uom).Distinct().ToList();
+            var uomQuery = await uomRepo.GetQueryableAsync();
+            if (uomQuery != null)
+            {
+                var filtered = uomQuery.Where(u => uomNames.Contains(u.Name));
+                var uomList = AsyncExecuter != null
+                    ? await AsyncExecuter.ToListAsync(filtered)
+                    : filtered.ToList();
+                if (uomList != null)
+                {
+                    wholeNumberUoms = uomList
+                        .GroupBy(u => u.Name, StringComparer.OrdinalIgnoreCase)
+                        .ToDictionary(g => g.Key, g => g.First().MustBeWholeNumber, StringComparer.OrdinalIgnoreCase);
+                }
+            }
+        }
+
+        return (allowancePct, wholeNumberUoms);
+    }
+
+    private static decimal CalculateRemainingDeliverableQty(
+        SalesOrderItem item,
+        decimal alreadyMapped,
+        bool isSelectedRow,
+        bool canOverDeliverAllRows,
+        decimal allowancePct,
+        IReadOnlyDictionary<string, bool> wholeNumberUoms)
+    {
+        var deliveredQty = item.DeliveredQty + alreadyMapped;
+        var canOverDeliver = (canOverDeliverAllRows || isSelectedRow) && allowancePct > 0;
+
+        if (deliveredQty < item.Quantity)
+        {
+            if (isSelectedRow && canOverDeliver)
+            {
+                var isWhole = wholeNumberUoms.GetValueOrDefault(item.Uom, false);
+                var maxAllowed = item.GetMaxDeliverableQty(allowancePct, isWhole);
+                return Math.Max(0, Math.Round(maxAllowed - deliveredQty, 4));
+            }
+            return Math.Max(0, Math.Round(item.Quantity - deliveredQty, 4));
+        }
+
+        if (!canOverDeliver)
+        {
+            return 0m;
+        }
+
+        var isWholeNumber = wholeNumberUoms.GetValueOrDefault(item.Uom, false);
+        var maxAllowedOver = item.GetMaxDeliverableQty(allowancePct, isWholeNumber);
+        return Math.Max(0, Math.Round(maxAllowedOver - deliveredQty, 4));
+    }
+
     [Authorize(MyERPPermissions.DeliveryNotes.Create)]
     public async Task<DeliveryNoteDto> ConvertSalesOrderToDeliveryNoteAsync(Guid salesOrderId, List<PartialDeliveryItemDto>? selectedItems = null)
     {
@@ -219,20 +289,30 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         deliveryNote.SalesOrderId = salesOrder.Id;
         deliveryNote.CurrencyCode = salesOrder.CurrencyCode;
 
+        var (allowancePct, wholeNumberUoms) = await GetDeliveryAllowanceContextAsync(salesOrder);
+        var canOverDeliverAllRows = salesOrder.PerDelivered >= 100m;
+
         if (selectedItems is { Count: > 0 })
         {
             var soItemMap = salesOrder.Items.ToDictionary(i => i.Id);
             var mappedQtyByItem = new Dictionary<Guid, decimal>();
             foreach (var sel in selectedItems)
             {
-                if (!soItemMap.TryGetValue(sel.SalesOrderItemId, out var soItem)) continue;
-                var alreadyMapped = mappedQtyByItem.GetValueOrDefault(sel.SalesOrderItemId, 0m);
-                var remainingPending = Math.Max(0, soItem.PendingDeliveryQty - alreadyMapped);
+                if (!soItemMap.TryGetValue(sel.SalesOrderItemId, out var soItem))
+                {
+                    soItem = salesOrder.Items.FirstOrDefault(i => i.ItemId == sel.SalesOrderItemId);
+                }
+                if (soItem == null) continue;
+                if (soItem.DeliveredBySupplier || soItem.SkipDelivery || soItem.IsClosed) continue;
+
+                var alreadyMapped = mappedQtyByItem.GetValueOrDefault(soItem.Id, 0m);
+                var remainingPending = CalculateRemainingDeliverableQty(soItem, alreadyMapped, isSelectedRow: true, canOverDeliverAllRows, allowancePct, wholeNumberUoms);
                 var deliverQty = Math.Min(sel.Quantity, remainingPending);
                 if (deliverQty <= 0) continue;
+
                 var itemTax = soItem.Quantity > 0 ? Math.Round(soItem.TaxAmount * (deliverQty / soItem.Quantity), 2) : 0m;
                 deliveryNote.AddItem(soItem.ItemId, soItem.Description, deliverQty, soItem.UnitPrice, itemTax, soItem.Uom, soItem.Id);
-                mappedQtyByItem[sel.SalesOrderItemId] = alreadyMapped + deliverQty;
+                mappedQtyByItem[soItem.Id] = alreadyMapped + deliverQty;
                 var lastItem = deliveryNote.Items[^1];
                 lastItem.StockUom = soItem.StockUom;
                 lastItem.ConversionFactor = soItem.ConversionFactor;
@@ -243,8 +323,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         {
             foreach (var item in salesOrder.Items)
             {
-                if (item.DeliveredBySupplier || item.SkipDelivery) continue;
-                var pendingQty = item.PendingDeliveryQty;
+                if (item.DeliveredBySupplier || item.SkipDelivery || item.IsClosed) continue;
+                var pendingQty = CalculateRemainingDeliverableQty(item, 0m, isSelectedRow: false, canOverDeliverAllRows, allowancePct, wholeNumberUoms);
                 if (pendingQty > 0)
                 {
                     var itemTax = item.Quantity > 0 ? Math.Round(item.TaxAmount * (pendingQty / item.Quantity), 2) : 0m;
@@ -308,10 +388,13 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         deliveryNote.SalesOrderId = salesOrder.Id;
         deliveryNote.CurrencyCode = salesOrder.CurrencyCode;
 
+        var (allowancePct, wholeNumberUoms) = await GetDeliveryAllowanceContextAsync(salesOrder);
+        var canOverDeliverAllRows = salesOrder.PerDelivered >= 100m;
+
         foreach (var item in salesOrder.Items)
         {
             // Per ERPNext: exclude drop-ship items (delivered by supplier directly) and service items marked skip delivery
-            if (item.DeliveredBySupplier || item.SkipDelivery) continue;
+            if (item.DeliveredBySupplier || item.SkipDelivery || item.IsClosed) continue;
 
             // Per ERPNext: delivery date cutoff filter
             // Item-level delivery_date takes precedence; falls back to parent SO delivery_date
@@ -319,7 +402,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             if (itemDeliveryDate.HasValue && itemDeliveryDate.Value.Date > untilDeliveryDate.Date)
                 continue;
 
-            var pendingQty = item.PendingDeliveryQty;
+            var pendingQty = CalculateRemainingDeliverableQty(item, 0m, isSelectedRow: false, canOverDeliverAllRows, allowancePct, wholeNumberUoms);
             if (pendingQty <= 0) continue;
 
             var itemTax = item.Quantity > 0 ? Math.Round(item.TaxAmount * (pendingQty / item.Quantity), 2) : 0m;

@@ -70,7 +70,7 @@ export class SalesOrderDetailComponent implements OnInit {
 
   // Partial Delivery Selection state
   showDeliverySelection = signal(false);
-  deliverySelectionItems = signal<{ itemId: string; description: string; pendingQty: number; deliverQty: number; selected: boolean }[]>([]);
+  deliverySelectionItems = signal<{ salesOrderItemId?: string; itemId: string; description: string; pendingQty: number; deliverQty: number; selected: boolean }[]>([]);
   allDeliveryItemsSelected = computed(() => this.deliverySelectionItems().length > 0 && this.deliverySelectionItems().every(i => i.selected));
   deliveryItemsReadyCount = computed(() => this.deliverySelectionItems().filter(i => i.selected && i.deliverQty > 0).length);
   isCreatingDN = signal(false);
@@ -179,7 +179,8 @@ export class SalesOrderDetailComponent implements OnInit {
     if (s === 'Draft') {
       actions.push({ name: 'submit', label: this.l.instant('::Submit'), icon: 'paper-plane', color: 'primary' });
     }
-    if (s === 'ToDeliverAndBill' || s === 'ToDeliver' || this.order.hasOverDeliverableRows) {
+    if (s !== 'Draft' && s !== 'Cancelled' && s !== 'Closed' &&
+        (s === 'ToDeliverAndBill' || s === 'ToDeliver' || !!this.order.hasOverDeliverableRows)) {
       actions.push({ name: 'delivery', label: this.l.instant('::CreateDeliveryNote'), icon: 'truck', color: 'info' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToBill') {
@@ -466,6 +467,7 @@ export class SalesOrderDetailComponent implements OnInit {
         const overDeliverable = Math.max(0, maxDeliverable - (i.deliveredQty ?? 0));
         const availableQty = pending > 0 ? pending : overDeliverable;
         return {
+          salesOrderItemId: i.id,
           itemId: i.itemId ?? i.id,
           description: i.description || i.itemName || '—',
           pendingQty: availableQty,
@@ -517,7 +519,7 @@ export class SalesOrderDetailComponent implements OnInit {
   confirmPartialDelivery(): void {
     const selectedItems = this.deliverySelectionItems()
       .filter(i => i.selected && i.deliverQty > 0)
-      .map(i => ({ salesOrderItemId: i.itemId, quantity: i.deliverQty }));
+      .map(i => ({ salesOrderItemId: i.salesOrderItemId ?? i.itemId, quantity: i.deliverQty }));
 
     if (!selectedItems.length) {
       this.toaster.warn('::NoItemsSelected');

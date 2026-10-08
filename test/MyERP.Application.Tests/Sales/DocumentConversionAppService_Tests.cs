@@ -468,4 +468,129 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
         var so = await soRepo.GetAsync(salesOrderDto.Id);
         so.BillingAddressId.ShouldBe(billing.Id);
     }
+
+    [Fact]
+    public async Task Should_Allow_Over_Delivery_When_Sales_Order_Fully_Delivered_And_Allowance_Configured()
+    {
+        // Per ERPNext PR #60140: honour over delivery allowance when Sales Order is fully delivered
+        var (companyId, customerId, warehouseId) = await SeedDataAsync();
+        var company = await _companyRepository.GetAsync(companyId);
+        company.OverDeliveryReceiptAllowance = 50m;
+        await _companyRepository.UpdateAsync(company, autoSave: true);
+
+        var uomRepo = GetRequiredService<IRepository<Uom, Guid>>();
+        await uomRepo.InsertAsync(new Uom(Guid.NewGuid(), "Box") { MustBeWholeNumber = true }, autoSave: true);
+
+        var salesOrder = await _salesOrderService.CreateAsync(new CreateSalesOrderDto
+        {
+            CompanyId = companyId,
+            CustomerId = customerId,
+            OrderDate = DateTime.Today,
+            Items = new()
+            {
+                new() { ItemId = Guid.NewGuid(), Description = "Whole UOM Item", Quantity = 3, Uom = "Box", UnitPrice = 100m, WarehouseId = warehouseId }
+            }
+        });
+        await _salesOrderService.SubmitAsync(salesOrder.Id);
+
+        // Mark SO line as fully delivered (3/3 delivered, PerDelivered = 100%)
+        var so = await _salesOrderRepository.GetAsync(salesOrder.Id);
+        var soItemRepo = GetRequiredService<IRepository<SalesOrderItem, Guid>>();
+        var soItem = so.Items[0];
+        soItem.DeliveredQty = 3;
+        await soItemRepo.UpdateAsync(soItem, autoSave: true);
+
+        // Act: map Delivery Note without explicit selection
+        var deliveryNote = await _conversionService.ConvertSalesOrderToDeliveryNoteAsync(salesOrder.Id);
+
+        // Assert: 3 * 1.5 = 4.5 floored to 4 max allowed, 4 - 3 delivered = 1 deliverable qty
+        deliveryNote.ShouldNotBeNull();
+        deliveryNote.Items.Count.ShouldBe(1);
+        deliveryNote.Items[0].Quantity.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Should_Allow_Over_Delivery_For_Explicitly_Selected_Fully_Delivered_Row()
+    {
+        // Per ERPNext PR #60140: partially delivered order allows over-delivery for explicitly selected rows
+        var (companyId, customerId, warehouseId) = await SeedDataAsync();
+        var company = await _companyRepository.GetAsync(companyId);
+        company.OverDeliveryReceiptAllowance = 50m;
+        await _companyRepository.UpdateAsync(company, autoSave: true);
+
+        var salesOrder = await _salesOrderService.CreateAsync(new CreateSalesOrderDto
+        {
+            CompanyId = companyId,
+            CustomerId = customerId,
+            OrderDate = DateTime.Today,
+            Items = new()
+            {
+                new() { ItemId = Guid.NewGuid(), Description = "Item A", Quantity = 10, UnitPrice = 50m, WarehouseId = warehouseId },
+                new() { ItemId = Guid.NewGuid(), Description = "Item B", Quantity = 10, UnitPrice = 50m, WarehouseId = warehouseId }
+            }
+        });
+        await _salesOrderService.SubmitAsync(salesOrder.Id);
+
+        // Deliver Row A completely (10/10), Row B untouched (0/10) -> PerDelivered = 50% (< 100%)
+        var so = await _salesOrderRepository.GetAsync(salesOrder.Id);
+        var soItemRepo = GetRequiredService<IRepository<SalesOrderItem, Guid>>();
+        var itemA = so.Items.First(i => i.Description == "Item A");
+        var itemB = so.Items.First(i => i.Description == "Item B");
+        itemA.DeliveredQty = 10;
+        await soItemRepo.UpdateAsync(itemA, autoSave: true);
+
+        var rowAId = itemA.Id;
+        var rowBId = itemB.Id;
+
+        // Default mapping without selection should only map pending Row B (qty 10), omitting Row A
+        var defaultDn = await _conversionService.ConvertSalesOrderToDeliveryNoteAsync(salesOrder.Id);
+        defaultDn.Items.Count.ShouldBe(1);
+        defaultDn.Items[0].Quantity.ShouldBe(10);
+        defaultDn.Items[0].Description.ShouldBe("Item B");
+
+        // Explicitly selected mapping with Row A (requesting 5 within 50% allowance: 15 - 10 = 5) and Row B (requesting 10)
+        var selected = new List<PartialDeliveryItemDto>
+        {
+            new() { SalesOrderItemId = rowAId, Quantity = 5, WarehouseId = warehouseId },
+            new() { SalesOrderItemId = rowBId, Quantity = 10, WarehouseId = warehouseId }
+        };
+
+        var selectedDn = await _conversionService.ConvertSalesOrderToDeliveryNoteAsync(salesOrder.Id, selected);
+        selectedDn.Items.Count.ShouldBe(2);
+        selectedDn.Items.First(i => i.Description == "Item A").Quantity.ShouldBe(5);
+        selectedDn.Items.First(i => i.Description == "Item B").Quantity.ShouldBe(10);
+    }
+
+    [Fact]
+    public async Task Should_Disallow_Over_Delivery_When_Allowance_Is_Zero()
+    {
+        var (companyId, customerId, warehouseId) = await SeedDataAsync();
+        var company = await _companyRepository.GetAsync(companyId);
+        company.OverDeliveryReceiptAllowance = 0m;
+        await _companyRepository.UpdateAsync(company, autoSave: true);
+
+        var salesOrder = await _salesOrderService.CreateAsync(new CreateSalesOrderDto
+        {
+            CompanyId = companyId,
+            CustomerId = customerId,
+            OrderDate = DateTime.Today,
+            Items = new()
+            {
+                new() { ItemId = Guid.NewGuid(), Description = "Product Z", Quantity = 5, UnitPrice = 50m, WarehouseId = warehouseId }
+            }
+        });
+        await _salesOrderService.SubmitAsync(salesOrder.Id);
+
+        var so = await _salesOrderRepository.GetAsync(salesOrder.Id);
+        var soItemRepo = GetRequiredService<IRepository<SalesOrderItem, Guid>>();
+        var soItem = so.Items[0];
+        soItem.DeliveredQty = 5;
+        await soItemRepo.UpdateAsync(soItem, autoSave: true);
+
+        // Attempting to convert fully delivered order with 0% allowance should throw DocumentAlreadyConverted
+        await Should.ThrowAsync<Volo.Abp.BusinessException>(async () =>
+        {
+            await _conversionService.ConvertSalesOrderToDeliveryNoteAsync(salesOrder.Id);
+        });
+    }
 }
