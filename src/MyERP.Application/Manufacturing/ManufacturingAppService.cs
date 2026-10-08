@@ -971,7 +971,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 .WithData("detail", "Cannot create Work Orders from a stopped Material Request.");
         }
 
-        if (mr.Status != Core.DocumentStatus.Submitted)
+        if (mr.Status != Core.DocumentStatus.Submitted && mr.Status != Core.DocumentStatus.Completed)
         {
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Material Request must be submitted to create Work Orders.");

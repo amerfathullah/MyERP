@@ -594,4 +594,11 @@ public static class MyERPDomainErrorCodes
 
     // UOM Restrictions (ERPNext PR #59754 / commit 8ba7a8ee34)
     public const string UomNotConfiguredForItem = "MyERP:05085";
+
+    // Stock Closing Entry (ERPNext PR #60127 / commit b1bea37695)
+    public const string StockClosingFutureDateNotAllowed = "MyERP:05086";
+    public const string StockClosingCannotRegenerateWithLaterClosing = "MyERP:05087";
+    public const string StockClosingCannotCancelWithLaterClosing = "MyERP:05088";
+    public const string StockClosingMustBeSubmittedToGenerate = "MyERP:05089";
+    public const string StockClosingCompanyRequired = "MyERP:05090";
 }

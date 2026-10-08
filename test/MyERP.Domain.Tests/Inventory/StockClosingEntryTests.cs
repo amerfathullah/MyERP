@@ -1,7 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using NSubstitute;
 using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Domain.Tests.Inventory;
@@ -190,5 +195,124 @@ public class StockClosingEntryTests
         Assert.Equal(3, entry.Balances.Count);
         entry.Submit();
         Assert.Equal(17_500m, entry.TotalStockValue);
+    }
+
+    [Fact]
+    public void ClosingEntry_CompanyIsMandatory_Throws()
+    {
+        var ex = Assert.Throws<BusinessException>(() =>
+            new StockClosingEntry(Guid.NewGuid(), Guid.Empty, new DateTime(2026, 6, 30)));
+        Assert.Equal(MyERPDomainErrorCodes.StockClosingCompanyRequired, ex.Code);
+    }
+
+    [Fact]
+    public void ClosingEntry_FutureToDate_Throws()
+    {
+        var futureDate = DateTime.UtcNow.Date.AddDays(1);
+        var ex = Assert.Throws<BusinessException>(() =>
+            new StockClosingEntry(Guid.NewGuid(), _companyId, futureDate));
+        Assert.Equal(MyERPDomainErrorCodes.StockClosingFutureDateNotAllowed, ex.Code);
+    }
+
+    [Fact]
+    public void ClosingEntry_Cancel_ClearsBalances()
+    {
+        var entry = CreateEntry();
+        entry.AddBalance(Guid.NewGuid(), Guid.NewGuid(), 100m, 5000m, 50m);
+        entry.Submit();
+
+        Assert.Single(entry.Balances);
+        Assert.Equal(1, entry.TotalEntries);
+        Assert.Equal(5000m, entry.TotalStockValue);
+
+        entry.Cancel();
+
+        Assert.Equal(StockClosingStatus.Cancelled, entry.Status);
+        Assert.Empty(entry.Balances);
+        Assert.Equal(0, entry.TotalEntries);
+        Assert.Equal(0m, entry.TotalStockValue);
+    }
+
+    [Fact]
+    public void ClosingEntry_ReplaceBalances_UpdatesTotals()
+    {
+        var entry = CreateEntry();
+        entry.AddBalance(Guid.NewGuid(), Guid.NewGuid(), 10m, 500m, 50m);
+        entry.Submit();
+
+        var newBal1 = new StockClosingBalance(Guid.NewGuid(), entry.Id, Guid.NewGuid(), Guid.NewGuid(), 20m, 1000m, 50m);
+        var newBal2 = new StockClosingBalance(Guid.NewGuid(), entry.Id, Guid.NewGuid(), Guid.NewGuid(), 30m, 1500m, 50m);
+
+        entry.ReplaceBalances(new[] { newBal1, newBal2 });
+
+        Assert.Equal(2, entry.Balances.Count);
+        Assert.Equal(2, entry.TotalEntries);
+        Assert.Equal(2500m, entry.TotalStockValue);
+    }
+
+    [Fact]
+    public async Task ClosingService_CannotRegenerateWithLaterClosing_Throws()
+    {
+        var closingRepo = Substitute.For<IRepository<StockClosingEntry, Guid>>();
+        var sleRepo = Substitute.For<IRepository<StockLedgerEntry, Guid>>();
+
+        var first = new StockClosingEntry(Guid.NewGuid(), _companyId, new DateTime(2026, 3, 31));
+        first.AddBalance(Guid.NewGuid(), Guid.NewGuid(), 10m, 100m, 10m);
+        first.Submit();
+
+        var second = new StockClosingEntry(Guid.NewGuid(), _companyId, new DateTime(2026, 6, 30));
+        second.AddBalance(Guid.NewGuid(), Guid.NewGuid(), 15m, 150m, 10m);
+        second.Submit();
+
+        var entries = new List<StockClosingEntry> { first, second };
+        closingRepo.GetQueryableAsync().Returns(Task.FromResult(entries.AsQueryable()));
+        closingRepo.GetAsync(first.Id).Returns(Task.FromResult(first));
+
+        var service = new StockClosingService(closingRepo, sleRepo);
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() =>
+            service.RegenerateClosingAsync(first.Id));
+        Assert.Equal(MyERPDomainErrorCodes.StockClosingCannotRegenerateWithLaterClosing, ex.Code);
+    }
+
+    [Fact]
+    public async Task ClosingService_RegenerateRequiresSubmitted_Throws()
+    {
+        var closingRepo = Substitute.For<IRepository<StockClosingEntry, Guid>>();
+        var sleRepo = Substitute.For<IRepository<StockLedgerEntry, Guid>>();
+
+        var draft = new StockClosingEntry(Guid.NewGuid(), _companyId, new DateTime(2026, 3, 31));
+        var entries = new List<StockClosingEntry> { draft };
+        closingRepo.GetQueryableAsync().Returns(Task.FromResult(entries.AsQueryable()));
+        closingRepo.GetAsync(draft.Id).Returns(Task.FromResult(draft));
+
+        var service = new StockClosingService(closingRepo, sleRepo);
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() =>
+            service.RegenerateClosingAsync(draft.Id));
+        Assert.Equal(MyERPDomainErrorCodes.StockClosingMustBeSubmittedToGenerate, ex.Code);
+    }
+
+    [Fact]
+    public async Task ClosingService_HasLaterSubmittedClosing_Works()
+    {
+        var closingRepo = Substitute.For<IRepository<StockClosingEntry, Guid>>();
+        var sleRepo = Substitute.For<IRepository<StockLedgerEntry, Guid>>();
+
+        var first = new StockClosingEntry(Guid.NewGuid(), _companyId, new DateTime(2026, 3, 31));
+        first.AddBalance(Guid.NewGuid(), Guid.NewGuid(), 10m, 100m, 10m);
+        first.Submit();
+
+        var second = new StockClosingEntry(Guid.NewGuid(), _companyId, new DateTime(2026, 6, 30));
+        second.AddBalance(Guid.NewGuid(), Guid.NewGuid(), 15m, 150m, 10m);
+        second.Submit();
+
+        var entries = new List<StockClosingEntry> { first, second };
+        closingRepo.GetQueryableAsync().Returns(Task.FromResult(entries.AsQueryable()));
+
+        var service = new StockClosingService(closingRepo, sleRepo);
+
+        Assert.True(await service.HasLaterSubmittedClosingAsync(_companyId, new DateTime(2026, 3, 31)));
+        Assert.False(await service.HasLaterSubmittedClosingAsync(_companyId, new DateTime(2026, 6, 30)));
     }
 }

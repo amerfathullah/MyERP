@@ -13,4 +13,5 @@ public interface IStockClosingAppService : IApplicationService
     Task<StockClosingEntryDto> GenerateAsync(CreateStockClosingDto input);
     Task<StockClosingEntryDto> SubmitAsync(Guid id);
     Task<StockClosingEntryDto> CancelAsync(Guid id);
+    Task<StockClosingEntryDto> RegenerateAsync(Guid id);
 }

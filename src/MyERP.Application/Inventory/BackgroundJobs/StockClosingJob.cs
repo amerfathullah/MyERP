@@ -32,6 +32,38 @@ public class StockClosingJob : AsyncBackgroundJob<StockClosingJobArgs>, ITransie
 
     public override async Task ExecuteAsync(StockClosingJobArgs args)
     {
+        if (args.StockClosingEntryId.HasValue)
+        {
+            var entry = await _closingRepository.FindAsync(args.StockClosingEntryId.Value);
+            if (entry == null) return;
+
+            // Per ERPNext PR #60127: skip job if not submitted or already cancelled
+            if (entry.Status != StockClosingStatus.Submitted)
+            {
+                _logger.LogWarning("StockClosingJob: Skipping StockClosingEntry {Id} because status is {Status}.", entry.Id, entry.Status);
+                return;
+            }
+
+            try
+            {
+                await _closingService.RegenerateClosingAsync(entry.Id);
+
+                // Mid-run cancellation guard: if entry cancelled during run, clean up balances
+                var refreshed = await _closingRepository.GetAsync(entry.Id);
+                if (refreshed.Status == StockClosingStatus.Cancelled)
+                {
+                    refreshed.ClearBalances();
+                    await _closingRepository.UpdateAsync(refreshed);
+                    _logger.LogInformation("StockClosingJob: StockClosingEntry {Id} was cancelled during run. Cleared balances.", entry.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "StockClosingJob: Failed to process StockClosingEntry {Id}", entry.Id);
+            }
+            return;
+        }
+
         var asOfDate = args.AsOfDate ?? DateTime.UtcNow.Date;
 
         // Auto-close previous month's balance during first week of month
@@ -68,4 +100,5 @@ public class StockClosingJobArgs
     public Guid CompanyId { get; set; }
     public Guid? TenantId { get; set; }
     public DateTime? AsOfDate { get; set; }
+    public Guid? StockClosingEntryId { get; set; }
 }

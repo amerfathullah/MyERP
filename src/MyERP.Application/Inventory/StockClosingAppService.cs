@@ -99,6 +99,12 @@ public class StockClosingAppService : ApplicationService, IStockClosingAppServic
     [Authorize(MyERPPermissions.StockEntries.Create)]
     public async Task<StockClosingEntryDto> GenerateAsync(CreateStockClosingDto input)
     {
+        if (input.CompanyId == Guid.Empty)
+            throw new BusinessException(MyERPDomainErrorCodes.StockClosingCompanyRequired);
+
+        if (input.ToDate.Date > DateTime.UtcNow.Date)
+            throw new BusinessException(MyERPDomainErrorCodes.StockClosingFutureDateNotAllowed);
+
         // Check no existing submitted closing covers this date
         var isCovered = await _closingService.IsDateCoveredByClosingAsync(input.CompanyId, input.ToDate);
         if (isCovered)
@@ -129,8 +135,31 @@ public class StockClosingAppService : ApplicationService, IStockClosingAppServic
     public async Task<StockClosingEntryDto> CancelAsync(Guid id)
     {
         var entry = await _repository.GetAsync(id);
+        var hasLater = await _closingService.HasLaterSubmittedClosingAsync(entry.CompanyId, entry.ToDate);
+        if (hasLater)
+            throw new BusinessException(MyERPDomainErrorCodes.StockClosingCannotCancelWithLaterClosing);
+
         entry.Cancel();
         await _repository.UpdateAsync(entry);
         return ObjectMapper.Map<StockClosingEntry, StockClosingEntryDto>(entry);
+    }
+
+    /// <summary>
+    /// Regenerate balances for a submitted stock closing entry.
+    /// Per ERPNext PR #60127: blocked if a later closing entry exists.
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Submit)]
+    public async Task<StockClosingEntryDto> RegenerateAsync(Guid id)
+    {
+        var entry = await _repository.GetAsync(id);
+        if (entry.Status != StockClosingStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.StockClosingMustBeSubmittedToGenerate);
+
+        var hasLater = await _closingService.HasLaterSubmittedClosingAsync(entry.CompanyId, entry.ToDate);
+        if (hasLater)
+            throw new BusinessException(MyERPDomainErrorCodes.StockClosingCannotRegenerateWithLaterClosing);
+
+        var updated = await _closingService.RegenerateClosingAsync(id);
+        return ObjectMapper.Map<StockClosingEntry, StockClosingEntryDto>(updated);
     }
 }

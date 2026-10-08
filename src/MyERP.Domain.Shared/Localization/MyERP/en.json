@@ -4956,6 +4956,11 @@
     "MyERP:05084": "Sales Order Item {itemId} does not belong to Sales Order {orderNumber}.",
     "AutoMapRawMaterialsToFinishedGoods": "Auto Map Raw Materials to Finished Goods",
     "MyERP:05085": "UOM {uom} has no conversion factor in Item {item}. Add it to the Item's UOMs table or disable UOM conversion restriction.",
-    "AllowUomWithConversionRateDefinedInItem": "Allow UOM with conversion rate defined in Item"
+    "AllowUomWithConversionRateDefinedInItem": "Allow UOM with conversion rate defined in Item",
+    "MyERP:05086": "To Date cannot be a future date.",
+    "MyERP:05087": "Cannot regenerate Stock Closing Entry because a later Stock Closing Entry exists. Cancel it first.",
+    "MyERP:05088": "Cannot cancel Stock Closing Entry because a later Stock Closing Entry exists. Cancel it first.",
+    "MyERP:05089": "Stock Closing Entry must be submitted to generate the closing balance.",
+    "MyERP:05090": "Company is required for Stock Closing Entry."
   }
 }

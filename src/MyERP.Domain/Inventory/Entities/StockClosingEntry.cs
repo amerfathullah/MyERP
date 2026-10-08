@@ -25,10 +25,30 @@ namespace MyERP.Inventory.Entities;
 public class StockClosingEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 {
     public Guid? TenantId { get; set; }
-    public Guid CompanyId { get; set; }
+    private Guid _companyId;
+    public Guid CompanyId
+    {
+        get => _companyId;
+        set
+        {
+            if (value == Guid.Empty)
+                throw new BusinessException(MyERPDomainErrorCodes.StockClosingCompanyRequired);
+            _companyId = value;
+        }
+    }
 
+    private DateTime _toDate;
     /// <summary>The date through which stock is closed (inclusive).</summary>
-    public DateTime ToDate { get; set; }
+    public DateTime ToDate
+    {
+        get => _toDate;
+        set
+        {
+            if (value != default && value.Date > DateTime.UtcNow.Date)
+                throw new BusinessException(MyERPDomainErrorCodes.StockClosingFutureDateNotAllowed);
+            _toDate = value;
+        }
+    }
 
     /// <summary>Document status.</summary>
     public StockClosingStatus Status { get; private set; } = StockClosingStatus.Draft;
@@ -54,6 +74,12 @@ public class StockClosingEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public StockClosingEntry(Guid id, Guid companyId, DateTime toDate, Guid? tenantId = null)
         : base(id)
     {
+        if (companyId == Guid.Empty)
+            throw new BusinessException(MyERPDomainErrorCodes.StockClosingCompanyRequired);
+
+        if (toDate.Date > DateTime.UtcNow.Date)
+            throw new BusinessException(MyERPDomainErrorCodes.StockClosingFutureDateNotAllowed);
+
         CompanyId = companyId;
         ToDate = toDate;
         TenantId = tenantId;
@@ -96,6 +122,7 @@ public class StockClosingEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>
     /// Cancel the closing entry. Allows reposting for the previously-covered dates.
+    /// Per ERPNext: remove_stock_closing.
     /// </summary>
     public void Cancel()
     {
@@ -103,6 +130,32 @@ public class StockClosingEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException("MyERP:01001");
 
         Status = StockClosingStatus.Cancelled;
+        ClearBalances();
+    }
+
+    /// <summary>
+    /// Clear balance snapshots and reset totals.
+    /// Per ERPNext: remove_stock_closing.
+    /// </summary>
+    public void ClearBalances()
+    {
+        Balances.Clear();
+        TotalEntries = 0;
+        TotalStockValue = 0;
+    }
+
+    /// <summary>
+    /// Replaces balances and recalculates totals during regeneration.
+    /// </summary>
+    public void ReplaceBalances(IEnumerable<StockClosingBalance> newBalances)
+    {
+        Balances.Clear();
+        foreach (var b in newBalances)
+        {
+            Balances.Add(b);
+        }
+        TotalEntries = Balances.Count;
+        TotalStockValue = Balances.Sum(b => b.StockValue);
     }
 
     /// <summary>
