@@ -44,7 +44,8 @@ public class StockClosingEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
         get => _toDate;
         set
         {
-            if (value != default && value.Date > DateTime.UtcNow.Date)
+            var maxAllowedDate = DateTime.Today > DateTime.UtcNow.Date ? DateTime.Today : DateTime.UtcNow.Date;
+            if (value != default && value.Date > maxAllowedDate)
                 throw new BusinessException(MyERPDomainErrorCodes.StockClosingFutureDateNotAllowed);
             _toDate = value;
         }
@@ -77,7 +78,8 @@ public class StockClosingEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (companyId == Guid.Empty)
             throw new BusinessException(MyERPDomainErrorCodes.StockClosingCompanyRequired);
 
-        if (toDate.Date > DateTime.UtcNow.Date)
+        var maxAllowedDate = DateTime.Today > DateTime.UtcNow.Date ? DateTime.Today : DateTime.UtcNow.Date;
+        if (toDate.Date > maxAllowedDate)
             throw new BusinessException(MyERPDomainErrorCodes.StockClosingFutureDateNotAllowed);
 
         CompanyId = companyId;

@@ -208,7 +208,7 @@ public class StockClosingEntryTests
     [Fact]
     public void ClosingEntry_FutureToDate_Throws()
     {
-        var futureDate = DateTime.UtcNow.Date.AddDays(1);
+        var futureDate = DateTime.Today.AddDays(1);
         var ex = Assert.Throws<BusinessException>(() =>
             new StockClosingEntry(Guid.NewGuid(), _companyId, futureDate));
         Assert.Equal(MyERPDomainErrorCodes.StockClosingFutureDateNotAllowed, ex.Code);

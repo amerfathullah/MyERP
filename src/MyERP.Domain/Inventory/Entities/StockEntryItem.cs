@@ -33,6 +33,9 @@ public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>When true, user must manually enter the valuation rate (multi-FG Repack).</summary>
     public bool SetBasicRateManually { get; set; }
 
+    /// <summary>When true, this finished good row takes zero valuation rate and no share of consumed cost (PR #59881).</summary>
+    public bool AllowZeroValuationRate { get; set; }
+
     /// <summary>For secondary items: CoProduct, ByProduct, Scrap.</summary>
     public string? SecondaryItemType { get; set; }
 

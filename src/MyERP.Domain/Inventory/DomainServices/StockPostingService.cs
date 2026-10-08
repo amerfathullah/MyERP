@@ -216,10 +216,28 @@ public class StockPostingService : DomainService
                          (item.IsFinishedItem || !item.SourceWarehouseId.HasValue) &&
                          (!item.SetBasicRateManually || rate <= 0 || hasOutwardBundles))
                 {
-                    // Per ERPNext PR #60214 / commit ef827e263b & f8ac29ea0f:
-                    // Repack finished good values at consumed raw materials cost + additional cost
-                    var totalFgInwardValue = totalRawMaterialOutwardValue + item.AdditionalCost;
-                    rate = item.Quantity > 0 ? totalFgInwardValue / item.Quantity : rate;
+                    // Per ERPNext PR #60214 & PR #59881 (commit 37f16db9d8):
+                    // Repack finished good values at consumed raw materials cost + additional cost,
+                    // split across all eligible finished good rows.
+                    if (item.AllowZeroValuationRate)
+                    {
+                        rate = 0m;
+                    }
+                    else
+                    {
+                        var finishedItemsQty = stockEntry.GetFinishedItemsQty();
+                        var costedOutItemsCost = stockEntry.Items
+                            .Where(d => (d.IsFinishedItem || !d.SourceWarehouseId.HasValue) &&
+                                        d.TargetWarehouseId.HasValue &&
+                                        d.SetBasicRateManually &&
+                                        !d.AllowZeroValuationRate)
+                            .Sum(d => d.Quantity * (d.ValuationRate ?? 0m));
+
+                        var netOutgoingCost = Math.Max(0m, totalRawMaterialOutwardValue - costedOutItemsCost);
+                        var basicRate = finishedItemsQty > 0 ? (netOutgoingCost / finishedItemsQty) : 0m;
+                        var additionalCostPerUnit = item.Quantity > 0 ? (item.AdditionalCost / item.Quantity) : 0m;
+                        rate = Math.Round(basicRate + additionalCostPerUnit, 4);
+                    }
                     item.ValuationRate = rate;
                 }
                 else if (stockEntry.EntryType == StockEntryType.Manufacture &&
@@ -228,8 +246,18 @@ public class StockPostingService : DomainService
                          (!item.SetBasicRateManually || rate <= 0))
                 {
                     // Standalone manufacture without work order derives FG valuation rate from consumed raw materials
-                    var totalFgInwardValue = totalRawMaterialOutwardValue + item.AdditionalCost;
-                    rate = item.Quantity > 0 ? totalFgInwardValue / item.Quantity : rate;
+                    // split across all eligible finished good rows (PR #59881 / commit 37f16db9d8).
+                    if (item.AllowZeroValuationRate)
+                    {
+                        rate = 0m;
+                    }
+                    else
+                    {
+                        var finishedItemsQty = stockEntry.GetFinishedItemsQty();
+                        var basicRate = finishedItemsQty > 0 ? (totalRawMaterialOutwardValue / finishedItemsQty) : 0m;
+                        var additionalCostPerUnit = item.Quantity > 0 ? (item.AdditionalCost / item.Quantity) : 0m;
+                        rate = Math.Round(basicRate + additionalCostPerUnit, 4);
+                    }
                     item.ValuationRate = rate;
                 }
 

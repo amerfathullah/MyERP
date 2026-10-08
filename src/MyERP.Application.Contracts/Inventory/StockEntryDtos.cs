@@ -44,6 +44,8 @@ public class StockEntryItemDto
     public decimal? ValuationRate { get; set; }
     public decimal AdditionalCost { get; set; }
     public bool IsFinishedItem { get; set; }
+    public bool SetBasicRateManually { get; set; }
+    public bool AllowZeroValuationRate { get; set; }
     public string? SecondaryItemType { get; set; }
     public SecondaryItemValuationType? ValuationType { get; set; }
     public Guid? BomSecondaryItemId { get; set; }
@@ -111,6 +113,8 @@ public class CreateStockEntryItemDto
     public decimal AdditionalCost { get; set; }
 
     public bool IsFinishedItem { get; set; }
+    public bool SetBasicRateManually { get; set; }
+    public bool AllowZeroValuationRate { get; set; }
 
     public string? SecondaryItemType { get; set; }
     public SecondaryItemValuationType? ValuationType { get; set; }

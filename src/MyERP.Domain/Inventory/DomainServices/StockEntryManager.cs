@@ -575,32 +575,57 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
-    /// Calculates valuation rate for Repack FG items.
-    /// Single FG: rate = total_outgoing_cost / fg_qty
-    /// Multiple FGs: each must have rate set manually (validated separately).
+    /// Qty of the received finished good rows whose rate is derived from the consumed cost.
+    /// Manual and zero-valued rows take no share, so the others carry the whole cost (PR #59881 / commit 37f16db9d8).
     /// </summary>
-    public decimal CalculateRepackFgRate(IReadOnlyList<StockEntryItem> items, decimal fgQty)
+    public static decimal GetFinishedItemsQty(IEnumerable<StockEntryItem> items)
     {
+        return items
+            .Where(d => (d.IsFinishedItem || !d.SourceWarehouseId.HasValue)
+                && d.TargetWarehouseId.HasValue
+                && !d.SetBasicRateManually
+                && !d.AllowZeroValuationRate)
+            .Sum(d => d.Quantity);
+    }
+
+    /// <summary>
+    /// Calculates valuation rate for Repack FG items.
+    /// Derived rate is split over all eligible finished good rows (PR #59881).
+    /// </summary>
+    public decimal CalculateRepackFgRate(IReadOnlyList<StockEntryItem> items, decimal? fgQty = null)
+    {
+        var resolvedFgQty = fgQty.HasValue && fgQty.Value > 0 ? fgQty.Value : GetFinishedItemsQty(items);
+        if (resolvedFgQty <= 0) return 0;
+
         var totalOutgoingCost = items
             .Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem)
             .Sum(i => i.Quantity * (i.ValuationRate ?? 0));
 
-        if (fgQty <= 0) return 0;
-        return Math.Round(totalOutgoingCost / fgQty, 4);
+        var costedOutItemsCost = items
+            .Where(d => (d.IsFinishedItem || !d.SourceWarehouseId.HasValue)
+                && d.TargetWarehouseId.HasValue
+                && d.SetBasicRateManually
+                && !d.AllowZeroValuationRate)
+            .Sum(d => d.Quantity * (d.ValuationRate ?? 0m));
+
+        var netOutgoingCost = Math.Max(0m, totalOutgoingCost - costedOutItemsCost);
+        return Math.Round(netOutgoingCost / resolvedFgQty, 4);
     }
 
     /// <summary>
-    /// Calculates basic valuation rate for a manufactured FG item.
+    /// Calculates basic valuation rate for manufactured FG item(s).
+    /// Cost is split over all eligible finished good rows (PR #59881 / commit 37f16db9d8).
     /// Per ERPNext PR #57334: when inputs are consumed at zero cost (e.g. free raw materials),
     /// rate remains zero (plus additional operating cost) and must not fall back to BOM or standard rates.
     /// </summary>
     public decimal CalculateManufactureFgRate(
         IReadOnlyList<StockEntryItem> items,
-        decimal fgQty,
+        decimal? fgQty = null,
         decimal additionalOperatingCost = 0m,
         decimal? bomEstimatedCost = null)
     {
-        if (fgQty <= 0) return 0m;
+        var resolvedFgQty = fgQty.HasValue && fgQty.Value > 0 ? fgQty.Value : GetFinishedItemsQty(items);
+        if (resolvedFgQty <= 0) return 0m;
 
         var rawMaterialItems = items.Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem).ToList();
         var hasConsumptionBasis = rawMaterialItems.Count > 0;
@@ -613,7 +638,7 @@ public class StockEntryManager : DomainService
         }
 
         var totalFgCost = outgoingCost + additionalOperatingCost;
-        return Math.Round(totalFgCost / fgQty, 4);
+        return Math.Round(totalFgCost / resolvedFgQty, 4);
     }
 
     /// <summary>

@@ -417,6 +417,8 @@ export interface CreateStockEntryItemDto {
   valuationRate?: number | null;
   additionalCost?: number;
   isFinishedItem?: boolean;
+  setBasicRateManually?: boolean;
+  allowZeroValuationRate?: boolean;
   batchId?: string | null;
   costCenterId?: string | null;
   expenseAccountId?: string | null;
@@ -1834,6 +1836,8 @@ export interface StockEntryItemDto {
   valuationRate?: number | null;
   additionalCost?: number;
   isFinishedItem?: boolean;
+  setBasicRateManually?: boolean;
+  allowZeroValuationRate?: boolean;
   costCenterId?: string | null;
   expenseAccountId?: string | null;
   projectId?: string | null;

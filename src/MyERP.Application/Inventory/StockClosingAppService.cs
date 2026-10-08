@@ -102,7 +102,8 @@ public class StockClosingAppService : ApplicationService, IStockClosingAppServic
         if (input.CompanyId == Guid.Empty)
             throw new BusinessException(MyERPDomainErrorCodes.StockClosingCompanyRequired);
 
-        if (input.ToDate.Date > DateTime.UtcNow.Date)
+        var maxAllowedDate = DateTime.Today > DateTime.UtcNow.Date ? DateTime.Today : DateTime.UtcNow.Date;
+        if (input.ToDate.Date > maxAllowedDate)
             throw new BusinessException(MyERPDomainErrorCodes.StockClosingFutureDateNotAllowed);
 
         // Check no existing submitted closing covers this date

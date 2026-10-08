@@ -195,7 +195,8 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             warehouseIds: allWarehouseIds.Count > 0 ? allWarehouseIds : null);
 
         // Per gotcha #538: PR blocks future posting date
-        if (input.PostingDate.Date > DateTime.UtcNow.Date)
+        var maxAllowedDate = DateTime.Today > DateTime.UtcNow.Date ? DateTime.Today : DateTime.UtcNow.Date;
+        if (input.PostingDate.Date > maxAllowedDate)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Posting Date cannot be in the future for Purchase Receipts.");
@@ -342,7 +343,8 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 .WithData("detail", "Only Draft purchase receipts can be edited");
 
         // Per gotcha #538: PR blocks future posting date
-        if (input.PostingDate.Date > DateTime.UtcNow.Date)
+        var maxAllowedDate = DateTime.Today > DateTime.UtcNow.Date ? DateTime.Today : DateTime.UtcNow.Date;
+        if (input.PostingDate.Date > maxAllowedDate)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Posting Date cannot be in the future for Purchase Receipts.");

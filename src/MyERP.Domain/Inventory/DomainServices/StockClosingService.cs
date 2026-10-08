@@ -206,7 +206,8 @@ public class StockClosingService : DomainService
         if (companyId == Guid.Empty)
             throw new BusinessException(MyERPDomainErrorCodes.StockClosingCompanyRequired);
 
-        if (toDate.Date > DateTime.UtcNow.Date)
+        var maxAllowedDate = DateTime.Today > DateTime.UtcNow.Date ? DateTime.Today : DateTime.UtcNow.Date;
+        if (toDate.Date > maxAllowedDate)
             throw new BusinessException(MyERPDomainErrorCodes.StockClosingFutureDateNotAllowed);
 
         // 1. Find previous closing (incremental base)

@@ -134,7 +134,8 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
         decimal? valuationRate = null, bool isFinishedItem = false, Guid? batchId = null,
         string? secondaryItemType = null, decimal processLossPercentage = 0,
         decimal conversionFactor = 1m, string stockUom = "Unit",
-        SecondaryItemValuationType? valuationType = null, Guid? bomSecondaryItemId = null)
+        SecondaryItemValuationType? valuationType = null, Guid? bomSecondaryItemId = null,
+        bool allowZeroValuationRate = false, bool setBasicRateManually = false)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -143,6 +144,8 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
             Guid.NewGuid(), Id, itemId, quantity, sourceWarehouseId, targetWarehouseId, valuationRate)
         {
             IsFinishedItem = isFinishedItem,
+            SetBasicRateManually = setBasicRateManually,
+            AllowZeroValuationRate = allowZeroValuationRate,
             BatchId = batchId,
             SecondaryItemType = secondaryItemType,
             ProcessLossPercentage = processLossPercentage,
@@ -153,6 +156,20 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
         };
         _items.Add(item);
         return item;
+    }
+
+    /// <summary>
+    /// Returns total qty of received finished good rows whose rate is derived from consumed cost.
+    /// Manual and zero-valued rows take no share, so the others carry the whole cost (PR #59881 / commit 37f16db9d8).
+    /// </summary>
+    public decimal GetFinishedItemsQty()
+    {
+        return _items
+            .Where(d => (d.IsFinishedItem || !d.SourceWarehouseId.HasValue)
+                && d.TargetWarehouseId.HasValue
+                && !d.SetBasicRateManually
+                && !d.AllowZeroValuationRate)
+            .Sum(d => d.Quantity);
     }
 
     /// <summary>Clear all items (Draft only). Used during edit to replace items.</summary>
