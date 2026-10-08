@@ -41,6 +41,12 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     public string CurrencyCode { get; set; } = "MYR";
     public decimal ExchangeRate { get; set; } = 1m;
 
+    /// <summary>
+    /// Whether the exchange rate was fetched for the invoice's posting date rather than copied from the Purchase Order.
+    /// Per ERPNext PR #60180 (Buying Settings: use_transaction_date_exchange_rate).
+    /// </summary>
+    public bool UseTransactionDateExchangeRate { get; set; }
+
     /// <summary>Buying Price List — defaults from Supplier.DefaultPriceListId, overridable per invoice.</summary>
     public Guid? PriceListId { get; set; }
 

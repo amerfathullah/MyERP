@@ -151,6 +151,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Buying.BlanketOrderAllowance,
             MyERPSettings.Buying.AllowZeroQtyInSupplierQuotation,
             MyERPSettings.Buying.AllowZeroQtyInRequestForQuotation,
+            MyERPSettings.Buying.UseTransactionDateExchangeRate,
         ],
         "Manufacturing" => [
             MyERPSettings.Manufacturing.OverproductionPercentage,

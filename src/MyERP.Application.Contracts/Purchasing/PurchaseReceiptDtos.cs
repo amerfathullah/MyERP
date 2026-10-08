@@ -17,6 +17,8 @@ public class PurchaseReceiptDto : EntityDto<Guid>
     public string? WarehouseName { get; set; }
     public string? SupplierDeliveryNote { get; set; }
     public string CurrencyCode { get; set; } = null!;
+    public decimal ExchangeRate { get; set; } = 1m;
+    public bool UseTransactionDateExchangeRate { get; set; }
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
@@ -72,6 +74,9 @@ public class CreatePurchaseReceiptDto
     public bool IsReturn { get; set; }
     public Guid? ReturnAgainstId { get; set; }
     public string? Notes { get; set; }
+    [StringLength(3)] public string CurrencyCode { get; set; } = "MYR";
+    public decimal ExchangeRate { get; set; } = 1m;
+    public bool UseTransactionDateExchangeRate { get; set; }
     [Required][MinLength(1)] public List<CreatePurchaseReceiptItemDto> Items { get; set; } = new();
 }
 

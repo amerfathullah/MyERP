@@ -708,6 +708,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        invoice.UseTransactionDateExchangeRate = input.UseTransactionDateExchangeRate;
+
         // Opening invoices & returns: clear payment terms (gotcha #380)
         if (invoice.IsOpening || invoice.IsReturn)
         {
@@ -883,6 +885,24 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.BuyerTin = updateCompany?.TaxId;
 
         invoice.Notes = input.Notes;
+        if (!string.IsNullOrWhiteSpace(input.CurrencyCode))
+            invoice.CurrencyCode = input.CurrencyCode;
+        if (input.ExchangeRate > 0)
+            invoice.ExchangeRate = input.ExchangeRate;
+        invoice.UseTransactionDateExchangeRate = input.UseTransactionDateExchangeRate;
+
+        if (invoice.UseTransactionDateExchangeRate && invoice.Items.Any(i => i.PurchaseOrderItemId.HasValue && !i.PurchaseReceiptItemId.HasValue))
+        {
+            if (updateCompany != null && !string.Equals(invoice.CurrencyCode, updateCompany.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+            {
+                var exchangeService = LazyServiceProvider.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
+                if (exchangeService != null)
+                {
+                    invoice.ExchangeRate = await exchangeService.GetExchangeRateAsync(invoice.CurrencyCode, updateCompany.CurrencyCode, invoice.IssueDate);
+                }
+            }
+        }
+
         invoice.IsSubcontracted = input.IsSubcontracted;
         invoice.IsReturn = input.IsReturn;
         invoice.IsDebitNote = input.IsDebitNote;

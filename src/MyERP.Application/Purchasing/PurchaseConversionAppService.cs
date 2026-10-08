@@ -7,6 +7,7 @@ using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
+using MyERP.Settings;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
@@ -80,6 +81,10 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
         receipt.PurchaseOrderId = po.Id;
         receipt.CurrencyCode = po.CurrencyCode;
+        var (prExchangeRate, prUseTxRate) = await ResolveExchangeRateForMappingFromOrderAsync(
+            po.CompanyId, po.CurrencyCode, po.ExchangeRate, receipt.PostingDate);
+        receipt.ExchangeRate = prExchangeRate;
+        receipt.UseTransactionDateExchangeRate = prUseTxRate;
 
         // Deduct quantities already mapped in draft Purchase Receipts (per ERPNext PR #58617)
         var prQuery = await _purchaseReceiptRepository.GetQueryableAsync();
@@ -153,6 +158,10 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
         invoice.CurrencyCode = po.CurrencyCode;
         invoice.Notes = po.Notes;
+        var (piExchangeRate, piUseTxRate) = await ResolveExchangeRateForMappingFromOrderAsync(
+            po.CompanyId, po.CurrencyCode, po.ExchangeRate, invoice.IssueDate);
+        invoice.ExchangeRate = piExchangeRate;
+        invoice.UseTransactionDateExchangeRate = piUseTxRate;
 
         // Deduct quantities already mapped in draft Purchase Invoices (per ERPNext PR #58617)
         var piQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
@@ -223,6 +232,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
         invoice.CurrencyCode = receipt.CurrencyCode;
         invoice.Notes = receipt.Notes;
+        invoice.ExchangeRate = receipt.ExchangeRate > 0 ? receipt.ExchangeRate : 1m;
+        invoice.UseTransactionDateExchangeRate = false;
 
         // Deduct quantities already mapped in draft Purchase Invoices (per ERPNext PR #58617)
         var piQuery2 = await _purchaseInvoiceRepository.GetQueryableAsync();
@@ -312,6 +323,8 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             pi.TenantId);
 
         receipt.CurrencyCode = pi.CurrencyCode;
+        receipt.ExchangeRate = pi.ExchangeRate > 0 ? pi.ExchangeRate : 1m;
+        receipt.UseTransactionDateExchangeRate = false;
 
         foreach (var item in pi.Items)
         {
@@ -754,5 +767,47 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             "RequestForQuotation", rfq.Id, mr.RequestNumber, mr.TenantId);
 
         return ObjectMapper.Map<RequestForQuotation, RfqDto>(rfq);
+    }
+
+    /// <summary>
+    /// Resolves exchange rate when mapping from a Purchase Order to Purchase Receipt or Purchase Invoice.
+    /// Per ERPNext PR #60180: If BuyingSettings.UseTransactionDateExchangeRate is enabled, fetch the exchange rate
+    /// as of the target document's posting/transaction date rather than inheriting the PO's exchange rate.
+    /// </summary>
+    private async Task<(decimal ExchangeRate, bool UseTransactionDateRate)> ResolveExchangeRateForMappingFromOrderAsync(
+        Guid companyId,
+        string currencyCode,
+        decimal orderExchangeRate,
+        DateTime postingDate)
+    {
+        var fallbackRate = orderExchangeRate > 0 ? orderExchangeRate : 1m;
+        var settingProvider = LazyServiceProvider.LazyGetService<ISettingProvider>() ?? SettingProvider;
+        var rawUseTxRate = settingProvider != null
+            ? await settingProvider.GetOrNullAsync(MyERPSettings.Buying.UseTransactionDateExchangeRate)
+            : null;
+        var useTxRate = string.Equals(rawUseTxRate, "true", StringComparison.OrdinalIgnoreCase);
+
+        if (!useTxRate)
+        {
+            return (fallbackRate, false);
+        }
+
+        var companyRepo = LazyServiceProvider.LazyGetService<IRepository<Company, Guid>>();
+        var company = companyRepo != null ? await companyRepo.FindAsync(companyId) : null;
+        var companyCurrency = company?.CurrencyCode ?? "MYR";
+
+        if (string.Equals(currencyCode, companyCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            return (1m, true);
+        }
+
+        var exchangeService = LazyServiceProvider.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
+        if (exchangeService != null)
+        {
+            var rate = await exchangeService.GetExchangeRateAsync(currencyCode, companyCurrency, postingDate);
+            return (rate > 0 ? rate : fallbackRate, true);
+        }
+
+        return (fallbackRate, true);
     }
 }

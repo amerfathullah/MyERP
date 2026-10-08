@@ -286,6 +286,11 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         receipt.IsReturn = input.IsReturn;
         receipt.ReturnAgainstId = input.ReturnAgainstId;
         receipt.Notes = input.Notes;
+        if (!string.IsNullOrWhiteSpace(input.CurrencyCode))
+            receipt.CurrencyCode = input.CurrencyCode;
+        if (input.ExchangeRate > 0)
+            receipt.ExchangeRate = input.ExchangeRate;
+        receipt.UseTransactionDateExchangeRate = input.UseTransactionDateExchangeRate;
 
         foreach (var item in input.Items)
         {
@@ -449,6 +454,25 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         receipt.IsReturn = input.IsReturn;
         receipt.ReturnAgainstId = input.ReturnAgainstId;
         receipt.Notes = input.Notes;
+        if (!string.IsNullOrWhiteSpace(input.CurrencyCode))
+            receipt.CurrencyCode = input.CurrencyCode;
+        if (input.ExchangeRate > 0)
+            receipt.ExchangeRate = input.ExchangeRate;
+        receipt.UseTransactionDateExchangeRate = input.UseTransactionDateExchangeRate;
+
+        if (receipt.UseTransactionDateExchangeRate && receipt.PurchaseOrderId.HasValue)
+        {
+            var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+            var company = await companyRepo.FindAsync(receipt.CompanyId);
+            if (company != null && !string.Equals(receipt.CurrencyCode, company.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+            {
+                var exchangeService = LazyServiceProvider.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
+                if (exchangeService != null)
+                {
+                    receipt.ExchangeRate = await exchangeService.GetExchangeRateAsync(receipt.CurrencyCode, company.CurrencyCode, receipt.PostingDate);
+                }
+            }
+        }
 
         receipt.ClearItems();
         foreach (var item in input.Items)

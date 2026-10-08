@@ -96,6 +96,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     priceListId: [''],
     currencyCode: ['MYR'],
     exchangeRate: [1],
+    useTransactionDateExchangeRate: [false],
     notes: [''],
     isReturn: [false],
     returnAgainstId: [null as string | null],
@@ -172,6 +173,13 @@ export class PurchaseInvoiceFormComponent implements OnInit {
       error: () => this.duplicateWarning.set(null)
     });
 
+    // Refetch exchange rate when issue date changes on documents using transaction date rate (PR #60180)
+    this.form.get('issueDate')?.valueChanges.subscribe(() => {
+      if (this.form.get('useTransactionDateExchangeRate')?.value) {
+        this.onCurrencyChanged();
+      }
+    });
+
     // Wire supplierInvoiceNumber input to the check stream
     this.form.get('supplierInvoiceNumber')?.valueChanges.subscribe(val => {
       if (val) this.invoiceNumberCheck$.next(val);
@@ -196,7 +204,13 @@ export class PurchaseInvoiceFormComponent implements OnInit {
           issueDate: invoice.issueDate,
           dueDate: invoice.dueDate,
           priceListId: invoice.priceListId ?? '',
+          currencyCode: invoice.currencyCode ?? 'MYR',
+          exchangeRate: invoice.exchangeRate ?? 1,
+          useTransactionDateExchangeRate: invoice.useTransactionDateExchangeRate ?? false,
         });
+        if (invoice.currencyCode && invoice.currencyCode !== 'MYR') {
+          this.isMultiCurrency.set(true);
+        }
         invoice.items?.forEach((item: any) => this.addItemRow(item));
       });
     } else {

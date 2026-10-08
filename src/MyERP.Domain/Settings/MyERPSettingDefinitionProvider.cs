@@ -69,7 +69,8 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(MyERPSettings.Buying.OverTransferAllowance, "0"),
             new SettingDefinition(MyERPSettings.Buying.BlanketOrderAllowance, "0"),
             new SettingDefinition(MyERPSettings.Buying.AllowZeroQtyInSupplierQuotation, "false"),
-            new SettingDefinition(MyERPSettings.Buying.AllowZeroQtyInRequestForQuotation, "false")
+            new SettingDefinition(MyERPSettings.Buying.AllowZeroQtyInRequestForQuotation, "false"),
+            new SettingDefinition(MyERPSettings.Buying.UseTransactionDateExchangeRate, "false")
         );
 
         // ═══════════ Manufacturing Settings ═══════════

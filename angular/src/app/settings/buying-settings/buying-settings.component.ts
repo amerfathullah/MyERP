@@ -58,6 +58,14 @@ import { ToasterService } from '@abp/ng.theme.shared';
                 </div>
               </div>
               <div class="col-md-4">
+                <div class="form-check form-switch">
+                  <input type="checkbox" class="form-check-input" id="useTxDateExRate"
+                    [ngModel]="settings['MyERP.Buying.UseTransactionDateExchangeRate'] === 'true'"
+                    (ngModelChange)="settings['MyERP.Buying.UseTransactionDateExchangeRate'] = $event ? 'true' : 'false'" name="useTxDateExRate" />
+                  <label class="form-check-label" for="useTxDateExRate">Use Transaction Date Exchange Rate</label>
+                </div>
+              </div>
+              <div class="col-md-4">
                 <label class="form-label">Rate Enforcement Action</label>
                 <select class="form-select form-select-sm" [(ngModel)]="settings['MyERP.Buying.MaintainSameRateAction']" name="bRateAction">
                   <option value="Stop">Stop</option>

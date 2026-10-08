@@ -1359,6 +1359,8 @@ public class MyERPDbContext :
             b.Property(x => x.SupplierTin).HasMaxLength(PurchaseInvoiceConsts.MaxTinLength);
             b.Property(x => x.BuyerTin).HasMaxLength(PurchaseInvoiceConsts.MaxTinLength);
             b.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(PurchaseInvoiceConsts.MaxCurrencyCodeLength);
+            b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,6)");
+            b.Property(x => x.UseTransactionDateExchangeRate);
             b.Property(x => x.NetTotal).HasColumnType("decimal(18,4)");
             b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.GrandTotal).HasColumnType("decimal(18,4)");
@@ -1405,6 +1407,8 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.ReceiptNumber).IsRequired().HasMaxLength(50);
             b.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(3);
+            b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,6)");
+            b.Property(x => x.UseTransactionDateExchangeRate);
             b.Property(x => x.SupplierDeliveryNote).HasMaxLength(100);
             b.Property(x => x.Notes).HasMaxLength(1000);
             b.Property(x => x.NetTotal).HasColumnType("decimal(18,4)");

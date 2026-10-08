@@ -23,6 +23,12 @@
             <small class="text-muted d-block">{{ '::Warehouse' | abpLocalization }}</small>
             <span class="fw-semibold">{{ receipt.warehouseName || '—' }}</span>
           </div>
+          @if (receipt.currencyCode && receipt.currencyCode !== 'MYR') {
+            <div class="col-12 col-md-4 mb-3">
+              <small class="text-muted d-block">{{ '::Currency' | abpLocalization }}</small>
+              <span class="fw-semibold">{{ receipt.currencyCode }} @ {{ receipt.exchangeRate | number:'1.4-4' }}</span>
+            </div>
+          }
         </div>
       </div>
     </div>
@@ -95,6 +101,9 @@
       <div class="card-body text-end">
         <p>{{ '::NetTotal' | abpLocalization }}: <strong class="font-monospace">{{ receipt.netTotal | number:'1.2-2' }}</strong></p>
         <p>{{ '::Tax' | abpLocalization }}: <strong class="font-monospace">{{ receipt.taxAmount | number:'1.2-2' }}</strong></p>
+        @if (receipt.currencyCode && receipt.currencyCode !== 'MYR') {
+          <p class="text-muted small mb-1">{{ '::Currency' | abpLocalization }}: {{ receipt.currencyCode }} @ {{ receipt.exchangeRate | number:'1.4-4' }}</p>
+        }
         <hr />
         <p class="fs-5">{{ '::GrandTotal' | abpLocalization }}: <strong class="font-monospace">{{ receipt.grandTotal | number:'1.2-2' }}</strong></p>
       </div>

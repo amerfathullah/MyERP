@@ -55,6 +55,8 @@ export interface CreatePurchaseInvoiceDto {
   paymentTermsTemplateId?: string | null;
   supplierInvoiceNumber?: string | null;
   currencyCode?: string;
+  exchangeRate?: number;
+  useTransactionDateExchangeRate?: boolean;
   priceListId?: string | null;
   notes?: string | null;
   costCenterId?: string | null;
@@ -140,6 +142,9 @@ export interface CreatePurchaseReceiptDto {
   isReturn?: boolean;
   returnAgainstId?: string | null;
   notes?: string | null;
+  currencyCode?: string;
+  exchangeRate?: number;
+  useTransactionDateExchangeRate?: boolean;
   items: CreatePurchaseReceiptItemDto[];
 }
 
@@ -471,6 +476,7 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   supplierTin?: string | null;
   currencyCode?: string;
   exchangeRate?: number;
+  useTransactionDateExchangeRate?: boolean;
   priceListId?: string | null;
   netTotal?: number;
   taxAmount?: number;
@@ -620,6 +626,8 @@ export interface PurchaseReceiptDto extends EntityDto<string> {
   warehouseName?: string | null;
   supplierDeliveryNote?: string | null;
   currencyCode?: string;
+  exchangeRate?: number;
+  useTransactionDateExchangeRate?: boolean;
   netTotal?: number;
   taxAmount?: number;
   grandTotal?: number;

@@ -93,6 +93,7 @@ public static class MyERPSettings
         public const string AllowZeroQtyInSupplierQuotation = G + ".AllowZeroQtyInSupplierQuotation";
         public const string AllowZeroQtyInRequestForQuotation = G + ".AllowZeroQtyInRequestForQuotation";
         public const string SetLandedCostBasedOnPurchaseInvoiceRate = G + ".SetLandedCostBasedOnPurchaseInvoiceRate";
+        public const string UseTransactionDateExchangeRate = G + ".UseTransactionDateExchangeRate";
     }
 
     // ═══════════════════════════════════════════════════

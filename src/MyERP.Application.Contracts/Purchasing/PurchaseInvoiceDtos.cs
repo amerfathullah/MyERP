@@ -18,6 +18,7 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public string? SupplierTin { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public decimal ExchangeRate { get; set; } = 1m;
+    public bool UseTransactionDateExchangeRate { get; set; }
     public Guid? PriceListId { get; set; }
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
@@ -157,6 +158,8 @@ public class CreatePurchaseInvoiceDto
     public Guid? PaymentTermsTemplateId { get; set; }
     [StringLength(100)] public string? SupplierInvoiceNumber { get; set; }
     [StringLength(3)] public string CurrencyCode { get; set; } = "MYR";
+    public decimal ExchangeRate { get; set; } = 1m;
+    public bool UseTransactionDateExchangeRate { get; set; }
     /// <summary>Buying Price List. When omitted, defaults from Supplier.DefaultPriceListId.</summary>
     public Guid? PriceListId { get; set; }
     public string? Notes { get; set; }

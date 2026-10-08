@@ -1,13 +1,16 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.Entities;
 using MyERP.Purchasing.Entities;
+using MyERP.Settings;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Modularity;
+using Volo.Abp.SettingManagement;
 using Xunit;
 
 namespace MyERP.Purchasing;
@@ -101,6 +104,176 @@ public abstract class PurchaseConversionAppServiceTests<TStartupModule> : MyERPA
             var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(async () =>
                 await conversionService.ConvertMaterialRequestToRfqAsync(mr.Id));
             ex.Code.ShouldBe(MyERPDomainErrorCodes.DocumentAlreadyConverted);
+        });
+    }
+
+    [Fact]
+    public async Task ConvertPurchaseOrderToReceipt_WithUseTransactionDateExchangeRate_UsesTransactionDateRate()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var warehouseRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var poRepo = GetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            var ceRepo = GetRequiredService<IRepository<CurrencyExchange, Guid>>();
+            var settingManager = GetRequiredService<ISettingManager>();
+            var conversionService = GetRequiredService<IPurchaseConversionAppService>();
+
+            await settingManager.SetGlobalAsync(MyERPSettings.Buying.UseTransactionDateExchangeRate, "true");
+
+            try
+            {
+                var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PR Exchange Test Co") { CurrencyCode = "MYR" }, autoSave: true);
+                var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "Supplier FX"), autoSave: true);
+                var warehouse = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "FX Main WH", company.TenantId), autoSave: true);
+                var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "ITEM-FX-1", "FX Item", ItemType.Goods), autoSave: true);
+
+                await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PRS", "PurchaseReceipt", "PR-"), autoSave: true);
+                await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PIS", "PurchaseInvoice", "PI-"), autoSave: true);
+
+                await ceRepo.InsertAsync(new CurrencyExchange(Guid.NewGuid(), "USD", "MYR", 4.85m, DateTime.UtcNow.Date), autoSave: true);
+
+                var po = new PurchaseOrder(Guid.NewGuid(), company.Id, supplier.Id, "PO-FX-001", DateTime.UtcNow.Date.AddDays(-5), company.TenantId)
+                {
+                    CurrencyCode = "USD",
+                    ExchangeRate = 4.20m
+                };
+                po.AddItem(item.Id, "FX Item", 10m, 100m, 0m, "Unit", warehouse.Id);
+                po.Submit();
+                await poRepo.InsertAsync(po, autoSave: true);
+
+                var prDto = await conversionService.ConvertPurchaseOrderToReceiptAsync(po.Id);
+                prDto.ShouldNotBeNull();
+                prDto.CurrencyCode.ShouldBe("USD");
+                prDto.ExchangeRate.ShouldBe(4.85m);
+                prDto.UseTransactionDateExchangeRate.ShouldBeTrue();
+
+                var piDto = await conversionService.ConvertPurchaseOrderToInvoiceAsync(po.Id);
+                piDto.ShouldNotBeNull();
+                piDto.CurrencyCode.ShouldBe("USD");
+                piDto.ExchangeRate.ShouldBe(4.85m);
+                piDto.UseTransactionDateExchangeRate.ShouldBeTrue();
+            }
+            finally
+            {
+                await settingManager.SetGlobalAsync(MyERPSettings.Buying.UseTransactionDateExchangeRate, "false");
+            }
+        });
+    }
+
+    [Fact]
+    public async Task ConvertPurchaseOrderToReceipt_WithoutUseTransactionDateExchangeRate_PreservesOrderRate()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var warehouseRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var poRepo = GetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            var ceRepo = GetRequiredService<IRepository<CurrencyExchange, Guid>>();
+            var settingManager = GetRequiredService<ISettingManager>();
+            var conversionService = GetRequiredService<IPurchaseConversionAppService>();
+
+            await settingManager.SetGlobalAsync(MyERPSettings.Buying.UseTransactionDateExchangeRate, "false");
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PR NoFx Test Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "Supplier NoFx"), autoSave: true);
+            var warehouse = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "NoFx Main WH", company.TenantId), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "ITEM-NOFX-1", "NoFx Item", ItemType.Goods), autoSave: true);
+
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PRS", "PurchaseReceipt", "PR-"), autoSave: true);
+            await ceRepo.InsertAsync(new CurrencyExchange(Guid.NewGuid(), "USD", "MYR", 4.85m, DateTime.UtcNow.Date), autoSave: true);
+
+            var po = new PurchaseOrder(Guid.NewGuid(), company.Id, supplier.Id, "PO-NOFX-001", DateTime.UtcNow.Date.AddDays(-5), company.TenantId)
+            {
+                CurrencyCode = "USD",
+                ExchangeRate = 4.20m
+            };
+            po.AddItem(item.Id, "NoFx Item", 10m, 100m, 0m, "Unit", warehouse.Id);
+            po.Submit();
+            await poRepo.InsertAsync(po, autoSave: true);
+
+            var prDto = await conversionService.ConvertPurchaseOrderToReceiptAsync(po.Id);
+
+            prDto.ShouldNotBeNull();
+            prDto.CurrencyCode.ShouldBe("USD");
+            prDto.ExchangeRate.ShouldBe(4.20m);
+            prDto.UseTransactionDateExchangeRate.ShouldBeFalse();
+        });
+    }
+
+    [Fact]
+    public async Task ConvertPurchaseReceiptToInvoice_And_ConvertPurchaseInvoiceToReceipt_PreserveSourceRates()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var warehouseRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var prRepo = GetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+            var piRepo = GetRequiredService<IRepository<PurchaseInvoice, Guid>>();
+            var ceRepo = GetRequiredService<IRepository<CurrencyExchange, Guid>>();
+            var settingManager = GetRequiredService<ISettingManager>();
+            var conversionService = GetRequiredService<IPurchaseConversionAppService>();
+
+            await settingManager.SetGlobalAsync(MyERPSettings.Buying.UseTransactionDateExchangeRate, "true");
+
+            try
+            {
+                var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PR to PI Preserved Co") { CurrencyCode = "MYR" }, autoSave: true);
+                var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "Supplier Preserved"), autoSave: true);
+                var warehouse = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Preserved WH", company.TenantId), autoSave: true);
+                var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "ITEM-PRES-1", "Preserved Item", ItemType.Goods), autoSave: true);
+
+                await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PIS", "PurchaseInvoice", "PI-"), autoSave: true);
+                await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PRS", "PurchaseReceipt", "PR-"), autoSave: true);
+
+                await ceRepo.InsertAsync(new CurrencyExchange(Guid.NewGuid(), "USD", "MYR", 4.90m, DateTime.UtcNow.Date), autoSave: true);
+
+                // Case 1: PR -> PI keeps PR rate
+                var pr = new PurchaseReceipt(Guid.NewGuid(), company.Id, supplier.Id, warehouse.Id, "PR-PRES-001", DateTime.UtcNow.Date, company.TenantId)
+                {
+                    CurrencyCode = "USD",
+                    ExchangeRate = 4.30m
+                };
+                pr.AddItem(item.Id, "Preserved Item", 10m, 50m, 0m, "Unit");
+                pr.Submit();
+                await prRepo.InsertAsync(pr, autoSave: true);
+
+                var piDto = await conversionService.ConvertPurchaseReceiptToInvoiceAsync(pr.Id);
+                piDto.ShouldNotBeNull();
+                piDto.CurrencyCode.ShouldBe("USD");
+                piDto.ExchangeRate.ShouldBe(4.30m);
+                piDto.UseTransactionDateExchangeRate.ShouldBeFalse();
+
+                // Case 2: PI -> PR keeps PI rate
+                var pi = new PurchaseInvoice(Guid.NewGuid(), company.Id, supplier.Id, "PI-PRES-001", DateTime.UtcNow.Date, company.TenantId)
+                {
+                    CurrencyCode = "USD",
+                    ExchangeRate = 4.40m,
+                    WarehouseId = warehouse.Id
+                };
+                pi.AddItem(item.Id, "Preserved Item", 5m, 50m, 0m, "Unit", warehouse.Id);
+                pi.Submit();
+                await piRepo.InsertAsync(pi, autoSave: true);
+
+                var prFromPiDto = await conversionService.ConvertPurchaseInvoiceToReceiptAsync(pi.Id);
+                prFromPiDto.ShouldNotBeNull();
+                prFromPiDto.CurrencyCode.ShouldBe("USD");
+                prFromPiDto.ExchangeRate.ShouldBe(4.40m);
+                prFromPiDto.UseTransactionDateExchangeRate.ShouldBeFalse();
+            }
+            finally
+            {
+                await settingManager.SetGlobalAsync(MyERPSettings.Buying.UseTransactionDateExchangeRate, "false");
+            }
         });
     }
 }

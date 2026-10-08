@@ -65,6 +65,12 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>Exchange rate for multi-currency receipts (transaction → company currency).</summary>
     public decimal ExchangeRate { get; set; } = 1m;
 
+    /// <summary>
+    /// Whether the exchange rate was fetched for the receipt's posting date rather than copied from the Purchase Order.
+    /// Per ERPNext PR #60180 (Buying Settings: use_transaction_date_exchange_rate).
+    /// </summary>
+    public bool UseTransactionDateExchangeRate { get; set; }
+
     // IAccountableDocument
     string IAccountableDocument.DocumentType => "PurchaseReceipt";
     Guid? IAccountableDocument.CustomerId => null;
