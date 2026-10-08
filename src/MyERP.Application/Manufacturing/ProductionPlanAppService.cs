@@ -666,7 +666,22 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             }
         }
 
-        if (!itemsNeedingWo.Any())
+        var subAssembliesNeedingWo = new List<(ProductionPlanMrItem Item, decimal QtyToOrder)>();
+        foreach (var mr in plan.MaterialRequirements.Where(m => m.ProcurementType == SubAssemblyType.InHouseManufacturing))
+        {
+            if (Math.Round(mr.PlannedQty, 4) <= 0) continue;
+            var committed = existingWos
+                .Where(w => w.ProductionPlanSubAssemblyItemId == mr.Id)
+                .Sum(w => w.Quantity - w.ProcessLossQty);
+            mr.OrderedQty = committed;
+            var pending = Math.Max(0, Math.Round(mr.PlannedQty - committed, 4));
+            if (pending > 0)
+            {
+                subAssembliesNeedingWo.Add((mr, pending));
+            }
+        }
+
+        if (!itemsNeedingWo.Any() && !subAssembliesNeedingWo.Any())
             throw new BusinessException(MyERPDomainErrorCodes.ProductionPlanWorkOrdersAlreadyGenerated);
 
         var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
@@ -674,8 +689,11 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
         // Batch load BOMs to prevent N+1 queries during bulk Work Order generation (ERPNext PR #57154)
         var bomIds = itemsNeedingWo.Select(i => i.Item.BomId).Where(id => id != Guid.Empty).Distinct().ToList();
+        var saItemIds = subAssembliesNeedingWo.Select(s => s.Item.ItemId).Distinct().ToList();
         var bomQuery = await _bomRepository.WithDetailsAsync();
         var bomMap = bomQuery.Where(b => bomIds.Contains(b.Id) && b.IsActive).ToList().ToDictionary(b => b.Id);
+        var saBoms = bomQuery.Where(b => saItemIds.Contains(b.ItemId) && b.IsActive).ToList();
+        var saBomMap = saBoms.GroupBy(b => b.ItemId).ToDictionary(g => g.Key, g => g.OrderByDescending(b => b.IsDefault).First());
 
         // Per ERPNext PR #58510 & #58511: throw when manufactured items have no active BOM
         var missingBomItems = new List<string>();
@@ -685,6 +703,14 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             {
                 if (!missingBomItems.Contains(item.ItemName))
                     missingBomItems.Add(item.ItemName);
+            }
+        }
+        foreach (var (saItem, _) in subAssembliesNeedingWo)
+        {
+            if (!saBomMap.ContainsKey(saItem.ItemId))
+            {
+                if (!missingBomItems.Contains(saItem.ItemName))
+                    missingBomItems.Add(saItem.ItemName);
             }
         }
 
@@ -712,6 +738,10 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             }
         }
 
+        var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
+        var woManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.DomainServices.WorkOrderManager>();
+        var sreManager = LazyServiceProvider.LazyGetService<MyERP.Inventory.DomainServices.StockReservationManager>();
+
         foreach (var (item, qtyToOrder) in itemsNeedingWo)
         {
             var bom = bomMap[item.BomId];
@@ -733,8 +763,6 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             wo.SetPlannedDates(item.PlannedStartDate, null);
 
             // Populate required items from BOM (with recursive phantom explosion per PR #59445)
-            var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
-            var woManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.DomainServices.WorkOrderManager>();
             var reqs = await woManager.CalculateMaterialRequirementsAsync(bom.Id, qtyToOrder);
             foreach (var req in reqs)
             {
@@ -752,7 +780,56 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             item.OrderedQty += qtyToOrder;
 
             // Transfer stock reservations from Production Plan to Work Order (ERPNext commit 0bc3cfe29d)
-            var sreManager = LazyServiceProvider.LazyGetService<MyERP.Inventory.DomainServices.StockReservationManager>();
+            if (sreManager != null)
+            {
+                foreach (var reqItem in wo.RequiredItems)
+                {
+                    if (reqItem.SourceWarehouseId.HasValue)
+                    {
+                        await sreManager.TransferReservationEntriesAsync(
+                            "ProductionPlan", plan.Id,
+                            "WorkOrder", wo.Id,
+                            reqItem.ItemId, reqItem.SourceWarehouseId.Value,
+                            reqItem.RequiredQuantity, reqItem.Id);
+                    }
+                }
+            }
+        }
+
+        foreach (var (subItem, qtyToOrder) in subAssembliesNeedingWo)
+        {
+            var bom = saBomMap[subItem.ItemId];
+
+            var woNumber = await _numberGenerator.GenerateAsync("WO", plan.CompanyId);
+            var wo = new WorkOrder(
+                GuidGenerator.Create(), plan.CompanyId, woNumber,
+                subItem.ItemId, bom.Id, qtyToOrder, CurrentTenant.Id)
+            {
+                ProductionPlanId = plan.Id,
+                ProductionPlanSubAssemblyItemId = subItem.Id,
+                SourceWarehouseId = bom.SourceWarehouseId,
+                FgWarehouseId = subItem.WarehouseId ?? bom.TargetWarehouseId ?? plan.ForWarehouseId,
+                WipWarehouseId = company?.DefaultWipWarehouseId,
+                ScrapWarehouseId = bom.ScrapWarehouseId ?? company?.DefaultScrapWarehouseId,
+                TrackSemiFinishedGoods = bom.TrackSemiFinishedGoods,
+            };
+
+            var reqs = await woManager.CalculateMaterialRequirementsAsync(bom.Id, qtyToOrder);
+            foreach (var req in reqs)
+            {
+                var rawWarehouseId = req.SourceWarehouseId
+                    ?? bom.SourceWarehouseId
+                    ?? await itemDefaultsService.ResolveWarehouseAsync(req.ItemId, plan.CompanyId);
+
+                wo.RequiredItems.Add(new WorkOrderItem(
+                    GuidGenerator.Create(), wo.Id, req.ItemId, req.ItemName, req.RequiredQty)
+                { SourceWarehouseId = rawWarehouseId });
+            }
+
+            await _workOrderRepository.InsertAsync(wo);
+            subItem.OrderedQty += qtyToOrder;
+
+            // Transfer stock reservations from Production Plan to Work Order
             if (sreManager != null)
             {
                 foreach (var reqItem in wo.RequiredItems)

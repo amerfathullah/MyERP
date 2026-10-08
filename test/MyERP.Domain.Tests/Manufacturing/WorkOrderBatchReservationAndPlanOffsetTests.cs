@@ -5,7 +5,9 @@ using System.Threading.Tasks;
 using MyERP.Core;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Manufacturing;
 using MyERP.Manufacturing.DomainServices;
+using MyERP.Manufacturing.Entities;
 using NSubstitute;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
@@ -227,5 +229,89 @@ public class WorkOrderBatchReservationAndPlanOffsetTests
 
         sre.ConsumedQty = 55m; // exceeds remaining
         StockReservationManager.GetHeldQty(sre).ShouldBe(0m);
+    }
+
+    [Fact]
+    public async Task GetReservedQtyForProductionPlanAsync_WorkOrderWithoutSourceWarehouse_KeepsPlanReservationOpen()
+    {
+        // Per ERPNext PR #60134 / commit a8c31c6afc:
+        // A sub-assembly Work Order that takes its raw material without a source warehouse keeps the plan reservation open.
+        var planRepo = Substitute.For<IRepository<ProductionPlan, Guid>>();
+        var woRepo = Substitute.For<IRepository<WorkOrder, Guid>>();
+
+        var plan = new ProductionPlan(Guid.NewGuid(), _companyId, "PP-001", DateTime.UtcNow);
+        plan.AddPlannedItem(new ProductionPlanItem(Guid.NewGuid(), plan.Id, _itemId, "FG Item", Guid.NewGuid(), 5m));
+        var mrItem = new ProductionPlanMrItem(Guid.NewGuid(), plan.Id, _itemId, "RM Item", 5m)
+        {
+            WarehouseId = _warehouseA
+        };
+        plan.AddMaterialRequirement(mrItem);
+        plan.Submit();
+
+        var wo = new WorkOrder(Guid.NewGuid(), _companyId, "WO-001", _itemId, Guid.NewGuid(), 5m)
+        {
+            ProductionPlanId = plan.Id
+        };
+        // Raw material item in Work Order without a source warehouse
+        wo.RequiredItems.Add(new WorkOrderItem(Guid.NewGuid(), wo.Id, _itemId, "RM Item", 5m)
+        {
+            SourceWarehouseId = null
+        });
+        wo.Submit();
+
+        planRepo.GetQueryableAsync().Returns(Task.FromResult(new List<ProductionPlan> { plan }.AsQueryable()));
+        woRepo.GetQueryableAsync().Returns(Task.FromResult(new List<WorkOrder> { wo }.AsQueryable()));
+
+        var service = new ProductionPlanReservationService(planRepo, woRepo);
+        var reservedQty = await service.GetReservedQtyForProductionPlanAsync(_itemId, _warehouseA);
+
+        reservedQty.ShouldBe(5m);
+    }
+
+    [Fact]
+    public async Task GetReservedQtyForProductionPlanAsync_SubAssemblyTakenFromStock_ReservesFullRequiredQtyAndOffsetsOnWo()
+    {
+        // Per ERPNext PR #60134 / commit a8c31c6afc:
+        // Sub-assembly item taken from stock reserves full required BOM qty (10) for the plan,
+        // and transitions to 0 once the Work Order with matching warehouse is submitted.
+        var planRepo = Substitute.For<IRepository<ProductionPlan, Guid>>();
+        var woRepo = Substitute.For<IRepository<WorkOrder, Guid>>();
+
+        var subAssemblyItemId = Guid.NewGuid();
+        var plan = new ProductionPlan(Guid.NewGuid(), _companyId, "PP-002", DateTime.UtcNow);
+        plan.AddPlannedItem(new ProductionPlanItem(Guid.NewGuid(), plan.Id, _itemId, "FG Item", Guid.NewGuid(), 10m));
+
+        // Sub-assembly item in plan: required qty = 10, planned qty = 5 (due to 5 already in stock)
+        var saMrItem = new ProductionPlanMrItem(Guid.NewGuid(), plan.Id, subAssemblyItemId, "Sub Assembly", 10m)
+        {
+            WarehouseId = _warehouseA,
+            PlannedQty = 5m,
+            ProcurementType = SubAssemblyType.InHouseManufacturing
+        };
+        plan.AddMaterialRequirement(saMrItem);
+        plan.Submit();
+
+        // 1. Before Work Orders: Plan reserves all 10 units at warehouse A
+        planRepo.GetQueryableAsync().Returns(Task.FromResult(new List<ProductionPlan> { plan }.AsQueryable()));
+        woRepo.GetQueryableAsync().Returns(Task.FromResult(new List<WorkOrder>().AsQueryable()));
+
+        var service = new ProductionPlanReservationService(planRepo, woRepo);
+        var reservedBeforeWo = await service.GetReservedQtyForProductionPlanAsync(subAssemblyItemId, _warehouseA);
+        reservedBeforeWo.ShouldBe(10m);
+
+        // 2. After FG Work Order submitted (requiring 10 sub-assemblies from warehouse A):
+        var fgWo = new WorkOrder(Guid.NewGuid(), _companyId, "WO-FG-002", _itemId, Guid.NewGuid(), 10m)
+        {
+            ProductionPlanId = plan.Id
+        };
+        fgWo.RequiredItems.Add(new WorkOrderItem(Guid.NewGuid(), fgWo.Id, subAssemblyItemId, "Sub Assembly", 10m)
+        {
+            SourceWarehouseId = _warehouseA
+        });
+        fgWo.Submit();
+
+        woRepo.GetQueryableAsync().Returns(Task.FromResult(new List<WorkOrder> { fgWo }.AsQueryable()));
+        var reservedAfterWo = await service.GetReservedQtyForProductionPlanAsync(subAssemblyItemId, _warehouseA);
+        reservedAfterWo.ShouldBe(0m);
     }
 }
