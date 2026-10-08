@@ -77,6 +77,8 @@ export class MaterialRequestListComponent implements OnInit {
   }
 
   getStatusLabel(status: number): string {
+    if (status === 13) return 'Received';
+    if (status === 14) return 'Stopped';
     return ['Draft', 'Submitted', 'Approved', 'Posted', 'Cancelled', 'Rejected'][status] ?? 'Draft';
   }
 

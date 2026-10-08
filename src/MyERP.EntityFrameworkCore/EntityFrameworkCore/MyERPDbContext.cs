@@ -1398,6 +1398,7 @@ public class MyERPDbContext :
             b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.BillsRejectedQuantity);
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
+            b.HasIndex(x => x.MaterialRequestItemId);
         });
 
         // Purchase Receipts
@@ -1435,6 +1436,7 @@ public class MyERPDbContext :
             b.Property(x => x.BilledQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.AmountDifferenceWithPurchaseInvoice).HasColumnType("decimal(18,4)");
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
+            b.HasIndex(x => x.MaterialRequestItemId);
         });
 
         // Material Requests

@@ -57,6 +57,9 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Link to Purchase Receipt item (for receipt-to-bill traceability).</summary>
     public Guid? PurchaseReceiptItemId { get; set; }
 
+    /// <summary>Link to Material Request item (for receipt tracking when UpdateStock=true per ERPNext PR #60208 / commit ba48a9d0ad).</summary>
+    public Guid? MaterialRequestItemId { get; set; }
+
     /// <summary>Source warehouse for internal transfer (when UpdateStock=true).</summary>
     public Guid? FromWarehouseId { get; set; }
 
@@ -150,7 +153,8 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
 
     public PurchaseInvoiceItem(
         Guid id, Guid purchaseInvoiceId, Guid itemId,
-        string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit")
+        string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit",
+        Guid? materialRequestItemId = null)
         : base(id)
     {
         PurchaseInvoiceId = purchaseInvoiceId;
@@ -160,6 +164,7 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
         UnitPrice = unitPrice;
         TaxAmount = taxAmount;
         Uom = uom;
+        MaterialRequestItemId = materialRequestItemId;
     }
 
     /// <summary>

@@ -79,6 +79,8 @@ export interface MrItemFulfillmentDto {
   itemId?: string;
   requestedQty?: number;
   orderedQty?: number;
+  receivedQty?: number;
   pendingQty?: number;
   perOrdered?: number;
+  perReceived?: number;
 }

@@ -133,4 +133,27 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = DocumentStatus.Submitted;
     }
+
+    /// <summary>
+    /// Updates the fulfillment status based on PerReceived and PerOrdered completion.
+    /// Per ERPNext status_updater: transitions to Received (Completed) when PerReceived >= 99.99%.
+    /// </summary>
+    public void UpdateFulfillmentStatus()
+    {
+        if (Status is DocumentStatus.Draft or DocumentStatus.Cancelled or DocumentStatus.Closed)
+            return;
+
+        if (PerReceived >= 99.99m)
+        {
+            Status = DocumentStatus.Completed;
+        }
+        else if (PerOrdered >= 99.99m && RequestType != MaterialRequestType.Purchase)
+        {
+            Status = DocumentStatus.Completed;
+        }
+        else
+        {
+            Status = DocumentStatus.Submitted;
+        }
+    }
 }

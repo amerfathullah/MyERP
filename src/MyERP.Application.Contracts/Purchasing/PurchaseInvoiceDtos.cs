@@ -93,6 +93,7 @@ public class PurchaseInvoiceItemDto
     public decimal LineTotal { get; set; }
     public Guid? PurchaseOrderItemId { get; set; }
     public Guid? PurchaseReceiptItemId { get; set; }
+    public Guid? MaterialRequestItemId { get; set; }
     public Guid? FromWarehouseId { get; set; }
     public Guid? WarehouseId { get; set; }
     public bool DeliveredBySupplier { get; set; }
@@ -222,6 +223,7 @@ public class CreatePurchaseInvoiceItemDto
     public DateTime? ServiceStopDate { get; set; }
     public Guid? PurchaseOrderItemId { get; set; }
     public Guid? PurchaseReceiptItemId { get; set; }
+    public Guid? MaterialRequestItemId { get; set; }
     public Guid? FromWarehouseId { get; set; }
     public bool DeliveredBySupplier { get; set; }
 

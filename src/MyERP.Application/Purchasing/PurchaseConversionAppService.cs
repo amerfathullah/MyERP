@@ -110,6 +110,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
                 var lastItem = receipt.Items[^1];
                 lastItem.StockUom = item.StockUom;
                 lastItem.ConversionFactor = item.ConversionFactor;
+                lastItem.MaterialRequestItemId = item.MaterialRequestItemId;
                 // Propagate per-item warehouse override
                 if (item.WarehouseId.HasValue)
                     lastItem.WarehouseId = item.WarehouseId;
@@ -185,6 +186,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
                 invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, itemTax, item.Uom);
                 var lastItem = invoice.Items.Last();
                 lastItem.PurchaseOrderItemId = item.Id;
+                lastItem.MaterialRequestItemId = item.MaterialRequestItemId;
                 lastItem.StockUom = item.StockUom;
                 lastItem.ConversionFactor = item.ConversionFactor;
             }
@@ -259,6 +261,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             var lastItem = invoice.Items.Last();
             lastItem.PurchaseOrderItemId = item.PurchaseOrderItemId;
             lastItem.PurchaseReceiptItemId = item.Id;
+            lastItem.MaterialRequestItemId = item.MaterialRequestItemId;
             lastItem.StockUom = item.StockUom;
             lastItem.ConversionFactor = item.ConversionFactor;
         }
@@ -337,6 +340,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
             var lastItem = receipt.Items[^1];
             lastItem.StockUom = item.StockUom;
             lastItem.ConversionFactor = item.ConversionFactor;
+            lastItem.MaterialRequestItemId = item.MaterialRequestItemId;
             if (item.WarehouseId.HasValue)
                 lastItem.WarehouseId = item.WarehouseId;
         }

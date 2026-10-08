@@ -306,7 +306,8 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 item.RejectedQty,
                 item.RejectedWarehouseId,
                 item.ReceivedQty,
-                item.FromWarehouseId);
+                item.FromWarehouseId,
+                item.MaterialRequestItemId);
         }
 
         // Resolve UOM conversion factors
@@ -488,7 +489,9 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 item.WarehouseId,
                 item.RejectedQty,
                 item.RejectedWarehouseId,
-                item.ReceivedQty);
+                item.ReceivedQty,
+                fromWarehouseId: null,
+                materialRequestItemId: item.MaterialRequestItemId);
         }
 
         var allowMultipleUpdate = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);
@@ -856,6 +859,9 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             }
         }
 
+        // Update Material Request fulfillment tracking for received items (ERPNext PR #60208)
+        await UpdateMaterialRequestReceivedQtyAsync(receipt, isReversal: receipt.IsReturn);
+
         await _repository.UpdateAsync(receipt, autoSave: true);
 
         // Auto-evaluate supplier scorecard after goods receipt
@@ -1129,8 +1135,11 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         // Cancel reversal: restore PO ReceivedQty (with concurrency retry)
         if (receipt.PurchaseOrderId.HasValue)
         {
-            await UpdatePoFulfillmentWithRetryAsync(receipt.PurchaseOrderId.Value, receipt.Items, isReversal: true);
+            await UpdatePoFulfillmentWithRetryAsync(receipt.PurchaseOrderId.Value, receipt.Items, isReversal: !receipt.IsReturn);
         }
+
+        // Reverse Material Request fulfillment tracking for received items (ERPNext PR #60208)
+        await UpdateMaterialRequestReceivedQtyAsync(receipt, isReversal: !receipt.IsReturn);
 
         await _repository.UpdateAsync(receipt, autoSave: true);
 
@@ -1377,5 +1386,49 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             }
         }
         return results;
+    }
+
+    /// <summary>
+    /// Updates Material Request items' ReceivedQuantity when Purchase Receipt is submitted or cancelled.
+    /// Supports combining receipt quantities on mixed receipts per ERPNext PR #60208 / commit ba48a9d0ad.
+    /// </summary>
+    private async Task UpdateMaterialRequestReceivedQtyAsync(PurchaseReceipt receipt, bool isReversal)
+    {
+        var mrManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.MaterialRequestManager>();
+
+        PurchaseOrder? po = null;
+        if (receipt.PurchaseOrderId.HasValue)
+        {
+            po = await _purchaseOrderRepository.FindAsync(receipt.PurchaseOrderId.Value);
+        }
+
+        var lines = new List<(Guid MaterialRequestItemId, decimal Quantity)>();
+        foreach (var item in receipt.Items)
+        {
+            var mrItemId = item.MaterialRequestItemId;
+            if (!mrItemId.HasValue && item.PurchaseOrderItemId.HasValue && po != null)
+            {
+                var poItem = po.Items.FirstOrDefault(i => i.Id == item.PurchaseOrderItemId.Value);
+                if (poItem?.MaterialRequestItemId != null)
+                {
+                    mrItemId = poItem.MaterialRequestItemId;
+                    item.MaterialRequestItemId = mrItemId;
+                }
+            }
+
+            if (mrItemId.HasValue)
+            {
+                var qty = Math.Abs(item.StockQty);
+                if (qty > 0)
+                {
+                    lines.Add((mrItemId.Value, qty));
+                }
+            }
+        }
+
+        if (lines.Count > 0)
+        {
+            await mrManager.UpdateReceiptFulfillmentForItemsAsync(lines, reverse: isReversal);
+        }
     }
 }

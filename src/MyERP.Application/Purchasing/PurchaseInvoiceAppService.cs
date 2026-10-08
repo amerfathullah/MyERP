@@ -770,6 +770,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             added.FromWarehouseId = item.FromWarehouseId;
             added.PurchaseOrderItemId = item.PurchaseOrderItemId;
             added.PurchaseReceiptItemId = item.PurchaseReceiptItemId;
+            added.MaterialRequestItemId = item.MaterialRequestItemId;
             added.DeliveredBySupplier = item.DeliveredBySupplier;
 
             if (item.EnableDeferredExpense)
@@ -959,6 +960,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             added.FromWarehouseId = item.FromWarehouseId;
             added.PurchaseOrderItemId = item.PurchaseOrderItemId;
             added.PurchaseReceiptItemId = item.PurchaseReceiptItemId;
+            added.MaterialRequestItemId = item.MaterialRequestItemId;
             added.DeliveredBySupplier = item.DeliveredBySupplier;
 
             if (item.EnableDeferredExpense)
@@ -1612,6 +1614,12 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var piMgr = LazyServiceProvider.LazyGetRequiredService<PurchaseInvoiceManager>();
         await piMgr.UpdateLinkedPurchaseReceiptBillingAsync(invoice);
 
+        // Update stock fulfillment tracking for linked PO and Material Request when UpdateStock=true (ERPNext PR #60208)
+        if (invoice.UpdateStock)
+        {
+            await UpdateStockFulfillmentWithRetryAsync(invoice, isReversal: invoice.IsReturn);
+        }
+
         await _repository.UpdateAsync(invoice, autoSave: true);
 
         // Audit trail
@@ -1894,6 +1902,12 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         // Reverse PR BilledQty (domain service)
         var piMgrCancel = LazyServiceProvider.LazyGetRequiredService<PurchaseInvoiceManager>();
         await piMgrCancel.UpdateLinkedPurchaseReceiptBillingAsync(invoice, reverse: true);
+
+        // Reverse stock fulfillment tracking for linked PO and Material Request when UpdateStock=true (ERPNext PR #60208)
+        if (invoice.UpdateStock)
+        {
+            await UpdateStockFulfillmentWithRetryAsync(invoice, isReversal: !invoice.IsReturn);
+        }
 
         await _repository.UpdateAsync(invoice, autoSave: true);
 
@@ -2270,5 +2284,115 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 Status = pe.Status.ToString()
             }).ToList();
         return payments;
+    }
+
+    /// <summary>
+    /// Updates PO ReceivedQty and Material Request ReceivedQuantity when Purchase Invoice has UpdateStock=true.
+    /// Supports combining receipt quantities on mixed receipts per ERPNext PR #60208 / commit ba48a9d0ad.
+    /// </summary>
+    private async Task UpdateStockFulfillmentWithRetryAsync(PurchaseInvoice invoice, bool isReversal)
+    {
+        if (!invoice.UpdateStock) return;
+
+        var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+        var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+        var mrManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.MaterialRequestManager>();
+
+        var poItemIds = invoice.Items
+            .Where(i => i.PurchaseOrderItemId.HasValue)
+            .Select(i => i.PurchaseOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        List<PurchaseOrder> affectedOrders = new();
+        if (poItemIds.Count > 0)
+        {
+            var orderQuery = await poRepo.GetQueryableAsync();
+            affectedOrders = orderQuery
+                .Where(po => po.Items.Any(poi => poItemIds.Contains(poi.Id)))
+                .ToList();
+        }
+
+        var prItemIds = invoice.Items
+            .Where(i => i.PurchaseReceiptItemId.HasValue)
+            .Select(i => i.PurchaseReceiptItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        List<PurchaseReceipt> affectedReceipts = new();
+        if (prItemIds.Count > 0)
+        {
+            var prQuery = await prRepo.GetQueryableAsync();
+            affectedReceipts = prQuery
+                .Where(pr => pr.Items.Any(pri => prItemIds.Contains(pri.Id)))
+                .ToList();
+        }
+
+        // 1. Update PO ReceivedQty (stock-updating invoice acts as receipt against PO)
+        if (affectedOrders.Count > 0)
+        {
+            foreach (var po in affectedOrders)
+            {
+                foreach (var piItem in invoice.Items.Where(i => i.PurchaseOrderItemId.HasValue))
+                {
+                    var poItem = po.Items.FirstOrDefault(i => i.Id == piItem.PurchaseOrderItemId!.Value);
+                    if (poItem == null) continue;
+
+                    var qty = Math.Abs(piItem.Quantity);
+                    if (isReversal)
+                    {
+                        poItem.ReceivedQty = Math.Max(0, poItem.ReceivedQty - qty);
+                    }
+                    else
+                    {
+                        poItem.ReceivedQty += qty;
+                        var receiptDate = DateTime.UtcNow.Date;
+                        poItem.FirstReceiptDate ??= receiptDate;
+                        poItem.LastReceiptDate = receiptDate;
+                    }
+                }
+                po.UpdateFulfillmentStatus();
+                await poRepo.UpdateAsync(po, autoSave: true);
+            }
+        }
+
+        // 2. Update Material Request ReceivedQuantity
+        var mrLines = new List<(Guid MaterialRequestItemId, decimal Quantity)>();
+        foreach (var item in invoice.Items)
+        {
+            var mrItemId = item.MaterialRequestItemId;
+            if (!mrItemId.HasValue && item.PurchaseOrderItemId.HasValue)
+            {
+                var poItem = affectedOrders.SelectMany(p => p.Items).FirstOrDefault(i => i.Id == item.PurchaseOrderItemId.Value);
+                if (poItem?.MaterialRequestItemId != null)
+                {
+                    mrItemId = poItem.MaterialRequestItemId;
+                    item.MaterialRequestItemId = mrItemId;
+                }
+            }
+            if (!mrItemId.HasValue && item.PurchaseReceiptItemId.HasValue)
+            {
+                var prItem = affectedReceipts.SelectMany(r => r.Items).FirstOrDefault(i => i.Id == item.PurchaseReceiptItemId.Value);
+                if (prItem?.MaterialRequestItemId != null)
+                {
+                    mrItemId = prItem.MaterialRequestItemId;
+                    item.MaterialRequestItemId = mrItemId;
+                }
+            }
+
+            if (mrItemId.HasValue)
+            {
+                var stockQty = Math.Abs(item.StockQty);
+                if (stockQty > 0)
+                {
+                    mrLines.Add((mrItemId.Value, stockQty));
+                }
+            }
+        }
+
+        if (mrLines.Count > 0)
+        {
+            await mrManager.UpdateReceiptFulfillmentForItemsAsync(mrLines, reverse: isReversal);
+        }
     }
 }

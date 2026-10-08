@@ -405,8 +405,10 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             ItemId = item.ItemId,
             RequestedQty = item.Quantity,
             OrderedQty = item.OrderedQuantity,
+            ReceivedQty = item.ReceivedQuantity,
             PendingQty = MyERP.Purchasing.DomainServices.MaterialRequestManager.GetPendingQty(item),
             PerOrdered = item.Quantity > 0 ? Math.Round(item.OrderedQuantity / item.Quantity * 100, 2) : 0,
+            PerReceived = item.Quantity > 0 ? Math.Round(item.ReceivedQuantity / item.Quantity * 100, 2) : 0,
         }).ToList();
 
         return new MrFulfillmentStatusDto

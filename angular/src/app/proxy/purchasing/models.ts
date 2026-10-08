@@ -91,6 +91,7 @@ export interface CreatePurchaseInvoiceItemDto {
   serviceStopDate?: string | null;
   purchaseOrderItemId?: string | null;
   purchaseReceiptItemId?: string | null;
+  materialRequestItemId?: string | null;
   fromWarehouseId?: string | null;
   deliveredBySupplier?: boolean;
   warehouseId?: string | null;
@@ -156,6 +157,7 @@ export interface CreatePurchaseReceiptItemDto {
   taxAmount?: number;
   uom?: string;
   purchaseOrderItemId?: string | null;
+  materialRequestItemId?: string | null;
   warehouseId?: string | null;
   fromWarehouseId?: string | null;
   receivedQty?: number;
@@ -533,6 +535,7 @@ export interface PurchaseInvoiceItemDto {
   lineTotal?: number;
   purchaseOrderItemId?: string | null;
   purchaseReceiptItemId?: string | null;
+  materialRequestItemId?: string | null;
   fromWarehouseId?: string | null;
   warehouseId?: string | null;
   deliveredBySupplier?: boolean;
@@ -661,6 +664,7 @@ export interface PurchaseReceiptItemDto {
   amountDifferenceWithPurchaseInvoice?: number;
   isClosed?: boolean;
   purchaseOrderItemId?: string | null;
+  materialRequestItemId?: string | null;
   warehouseId?: string | null;
   fromWarehouseId?: string | null;
   fromWarehouseName?: string | null;

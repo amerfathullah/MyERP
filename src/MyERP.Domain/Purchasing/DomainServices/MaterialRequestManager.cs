@@ -75,6 +75,39 @@ public class MaterialRequestManager : DomainService
                         mrItem.ItemId, mrItem.WarehouseId.Value, indentedChange, mr.TenantId);
                 }
             }
+            mr.UpdateFulfillmentStatus();
+            await _mrRepository.UpdateAsync(mr);
+        }
+    }
+
+    /// <summary>
+    /// Updates received quantities on MR items when downstream receipts (Purchase Receipts or
+    /// stock-updating Purchase Invoices) are submitted or cancelled.
+    /// Supports combining receipt quantities on mixed receipts per ERPNext PR #60208 / commit ba48a9d0ad.
+    /// </summary>
+    public async Task UpdateReceiptFulfillmentForItemsAsync(
+        IEnumerable<(Guid MaterialRequestItemId, decimal Quantity)> lines, bool reverse = false)
+    {
+        var lineList = lines.ToList();
+        if (!lineList.Any()) return;
+
+        var mrItemIds = lineList.Select(l => l.MaterialRequestItemId).Distinct().ToList();
+        var mrQuery = await _mrRepository.GetQueryableAsync();
+        var affectedMRs = mrQuery
+            .Where(mr => mr.Items.Any(i => mrItemIds.Contains(i.Id)))
+            .ToList();
+
+        foreach (var mr in affectedMRs)
+        {
+            foreach (var line in lineList)
+            {
+                var mrItem = mr.Items.FirstOrDefault(i => i.Id == line.MaterialRequestItemId);
+                if (mrItem == null) continue;
+
+                var delta = reverse ? -line.Quantity : line.Quantity;
+                mrItem.ReceivedQuantity = Math.Max(0, mrItem.ReceivedQuantity + delta);
+            }
+            mr.UpdateFulfillmentStatus();
             await _mrRepository.UpdateAsync(mr);
         }
     }

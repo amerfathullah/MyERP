@@ -117,7 +117,9 @@ public class MrItemFulfillmentDto
     public Guid ItemId { get; set; }
     public decimal RequestedQty { get; set; }
     public decimal OrderedQty { get; set; }
+    public decimal ReceivedQty { get; set; }
     public decimal PendingQty { get; set; }
     public decimal PerOrdered { get; set; }
+    public decimal PerReceived { get; set; }
 }
 

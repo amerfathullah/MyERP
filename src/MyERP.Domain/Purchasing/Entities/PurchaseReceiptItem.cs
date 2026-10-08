@@ -43,6 +43,9 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     /// <summary>Link back to the Purchase Order item being received.</summary>
     public Guid? PurchaseOrderItemId { get; set; }
 
+    /// <summary>Link back to the Material Request item being received (ERPNext PR #60208 / commit ba48a9d0ad).</summary>
+    public Guid? MaterialRequestItemId { get; set; }
+
     /// <summary>Source warehouse for internal transfer receipts. Must differ from target warehouse.</summary>
     public Guid? FromWarehouseId { get; set; }
 
@@ -149,7 +152,7 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     public PurchaseReceiptItem(
         Guid id, Guid purchaseReceiptId, Guid itemId,
         string description, decimal quantity, decimal unitPrice, decimal taxAmount,
-        string uom = "Unit", Guid? purchaseOrderItemId = null)
+        string uom = "Unit", Guid? purchaseOrderItemId = null, Guid? materialRequestItemId = null)
         : base(id)
     {
         PurchaseReceiptId = purchaseReceiptId;
@@ -160,5 +163,6 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
         TaxAmount = taxAmount;
         Uom = uom;
         PurchaseOrderItemId = purchaseOrderItemId;
+        MaterialRequestItemId = materialRequestItemId;
     }
 }

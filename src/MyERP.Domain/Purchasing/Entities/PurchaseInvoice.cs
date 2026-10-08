@@ -226,7 +226,8 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         Guid? warehouseId = null,
         decimal receivedQty = 0,
         decimal rejectedQty = 0,
-        Guid? rejectedWarehouseId = null)
+        Guid? rejectedWarehouseId = null,
+        Guid? materialRequestItemId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -237,7 +238,7 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             throw new ArgumentException("Quantity or RejectedQty must be positive for non-return invoices.", nameof(quantity));
 
         var item = new PurchaseInvoiceItem(
-            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom)
+            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, materialRequestItemId)
         {
             Idx = _items.Count,
             WarehouseId = warehouseId,

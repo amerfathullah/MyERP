@@ -161,7 +161,8 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         decimal rejectedQty = 0,
         Guid? rejectedWarehouseId = null,
         decimal receivedQty = 0,
-        Guid? fromWarehouseId = null)
+        Guid? fromWarehouseId = null,
+        Guid? materialRequestItemId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -173,7 +174,7 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             throw new ArgumentException("Quantity or RejectedQty must be negative for return receipts.", nameof(quantity));
 
         var item = new PurchaseReceiptItem(
-            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, purchaseOrderItemId)
+            Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom, purchaseOrderItemId, materialRequestItemId)
         {
             WarehouseId = warehouseId,
             FromWarehouseId = fromWarehouseId,
