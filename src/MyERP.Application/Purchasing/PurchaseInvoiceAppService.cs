@@ -636,7 +636,13 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                         ? EInvoiceDocumentType.SelfBilledCreditNote
                         : EInvoiceDocumentType.SelfBilledInvoice;
         }
+
         invoice.UpdateStock = input.UpdateStock;
+        // Skip stock update for items already received via Purchase Receipt to prevent double receipt (mirror PR #60230)
+        if (input.Items.Any(i => i.PurchaseReceiptItemId.HasValue))
+        {
+            invoice.UpdateStock = false;
+        }
         invoice.WarehouseId = input.WarehouseId;
         invoice.RejectedWarehouseId = input.RejectedWarehouseId;
         invoice.ProjectId = input.ProjectId;
@@ -1347,6 +1353,12 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             throw new Volo.Abp.BusinessException("MyERP:01006")
                 .WithData("documentType", "Purchase Invoice")
                 .WithData("invoiceNumber", invoice.InvoiceNumber);
+        }
+
+        // Mirror ERPNext PR #60230 / commit 637fadfee9: disable update stock for purchase invoice linked to PR
+        if (invoice.UpdateStock && invoice.Items.Any(i => i.PurchaseReceiptItemId.HasValue))
+        {
+            invoice.UpdateStock = false;
         }
 
         if (invoice.UpdateStock && invoice.WarehouseId.HasValue)

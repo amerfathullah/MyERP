@@ -573,6 +573,8 @@ export class PurchaseInvoiceFormComponent implements OnInit {
         });
 
         if (loadedCount > 0) {
+          // Mirror ERPNext PR #60230 / commit 637fadfee9: disable update stock for invoice created from receipt
+          this.form.patchValue({ updateStock: false });
           this.recalculate();
           this.toaster.success(this.l.instant('::ItemsLoadedFromPR', loadedCount.toString()));
         } else {
@@ -583,6 +585,10 @@ export class PurchaseInvoiceFormComponent implements OnInit {
         this.isLoadingPRItems.set(false);
       },
     });
+  }
+
+  hasPurchaseReceiptItems(): boolean {
+    return this.items.controls.some(c => !!c.get('purchaseReceiptItemId')?.value);
   }
 
   hasUnsavedChanges(): boolean { return this.form.dirty; }

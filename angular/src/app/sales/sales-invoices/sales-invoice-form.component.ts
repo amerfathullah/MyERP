@@ -539,6 +539,8 @@ export class SalesInvoiceFormComponent implements OnInit {
         });
 
         if (loadedCount > 0) {
+          // Per ERPNext PR #60230 / commit 637fadfee9: disable update stock for sales invoice created from DN
+          this.form.patchValue({ updateStock: false });
           this.recalculate();
           this.toaster.success(this.l.instant('::ItemsLoadedFromDN', loadedCount.toString()));
         } else {
@@ -547,6 +549,10 @@ export class SalesInvoiceFormComponent implements OnInit {
       },
       error: () => this.isLoadingDnItems.set(false),
     });
+  }
+
+  hasDeliveryNoteItems(): boolean {
+    return this.items.controls.some(c => !!c.get('deliveryNoteItemId')?.value);
   }
 
   addSalesTeamRow(): void {

@@ -2598,6 +2598,8 @@
     "UpdateStock": "Update Stock",
     "UpdateStockHelp": "Deduct stock directly on invoice submit (for POS/direct sales without Delivery Note)",
     "UpdateStockHelpPurchase": "Receive stock directly on invoice submit (for direct purchases without Purchase Receipt)",
+    "UpdateStockDisabledForDeliveryNote": "Update stock is disabled because items were delivered via Delivery Note.",
+    "UpdateStockDisabledForPurchaseReceipt": "Update stock is disabled because items were received via Purchase Receipt.",
     "Narration": "Narration",
     "ScanBarcode": "Scan Barcode",
     "ItemNotFound": "Item not found",

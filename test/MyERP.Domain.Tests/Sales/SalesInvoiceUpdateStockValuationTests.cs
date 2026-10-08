@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MyERP.Sales.Entities;
 using Shouldly;
 using Xunit;
@@ -148,5 +149,22 @@ public class SalesInvoiceUpdateStockValuationTests
 
         // Wrong: using selling price per dozen / 12
         // If selling at RM120/dozen = RM10/unit → RM240 value (2× overstated)
+    }
+
+    [Fact]
+    public void UpdateStock_Disabled_WhenLinkedToDeliveryNote()
+    {
+        // Per ERPNext PR #60230 / commit 637fadfee9:
+        // Stock movement was already handled by Delivery Note, so SI must not update stock.
+        var invoice = CreateInvoiceWithUpdateStock();
+        invoice.AddItem(Guid.NewGuid(), "Delivered Item", 2, 50m, 0m);
+        invoice.Items[0].DeliveryNoteItemId = Guid.NewGuid();
+
+        if (invoice.Items.Any(i => i.DeliveryNoteItemId.HasValue))
+        {
+            invoice.UpdateStock = false;
+        }
+
+        invoice.UpdateStock.ShouldBeFalse();
     }
 }

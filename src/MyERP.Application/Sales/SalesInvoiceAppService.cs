@@ -1213,6 +1213,12 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 .WithData("invoiceNumber", invoice.InvoiceNumber);
         }
 
+        // Per ERPNext PR #60230 / commit 637fadfee9: disable update stock for sales invoice created from or linked to DN
+        if (invoice.UpdateStock && invoice.Items.Any(i => i.DeliveryNoteItemId.HasValue))
+        {
+            invoice.UpdateStock = false;
+        }
+
         if (invoice.UpdateStock && invoice.WarehouseId.HasValue && !invoice.IsReturn)
         {
             var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
@@ -2006,6 +2012,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             PaymentTermsTemplateId = input.PaymentTermsTemplateId,
             Notes = input.Notes ?? $"Consolidated invoice for: {string.Join(", ", deliveryNotes.Select(d => d.DeliveryNumber))}",
             Items = invoiceItems,
+            UpdateStock = false, // Per ERPNext PR #60230 / commit 637fadfee9: disable update stock for sales invoice created from DN
         };
 
         var result = await CreateAsync(createDto);

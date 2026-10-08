@@ -108,9 +108,13 @@
         <div class="row align-items-center">
           <div class="col-auto">
             <div class="form-check">
-              <input type="checkbox" class="form-check-input" formControlName="updateStock" id="updateStock" />
+              <input type="checkbox" class="form-check-input" formControlName="updateStock" id="updateStock" [attr.disabled]="hasPurchaseReceiptItems() ? true : null" />
               <label class="form-check-label" for="updateStock">{{ 'UpdateStock' | abpLocalization }}</label>
-              <small class="form-text text-muted d-block">{{ 'UpdateStockHelpPurchase' | abpLocalization }}</small>
+              @if (hasPurchaseReceiptItems()) {
+                <small class="form-text text-warning d-block">{{ '::UpdateStockDisabledForPurchaseReceipt' | abpLocalization }}</small>
+              } @else {
+                <small class="form-text text-muted d-block">{{ 'UpdateStockHelpPurchase' | abpLocalization }}</small>
+              }
             </div>
           </div>
           @if (form.get('updateStock')?.value) {
