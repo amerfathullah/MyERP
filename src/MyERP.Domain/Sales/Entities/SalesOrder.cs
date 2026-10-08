@@ -350,6 +350,27 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         item.IsClosed = false;
         UpdateFulfillmentStatus();
     }
+
+    /// <summary>
+    /// Checks whether any fully delivered row can take more quantity within its over-delivery allowance (PR #60140).
+    /// </summary>
+    public bool HasOverDeliverableRows(decimal allowancePct, IReadOnlyDictionary<string, bool>? uomWholeNumberMap = null)
+    {
+        if (allowancePct <= 0) return false;
+
+        return _items.Any(item =>
+        {
+            if (item.DeliveredBySupplier || item.SkipDelivery || item.IsClosed)
+                return false;
+
+            var isWhole = uomWholeNumberMap != null
+                && uomWholeNumberMap.TryGetValue(item.Uom, out var whole)
+                && whole;
+
+            var maxAllowed = item.GetMaxDeliverableQty(allowancePct, isWhole);
+            return item.DeliveredQty >= item.Quantity && item.DeliveredQty < maxAllowed;
+        });
+    }
 }
 
 public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
@@ -408,6 +429,15 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
 
     /// <summary>Remaining qty to deliver.</summary>
     public decimal PendingDeliveryQty => (SkipDelivery || IsClosed) ? 0 : Math.Max(0, Math.Round(Quantity - DeliveredQty, 4));
+
+    /// <summary>
+    /// Ordered qty plus the over delivery allowance, floored to whole units when the UOM requires it (PR #60140).
+    /// </summary>
+    public decimal GetMaxDeliverableQty(decimal allowancePct, bool mustBeWholeNumber = false)
+    {
+        var maxAllowed = Quantity * (1m + allowancePct / 100m);
+        return mustBeWholeNumber ? Math.Floor(maxAllowed) : Math.Round(maxAllowed, 4);
+    }
 
     /// <summary>Remaining qty to bill accounting for returns and re-deliveries.</summary>
     public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, Math.Round(BillableQty - BilledQty, 4));

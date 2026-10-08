@@ -179,7 +179,7 @@ export class SalesOrderDetailComponent implements OnInit {
     if (s === 'Draft') {
       actions.push({ name: 'submit', label: this.l.instant('::Submit'), icon: 'paper-plane', color: 'primary' });
     }
-    if (s === 'ToDeliverAndBill' || s === 'ToDeliver') {
+    if (s === 'ToDeliverAndBill' || s === 'ToDeliver' || this.order.hasOverDeliverableRows) {
       actions.push({ name: 'delivery', label: this.l.instant('::CreateDeliveryNote'), icon: 'truck', color: 'info' });
     }
     if (s === 'ToDeliverAndBill' || s === 'ToBill') {
@@ -456,15 +456,23 @@ export class SalesOrderDetailComponent implements OnInit {
     const items = this.order.items
       .filter((i: any) => {
         const pending = (i.quantity ?? 0) - (i.deliveredQty ?? 0);
-        return pending > 0;
+        const maxDeliverable = i.maxDeliverableQty ?? i.quantity ?? 0;
+        const overDeliverable = maxDeliverable - (i.deliveredQty ?? 0);
+        return pending > 0 || overDeliverable > 0;
       })
-      .map((i: any) => ({
-        itemId: i.itemId ?? i.id,
-        description: i.description || i.itemName || '—',
-        pendingQty: Math.max(0, (i.quantity ?? 0) - (i.deliveredQty ?? 0)),
-        deliverQty: Math.max(0, (i.quantity ?? 0) - (i.deliveredQty ?? 0)), // default: deliver all pending
-        selected: true,
-      }));
+      .map((i: any) => {
+        const pending = Math.max(0, (i.quantity ?? 0) - (i.deliveredQty ?? 0));
+        const maxDeliverable = i.maxDeliverableQty ?? i.quantity ?? 0;
+        const overDeliverable = Math.max(0, maxDeliverable - (i.deliveredQty ?? 0));
+        const availableQty = pending > 0 ? pending : overDeliverable;
+        return {
+          itemId: i.itemId ?? i.id,
+          description: i.description || i.itemName || '—',
+          pendingQty: availableQty,
+          deliverQty: availableQty,
+          selected: true,
+        };
+      });
     if (items.length === 0) {
       this.toaster.info('::AllItemsAlreadyDelivered');
       return;

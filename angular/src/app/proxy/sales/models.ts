@@ -1588,6 +1588,7 @@ export interface SalesOrderDto extends FullAuditedEntityDto<string> {
   firstBilledDate?: string | null;
   firstPaymentDate?: string | null;
   overdueWarning?: string | null;
+  hasOverDeliverableRows?: boolean;
   items?: SalesOrderItemDto[];
   salesTeam?: SalesTeamEntryDto[];
 }
@@ -1603,6 +1604,7 @@ export interface SalesOrderItemDto {
   lineTotal?: number;
   deliveredQty?: number;
   billedQty?: number;
+  maxDeliverableQty?: number;
   warehouseId?: string | null;
   blanketOrderId?: string | null;
   quotationItemId?: string | null;

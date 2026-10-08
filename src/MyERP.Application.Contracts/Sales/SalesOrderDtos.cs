@@ -44,6 +44,9 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     /// <summary>Warning message if customer has overdue invoices (advisory, not blocking).</summary>
     public string? OverdueWarning { get; set; }
 
+    /// <summary>Whether any fully delivered item row can still accept further delivery within its over-delivery allowance (PR #60140).</summary>
+    public bool HasOverDeliverableRows { get; set; }
+
     public List<SalesOrderItemDto> Items { get; set; } = new();
 
     /// <summary>Sales team allocations for commission tracking.</summary>
@@ -103,6 +106,9 @@ public class SalesOrderItemDto
 
     /// <summary>True when ordered qty exceeds available stock (triggers low-stock warning in UI).</summary>
     public bool IsInsufficientStock { get; set; }
+
+    /// <summary>Maximum deliverable quantity including over-delivery allowance (PR #60140).</summary>
+    public decimal MaxDeliverableQty { get; set; }
 
     /// <summary>Whether this individual row is closed (per ERPNext PR #57596).</summary>
     public bool IsClosed { get; set; }

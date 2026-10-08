@@ -14,13 +14,13 @@ interface WorkflowAction {
  */
 describe('SalesOrderDetailComponent Logic', () => {
 
-  function getWorkflowActions(status: string): WorkflowAction[] {
+  function getWorkflowActions(status: string, hasOverDeliverableRows = false): WorkflowAction[] {
     const actions: WorkflowAction[] = [];
 
     if (status === 'Draft') {
       actions.push({ name: 'submit', label: 'Submit', icon: 'paper-plane', color: 'primary' });
     }
-    if (status === 'ToDeliverAndBill' || status === 'ToDeliver') {
+    if (status === 'ToDeliverAndBill' || status === 'ToDeliver' || hasOverDeliverableRows) {
       actions.push({ name: 'delivery', label: 'Create Delivery Note', icon: 'truck', color: 'primary' });
     }
     if (status === 'ToDeliverAndBill' || status === 'ToBill') {
@@ -93,6 +93,12 @@ describe('SalesOrderDetailComponent Logic', () => {
       expect(names).toContain('payment');
       expect(names).toContain('close');
       expect(names).toContain('cancel');
+    });
+
+    it('shows delivery action when hasOverDeliverableRows is true', () => {
+      const actions = getWorkflowActions('ToBill', true);
+      const names = actions.map(a => a.name);
+      expect(names).toContain('delivery');
     });
   });
 

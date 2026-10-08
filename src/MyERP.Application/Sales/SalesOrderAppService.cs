@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
 using MyERP.Core.DomainServices;
+using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Inventory.DomainServices;
 using MyERP.Permissions;
@@ -185,6 +186,37 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         }).ToList();
     }
 
+    private async Task PopulateOverDeliveryStateAsync(SalesOrderDto dto, SalesOrder order)
+    {
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        var company = await companyRepo.GetAsync(order.CompanyId);
+        var allowancePct = company.OverDeliveryReceiptAllowance;
+
+        var uomRepo = LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
+        Dictionary<string, bool> wholeUoms = new(StringComparer.OrdinalIgnoreCase);
+        if (uomRepo != null)
+        {
+            var uomNames = order.Items.Select(i => i.Uom).Distinct().ToList();
+            var uomQuery = await uomRepo.GetQueryableAsync();
+            wholeUoms = uomQuery
+                .Where(u => uomNames.Contains(u.Name))
+                .Select(u => new { u.Name, u.MustBeWholeNumber })
+                .ToDictionary(u => u.Name, u => u.MustBeWholeNumber, StringComparer.OrdinalIgnoreCase);
+        }
+
+        dto.HasOverDeliverableRows = order.HasOverDeliverableRows(allowancePct, wholeUoms);
+
+        foreach (var itemDto in dto.Items)
+        {
+            var entityItem = order.Items.FirstOrDefault(i => i.Id == itemDto.Id);
+            if (entityItem != null)
+            {
+                var isWhole = wholeUoms.GetValueOrDefault(entityItem.Uom, false);
+                itemDto.MaxDeliverableQty = entityItem.GetMaxDeliverableQty(allowancePct, isWhole);
+            }
+        }
+    }
+
     public async Task<SalesOrderDto> GetAsync(Guid id)
     {
         var order = await _repository.GetAsync(id);
@@ -194,6 +226,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         dto.PerAdvancePaid = order.PerAdvancePaid;
         await ResolveFulfillmentDatesAsync(dto, id);
         await AttachSalesTeamAsync(dto);
+        await PopulateOverDeliveryStateAsync(dto, order);
         return dto;
     }
 

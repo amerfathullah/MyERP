@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
 using MyERP.Core.DomainServices;
+using MyERP.Core.Entities;
+using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -165,7 +167,22 @@ public class PendingDeliveryAppService : ApplicationService, IPendingDeliveryApp
             CurrentTenant.Id
         );
 
-        // Add items from selected pending SO items — cap at pending qty
+        // Fetch company over-delivery allowance and UOM whole-number status (PR #60140)
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        var company = await companyRepo.GetAsync(input.CompanyId);
+        var allowancePct = company.OverDeliveryReceiptAllowance;
+
+        var uomRepo = LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
+        Dictionary<string, bool> wholeNumberUoms = new(StringComparer.OrdinalIgnoreCase);
+        if (uomRepo != null)
+        {
+            var uomQuery = await uomRepo.GetQueryableAsync();
+            wholeNumberUoms = uomQuery
+                .Select(u => new { u.Name, u.MustBeWholeNumber })
+                .ToDictionary(u => u.Name, u => u.MustBeWholeNumber, StringComparer.OrdinalIgnoreCase);
+        }
+
+        // Add items from selected pending SO items — cap at pending or over-deliverable qty
         foreach (var selItem in input.Items)
         {
             var so = soQuery.FirstOrDefault(s => s.Id == selItem.SalesOrderId);
@@ -174,8 +191,10 @@ public class PendingDeliveryAppService : ApplicationService, IPendingDeliveryApp
             var soItem = so.Items.FirstOrDefault(i => i.ItemId == selItem.ItemId);
             if (soItem == null) continue;
 
-            var pendingQty = soItem.Quantity - soItem.DeliveredQty;
-            var deliverQty = Math.Min(selItem.Quantity, pendingQty);
+            var isWhole = wholeNumberUoms.GetValueOrDefault(soItem.Uom, false);
+            var maxAllowed = soItem.GetMaxDeliverableQty(allowancePct, isWhole);
+            var remainingAllowed = Math.Max(0m, maxAllowed - soItem.DeliveredQty);
+            var deliverQty = Math.Min(selItem.Quantity, remainingAllowed);
             if (deliverQty <= 0) continue;
 
             dn.AddItem(
@@ -196,7 +215,7 @@ public class PendingDeliveryAppService : ApplicationService, IPendingDeliveryApp
 
         if (dn.Items.Count == 0)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems)
-                .WithData("reason", "All selected items are already fully delivered.");
+                .WithData("reason", "All selected items are already fully delivered and have reached their over-delivery allowance limit.");
 
         await dnRepo.InsertAsync(dn);
 

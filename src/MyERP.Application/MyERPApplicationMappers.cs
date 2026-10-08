@@ -1288,6 +1288,7 @@ public partial class SalesOrderMapper : MapperBase<Sales.Entities.SalesOrder, Sa
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.FirstBilledDate))]
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.FirstPaymentDate))]
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.SalesTeam))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.HasOverDeliverableRows))]
     public override partial Sales.SalesOrderDto Map(Sales.Entities.SalesOrder source);
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.CustomerName))]
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.OverdueWarning))]
@@ -1296,9 +1297,11 @@ public partial class SalesOrderMapper : MapperBase<Sales.Entities.SalesOrder, Sa
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.FirstBilledDate))]
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.FirstPaymentDate))]
     [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.SalesTeam))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderDto.HasOverDeliverableRows))]
     public override partial void Map(Sales.Entities.SalesOrder source, Sales.SalesOrderDto destination);
     [MapperIgnoreTarget(nameof(Sales.SalesOrderItemDto.AvailableQty))]
     [MapperIgnoreTarget(nameof(Sales.SalesOrderItemDto.IsInsufficientStock))]
+    [MapperIgnoreTarget(nameof(Sales.SalesOrderItemDto.MaxDeliverableQty))]
     private partial Sales.SalesOrderItemDto MapChild(Sales.Entities.SalesOrderItem source);
 }
 

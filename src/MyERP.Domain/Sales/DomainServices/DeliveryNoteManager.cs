@@ -23,23 +23,26 @@ public class DeliveryNoteManager : DomainService
     private readonly IRepository<SalesOrder, Guid> _orderRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
+    private readonly IRepository<Uom, Guid>? _uomRepository;
 
     public DeliveryNoteManager(
         IRepository<DeliveryNote, Guid> dnRepository,
         IRepository<SalesOrder, Guid> orderRepository,
         IRepository<Company, Guid> companyRepository,
-        IRepository<Item, Guid> itemRepository)
+        IRepository<Item, Guid> itemRepository,
+        IRepository<Uom, Guid>? uomRepository = null)
     {
         _dnRepository = dnRepository;
         _orderRepository = orderRepository;
         _companyRepository = companyRepository;
         _itemRepository = itemRepository;
+        _uomRepository = uomRepository;
     }
 
     /// <summary>
     /// Validates receipt quantities against the linked Sales Order.
     /// Prevents over-delivery: each DN item qty must not exceed SO item's allowed qty,
-    /// including the company's over-delivery tolerance percentage.
+    /// including the company's over-delivery tolerance percentage, floored for whole number UOMs (PR #60140).
     /// Per ERPNext StatusUpdater: max_allowed = ordered_qty × (1 + allowance_pct / 100).
     /// Only applies to non-return DNs linked to a SO.
     /// </summary>
@@ -60,6 +63,18 @@ public class DeliveryNoteManager : DomainService
         var company = await _companyRepository.GetAsync(dn.CompanyId);
         var allowancePct = company.OverDeliveryReceiptAllowance;
 
+        var uomRepo = _uomRepository ?? LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
+        Dictionary<string, bool> wholeNumberUoms = new(StringComparer.OrdinalIgnoreCase);
+        if (uomRepo != null)
+        {
+            var uomNames = so.Items.Select(i => i.Uom).Distinct().ToList();
+            var uomQuery = await uomRepo.GetQueryableAsync();
+            wholeNumberUoms = uomQuery
+                .Where(u => uomNames.Contains(u.Name))
+                .Select(u => new { u.Name, u.MustBeWholeNumber })
+                .ToDictionary(u => u.Name, u => u.MustBeWholeNumber, StringComparer.OrdinalIgnoreCase);
+        }
+
         foreach (var dnItem in dn.Items)
         {
             var soItem = dnItem.SalesOrderItemId.HasValue
@@ -73,7 +88,8 @@ public class DeliveryNoteManager : DomainService
                     .WithData("detail", $"Item {dnItem.Description} is closed in Sales Order {so.OrderNumber} and cannot be processed further.");
             }
 
-            var maxAllowedTotal = soItem.Quantity * (1m + allowancePct / 100m);
+            var isWhole = wholeNumberUoms.GetValueOrDefault(soItem.Uom, false);
+            var maxAllowedTotal = soItem.GetMaxDeliverableQty(allowancePct, isWhole);
             var remainingAllowed = maxAllowedTotal - soItem.DeliveredQty;
 
             if (dnItem.Quantity > remainingAllowed)
