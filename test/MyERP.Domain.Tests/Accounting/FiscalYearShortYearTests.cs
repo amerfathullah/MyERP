@@ -165,8 +165,90 @@ public class FiscalYearShortYearTests
         await job.ExecuteAsync(args);
 
         Assert.NotNull(createdFy);
-        Assert.Equal("2027-2027", createdFy.Name);
+        // Correct naming: "2027" (not "2027-2027") when start year == end year per ERPNext PR #60216
+        Assert.Equal("2027", createdFy.Name);
         Assert.Equal(new DateTime(2027, 1, 1), createdFy.StartDate);
         Assert.Equal(new DateTime(2027, 12, 31), createdFy.EndDate);
+    }
+
+    [Fact]
+    public async Task FiscalYearAutoCreationJob_CreatesCrossYearNameForAprilToMarchFiscalYear()
+    {
+        var crossYearFy = new FiscalYear(
+            Guid.NewGuid(), _companyId, "2026-2027",
+            new DateTime(2026, 4, 1), new DateTime(2027, 3, 31), isShortYear: false);
+
+        var allFys = new List<FiscalYear> { crossYearFy };
+        _fyRepository.GetQueryableAsync().Returns(Task.FromResult(allFys.AsQueryable()));
+
+        var guidGen = Substitute.For<IGuidGenerator>();
+        guidGen.Create().Returns(Guid.NewGuid());
+        var logger = Substitute.For<ILogger<FiscalYearAutoCreationJob>>();
+        var job = new FiscalYearAutoCreationJob(_fyRepository, guidGen, logger);
+
+        var args = new FiscalYearAutoCreationJobArgs
+        {
+            CompanyId = _companyId,
+            AsOfDate = new DateTime(2027, 3, 29)
+        };
+
+        FiscalYear? createdFy = null;
+        await _fyRepository.InsertAsync(Arg.Do<FiscalYear>(f => createdFy = f));
+
+        await job.ExecuteAsync(args);
+
+        Assert.NotNull(createdFy);
+        Assert.Equal("2027-2028", createdFy.Name);
+        Assert.Equal(new DateTime(2027, 4, 1), createdFy.StartDate);
+        Assert.Equal(new DateTime(2028, 3, 31), createdFy.EndDate);
+    }
+
+    [Fact]
+    public async Task FiscalYearAutoCreationJob_RunsForAllCompaniesWhenCompanyIdIsEmpty()
+    {
+        var company2 = Guid.NewGuid();
+        var fy1 = new FiscalYear(Guid.NewGuid(), _companyId, "2026", new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), isShortYear: false);
+        var fy2 = new FiscalYear(Guid.NewGuid(), company2, "2026", new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), isShortYear: false);
+
+        var allFys = new List<FiscalYear> { fy1, fy2 };
+        _fyRepository.GetQueryableAsync().Returns(Task.FromResult(allFys.AsQueryable()));
+
+        var guidGen = Substitute.For<IGuidGenerator>();
+        guidGen.Create().Returns(Guid.NewGuid());
+        var logger = Substitute.For<ILogger<FiscalYearAutoCreationJob>>();
+        var job = new FiscalYearAutoCreationJob(_fyRepository, guidGen, logger);
+
+        var created = new List<FiscalYear>();
+        await _fyRepository.InsertAsync(Arg.Do<FiscalYear>(f => created.Add(f)));
+
+        await job.ExecuteAsync(new FiscalYearAutoCreationJobArgs
+        {
+            CompanyId = Guid.Empty,
+            AsOfDate = new DateTime(2026, 12, 29)
+        });
+
+        Assert.Equal(2, created.Count);
+        Assert.Contains(created, f => f.CompanyId == _companyId && f.Name == "2027");
+        Assert.Contains(created, f => f.CompanyId == company2 && f.Name == "2027");
+    }
+
+    [Fact]
+    public async Task GetCurrentAsync_ReturnsMostRecentFiscalYearWhenMultipleMatch()
+    {
+        var now = DateTime.UtcNow.Date;
+        var olderFy = new FiscalYear(
+            Guid.NewGuid(), _companyId, "Older-FY",
+            now.AddMonths(-6), now.AddMonths(6));
+        var newerFy = new FiscalYear(
+            Guid.NewGuid(), _companyId, "Newer-FY",
+            now.AddMonths(-1), now.AddMonths(11));
+
+        var allFys = new List<FiscalYear> { olderFy, newerFy };
+        _fyRepository.GetQueryableAsync().Returns(Task.FromResult(allFys.AsQueryable()));
+
+        var current = await _appService.GetCurrentAsync(_companyId);
+
+        Assert.NotNull(current);
+        Assert.Equal("Newer-FY", current.Name);
     }
 }

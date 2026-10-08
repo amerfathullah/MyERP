@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -33,50 +34,60 @@ public class FiscalYearAutoCreationJob : AsyncBackgroundJob<FiscalYearAutoCreati
     public override async Task ExecuteAsync(FiscalYearAutoCreationJobArgs args)
     {
         var asOfDate = args.AsOfDate ?? DateTime.UtcNow.Date;
-        _logger.LogInformation("FiscalYearAutoCreationJob: Checking upcoming fiscal year end for company {CompanyId} as of {Date}",
-            args.CompanyId, asOfDate);
-
         var query = await _repository.GetQueryableAsync();
-        var currentFiscalYears = query
-            .Where(f => f.CompanyId == args.CompanyId)
-            .OrderByDescending(f => f.EndDate)
-            .ToList();
 
-        if (!currentFiscalYears.Any())
-            return;
+        var companyIds = args.CompanyId != Guid.Empty
+            ? new List<Guid> { args.CompanyId }
+            : query.Select(f => f.CompanyId).Distinct().ToList();
 
-        var latestFy = currentFiscalYears.First();
+        _logger.LogInformation("FiscalYearAutoCreationJob: Checking upcoming fiscal year end for {Count} companies as of {Date}",
+            companyIds.Count, asOfDate);
 
-        // Skip short fiscal years per ERPNext fiscal_year.auto_create_fiscal_year (#5979)
-        if (latestFy.IsShortYear)
+        foreach (var companyId in companyIds)
         {
-            _logger.LogInformation("FiscalYearAutoCreationJob: Latest fiscal year '{Name}' for company {CompanyId} is a Short Year. Skipping auto-creation.",
-                latestFy.Name, args.CompanyId);
-            return;
-        }
+            var companyFiscalYears = query
+                .Where(f => f.CompanyId == companyId)
+                .OrderByDescending(f => f.EndDate)
+                .ToList();
 
-        // If latest FY ends within 3 days or has already ended, create the next FY
-        if (latestFy.EndDate <= asOfDate.AddDays(3))
-        {
-            var nextStartDate = latestFy.EndDate.AddDays(1);
-            var nextEndDate = nextStartDate.AddYears(1).AddDays(-1);
-            var nextFyName = $"{nextStartDate.Year}-{nextEndDate.Year}";
+            if (!companyFiscalYears.Any())
+                continue;
 
-            var exists = currentFiscalYears.Any(f => f.StartDate == nextStartDate || f.Name == nextFyName);
-            if (!exists)
+            var latestFy = companyFiscalYears.First();
+
+            // Skip short fiscal years per ERPNext fiscal_year.auto_create_fiscal_year (#5979)
+            if (latestFy.IsShortYear)
             {
-                var nextFy = new FiscalYear(
-                    _guidGenerator.Create(),
-                    args.CompanyId,
-                    nextFyName,
-                    nextStartDate,
-                    nextEndDate,
-                    isShortYear: false,
-                    args.TenantId);
+                _logger.LogInformation("FiscalYearAutoCreationJob: Latest fiscal year '{Name}' for company {CompanyId} is a Short Year. Skipping auto-creation.",
+                    latestFy.Name, companyId);
+                continue;
+            }
 
-                await _repository.InsertAsync(nextFy);
-                _logger.LogInformation("FiscalYearAutoCreationJob: Auto-created next fiscal year '{Name}' ({StartDate:yyyy-MM-dd} to {EndDate:yyyy-MM-dd}) for company {CompanyId}",
-                    nextFyName, nextStartDate, nextEndDate, args.CompanyId);
+            // If latest FY ends within 3 days or has already ended, create the next FY
+            if (latestFy.EndDate <= asOfDate.AddDays(3))
+            {
+                var nextStartDate = latestFy.EndDate.AddDays(1);
+                var nextEndDate = nextStartDate.AddYears(1).AddDays(-1);
+                var nextFyName = nextStartDate.Year == nextEndDate.Year
+                    ? nextStartDate.Year.ToString()
+                    : $"{nextStartDate.Year}-{nextEndDate.Year}";
+
+                var exists = companyFiscalYears.Any(f => f.StartDate == nextStartDate || f.Name == nextFyName);
+                if (!exists)
+                {
+                    var nextFy = new FiscalYear(
+                        _guidGenerator.Create(),
+                        companyId,
+                        nextFyName,
+                        nextStartDate,
+                        nextEndDate,
+                        isShortYear: false,
+                        args.TenantId ?? latestFy.TenantId);
+
+                    await _repository.InsertAsync(nextFy);
+                    _logger.LogInformation("FiscalYearAutoCreationJob: Auto-created next fiscal year '{Name}' ({StartDate:yyyy-MM-dd} to {EndDate:yyyy-MM-dd}) for company {CompanyId}",
+                        nextFyName, nextStartDate, nextEndDate, companyId);
+                }
             }
         }
     }

@@ -17,13 +17,16 @@ public class FiscalYearAppService : ApplicationService, IFiscalYearAppService
 {
     private readonly IRepository<FiscalYear, Guid> _repository;
     private readonly FiscalYearCloseService _closeService;
+    private readonly FiscalYearMapper _mapper;
 
     public FiscalYearAppService(
         IRepository<FiscalYear, Guid> repository,
-        FiscalYearCloseService closeService)
+        FiscalYearCloseService closeService,
+        FiscalYearMapper? mapper = null)
     {
         _repository = repository;
         _closeService = closeService;
+        _mapper = mapper ?? new FiscalYearMapper();
     }
 
     public async Task<PagedResultDto<FiscalYearDto>> GetListAsync(PagedAndSortedResultRequestDto input)
@@ -32,17 +35,20 @@ public class FiscalYearAppService : ApplicationService, IFiscalYearAppService
         var totalCount = query.Count();
         var items = query.OrderByDescending(f => f.StartDate)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<FiscalYearDto>(totalCount, items.Select(ObjectMapper.Map<FiscalYear, FiscalYearDto>).ToList());
+        return new PagedResultDto<FiscalYearDto>(totalCount, items.Select(_mapper.Map).ToList());
     }
 
-    public async Task<FiscalYearDto> GetAsync(Guid id) => ObjectMapper.Map<FiscalYear, FiscalYearDto>(await _repository.GetAsync(id));
+    public async Task<FiscalYearDto> GetAsync(Guid id) => _mapper.Map(await _repository.GetAsync(id));
 
     public async Task<FiscalYearDto> GetCurrentAsync(Guid companyId)
     {
         var query = await _repository.GetQueryableAsync();
         var now = DateTime.UtcNow.Date;
-        var fy = query.FirstOrDefault(f => f.CompanyId == companyId && f.StartDate <= now && f.EndDate >= now);
-        return fy != null ? ObjectMapper.Map<FiscalYear, FiscalYearDto>(fy) : null!;
+        var fy = query
+            .Where(f => f.CompanyId == companyId && f.StartDate <= now && f.EndDate >= now)
+            .OrderByDescending(f => f.StartDate)
+            .FirstOrDefault();
+        return fy != null ? _mapper.Map(fy) : null!;
     }
 
     [Authorize(MyERPPermissions.Accounts.Create)]
@@ -84,19 +90,8 @@ public class FiscalYearAppService : ApplicationService, IFiscalYearAppService
         var fy = new FiscalYear(Guid.NewGuid(), input.CompanyId, input.Name,
             input.StartDate, input.EndDate, input.IsShortYear, tenantId: null);
         await _repository.InsertAsync(fy);
-        return MapToDto(fy);
+        return _mapper.Map(fy);
     }
-
-    private static FiscalYearDto MapToDto(FiscalYear fy) => new()
-    {
-        Id = fy.Id,
-        CompanyId = fy.CompanyId,
-        Name = fy.Name,
-        StartDate = fy.StartDate,
-        EndDate = fy.EndDate,
-        IsClosed = fy.IsClosed,
-        IsShortYear = fy.IsShortYear
-    };
 
     /// <summary>
     /// Close a fiscal year. Enforces sequential closing: prior FY must be closed first.
@@ -108,7 +103,7 @@ public class FiscalYearAppService : ApplicationService, IFiscalYearAppService
         var fy = await _repository.GetAsync(id);
 
         if (fy.IsClosed)
-            return ObjectMapper.Map<FiscalYear, FiscalYearDto>(fy); // Already closed, idempotent
+            return _mapper.Map(fy); // Already closed, idempotent
 
         // Delegate sequential closure validation + close to domain service
         await _closeService.ValidateCanCloseAsync(id);
@@ -135,6 +130,6 @@ public class FiscalYearAppService : ApplicationService, IFiscalYearAppService
             Logger.LogWarning(ex, "Trial balance validation failed during FY close for {Id}", fy.Id);
         }
 
-        return ObjectMapper.Map<FiscalYear, FiscalYearDto>(fy);
+        return _mapper.Map(fy);
     }
 }

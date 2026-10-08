@@ -785,10 +785,12 @@ public class DocumentPostingOrchestrator : DomainService
     {
         // Resolve fiscal year for the posting date
         var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
-        var fiscalYear = fyQuery.FirstOrDefault(fy =>
-            fy.CompanyId == companyId
-            && fy.StartDate <= postingDate
-            && fy.EndDate >= postingDate);
+        var fiscalYear = fyQuery
+            .Where(fy => fy.CompanyId == companyId
+                && fy.StartDate <= postingDate
+                && fy.EndDate >= postingDate)
+            .OrderByDescending(fy => fy.StartDate)
+            .FirstOrDefault();
 
         if (fiscalYear == null) return; // No FY = no budget to check
 
@@ -817,10 +819,12 @@ public class DocumentPostingOrchestrator : DomainService
 
         // Check fiscal year exists and is open for the posting date
         var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
-        var fiscalYear = fyQuery.FirstOrDefault(fy =>
-            fy.CompanyId == companyId
-            && fy.StartDate <= postingDate
-            && fy.EndDate >= postingDate);
+        var fiscalYear = fyQuery
+            .Where(fy => fy.CompanyId == companyId
+                && fy.StartDate <= postingDate
+                && fy.EndDate >= postingDate)
+            .OrderByDescending(fy => fy.StartDate)
+            .FirstOrDefault();
 
         if (fiscalYear == null)
         {
