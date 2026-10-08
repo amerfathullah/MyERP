@@ -109,9 +109,9 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
                           && pe.PostingDate < from)
                 .ToList();
 
-            decimal priorCredits = priorInvoices.Sum(pi => pi.IsReturn ? 0 : pi.GrandTotal)
+            decimal priorCredits = priorInvoices.Sum(pi => pi.IsReturn ? 0 : GetPayableCredit(pi))
                 + priorPayments.Where(pe => pe.PaymentType == PaymentType.Receive).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
-            decimal priorDebits = priorInvoices.Sum(pi => pi.IsReturn ? pi.GrandTotal : 0)
+            decimal priorDebits = priorInvoices.Sum(pi => pi.IsReturn ? GetPayableDebitForReturn(pi) : 0)
                 + priorPayments.Where(pe => pe.PaymentType != PaymentType.Receive).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
             decimal openingBalance = priorCredits - priorDebits;
 
@@ -141,8 +141,8 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
             // Invoice rows
             foreach (var pi in invoices)
             {
-                decimal debit = pi.IsReturn ? Math.Abs(pi.GrandTotal) : 0;
-                decimal credit = pi.IsReturn ? 0 : pi.GrandTotal;
+                decimal debit = pi.IsReturn ? GetPayableDebitForReturn(pi) : 0;
+                decimal credit = pi.IsReturn ? 0 : GetPayableCredit(pi);
                 lines.Add(new PurchaseRegisterLineDto
                 {
                     VoucherType = pi.IsReturn ? "Debit Note" : "Purchase Invoice",
@@ -223,8 +223,8 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
             AmountPaid = pi.AmountPaid,
             Outstanding = pi.OutstandingAmount,
             IsReturn = pi.IsReturn,
-            Debit = pi.IsReturn ? Math.Abs(pi.GrandTotal) : 0,
-            Credit = pi.IsReturn ? 0 : pi.GrandTotal,
+            Debit = pi.IsReturn ? GetPayableDebitForReturn(pi) : 0,
+            Credit = pi.IsReturn ? 0 : GetPayableCredit(pi),
         }).ToList();
 
         await PopulateSupplierDetailsAsync(items);
@@ -298,5 +298,29 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
                     : (line.SupplierId != Guid.Empty ? line.SupplierId.ToString() : string.Empty);
             }
         }
+    }
+
+    /// <summary>
+    /// Amount the invoice credits to its payable, rounded like its GL entry.
+    /// Per ERPNext PR #59930 / commit 1ae23fadef: credit the rounded total only when a rounding adjustment was posted.
+    /// </summary>
+    private static decimal GetPayableCredit(PurchaseInvoice inv)
+    {
+        if (inv.BaseRoundingAdjustment != 0 && inv.BaseRoundedTotal != 0)
+        {
+            return inv.BaseRoundedTotal;
+        }
+
+        return inv.BaseGrandTotal != 0 ? inv.BaseGrandTotal : inv.GrandTotal;
+    }
+
+    private static decimal GetPayableDebitForReturn(PurchaseInvoice inv)
+    {
+        if (inv.BaseRoundingAdjustment != 0 && inv.BaseRoundedTotal != 0)
+        {
+            return Math.Abs(inv.BaseRoundedTotal);
+        }
+
+        return Math.Abs(inv.BaseGrandTotal != 0 ? inv.BaseGrandTotal : inv.GrandTotal);
     }
 }

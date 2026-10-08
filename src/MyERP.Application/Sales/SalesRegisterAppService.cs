@@ -108,9 +108,9 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
                           && pe.PostingDate < from)
                 .ToList();
 
-            decimal priorDebits = priorInvoices.Sum(si => si.IsReturn ? 0 : si.GrandTotal)
+            decimal priorDebits = priorInvoices.Sum(si => si.IsReturn ? 0 : GetReceivableDebit(si))
                 + priorPayments.Where(pe => pe.PaymentType == PaymentType.Pay).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
-            decimal priorCredits = priorInvoices.Sum(si => (si.IsReturn ? si.GrandTotal : 0) + GetInInvoiceReceivableCredit(si))
+            decimal priorCredits = priorInvoices.Sum(si => (si.IsReturn ? GetReceivableCreditForReturn(si) : 0) + GetInInvoiceReceivableCredit(si))
                 + priorPayments.Where(pe => pe.PaymentType != PaymentType.Pay).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
             decimal openingBalance = priorDebits - priorCredits;
 
@@ -141,8 +141,8 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
             foreach (var si in invoices)
             {
                 decimal inInvoiceCredit = GetInInvoiceReceivableCredit(si);
-                decimal debit = si.IsReturn ? 0 : si.GrandTotal;
-                decimal credit = (si.IsReturn ? Math.Abs(si.GrandTotal) : 0) + inInvoiceCredit;
+                decimal debit = si.IsReturn ? 0 : GetReceivableDebit(si);
+                decimal credit = (si.IsReturn ? GetReceivableCreditForReturn(si) : 0) + inInvoiceCredit;
                 lines.Add(new SalesRegisterLineDto
                 {
                     VoucherType = si.IsReturn ? "Credit Note" : "Sales Invoice",
@@ -223,8 +223,8 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
             AmountPaid = si.AmountPaid,
             Outstanding = si.OutstandingAmount,
             IsReturn = si.IsReturn,
-            Debit = si.IsReturn ? 0 : si.GrandTotal,
-            Credit = (si.IsReturn ? Math.Abs(si.GrandTotal) : 0) + GetInInvoiceReceivableCredit(si),
+            Debit = si.IsReturn ? 0 : GetReceivableDebit(si),
+            Credit = (si.IsReturn ? GetReceivableCreditForReturn(si) : 0) + GetInInvoiceReceivableCredit(si),
         }).ToList();
 
         await PopulateCustomerDetailsAsync(items);
@@ -314,5 +314,29 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
             credit += si.AmountPaid + si.WriteOffAmount;
         }
         return credit;
+    }
+
+    /// <summary>
+    /// Amount the invoice debits to its receivable, rounded like its GL entry.
+    /// Per ERPNext PR #59930 / commit 1ae23fadef: debit the rounded total only when a rounding adjustment was posted.
+    /// </summary>
+    private static decimal GetReceivableDebit(SalesInvoice inv)
+    {
+        if (inv.BaseRoundingAdjustment != 0 && inv.BaseRoundedTotal != 0)
+        {
+            return inv.BaseRoundedTotal;
+        }
+
+        return inv.BaseGrandTotal != 0 ? inv.BaseGrandTotal : inv.GrandTotal;
+    }
+
+    private static decimal GetReceivableCreditForReturn(SalesInvoice inv)
+    {
+        if (inv.BaseRoundingAdjustment != 0 && inv.BaseRoundedTotal != 0)
+        {
+            return Math.Abs(inv.BaseRoundedTotal);
+        }
+
+        return Math.Abs(inv.BaseGrandTotal != 0 ? inv.BaseGrandTotal : inv.GrandTotal);
     }
 }

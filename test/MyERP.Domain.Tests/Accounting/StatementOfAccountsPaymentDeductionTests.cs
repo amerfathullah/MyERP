@@ -514,5 +514,89 @@ public class StatementOfAccountsPaymentDeductionTests
         Assert.Equal(missingSupId, item.SupplierId);
         Assert.Equal(missingSupId.ToString(), item.SupplierName);
     }
+
+    [Fact]
+    public async Task SalesRegister_DebitsRoundedTotal_OnlyWhenRoundingAdjustmentPosted()
+    {
+        // Per ERPNext PR #59930 / commit 1ae23fadef:
+        // Invoice 1 has rounded total and rounding adjustment posted -> debits BaseRoundedTotal (100)
+        // Invoice 2 has rounded total but NO rounding adjustment posted -> debits BaseGrandTotal (99.6)
+        var siWithAdjustment = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "SINV-ADJ", DateTime.UtcNow);
+        siWithAdjustment.AddItem(Guid.NewGuid(), "Item 1", 1m, 99.6m, 0m);
+        siWithAdjustment.BaseGrandTotal = 99.6m;
+        siWithAdjustment.BaseRoundedTotal = 100m;
+        siWithAdjustment.BaseRoundingAdjustment = 0.4m;
+        siWithAdjustment.Submit();
+        siWithAdjustment.Post();
+
+        var siWithoutAdjustment = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "SINV-NO-ADJ", DateTime.UtcNow);
+        siWithoutAdjustment.AddItem(Guid.NewGuid(), "Item 2", 1m, 99.6m, 0m);
+        siWithoutAdjustment.BaseGrandTotal = 99.6m;
+        siWithoutAdjustment.BaseRoundedTotal = 100m;
+        siWithoutAdjustment.BaseRoundingAdjustment = 0m;
+        siWithoutAdjustment.Submit();
+        siWithoutAdjustment.Post();
+
+        _siRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SalesInvoice> { siWithAdjustment, siWithoutAdjustment }.AsQueryable()));
+        SetupPaymentRepo(new List<PaymentEntry>());
+
+        var filter = new RegisterFilterDto
+        {
+            CompanyId = _companyId,
+            FromDate = DateTime.UtcNow.AddDays(-1),
+            ToDate = DateTime.UtcNow.AddDays(1)
+        };
+
+        var result = await _salesRegisterAppService.GetReportAsync(filter);
+
+        Assert.NotNull(result);
+        var lineWithAdj = result.Items.Single(i => i.InvoiceId == siWithAdjustment.Id);
+        var lineWithoutAdj = result.Items.Single(i => i.InvoiceId == siWithoutAdjustment.Id);
+
+        Assert.Equal(100m, lineWithAdj.Debit);
+        Assert.Equal(99.6m, lineWithoutAdj.Debit);
+    }
+
+    [Fact]
+    public async Task PurchaseRegister_CreditsRoundedTotal_OnlyWhenRoundingAdjustmentPosted()
+    {
+        // Per ERPNext PR #59930 / commit 1ae23fadef:
+        // Invoice 1 has rounded total and rounding adjustment posted -> credits BaseRoundedTotal (200)
+        // Invoice 2 has rounded total but NO rounding adjustment posted -> credits BaseGrandTotal (199.5)
+        var piWithAdjustment = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "PINV-ADJ", DateTime.UtcNow);
+        piWithAdjustment.AddItem(Guid.NewGuid(), "Item 1", 1m, 199.5m, 0m);
+        piWithAdjustment.BaseGrandTotal = 199.5m;
+        piWithAdjustment.BaseRoundedTotal = 200m;
+        piWithAdjustment.BaseRoundingAdjustment = 0.5m;
+        piWithAdjustment.Submit();
+        piWithAdjustment.Post();
+
+        var piWithoutAdjustment = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "PINV-NO-ADJ", DateTime.UtcNow);
+        piWithoutAdjustment.AddItem(Guid.NewGuid(), "Item 2", 1m, 199.5m, 0m);
+        piWithoutAdjustment.BaseGrandTotal = 199.5m;
+        piWithoutAdjustment.BaseRoundedTotal = 200m;
+        piWithoutAdjustment.BaseRoundingAdjustment = 0m;
+        piWithoutAdjustment.Submit();
+        piWithoutAdjustment.Post();
+
+        _piRepo.GetQueryableAsync().Returns(Task.FromResult(new List<PurchaseInvoice> { piWithAdjustment, piWithoutAdjustment }.AsQueryable()));
+        SetupPaymentRepo(new List<PaymentEntry>());
+
+        var filter = new RegisterFilterDto
+        {
+            CompanyId = _companyId,
+            FromDate = DateTime.UtcNow.AddDays(-1),
+            ToDate = DateTime.UtcNow.AddDays(1)
+        };
+
+        var result = await _purchaseRegisterAppService.GetReportAsync(filter);
+
+        Assert.NotNull(result);
+        var lineWithAdj = result.Items.Single(i => i.InvoiceId == piWithAdjustment.Id);
+        var lineWithoutAdj = result.Items.Single(i => i.InvoiceId == piWithoutAdjustment.Id);
+
+        Assert.Equal(200m, lineWithAdj.Credit);
+        Assert.Equal(199.5m, lineWithoutAdj.Credit);
+    }
 }
 
