@@ -42,6 +42,9 @@ public class ProductionPlan : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Target warehouse for material receipt.</summary>
     public Guid? ForWarehouseId { get; set; }
 
+    /// <summary>Target warehouse for sub-assemblies; pools child warehouse stock if group warehouse (ERPNext PR #60210).</summary>
+    public Guid? SubAssemblyWarehouseId { get; set; }
+
     /// <summary>If true, automatically reserves stock for work orders generated from this plan.</summary>
     public bool ReserveStock { get; set; }
 

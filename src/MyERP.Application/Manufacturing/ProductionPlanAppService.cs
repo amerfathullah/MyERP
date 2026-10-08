@@ -142,7 +142,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
         // Validate warehouses belong to company
         var warehouseIds = input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value)
-            .Concat(new[] { input.RawMaterialGroupWarehouseId, input.ForWarehouseId }.Where(w => w.HasValue).Select(w => w!.Value))
+            .Concat(new[] { input.RawMaterialGroupWarehouseId, input.ForWarehouseId, input.SubAssemblyWarehouseId }.Where(w => w.HasValue).Select(w => w!.Value))
             .Distinct()
             .ToList();
         if (warehouseIds.Count > 0)
@@ -187,6 +187,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             SkipAvailableSubAssemblyItem = input.SkipAvailableSubAssemblyItem,
             RawMaterialGroupWarehouseId = input.RawMaterialGroupWarehouseId,
             ForWarehouseId = input.ForWarehouseId,
+            SubAssemblyWarehouseId = input.SubAssemblyWarehouseId,
             ReserveStock = input.ReserveStock,
             Notes = input.Notes,
         };
@@ -281,7 +282,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
         // Validate warehouses belong to company
         var warehouseIds = input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value)
-            .Concat(new[] { input.RawMaterialGroupWarehouseId, input.ForWarehouseId }.Where(w => w.HasValue).Select(w => w!.Value))
+            .Concat(new[] { input.RawMaterialGroupWarehouseId, input.ForWarehouseId, input.SubAssemblyWarehouseId }.Where(w => w.HasValue).Select(w => w!.Value))
             .Distinct()
             .ToList();
         if (warehouseIds.Count > 0)
@@ -323,6 +324,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         plan.SkipAvailableSubAssemblyItem = input.SkipAvailableSubAssemblyItem;
         plan.RawMaterialGroupWarehouseId = input.RawMaterialGroupWarehouseId;
         plan.ForWarehouseId = input.ForWarehouseId;
+        plan.SubAssemblyWarehouseId = input.SubAssemblyWarehouseId;
         plan.ReserveStock = input.ReserveStock;
         plan.Notes = input.Notes;
 
@@ -481,107 +483,285 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         // Clear existing material requirements for recalculation
         plan.MaterialRequirements.Clear();
 
-        // Batch-load all BOMs for planned items to avoid N+1
-        var bomIds = plan.PlannedItems.Select(pi => pi.BomId).Distinct().ToArray();
-        var bomQuery = await _bomRepository.GetQueryableAsync();
-        var boms = bomQuery.Where(b => bomIds.Contains(b.Id)).ToDictionary(b => b.Id);
+        // Load all company warehouses to resolve group warehouse descendant hierarchies (PR #60210)
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+        var allCompanyWarehouses = (await whRepo.GetQueryableAsync())
+            .Where(w => w.CompanyId == plan.CompanyId)
+            .ToList();
 
-        // Collect all exploded items
-        var explodedList = new List<(Guid ItemId, string ItemName, string? Uom, decimal Quantity, Guid? WarehouseId, SubAssemblyType ProcurementType, Guid? SubBomId)>();
-
-        foreach (var plannedItem in plan.PlannedItems)
+        var descendantMap = new Dictionary<Guid, HashSet<Guid>>();
+        HashSet<Guid> GetDescendantWarehouseIds(Guid rootWhId)
         {
-            var bom = boms.TryGetValue(plannedItem.BomId, out var cachedBom)
-                ? cachedBom
-                : await _bomRepository.GetAsync(plannedItem.BomId); // fallback if not in batch
-            var multiplier = plannedItem.PlannedQty / (bom.Quantity > 0 ? bom.Quantity : 1);
-
-            // Use BomValidationService for phantom-aware explosion
-            var explodedItems = await _bomValidationService.ExplodeBomAsync(plannedItem.BomId, multiplier);
-
-            foreach (var explodedItem in explodedItems)
+            if (descendantMap.TryGetValue(rootWhId, out var existing)) return existing;
+            var descendants = new HashSet<Guid> { rootWhId };
+            var queue = new Queue<Guid>();
+            queue.Enqueue(rootWhId);
+            while (queue.Count > 0)
             {
-                var targetWh = plan.ForWarehouseId ?? bom.SourceWarehouseId;
-                var procType = explodedItem.SubBomId.HasValue
-                    ? SubAssemblyType.InHouseManufacturing
-                    : SubAssemblyType.MaterialRequest;
-                explodedList.Add((explodedItem.ItemId, explodedItem.ItemName, explodedItem.Uom, explodedItem.Quantity, targetWh, procType, explodedItem.SubBomId));
+                var curr = queue.Dequeue();
+                foreach (var child in allCompanyWarehouses.Where(w => w.ParentWarehouseId == curr))
+                {
+                    if (descendants.Add(child.Id))
+                    {
+                        queue.Enqueue(child.Id);
+                    }
+                }
             }
+            descendantMap[rootWhId] = descendants;
+            return descendants;
         }
 
-        if (!explodedList.Any())
-        {
-            await _planRepository.UpdateAsync(plan);
-            return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
-        }
-
-        // Batch load item master data for MinOrderQty and SafetyStock
-        var itemIds = explodedList.Select(e => e.ItemId).Distinct().ToList();
-        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
-        var itemQuery = await itemRepo.GetQueryableAsync();
-        var itemMap = itemQuery.Where(i => itemIds.Contains(i.Id)).ToList().ToDictionary(i => i.Id);
-
-        // Batch load Bin data for available / projected quantities
+        // Load all company bins for all company warehouses
         var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Bin, Guid>>();
         var binQuery = await binRepo.GetQueryableAsync();
-        var bins = binQuery.Where(b => itemIds.Contains(b.ItemId)).ToList();
-        var binMap = bins
-            .GroupBy(b => (b.ItemId, b.WarehouseId))
-            .ToDictionary(g => g.Key, g => g.First());
+        var allCompanyWhIds = allCompanyWarehouses.Select(w => w.Id).ToHashSet();
+        var bins = binQuery.Where(b => allCompanyWhIds.Contains(b.WarehouseId)).ToList();
 
+        // Helper: aggregate bin stock across warehouse descendants (nets deficits per PR #60210)
+        (decimal ActualQty, decimal ProjectedQty) GetAggregatedBin(Guid itemId, Guid? warehouseId)
+        {
+            if (!warehouseId.HasValue) return (0m, 0m);
+            var descendantWhIds = GetDescendantWarehouseIds(warehouseId.Value);
+            var matchingBins = bins.Where(b => b.ItemId == itemId && descendantWhIds.Contains(b.WarehouseId)).ToList();
+            return (matchingBins.Sum(b => b.ActualQty), matchingBins.Sum(b => b.ProjectedQty));
+        }
+
+        // Batch load all active company BOMs
+        var bomQuery = await _bomRepository.WithDetailsAsync();
+        var allCompanyBoms = bomQuery
+            .Where(b => b.CompanyId == plan.CompanyId && b.IsActive)
+            .ToList();
+        var bomsById = allCompanyBoms.ToDictionary(b => b.Id);
+        var defaultBomByItemId = allCompanyBoms
+            .GroupBy(b => b.ItemId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(b => b.IsDefault).First());
+
+        // Batch load company items
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var itemMap = itemQuery.Where(i => i.CompanyId == plan.CompanyId).ToList().ToDictionary(i => i.Id);
+
+        var targetSubAssemblyWh = plan.SubAssemblyWarehouseId ?? plan.ForWarehouseId;
+        var targetRawMaterialWh = plan.RawMaterialGroupWarehouseId ?? plan.ForWarehouseId;
+
+        // Sub-assembly stock pool tracking: available projected stock consumed once per plan across branches/levels (PR #60210)
+        var subAssemblyPool = new Dictionary<Guid, (decimal ActualQty, decimal ProjectedQty, decimal AvailableQty, bool Exhausted)>();
+
+        var subAssemblyRows = new List<ProductionPlanMrItem>();
         var rawRows = new List<ProductionPlanMrItem>();
 
-        foreach (var exploded in explodedList)
+        async Task ExplodeBomLevelAsync(
+            BillOfMaterials currentBom,
+            decimal currentToProduceQty,
+            int indent,
+            HashSet<Guid> visitedBoms)
         {
-            itemMap.TryGetValue(exploded.ItemId, out var itemMaster);
-            var minOrderQty = itemMaster?.MinOrderQty ?? 0m;
-            var safetyStock = itemMaster?.SafetyStock ?? 0m;
+            if (currentToProduceQty <= 0) return;
+            if (!visitedBoms.Add(currentBom.Id)) return;
 
-            // Per ERPNext PR #58510: classify rows by purchase item vs manufacture, not missing BOM
-            var procType = exploded.ProcurementType;
-            if (itemMaster != null && !exploded.SubBomId.HasValue)
+            var bomOutputQty = currentBom.Quantity > 0 ? currentBom.Quantity : 1m;
+
+            foreach (var bomItem in currentBom.Items)
             {
-                if (itemMaster.DefaultMaterialRequestType == Purchasing.MaterialRequestType.Manufacture)
+                var multiplier = (bomItem.StockQty / bomOutputQty) * currentToProduceQty;
+
+                if (!bomItem.DoNotExplode && bomItem.IsPhantom && bomItem.SubBomId.HasValue)
                 {
-                    procType = SubAssemblyType.InHouseManufacturing;
+                    // Phantom: explode sub-BOM directly into components
+                    if (!bomsById.TryGetValue(bomItem.SubBomId.Value, out var phantomBom))
+                    {
+                        phantomBom = await _bomRepository.FindAsync(bomItem.SubBomId.Value);
+                        if (phantomBom != null) bomsById[phantomBom.Id] = phantomBom;
+                    }
+
+                    if (phantomBom != null)
+                    {
+                        await ExplodeBomLevelAsync(phantomBom, multiplier, indent, visitedBoms);
+                    }
+                }
+                else
+                {
+                    BillOfMaterials? subBom = null;
+                    if (!bomItem.DoNotExplode)
+                    {
+                        if (bomItem.SubBomId.HasValue)
+                        {
+                            if (!bomsById.TryGetValue(bomItem.SubBomId.Value, out subBom))
+                            {
+                                subBom = await _bomRepository.FindAsync(bomItem.SubBomId.Value);
+                                if (subBom != null) bomsById[subBom.Id] = subBom;
+                            }
+                        }
+                        else if (defaultBomByItemId.TryGetValue(bomItem.ItemId, out var db))
+                        {
+                            subBom = db;
+                        }
+                    }
+
+                    if (!itemMap.TryGetValue(bomItem.ItemId, out var itemMaster))
+                    {
+                        itemMaster = await itemRepo.FindAsync(bomItem.ItemId);
+                        if (itemMaster != null) itemMap[itemMaster.Id] = itemMaster;
+                    }
+
+                    var isManufactureItem = itemMaster != null
+                        && itemMaster.DefaultMaterialRequestType == Purchasing.MaterialRequestType.Manufacture;
+
+                    var isSubAssembly = subBom != null || isManufactureItem;
+
+                    if (isSubAssembly)
+                    {
+                        var targetWh = targetSubAssemblyWh ?? currentBom.SourceWarehouseId;
+                        var requiredQty = multiplier;
+
+                        if (!subAssemblyPool.TryGetValue(bomItem.ItemId, out var pool))
+                        {
+                            var (act, proj) = GetAggregatedBin(bomItem.ItemId, targetWh);
+                            pool = (act, proj, Math.Max(0, proj), false);
+                            subAssemblyPool[bomItem.ItemId] = pool;
+                        }
+
+                        decimal plannedQty;
+                        if (plan.SkipAvailableSubAssemblyItem && !pool.Exhausted)
+                        {
+                            if (pool.AvailableQty <= 0)
+                            {
+                                plannedQty = requiredQty;
+                                pool.Exhausted = true;
+                            }
+                            else if (pool.AvailableQty >= requiredQty)
+                            {
+                                pool.AvailableQty -= requiredQty;
+                                plannedQty = 0;
+                            }
+                            else
+                            {
+                                plannedQty = requiredQty - pool.AvailableQty;
+                                pool.AvailableQty = 0;
+                                pool.Exhausted = true;
+                            }
+                            subAssemblyPool[bomItem.ItemId] = pool;
+                        }
+                        else
+                        {
+                            plannedQty = requiredQty;
+                        }
+
+                        var saRow = new ProductionPlanMrItem(
+                            GuidGenerator.Create(), plan.Id,
+                            bomItem.ItemId, bomItem.ItemName, requiredQty)
+                        {
+                            Uom = bomItem.Uom,
+                            WarehouseId = targetWh,
+                            ProcurementType = SubAssemblyType.InHouseManufacturing,
+                            AvailableQty = pool.ActualQty,
+                            PlannedQty = plannedQty,
+                            MinOrderQty = itemMaster?.MinOrderQty ?? 0m,
+                            SafetyStock = itemMaster?.SafetyStock ?? 0m,
+                        };
+                        subAssemblyRows.Add(saRow);
+
+                        // Recurse down sub-BOM with plannedQty (PR #60210)
+                        if (subBom != null && plannedQty > 0)
+                        {
+                            await ExplodeBomLevelAsync(subBom, plannedQty, indent + 1, visitedBoms);
+                        }
+                    }
+                    else
+                    {
+                        // Raw material leaf
+                        var targetWh = targetRawMaterialWh ?? currentBom.SourceWarehouseId;
+                        var (actualQty, _) = GetAggregatedBin(bomItem.ItemId, targetWh);
+
+                        var rmRow = new ProductionPlanMrItem(
+                            GuidGenerator.Create(), plan.Id,
+                            bomItem.ItemId, bomItem.ItemName, multiplier)
+                        {
+                            Uom = bomItem.Uom,
+                            WarehouseId = targetWh,
+                            ProcurementType = SubAssemblyType.MaterialRequest,
+                            AvailableQty = actualQty,
+                            MinOrderQty = itemMaster?.MinOrderQty ?? 0m,
+                            SafetyStock = itemMaster?.SafetyStock ?? 0m,
+                        };
+                        rawRows.Add(rmRow);
+                    }
                 }
             }
 
-            binMap.TryGetValue((exploded.ItemId, exploded.WarehouseId ?? Guid.Empty), out var bin);
-            var actualQty = bin?.ActualQty ?? 0m;
+            visitedBoms.Remove(currentBom.Id);
+        }
 
-            var existing = plan.CombineItems
-                ? rawRows.FirstOrDefault(r => r.ItemId == exploded.ItemId && r.WarehouseId == exploded.WarehouseId && r.ProcurementType == procType)
-                : null;
-
-            if (existing != null)
+        foreach (var plannedItem in plan.PlannedItems)
+        {
+            if (!bomsById.TryGetValue(plannedItem.BomId, out var rootBom))
             {
-                existing.RequiredQty += exploded.Quantity;
+                rootBom = await _bomRepository.GetAsync(plannedItem.BomId);
+                bomsById[rootBom.Id] = rootBom;
             }
-            else
-            {
-                var mrItem = new ProductionPlanMrItem(
-                    GuidGenerator.Create(), plan.Id,
-                    exploded.ItemId, exploded.ItemName, exploded.Quantity)
+
+            await ExplodeBomLevelAsync(rootBom, plannedItem.PlannedQty, indent: 0, new HashSet<Guid>());
+        }
+
+        List<ProductionPlanMrItem> finalSubAssemblyRows;
+        List<ProductionPlanMrItem> finalRawRows;
+
+        if (plan.CombineItems)
+        {
+            finalSubAssemblyRows = subAssemblyRows
+                .GroupBy(r => (r.ItemId, r.WarehouseId, r.ProcurementType))
+                .Select(g =>
                 {
-                    Uom = exploded.Uom,
-                    WarehouseId = exploded.WarehouseId,
-                    ProcurementType = procType,
-                    MinOrderQty = minOrderQty,
-                    SafetyStock = safetyStock,
-                    AvailableQty = actualQty,
-                };
-                rawRows.Add(mrItem);
-            }
+                    var first = g.First();
+                    var combined = new ProductionPlanMrItem(
+                        GuidGenerator.Create(), plan.Id,
+                        first.ItemId, first.ItemName, g.Sum(r => r.RequiredQty))
+                    {
+                        Uom = first.Uom,
+                        WarehouseId = first.WarehouseId,
+                        ProcurementType = first.ProcurementType,
+                        AvailableQty = first.AvailableQty,
+                        PlannedQty = g.Sum(r => r.PlannedQty),
+                        MinOrderQty = first.MinOrderQty,
+                        SafetyStock = first.SafetyStock,
+                    };
+                    return combined;
+                })
+                .ToList();
+
+            finalRawRows = rawRows
+                .GroupBy(r => (r.ItemId, r.WarehouseId, r.ProcurementType))
+                .Select(g =>
+                {
+                    var first = g.First();
+                    var combined = new ProductionPlanMrItem(
+                        GuidGenerator.Create(), plan.Id,
+                        first.ItemId, first.ItemName, g.Sum(r => r.RequiredQty))
+                    {
+                        Uom = first.Uom,
+                        WarehouseId = first.WarehouseId,
+                        ProcurementType = first.ProcurementType,
+                        AvailableQty = first.AvailableQty,
+                        MinOrderQty = first.MinOrderQty,
+                        SafetyStock = first.SafetyStock,
+                    };
+                    return combined;
+                })
+                .ToList();
+        }
+        else
+        {
+            finalSubAssemblyRows = subAssemblyRows;
+            finalRawRows = rawRows;
         }
 
         // Per ERPNext PR #58806: apply safety stock ONCE across rows for the same item/warehouse
         var consumedStock = new Dictionary<(Guid ItemId, Guid? WarehouseId), decimal>();
-        foreach (var mrItem in rawRows)
+        foreach (var mrItem in finalRawRows)
         {
             var key = (mrItem.ItemId, mrItem.WarehouseId);
-            binMap.TryGetValue((mrItem.ItemId, mrItem.WarehouseId ?? Guid.Empty), out var bin);
-            var projectedQty = bin != null && plan.IgnoreExistingOrderedQty ? Math.Max(0, bin.ProjectedQty) : 0m;
+            var (_, proj) = GetAggregatedBin(mrItem.ItemId, mrItem.WarehouseId);
+            var projectedQty = plan.IgnoreExistingOrderedQty ? Math.Max(0, proj) : 0m;
 
             var alreadyConsumed = consumedStock.TryGetValue(key, out var c) ? c : 0m;
             var effectiveSafety = plan.IncludeSafetyStock ? mrItem.SafetyStock : 0m;
@@ -596,10 +776,9 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         }
 
         // Per ERPNext PR #58805: apply MOQ once across Production Plan rows
-        // Group purchase rows by (ItemId, WarehouseId, ProcurementType) and carry surplus forward
         if (plan.ConsiderMinimumOrderQty)
         {
-            var groups = rawRows
+            var groups = finalRawRows
                 .Where(r => r.ProcurementType == SubAssemblyType.MaterialRequest && r.PlannedQty > 0)
                 .GroupBy(r => (r.ItemId, r.WarehouseId, r.ProcurementType));
 
@@ -624,7 +803,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             }
         }
 
-        foreach (var row in rawRows)
+        foreach (var row in finalSubAssemblyRows.Concat(finalRawRows))
         {
             plan.AddMaterialRequirement(row);
         }

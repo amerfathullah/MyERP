@@ -9,6 +9,7 @@ import { CompanyService } from '../../proxy/core/company.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ItemService } from '../../proxy/inventory/item.service';
+import { WarehouseService } from '../../proxy/inventory/warehouse.service';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import type { CreateProductionPlanDto } from '../../proxy/manufacturing/models';
 
@@ -30,11 +31,13 @@ export class ProductionPlanFormComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
   private companyService = inject(CompanyService);
   private itemService = inject(ItemService);
+  private warehouseService = inject(WarehouseService);
   private mfgService = inject(ManufacturingService);
 
   companies = signal<any[]>([]);
   availableItems = signal<any[]>([]);
   allBoms = signal<any[]>([]);
+  warehouses = signal<any[]>([]);
 
   /** Returns BOMs filtered by currently selected item in row */
   getFilteredBoms(itemId: string): any[] {
@@ -45,6 +48,9 @@ export class ProductionPlanFormComponent implements OnInit {
   form = this.fb.group({
     companyId: ['', Validators.required],
     postingDate: [new Date().toISOString().split('T')[0], Validators.required],
+    forWarehouseId: [''],
+    subAssemblyWarehouseId: [''],
+    rawMaterialGroupWarehouseId: [''],
     combineItems: [false],
     ignoreExistingOrderedQty: [false],
     considerMinimumOrderQty: [false],
@@ -84,6 +90,9 @@ export class ProductionPlanFormComponent implements OnInit {
     this.mfgService.getBomList({ skipCount: 0, maxResultCount: 500, sorting: '' })
       .subscribe(res => this.allBoms.set(res.items ?? []));
 
+    this.warehouseService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' })
+      .subscribe(res => this.warehouses.set(res.items ?? []));
+
     // Pre-fill from Sales Order query param (SO → Production Plan workflow)
     const soId = this.route.snapshot.queryParamMap.get('salesOrderId');
     const qCompanyId = this.route.snapshot.queryParamMap.get('companyId');
@@ -113,6 +122,9 @@ export class ProductionPlanFormComponent implements OnInit {
     const dto: CreateProductionPlanDto = {
       companyId: val.companyId!,
       postingDate: val.postingDate ?? undefined,
+      forWarehouseId: val.forWarehouseId || undefined,
+      subAssemblyWarehouseId: val.subAssemblyWarehouseId || undefined,
+      rawMaterialGroupWarehouseId: val.rawMaterialGroupWarehouseId || undefined,
       combineItems: val.combineItems ?? false,
       ignoreExistingOrderedQty: val.ignoreExistingOrderedQty ?? false,
       considerMinimumOrderQty: val.considerMinimumOrderQty ?? false,

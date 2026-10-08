@@ -18,6 +18,36 @@
           </div>
         </div>
 
+        <div class="row g-3 mt-1">
+          <div class="col-md-4">
+            <label class="form-label">{{ '::ForWarehouse' | abpLocalization }}</label>
+            <select class="form-select form-select-sm" formControlName="forWarehouseId">
+              <option value="">{{ '::SelectWarehouse' | abpLocalization }}</option>
+              @for (w of warehouses(); track w.id) {
+                <option [value]="w.id">{{ w.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{{ '::SubAssemblyWarehouse' | abpLocalization }}</label>
+            <select class="form-select form-select-sm" formControlName="subAssemblyWarehouseId">
+              <option value="">{{ '::SelectWarehouse' | abpLocalization }}</option>
+              @for (w of warehouses(); track w.id) {
+                <option [value]="w.id">{{ w.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{{ '::RawMaterialGroupWarehouse' | abpLocalization }}</label>
+            <select class="form-select form-select-sm" formControlName="rawMaterialGroupWarehouseId">
+              <option value="">{{ '::SelectWarehouse' | abpLocalization }}</option>
+              @for (w of warehouses(); track w.id) {
+                <option [value]="w.id">{{ w.name }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
         <div class="row g-3 mt-2">
           <div class="col-md-4">
             <div class="form-check">

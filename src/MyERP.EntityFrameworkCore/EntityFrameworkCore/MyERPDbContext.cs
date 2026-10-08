@@ -3220,12 +3220,14 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.PlanNumber).IsRequired().HasMaxLength(ProductionPlanConsts.MaxPlanNumberLength);
             b.Property(x => x.Notes).HasMaxLength(ProductionPlanConsts.MaxNoteLength);
+            b.Property(x => x.SubAssemblyWarehouseId);
             b.HasMany(x => x.PlannedItems).WithOne().HasForeignKey(x => x.ProductionPlanId).IsRequired();
             b.Navigation(x => x.PlannedItems).AutoInclude();
             b.HasMany(x => x.MaterialRequirements).WithOne().HasForeignKey(x => x.ProductionPlanId).IsRequired();
             b.Navigation(x => x.MaterialRequirements).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.PlanNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.SubAssemblyWarehouseId });
         });
 
         builder.Entity<ProductionPlanItem>(b =>

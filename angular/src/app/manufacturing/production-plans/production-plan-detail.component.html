@@ -44,6 +44,24 @@
       </div>
     </div>
 
+    @if (plan.subAssemblyWarehouseId || plan.forWarehouseId || plan.rawMaterialGroupWarehouseId) {
+      <div class="card mb-4">
+        <div class="card-body py-2">
+          <div class="d-flex flex-wrap gap-4 small">
+            @if (plan.subAssemblyWarehouseId) {
+              <div><i class="fa fa-warehouse me-1 text-primary"></i><strong>{{ '::SubAssemblyWarehouse' | abpLocalization }}:</strong> <span class="font-monospace ms-1">{{ plan.subAssemblyWarehouseId }}</span></div>
+            }
+            @if (plan.forWarehouseId) {
+              <div><i class="fa fa-warehouse me-1 text-secondary"></i><strong>{{ '::ForWarehouse' | abpLocalization }}:</strong> <span class="font-monospace ms-1">{{ plan.forWarehouseId }}</span></div>
+            }
+            @if (plan.rawMaterialGroupWarehouseId) {
+              <div><i class="fa fa-sitemap me-1 text-info"></i><strong>{{ '::RawMaterialGroupWarehouse' | abpLocalization }}:</strong> <span class="font-monospace ms-1">{{ plan.rawMaterialGroupWarehouseId }}</span></div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Planned Items with production progress -->
     <div class="card mb-4">
       <div class="card-header fw-bold"><i class="fa fa-list me-2"></i>{{ 'PlannedItems' | abpLocalization }}</div>

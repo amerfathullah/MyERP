@@ -125,6 +125,7 @@ export interface CreateProductionPlanDto {
   skipAvailableSubAssemblyItem?: boolean;
   rawMaterialGroupWarehouseId?: string | null;
   forWarehouseId?: string | null;
+  subAssemblyWarehouseId?: string | null;
   reserveStock?: boolean;
   notes?: string | null;
   items?: CreateProductionPlanItemDto[];
@@ -385,6 +386,7 @@ export interface ProductionPlanDto extends AuditedEntityDto<string> {
   skipAvailableSubAssemblyItem?: boolean;
   rawMaterialGroupWarehouseId?: string | null;
   forWarehouseId?: string | null;
+  subAssemblyWarehouseId?: string | null;
   reserveStock?: boolean;
   notes?: string | null;
   plannedItems?: ProductionPlanItemDto[];
