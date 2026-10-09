@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -70,6 +70,20 @@ export class StockEntryFormComponent implements OnInit {
   entityId: string | null = null;
   showBomPicker = false;
   selectedWorkOrderId = '';
+  selectedCompanyId = signal<string>('');
+
+  // Per ERPNext PR #60189 (commit 5b1bade8a2): exclude current company's sample retention warehouse from source warehouse pickers
+  sourceWarehouses = computed(() => {
+    const cid = this.selectedCompanyId();
+    const all = this.warehouses();
+    if (!cid) return all;
+
+    const company = this.companies().find(c => c.id === cid);
+    if (company?.sampleRetentionWarehouseId) {
+      return all.filter(w => w.id !== company.sampleRetentionWarehouseId);
+    }
+    return all;
+  });
 
   // Stock availability per item (fetched on item selection)
   // Map: itemId → { actualQty, reservedQty, availableQty, projectedQty, warehouseName }
@@ -98,6 +112,11 @@ export class StockEntryFormComponent implements OnInit {
       const cid = this.companyContext.currentCompanyId();
       if (cid && !this.form.get('companyId')?.value) this.form.patchValue({ companyId: cid });
     }
+
+    this.selectedCompanyId.set(this.form.get('companyId')?.value ?? '');
+    this.form.get('companyId')?.valueChanges.subscribe(cid => {
+      this.selectedCompanyId.set(cid ?? '');
+    });
 
     // Load warehouses, companies, and items for dropdown selectors
     this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(

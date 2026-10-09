@@ -139,6 +139,7 @@ public static class MyERPDomainErrorCodes
     public const string OverReceipt = "MyERP:08006";
     public const string OverBilling = "MyERP:08007";
     public const string CannotSellFromSampleRetentionWarehouse = "MyERP:08013";
+    public const string CannotConsumeFromSampleRetentionWarehouse = "MyERP:08017";
     public const string ReturnPartyMismatch = "MyERP:08014";
     public const string OverTransfer = "MyERP:08010";
 

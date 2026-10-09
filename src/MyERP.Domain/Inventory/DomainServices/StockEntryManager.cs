@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
+using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing;
 using MyERP.Manufacturing.Entities;
@@ -22,6 +23,7 @@ public class StockEntryManager : DomainService
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly CompanyRestrictionValidationService _companyRestriction;
+    private readonly IRepository<Company, Guid>? _companyRepository;
 
     protected StockEntryManager()
     {
@@ -33,11 +35,13 @@ public class StockEntryManager : DomainService
     public StockEntryManager(
         IRepository<Warehouse, Guid> warehouseRepository,
         IRepository<Item, Guid> itemRepository,
-        CompanyRestrictionValidationService companyRestriction)
+        CompanyRestrictionValidationService companyRestriction,
+        IRepository<Company, Guid>? companyRepository = null)
     {
         _warehouseRepository = warehouseRepository;
         _itemRepository = itemRepository;
         _companyRestriction = companyRestriction;
+        _companyRepository = companyRepository;
     }
 
     /// <summary>
@@ -60,6 +64,27 @@ public class StockEntryManager : DomainService
             "StockEntry", entry.CompanyId,
             itemIds: itemIds,
             warehouseIds: warehouseIds);
+
+        // Per ERPNext PR #60189 (commit 5b1bade8a2): exclude the company's sample retention warehouse from source warehouses
+        var compRepo = _companyRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Company, Guid>>();
+        if (compRepo != null)
+        {
+            var company = await compRepo.FindAsync(entry.CompanyId);
+            if (company?.SampleRetentionWarehouseId != null)
+            {
+                var sampleWarehouseId = company.SampleRetentionWarehouseId.Value;
+                foreach (var item in entry.Items)
+                {
+                    if (item.SourceWarehouseId == sampleWarehouseId)
+                    {
+                        var itemName = (await _itemRepository.FindAsync(item.ItemId))?.ItemName ?? item.ItemId.ToString();
+                        throw new BusinessException(MyERPDomainErrorCodes.CannotConsumeFromSampleRetentionWarehouse)
+                            .WithData("itemName", itemName)
+                            .WithData("warehouseId", sampleWarehouseId);
+                    }
+                }
+            }
+        }
 
         foreach (var item in entry.Items)
         {
