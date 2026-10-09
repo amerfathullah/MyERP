@@ -23,7 +23,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
         <div class="col"><h4 class="mb-0">{{ contract().contractName || contract().name }}</h4></div>
         <div class="col-auto d-flex gap-2 align-items-center">
           <app-status-badge [status]="contract().status || 'Draft'" />
-          @if (contract().status === 'Active' || contract().status === 'Unsigned') {
+          @if (contract().status === 'Unsigned') {
             <button class="btn btn-sm btn-outline-success" (click)="sign()">
               <i class="fas fa-signature me-1"></i>{{ '::Sign' | abpLocalization }}
             </button>
@@ -117,7 +117,9 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                   <th style="width: 2rem"></th>
                   <th>{{ '::Requirement' | abpLocalization }}</th>
                   <th>{{ '::Notes' | abpLocalization }}</th>
-                  <th style="width: 2rem"></th>
+                  @if (contract().status === 'Unsigned') {
+                    <th style="width: 2rem"></th>
+                  }
                 </tr>
               </thead>
               <tbody>
@@ -132,22 +134,26 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
                       <input type="text" class="form-control form-control-sm" [value]="item.notes || ''"
                         (change)="updateNotes(item, $any($event.target).value)" />
                     </td>
-                    <td>
-                      <button class="btn btn-sm btn-outline-danger" (click)="removeItem(item)" [attr.aria-label]="'::RemoveRequirement' | abpLocalization">
-                        <i class="fas fa-trash"></i>
-                      </button>
-                    </td>
+                    @if (contract().status === 'Unsigned') {
+                      <td>
+                        <button class="btn btn-sm btn-outline-danger" (click)="removeItem(item)" [attr.aria-label]="'::RemoveRequirement' | abpLocalization">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </td>
+                    }
                   </tr>
                 }
               </tbody>
             </table>
-            <div class="input-group input-group-sm">
-              <input type="text" class="form-control" [(ngModel)]="newRequirement"
-                [placeholder]="'::NewRequirementPlaceholder' | abpLocalization" />
-              <button class="btn btn-outline-primary" (click)="addItem()" [disabled]="!newRequirement.trim()">
-                <i class="fas fa-plus me-1"></i>{{ '::AddRequirement' | abpLocalization }}
-              </button>
-            </div>
+            @if (contract().status === 'Unsigned') {
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control" [(ngModel)]="newRequirement"
+                  [placeholder]="'::NewRequirementPlaceholder' | abpLocalization" />
+                <button class="btn btn-outline-primary" (click)="addItem()" [disabled]="!newRequirement.trim()">
+                  <i class="fas fa-plus me-1"></i>{{ '::AddRequirement' | abpLocalization }}
+                </button>
+              </div>
+            }
           </div>
         </div>
       }

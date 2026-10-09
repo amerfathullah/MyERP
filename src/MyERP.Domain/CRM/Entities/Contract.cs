@@ -78,19 +78,32 @@ public class Contract : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
-    /// <summary>Signs the contract — transitions from Unsigned to Active.</summary>
+    /// <summary>
+    /// Validates date range. Per ERPNext PR #59893 (commit 493af58b5f): End Date cannot be before Start Date.
+    /// </summary>
+    public void ValidateDates()
+    {
+        if (EndDate.HasValue && EndDate.Value < StartDate)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ContractEndDateBeforeStartDate);
+        }
+    }
+
+    /// <summary>Signs the contract — transitions from Unsigned to Active (or InactiveByExpiry if StartDate in future per PR #59893).</summary>
     public void Sign(DateTime signingDate)
     {
         if (Status != ContractStatus.Unsigned)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("documentType", "Contract")
                 .WithData("status", Status.ToString());
+        ValidateDates();
         SigningDate = signingDate;
-        Status = ContractStatus.Active;
+        UpdateContractStatus(signingDate);
     }
 
     /// <summary>
-    /// Updates ContractStatus based on signing and date range per ERPNext Contract (gotchas #1155, #1185).
+    /// Updates ContractStatus based on signing and date range per ERPNext Contract (PR #59893 commit ecc2b9d5d3).
+    /// Open-ended contracts remain inactive until StartDate. Expired contracts become InactiveByExpiry.
     /// </summary>
     public void UpdateContractStatus(DateTime asOfDate)
     {
@@ -102,14 +115,19 @@ public class Contract : FullAuditedAggregateRoot<Guid>, IMultiTenant
             return;
         }
 
-        if (asOfDate.Date >= StartDate.Date && (!EndDate.HasValue || asOfDate.Date <= EndDate.Value.Date))
-        {
-            Status = ContractStatus.Active;
-        }
-        else
+        if (asOfDate.Date < StartDate.Date)
         {
             Status = ContractStatus.InactiveByExpiry;
+            return;
         }
+
+        if (EndDate.HasValue && asOfDate.Date > EndDate.Value.Date)
+        {
+            Status = ContractStatus.InactiveByExpiry;
+            return;
+        }
+
+        Status = ContractStatus.Active;
     }
 
     /// <summary>Checks if contract is expired based on end date.</summary>
@@ -144,16 +162,22 @@ public class Contract : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = ContractStatus.Cancelled;
     }
 
-    /// <summary>Adds a fulfilment checklist requirement (from a template or entered manually).</summary>
+    /// <summary>Adds a fulfilment checklist requirement. Per PR #59893 commit d5591d9792: cannot add terms after contract is signed.</summary>
     public void AddFulfilmentChecklistItem(ContractFulfilmentChecklistItem item)
     {
+        if (Status != ContractStatus.Unsigned)
+            throw new BusinessException(MyERPDomainErrorCodes.FulfilmentTermsCannotBeModifiedAfterSigning);
+
         _fulfilmentChecklist.Add(item);
         RecalculateFulfilmentStatus(DateTime.UtcNow);
     }
 
-    /// <summary>Removes a fulfilment checklist item.</summary>
+    /// <summary>Removes a fulfilment checklist item. Per PR #59893 commit d5591d9792: cannot remove terms after contract is signed.</summary>
     public void RemoveFulfilmentChecklistItem(Guid itemId)
     {
+        if (Status != ContractStatus.Unsigned)
+            throw new BusinessException(MyERPDomainErrorCodes.FulfilmentTermsCannotBeModifiedAfterSigning);
+
         _fulfilmentChecklist.RemoveAll(x => x.Id == itemId);
         RecalculateFulfilmentStatus(DateTime.UtcNow);
     }

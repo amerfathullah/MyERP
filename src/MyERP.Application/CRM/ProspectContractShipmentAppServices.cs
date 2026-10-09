@@ -185,6 +185,7 @@ public class ContractAppService : ApplicationService, IContractAppService
             input.PartyType, input.PartyId, input.StartDate, CurrentTenant.Id);
         entity.ContractName = input.ContractName;
         entity.EndDate = input.EndDate;
+        entity.ValidateDates();
         entity.ContractTerms = input.ContractTerms;
         entity.RequiresFulfilment = input.RequiresFulfilment;
 
@@ -272,6 +273,7 @@ public class ContractAppService : ApplicationService, IContractAppService
         var entity = await _repository.GetAsync(id);
         entity.ContractName = input.ContractName;
         entity.EndDate = input.EndDate;
+        entity.ValidateDates();
         entity.ContractTerms = input.ContractTerms;
         entity.ContractValue = input.ContractValue;
         entity.CurrencyCode = input.CurrencyCode;

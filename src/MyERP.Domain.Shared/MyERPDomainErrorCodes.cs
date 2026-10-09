@@ -405,6 +405,8 @@ public static class MyERPDomainErrorCodes
 
     // CRM — Contract
     public const string ContractAlreadyActive = "MyERP:17002";
+    public const string ContractEndDateBeforeStartDate = "MyERP:17009";
+    public const string FulfilmentTermsCannotBeModifiedAfterSigning = "MyERP:17010";
 
     // Cost Center Allocation
     public const string CostCenterAllocationSelfReference = "MyERP:02038";

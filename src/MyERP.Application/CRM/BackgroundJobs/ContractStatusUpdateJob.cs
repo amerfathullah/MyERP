@@ -54,8 +54,45 @@ public class ContractStatusUpdateJob : AsyncBackgroundJob<ContractStatusUpdateJo
             updatedCount++;
         }
 
-        _logger.LogInformation("ContractStatusUpdateJob transitioned {Count} expired contracts to InactiveByExpiry for company {CompanyId} as of {Date}",
-            updatedCount, args.CompanyId, asOfDate);
+        // Per ERPNext PR #59893 (commit ecc2b9d5d3): activate signed contracts whose start date has now arrived
+        var pendingActivation = query
+            .Where(c => c.CompanyId == args.CompanyId &&
+                        c.Status == ContractStatus.InactiveByExpiry &&
+                        c.SigningDate.HasValue &&
+                        c.StartDate <= asOfDate &&
+                        (!c.EndDate.HasValue || c.EndDate.Value >= asOfDate))
+            .ToList();
+
+        var activatedCount = 0;
+        foreach (var contract in pendingActivation)
+        {
+            contract.UpdateContractStatus(asOfDate);
+            await _repository.UpdateAsync(contract);
+            activatedCount++;
+        }
+
+        // Per ERPNext PR #59893 (commit 83768f6963): lapse fulfilment in daily job once deadline passes unfulfilled
+        var unfulfilledPastDeadline = query
+            .Where(c => c.CompanyId == args.CompanyId &&
+                        c.RequiresFulfilment &&
+                        c.FulfilmentDeadline.HasValue &&
+                        c.FulfilmentDeadline.Value < asOfDate &&
+                        c.FulfilmentStatus != ContractFulfilmentStatus.Fulfilled &&
+                        c.FulfilmentStatus != ContractFulfilmentStatus.Lapsed &&
+                        c.Status != ContractStatus.Cancelled &&
+                        c.Status != ContractStatus.Unsigned)
+            .ToList();
+
+        var lapsedCount = 0;
+        foreach (var contract in unfulfilledPastDeadline)
+        {
+            contract.RecalculateFulfilmentStatus(asOfDate);
+            await _repository.UpdateAsync(contract);
+            lapsedCount++;
+        }
+
+        _logger.LogInformation("ContractStatusUpdateJob for company {CompanyId} as of {Date}: deactivated {ExpiredCount}, activated {ActivatedCount}, lapsed fulfilment {LapsedCount}",
+            args.CompanyId, asOfDate, updatedCount, activatedCount, lapsedCount);
     }
 }
 

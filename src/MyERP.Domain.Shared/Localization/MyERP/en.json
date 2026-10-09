@@ -2765,6 +2765,8 @@
     "ValueOfGoods": "Goods Value",
     "MyERP:17001": "Prospect '{prospectName}' has already been converted to a customer",
     "MyERP:17002": "Contract is already active — cannot sign again",
+    "MyERP:17009": "End Date cannot be before Start Date.",
+    "MyERP:17010": "Fulfilment terms cannot be added or removed after contract is signed.",
     "PickupFrom": "Pickup From",
     "DeliveryTo": "Delivery To",
     "CarrierService": "Carrier Service",
