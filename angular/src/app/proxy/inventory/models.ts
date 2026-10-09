@@ -1360,6 +1360,7 @@ export interface MaterialRequestItemLineDto {
   uom?: string | null;
   warehouseId?: string | null;
   materialRequestItemId?: string;
+  jobCardItemId?: string | null;
 }
 
 export interface MaterialRequestItemsForSeDto {
@@ -1368,6 +1369,11 @@ export interface MaterialRequestItemsForSeDto {
   suggestedPurpose?: string;
   sourceWarehouseId?: string | null;
   targetWarehouseId?: string | null;
+  workOrderId?: string | null;
+  jobCardId?: string | null;
+  bomId?: string | null;
+  fgCompletedQty?: number;
+  fromBom?: boolean;
   items?: MaterialRequestItemLineDto[];
 }
 

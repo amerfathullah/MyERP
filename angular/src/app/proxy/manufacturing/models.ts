@@ -257,6 +257,7 @@ export interface JobCardDto extends EntityDto<string> {
   weightPerPiece?: number | null;
   forQuantity?: number;
   completedQty?: number;
+  transferredQty?: number;
   pendingQty?: number;
   processLossQty?: number;
   totalTimeInMins?: number;

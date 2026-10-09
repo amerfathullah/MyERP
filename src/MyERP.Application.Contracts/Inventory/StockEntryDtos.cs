@@ -191,6 +191,11 @@ public class MaterialRequestItemsForSeDto
     public string SuggestedPurpose { get; set; } = null!;
     public Guid? SourceWarehouseId { get; set; }
     public Guid? TargetWarehouseId { get; set; }
+    public Guid? WorkOrderId { get; set; }
+    public Guid? JobCardId { get; set; }
+    public Guid? BomId { get; set; }
+    public decimal FgCompletedQty { get; set; }
+    public bool FromBom { get; set; }
     public List<MaterialRequestItemLineDto> Items { get; set; } = new();
 }
 
@@ -202,6 +207,7 @@ public class MaterialRequestItemLineDto
     public string? Uom { get; set; }
     public Guid? WarehouseId { get; set; }
     public Guid MaterialRequestItemId { get; set; }
+    public Guid? JobCardItemId { get; set; }
 }
 
 public class StockEntryFinishedGoodTargetDto

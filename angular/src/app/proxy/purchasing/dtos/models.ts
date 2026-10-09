@@ -9,6 +9,7 @@ export interface CreateMaterialRequestDto {
   requiredByDate?: string | null;
   projectId?: string | null;
   workOrderId?: string | null;
+  jobCardId?: string | null;
   sourceWarehouseId?: string | null;
   targetWarehouseId?: string | null;
   notes?: string | null;
@@ -25,6 +26,7 @@ export interface CreateMaterialRequestItemDto {
   salesOrderId?: string | null;
   salesOrderItemId?: string | null;
   projectId?: string | null;
+  jobCardItemId?: string | null;
 }
 
 export interface GetMaterialRequestListDto extends PagedAndSortedResultRequestDto {
@@ -44,6 +46,7 @@ export interface MaterialRequestDto {
   companyId?: string;
   projectId?: string | null;
   workOrderId?: string | null;
+  jobCardId?: string | null;
   sourceWarehouseId?: string | null;
   targetWarehouseId?: string | null;
   notes?: string | null;
@@ -67,6 +70,7 @@ export interface MaterialRequestItemDto {
   salesOrderId?: string | null;
   salesOrderItemId?: string | null;
   projectId?: string | null;
+  jobCardItemId?: string | null;
 }
 
 export interface MrFulfillmentStatusDto {

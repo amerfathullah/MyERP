@@ -34,6 +34,9 @@ public class MaterialRequestItem : Entity<Guid>
     /// <summary>Production Plan Material Requirement Item ID when MR was created from Production Plan (ERPNext PR #59615).</summary>
     public Guid? ProductionPlanMrItemId { get; set; }
 
+    /// <summary>Job Card raw material item ID when MR was created from Job Card transfer.</summary>
+    public Guid? JobCardItemId { get; set; }
+
     protected MaterialRequestItem() { }
 
     public MaterialRequestItem(Guid id, Guid materialRequestId, Guid itemId,

@@ -101,4 +101,18 @@ export class JobCardService {
       body: input,
     },
     { apiName: this.apiName,...config });
+
+  createMaterialRequest = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'POST',
+      url: `/api/app/job-card/${id}/material-request`,
+    },
+    { apiName: this.apiName,...config });
+
+  createMaterialTransfer = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, any>({
+      method: 'POST',
+      url: `/api/app/job-card/${id}/material-transfer`,
+    },
+    { apiName: this.apiName,...config });
 }

@@ -736,6 +736,76 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
     }
 
     /// <summary>
+    /// Creates a Material Request for raw materials required by the Job Card.
+    /// Maps to ERPNext job_card/mapper.py make_material_request and job_card.js.
+    /// </summary>
+    [Authorize(MyERPPermissions.MaterialRequests.Create)]
+    public async Task<Purchasing.DTOs.MaterialRequestDto> CreateMaterialRequestAsync(Guid id)
+    {
+        var jc = await _repository.GetAsync(id);
+        if (jc.Status is JobCardStatus.Cancelled or JobCardStatus.Completed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "JobCard")
+                .WithData("status", jc.Status.ToString());
+        }
+
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var wo = await woRepo.GetAsync(jc.WorkOrderId, includeDetails: true);
+        if (wo.Status is WorkOrderStatus.Draft or WorkOrderStatus.Cancelled or WorkOrderStatus.Stopped or WorkOrderStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "WorkOrder")
+                .WithData("status", wo.Status.ToString());
+        }
+
+        var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        var matchingItems = await jobCardManager.GetRawMaterialsAsync(jc, woRepo);
+
+        var pendingItems = matchingItems
+            .Where(i => i.RequiredQuantity - i.TransferredQuantity > 0)
+            .ToList();
+
+        if (!pendingItems.Any())
+        {
+            throw new BusinessException("MyERP:10013")
+                .WithData("reason", "All materials have already been transferred for this Job Card.");
+        }
+
+        var targetWarehouseId = jc.WipWarehouseId ?? wo.WipWarehouseId;
+        var numberGenerator = LazyServiceProvider.LazyGetRequiredService<IDocumentNumberGenerator>();
+        var mrNumber = await numberGenerator.GenerateAsync("MR", wo.CompanyId);
+
+        var mr = new Purchasing.Entities.MaterialRequest(
+            GuidGenerator.Create(), wo.CompanyId, mrNumber,
+            Purchasing.MaterialRequestType.MaterialTransfer, DateTime.UtcNow.Date, CurrentTenant.Id)
+        {
+            JobCardId = jc.Id,
+            WorkOrderId = wo.Id,
+            TargetWarehouseId = targetWarehouseId,
+            RequiredByDate = jc.StartedAt?.Date ?? DateTime.UtcNow.Date,
+            Notes = $"Material Request for Job Card {jc.Id} (WO {wo.WorkOrderNumber ?? wo.Id.ToString()})"
+        };
+
+        foreach (var reqItem in pendingItems)
+        {
+            var pendingQty = reqItem.RequiredQuantity - reqItem.TransferredQuantity;
+            mr.AddItem(
+                itemId: reqItem.ItemId,
+                itemName: reqItem.ItemName,
+                quantity: pendingQty,
+                uom: reqItem.StockUom ?? "Unit",
+                warehouseId: targetWarehouseId,
+                jobCardItemId: reqItem.Id);
+        }
+
+        var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+        await mrRepo.InsertAsync(mr, autoSave: true);
+
+        return ObjectMapper.Map<Purchasing.Entities.MaterialRequest, Purchasing.DTOs.MaterialRequestDto>(mr);
+    }
+
+    /// <summary>
     /// Creates a Manufacture Stock Entry for the Job Card's semi-finished good item.
     /// Per ERPNext PR #59436 (commit 1d1562a68e) / job_card.make_stock_entry_for_semi_fg_item.
     /// Includes secondary items (scrap, byproduct) recorded on the Job Card.

@@ -152,6 +152,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.ReferenceType = input.ReferenceType;
         entry.ReferenceId = input.ReferenceId;
         entry.WorkOrderId = input.WorkOrderId;
+        entry.JobCardId = input.JobCardId;
         entry.FgCompletedQty = input.FgCompletedQty;
         entry.ProcessLossQty = input.ProcessLossQty;
         entry.ProcessLossPercentage = input.ProcessLossPercentage;
@@ -513,6 +514,27 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                     await dateWoManager.UpdateActualDatesAsync(wo, _repository, dateJcRepo, currentStockEntry: entry);
                     await woRepo.UpdateAsync(wo, autoSave: true);
                 }
+            }
+        }
+
+        // Update Job Card transferred qty and transfer status (ERPNext material_transfer.py / PR #60246)
+        if (entry.JobCardId.HasValue && entry.EntryType == StockEntryType.MaterialTransferForManufacture)
+        {
+            var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
+            var jc = await jcRepo.FindAsync(entry.JobCardId.Value);
+            if (jc != null)
+            {
+                var transferredQty = entry.FgCompletedQty > 0 ? entry.FgCompletedQty : entry.Items.Sum(i => i.Quantity);
+                if (entry.IsReturn)
+                {
+                    jc.TransferredQty = Math.Max(0, jc.TransferredQty - transferredQty);
+                }
+                else
+                {
+                    jc.TransferredQty += transferredQty;
+                }
+                jc.UpdateTransferStatus(jc.TransferredQty >= jc.ForQuantity, jc.TransferredQty > 0);
+                await jcRepo.UpdateAsync(jc, autoSave: true);
             }
         }
 
@@ -960,6 +982,27 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
 
+        // Reverse Job Card transferred qty and transfer status (ERPNext material_transfer.py / PR #60246)
+        if (entry.JobCardId.HasValue && entry.EntryType == StockEntryType.MaterialTransferForManufacture)
+        {
+            var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
+            var jc = await jcRepo.FindAsync(entry.JobCardId.Value);
+            if (jc != null)
+            {
+                var transferredQty = entry.FgCompletedQty > 0 ? entry.FgCompletedQty : entry.Items.Sum(i => i.Quantity);
+                if (entry.IsReturn)
+                {
+                    jc.TransferredQty += transferredQty;
+                }
+                else
+                {
+                    jc.TransferredQty = Math.Max(0, jc.TransferredQty - transferredQty);
+                }
+                jc.UpdateTransferStatus(jc.TransferredQty >= jc.ForQuantity, jc.TransferredQty > 0);
+                await jcRepo.UpdateAsync(jc, autoSave: true);
+            }
+        }
+
         // Reverse the Subcontracting Order's supplied-item TransferredQty (mirrors PostAsync).
         if (entry.EntryType == StockEntryType.SendToSubcontractor && entry.SubcontractingOrderId.HasValue)
         {
@@ -1189,6 +1232,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.ReferenceType = input.ReferenceType;
         entry.ReferenceId = input.ReferenceId;
         entry.WorkOrderId = input.WorkOrderId;
+        entry.JobCardId = input.JobCardId;
         entry.FgCompletedQty = input.FgCompletedQty;
         entry.ProcessLossQty = input.ProcessLossQty;
         entry.ProcessLossPercentage = input.ProcessLossPercentage;
@@ -1377,6 +1421,47 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             TargetWarehouseId = mr.TargetWarehouseId,
         };
 
+        if (mr.JobCardId.HasValue)
+        {
+            result.JobCardId = mr.JobCardId;
+            result.WorkOrderId = mr.WorkOrderId;
+            result.SuggestedPurpose = StockEntryType.MaterialTransferForManufacture.ToString();
+
+            var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
+            var jc = await jcRepo.FindAsync(mr.JobCardId.Value);
+            if (jc != null)
+            {
+                result.FgCompletedQty = jc.ForQuantity;
+                result.FromBom = true;
+                if (jc.SemiFgBomId.HasValue)
+                {
+                    result.BomId = jc.SemiFgBomId;
+                }
+                else if (mr.WorkOrderId.HasValue)
+                {
+                    var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.WorkOrder, Guid>>();
+                    var wo = await woRepo.FindAsync(mr.WorkOrderId.Value);
+                    result.BomId = wo?.BomId;
+                }
+            }
+        }
+        else if (mr.WorkOrderId.HasValue)
+        {
+            result.WorkOrderId = mr.WorkOrderId;
+            result.SuggestedPurpose = StockEntryType.MaterialTransferForManufacture.ToString();
+
+            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.WorkOrder, Guid>>();
+            var wo = await woRepo.FindAsync(mr.WorkOrderId.Value);
+            if (wo != null)
+            {
+                result.BomId = wo.BomId;
+                result.FromBom = true;
+                // Per ERPNext PR #60246 / commit c18d8a4237:
+                // Not fg-qty-driven, mirrors Pick List -> Stock Entry transfer for this Work Order
+                result.FgCompletedQty = 0;
+            }
+        }
+
         // Account for draft Stock Entries already pulled from this MR (per ERPNext PR #58617 /
         // commit d8432d92c8, mirrored from PurchaseConversionAppService's draft-PO discount) —
         // OrderedQuantity only increments on Submit, so a second draft pulling the same MR item
@@ -1404,6 +1489,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 Uom = item.Uom,
                 WarehouseId = item.WarehouseId,
                 MaterialRequestItemId = item.Id,
+                JobCardItemId = item.JobCardItemId,
             });
         }
 

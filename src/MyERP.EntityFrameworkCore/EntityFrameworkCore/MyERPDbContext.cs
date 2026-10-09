@@ -1450,6 +1450,7 @@ public class MyERPDbContext :
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.MaterialRequestId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.RequestNumber }).IsUnique();
+            b.HasIndex(x => x.JobCardId);
         });
 
         builder.Entity<MaterialRequestItem>(b =>
@@ -1462,6 +1463,7 @@ public class MyERPDbContext :
             b.Property(x => x.OrderedQuantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.ReceivedQuantity).HasColumnType("decimal(18,4)");
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
+            b.HasIndex(x => x.JobCardItemId);
         });
 
         // Subcontracting
@@ -3634,6 +3636,7 @@ public class MyERPDbContext :
             b.Property(x => x.WorkstationType).HasMaxLength(100);
             b.Property(x => x.ForQuantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.CompletedQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.TransferredQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.ProcessLossQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.TotalTimeInMins).HasColumnType("decimal(18,2)");
             b.Property(x => x.PlannedTimeInMins).HasColumnType("decimal(18,2)");

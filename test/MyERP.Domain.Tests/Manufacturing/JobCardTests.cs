@@ -286,4 +286,45 @@ public class JobCardTests
         jc.IsCorrective = true;
         jc.IsCorrective.ShouldBeTrue();
     }
+
+    [Fact]
+    public void JobCard_TransferredQty_DefaultsToZero_CanBeSet()
+    {
+        var jc = CreateJobCard();
+        jc.TransferredQty.ShouldBe(0m);
+
+        jc.TransferredQty = 15.5m;
+        jc.TransferredQty.ShouldBe(15.5m);
+    }
+
+    [Fact]
+    public void UpdateTransferStatus_TransitionsStatusCorrectly()
+    {
+        var jc = CreateJobCard();
+        jc.Status.ShouldBe(JobCardStatus.Open);
+
+        // Any transferred -> PartiallyTransferred
+        jc.UpdateTransferStatus(allTransferred: false, anyTransferred: true);
+        jc.Status.ShouldBe(JobCardStatus.PartiallyTransferred);
+
+        // All transferred -> MaterialTransferred
+        jc.UpdateTransferStatus(allTransferred: true, anyTransferred: true);
+        jc.Status.ShouldBe(JobCardStatus.MaterialTransferred);
+
+        // Neither -> Open (e.g. transfer cancelled)
+        jc.UpdateTransferStatus(allTransferred: false, anyTransferred: false);
+        jc.Status.ShouldBe(JobCardStatus.Open);
+    }
+
+    [Fact]
+    public void UpdateTransferStatus_DoesNotOverrideWorkInProgressOrCompleted()
+    {
+        var jc = CreateJobCard();
+        jc.Start();
+        jc.Status.ShouldBe(JobCardStatus.WorkInProgress);
+
+        jc.UpdateTransferStatus(allTransferred: true, anyTransferred: true);
+        jc.Status.ShouldBe(JobCardStatus.WorkInProgress);
+    }
 }
+

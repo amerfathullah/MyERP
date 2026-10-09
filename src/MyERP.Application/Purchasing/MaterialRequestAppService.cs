@@ -109,6 +109,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             ProjectId = input.ProjectId,
             RequiredByDate = input.RequiredByDate,
             WorkOrderId = input.WorkOrderId,
+            JobCardId = input.JobCardId,
             SourceWarehouseId = input.SourceWarehouseId,
             TargetWarehouseId = input.TargetWarehouseId,
             Notes = input.Notes,
@@ -127,7 +128,8 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
                 item.ProjectId ?? input.ProjectId,
                 item.ConversionFactor > 0 ? item.ConversionFactor : 1m,
                 item.ProductionPlanId,
-                item.ProductionPlanMrItemId);
+                item.ProductionPlanMrItemId,
+                item.JobCardItemId);
         }
 
         await ValidateItemsAgainstSalesOrderAsync(entity);
@@ -174,6 +176,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         entity.RequiredByDate = input.RequiredByDate;
         entity.ProjectId = input.ProjectId;
         entity.WorkOrderId = input.WorkOrderId;
+        entity.JobCardId = input.JobCardId;
         entity.SourceWarehouseId = input.SourceWarehouseId;
         entity.TargetWarehouseId = input.TargetWarehouseId;
         entity.Notes = input.Notes;
@@ -192,7 +195,8 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
                 item.ProjectId ?? input.ProjectId,
                 item.ConversionFactor > 0 ? item.ConversionFactor : 1m,
                 item.ProductionPlanId,
-                item.ProductionPlanMrItemId);
+                item.ProductionPlanMrItemId,
+                item.JobCardItemId);
         }
 
         await ValidateItemsAgainstSalesOrderAsync(entity);

@@ -85,10 +85,10 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
 
         <!-- Workflow Actions — when NOT timing and NOT already prompting for completion qty -->
         @if (!timerRunning() && !showCompletionQty()) {
-          @if (d.status === 0 || d.status === 1 || d.status === 4) {
+          @if (d.status !== 3 && d.status !== 5) {
             <div class="card mb-3"><div class="card-body">
               <div class="d-flex gap-2 flex-wrap">
-                @if (d.status === 0) {
+                @if (d.status === 0 || d.status === 2 || d.status === 6) {
                   <button class="btn btn-primary" (click)="startTimer()">
                     <i class="fa fa-play me-1"></i>{{ '::Start' | abpLocalization }}
                   </button>
@@ -112,6 +112,12 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
                     <i class="fa fa-play me-1"></i>{{ '::Resume' | abpLocalization }}
                   </button>
                 }
+                <button class="btn btn-outline-primary" (click)="createMaterialRequest()">
+                  <i class="fa fa-file-invoice me-1"></i>{{ '::CreateMaterialRequest' | abpLocalization }}
+                </button>
+                <button class="btn btn-outline-secondary" (click)="createMaterialTransfer()">
+                  <i class="fa fa-dolly me-1"></i>{{ '::MaterialTransfer' | abpLocalization }}
+                </button>
               </div>
             </div></div>
           }
@@ -242,6 +248,27 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
       next: () => {
         this.load();
         this.beginClientTimer();
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
+  }
+
+  createMaterialRequest(): void {
+    const id = this.route.snapshot.paramMap.get('id')!;
+    (this.service as any).createMaterialRequest(id).subscribe({
+      next: () => {
+        this.toaster.success(this.l.instant('::MaterialRequestCreated'));
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
+  }
+
+  createMaterialTransfer(): void {
+    const id = this.route.snapshot.paramMap.get('id')!;
+    (this.service as any).createMaterialTransfer(id).subscribe({
+      next: () => {
+        this.toaster.success(this.l.instant('::MaterialTransferCreated'));
+        this.load();
       },
       error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
     });
