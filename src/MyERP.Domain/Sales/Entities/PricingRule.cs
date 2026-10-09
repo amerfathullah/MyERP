@@ -66,6 +66,9 @@ public class PricingRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid? PartyId { get; set; }
     public string? PartyType { get; set; }
 
+    /// <summary>Restrict to specific campaign (matches either campaign or utm_campaign, per ERPNext PR #59906).</summary>
+    public string? Campaign { get; set; }
+
     public bool IsDisabled { get; set; }
 
     /// <summary>Apply rule on the other item (not the matched item).</summary>
@@ -89,7 +92,8 @@ public class PricingRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>Check if this rule matches the given context.</summary>
-    public bool Matches(Guid? itemId, Guid? itemGroupId, decimal qty, decimal amount, DateTime transactionDate)
+    public bool Matches(Guid? itemId, Guid? itemGroupId, decimal qty, decimal amount, DateTime transactionDate,
+        string? campaign = null, string? utmCampaign = null)
     {
         if (IsDisabled) return false;
         if (ValidFrom.HasValue && transactionDate < ValidFrom.Value) return false;
@@ -98,6 +102,15 @@ public class PricingRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (MaxQty > 0 && qty > MaxQty) return false;
         if (MinAmount > 0 && amount < MinAmount) return false;
         if (MaxAmount > 0 && amount > MaxAmount) return false;
+
+        // Per ERPNext PR #59906 / commit 2a691858b3:
+        // Match campaign pricing rules from transaction's campaign or utm_campaign
+        if (!string.IsNullOrWhiteSpace(Campaign))
+        {
+            var txCampaign = !string.IsNullOrWhiteSpace(campaign) ? campaign : utmCampaign;
+            if (!string.Equals(Campaign, txCampaign, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
 
         return ApplyOn switch
         {

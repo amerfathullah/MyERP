@@ -311,6 +311,27 @@ public class PickListManager : DomainService
     }
 
     /// <summary>
+    /// Aggregates picked batch quantities from bundles, correctly splitting across multiple batches in a bundle.
+    /// Per ERPNext PR #60301 (commit ead0229375b): handles multiple batches in pick list bundles without KeyError/loss.
+    /// </summary>
+    public static void AggregateBundlePickedBatches(
+        IDictionary<(Guid WarehouseId, Guid? BatchId), decimal> pickedQtyMap,
+        Guid defaultWarehouseId,
+        IEnumerable<SerialAndBatchEntry> bundleEntries)
+    {
+        foreach (var entry in bundleEntries)
+        {
+            var qty = Math.Abs(entry.Qty);
+            var key = (entry.WarehouseId ?? defaultWarehouseId, entry.BatchId);
+            if (!pickedQtyMap.ContainsKey(key))
+            {
+                pickedQtyMap[key] = 0;
+            }
+            pickedQtyMap[key] += qty;
+        }
+    }
+
+    /// <summary>
     /// Deducts already picked quantities across warehouse/batch locations (per ERPNext PR #58613).
     /// Properly consumes picked quantity across multiple location rows and preserves serial number ordering.
     /// </summary>

@@ -57,11 +57,12 @@ public class PickList : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void AddItem(Guid itemId, Guid warehouseId, decimal qty,
         decimal stockQty = 0, string? itemName = null, Guid? batchId = null,
-        Guid? productBundleItemId = null, Guid? sourceDocumentItemId = null)
+        Guid? productBundleItemId = null, Guid? sourceDocumentItemId = null,
+        Guid? serialAndBatchBundleId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        var item = new PickListItem(Guid.NewGuid(), Id, itemId, warehouseId, qty, stockQty, itemName, batchId, productBundleItemId);
+        var item = new PickListItem(Guid.NewGuid(), Id, itemId, warehouseId, qty, stockQty, itemName, batchId, productBundleItemId, serialAndBatchBundleId);
         if (sourceDocumentItemId.HasValue)
             item.SourceDocumentItemId = sourceDocumentItemId.Value;
         _items.Add(item);
@@ -130,6 +131,9 @@ public class PickListItem : FullAuditedEntity<Guid>
     /// <summary>Link to parent product bundle item or packed item ID if this picked item is a bundle component.</summary>
     public Guid? ProductBundleItemId { get; set; }
 
+    /// <summary>Link to Serial and Batch Bundle (if item has batch/serial tracking). Per ERPNext PR #60301.</summary>
+    public Guid? SerialAndBatchBundleId { get; set; }
+
     /// <summary>Pending = Qty - TransferredQty (for next SE creation).</summary>
     public decimal PendingQty => Qty - TransferredQty;
 
@@ -139,7 +143,8 @@ public class PickListItem : FullAuditedEntity<Guid>
     protected PickListItem() { }
 
     public PickListItem(Guid id, Guid pickListId, Guid itemId, Guid warehouseId,
-        decimal qty, decimal stockQty, string? itemName, Guid? batchId, Guid? productBundleItemId = null) : base(id)
+        decimal qty, decimal stockQty, string? itemName, Guid? batchId, Guid? productBundleItemId = null,
+        Guid? serialAndBatchBundleId = null) : base(id)
     {
         PickListId = pickListId;
         ItemId = itemId;
@@ -149,6 +154,7 @@ public class PickListItem : FullAuditedEntity<Guid>
         ItemName = itemName;
         BatchId = batchId;
         ProductBundleItemId = productBundleItemId;
+        SerialAndBatchBundleId = serialAndBatchBundleId;
     }
 
     public void RecordTransfer(decimal qty)

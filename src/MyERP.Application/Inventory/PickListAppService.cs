@@ -95,7 +95,8 @@ public class PickListAppService : ApplicationService, IPickListAppService
         };
         foreach (var item in input.Items)
             pl.AddItem(item.ItemId, item.WarehouseId, item.Qty, itemName: item.ItemName, batchId: item.BatchId,
-                productBundleItemId: item.ProductBundleItemId, sourceDocumentItemId: item.SourceDocumentItemId);
+                productBundleItemId: item.ProductBundleItemId, sourceDocumentItemId: item.SourceDocumentItemId,
+                serialAndBatchBundleId: item.SerialAndBatchBundleId);
         await _repository.InsertAsync(pl);
         return ObjectMapper.Map<PickList, PickListDto>(pl);
     }

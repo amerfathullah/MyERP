@@ -230,6 +230,22 @@ public class AssetLifecycleManager : DomainService
                 throw new BusinessException(MyERPDomainErrorCodes.AssetMissingRequiredField)
                     .WithData("assetName", asset.AssetName)
                     .WithData("fieldName", "AvailableForUseDate");
+
+            // Per ERPNext PR #59883 / commit bf7c7b7da9: WDV requires rate or salvage value
+            if (asset.DepreciationMethod == DepreciationMethod.WrittenDownValue
+                && asset.DepreciationRate <= 0
+                && asset.ExpectedValueAfterUsefulLife <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Set a Rate of Depreciation or an Expected Value After Useful Life for the Written Down Value method");
+            }
+
+            foreach (var detail in asset.DepreciationDetails)
+            {
+                detail.Validate();
+            }
+
+            asset.ValidateManualSchedule();
         }
     }
 

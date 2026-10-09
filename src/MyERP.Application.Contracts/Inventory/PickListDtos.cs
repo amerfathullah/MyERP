@@ -59,6 +59,7 @@ public class PickListItemDto
     public decimal StockReservedQty { get; set; }
     public Guid? ProductBundleItemId { get; set; }
     public Guid? SourceDocumentItemId { get; set; }
+    public Guid? SerialAndBatchBundleId { get; set; }
 }
 
 public class CreatePickListDto
@@ -82,6 +83,7 @@ public class CreatePickListItemDto
     public Guid? BatchId { get; set; }
     public Guid? ProductBundleItemId { get; set; }
     public Guid? SourceDocumentItemId { get; set; }
+    public Guid? SerialAndBatchBundleId { get; set; }
 }
 
 public class PickAllocationResultDto

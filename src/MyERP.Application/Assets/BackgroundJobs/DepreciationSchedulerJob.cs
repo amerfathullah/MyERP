@@ -154,6 +154,10 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
 
                 foreach (var entry in bookGroup.OrderBy(e => e.ScheduleDate))
                 {
+                    // Per ERPNext PR #59883 / commit 0b755e0ba8: check booked and due status of every row
+                    if (entry.IsBooked || entry.ScheduleDate > today)
+                        continue;
+
                     // Skip if schedule date falls in frozen accounting period
                     if (company.AccountsFrozenTillDate.HasValue && entry.ScheduleDate <= company.AccountsFrozenTillDate.Value)
                         continue;
@@ -194,21 +198,29 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
                         detail.ValueAfterDepreciation -= deprAmount;
                         if (detail.ValueAfterDepreciation < 0) detail.ValueAfterDepreciation = 0;
                     }
-
-                    // Update overall asset book value (primary/default book drives asset status)
-                    asset.ValueAfterDepreciation -= deprAmount;
-                    if (asset.ValueAfterDepreciation <= 0)
-                    {
-                        asset.ValueAfterDepreciation = 0;
-                        asset.MarkFullyDepreciated();
-                    }
                     else
                     {
-                        asset.MarkPartiallyDepreciated();
+                        // Fallback when asset has no separate finance books
+                        asset.ValueAfterDepreciation -= deprAmount;
+                        if (asset.ValueAfterDepreciation <= 0)
+                        {
+                            asset.ValueAfterDepreciation = 0;
+                            asset.MarkFullyDepreciated();
+                        }
+                        else
+                        {
+                            asset.MarkPartiallyDepreciated();
+                        }
                     }
 
                     entriesPosted++;
                 }
+            }
+
+            // Per ERPNext PR #59883 / commit a1ff01724d: keep asset value in step with default finance book
+            if (asset.DepreciationDetails != null && asset.DepreciationDetails.Count > 0)
+            {
+                asset.SyncValueAfterDepreciation();
             }
 
             await _assetRepository.UpdateAsync(asset);

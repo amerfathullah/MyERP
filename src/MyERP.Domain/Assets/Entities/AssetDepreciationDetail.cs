@@ -61,7 +61,8 @@ public class AssetDepreciationDetail : FullAuditedEntity<Guid>
     protected AssetDepreciationDetail() { }
 
     public AssetDepreciationDetail(Guid id, Guid assetId, DepreciationMethod method,
-        int totalDepreciations, int frequencyMonths, decimal netPurchaseAmount)
+        int totalDepreciations, int frequencyMonths, decimal netPurchaseAmount,
+        decimal rate = 0, decimal expectedValueAfterUsefulLife = 0)
         : base(id)
     {
         AssetId = assetId;
@@ -69,6 +70,8 @@ public class AssetDepreciationDetail : FullAuditedEntity<Guid>
         TotalNumberOfDepreciations = totalDepreciations;
         FrequencyOfDepreciation = frequencyMonths;
         NetPurchaseAmount = netPurchaseAmount;
+        Rate = rate;
+        ExpectedValueAfterUsefulLife = expectedValueAfterUsefulLife;
         ValueAfterDepreciation = netPurchaseAmount;
         Validate();
     }
@@ -100,6 +103,15 @@ public class AssetDepreciationDetail : FullAuditedEntity<Guid>
         {
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Frequency of Depreciation must be greater than zero");
+        }
+
+        // Per ERPNext PR #59883 / commit bf7c7b7da9: WDV requires rate or salvage value
+        if (DepreciationMethod == DepreciationMethod.WrittenDownValue
+            && Rate <= 0
+            && ExpectedValueAfterUsefulLife <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Set a Rate of Depreciation or an Expected Value After Useful Life for the Written Down Value method");
         }
     }
 

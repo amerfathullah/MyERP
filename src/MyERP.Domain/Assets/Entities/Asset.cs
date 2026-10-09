@@ -170,7 +170,70 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != AssetStatus.Draft && Status != AssetStatus.WorkInProgress)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        ValidateManualSchedule();
         Status = AssetStatus.Submitted;
+    }
+
+    /// <summary>
+    /// Validates a manual depreciation schedule.
+    /// Per ERPNext PR #59883 / commit 5e523af409 & a093e4ac36:
+    /// - Requires positive amounts per row
+    /// - Schedule date on or after AvailableForUseDate
+    /// - Total unbooked depreciation must match depreciable value (ValueAfterDepreciation - ExpectedValueAfterUsefulLife)
+    /// - Recomputes accumulated depreciation
+    /// </summary>
+    public void ValidateManualSchedule()
+    {
+        if (DepreciationMethod != DepreciationMethod.Manual || DepreciationSchedule.Count == 0)
+            return;
+
+        var availableDate = AvailableForUseDate ?? PurchaseDate;
+        for (int i = 0; i < DepreciationSchedule.Count; i++)
+        {
+            var row = DepreciationSchedule[i];
+            if (row.DepreciationAmount <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{i + 1}: Depreciation Amount must be greater than zero");
+            }
+
+            if (row.ScheduleDate < availableDate)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{i + 1}: Schedule Date cannot be before the Available-for-use Date {availableDate:d}");
+            }
+        }
+
+        var unbookedAmount = DepreciationSchedule.Where(d => !d.IsBooked).Sum(d => d.DepreciationAmount);
+        var depreciableAmount = ValueAfterDepreciation - ExpectedValueAfterUsefulLife;
+
+        if (Math.Round(unbookedAmount, 2) != Math.Round(depreciableAmount, 2))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Total Depreciation Amount {unbookedAmount:N2} must be equal to the depreciable value {depreciableAmount:N2}");
+        }
+
+        var accumulated = OpeningAccumulatedDepreciation;
+        foreach (var row in DepreciationSchedule.OrderBy(d => d.ScheduleDate))
+        {
+            accumulated += row.DepreciationAmount;
+            row.AccumulatedDepreciation = accumulated;
+        }
+    }
+
+    /// <summary>
+    /// Synchronizes header ValueAfterDepreciation with the default finance book's value.
+    /// Per ERPNext PR #59883 / commit a1ff01724d: prevents summing multi-book depreciation into header.
+    /// </summary>
+    public void SyncValueAfterDepreciation()
+    {
+        if (!CalculateDepreciation || DepreciationDetails.Count == 0)
+            return;
+
+        var defaultDetail = DepreciationDetails.FirstOrDefault(d => d.FinanceBookId == null) ?? DepreciationDetails[0];
+        ValueAfterDepreciation = defaultDetail.ValueAfterDepreciation;
+        RecalculateStatus();
     }
 
     public void MarkPartiallyDepreciated()

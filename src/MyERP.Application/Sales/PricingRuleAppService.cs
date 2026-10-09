@@ -78,6 +78,7 @@ public class PricingRuleAppService : ApplicationService, IPricingRuleAppService
             Priority = input.Priority,
             ValidFrom = input.ValidFrom,
             ValidUpto = input.ValidUpto,
+            Campaign = input.Campaign,
             ApplyOnOtherItem = input.ApplyOnOtherItem,
             OtherItemId = input.OtherItemId,
         };
@@ -113,7 +114,7 @@ public class PricingRuleAppService : ApplicationService, IPricingRuleAppService
         var rules = query.Where(r => !r.IsDisabled).ToList();
 
         var matching = rules
-            .Where(r => r.Matches(input.ItemId, input.ItemGroupId, input.Qty, input.Amount, input.TransactionDate))
+            .Where(r => r.Matches(input.ItemId, input.ItemGroupId, input.Qty, input.Amount, input.TransactionDate, input.Campaign, input.UtmCampaign))
             .OrderByDescending(r => r.Priority)
             .ToList();
 

@@ -22,6 +22,7 @@ public class PricingRuleDto : EntityDto<Guid>
     public int Priority { get; set; }
     public DateTime? ValidFrom { get; set; }
     public DateTime? ValidUpto { get; set; }
+    public string? Campaign { get; set; }
     public bool IsDisabled { get; set; }
     public bool ApplyOnOtherItem { get; set; }
     public Guid? OtherItemId { get; set; }
@@ -45,6 +46,7 @@ public class CreatePricingRuleDto
     public int Priority { get; set; } = 1;
     public DateTime? ValidFrom { get; set; }
     public DateTime? ValidUpto { get; set; }
+    public string? Campaign { get; set; }
     public Guid? CompanyId { get; set; }
     public bool ApplyOnOtherItem { get; set; }
     public Guid? OtherItemId { get; set; }
@@ -60,6 +62,8 @@ public class ApplyPricingRuleDto
     public decimal Qty { get; set; }
     public decimal Amount { get; set; }
     public DateTime TransactionDate { get; set; }
+    public string? Campaign { get; set; }
+    public string? UtmCampaign { get; set; }
 }
 
 public class PricingRuleResultDto
