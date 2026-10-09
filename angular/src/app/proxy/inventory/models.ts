@@ -1483,6 +1483,7 @@ export interface PutawayRuleDto extends EntityDto<string> {
   itemGroupId?: string | null;
   warehouseId?: string;
   stockCapacity?: number;
+  availableCapacity?: number | null;
   priority?: number;
   uom?: string | null;
   isEnabled?: boolean;

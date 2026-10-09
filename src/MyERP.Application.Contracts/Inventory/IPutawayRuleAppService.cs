@@ -10,6 +10,7 @@ public interface IPutawayRuleAppService : IApplicationService
 {
     Task<PagedResultDto<PutawayRuleDto>> GetListAsync(CompanyFilteredPagedRequestDto input);
     Task<PutawayRuleDto> GetAsync(Guid id);
+    Task<decimal> GetAvailableCapacityAsync(Guid id);
     Task<PutawayRuleDto> CreateAsync(CreateUpdatePutawayRuleDto input);
     Task<PutawayRuleDto> UpdateAsync(Guid id, CreateUpdatePutawayRuleDto input);
     Task ToggleAsync(Guid id);

@@ -10,6 +10,7 @@ public class PutawayRuleDto : EntityDto<Guid>
     public Guid? ItemGroupId { get; set; }
     public Guid WarehouseId { get; set; }
     public decimal StockCapacity { get; set; }
+    public decimal? AvailableCapacity { get; set; }
     public int Priority { get; set; }
     public string? Uom { get; set; }
     public bool IsEnabled { get; set; }

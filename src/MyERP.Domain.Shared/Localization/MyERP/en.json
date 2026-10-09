@@ -1260,6 +1260,7 @@
     "NoWorkstationTypesYet": "No workstation types yet",
     "CostPerHour": "Cost/Hour",
     "Capacity": "Capacity",
+    "AvailableCapacity": "Available Capacity",
     "HourRate": "Hour Rate",
     "Operations": "Operations",
     "AddOperation": "Add Operation",

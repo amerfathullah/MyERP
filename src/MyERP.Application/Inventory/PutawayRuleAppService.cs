@@ -34,12 +34,68 @@ public class PutawayRuleAppService : ApplicationService, IPutawayRuleAppService
         var totalCount = query.Count();
         var items = query.OrderBy(r => r.Priority).ThenBy(r => r.WarehouseId)
             .Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
-        return new PagedResultDto<PutawayRuleDto>(totalCount,
-            items.Select(ObjectMapper.Map<PutawayRule, PutawayRuleDto>).ToList());
+
+        var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Bin, Guid>>();
+        var itemIds = items.Where(r => r.ItemId.HasValue).Select(r => r.ItemId!.Value).Distinct().ToList();
+        var whIds = items.Select(r => r.WarehouseId).Distinct().ToList();
+        var binQuery = await binRepo.GetQueryableAsync();
+        var bins = binQuery
+            .Where(b => itemIds.Contains(b.ItemId) && whIds.Contains(b.WarehouseId))
+            .ToList();
+        var binMap = bins.ToDictionary(b => (b.ItemId, b.WarehouseId), b => b.ActualQty);
+
+        var dtos = items.Select(r =>
+        {
+            var dto = ObjectMapper.Map<PutawayRule, PutawayRuleDto>(r);
+            decimal balance = 0m;
+            if (r.ItemId.HasValue && binMap.TryGetValue((r.ItemId.Value, r.WarehouseId), out var bal))
+            {
+                balance = bal;
+            }
+            dto.AvailableCapacity = r.GetAvailableCapacity(balance);
+            return dto;
+        }).ToList();
+
+        return new PagedResultDto<PutawayRuleDto>(totalCount, dtos);
     }
 
     public async Task<PutawayRuleDto> GetAsync(Guid id)
-        => ObjectMapper.Map<PutawayRule, PutawayRuleDto>(await _repository.GetAsync(id));
+    {
+        var rule = await _repository.GetAsync(id);
+        var dto = ObjectMapper.Map<PutawayRule, PutawayRuleDto>(rule);
+        dto.AvailableCapacity = await GetAvailableCapacityAsync(id);
+        return dto;
+    }
+
+    /// <summary>
+    /// Gets available capacity for a Putaway Rule.
+    /// Per ERPNext PR #60260 (commit acda094a7f): checks read permission on the Putaway Rule
+    /// and derives available capacity from rule.StockCapacity - bin.ActualQty.
+    /// </summary>
+    public async Task<decimal> GetAvailableCapacityAsync(Guid id)
+    {
+        var rule = await _repository.GetAsync(id);
+        decimal balanceQty = 0m;
+        if (rule.ItemId.HasValue)
+        {
+            var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Bin, Guid>>();
+            var bin = await binRepo.FindAsync(b => b.ItemId == rule.ItemId.Value && b.WarehouseId == rule.WarehouseId);
+            balanceQty = bin?.ActualQty ?? 0m;
+        }
+        else if (rule.ItemGroupId.HasValue)
+        {
+            var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+            var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Bin, Guid>>();
+            var itemQuery = await itemRepo.GetQueryableAsync();
+            var groupItemIds = itemQuery.Where(i => i.ItemGroupId == rule.ItemGroupId.Value).Select(i => i.Id).ToList();
+            var binQuery = await binRepo.GetQueryableAsync();
+            balanceQty = binQuery
+                .Where(b => b.WarehouseId == rule.WarehouseId && groupItemIds.Contains(b.ItemId))
+                .Sum(b => b.ActualQty);
+        }
+
+        return rule.GetAvailableCapacity(balanceQty);
+    }
 
     /// <summary>
     /// Mirrors ERPNext PutawayRule.validate: duplicate rule, warehouse/company match,

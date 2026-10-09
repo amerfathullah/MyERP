@@ -68,6 +68,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                 <th>{{ '::Item' | abpLocalization }}</th>
                 <th>{{ '::Warehouse' | abpLocalization }}</th>
                 <th>{{ '::Capacity' | abpLocalization }}</th>
+                <th>{{ '::AvailableCapacity' | abpLocalization }}</th>
                 <th>{{ '::Priority' | abpLocalization }}</th>
                 <th>{{ '::Enabled' | abpLocalization }}</th>
                 <th></th>
@@ -80,6 +81,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                     <td>{{ getItemName(item.itemId) }}</td>
                     <td>{{ getWarehouseName(item.warehouseId) }}</td>
                     <td>{{ item.stockCapacity || '∞' }}</td>
+                    <td>{{ item.availableCapacity !== undefined && item.availableCapacity !== null ? (item.availableCapacity > 999999999 ? '∞' : item.availableCapacity) : '-' }}</td>
                     <td>{{ item.priority }}</td>
                     <td>
                       <button class="btn btn-sm" [class]="item.isEnabled ? 'btn-outline-success' : 'btn-outline-secondary'"

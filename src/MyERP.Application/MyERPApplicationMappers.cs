@@ -1682,7 +1682,9 @@ public partial class ItemStandardCostMapper : MapperBase<Inventory.Entities.Item
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class PutawayRuleMapper : MapperBase<Inventory.Entities.PutawayRule, Inventory.PutawayRuleDto>
 {
+    [MapperIgnoreTarget(nameof(Inventory.PutawayRuleDto.AvailableCapacity))]
     public override partial Inventory.PutawayRuleDto Map(Inventory.Entities.PutawayRule source);
+    [MapperIgnoreTarget(nameof(Inventory.PutawayRuleDto.AvailableCapacity))]
     public override partial void Map(Inventory.Entities.PutawayRule source, Inventory.PutawayRuleDto destination);
 }
 

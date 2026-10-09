@@ -37,6 +37,14 @@ export class PutawayRuleService {
     { apiName: this.apiName,...config });
   
 
+  getAvailableCapacity = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, number>({
+      method: 'GET',
+      url: `/api/app/putaway-rule/${id}/available-capacity`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PutawayRuleDto>>({
       method: 'GET',

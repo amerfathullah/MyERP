@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
@@ -110,6 +111,49 @@ public abstract class PutawayRuleAppServiceTests<TStartupModule> : MyERPApplicat
             }));
 
             ex.Code.ShouldBe(MyERPDomainErrorCodes.PutawayRulePriorityInvalid);
+        });
+    }
+
+    [Fact]
+    public async Task GetAvailableCapacityAsync_CalculatesAvailableCapacityFromBinBalance()
+    {
+        // Regression test for ERPNext PR #60260 (commit acda094a7f):
+        // checks read permission and derives available capacity = StockCapacity - Bin.ActualQty
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var binRepository = GetRequiredService<IRepository<Bin, Guid>>();
+            var appService = GetRequiredService<IPutawayRuleAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Putaway Co Cap"), autoSave: true);
+            var item = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "PUT-CAP-001", "Putaway Item Cap", ItemType.Goods), autoSave: true);
+            var warehouse = await warehouseRepository.InsertAsync(
+                new Warehouse(Guid.NewGuid(), company.Id, "Putaway Cap WH"), autoSave: true);
+
+            var bin = new Bin(Guid.NewGuid(), item.Id, warehouse.Id) { ActualQty = 30m };
+            await binRepository.InsertAsync(bin, autoSave: true);
+
+            var created = await appService.CreateAsync(new CreateUpdatePutawayRuleDto
+            {
+                CompanyId = company.Id,
+                ItemId = item.Id,
+                WarehouseId = warehouse.Id,
+                StockCapacity = 100m,
+                Priority = 1,
+            });
+
+            var available = await appService.GetAvailableCapacityAsync(created.Id);
+            available.ShouldBe(70m); // 100 - 30
+
+            var fetched = await appService.GetAsync(created.Id);
+            fetched.AvailableCapacity.ShouldBe(70m);
+
+            var list = await appService.GetListAsync(new Shared.CompanyFilteredPagedRequestDto { CompanyId = company.Id });
+            var listItem = list.Items.Single(r => r.Id == created.Id);
+            listItem.AvailableCapacity.ShouldBe(70m);
         });
     }
 }
