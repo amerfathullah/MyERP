@@ -603,7 +603,11 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
         {
             var originalInvoice = await _repository.FindAsync(invoice.ReturnAgainstId.Value);
-            returnAgainstPriceListId = originalInvoice?.PriceListId;
+            // Per ERPNext PR #59860 / commit bdab118b3a: require returned voucher's party to match before allowing its price list
+            if (originalInvoice != null && originalInvoice.CustomerId == invoice.CustomerId)
+            {
+                returnAgainstPriceListId = originalInvoice.PriceListId;
+            }
         }
 
         var transactionValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
@@ -1092,7 +1096,11 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
             {
                 var originalInvoice = await _repository.FindAsync(invoice.ReturnAgainstId.Value);
-                returnAgainstPriceListId = originalInvoice?.PriceListId;
+                // Per ERPNext PR #59860 / commit bdab118b3a: require returned voucher's party to match before allowing its price list
+                if (originalInvoice != null && originalInvoice.CustomerId == invoice.CustomerId)
+                {
+                    returnAgainstPriceListId = originalInvoice.PriceListId;
+                }
             }
             await transactionValidation.ValidatePriceListAsync(invoice.PriceListId, invoice.IsReturn, returnAgainstPriceListId);
 

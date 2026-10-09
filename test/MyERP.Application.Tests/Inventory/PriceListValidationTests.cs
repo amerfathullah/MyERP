@@ -306,4 +306,116 @@ public abstract class PriceListValidationTests<TStartupModule> : MyERPApplicatio
             returnInvoice.ReturnAgainstId.ShouldBe(origInvoice.Id);
         });
     }
+
+    [Fact]
+    public async Task SalesInvoice_Return_WithDisabledPriceListDifferentCustomer_ThrowsPriceListDisabled()
+    {
+        // Per ERPNext PR #59860 / commit bdab118b3a:
+        // Returned voucher's party must match the return document's party to inherit its disabled price list.
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var priceListRepo = GetRequiredService<IRepository<PriceList, Guid>>();
+            var siAppService = GetRequiredService<ISalesInvoiceAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SI Return Diff Cust Co"), autoSave: true);
+            await InsertDocumentSeriesAsync(company.Id, "SalesInvoice", "SI-DIFF-");
+            var custA = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "SI Return Cust A"), autoSave: true);
+            var custB = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "SI Return Cust B"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "SI-DIFF-1", "SI Diff Item 1", ItemType.Goods), autoSave: true);
+
+            var priceList = await priceListRepo.InsertAsync(
+                new PriceList(Guid.NewGuid(), "Diff Cust Sales PL", "MYR", isSelling: true, isBuying: false) { IsActive = true },
+                autoSave: true);
+
+            var origInvoice = await siAppService.CreateAsync(new CreateSalesInvoiceDto
+            {
+                CompanyId = company.Id,
+                CustomerId = custA.Id,
+                PriceListId = priceList.Id,
+                Items = new List<CreateSalesInvoiceItemDto>
+                {
+                    new() { ItemId = item.Id, Description = "SI Item 1", Quantity = 5, UnitPrice = 100 }
+                }
+            });
+
+            priceList.IsActive = false;
+            await priceListRepo.UpdateAsync(priceList, autoSave: true);
+
+            // Create return invoice for Cust B referencing orig invoice belonging to Cust A with disabled price list -> must throw PriceListDisabled
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                siAppService.CreateAsync(new CreateSalesInvoiceDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = custB.Id,
+                    PriceListId = priceList.Id,
+                    IsReturn = true,
+                    ReturnAgainstId = origInvoice.Id,
+                    Items = new List<CreateSalesInvoiceItemDto>
+                    {
+                        new() { ItemId = item.Id, Description = "SI Item 1", Quantity = -2, UnitPrice = 100 }
+                    }
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.PriceListDisabled);
+        });
+    }
+
+    [Fact]
+    public async Task PurchaseInvoice_Return_WithDisabledPriceListDifferentSupplier_ThrowsPriceListDisabled()
+    {
+        // Per ERPNext PR #59860 / commit bdab118b3a:
+        // Returned voucher's party must match the return document's party to inherit its disabled price list.
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var priceListRepo = GetRequiredService<IRepository<PriceList, Guid>>();
+            var piAppService = GetRequiredService<IPurchaseInvoiceAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PI Return Diff Supp Co"), autoSave: true);
+            await InsertDocumentSeriesAsync(company.Id, "PurchaseInvoice", "PI-DIFF-");
+            var suppA = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "PI Return Supp A"), autoSave: true);
+            var suppB = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "PI Return Supp B"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "PI-DIFF-1", "PI Diff Item 1", ItemType.Goods), autoSave: true);
+
+            var priceList = await priceListRepo.InsertAsync(
+                new PriceList(Guid.NewGuid(), "Diff Supp Purchase PL", "MYR", isSelling: false, isBuying: true) { IsActive = true },
+                autoSave: true);
+
+            var origInvoice = await piAppService.CreateAsync(new CreatePurchaseInvoiceDto
+            {
+                CompanyId = company.Id,
+                SupplierId = suppA.Id,
+                PriceListId = priceList.Id,
+                Items = new List<CreatePurchaseInvoiceItemDto>
+                {
+                    new() { ItemId = item.Id, Description = "PI Item 1", Quantity = 5, UnitPrice = 100 }
+                }
+            });
+
+            priceList.IsActive = false;
+            await priceListRepo.UpdateAsync(priceList, autoSave: true);
+
+            // Create return invoice for Supp B referencing orig invoice belonging to Supp A with disabled price list -> must throw PriceListDisabled
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                piAppService.CreateAsync(new CreatePurchaseInvoiceDto
+                {
+                    CompanyId = company.Id,
+                    SupplierId = suppB.Id,
+                    PriceListId = priceList.Id,
+                    IsReturn = true,
+                    ReturnAgainstId = origInvoice.Id,
+                    Items = new List<CreatePurchaseInvoiceItemDto>
+                    {
+                        new() { ItemId = item.Id, Description = "PI Item 1", Quantity = -2, UnitPrice = 100 }
+                    }
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.PriceListDisabled);
+        });
+    }
 }
