@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
@@ -249,6 +250,44 @@ public class ChartOfAccountsImportService : DomainService
             new("5700", "Write-Off", AccountType.Expense, parentCode: "5000"),
             new("5800", "Round Off", AccountType.Expense, parentCode: "5000"),
         };
+    }
+
+    /// <summary>
+    /// Creates the standard United States Chart of Accounts template.
+    /// Loaded from verified us_chart_of_accounts.json (ERPNext PR #57279 / commit 6369f7fd5a).
+    /// </summary>
+    public static List<CoaTemplateRow> GetUsTemplate()
+    {
+        var assembly = typeof(ChartOfAccountsImportService).Assembly;
+        var resourceName = "MyERP.Accounting.ChartOfAccounts.Templates.us_chart_of_accounts.json";
+        using var stream = assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Embedded resource '{resourceName}' not found.");
+        using var reader = new StreamReader(stream);
+        return ChartOfAccountsTemplateParser.Parse(reader.ReadToEnd());
+    }
+
+    /// <summary>
+    /// Gets a Chart of Accounts template for the specified ISO country code.
+    /// </summary>
+    public static List<CoaTemplateRow> GetTemplateByCountry(string countryCode)
+    {
+        if (string.Equals(countryCode, "my", StringComparison.OrdinalIgnoreCase))
+            return GetMalaysianTemplate();
+
+        if (string.Equals(countryCode, "us", StringComparison.OrdinalIgnoreCase))
+            return GetUsTemplate();
+
+        var assembly = typeof(ChartOfAccountsImportService).Assembly;
+        var resourceName = $"MyERP.Accounting.ChartOfAccounts.Templates.{countryCode.ToLowerInvariant()}_chart_of_accounts.json";
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream != null)
+        {
+            using var reader = new StreamReader(stream);
+            return ChartOfAccountsTemplateParser.Parse(reader.ReadToEnd());
+        }
+
+        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+            .WithData("detail", $"Chart of Accounts template for country '{countryCode}' not found.");
     }
 
     /// <summary>

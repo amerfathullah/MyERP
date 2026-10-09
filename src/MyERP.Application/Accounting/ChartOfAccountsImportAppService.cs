@@ -50,7 +50,31 @@ public class ChartOfAccountsImportAppService : ApplicationService, IChartOfAccou
     public Task<List<CoaTemplateRowDto>> GetMalaysianTemplateAsync()
     {
         var template = ChartOfAccountsImportService.GetMalaysianTemplate();
-        var dtos = template.Select(r => new CoaTemplateRowDto
+        return Task.FromResult(MapRows(template));
+    }
+
+    /// <summary>
+    /// Get the standard United States chart of accounts template.
+    /// Loaded from verified us_chart_of_accounts.json (ERPNext PR #57279 / commit 6369f7fd5a).
+    /// </summary>
+    public Task<List<CoaTemplateRowDto>> GetUsTemplateAsync()
+    {
+        var template = ChartOfAccountsImportService.GetUsTemplate();
+        return Task.FromResult(MapRows(template));
+    }
+
+    /// <summary>
+    /// Get a chart of accounts template by ISO country code (e.g. "MY", "US").
+    /// </summary>
+    public Task<List<CoaTemplateRowDto>> GetTemplateByCountryAsync(string countryCode)
+    {
+        var template = ChartOfAccountsImportService.GetTemplateByCountry(countryCode);
+        return Task.FromResult(MapRows(template));
+    }
+
+    private static List<CoaTemplateRowDto> MapRows(List<CoaTemplateRow> rows)
+    {
+        return rows.Select(r => new CoaTemplateRowDto
         {
             AccountCode = r.AccountCode,
             AccountName = r.AccountName,
@@ -59,7 +83,5 @@ public class ChartOfAccountsImportAppService : ApplicationService, IChartOfAccou
             ParentCode = r.ParentCode,
             SubType = r.SubType,
         }).ToList();
-
-        return Task.FromResult(dtos);
     }
 }

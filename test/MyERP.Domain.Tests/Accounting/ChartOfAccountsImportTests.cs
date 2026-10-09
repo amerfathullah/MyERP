@@ -198,4 +198,48 @@ public class ChartOfAccountsImportTests
         company.DefaultReceivableAccountId.ShouldNotBeNull();
         company.DefaultPayableAccountId.ShouldNotBeNull();
     }
+
+    [Fact]
+    public void GetUsTemplate_Returns162AccountsWithUniqueCodes()
+    {
+        // Per ERPNext PR #57279 / commit 6369f7fd5a:
+        // Verified United States Chart of Accounts template
+        var template = ChartOfAccountsImportService.GetUsTemplate();
+        template.ShouldNotBeEmpty();
+        template.Count.ShouldBe(162);
+
+        var codes = template.Select(r => r.AccountCode).ToList();
+        codes.Distinct().Count().ShouldBe(codes.Count);
+
+        var roots = template.Where(r => r.ParentCode == null).ToList();
+        roots.Count.ShouldBe(5);
+        roots.Select(r => r.AccountName).ShouldBe(new[] { "Assets", "Liabilities", "Equity", "Income", "Expenses" }, ignoreOrder: true);
+    }
+
+    [Fact]
+    public void GetUsTemplate_AllParentCodesExistInTemplate()
+    {
+        var template = ChartOfAccountsImportService.GetUsTemplate();
+        var codes = template.Select(r => r.AccountCode).ToHashSet();
+
+        foreach (var row in template.Where(r => r.ParentCode != null))
+        {
+            codes.ShouldContain(row.ParentCode!,
+                $"Parent code '{row.ParentCode}' for account '{row.AccountCode}' not found in US template");
+        }
+    }
+
+    [Fact]
+    public void GetTemplateByCountry_ResolvesSupportedCountries()
+    {
+        var myTemplate = ChartOfAccountsImportService.GetTemplateByCountry("MY");
+        myTemplate.ShouldNotBeEmpty();
+
+        var usTemplate = ChartOfAccountsImportService.GetTemplateByCountry("US");
+        usTemplate.Count.ShouldBe(162);
+
+        Should.Throw<Volo.Abp.BusinessException>(() =>
+            ChartOfAccountsImportService.GetTemplateByCountry("XX"));
+    }
 }
+
