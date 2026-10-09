@@ -54,22 +54,24 @@ public class SalesPipelineAppService : ApplicationService, ISalesPipelineAppServ
         if (companyId.HasValue) oppQuery = oppQuery.Where(o => o.CompanyId == companyId.Value);
 
         result.TotalOpportunities = oppQuery.Count();
-        result.OpenOpportunities = oppQuery.Count(o => o.Status == OpportunityStatus.Open || o.Status == OpportunityStatus.Replied);
+        // Per ERPNext PR #59894 / commit 31a1504c31: active pipeline includes Open, Replied, and Quotation (excludes Lost and Closed)
+        result.OpenOpportunities = oppQuery.Count(o => o.Status == OpportunityStatus.Open || o.Status == OpportunityStatus.Replied || o.Status == OpportunityStatus.Quotation);
         result.OpenOpportunitiesAmount = oppQuery
-            .Where(o => o.Status == OpportunityStatus.Open || o.Status == OpportunityStatus.Replied)
+            .Where(o => o.Status == OpportunityStatus.Open || o.Status == OpportunityStatus.Replied || o.Status == OpportunityStatus.Quotation)
             .Sum(o => o.OpportunityAmount);
         result.WeightedPipelineValue = oppQuery
-            .Where(o => o.Status == OpportunityStatus.Open || o.Status == OpportunityStatus.Replied)
+            .Where(o => o.Status == OpportunityStatus.Open || o.Status == OpportunityStatus.Replied || o.Status == OpportunityStatus.Quotation)
             .Sum(o => o.OpportunityAmount * o.Probability / 100);
         result.WonOpportunities = oppQuery.Count(o => o.Status == OpportunityStatus.Converted);
         result.WonAmount = oppQuery
             .Where(o => o.Status == OpportunityStatus.Converted)
             .Sum(o => o.OpportunityAmount);
         result.LostOpportunities = oppQuery.Count(o => o.Status == OpportunityStatus.Lost);
+        result.ClosedOpportunities = oppQuery.Count(o => o.Status == OpportunityStatus.Closed);
 
-        // Opportunities by stage
+        // Opportunities by stage (active pipeline: Open, Replied, Quotation)
         var activeOpps = oppQuery
-            .Where(o => o.Status == OpportunityStatus.Open || o.Status == OpportunityStatus.Replied)
+            .Where(o => o.Status == OpportunityStatus.Open || o.Status == OpportunityStatus.Replied || o.Status == OpportunityStatus.Quotation)
             .ToList();
 
         result.StageBreakdown = activeOpps
@@ -129,7 +131,7 @@ public class SalesPipelineAppService : ApplicationService, ISalesPipelineAppServ
         if (companyId.HasValue) query = query.Where(o => o.CompanyId == companyId.Value);
 
         return query
-            .Where(o => o.Status == OpportunityStatus.Open || o.Status == OpportunityStatus.Replied)
+            .Where(o => o.Status == OpportunityStatus.Open || o.Status == OpportunityStatus.Replied || o.Status == OpportunityStatus.Quotation)
             .OrderByDescending(o => o.OpportunityAmount * o.Probability / 100)
             .Take(maxCount)
             .Select(o => new PipelineOpportunityDto

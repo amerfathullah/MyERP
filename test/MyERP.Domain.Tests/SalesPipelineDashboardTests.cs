@@ -24,6 +24,8 @@ public class SalesPipelineDashboardTests
         Assert.Equal(0m, dto.WeightedPipelineValue);
         Assert.Equal(0, dto.WonOpportunities);
         Assert.Equal(0m, dto.WonAmount);
+        Assert.Equal(0, dto.LostOpportunities);
+        Assert.Equal(0, dto.ClosedOpportunities);
         Assert.Equal(0, dto.TotalQuotations);
         Assert.Equal(0, dto.OrdersThisMonth);
         Assert.Equal(0m, dto.LeadToOpportunityRate);
@@ -143,6 +145,21 @@ public class SalesPipelineDashboardTests
     }
 
     [Fact]
+    public void Opportunity_ActiveStatuses_IncludeOpenRepliedAndQuotation()
+    {
+        // Per ERPNext PR #59894 / commit 31a1504c31: leave Lost and Closed opportunities out of active pipeline
+        // Active pipeline contains Open, Replied, and Quotation statuses
+        var activeStatuses = new[] { OpportunityStatus.Open, OpportunityStatus.Replied, OpportunityStatus.Quotation };
+        Assert.Equal(3, activeStatuses.Length);
+        Assert.Contains(OpportunityStatus.Open, activeStatuses);
+        Assert.Contains(OpportunityStatus.Replied, activeStatuses);
+        Assert.Contains(OpportunityStatus.Quotation, activeStatuses);
+        Assert.DoesNotContain(OpportunityStatus.Lost, activeStatuses);
+        Assert.DoesNotContain(OpportunityStatus.Closed, activeStatuses);
+        Assert.DoesNotContain(OpportunityStatus.Converted, activeStatuses);
+    }
+
+    [Fact]
     public void StageBreakdown_GroupsByStage()
     {
         var stages = new List<PipelineStageDto>
@@ -184,6 +201,7 @@ public class SalesPipelineDashboardTests
     [InlineData("NoActiveOpportunities")]
     [InlineData("WinRate")]
     [InlineData("Won")]
+    [InlineData("Closed")]
     [InlineData("DaysOpen")]
     [InlineData("ClosingDate")]
     [InlineData("Weighted")]

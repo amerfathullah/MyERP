@@ -19,6 +19,7 @@ public class SalesPipelineDashboardDto
     public int WonOpportunities { get; set; }
     public decimal WonAmount { get; set; }
     public int LostOpportunities { get; set; }
+    public int ClosedOpportunities { get; set; }
 
     // Stage breakdown
     public List<PipelineStageDto> StageBreakdown { get; set; } = new();

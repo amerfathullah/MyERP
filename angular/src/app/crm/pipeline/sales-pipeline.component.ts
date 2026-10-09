@@ -37,6 +37,7 @@ interface PipelineDashboard {
   wonOpportunities: number;
   wonAmount: number;
   lostOpportunities: number;
+  closedOpportunities: number;
   stageBreakdown: PipelineStage[];
   totalQuotations: number;
   openQuotations: number;
@@ -263,7 +264,7 @@ interface PipelineDashboard {
 
         <!-- Win/Loss Summary -->
         <div class="row mb-4">
-          <div class="col-md-4">
+          <div class="col-md-3">
             <div class="card bg-success bg-opacity-10">
               <div class="card-body text-center">
                 <div class="fs-3 fw-bold text-success">{{ data()!.wonOpportunities }}</div>
@@ -271,7 +272,7 @@ interface PipelineDashboard {
               </div>
             </div>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
             <div class="card bg-danger bg-opacity-10">
               <div class="card-body text-center">
                 <div class="fs-3 fw-bold text-danger">{{ data()!.lostOpportunities }}</div>
@@ -279,7 +280,15 @@ interface PipelineDashboard {
               </div>
             </div>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
+            <div class="card bg-secondary bg-opacity-10">
+              <div class="card-body text-center">
+                <div class="fs-3 fw-bold text-secondary">{{ data()!.closedOpportunities }}</div>
+                <div class="text-muted">{{ '::Closed' | abpLocalization }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
             <div class="card bg-info bg-opacity-10">
               <div class="card-body text-center">
                 <div class="fs-3 fw-bold text-info">

@@ -544,6 +544,7 @@ export interface SalesPipelineDashboardDto {
   wonOpportunities?: number;
   wonAmount?: number;
   lostOpportunities?: number;
+  closedOpportunities?: number;
   stageBreakdown?: PipelineStageDto[];
   totalQuotations?: number;
   openQuotations?: number;
