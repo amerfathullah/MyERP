@@ -280,4 +280,38 @@ public class BankReconciliationStatementTests
 
         Assert.Equal("USD", entry.AccountCurrency);
     }
+
+    [Fact]
+    public void BRS_AmountsNotReflectedInSystem_AdjustsCalculatedBankBalance()
+    {
+        // Cheques and deposits incorrectly cleared (posted after report date, cleared on/before report date)
+        var dto = new BankReconciliationStatementDto
+        {
+            GlBalance = 100000m,
+            OutstandingDeposits = 10000m,
+            OutstandingPayments = 5000m,
+            AmountsNotReflectedInSystem = 2500m
+        };
+
+        // Net outstanding = 10000 - 5000 = 5000
+        // Calculated bank balance = 100000 - 5000 + 2500 = 97500
+        Assert.Equal(5000m, dto.NetOutstanding);
+        Assert.Equal(2500m, dto.AmountsNotReflectedInSystem);
+        Assert.Equal(97500m, dto.CalculatedBankBalance);
+    }
+
+    [Theory]
+    [InlineData("MYR", "MYR", 100, 450, 450)]  // Bank in company currency -> use base amount
+    [InlineData("EUR", "INR", 100, 8000, 100)] // Bank in third currency -> use paid amount (PR #60024)
+    [InlineData("USD", "INR", 250, 20000, 250)] // Bank in third currency -> use paid amount
+    public void BRS_ThirdCurrencyRule_SelectsCorrectAmount(
+        string bankCurrency, string companyCurrency, decimal amount, decimal baseAmount, decimal expected)
+    {
+        // Per ERPNext PR #60024 / commit 48062658ed:
+        // "The bank ledger holds the base amount only when the bank is in company currency, otherwise the paid amount."
+        var selected = BankReconciliationAppService.GetAmountInBankCurrency(
+            bankCurrency, companyCurrency, amount, baseAmount);
+
+        Assert.Equal(expected, selected);
+    }
 }

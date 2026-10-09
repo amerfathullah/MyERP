@@ -54,8 +54,14 @@ public class BankReconciliationStatementDto
     /// <summary>Net outstanding = Deposits - Payments</summary>
     public decimal NetOutstanding => OutstandingDeposits - OutstandingPayments;
 
-    /// <summary>Calculated bank statement balance = GL Balance - Net Outstanding</summary>
-    public decimal CalculatedBankBalance => GlBalance - NetOutstanding;
+    /// <summary>
+    /// Entries posted after the report date but cleared on or before the report date.
+    /// Per ERPNext: get_amounts_not_reflected_in_system ("Cheques and Deposits incorrectly cleared").
+    /// </summary>
+    public decimal AmountsNotReflectedInSystem { get; set; }
+
+    /// <summary>Calculated bank statement balance = GL Balance - Net Outstanding + AmountsNotReflectedInSystem</summary>
+    public decimal CalculatedBankBalance => GlBalance - NetOutstanding + AmountsNotReflectedInSystem;
 
     /// <summary>Individual uncleared entries for the statement listing</summary>
     public List<BankStatementEntryDto> UnclearedEntries { get; set; } = new();

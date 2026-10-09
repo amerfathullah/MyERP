@@ -522,10 +522,15 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
     public async Task<BankReconciliationStatementDto> GetReconciliationStatementAsync(
         GetBankReconciliationStatementInput input)
     {
-        // Step 1: Get bank GL account from Account entity
+        // Step 1: Get bank GL account and currencies
         var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
         var account = await accountRepo.FindAsync(input.BankAccountId);
         var accountName = account?.AccountName ?? "Bank Account";
+
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+        var company = await companyRepo.FindAsync(input.CompanyId);
+        var companyCurrency = company?.CurrencyCode ?? "MYR";
+        var bankCurrency = account?.Currency ?? companyCurrency;
 
         // Step 2: Calculate GL balance for the bank account as of report date
         // Sum all posted JE lines hitting this account up to report date
@@ -543,18 +548,21 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
             .Where(l => postedJeIds.Contains(l.JournalEntryId) && l.AccountId == input.BankAccountId)
             .ToList();
 
-        var totalDebit = lines.Where(l => l.IsDebit).Sum(l => l.Amount);
-        var totalCredit = lines.Where(l => !l.IsDebit).Sum(l => l.Amount);
+        var totalDebit = lines.Where(l => l.IsDebit)
+            .Sum(l => GetAmountInBankCurrency(bankCurrency, companyCurrency, l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount, l.Amount));
+        var totalCredit = lines.Where(l => !l.IsDebit)
+            .Sum(l => GetAmountInBankCurrency(bankCurrency, companyCurrency, l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount, l.Amount));
         var glBalance = totalDebit - totalCredit;
 
         // Step 3: Find uncleared entries (posted payments/journals that hit GL but have no
-        // ClearanceDate yet). Per ERPNext: outstanding = entries without clearance_date.
+        // ClearanceDate yet or ClearanceDate > ReportDate).
+        // Per ERPNext: outstanding = entries without clearance_date or cleared after report date.
         var peQuery = await _paymentEntryRepository.GetQueryableAsync();
         var unclearedPEs = peQuery
             .Where(pe => pe.CompanyId == input.CompanyId
                 && pe.Status == Core.DocumentStatus.Posted
                 && pe.PostingDate <= input.ReportDate
-                && pe.ClearanceDate == null
+                && (pe.ClearanceDate == null || pe.ClearanceDate > input.ReportDate)
                 && (pe.PaidFromAccountId == input.BankAccountId || pe.PaidToAccountId == input.BankAccountId))
             .ToList();
 
@@ -566,8 +574,13 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         {
             // Determine direction: money INTO bank (deposit) or OUT of bank (payment)
             // Per ERPNext PR #57740: match bank-side amount (ReceivedAmountAfterTax on deposit, PaidAmountAfterTax on withdrawal)
+            // Per ERPNext PR #60024: pick base amount only when bank is in company currency, otherwise paid amount.
             var isDeposit = pe.PaidToAccountId == input.BankAccountId;
-            var amount = pe.GetBankSideAmount(isDeposit);
+            var bankSideAmount = pe.GetBankSideAmount(isDeposit);
+            var baseSideAmount = isDeposit
+                ? (pe.BaseReceivedAmount != 0 ? pe.BaseReceivedAmount : bankSideAmount * (pe.TargetExchangeRate > 0 ? pe.TargetExchangeRate : pe.ExchangeRate))
+                : (pe.BaseAmount != 0 ? pe.BaseAmount : bankSideAmount * pe.ExchangeRate);
+            var amount = GetAmountInBankCurrency(bankCurrency, companyCurrency, bankSideAmount, baseSideAmount);
 
             if (isDeposit)
                 outstandingDeposits += amount;
@@ -585,21 +598,19 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
                 ReferenceNumber = pe.ReferenceNumber,
                 ClearanceDate = pe.ClearanceDate,
                 PartyName = null,
-                AccountCurrency = pe.CurrencyCode ?? account?.Currency ?? "MYR"
+                AccountCurrency = bankCurrency
             });
         }
 
-        // Uncleared Journal Entries (Bank/Contra/Credit Card type) touching this account.
-        // Per ERPNext bank_clearance.py: opening entries excluded, lines aggregated per JE.
+        // Uncleared Journal Entries touching this account.
+        // Per ERPNext bank_clearance.py / bank_reconciliation_statement.py: opening entries excluded, lines aggregated per JE.
+        // Includes any non-opening JE touching this account whose ClearanceDate is null or > ReportDate.
         var unclearedJEs = (await jeRepo.GetQueryableAsync())
             .Where(je => je.CompanyId == input.CompanyId
                 && je.Status == Core.DocumentStatus.Posted
                 && !je.IsOpening
-                && je.ClearanceDate == null
-                && je.PostingDate <= input.ReportDate
-                && (je.VoucherType == JournalEntryVoucherType.BankEntry
-                    || je.VoucherType == JournalEntryVoucherType.ContraEntry
-                    || je.VoucherType == JournalEntryVoucherType.CreditCardEntry))
+                && (je.ClearanceDate == null || je.ClearanceDate > input.ReportDate)
+                && je.PostingDate <= input.ReportDate)
             .ToList();
 
         if (unclearedJEs.Count > 0)
@@ -612,9 +623,12 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
             foreach (var group in jeLinesOnAccount.GroupBy(l => l.JournalEntryId))
             {
                 var je = unclearedJEs.First(j => j.Id == group.Key);
-                var debit = group.Where(l => l.IsDebit).Sum(l => l.Amount);
-                var credit = group.Where(l => !l.IsDebit).Sum(l => l.Amount);
-                var lineCurrency = group.FirstOrDefault()?.AccountCurrency;
+                var debit = group.Where(l => l.IsDebit)
+                    .Sum(l => GetAmountInBankCurrency(bankCurrency, companyCurrency, l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount, l.Amount));
+                var credit = group.Where(l => !l.IsDebit)
+                    .Sum(l => GetAmountInBankCurrency(bankCurrency, companyCurrency, l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount, l.Amount));
+
+                if (debit == 0 && credit == 0) continue;
 
                 outstandingDeposits += debit;
                 outstandingPayments += credit;
@@ -630,21 +644,89 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
                     ReferenceNumber = je.ReferenceNumber,
                     ClearanceDate = je.ClearanceDate,
                     PartyName = null,
-                    AccountCurrency = lineCurrency ?? account?.Currency ?? "MYR"
+                    AccountCurrency = bankCurrency
                 });
             }
         }
+
+        // Step 4: Amounts not reflected in system (Cheques and Deposits incorrectly cleared)
+        // Per ERPNext get_amounts_not_reflected_in_system:
+        // Entries posted AFTER ReportDate but cleared ON OR BEFORE ReportDate.
+        var notReflectedPEs = peQuery
+            .Where(pe => pe.CompanyId == input.CompanyId
+                && pe.Status == Core.DocumentStatus.Posted
+                && pe.PostingDate > input.ReportDate
+                && pe.ClearanceDate != null
+                && pe.ClearanceDate <= input.ReportDate
+                && (pe.PaidFromAccountId == input.BankAccountId || pe.PaidToAccountId == input.BankAccountId))
+            .ToList();
+
+        decimal notReflectedPeAmount = 0m;
+        foreach (var pe in notReflectedPEs)
+        {
+            var isDeposit = pe.PaidToAccountId == input.BankAccountId;
+            var bankSideAmount = pe.GetBankSideAmount(isDeposit);
+            var baseSideAmount = isDeposit
+                ? (pe.BaseReceivedAmount != 0 ? pe.BaseReceivedAmount : bankSideAmount * (pe.TargetExchangeRate > 0 ? pe.TargetExchangeRate : pe.ExchangeRate))
+                : (pe.BaseAmount != 0 ? pe.BaseAmount : bankSideAmount * pe.ExchangeRate);
+            var amount = GetAmountInBankCurrency(bankCurrency, companyCurrency, bankSideAmount, baseSideAmount);
+            if (isDeposit)
+                notReflectedPeAmount += amount;
+            else
+                notReflectedPeAmount -= amount;
+        }
+
+        var notReflectedJEs = (await jeRepo.GetQueryableAsync())
+            .Where(je => je.CompanyId == input.CompanyId
+                && je.Status == Core.DocumentStatus.Posted
+                && !je.IsOpening
+                && je.PostingDate > input.ReportDate
+                && je.ClearanceDate != null
+                && je.ClearanceDate <= input.ReportDate)
+            .ToList();
+
+        decimal notReflectedJeAmount = 0m;
+        if (notReflectedJEs.Count > 0)
+        {
+            var notReflectedJeIds = notReflectedJEs.Select(je => je.Id).ToHashSet();
+            var notReflectedLines = (await jeLineRepo.GetQueryableAsync())
+                .Where(l => l.AccountId == input.BankAccountId && notReflectedJeIds.Contains(l.JournalEntryId))
+                .ToList();
+
+            foreach (var l in notReflectedLines)
+            {
+                var amount = GetAmountInBankCurrency(bankCurrency, companyCurrency, l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount, l.Amount);
+                if (l.IsDebit)
+                    notReflectedJeAmount += amount;
+                else
+                    notReflectedJeAmount -= amount;
+            }
+        }
+
+        var amountsNotReflectedInSystem = notReflectedPeAmount + notReflectedJeAmount;
 
         return new BankReconciliationStatementDto
         {
             GlBalance = glBalance,
             OutstandingDeposits = outstandingDeposits,
             OutstandingPayments = outstandingPayments,
+            AmountsNotReflectedInSystem = amountsNotReflectedInSystem,
             UnclearedEntries = unclearedEntries.OrderBy(e => e.PostingDate).ToList(),
-            CurrencyCode = account?.Currency ?? "MYR",
+            CurrencyCode = bankCurrency,
             ReportDate = input.ReportDate,
             BankAccountName = accountName
         };
+    }
+
+    /// <summary>
+    /// Matches ledger amount for banks in a third currency per ERPNext PR #60024 / commit 48062658ed:
+    /// "The bank ledger holds the base amount only when the bank is in company currency, otherwise the paid amount."
+    /// </summary>
+    public static decimal GetAmountInBankCurrency(string bankCurrency, string companyCurrency, decimal amount, decimal baseAmount)
+    {
+        return string.Equals(bankCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase)
+            ? baseAmount
+            : amount;
     }
 
 
