@@ -20,6 +20,14 @@ export class StockEntryService {
     { apiName: this.apiName,...config });
   
 
+  autoPickBatches = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryDto>({
+      method: 'POST',
+      url: `/api/app/stock-entry/${id}/auto-pick-batches`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   create = (input: CreateStockEntryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockEntryDto>({
       method: 'POST',

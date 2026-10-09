@@ -1,4 +1,4 @@
-import type { AutoPickBatchDto, AvailableBatchItemDto, BatchDto, BatchMovementHistoryDto, BatchSplitTreeNodeDto, BatchStockBalanceDto, BatchTraceabilityDto, CreateBatchDto, GetAvailableBatchesDto, GetBatchListDto, GetBatchSplitTreeDto, MoveBatchDto, MoveBatchResultDto, SplitBatchDto, SplitBatchResultDto } from './models';
+import type { AutoPickBatchDto, AutoPickBatchesForDocumentDto, AutoPickedBatchAllocationDto, AvailableBatchItemDto, BatchDto, BatchMovementHistoryDto, BatchSplitTreeNodeDto, BatchStockBalanceDto, BatchTraceabilityDto, CreateBatchDto, GetAvailableBatchesDto, GetBatchListDto, GetBatchSplitTreeDto, MoveBatchDto, MoveBatchResultDto, SplitBatchDto, SplitBatchResultDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -101,6 +101,15 @@ export class BatchService {
     this.restService.request<any, MoveBatchResultDto>({
       method: 'POST',
       url: '/api/app/batch/move-batch',
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  autoPickBatchesForDocument = (input: AutoPickBatchesForDocumentDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, AutoPickedBatchAllocationDto[]>({
+      method: 'POST',
+      url: '/api/app/batch/auto-pick-batches-for-document',
       body: input,
     },
     { apiName: this.apiName,...config });

@@ -1037,6 +1037,7 @@
     "NewBatchNo": "New Batch No",
     "SplitQuantity": "Split Quantity",
     "MoveQuantity": "Move Quantity",
+    "AutoPickBatches": "Auto Pick Batches",
     "ReturnReceipt": "Return Receipt",
     "ReturnQty": "Return Qty",
     "LoadItems": "Load Items",

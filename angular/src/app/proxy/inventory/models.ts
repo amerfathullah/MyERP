@@ -810,7 +810,31 @@ export interface EvaluateQualityReviewDto {
 
 export interface ExcludedBatchQtyDto {
   batchId?: string;
+  warehouseId?: string | null;
   stockQty?: number;
+}
+
+export interface AutoPickDocumentRowDto {
+  rowId?: string;
+  itemId?: string;
+  warehouseId?: string;
+  requiredStockQty?: number;
+  preselectedBatchId?: string | null;
+}
+
+export interface AutoPickBatchesForDocumentDto {
+  companyId?: string | null;
+  rows?: AutoPickDocumentRowDto[];
+}
+
+export interface AutoPickedBatchAllocationDto {
+  rowId?: string;
+  itemId?: string;
+  warehouseId?: string;
+  batchId?: string | null;
+  batchNo?: string | null;
+  allocatedQty?: number;
+  isAllocated?: boolean;
 }
 
 export interface GetAvailableBatchesDto {

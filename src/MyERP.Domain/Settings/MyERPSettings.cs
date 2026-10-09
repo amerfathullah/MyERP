@@ -37,6 +37,7 @@ public static class MyERPSettings
         public const string EnableSerialAndBatchNoForItem = G + ".EnableSerialAndBatchNoForItem";
         public const string AutoMapRawMaterialsToFinishedGoods = G + ".AutoMapRawMaterialsToFinishedGoods";
         public const string AllowUomWithConversionRateDefinedInItem = G + ".AllowUomWithConversionRateDefinedInItem";
+        public const string AutoCreateSerialAndBatchBundleForOutward = G + ".AutoCreateSerialAndBatchBundleForOutward";
     }
 
     // ═══════════════════════════════════════════════════

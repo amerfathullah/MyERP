@@ -111,6 +111,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Stock.EnableSerialAndBatchNoForItem,
             MyERPSettings.Stock.AutoMapRawMaterialsToFinishedGoods,
             MyERPSettings.Stock.AllowUomWithConversionRateDefinedInItem,
+            MyERPSettings.Stock.AutoCreateSerialAndBatchBundleForOutward,
         ],
         "Selling" => [
             MyERPSettings.Selling.DefaultPriceList,

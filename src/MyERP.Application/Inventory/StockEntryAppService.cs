@@ -360,6 +360,15 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
 
+        // Auto-assign batches for outward rows if enabled
+        // Per ERPNext PR #60120 / commits d148eeebfd & bd1fa04508:
+        // auto_create_serial_and_batch_bundle_for_outward allocates batches before submit with cumulative row exclusions
+        var autoPickSetting = await _settingProvider.GetOrNullAsync(MyERPSettings.Stock.AutoCreateSerialAndBatchBundleForOutward);
+        if (bool.TryParse(autoPickSetting, out var autoPickOutward) && autoPickOutward)
+        {
+            await AutoAssignBatchesForEntryAsync(entry);
+        }
+
         entry.Submit();
 
         if (mrFulfillmentLines != null)
@@ -1867,5 +1876,70 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         }
 
         return await GetFinishedGoodMappingAsync(stockEntryId);
+    }
+
+    /// <summary>
+    /// Explicitly auto-picks batches for outward rows in a draft Stock Entry that do not have a batch assigned.
+    /// Per ERPNext PR #60120 (commits d148eeebfd, 79d66532e2, bd1fa04508).
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Edit)]
+    public async Task<StockEntryDto> AutoPickBatchesAsync(Guid id)
+    {
+        var entry = await _repository.GetAsync(id);
+        if (entry.Status != DocumentStatus.Draft)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        }
+
+        await AutoAssignBatchesForEntryAsync(entry);
+        await _repository.UpdateAsync(entry, autoSave: true);
+        return ObjectMapper.Map<StockEntry, StockEntryDto>(entry);
+    }
+
+    private async Task AutoAssignBatchesForEntryAsync(StockEntry entry)
+    {
+        var outwardItems = entry.Items
+            .Where(i => i.SourceWarehouseId.HasValue && i.Quantity > 0)
+            .ToList();
+
+        if (!outwardItems.Any())
+            return;
+
+        var itemIds = outwardItems.Select(i => i.ItemId).Distinct().ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var batchItemIds = itemQuery
+            .Where(i => itemIds.Contains(i.Id) && i.HasBatchNo)
+            .Select(i => i.Id)
+            .ToHashSet();
+
+        if (!batchItemIds.Any())
+            return;
+
+        var targetRows = outwardItems.Where(i => batchItemIds.Contains(i.ItemId)).ToList();
+        var autoPickDto = new AutoPickBatchesForDocumentDto
+        {
+            CompanyId = entry.CompanyId,
+            Rows = targetRows.Select(i => new AutoPickDocumentRowDto
+            {
+                RowId = i.Id,
+                ItemId = i.ItemId,
+                WarehouseId = i.SourceWarehouseId!.Value,
+                RequiredStockQty = i.Quantity,
+                PreselectedBatchId = i.BatchId
+            }).ToList()
+        };
+
+        var batchAppService = LazyServiceProvider.LazyGetRequiredService<IBatchAppService>();
+        var allocations = await batchAppService.AutoPickBatchesForDocumentAsync(autoPickDto);
+
+        var allocMap = allocations.Where(a => a.BatchId.HasValue).ToDictionary(a => a.RowId);
+        foreach (var seItem in targetRows)
+        {
+            if (allocMap.TryGetValue(seItem.Id, out var alloc))
+            {
+                seItem.BatchId = alloc.BatchId;
+            }
+        }
     }
 }

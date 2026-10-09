@@ -675,17 +675,34 @@ public class BatchAppService : ApplicationService, IBatchAppService
             .Where(item => item.AvailableQuantity > 0)
             .ToList();
 
-        // Per ERPNext commit 199cae9496:
+        // Per ERPNext commit 199cae9496 & PR #60120:
         // Subtract stock qty of same-document rows from batch availability.
+        // Scoped by warehouse when provided to prevent cross-warehouse depletion.
         if (input.SameDocumentBatchQuantities != null && input.SameDocumentBatchQuantities.Count > 0)
         {
-            var sameDocGrouped = input.SameDocumentBatchQuantities
+            var whGrouped = input.SameDocumentBatchQuantities
+                .Where(x => x.WarehouseId.HasValue)
+                .GroupBy(x => (x.BatchId, WarehouseId: x.WarehouseId!.Value))
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.StockQty));
+
+            var globalGrouped = input.SameDocumentBatchQuantities
+                .Where(x => !x.WarehouseId.HasValue)
                 .GroupBy(x => x.BatchId)
                 .ToDictionary(g => g.Key, g => g.Sum(x => x.StockQty));
 
             foreach (var item in list)
             {
-                if (sameDocGrouped.TryGetValue(item.BatchId, out var consumedQty))
+                var consumedQty = 0m;
+                if (whGrouped.TryGetValue((item.BatchId, item.WarehouseId), out var whConsumed))
+                {
+                    consumedQty += whConsumed;
+                }
+                if (globalGrouped.TryGetValue(item.BatchId, out var gConsumed))
+                {
+                    consumedQty += gConsumed;
+                }
+
+                if (consumedQty > 0)
                 {
                     item.AvailableQuantity -= consumedQty;
                 }
@@ -731,6 +748,120 @@ public class BatchAppService : ApplicationService, IBatchAppService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Auto-picks batches for multiple document rows sequentially, preventing identical batch
+    /// allocation when multiple rows require stock from the same item and warehouse.
+    /// Per ERPNext PR #60120 (commits d148eeebfd, 79d66532e2, bd1fa04508).
+    /// </summary>
+    public async Task<List<AutoPickedBatchAllocationDto>> AutoPickBatchesForDocumentAsync(AutoPickBatchesForDocumentDto input)
+    {
+        var result = new List<AutoPickedBatchAllocationDto>();
+        var cumulativeExclusions = new List<ExcludedBatchQtyDto>();
+
+        // Pre-fetch batch nos for rows with preselected batches
+        var preselectedBatchIds = input.Rows
+            .Where(r => r.PreselectedBatchId.HasValue)
+            .Select(r => r.PreselectedBatchId!.Value)
+            .Distinct()
+            .ToList();
+
+        var batchNoMap = new Dictionary<Guid, string>();
+        if (preselectedBatchIds.Any())
+        {
+            var batchQuery = await _repository.GetQueryableAsync();
+            batchNoMap = batchQuery
+                .Where(b => preselectedBatchIds.Contains(b.Id))
+                .Select(b => new { b.Id, b.BatchNo })
+                .ToDictionary(b => b.Id, b => b.BatchNo);
+        }
+
+        // 1. Pre-register all rows with preselected batch into exclusions
+        foreach (var row in input.Rows.Where(r => r.PreselectedBatchId.HasValue && r.RequiredStockQty > 0))
+        {
+            cumulativeExclusions.Add(new ExcludedBatchQtyDto
+            {
+                BatchId = row.PreselectedBatchId!.Value,
+                WarehouseId = row.WarehouseId,
+                StockQty = row.RequiredStockQty,
+            });
+        }
+
+        // 2. Iterate through rows in order
+        foreach (var row in input.Rows)
+        {
+            if (row.PreselectedBatchId.HasValue)
+            {
+                result.Add(new AutoPickedBatchAllocationDto
+                {
+                    RowId = row.RowId,
+                    ItemId = row.ItemId,
+                    WarehouseId = row.WarehouseId,
+                    BatchId = row.PreselectedBatchId,
+                    BatchNo = batchNoMap.GetValueOrDefault(row.PreselectedBatchId.Value),
+                    AllocatedQty = row.RequiredStockQty,
+                });
+                continue;
+            }
+
+            if (row.RequiredStockQty <= 0)
+            {
+                result.Add(new AutoPickedBatchAllocationDto
+                {
+                    RowId = row.RowId,
+                    ItemId = row.ItemId,
+                    WarehouseId = row.WarehouseId,
+                    BatchId = null,
+                    BatchNo = null,
+                    AllocatedQty = 0,
+                });
+                continue;
+            }
+
+            var picked = await GetBatchCoveringQuantityAsync(new AutoPickBatchDto
+            {
+                CompanyId = input.CompanyId,
+                ItemId = row.ItemId,
+                WarehouseId = row.WarehouseId,
+                RequiredStockQty = row.RequiredStockQty,
+                SameDocumentBatchQuantities = cumulativeExclusions.ToList(),
+            });
+
+            if (picked != null)
+            {
+                result.Add(new AutoPickedBatchAllocationDto
+                {
+                    RowId = row.RowId,
+                    ItemId = row.ItemId,
+                    WarehouseId = row.WarehouseId,
+                    BatchId = picked.BatchId,
+                    BatchNo = picked.BatchNo,
+                    AllocatedQty = row.RequiredStockQty,
+                });
+
+                cumulativeExclusions.Add(new ExcludedBatchQtyDto
+                {
+                    BatchId = picked.BatchId,
+                    WarehouseId = row.WarehouseId,
+                    StockQty = row.RequiredStockQty,
+                });
+            }
+            else
+            {
+                result.Add(new AutoPickedBatchAllocationDto
+                {
+                    RowId = row.RowId,
+                    ItemId = row.ItemId,
+                    WarehouseId = row.WarehouseId,
+                    BatchId = null,
+                    BatchNo = null,
+                    AllocatedQty = 0,
+                });
+            }
+        }
+
+        return result;
     }
 
     /// <summary>

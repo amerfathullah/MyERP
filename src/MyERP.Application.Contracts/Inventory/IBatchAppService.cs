@@ -32,6 +32,13 @@ public interface IBatchAppService : IApplicationService
     Task<AvailableBatchItemDto?> GetBatchCoveringQuantityAsync(AutoPickBatchDto input);
 
     /// <summary>
+    /// Auto-picks batches for multiple document rows sequentially, preventing identical batch
+    /// allocation when multiple rows require stock from the same item and warehouse.
+    /// Per ERPNext PR #60120 (commits d148eeebfd, 79d66532e2, bd1fa04508).
+    /// </summary>
+    Task<System.Collections.Generic.List<AutoPickedBatchAllocationDto>> AutoPickBatchesForDocumentAsync(AutoPickBatchesForDocumentDto input);
+
+    /// <summary>
     /// Returns the hierarchical tree of batches split from parent batches.
     /// Per ERPNext PR #58530 (Batch Split Tree report).
     /// </summary>

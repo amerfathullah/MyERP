@@ -169,6 +169,7 @@ public class GetAvailableBatchesDto
 public class ExcludedBatchQtyDto
 {
     public Guid BatchId { get; set; }
+    public Guid? WarehouseId { get; set; }
     public decimal StockQty { get; set; }
 }
 
@@ -183,6 +184,32 @@ public class AutoPickBatchDto
     /// Other rows in the same document already using batches (in stock UOM).
     /// </summary>
     public List<ExcludedBatchQtyDto>? SameDocumentBatchQuantities { get; set; }
+}
+
+public class AutoPickDocumentRowDto
+{
+    public Guid RowId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public decimal RequiredStockQty { get; set; }
+    public Guid? PreselectedBatchId { get; set; }
+}
+
+public class AutoPickBatchesForDocumentDto
+{
+    public Guid? CompanyId { get; set; }
+    public List<AutoPickDocumentRowDto> Rows { get; set; } = new();
+}
+
+public class AutoPickedBatchAllocationDto
+{
+    public Guid RowId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public Guid? BatchId { get; set; }
+    public string? BatchNo { get; set; }
+    public decimal AllocatedQty { get; set; }
+    public bool IsAllocated => BatchId.HasValue;
 }
 
 public class AvailableBatchItemDto
