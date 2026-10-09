@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
+using MyERP.Manufacturing;
+using MyERP.Manufacturing.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
@@ -128,6 +130,39 @@ public class ItemAppService :
             throw new BusinessException("MyERP:05017")
                 .WithData("itemId", itemId)
                 .WithData("reason", "Item is used in active Purchase Orders.");
+        }
+
+        // Check MR items in active status (PR #60318 / commit 56d058f26c)
+        var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MaterialRequest, Guid>>();
+        var mrQuery = await mrRepo.GetQueryableAsync();
+        var hasActiveMR = mrQuery.Any(mr =>
+            mr.Items.Any(i => i.ItemId == itemId)
+            && mr.Status != DocumentStatus.Draft
+            && mr.Status != DocumentStatus.Cancelled
+            && mr.Status != DocumentStatus.Completed);
+
+        if (hasActiveMR)
+        {
+            throw new BusinessException("MyERP:05017")
+                .WithData("itemId", itemId)
+                .WithData("reason", "Item is used in active Material Requests.");
+        }
+
+        // Check Work Orders in active status (PR #60318 / commit 56d058f26c)
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var woQuery = await woRepo.GetQueryableAsync();
+        var hasActiveWO = woQuery.Any(wo =>
+            (wo.ItemId == itemId || wo.RequiredItems.Any(i => i.ItemId == itemId))
+            && wo.Status != WorkOrderStatus.Draft
+            && wo.Status != WorkOrderStatus.Cancelled
+            && wo.Status != WorkOrderStatus.Completed
+            && wo.Status != WorkOrderStatus.Stopped);
+
+        if (hasActiveWO)
+        {
+            throw new BusinessException("MyERP:05017")
+                .WithData("itemId", itemId)
+                .WithData("reason", "Item is used in active Work Orders.");
         }
     }
 

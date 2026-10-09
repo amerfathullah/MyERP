@@ -54,11 +54,40 @@ public class AppointmentBookingSettings : FullAuditedAggregateRoot<Guid>, IMulti
         AgentUserIdsCsv = string.Join(',', agentUserIds.Distinct());
     }
 
+    public void SetAppointmentDurationMinutes(int minutes)
+    {
+        if (minutes <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Appointment Duration must be greater than 0 minutes.");
+        }
+        AppointmentDurationMinutes = minutes;
+    }
+
     public void AddAvailability(AppointmentAvailability availability)
     {
         if (availability.FromTime >= availability.ToTime)
             throw new ArgumentException("FromTime must be before ToTime.", nameof(availability));
         _availability.Add(availability);
+    }
+
+    /// <summary>
+    /// Validates that no availability slots on the same day of week overlap.
+    /// Per ERPNext PR #59914 / commit dd78e6c0ed: refuse overlapping availability slots.
+    /// </summary>
+    public void ValidateAvailabilitySlots()
+    {
+        var slots = _availability.OrderBy(s => s.DayOfWeek).ThenBy(s => s.FromTime).ToList();
+        for (int i = 1; i < slots.Count; i++)
+        {
+            var prev = slots[i - 1];
+            var curr = slots[i];
+            if (prev.DayOfWeek == curr.DayOfWeek && curr.FromTime < prev.ToTime)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Availability slots for {curr.DayOfWeek} cannot overlap: {prev.FromTime:hh\\:mm}-{prev.ToTime:hh\\:mm} and {curr.FromTime:hh\\:mm}-{curr.ToTime:hh\\:mm}.");
+            }
+        }
     }
 
     public void ClearAvailability()

@@ -269,6 +269,35 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Checks if the asset was disposed on or before the given reporting end date.
+    /// Per ERPNext PR #59928 / commit 7e4cabcd5c: an asset sold/scrapped/capitalized AFTER the report's end date
+    /// is still held during the period and retains its book value.
+    /// </summary>
+    public bool IsDisposedBy(DateTime? asOfDate)
+    {
+        if (Status is not (AssetStatus.Sold or AssetStatus.Scrapped or AssetStatus.Capitalized))
+            return false;
+
+        if (!asOfDate.HasValue || !DisposalDate.HasValue)
+            return true;
+
+        return DisposalDate.Value.Date <= asOfDate.Value.Date;
+    }
+
+    /// <summary>
+    /// Computes the asset's book value as of an optional reporting date, taking into account
+    /// depreciation, revaluations, and disposal date.
+    /// Per ERPNext PR #59928 / commit 7e4cabcd5c: returns 0 only when disposed on or before asOfDate.
+    /// </summary>
+    public decimal GetAssetValueAsOf(DateTime? asOfDate, decimal bookedDepreciationAmount = 0m, decimal revaluationAdjustmentAmount = 0m)
+    {
+        if (IsDisposedBy(asOfDate))
+            return 0m;
+
+        return TotalAssetCost - OpeningAccumulatedDepreciation - bookedDepreciationAmount + revaluationAdjustmentAmount;
+    }
+
+    /// <summary>
     /// Cancels the asset. Allowed for Draft, and for Submitted/PartiallyDepreciated/
     /// FullyDepreciated assets that have no GL-posted depreciation outstanding — cancelling
     /// those is then a pure status change, no reversal needed here. If depreciation has been

@@ -493,12 +493,21 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
         int months = (targetFrom.Year - refFrom.Year) * 12 + (targetFrom.Month - refFrom.Month);
         var shifted = d.AddMonths(months);
 
+        // Month ends stay month ends, e.g. 1-28 Feb becomes 1-31 Mar (ERPNext PR #60296 / commit 1b709ff29a)
+        if (d.Day == DateTime.DaysInMonth(d.Year, d.Month))
+        {
+            shifted = new DateTime(shifted.Year, shifted.Month, DateTime.DaysInMonth(shifted.Year, shifted.Month));
+        }
+
+        // Dates inside the reference period stay inside the new period, which can end earlier in the month.
         if (d < refTo)
         {
             return shifted < targetTo ? shifted : targetTo;
         }
 
-        return shifted;
+        // Dates after the reference period stay after the new period, which can end later in the month.
+        var afterPeriod = targetTo.AddDays(1);
+        return shifted > afterPeriod ? shifted : afterPeriod;
     }
 
     public static DateTime ShiftDateByFrequency(

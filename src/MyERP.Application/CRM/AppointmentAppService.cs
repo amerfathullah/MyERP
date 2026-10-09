@@ -73,19 +73,23 @@ public class AppointmentAppService : ApplicationService, IAppointmentAppService
                 throw new BusinessException(MyERPDomainErrorCodes.AppointmentOutsideServiceWindow)
                     .WithData("scheduledTime", input.ScheduledTime);
 
-            var slotStart = input.ScheduledTime;
-            var slotEnd = input.ScheduledTime.AddMinutes(settings.AppointmentDurationMinutes);
-            var capacity = Math.Max(1, settings.NumberOfAgents);
+            // Per ERPNext PR #59914 / commit e31e5eaa65: no agents set means unlimited capacity on portal
+            if (settings.NumberOfAgents > 0)
+            {
+                var slotStart = input.ScheduledTime;
+                var slotEnd = input.ScheduledTime.AddMinutes(settings.AppointmentDurationMinutes);
+                var capacity = settings.NumberOfAgents;
 
-            var overlapQuery = await _repository.GetQueryableAsync();
-            var overlapCount = overlapQuery.Count(a => a.CompanyId == input.CompanyId
-                && a.Status != AppointmentStatus.Closed
-                && a.ScheduledTime < slotEnd
-                && a.ScheduledTime.AddMinutes(settings.AppointmentDurationMinutes) > slotStart);
+                var overlapQuery = await _repository.GetQueryableAsync();
+                var overlapCount = overlapQuery.Count(a => a.CompanyId == input.CompanyId
+                    && a.Status != AppointmentStatus.Closed
+                    && a.ScheduledTime < slotEnd
+                    && a.ScheduledTime.AddMinutes(settings.AppointmentDurationMinutes) > slotStart);
 
-            if (overlapCount >= capacity)
-                throw new BusinessException(MyERPDomainErrorCodes.AppointmentSlotFull)
-                    .WithData("scheduledTime", input.ScheduledTime);
+                if (overlapCount >= capacity)
+                    throw new BusinessException(MyERPDomainErrorCodes.AppointmentSlotFull)
+                        .WithData("scheduledTime", input.ScheduledTime);
+            }
         }
 
         var entity = new Appointment(GuidGenerator.Create(), input.CompanyId, input.CustomerName,

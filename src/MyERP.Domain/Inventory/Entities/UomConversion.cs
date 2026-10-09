@@ -45,4 +45,16 @@ public class UomConversion : AuditedEntity<Guid>, IMultiTenant
 
     /// <summary>Reverse convert (target → source).</summary>
     public decimal ReverseConvert(decimal qty) => ConversionFactor != 0 ? qty / ConversionFactor : 0;
+
+    /// <summary>
+    /// Validates the conversion factor is strictly positive per ERPNext PR #60318 / commit 56d058f26c.
+    /// </summary>
+    public void ValidateConversionFactor()
+    {
+        if (ConversionFactor <= 0)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Conversion Factor must be greater than zero.");
+        }
+    }
 }

@@ -135,4 +135,48 @@ public class RecurringInvoiceDateShiftingTests
 
         shifted.ShouldBe(new DateTime(2026, 2, 15));
     }
+
+    [Fact]
+    public void ShiftDate_OnRecurring_KeepsServiceDatesAfterPeriodEndOrdered()
+    {
+        // Per ERPNext PR #60296 (commit 1b709ff29a):
+        // Auto Repeat moves period 31 Jan-27 Feb to 28 Feb-30 Mar
+        var refFrom = new DateTime(2025, 1, 31);
+        var refTo = new DateTime(2025, 2, 27);
+        var targetFrom = new DateTime(2025, 2, 28);
+        var targetTo = new DateTime(2025, 3, 30);
+
+        var serviceStartDate = new DateTime(2025, 2, 27);
+        var serviceEndDate = new DateTime(2025, 2, 28);
+
+        var shiftedStart = RecurringInvoiceJob.ShiftDate(
+            serviceStartDate, refFrom, refTo, targetFrom, targetTo, RepeatFrequency.Monthly);
+        var shiftedEnd = RecurringInvoiceJob.ShiftDate(
+            serviceEndDate, refFrom, refTo, targetFrom, targetTo, RepeatFrequency.Monthly);
+
+        shiftedStart.ShouldBe(new DateTime(2025, 3, 30));
+        shiftedEnd.ShouldBe(new DateTime(2025, 3, 31));
+    }
+
+    [Fact]
+    public void ShiftDate_OnRecurring_KeepsServiceEndAtMonthEnd()
+    {
+        // Per ERPNext PR #60296 (commit 1b709ff29a):
+        // Billing in advance: Jan invoice (01-31 Jan) covers service in Feb (01-28 Feb)
+        var refFrom = new DateTime(2025, 1, 1);
+        var refTo = new DateTime(2025, 1, 31);
+        var targetFrom = new DateTime(2025, 2, 1);
+        var targetTo = new DateTime(2025, 2, 28);
+
+        var serviceStartDate = new DateTime(2025, 2, 1);
+        var serviceEndDate = new DateTime(2025, 2, 28);
+
+        var shiftedStart = RecurringInvoiceJob.ShiftDate(
+            serviceStartDate, refFrom, refTo, targetFrom, targetTo, RepeatFrequency.Monthly);
+        var shiftedEnd = RecurringInvoiceJob.ShiftDate(
+            serviceEndDate, refFrom, refTo, targetFrom, targetTo, RepeatFrequency.Monthly);
+
+        shiftedStart.ShouldBe(new DateTime(2025, 3, 1));
+        shiftedEnd.ShouldBe(new DateTime(2025, 3, 31));
+    }
 }

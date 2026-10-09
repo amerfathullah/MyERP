@@ -38,7 +38,7 @@ public class AppointmentBookingSettingsAppService : ApplicationService, IAppoint
             await _repository.InsertAsync(existing);
         }
 
-        existing.AppointmentDurationMinutes = input.AppointmentDurationMinutes;
+        existing.SetAppointmentDurationMinutes(input.AppointmentDurationMinutes);
         existing.EnableScheduling = input.EnableScheduling;
         existing.EnableAppointmentPortal = input.EnableAppointmentPortal;
         existing.HolidayListId = input.HolidayListId;
@@ -58,6 +58,8 @@ public class AppointmentBookingSettingsAppService : ApplicationService, IAppoint
             existing.AddAvailability(new AppointmentAvailability(GuidGenerator.Create(), existing.Id,
                 window.DayOfWeek, window.FromTime, window.ToTime));
         }
+
+        existing.ValidateAvailabilitySlots();
 
         await _repository.UpdateAsync(existing);
 
