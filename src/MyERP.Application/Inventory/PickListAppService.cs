@@ -202,12 +202,14 @@ public class PickListAppService : ApplicationService, IPickListAppService
     /// Creates a Delivery Note from a submitted Pick List.
     /// Per ERPNext PR #57412: maps customer from Pick List when no Sales Order is linked.
     /// When a SO exists, the customer is inherited from the SO; when no SO,
-    /// the Pick List's own CustomerId is used (enables direct pick → deliver workflow).
+    /// Per ERPNext PR #60311 / commit 4eb8ba500c: enforce pick list read permissions when generating delivery notes.
     /// </summary>
     [Authorize(MyERPPermissions.DeliveryNotes.Create)]
     [Volo.Abp.Uow.UnitOfWork]
     public async Task<Guid> CreateDeliveryNoteFromPickListAsync(Guid pickListId)
     {
+        await AuthorizationService.CheckAsync(MyERPPermissions.StockEntries.Default);
+
         var pl = await _repository.GetAsync(pickListId, includeDetails: true);
 
         if (pl.Status != DocumentStatus.Submitted)

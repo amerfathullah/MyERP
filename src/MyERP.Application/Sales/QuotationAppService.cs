@@ -176,6 +176,28 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     [Authorize(MyERPPermissions.Quotations.Create)]
     public async Task<QuotationDto> CreateAsync(CreateQuotationDto input)
     {
+        // Per ERPNext PR #59915 / commit 3d94050ade: default ValidUntil from CRM Settings if not set
+        if (!input.ValidUntil.HasValue)
+        {
+            var crmSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.CrmSettings, Guid>>();
+            var crmSettings = (await crmSettingsRepo.GetQueryableAsync()).FirstOrDefault();
+            var validityDays = crmSettings?.DefaultQuotationValidityDays ?? 0;
+            if (validityDays <= 0)
+            {
+                var settingProvider = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Settings.ISettingProvider>();
+                var settingStr = await settingProvider.GetOrNullAsync(Settings.MyERPSettings.CRM.DefaultValidTill);
+                if (int.TryParse(settingStr, out var days) && days > 0)
+                {
+                    validityDays = days;
+                }
+            }
+
+            if (validityDays > 0)
+            {
+                input.ValidUntil = input.IssueDate.AddDays(validityDays);
+            }
+        }
+
         // Per gotcha #2145: ValidUntil cannot precede IssueDate
         if (input.ValidUntil.HasValue && input.ValidUntil.Value.Date < input.IssueDate.Date)
         {

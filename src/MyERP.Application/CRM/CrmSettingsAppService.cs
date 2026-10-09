@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.CRM.Entities;
 using MyERP.Permissions;
+using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.CRM;
@@ -43,6 +44,13 @@ public class CrmSettingsAppService : MyERPAppService, ICrmSettingsAppService
     [Authorize(MyERPPermissions.CrmSettings.Edit)]
     public async Task<CrmSettingsDto> UpdateAsync(UpdateCrmSettingsDto input)
     {
+        // Per ERPNext PR #59915 / commit 3d94050ade: validate Default Quotation Validity Days
+        if (input.DefaultQuotationValidityDays < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Default Quotation Validity Days must be a whole number of days, 0 or more.");
+        }
+
         var settings = (await _repository.GetQueryableAsync()).FirstOrDefault();
         if (settings == null)
         {

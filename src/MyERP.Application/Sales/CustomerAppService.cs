@@ -7,6 +7,7 @@ using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -125,7 +126,33 @@ public class CustomerAppService :
     public override async Task<CustomerDto> CreateAsync(CreateUpdateCustomerDto input)
     {
         await ValidateCustomerAsync(input);
-        return await base.CreateAsync(input);
+        var result = await base.CreateAsync(input);
+
+        // Per ERPNext customer.py update_lead_status: mark linked lead converted
+        if (input.LeadId.HasValue)
+        {
+            var leadRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Lead, Guid>>();
+            var lead = await leadRepo.FindAsync(input.LeadId.Value);
+            if (lead != null && lead.Status != CRM.LeadStatus.Converted)
+            {
+                lead.ConvertToCustomer(result.Id);
+                await leadRepo.UpdateAsync(lead, autoSave: true);
+            }
+        }
+
+        // Mark linked prospect converted
+        if (input.ProspectId.HasValue)
+        {
+            var prospectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Prospect, Guid>>();
+            var prospect = await prospectRepo.FindAsync(input.ProspectId.Value);
+            if (prospect != null && !prospect.ConvertedCustomerId.HasValue)
+            {
+                prospect.ConvertToCustomer(result.Id);
+                await prospectRepo.UpdateAsync(prospect, autoSave: true);
+            }
+        }
+
+        return result;
     }
 
     public override async Task<CustomerDto> UpdateAsync(Guid id, CreateUpdateCustomerDto input)
@@ -269,6 +296,56 @@ public class CustomerAppService :
                             .WithData("customerName", existingLeadCust.Name);
                     }
                 }
+            }
+        }
+
+        // Per ERPNext PR #59907 / commit b07b8053ad: refuse duplicate customer conversion for prospect; hide customer name if caller cannot read Customer
+        if (input.ProspectId.HasValue)
+        {
+            var custQuery = await Repository.GetQueryableAsync();
+            var existingProspectCust = custQuery.FirstOrDefault(c =>
+                c.ProspectId == input.ProspectId.Value
+                && (!currentId.HasValue || c.Id != currentId.Value));
+
+            var prospectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Prospect, Guid>>();
+            var prospect = await prospectRepo.FindAsync(input.ProspectId.Value);
+
+            if (existingProspectCust != null || (prospect != null && prospect.ConvertedCustomerId.HasValue && (!currentId.HasValue || prospect.ConvertedCustomerId.Value != currentId.Value)))
+            {
+                var ex = new BusinessException(MyERPDomainErrorCodes.ProspectAlreadyConverted)
+                    .WithData("prospectId", input.ProspectId.Value)
+                    .WithData("prospectName", prospect?.ProspectName ?? input.ProspectId.Value.ToString());
+
+                var canReadCustomer = false;
+                try
+                {
+                    var principal = LazyServiceProvider.LazyGetService<Volo.Abp.Security.Claims.ICurrentPrincipalAccessor>()?.Principal
+                        ?? new System.Security.Claims.ClaimsPrincipal();
+                    var authResult = await AuthorizationService.AuthorizeAsync(
+                        principal,
+                        existingProspectCust,
+                        MyERPPermissions.Customers.Default);
+                    canReadCustomer = authResult.Succeeded;
+                }
+                catch
+                {
+                }
+
+                if (canReadCustomer)
+                {
+                    var existingName = existingProspectCust?.Name;
+                    if (existingName == null && prospect?.ConvertedCustomerId.HasValue == true)
+                    {
+                        var convertedCust = await Repository.FindAsync(prospect.ConvertedCustomerId.Value);
+                        existingName = convertedCust?.Name;
+                    }
+                    if (existingName != null)
+                    {
+                        ex.WithData("customerName", existingName);
+                    }
+                }
+
+                throw ex;
             }
         }
     }

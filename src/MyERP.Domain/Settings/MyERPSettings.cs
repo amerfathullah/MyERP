@@ -162,6 +162,7 @@ public static class MyERPSettings
         public const string CloseOpportunityAfterDays = G + ".CloseOpportunityAfterDays";
         public const string AutoCreationOfContact = G + ".AutoCreationOfContact";
         public const string CarryForwardCommunicationAndComments = G + ".CarryForwardCommunication";
+        public const string DefaultValidTill = G + ".DefaultValidTill";
     }
 }
 

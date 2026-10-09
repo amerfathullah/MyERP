@@ -121,7 +121,8 @@ public class MyERPSettingDefinitionProvider : SettingDefinitionProvider
         context.Add(
             new SettingDefinition(MyERPSettings.CRM.CloseOpportunityAfterDays, "15"),
             new SettingDefinition(MyERPSettings.CRM.AutoCreationOfContact, "false"),
-            new SettingDefinition(MyERPSettings.CRM.CarryForwardCommunicationAndComments, "false")
+            new SettingDefinition(MyERPSettings.CRM.CarryForwardCommunicationAndComments, "false"),
+            new SettingDefinition(MyERPSettings.CRM.DefaultValidTill, "0")
         );
     }
 }

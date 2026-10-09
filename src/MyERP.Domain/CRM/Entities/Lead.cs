@@ -89,9 +89,13 @@ public class Lead : FullAuditedAggregateRoot<Guid>, IMultiTenant
         ConvertedOpportunityId = opportunityId;
     }
 
+    /// <summary>
+    /// Converts this Lead to a Customer.
+    /// Per ERPNext PR #59907 / commit eb445464ca: leads in Do Not Contact status can also be converted to Customer.
+    /// </summary>
     public void ConvertToCustomer(Guid customerId)
     {
-        if (Status is not (LeadStatus.New or LeadStatus.Open or LeadStatus.Replied or LeadStatus.Interested or LeadStatus.Qualified))
+        if (Status is not (LeadStatus.New or LeadStatus.Open or LeadStatus.Replied or LeadStatus.Interested or LeadStatus.Qualified or LeadStatus.DoNotContact))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = LeadStatus.Converted;
         ConvertedCustomerId = customerId;

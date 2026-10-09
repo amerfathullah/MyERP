@@ -132,18 +132,27 @@ public class LeadTests
     }
 
     [Fact]
-    public void ConvertToCustomer_FromLostOrDoNotContact_ShouldThrow()
+    public void ConvertToCustomer_FromLost_ShouldThrow()
     {
         var lead = CreateLead();
         lead.MarkOpen();
         lead.MarkLost();
 
         Assert.Throws<BusinessException>(() => lead.ConvertToCustomer(Guid.NewGuid()));
+    }
 
-        var lead2 = CreateLead();
-        lead2.MarkDoNotContact();
+    [Fact]
+    public void ConvertToCustomer_FromDoNotContact_ShouldSucceed()
+    {
+        // Per ERPNext PR #59907 / commit eb445464ca: Do Not Contact leads convert directly to Customer
+        var lead = CreateLead();
+        lead.MarkDoNotContact();
+        var customerId = Guid.NewGuid();
 
-        Assert.Throws<BusinessException>(() => lead2.ConvertToCustomer(Guid.NewGuid()));
+        lead.ConvertToCustomer(customerId);
+
+        lead.Status.ShouldBe(LeadStatus.Converted);
+        lead.ConvertedCustomerId.ShouldBe(customerId);
     }
 
     [Fact]

@@ -2773,6 +2773,8 @@
     "MyERP:17011": "Lead is already converted to a Customer.",
     "MyERP:17012": "Opportunity is already for an existing Customer.",
     "MyERP:17013": "Customer already exists for this Opportunity.",
+    "MyERP:17014": "Lead is already in another Prospect.",
+    "DefaultValidTill": "Default Quotation Validity Days",
     "PickupFrom": "Pickup From",
     "DeliveryTo": "Delivery To",
     "CarrierService": "Carrier Service",

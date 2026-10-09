@@ -237,7 +237,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
     {
         var lead = await _leadRepository.GetAsync(input.LeadId);
 
-        if (lead.Status is not (LeadStatus.New or LeadStatus.Open or LeadStatus.Replied or LeadStatus.Interested or LeadStatus.Qualified))
+        if (lead.Status is not (LeadStatus.New or LeadStatus.Open or LeadStatus.Replied or LeadStatus.Interested or LeadStatus.Qualified or LeadStatus.DoNotContact))
         {
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("documentType", "Lead")

@@ -84,6 +84,15 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             }
         }
 
+        // Per ERPNext PR #59915 / commit 3d94050ade: Default Quotation Validity Days must be a whole number of days, 0 or more.
+        if (name == MyERPSettings.CRM.DefaultValidTill &&
+            !string.IsNullOrWhiteSpace(value) &&
+            (!int.TryParse(value, out var days) || days < 0))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Default Quotation Validity Days must be a whole number of days, 0 or more.");
+        }
+
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         var prevValue = await _settingProvider.GetOrNullAsync(name);
         await _settingManager.SetGlobalAsync(name, value);
@@ -195,6 +204,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.CRM.CloseOpportunityAfterDays,
             MyERPSettings.CRM.AutoCreationOfContact,
             MyERPSettings.CRM.CarryForwardCommunicationAndComments,
+            MyERPSettings.CRM.DefaultValidTill,
         ],
         _ => []
     };

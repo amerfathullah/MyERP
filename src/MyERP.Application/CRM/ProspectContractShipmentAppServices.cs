@@ -8,6 +8,7 @@ using MyERP.Core.DomainServices;
 using MyERP.Permissions;
 using MyERP.Sales.Entities;
 using MyERP.Shared;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -79,7 +80,44 @@ public class ProspectAppService : ApplicationService, IProspectAppService
         // Per ERPNext commit 02fcdc0337: check read permission on lead in add_lead_to_prospect
         await AuthorizationService.CheckAsync(MyERPPermissions.Leads.Default);
 
-        var entity = await _repository.GetAsync(id);
+        var entity = (await _repository.WithDetailsAsync(x => x.Leads, x => x.Opportunities)).FirstOrDefault(x => x.Id == id)
+            ?? await _repository.GetAsync(id);
+
+        if (leadId != Guid.Empty)
+        {
+            // Per ERPNext PR #59907 / commit b07b8053ad: refuse lead if already in another Prospect; hide other prospect name if cannot read
+            var allProspects = await _repository.WithDetailsAsync(x => x.Leads);
+            var otherProspect = allProspects.FirstOrDefault(p => p.Id != id && p.Leads.Any(l => l.LeadId == leadId));
+            if (otherProspect != null)
+            {
+                var ex = new BusinessException(MyERPDomainErrorCodes.LeadAlreadyInAnotherProspect)
+                    .WithData("leadId", leadId)
+                    .WithData("leadName", leadName ?? leadId.ToString());
+
+                var canReadProspect = false;
+                try
+                {
+                    var principal = LazyServiceProvider.LazyGetService<Volo.Abp.Security.Claims.ICurrentPrincipalAccessor>()?.Principal
+                        ?? new System.Security.Claims.ClaimsPrincipal();
+                    var authResult = await AuthorizationService.AuthorizeAsync(
+                        principal,
+                        otherProspect,
+                        MyERPPermissions.Leads.Default);
+                    canReadProspect = authResult.Succeeded;
+                }
+                catch
+                {
+                }
+
+                if (canReadProspect)
+                {
+                    ex.WithData("prospectName", otherProspect.ProspectName);
+                }
+
+                throw ex;
+            }
+        }
+
         if (leadId != Guid.Empty && (string.IsNullOrWhiteSpace(leadName) || string.IsNullOrWhiteSpace(email)))
         {
             var leadRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Lead, Guid>>();
