@@ -808,3 +808,43 @@ export interface VehicleDto extends FullAuditedEntityDto<string> {
   fitnessCertificateExpiryDate?: string | null;
   isDisabled?: boolean;
 }
+
+export interface AssetDepreciationsAndBalancesRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  groupBy?: string;
+  assetCategoryId?: string | null;
+  assetId?: string | null;
+  financeBookId?: string | null;
+}
+
+export interface AssetDepreciationsAndBalancesRowDto {
+  assetCategoryId?: string | null;
+  assetCategoryName?: string | null;
+  assetId?: string | null;
+  assetNumber?: string | null;
+  assetName?: string | null;
+  valueAsOnFromDate?: number;
+  valueOfNewPurchase?: number;
+  valueOfSoldAsset?: number;
+  valueOfScrappedAsset?: number;
+  valueOfCapitalizedAsset?: number;
+  adjustmentDuringPeriod?: number;
+  valueAsOnToDate?: number;
+  accumulatedDepreciationAsOnFromDate?: number;
+  depreciationAmountDuringThePeriod?: number;
+  depreciationEliminatedDuringThePeriod?: number;
+  depreciationEliminatedViaReversal?: number;
+  accumulatedDepreciationAsOnToDate?: number;
+  netAssetValueAsOnFromDate?: number;
+  netAssetValueAsOnToDate?: number;
+}
+
+export interface AssetDepreciationsAndBalancesReportDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  groupBy?: string;
+  rows?: AssetDepreciationsAndBalancesRowDto[];
+}

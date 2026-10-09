@@ -23,7 +23,8 @@ public class UpstreamPr59883And59906And60301Tests
     public void AssetDepreciationDetail_Validate_Throws_WhenWDVMissingRateAndSalvageValue()
     {
         var ex = Should.Throw<BusinessException>(() =>
-            new AssetDepreciationDetail(
+        {
+            var detail = new AssetDepreciationDetail(
                 Guid.NewGuid(),
                 Guid.NewGuid(),
                 DepreciationMethod.WrittenDownValue,
@@ -33,7 +34,9 @@ public class UpstreamPr59883And59906And60301Tests
             {
                 Rate = 0,
                 ExpectedValueAfterUsefulLife = 0
-            });
+            };
+            detail.Validate();
+        });
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
         (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Written Down Value");

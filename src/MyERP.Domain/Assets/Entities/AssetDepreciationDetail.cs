@@ -73,7 +73,10 @@ public class AssetDepreciationDetail : FullAuditedEntity<Guid>
         Rate = rate;
         ExpectedValueAfterUsefulLife = expectedValueAfterUsefulLife;
         ValueAfterDepreciation = netPurchaseAmount;
-        Validate();
+        if (method != DepreciationMethod.WrittenDownValue || rate > 0 || expectedValueAfterUsefulLife > 0)
+        {
+            Validate();
+        }
     }
 
     /// <summary>

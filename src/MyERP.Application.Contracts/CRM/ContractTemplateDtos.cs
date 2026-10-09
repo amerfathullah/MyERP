@@ -39,6 +39,18 @@ public class GetContractTemplateListDto : PagedAndSortedResultRequestDto
     public string? Filter { get; set; }
 }
 
+public class RenderContractTermsDto
+{
+    public Guid TemplateId { get; set; }
+    public Dictionary<string, string?> Context { get; set; } = new();
+}
+
+public class RenderedContractTermsDto
+{
+    public Guid TemplateId { get; set; }
+    public string? ContractTerms { get; set; }
+}
+
 public interface IContractTemplateAppService : IApplicationService
 {
     Task<ContractTemplateDto> GetAsync(Guid id);
@@ -46,4 +58,5 @@ public interface IContractTemplateAppService : IApplicationService
     Task<ContractTemplateDto> CreateAsync(CreateUpdateContractTemplateDto input);
     Task<ContractTemplateDto> UpdateAsync(Guid id, CreateUpdateContractTemplateDto input);
     Task DeleteAsync(Guid id);
+    Task<RenderedContractTermsDto> RenderContractTermsAsync(RenderContractTermsDto input);
 }

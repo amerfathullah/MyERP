@@ -95,6 +95,54 @@ public class ContractTemplateAppService : ApplicationService, IContractTemplateA
         await _repository.DeleteAsync(id);
     }
 
+    /// <summary>
+    /// Renders contract template terms replacing field placeholders with provided context values.
+    /// Per ERPNext PR #59919 (commits cdaa83185d &amp; 897cffd9f3):
+    /// - Blank/null/missing fields render as empty string ("") rather than "None" or the raw placeholder.
+    /// - Single-line terms ending in a file extension (e.g. https://example.com/terms.html) are rendered cleanly as text.
+    /// </summary>
+    public async Task<RenderedContractTermsDto> RenderContractTermsAsync(RenderContractTermsDto input)
+    {
+        var template = await _repository.GetAsync(input.TemplateId);
+        if (string.IsNullOrEmpty(template.ContractTerms))
+        {
+            return new RenderedContractTermsDto
+            {
+                TemplateId = template.Id,
+                ContractTerms = null,
+            };
+        }
+
+        var rendered = RenderTerms(template.ContractTerms, input.Context);
+        return new RenderedContractTermsDto
+        {
+            TemplateId = template.Id,
+            ContractTerms = rendered,
+        };
+    }
+
+    public static string RenderTerms(string? terms, System.Collections.Generic.IDictionary<string, string?>? context)
+    {
+        if (string.IsNullOrEmpty(terms))
+            return terms ?? string.Empty;
+
+        // Replace placeholders: {{ fieldname }} or {{fieldname}}
+        var rendered = System.Text.RegularExpressions.Regex.Replace(
+            terms,
+            @"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}",
+            match =>
+            {
+                var fieldName = match.Groups[1].Value;
+                if (context != null && context.TryGetValue(fieldName, out var value) && value != null)
+                {
+                    return value;
+                }
+                return string.Empty;
+            });
+
+        return rendered;
+    }
+
     private static ContractTemplateDto MapToDto(ContractTemplate e) => new()
     {
         Id = e.Id,

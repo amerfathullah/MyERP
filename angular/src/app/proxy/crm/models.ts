@@ -125,6 +125,16 @@ export interface ContractTemplateFulfilmentTermDto {
   termText?: string;
 }
 
+export interface RenderContractTermsDto {
+  templateId: string;
+  context?: Record<string, string | null>;
+}
+
+export interface RenderedContractTermsDto {
+  templateId?: string;
+  contractTerms?: string | null;
+}
+
 export interface ConvertLeadToCustomerDto {
   leadId: string;
   customerName?: string | null;
