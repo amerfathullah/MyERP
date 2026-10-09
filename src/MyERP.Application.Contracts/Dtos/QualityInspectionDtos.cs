@@ -46,7 +46,7 @@ public class CreateQualityInspectionDto
     public string? ReferenceType { get; set; }
     public Guid? ReferenceId { get; set; }
     public string? BatchNo { get; set; }
-    public decimal SampleSize { get; set; }
+    public decimal SampleSize { get; set; } = 1m;
     public DateTime InspectionDate { get; set; }
     public bool ManualInspection { get; set; }
     public InspectionStatus? Status { get; set; }

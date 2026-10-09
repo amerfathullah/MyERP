@@ -71,6 +71,11 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public bool SkipTransfer { get; set; }
     /// <summary>Backflush from WIP warehouse even when skip_transfer is enabled (ERPNext PR #49280 / commit fe0722c4f1).</summary>
     public bool FromWipWarehouse { get; set; }
+    /// <summary>
+    /// Whether to reserve raw material stock when Work Order is submitted.
+    /// Maps to ERPNext manufacturing/doctype/work_order/work_order.json (reserve_stock).
+    /// </summary>
+    public bool ReserveStock { get; set; }
 
     public List<WorkOrderItem> RequiredItems { get; private set; } = new();
 
@@ -133,11 +138,44 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         ValidateDates();
         Status = WorkOrderStatus.Submitted;
+        if (ReserveStock)
+        {
+            UpdateReservationStatus();
+        }
+    }
+
+    /// <summary>
+    /// Calculates reservation status when Work Order is submitted and ReserveStock is enabled.
+    /// Per ERPNext PR #60161 / commit 1334acafe2:
+    /// - If no items have reservations, status remains unchanged.
+    /// - If any required item has StockReservedQty &lt; RequiredQuantity, status is StockPartiallyReserved.
+    /// - Only if all required items have StockReservedQty &gt;= RequiredQuantity, status is StockReserved.
+    /// </summary>
+    public WorkOrderStatus GetReservationStatus(WorkOrderStatus fallbackStatus = WorkOrderStatus.NotStarted)
+    {
+        if (!ReserveStock || !RequiredItems.Any())
+            return fallbackStatus;
+
+        if (!RequiredItems.Any(r => r.StockReservedQty > 0))
+            return fallbackStatus;
+
+        if (RequiredItems.Any(r => r.StockReservedQty < r.RequiredQuantity))
+            return WorkOrderStatus.StockPartiallyReserved;
+
+        return WorkOrderStatus.StockReserved;
+    }
+
+    public void UpdateReservationStatus()
+    {
+        if (Status is WorkOrderStatus.Submitted or WorkOrderStatus.NotStarted or WorkOrderStatus.StockReserved or WorkOrderStatus.StockPartiallyReserved)
+        {
+            Status = GetReservationStatus(WorkOrderStatus.NotStarted);
+        }
     }
 
     public void Start()
     {
-        if (Status is not (WorkOrderStatus.Submitted or WorkOrderStatus.NotStarted))
+        if (Status is not (WorkOrderStatus.Submitted or WorkOrderStatus.NotStarted or WorkOrderStatus.StockReserved or WorkOrderStatus.StockPartiallyReserved))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = WorkOrderStatus.InProcess;
         ActualStartDate ??= DateTime.UtcNow;
@@ -252,7 +290,7 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void RecordMaterialTransfer(decimal quantity)
     {
         MaterialTransferred += quantity;
-        if (Status == WorkOrderStatus.Submitted && quantity > 0)
+        if ((Status == WorkOrderStatus.Submitted || Status == WorkOrderStatus.StockReserved || Status == WorkOrderStatus.StockPartiallyReserved) && quantity > 0)
             Status = WorkOrderStatus.NotStarted;
     }
 

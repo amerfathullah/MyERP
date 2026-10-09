@@ -90,6 +90,18 @@ public class CustomerAppService :
                     await leadRepo.UpdateAsync(lead, autoSave: true);
                 }
             }
+
+            if (customer.LeadId.HasValue)
+            {
+                var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
+                var oppQuery = await oppRepo.GetQueryableAsync();
+                var customerOpps = oppQuery.Where(o => o.CustomerId == customer.Id && o.LeadId == customer.LeadId.Value).ToList();
+                foreach (var opp in customerOpps)
+                {
+                    opp.CustomerId = null;
+                    await oppRepo.UpdateAsync(opp, autoSave: true);
+                }
+            }
         }
 
         await base.DeleteAsync(id);
@@ -129,6 +141,7 @@ public class CustomerAppService :
         var result = await base.CreateAsync(input);
 
         // Per ERPNext customer.py update_lead_status: mark linked lead converted
+        // and link lead's open opportunities to the new customer (PR #60279 / commit 9f9cf26639)
         if (input.LeadId.HasValue)
         {
             var leadRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Lead, Guid>>();
@@ -137,6 +150,27 @@ public class CustomerAppService :
             {
                 lead.ConvertToCustomer(result.Id);
                 await leadRepo.UpdateAsync(lead, autoSave: true);
+            }
+
+            var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
+            var oppQuery = await oppRepo.GetQueryableAsync();
+            var leadOpps = oppQuery.Where(o => o.LeadId == input.LeadId.Value && o.CustomerId == null).ToList();
+            foreach (var opp in leadOpps)
+            {
+                opp.CustomerId = result.Id;
+                await oppRepo.UpdateAsync(opp, autoSave: true);
+            }
+        }
+
+        // Link source opportunity to customer (PR #60279)
+        if (input.OpportunityId.HasValue)
+        {
+            var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
+            var opp = await oppRepo.FindAsync(input.OpportunityId.Value);
+            if (opp != null && opp.CustomerId == null)
+            {
+                opp.CustomerId = result.Id;
+                await oppRepo.UpdateAsync(opp, autoSave: true);
             }
         }
 

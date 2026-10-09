@@ -606,6 +606,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             TrackSemiFinishedGoods = bom.TrackSemiFinishedGoods,
             SkipTransfer = input.SkipTransfer,
             FromWipWarehouse = input.FromWipWarehouse,
+            ReserveStock = input.ReserveStock,
             Notes = input.Notes,
         };
         wo.SetPlannedDates(plannedStartDate, plannedEndDate);
@@ -733,6 +734,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.TrackSemiFinishedGoods = bom.TrackSemiFinishedGoods;
         wo.SkipTransfer = input.SkipTransfer;
         wo.FromWipWarehouse = input.FromWipWarehouse;
+        wo.ReserveStock = input.ReserveStock;
         wo.Notes = input.Notes;
         wo.SetPlannedDates(plannedStartDate, plannedEndDate);
 

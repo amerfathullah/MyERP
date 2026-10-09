@@ -10,6 +10,8 @@ public enum WorkOrderStatus
     Stopped = 5,
     Cancelled = 6,
     Closed = 7,
+    StockReserved = 8,
+    StockPartiallyReserved = 9,
 }
 
 /// <summary>Demand-generation period for Sales Forecast. Maps to ERPNext frequency.</summary>

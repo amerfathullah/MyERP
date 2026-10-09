@@ -82,7 +82,7 @@ public class QualityInspectionAppService : ApplicationService, IQualityInspectio
             ReferenceType = input.ReferenceType,
             ReferenceId = input.ReferenceId,
             BatchNo = input.BatchNo,
-            SampleSize = input.SampleSize,
+            SampleSize = input.SampleSize > 0 ? input.SampleSize : 1m,
             ManualInspection = input.ManualInspection,
         };
 

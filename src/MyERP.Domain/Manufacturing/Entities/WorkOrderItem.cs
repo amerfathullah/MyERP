@@ -16,6 +16,11 @@ public class WorkOrderItem : Entity<Guid>
     public decimal RequiredQuantity { get; set; }
     public decimal TransferredQuantity { get; set; }
     public decimal ConsumedQuantity { get; set; }
+    /// <summary>
+    /// Quantity of raw material reserved from stock for this Work Order line.
+    /// Maps to ERPNext manufacturing/doctype/work_order_item/work_order_item.json (stock_reserved_qty).
+    /// </summary>
+    public decimal StockReservedQty { get; set; }
     public Guid? SourceWarehouseId { get; set; }
 
     /// <summary>
@@ -71,5 +76,12 @@ public class WorkOrderItem : Entity<Guid>
         ItemId = itemId;
         ItemName = itemName;
         RequiredQuantity = requiredQuantity;
+    }
+
+    public void SetStockReservedQty(decimal qty)
+    {
+        if (qty < 0)
+            throw new ArgumentException("Stock reserved quantity cannot be negative.", nameof(qty));
+        StockReservedQty = qty;
     }
 }

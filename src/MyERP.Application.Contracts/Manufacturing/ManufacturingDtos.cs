@@ -199,6 +199,7 @@ public class WorkOrderDto : AuditedEntityDto<Guid>
     public string? Notes { get; set; }
     public bool SkipTransfer { get; set; }
     public bool FromWipWarehouse { get; set; }
+    public bool ReserveStock { get; set; }
     public List<WorkOrderItemDto> RequiredItems { get; set; } = new();
 }
 
@@ -210,6 +211,7 @@ public class WorkOrderItemDto
     public decimal RequiredQuantity { get; set; }
     public decimal TransferredQuantity { get; set; }
     public decimal ConsumedQuantity { get; set; }
+    public decimal StockReservedQty { get; set; }
     public bool IsAdditionalItem { get; set; }
     public Guid? VoucherDetailReference { get; set; }
 }
@@ -234,6 +236,7 @@ public class CreateWorkOrderDto
     public DateTime? PlannedEndDate { get; set; }
     public bool SkipTransfer { get; set; }
     public bool FromWipWarehouse { get; set; }
+    public bool ReserveStock { get; set; }
     [StringLength(WorkOrderConsts.MaxNoteLength)] public string? Notes { get; set; }
 }
 
