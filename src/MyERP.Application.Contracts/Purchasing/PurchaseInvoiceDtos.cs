@@ -13,6 +13,8 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public string? SupplierInvoiceNumber { get; set; }
     public DateTime IssueDate { get; set; }
     public DateTime? DueDate { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
     public Guid SupplierId { get; set; }
     public string? SupplierName { get; set; }
     public string? SupplierTin { get; set; }
@@ -156,6 +158,8 @@ public class CreatePurchaseInvoiceDto
     [StringLength(50)] public string? SupplierTin { get; set; }
     [Required] public DateTime IssueDate { get; set; }
     public DateTime? DueDate { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
     public Guid? PaymentTermsTemplateId { get; set; }
     [StringLength(100)] public string? SupplierInvoiceNumber { get; set; }
     [StringLength(3)] public string CurrencyCode { get; set; } = "MYR";

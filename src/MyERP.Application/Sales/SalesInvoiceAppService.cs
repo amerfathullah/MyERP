@@ -582,6 +582,13 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 }
             }
         }
+        if (input.FromDate.HasValue && input.ToDate.HasValue && input.FromDate.Value.Date > input.ToDate.Value.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DateRangeInvalid);
+        }
+        invoice.CustomerPoNumber = input.CustomerPoNumber;
+        invoice.FromDate = input.FromDate;
+        invoice.ToDate = input.ToDate;
         invoice.IsReturn = input.IsReturn;
         invoice.IsDebitNote = input.IsDebitNote;
         invoice.IsReturnRefund = input.IsReturnRefund;

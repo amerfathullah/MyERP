@@ -29,6 +29,12 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     public DateTime IssueDate { get; set; }
     public DateTime? DueDate { get; set; }
 
+    /// <summary>Billing period start date (for recurring billing / service periods).</summary>
+    public DateTime? FromDate { get; set; }
+
+    /// <summary>Billing period end date (for recurring billing / service periods).</summary>
+    public DateTime? ToDate { get; set; }
+
     public Guid SupplierId { get; set; }
 
     /// <summary>Supplier TIN — for LHDN e-Invoice.</summary>
@@ -274,6 +280,10 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         if (!_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Per ERPNext: To Date cannot be before From Date
+        if (FromDate.HasValue && ToDate.HasValue && FromDate.Value.Date > ToDate.Value.Date)
+            throw new BusinessException(MyERPDomainErrorCodes.DateRangeInvalid);
 
         // Per DO-NOT: opening invoices with update_stock=true are blocked (accounting-only)
         if (IsOpening && UpdateStock)

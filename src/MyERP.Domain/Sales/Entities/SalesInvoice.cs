@@ -24,6 +24,15 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public DateTime IssueDate { get; set; }
     public DateTime? DueDate { get; set; }
 
+    /// <summary>Customer's PO reference number.</summary>
+    public string? CustomerPoNumber { get; set; }
+
+    /// <summary>Billing period start date (for recurring billing / service periods).</summary>
+    public DateTime? FromDate { get; set; }
+
+    /// <summary>Billing period end date (for recurring billing / service periods).</summary>
+    public DateTime? ToDate { get; set; }
+
     // Customer
     public Guid CustomerId { get; set; }
 
@@ -276,6 +285,10 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
 
         if (!_items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Per ERPNext: To Date cannot be before From Date
+        if (FromDate.HasValue && ToDate.HasValue && FromDate.Value.Date > ToDate.Value.Date)
+            throw new BusinessException(MyERPDomainErrorCodes.DateRangeInvalid);
 
         // Per DO-NOT: opening invoices with update_stock=true are blocked (accounting-only)
         if (IsOpening && UpdateStock)

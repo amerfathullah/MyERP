@@ -52,6 +52,8 @@ export interface CreatePurchaseInvoiceDto {
   supplierTin?: string | null;
   issueDate: string;
   dueDate?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
   paymentTermsTemplateId?: string | null;
   supplierInvoiceNumber?: string | null;
   currencyCode?: string;
@@ -473,6 +475,8 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   supplierInvoiceNumber?: string | null;
   issueDate?: string;
   dueDate?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
   supplierId?: string;
   supplierName?: string | null;
   supplierTin?: string | null;

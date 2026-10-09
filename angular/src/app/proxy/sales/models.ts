@@ -375,6 +375,9 @@ export interface CreateSalesInvoiceDto {
   shippingContactPersonId?: string | null;
   issueDate: string;
   dueDate?: string | null;
+  customerPoNumber?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
   currencyCode?: string;
   priceListId?: string | null;
   notes?: string | null;
@@ -1486,6 +1489,9 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   invoiceNumber?: string;
   issueDate?: string;
   dueDate?: string | null;
+  customerPoNumber?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
   customerId?: string;
   customerName?: string | null;
   contactPersonId?: string | null;

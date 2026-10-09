@@ -61,6 +61,9 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public string InvoiceNumber { get; set; } = null!;
     public DateTime IssueDate { get; set; }
     public DateTime? DueDate { get; set; }
+    public string? CustomerPoNumber { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
     public Guid CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public Guid? ContactPersonId { get; set; }
@@ -157,6 +160,13 @@ public class CreateSalesInvoiceDto
     public DateTime IssueDate { get; set; }
 
     public DateTime? DueDate { get; set; }
+
+    [StringLength(SalesInvoiceConsts.MaxCustomerPoLength)]
+    public string? CustomerPoNumber { get; set; }
+
+    public DateTime? FromDate { get; set; }
+
+    public DateTime? ToDate { get; set; }
 
     [StringLength(SalesInvoiceConsts.MaxCurrencyCodeLength)]
     public string CurrencyCode { get; set; } = "MYR";

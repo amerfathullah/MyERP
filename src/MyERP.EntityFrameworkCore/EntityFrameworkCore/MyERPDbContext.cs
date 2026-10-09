@@ -1221,6 +1221,9 @@ public class MyERPDbContext :
             b.ToTable("Sal_SalesInvoices", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.Property(x => x.InvoiceNumber).IsRequired().HasMaxLength(SalesInvoiceConsts.MaxInvoiceNumberLength);
+            b.Property(x => x.CustomerPoNumber).HasMaxLength(SalesInvoiceConsts.MaxCustomerPoLength);
+            b.Property(x => x.FromDate);
+            b.Property(x => x.ToDate);
             b.Property(x => x.SupplierTin).HasMaxLength(SalesInvoiceConsts.MaxTinLength);
             b.Property(x => x.BuyerTin).HasMaxLength(SalesInvoiceConsts.MaxTinLength);
             b.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(SalesInvoiceConsts.MaxCurrencyCodeLength);
@@ -1356,6 +1359,8 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.InvoiceNumber).IsRequired().HasMaxLength(PurchaseInvoiceConsts.MaxInvoiceNumberLength);
             b.Property(x => x.SupplierInvoiceNumber).HasMaxLength(PurchaseInvoiceConsts.MaxSupplierInvoiceNumberLength);
+            b.Property(x => x.FromDate);
+            b.Property(x => x.ToDate);
             b.Property(x => x.SupplierTin).HasMaxLength(PurchaseInvoiceConsts.MaxTinLength);
             b.Property(x => x.BuyerTin).HasMaxLength(PurchaseInvoiceConsts.MaxTinLength);
             b.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(PurchaseInvoiceConsts.MaxCurrencyCodeLength);

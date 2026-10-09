@@ -87,6 +87,35 @@ public class SalesInvoiceTests
             invoice.AddItem(Guid.NewGuid(), "New Item", 1, 50m, 3m));
     }
 
+    [Fact]
+    public void Submit_WithFromDateGreaterThanToDate_ShouldThrow()
+    {
+        var invoice = CreateInvoice();
+        invoice.AddItem(Guid.NewGuid(), "Widget", 1, 100m, 6m);
+        invoice.FromDate = new DateTime(2026, 2, 1);
+        invoice.ToDate = new DateTime(2026, 1, 1);
+
+        var ex = Assert.Throws<BusinessException>(() => invoice.Submit());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.DateRangeInvalid);
+    }
+
+    [Fact]
+    public void Submit_WithValidDateRange_ShouldSucceed()
+    {
+        var invoice = CreateInvoice();
+        invoice.AddItem(Guid.NewGuid(), "Widget", 1, 100m, 6m);
+        invoice.FromDate = new DateTime(2026, 1, 1);
+        invoice.ToDate = new DateTime(2026, 1, 31);
+        invoice.CustomerPoNumber = "PO-999888";
+
+        invoice.Submit();
+
+        invoice.Status.ShouldBe(DocumentStatus.Submitted);
+        invoice.FromDate.ShouldBe(new DateTime(2026, 1, 1));
+        invoice.ToDate.ShouldBe(new DateTime(2026, 1, 31));
+        invoice.CustomerPoNumber.ShouldBe("PO-999888");
+    }
+
     private static SalesInvoice CreateInvoice()
     {
         return new SalesInvoice(

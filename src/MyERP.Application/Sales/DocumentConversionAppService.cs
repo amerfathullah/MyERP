@@ -453,6 +453,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         invoice.CurrencyCode = salesOrder.CurrencyCode;
         invoice.Notes = salesOrder.Notes;
+        invoice.CustomerPoNumber = salesOrder.CustomerPoNumber;
 
         // Account for draft Sales Invoices in the system (per ERPNext PR #58617)
         var siQuery = await _salesInvoiceRepository.GetQueryableAsync();
@@ -552,6 +553,19 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             deliveryNote.TenantId);
 
         invoice.CurrencyCode = deliveryNote.CurrencyCode;
+        invoice.UpdateStock = false; // Per ERPNext PR #60230 / commit 637fadfee9: disable update stock for sales invoice created from DN
+
+        var firstSoItemId = deliveryNote.Items.FirstOrDefault(i => i.SalesOrderItemId.HasValue)?.SalesOrderItemId;
+        if (firstSoItemId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+            var soQuery = await soRepo.GetQueryableAsync();
+            var so = soQuery.FirstOrDefault(s => s.Items.Any(i => i.Id == firstSoItemId.Value));
+            if (so != null && !string.IsNullOrWhiteSpace(so.CustomerPoNumber))
+            {
+                invoice.CustomerPoNumber = so.CustomerPoNumber;
+            }
+        }
 
         foreach (var item in deliveryNote.Items)
         {

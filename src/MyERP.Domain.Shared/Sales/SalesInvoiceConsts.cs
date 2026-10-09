@@ -6,6 +6,7 @@ public static class SalesInvoiceConsts
     public const int MaxTinLength = 20;
     public const int MaxNoteLength = 1000;
     public const int MaxCurrencyCodeLength = 3;
+    public const int MaxCustomerPoLength = 50;
 }
 
 public static class SalesInvoiceItemConsts

@@ -137,6 +137,33 @@ public class PurchaseInvoiceTests
         invoice.IsBlocked.ShouldBeFalse();
     }
 
+    [Fact]
+    public void Submit_WithFromDateGreaterThanToDate_ShouldThrow()
+    {
+        var invoice = CreateInvoice();
+        invoice.AddItem(Guid.NewGuid(), "Raw Material", 10, 50m, 30m);
+        invoice.FromDate = new DateTime(2026, 3, 1);
+        invoice.ToDate = new DateTime(2026, 2, 1);
+
+        var ex = Assert.Throws<BusinessException>(() => invoice.Submit());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.DateRangeInvalid);
+    }
+
+    [Fact]
+    public void Submit_WithValidDateRange_ShouldSucceed()
+    {
+        var invoice = CreateInvoice();
+        invoice.AddItem(Guid.NewGuid(), "Raw Material", 10, 50m, 30m);
+        invoice.FromDate = new DateTime(2026, 2, 1);
+        invoice.ToDate = new DateTime(2026, 2, 28);
+
+        invoice.Submit();
+
+        invoice.Status.ShouldBe(DocumentStatus.Submitted);
+        invoice.FromDate.ShouldBe(new DateTime(2026, 2, 1));
+        invoice.ToDate.ShouldBe(new DateTime(2026, 2, 28));
+    }
+
     private static PurchaseInvoice CreateInvoice()
     {
         return new PurchaseInvoice(

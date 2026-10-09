@@ -562,6 +562,12 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             input.IssueDate);
 
         invoice.DueDate = input.DueDate;
+        if (input.FromDate.HasValue && input.ToDate.HasValue && input.FromDate.Value.Date > input.ToDate.Value.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DateRangeInvalid);
+        }
+        invoice.FromDate = input.FromDate;
+        invoice.ToDate = input.ToDate;
         invoice.CurrencyCode = input.CurrencyCode;
 
         // Per ERPNext: Price List defaults from the supplier's own default when not given explicitly, if active (commit fd492100b0).

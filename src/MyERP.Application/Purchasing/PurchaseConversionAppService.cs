@@ -236,6 +236,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         invoice.Notes = receipt.Notes;
         invoice.ExchangeRate = receipt.ExchangeRate > 0 ? receipt.ExchangeRate : 1m;
         invoice.UseTransactionDateExchangeRate = false;
+        invoice.UpdateStock = false; // Stock is already received via Purchase Receipt
 
         // Deduct quantities already mapped in draft Purchase Invoices (per ERPNext PR #58617)
         var piQuery2 = await _purchaseInvoiceRepository.GetQueryableAsync();
