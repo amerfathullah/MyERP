@@ -78,6 +78,10 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
             costs = type.Costs.Select(c => (c.OperatingComponent, c.OperatingCost));
         }
         ws.ReplaceCosts(costs);
+        if (input.WorkingHours != null && input.WorkingHours.Length > 0)
+        {
+            ws.ReplaceWorkingHours(input.WorkingHours.Select(w => (w.DayOfWeek, w.StartTime, w.EndTime)));
+        }
         await _repository.InsertAsync(ws);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
@@ -126,6 +130,11 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
         else
         {
             ws.ReplaceCosts(input.Costs.Select(c => (c.Component, c.OperatingCost)));
+        }
+
+        if (input.WorkingHours != null)
+        {
+            ws.ReplaceWorkingHours(input.WorkingHours.Select(w => (w.DayOfWeek, w.StartTime, w.EndTime)));
         }
 
         await _repository.UpdateAsync(ws);

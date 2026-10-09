@@ -35,6 +35,7 @@ public interface IOpportunityAppService : IApplicationService
     Task DeleteAsync(Guid id);
     Task<OpportunityDto> MarkQuotationAsync(Guid id);
     Task<OpportunityDto> ConvertAsync(Guid id);
+    Task<Guid> ConvertToCustomerAsync(ConvertOpportunityToCustomerDto input);
     Task<OpportunityDto> DeclareLostAsync(Guid id, string? reason);
     Task<OpportunityDto> UpdateStageAsync(Guid id, UpdateOpportunityStageDto input);
     Task<OpportunityDto> CloseAsync(Guid id);

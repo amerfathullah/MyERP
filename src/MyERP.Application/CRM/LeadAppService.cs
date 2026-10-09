@@ -244,6 +244,21 @@ public class LeadAppService : ApplicationService, ILeadAppService
                 .WithData("status", lead.Status.ToString());
         }
 
+        // Per ERPNext PR #59891 / commit 718d79701b: refuse converting a lead into a second customer
+        if (lead.ConvertedCustomerId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.LeadAlreadyConverted)
+                .WithData("leadId", lead.Id);
+        }
+
+        var existingCust = await _customerRepository.FirstOrDefaultAsync(c => c.LeadId == lead.Id);
+        if (existingCust != null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.LeadAlreadyConverted)
+                .WithData("leadId", lead.Id)
+                .WithData("customerName", existingCust.Name);
+        }
+
         if (input.CustomerGroupId.HasValue)
         {
             var groupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.CustomerGroup, Guid>>();
@@ -285,6 +300,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
             Tin = input.Tin,
             CustomerGroupId = input.CustomerGroupId,
             TerritoryId = input.TerritoryId,
+            LeadId = lead.Id,
         };
 
         await _customerRepository.InsertAsync(customer);

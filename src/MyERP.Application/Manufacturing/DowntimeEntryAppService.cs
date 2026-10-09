@@ -44,9 +44,9 @@ public class DowntimeEntryAppService : ApplicationService, IDowntimeEntryAppServ
     [Authorize(MyERPPermissions.Manufacturing.Create)]
     public async Task<DowntimeEntryDto> CreateAsync(CreateUpdateDowntimeEntryDto input)
     {
-        if (input.ToTime < input.FromTime)
+        if (input.ToTime <= input.FromTime)
         {
-            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DowntimeEntryToTimeBeforeFromTime);
         }
 
         var entry = new DowntimeEntry(GuidGenerator.Create(), input.CompanyId, input.WorkstationId,
@@ -69,9 +69,9 @@ public class DowntimeEntryAppService : ApplicationService, IDowntimeEntryAppServ
     [Authorize(MyERPPermissions.Manufacturing.Edit)]
     public async Task<DowntimeEntryDto> UpdateAsync(Guid id, CreateUpdateDowntimeEntryDto input)
     {
-        if (input.ToTime < input.FromTime)
+        if (input.ToTime <= input.FromTime)
         {
-            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidDateRange);
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DowntimeEntryToTimeBeforeFromTime);
         }
 
         var entry = await _repository.GetAsync(id);

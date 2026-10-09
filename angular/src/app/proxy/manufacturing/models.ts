@@ -829,6 +829,13 @@ export interface CreateWorkstationDto {
   productionCapacity?: number;
   description?: string | null;
   costs?: CreateWorkstationCostDto[];
+  workingHours?: CreateWorkstationWorkingHourDto[];
+}
+
+export interface CreateWorkstationWorkingHourDto {
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
 }
 
 export interface CreatedWorkOrderInfo {

@@ -408,6 +408,11 @@ public static class MyERPDomainErrorCodes
     public const string ContractEndDateBeforeStartDate = "MyERP:17009";
     public const string FulfilmentTermsCannotBeModifiedAfterSigning = "MyERP:17010";
 
+    // CRM — Lead & Opportunity Conversion Guards (ERPNext PR #59891, PR #59890)
+    public const string LeadAlreadyConverted = "MyERP:17011";
+    public const string OpportunityAlreadyHasCustomer = "MyERP:17012";
+    public const string OpportunityCustomerAlreadyExists = "MyERP:17013";
+
     // Cost Center Allocation
     public const string CostCenterAllocationSelfReference = "MyERP:02038";
     public const string CostCenterAllocationPercentageOutOfRange = "MyERP:02039";
@@ -463,6 +468,9 @@ public static class MyERPDomainErrorCodes
 
     // Manufacturing — Downtime Entry
     public const string DowntimeEntryToTimeBeforeFromTime = "MyERP:10022";
+
+    // Manufacturing — Workstation Working Hours (ERPNext PR #60144 / commit 5d011c5287)
+    public const string WorkingHoursOverlap = "MyERP:10035";
 
     // Manufacturing — BOM Creator
     public const string BomCreatorRequiresItems = "MyERP:10023";

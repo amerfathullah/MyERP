@@ -1,4 +1,4 @@
-import type { AddCompetitorDetailDto, AddCrmNoteDto, CompetitorDetailDto, CreateOpportunityDto, CrmNoteDto, GetOpportunityListDto, OpportunityDto, UpdateCrmNoteDto, UpdateOpportunityDto, UpdateOpportunityStageDto } from './models';
+import type { AddCompetitorDetailDto, AddCrmNoteDto, CompetitorDetailDto, ConvertOpportunityToCustomerDto, CreateOpportunityDto, CrmNoteDto, GetOpportunityListDto, OpportunityDto, UpdateCrmNoteDto, UpdateOpportunityDto, UpdateOpportunityStageDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -32,6 +32,15 @@ export class OpportunityService {
     this.restService.request<any, OpportunityDto>({
       method: 'POST',
       url: `/api/app/opportunity/${id}/convert`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  convertToCustomer = (input: ConvertOpportunityToCustomerDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, string>({
+      method: 'POST',
+      url: '/api/app/opportunity/convert-to-customer',
+      body: input,
     },
     { apiName: this.apiName,...config });
   

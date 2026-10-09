@@ -333,6 +333,113 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
     }
 
     /// <summary>
+    /// Convert an Opportunity to a Customer (ERPNext make_customer from opportunity).
+    /// Enforces guards from PR #59890 / commit 167380e7f4:
+    /// - Refuse when opportunity is already for a Customer.
+    /// - Refuse when customer already exists for this opportunity or its linked lead.
+    /// </summary>
+    [Authorize(MyERPPermissions.Opportunities.Convert)]
+    public async Task<Guid> ConvertToCustomerAsync(ConvertOpportunityToCustomerDto input)
+    {
+        var opp = await _repository.GetAsync(input.OpportunityId);
+
+        if (opp.CustomerId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.OpportunityAlreadyHasCustomer)
+                .WithData("opportunityId", opp.Id)
+                .WithData("opportunityNumber", opp.OpportunityNumber);
+        }
+
+        var custRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+        var custQuery = await custRepo.GetQueryableAsync();
+
+        var existingOppCust = custQuery.FirstOrDefault(c => c.OpportunityId == opp.Id);
+        if (existingOppCust != null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.OpportunityCustomerAlreadyExists)
+                .WithData("opportunityId", opp.Id)
+                .WithData("customerName", existingOppCust.Name);
+        }
+
+        if (opp.LeadId.HasValue)
+        {
+            var existingLeadCust = custQuery.FirstOrDefault(c => c.LeadId == opp.LeadId.Value);
+            if (existingLeadCust != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.OpportunityCustomerAlreadyExists)
+                    .WithData("opportunityId", opp.Id)
+                    .WithData("leadId", opp.LeadId.Value)
+                    .WithData("customerName", existingLeadCust.Name);
+            }
+        }
+
+        if (input.CustomerGroupId.HasValue)
+        {
+            var groupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.CustomerGroup, Guid>>();
+            var customerGroup = await groupRepo.FindAsync(input.CustomerGroupId.Value);
+            if (customerGroup != null && customerGroup.IsGroup)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot select a Group type Customer Group. Please select a non-group Customer Group.");
+            }
+        }
+
+        if (input.TerritoryId.HasValue)
+        {
+            var territoryRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Territory, Guid>>();
+            var territory = await territoryRepo.FindAsync(input.TerritoryId.Value);
+            if (territory != null && territory.IsGroup)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot select a Group type Territory. Please select a non-group Territory.");
+            }
+        }
+
+        var customerName = !string.IsNullOrWhiteSpace(input.CustomerName)
+            ? input.CustomerName
+            : !string.IsNullOrWhiteSpace(opp.ContactName)
+                ? opp.ContactName
+                : opp.Title;
+
+        var customer = new Customer(GuidGenerator.Create(), opp.CompanyId, customerName, CurrentTenant.Id)
+        {
+            ContactPerson = opp.ContactName,
+            Email = opp.ContactEmail,
+            Phone = opp.ContactPhone,
+            Tin = input.Tin,
+            CustomerGroupId = input.CustomerGroupId,
+            TerritoryId = input.TerritoryId,
+            OpportunityId = opp.Id,
+            LeadId = opp.LeadId,
+        };
+
+        await custRepo.InsertAsync(customer);
+
+        opp.CustomerId = customer.Id;
+        await _repository.UpdateAsync(opp);
+
+        if (opp.LeadId.HasValue)
+        {
+            var leadRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Lead, Guid>>();
+            var lead = await leadRepo.FindAsync(opp.LeadId.Value);
+            if (lead != null && !lead.ConvertedCustomerId.HasValue)
+            {
+                lead.ConvertToCustomer(customer.Id);
+                await leadRepo.UpdateAsync(lead);
+            }
+        }
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Opportunity", opp.Id,
+            "ConvertedToCustomer", opp.CompanyId,
+            opp.OpportunityNumber, opp.Status.ToString(), opp.Status.ToString(), CurrentUser.Id,
+            $"Opportunity {opp.OpportunityNumber} converted to Customer {customerName}", CurrentTenant.Id));
+
+        return customer.Id;
+    }
+
+    /// <summary>
     /// Per ERPNext PR #57489 (has_active_quotation): block lost declaration when active
     /// quotations exist. Active = submitted quotations that are NOT Lost/Cancelled/Expired
     /// (Rejected). Shared by every path that can declare an opportunity Lost — DeclareLostAsync

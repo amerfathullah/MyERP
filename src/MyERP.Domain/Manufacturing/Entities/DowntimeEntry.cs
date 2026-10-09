@@ -42,7 +42,7 @@ public class DowntimeEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void SetTimeRange(DateTime fromTime, DateTime toTime)
     {
-        if (toTime < fromTime)
+        if (toTime <= fromTime)
             throw new BusinessException(MyERPDomainErrorCodes.DowntimeEntryToTimeBeforeFromTime);
 
         FromTime = fromTime;

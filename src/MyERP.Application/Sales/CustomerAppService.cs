@@ -215,6 +215,62 @@ public class CustomerAppService :
                     .WithData("detail", "Cannot select a Group type Customer Group. Please select a non-group Customer Group.");
             }
         }
+
+        // Per ERPNext PR #59891 / commit 718d79701b: refuse converting a lead into a second customer
+        if (input.LeadId.HasValue)
+        {
+            var custQuery = await Repository.GetQueryableAsync();
+            var existingLeadCust = custQuery.FirstOrDefault(c =>
+                c.LeadId == input.LeadId.Value
+                && (!currentId.HasValue || c.Id != currentId.Value));
+            if (existingLeadCust != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.LeadAlreadyConverted)
+                    .WithData("leadId", input.LeadId.Value)
+                    .WithData("customerName", existingLeadCust.Name);
+            }
+        }
+
+        // Per ERPNext PR #59890 / commit 167380e7f4: refuse making duplicate customer from opportunity
+        if (input.OpportunityId.HasValue)
+        {
+            var custQuery = await Repository.GetQueryableAsync();
+            var existingOppCust = custQuery.FirstOrDefault(c =>
+                c.OpportunityId == input.OpportunityId.Value
+                && (!currentId.HasValue || c.Id != currentId.Value));
+            if (existingOppCust != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.OpportunityCustomerAlreadyExists)
+                    .WithData("opportunityId", input.OpportunityId.Value)
+                    .WithData("customerName", existingOppCust.Name);
+            }
+
+            var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
+            var opp = await oppRepo.FindAsync(input.OpportunityId.Value);
+            if (opp != null)
+            {
+                if (opp.CustomerId.HasValue && (!currentId.HasValue || opp.CustomerId.Value != currentId.Value))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.OpportunityAlreadyHasCustomer)
+                        .WithData("opportunityId", opp.Id)
+                        .WithData("opportunityNumber", opp.OpportunityNumber);
+                }
+
+                if (opp.LeadId.HasValue)
+                {
+                    var existingLeadCust = custQuery.FirstOrDefault(c =>
+                        c.LeadId == opp.LeadId.Value
+                        && (!currentId.HasValue || c.Id != currentId.Value));
+                    if (existingLeadCust != null)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.OpportunityCustomerAlreadyExists)
+                            .WithData("opportunityId", opp.Id)
+                            .WithData("leadId", opp.LeadId.Value)
+                            .WithData("customerName", existingLeadCust.Name);
+                    }
+                }
+            }
+        }
     }
 
     protected override Customer MapToEntity(CreateUpdateCustomerDto input)

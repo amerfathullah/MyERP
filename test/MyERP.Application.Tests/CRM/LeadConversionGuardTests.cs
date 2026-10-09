@@ -208,4 +208,141 @@ public abstract class LeadConversionGuardTests<TStartupModule> : MyERPApplicatio
             ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
         });
     }
+
+    [Fact]
+    public async Task ConvertToCustomerAsync_CustomerAlreadyExistsForLead_ThrowsLeadAlreadyConverted()
+    {
+        // ERPNext PR #59891 / commit 718d79701b: refuse converting a lead into a second customer
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var leadRepo = GetRequiredService<IRepository<Lead, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var leadAppService = GetRequiredService<ILeadAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Lead Conv Co 8"), autoSave: true);
+            var lead = new Lead(Guid.NewGuid(), company.Id, "LEAD-CONV-08", "John");
+            await leadRepo.InsertAsync(lead, autoSave: true);
+
+            var existingCust = new Customer(Guid.NewGuid(), company.Id, "Existing John Cust")
+            {
+                LeadId = lead.Id
+            };
+            await customerRepo.InsertAsync(existingCust, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                leadAppService.ConvertToCustomerAsync(new ConvertLeadToCustomerDto
+                {
+                    LeadId = lead.Id
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.LeadAlreadyConverted);
+        });
+    }
+
+    [Fact]
+    public async Task OpportunityAppService_ConvertToCustomerAsync_Success()
+    {
+        // ERPNext PR #59890 / commit 167380e7f4: convert opportunity to customer
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var leadRepo = GetRequiredService<IRepository<Lead, Guid>>();
+            var oppRepo = GetRequiredService<IRepository<Opportunity, Guid>>();
+            var oppAppService = GetRequiredService<IOpportunityAppService>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Opp Conv Co 1"), autoSave: true);
+            var lead = new Lead(Guid.NewGuid(), company.Id, "LEAD-OPP-01", "Alice");
+            await leadRepo.InsertAsync(lead, autoSave: true);
+
+            var opp = new Opportunity(Guid.NewGuid(), company.Id, "OPP-001", "Big Deal")
+            {
+                LeadId = lead.Id,
+                ContactName = "Alice In Chains"
+            };
+            await oppRepo.InsertAsync(opp, autoSave: true);
+
+            var customerId = await oppAppService.ConvertToCustomerAsync(new ConvertOpportunityToCustomerDto
+            {
+                OpportunityId = opp.Id
+            });
+
+            var customer = await customerRepo.GetAsync(customerId);
+            customer.Name.ShouldBe("Alice In Chains");
+            customer.OpportunityId.ShouldBe(opp.Id);
+            customer.LeadId.ShouldBe(lead.Id);
+
+            var updatedOpp = await oppRepo.GetAsync(opp.Id);
+            updatedOpp.CustomerId.ShouldBe(customerId);
+
+            var updatedLead = await leadRepo.GetAsync(lead.Id);
+            updatedLead.ConvertedCustomerId.ShouldBe(customerId);
+        });
+    }
+
+    [Fact]
+    public async Task OpportunityAppService_ConvertToCustomerAsync_AlreadyForCustomer_Throws()
+    {
+        // ERPNext PR #59890: refuse when opportunity already is for a customer
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var oppRepo = GetRequiredService<IRepository<Opportunity, Guid>>();
+            var oppAppService = GetRequiredService<IOpportunityAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Opp Conv Co 2"), autoSave: true);
+            var opp = new Opportunity(Guid.NewGuid(), company.Id, "OPP-002", "Customer Deal")
+            {
+                CustomerId = Guid.NewGuid()
+            };
+            await oppRepo.InsertAsync(opp, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                oppAppService.ConvertToCustomerAsync(new ConvertOpportunityToCustomerDto
+                {
+                    OpportunityId = opp.Id
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.OpportunityAlreadyHasCustomer);
+        });
+    }
+
+    [Fact]
+    public async Task OpportunityAppService_ConvertToCustomerAsync_CustomerExistsForLead_Throws()
+    {
+        // ERPNext PR #59890: refuse when customer already exists for the opportunity's lead
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var leadRepo = GetRequiredService<IRepository<Lead, Guid>>();
+            var oppRepo = GetRequiredService<IRepository<Opportunity, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var oppAppService = GetRequiredService<IOpportunityAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Opp Conv Co 3"), autoSave: true);
+            var lead = new Lead(Guid.NewGuid(), company.Id, "LEAD-OPP-03", "Bob");
+            await leadRepo.InsertAsync(lead, autoSave: true);
+
+            var existingCust = new Customer(Guid.NewGuid(), company.Id, "Bob Cust")
+            {
+                LeadId = lead.Id
+            };
+            await customerRepo.InsertAsync(existingCust, autoSave: true);
+
+            var opp = new Opportunity(Guid.NewGuid(), company.Id, "OPP-003", "Bob Deal")
+            {
+                LeadId = lead.Id
+            };
+            await oppRepo.InsertAsync(opp, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                oppAppService.ConvertToCustomerAsync(new ConvertOpportunityToCustomerDto
+                {
+                    OpportunityId = opp.Id
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.OpportunityCustomerAlreadyExists);
+        });
+    }
 }

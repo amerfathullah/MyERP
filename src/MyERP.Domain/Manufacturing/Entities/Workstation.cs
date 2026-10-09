@@ -87,7 +87,31 @@ public class Workstation : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (startTime >= endTime)
             throw new ArgumentException("Start time must be before end time.");
+
+        // ERPNext PR #60144 / commit 5d011c5287: allow back-to-back hours (strict < and > check)
+        var overlap = _workingHours.Any(wh =>
+            string.Equals(wh.Day, day, StringComparison.OrdinalIgnoreCase) &&
+            wh.StartTime < endTime &&
+            wh.EndTime > startTime);
+
+        if (overlap)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.WorkingHoursOverlap)
+                .WithData("day", day)
+                .WithData("startTime", startTime.ToString(@"hh\:mm"))
+                .WithData("endTime", endTime.ToString(@"hh\:mm"));
+        }
+
         _workingHours.Add(new WorkstationWorkingHour(Guid.NewGuid(), Id, day, startTime, endTime));
+    }
+
+    public void ReplaceWorkingHours(IEnumerable<(string Day, TimeSpan StartTime, TimeSpan EndTime)> hours)
+    {
+        _workingHours.Clear();
+        foreach (var (day, startTime, endTime) in hours)
+        {
+            AddWorkingHour(day, startTime, endTime);
+        }
     }
 
     private void RecalculateHourRate()

@@ -44,6 +44,7 @@ public class CreateWorkstationDto
     public int ProductionCapacity { get; set; } = 1;
     public string? Description { get; set; }
     public CreateWorkstationCostDto[] Costs { get; set; } = [];
+    public CreateWorkstationWorkingHourDto[] WorkingHours { get; set; } = [];
 }
 
 public class CreateWorkstationCostDto
@@ -51,6 +52,13 @@ public class CreateWorkstationCostDto
     public string Component { get; set; } = null!;
     [Range(0, double.MaxValue)]
     public decimal OperatingCost { get; set; }
+}
+
+public class CreateWorkstationWorkingHourDto
+{
+    public string DayOfWeek { get; set; } = null!;
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan EndTime { get; set; }
 }
 
 public interface IWorkstationAppService : IApplicationService

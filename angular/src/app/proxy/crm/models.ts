@@ -656,3 +656,11 @@ export interface UpdateOpportunityStageDto {
 export interface VerifyAppointmentDto {
   token: string;
 }
+
+export interface ConvertOpportunityToCustomerDto {
+  opportunityId: string;
+  customerName?: string;
+  tin?: string;
+  customerGroupId?: string;
+  territoryId?: string;
+}

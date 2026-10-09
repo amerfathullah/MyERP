@@ -33,6 +33,11 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
               <i class="fa fa-file-invoice me-1"></i>{{ '::ConvertToQuotation' | abpLocalization }}
             </button>
           }
+          @if (!o.customerId) {
+            <button class="btn btn-outline-success btn-sm" [disabled]="isConverting()" (click)="convertToCustomer()">
+              <i class="fa fa-user-plus me-1"></i>{{ '::CRM:ConvertToCustomer' | abpLocalization }}
+            </button>
+          }
           @if (o.status === 0 || o.status === 1 || o.status === 2) {
             <button class="btn btn-success btn-sm" [disabled]="isUpdatingStatus()" (click)="markWon()">
               <i class="fa fa-trophy me-1"></i>{{ '::MarkWon' | abpLocalization }}
@@ -230,6 +235,23 @@ export class OpportunityDetailComponent implements OnInit {
     this.conversionService.convertOpportunityToQuotation(opportunityId).subscribe({
       next: (quotation) => this.router.navigate(['/sales/quotations', quotation.id]),
       error: () => this.isConverting.set(false),
+    });
+  }
+
+  convertToCustomer(): void {
+    const opportunityId = this.opp()?.id;
+    if (!opportunityId || this.isConverting()) return;
+
+    this.isConverting.set(true);
+    this.service.convertToCustomer({ opportunityId }).subscribe({
+      next: (customerId) => {
+        this.toaster.success('::LeadConvertedToCustomer');
+        this.router.navigate(['/sales/customers', customerId]);
+      },
+      error: (err) => {
+        this.isConverting.set(false);
+        this.toaster.error(err?.error?.error?.message ?? '::OperationFailed');
+      },
     });
   }
 

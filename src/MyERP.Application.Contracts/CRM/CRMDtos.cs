@@ -360,3 +360,22 @@ public class UpdateOpportunityStageDto
     [StringLength(50)]
     public string SalesStage { get; set; } = null!;
 }
+
+/// <summary>
+/// DTO for converting an Opportunity directly to a Customer.
+/// Per ERPNext make_customer (PR #59890 / commit 167380e7f4).
+/// </summary>
+public class ConvertOpportunityToCustomerDto
+{
+    [Required]
+    public Guid OpportunityId { get; set; }
+
+    [StringLength(200)]
+    public string? CustomerName { get; set; }
+
+    [StringLength(50)]
+    public string? Tin { get; set; }
+
+    public Guid? CustomerGroupId { get; set; }
+    public Guid? TerritoryId { get; set; }
+}
