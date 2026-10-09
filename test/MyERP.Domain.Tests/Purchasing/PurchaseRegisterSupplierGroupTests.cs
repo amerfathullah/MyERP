@@ -27,6 +27,7 @@ public class PurchaseRegisterSupplierGroupTests
     private readonly IRepository<PaymentEntry, Guid> _peRepo = Substitute.For<IRepository<PaymentEntry, Guid>>();
     private readonly IRepository<Supplier, Guid> _supplierRepo = Substitute.For<IRepository<Supplier, Guid>>();
     private readonly IRepository<SupplierGroup, Guid> _supplierGroupRepo = Substitute.For<IRepository<SupplierGroup, Guid>>();
+    private readonly IRepository<JournalEntry, Guid> _journalRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
 
     private readonly PurchaseRegisterAppService _purchaseRegisterAppService;
 
@@ -42,7 +43,7 @@ public class PurchaseRegisterSupplierGroupTests
     public PurchaseRegisterSupplierGroupTests()
     {
         _purchaseRegisterAppService = new PurchaseRegisterAppService(
-            _piRepo, _peRepo, _supplierRepo, _supplierGroupRepo);
+            _piRepo, _peRepo, _supplierRepo, _supplierGroupRepo, _journalRepo);
 
         _groupRaw = new SupplierGroup(_supplierGroupIdRaw, "Raw Material Suppliers");
         _groupServices = new SupplierGroup(_supplierGroupIdServices, "Services Suppliers");
@@ -64,10 +65,15 @@ public class PurchaseRegisterSupplierGroupTests
 
         var groups = new List<SupplierGroup> { _groupRaw, _groupServices };
         _supplierGroupRepo.GetQueryableAsync().Returns(Task.FromResult(groups.AsQueryable()));
+        _supplierGroupRepo.GetListAsync().Returns(Task.FromResult(groups));
 
         _peRepo.GetQueryableAsync().Returns(Task.FromResult(new List<PaymentEntry>().AsQueryable()));
         _peRepo.WithDetailsAsync(Arg.Any<Expression<Func<PaymentEntry, object>>[]>())
             .Returns(Task.FromResult(new List<PaymentEntry>().AsQueryable()));
+
+        _journalRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JournalEntry>().AsQueryable()));
+        _journalRepo.WithDetailsAsync(Arg.Any<Expression<Func<JournalEntry, object>>[]>())
+            .Returns(Task.FromResult(new List<JournalEntry>().AsQueryable()));
     }
 
     [Fact]
@@ -204,5 +210,173 @@ public class PurchaseRegisterSupplierGroupTests
             Assert.Equal(_supplierGroupIdRaw, item.SupplierGroupId);
             Assert.Equal("Raw Material Suppliers", item.SupplierGroupName);
         }
+    }
+
+    [Fact]
+    public async Task PurchaseRegister_GroupFilters_IncludeChildren()
+    {
+        var rootGroupId = Guid.NewGuid();
+        var childGroupId = Guid.NewGuid();
+        var rootGroup = new SupplierGroup(rootGroupId, "All Suppliers", parentId: null, isGroup: true);
+        var childGroup = new SupplierGroup(childGroupId, "Metals", parentId: rootGroupId, isGroup: false);
+
+        var childSupplier = new Supplier(Guid.NewGuid(), _companyId, "Metal Vendor")
+        {
+            SupplierGroupId = childGroupId
+        };
+
+        var allSuppliers = new List<Supplier> { _supplierRaw, _supplierServices, childSupplier };
+        _supplierRepo.GetQueryableAsync().Returns(Task.FromResult(allSuppliers.AsQueryable()));
+        _supplierRepo.FindAsync(childSupplier.Id).Returns(Task.FromResult<Supplier?>(childSupplier));
+
+        var allGroups = new List<SupplierGroup> { _groupRaw, _groupServices, rootGroup, childGroup };
+        _supplierGroupRepo.GetQueryableAsync().Returns(Task.FromResult(allGroups.AsQueryable()));
+        _supplierGroupRepo.GetListAsync().Returns(Task.FromResult(allGroups));
+
+        var issueDate = DateTime.UtcNow.Date;
+        var pi = new PurchaseInvoice(Guid.NewGuid(), _companyId, childSupplier.Id, "PINV-TREE", issueDate);
+        pi.AddItem(Guid.NewGuid(), "Sheet Metal", 10m, 50m, 0m);
+        pi.Submit();
+        pi.Post();
+
+        _piRepo.GetQueryableAsync().Returns(Task.FromResult(new List<PurchaseInvoice> { pi }.AsQueryable()));
+
+        var report = await _purchaseRegisterAppService.GetReportAsync(new RegisterFilterDto
+        {
+            CompanyId = _companyId,
+            FromDate = issueDate.AddDays(-1),
+            ToDate = issueDate.AddDays(1),
+            SupplierGroupId = rootGroupId
+        });
+
+        Assert.Equal(1, report.Count);
+        Assert.Equal("PINV-TREE", report.Items[0].InvoiceNumber);
+        Assert.Equal(childSupplier.Id, report.Items[0].SupplierId);
+        Assert.Equal("Metal Vendor", report.Items[0].SupplierName);
+        Assert.Equal(childGroupId, report.Items[0].SupplierGroupId);
+        Assert.Equal("Metals", report.Items[0].SupplierGroupName);
+    }
+
+    [Fact]
+    public async Task PurchaseRegister_InternalTransfer_ShowsNothingPayable()
+    {
+        var issueDate = DateTime.UtcNow.Date;
+        var internalSupplier = new Supplier(Guid.NewGuid(), _companyId, "Internal Unit")
+        {
+            RepresentsCompanyId = _companyId,
+            SupplierGroupId = _supplierGroupIdRaw
+        };
+
+        var allSuppliers = new List<Supplier> { _supplierRaw, _supplierServices, internalSupplier };
+        _supplierRepo.GetQueryableAsync().Returns(Task.FromResult(allSuppliers.AsQueryable()));
+        _supplierRepo.FindAsync(internalSupplier.Id).Returns(Task.FromResult<Supplier?>(internalSupplier));
+
+        var pi = new PurchaseInvoice(Guid.NewGuid(), _companyId, internalSupplier.Id, "PINV-INTERNAL", issueDate);
+        pi.AddItem(Guid.NewGuid(), "Intercompany Part", 1m, 500m, 0m);
+        pi.Submit();
+        pi.Post();
+
+        _piRepo.GetQueryableAsync().Returns(Task.FromResult(new List<PurchaseInvoice> { pi }.AsQueryable()));
+
+        var report = await _purchaseRegisterAppService.GetReportAsync(new RegisterFilterDto
+        {
+            CompanyId = _companyId,
+            FromDate = issueDate.AddDays(-1),
+            ToDate = issueDate.AddDays(1),
+            SupplierId = internalSupplier.Id,
+            IncludePayments = true
+        });
+
+        // 1 opening row + 1 invoice row
+        Assert.Equal(2, report.Count);
+        var invLine = report.Items.First(l => l.VoucherType == "Purchase Invoice");
+        Assert.Equal(0m, invLine.Debit);
+        Assert.Equal(0m, invLine.Credit);
+        Assert.Equal(0m, invLine.Balance);
+    }
+
+    [Fact]
+    public async Task PurchaseRegister_WriteOffAndPaidInvoice_SettlesPayable()
+    {
+        var issueDate = DateTime.UtcNow.Date;
+        var pi = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierRaw.Id, "PINV-PAID-WRITEOFF", issueDate);
+        pi.AddItem(Guid.NewGuid(), "Raw Materials", 1m, 1000m, 0m);
+        pi.AmountPaid = 200m;
+        pi.SetWriteOff(50m);
+        pi.Submit();
+        pi.Post();
+
+        _piRepo.GetQueryableAsync().Returns(Task.FromResult(new List<PurchaseInvoice> { pi }.AsQueryable()));
+
+        var report = await _purchaseRegisterAppService.GetReportAsync(new RegisterFilterDto
+        {
+            CompanyId = _companyId,
+            FromDate = issueDate.AddDays(-1),
+            ToDate = issueDate.AddDays(1),
+            SupplierId = _supplierRaw.Id,
+            IncludePayments = true
+        });
+
+        var invLine = report.Items.First(l => l.VoucherType == "Purchase Invoice");
+        Assert.Equal(1000m, invLine.Credit);
+        // Debit must include WriteOff (50) + AmountPaid (200) = 250m
+        Assert.Equal(250m, invLine.Debit);
+        Assert.Equal(750m, invLine.Balance);
+    }
+
+    [Fact]
+    public async Task PurchaseRegister_LedgerView_IncludesJournalEntries()
+    {
+        var baseDate = DateTime.UtcNow.Date;
+        var fromDate = baseDate;
+        var toDate = baseDate.AddDays(10);
+
+        var accountId1 = Guid.NewGuid();
+        var accountId2 = Guid.NewGuid();
+
+        // 1 prior JE before fromDate (adds 300 to supplier liability credit)
+        var priorJe = new JournalEntry(Guid.NewGuid(), _companyId, Guid.NewGuid(), fromDate.AddDays(-2));
+        priorJe.EntryNumber = "JE-PRIOR";
+        priorJe.AddFullLine(accountId1, 300m, isDebit: false, description: "Credit supplier liability", partyId: _supplierRaw.Id, partyType: "Supplier");
+        priorJe.AddFullLine(accountId2, 300m, isDebit: true, description: "Debit expense", partyId: null, partyType: null);
+        priorJe.Post();
+
+        // 1 in-period JE (adds 150 to supplier liability credit)
+        var periodJe = new JournalEntry(Guid.NewGuid(), _companyId, Guid.NewGuid(), fromDate.AddDays(2));
+        periodJe.EntryNumber = "JE-PERIOD";
+        periodJe.AddFullLine(accountId1, 150m, isDebit: false, description: "Credit supplier liability", partyId: _supplierRaw.Id, partyType: "Supplier");
+        periodJe.AddFullLine(accountId2, 150m, isDebit: true, description: "Debit expense", partyId: null, partyType: null);
+        periodJe.Post();
+
+        var journals = new List<JournalEntry> { priorJe, periodJe };
+        _journalRepo.GetQueryableAsync().Returns(Task.FromResult(journals.AsQueryable()));
+        _journalRepo.WithDetailsAsync(Arg.Any<Expression<Func<JournalEntry, object>>[]>())
+            .Returns(Task.FromResult(journals.AsQueryable()));
+
+        _piRepo.GetQueryableAsync().Returns(Task.FromResult(new List<PurchaseInvoice>().AsQueryable()));
+
+        var report = await _purchaseRegisterAppService.GetReportAsync(new RegisterFilterDto
+        {
+            CompanyId = _companyId,
+            FromDate = fromDate,
+            ToDate = toDate,
+            SupplierId = _supplierRaw.Id,
+            IncludePayments = true
+        });
+
+        // Opening row: priorJe had Credit: 300m and Debit: 0m => net opening balance = 300
+        var opening = report.Items.First(l => l.VoucherType == "Opening");
+        Assert.Equal(300m, opening.Balance);
+        Assert.Equal(300m, opening.Credit);
+
+        // Period rows must include JE lines
+        var jeLines = report.Items.Where(l => l.VoucherType == "Journal Entry").ToList();
+        Assert.Single(jeLines);
+        var jeLine = jeLines[0];
+        Assert.Equal(periodJe.Id, jeLine.JournalEntryId);
+        Assert.Equal("JE-PERIOD", jeLine.InvoiceNumber);
+        Assert.Equal(0m, jeLine.Debit);
+        Assert.Equal(150m, jeLine.Credit);
+        Assert.Equal(450m, jeLine.Balance);
     }
 }

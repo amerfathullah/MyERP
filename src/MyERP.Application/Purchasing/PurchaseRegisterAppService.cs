@@ -22,17 +22,20 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
     private readonly IRepository<PaymentEntry, Guid> _paymentRepository;
     private readonly IRepository<Supplier, Guid>? _supplierRepository;
     private readonly IRepository<SupplierGroup, Guid>? _supplierGroupRepository;
+    private readonly IRepository<JournalEntry, Guid>? _journalRepository;
 
     public PurchaseRegisterAppService(
         IRepository<PurchaseInvoice, Guid> invoiceRepository,
         IRepository<PaymentEntry, Guid> paymentRepository,
         IRepository<Supplier, Guid>? supplierRepository = null,
-        IRepository<SupplierGroup, Guid>? supplierGroupRepository = null)
+        IRepository<SupplierGroup, Guid>? supplierGroupRepository = null,
+        IRepository<JournalEntry, Guid>? journalRepository = null)
     {
         _invoiceRepository = invoiceRepository;
         _paymentRepository = paymentRepository;
         _supplierRepository = supplierRepository;
         _supplierGroupRepository = supplierGroupRepository;
+        _journalRepository = journalRepository;
     }
 
     private async Task<IQueryable<PaymentEntry>> GetPaymentQueryableWithTaxesAsync()
@@ -47,6 +50,79 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
             // Fallback if WithDetailsAsync is not configured or unsupported in mock/provider
         }
         return await _paymentRepository.GetQueryableAsync();
+    }
+
+    private async Task<IQueryable<JournalEntry>> GetJournalQueryableWithLinesAsync()
+    {
+        if (_journalRepository == null) return Enumerable.Empty<JournalEntry>().AsQueryable();
+        try
+        {
+            var withDetails = await _journalRepository.WithDetailsAsync(j => j.Lines);
+            if (withDetails != null) return withDetails;
+        }
+        catch
+        {
+            // Fallback if WithDetailsAsync is not configured or unsupported in mock/provider
+        }
+        return await _journalRepository.GetQueryableAsync();
+    }
+
+    private async Task<HashSet<Guid>> GetSupplierGroupWithDescendantIdsAsync(Guid rootGroupId)
+    {
+        var result = new HashSet<Guid> { rootGroupId };
+        if (_supplierGroupRepository == null) return result;
+
+        try
+        {
+            var allGroups = await _supplierGroupRepository.GetListAsync();
+            if (allGroups != null)
+            {
+                var queue = new Queue<Guid>();
+                queue.Enqueue(rootGroupId);
+
+                while (queue.Count > 0)
+                {
+                    var current = queue.Dequeue();
+                    var children = allGroups.Where(g => g.ParentId == current).Select(g => g.Id);
+                    foreach (var childId in children)
+                    {
+                        if (result.Add(childId))
+                        {
+                            queue.Enqueue(childId);
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Fallback if repository fails or in test setup
+        }
+
+        return result;
+    }
+
+    private async Task<Dictionary<Guid, bool>> GetInternalSupplierMapAsync(IEnumerable<Guid> supplierIds, Guid companyId)
+    {
+        var map = new Dictionary<Guid, bool>();
+        if (_supplierRepository == null) return map;
+        var distinctIds = supplierIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (distinctIds.Count == 0) return map;
+
+        try
+        {
+            var query = await _supplierRepository.GetQueryableAsync();
+            var suppliers = query.Where(s => distinctIds.Contains(s.Id)).ToList();
+            foreach (var s in suppliers)
+            {
+                map[s.Id] = s.RepresentsCompanyId.HasValue && s.RepresentsCompanyId.Value == companyId;
+            }
+        }
+        catch
+        {
+            // Fallback
+        }
+        return map;
     }
 
     public async Task<RegisterReportDto<PurchaseRegisterLineDto>> GetReportAsync(RegisterFilterDto input)
@@ -68,9 +144,10 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
 
         if (input.SupplierGroupId.HasValue && _supplierRepository != null)
         {
+            var targetGroupIds = await GetSupplierGroupWithDescendantIdsAsync(input.SupplierGroupId.Value);
             var suppQuery = await _supplierRepository.GetQueryableAsync();
             var matchedSupplierIds = suppQuery
-                .Where(s => s.SupplierGroupId == input.SupplierGroupId.Value)
+                .Where(s => s.SupplierGroupId.HasValue && targetGroupIds.Contains(s.SupplierGroupId.Value))
                 .Select(s => s.Id)
                 .ToList();
             invoicesQuery = invoicesQuery.Where(pi => matchedSupplierIds.Contains(pi.SupplierId));
@@ -85,13 +162,15 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
 
             if (input.SupplierGroupId.HasValue && _supplierRepository != null)
             {
+                var targetGroupIds = await GetSupplierGroupWithDescendantIdsAsync(input.SupplierGroupId.Value);
                 var supp = await _supplierRepository.FindAsync(supplierId);
-                if (supp == null || supp.SupplierGroupId != input.SupplierGroupId.Value)
+                if (supp == null || !supp.SupplierGroupId.HasValue || !targetGroupIds.Contains(supp.SupplierGroupId.Value))
                 {
                     return new RegisterReportDto<PurchaseRegisterLineDto>();
                 }
             }
             var peQuery = await GetPaymentQueryableWithTaxesAsync();
+            var internalMap = await GetInternalSupplierMapAsync(invoices.Select(i => i.SupplierId).Concat(new[] { supplierId }), input.CompanyId);
 
             // Calculate opening balance before 'from' date (payables ledger: credits increase liability, debits decrease)
             var priorInvoices = query
@@ -109,10 +188,32 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
                           && pe.PostingDate < from)
                 .ToList();
 
-            decimal priorCredits = priorInvoices.Sum(pi => pi.IsReturn ? 0 : GetPayableCredit(pi))
+            decimal priorCredits = priorInvoices.Sum(pi => internalMap.GetValueOrDefault(pi.SupplierId) ? 0 : (pi.IsReturn ? 0 : GetPayableCredit(pi)))
                 + priorPayments.Where(pe => pe.PaymentType == PaymentType.Receive).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
-            decimal priorDebits = priorInvoices.Sum(pi => pi.IsReturn ? GetPayableDebitForReturn(pi) : 0)
+            decimal priorDebits = priorInvoices.Sum(pi => internalMap.GetValueOrDefault(pi.SupplierId) ? 0 : ((pi.IsReturn ? GetPayableDebitForReturn(pi) : 0) + GetInInvoicePayableDebit(pi)))
                 + priorPayments.Where(pe => pe.PaymentType != PaymentType.Receive).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
+
+            // Journal Entry rows prior to 'from' date (per ERPNext PR #59888 / commit 4f95812874)
+            if (_journalRepository != null)
+            {
+                var jeQuery = await GetJournalQueryableWithLinesAsync();
+                var priorJournals = jeQuery
+                    .Where(j => j.CompanyId == input.CompanyId
+                             && j.Status == DocumentStatus.Posted
+                             && j.PostingDate < from
+                             && j.Lines.Any(l => l.PartyType == "Supplier" && l.PartyId == supplierId))
+                    .ToList();
+
+                foreach (var je in priorJournals)
+                {
+                    foreach (var line in je.Lines.Where(l => l.PartyType == "Supplier" && l.PartyId == supplierId))
+                    {
+                        priorCredits += line.Credit;
+                        priorDebits += line.Debit;
+                    }
+                }
+            }
+
             decimal openingBalance = priorCredits - priorDebits;
 
             var periodPayments = peQuery
@@ -138,11 +239,13 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
                 Balance = openingBalance
             });
 
-            // Invoice rows
+            // Invoice rows (per ERPNext PR #59888: internal transfers credit 0, in-invoice debits include write-offs & payments)
             foreach (var pi in invoices)
             {
-                decimal debit = pi.IsReturn ? GetPayableDebitForReturn(pi) : 0;
-                decimal credit = pi.IsReturn ? 0 : GetPayableCredit(pi);
+                bool isInternal = internalMap.GetValueOrDefault(pi.SupplierId);
+                decimal inInvoiceDebit = isInternal ? 0 : GetInInvoicePayableDebit(pi);
+                decimal debit = isInternal ? 0 : ((pi.IsReturn ? GetPayableDebitForReturn(pi) : 0) + inInvoiceDebit);
+                decimal credit = isInternal ? 0 : (pi.IsReturn ? 0 : GetPayableCredit(pi));
                 lines.Add(new PurchaseRegisterLineDto
                 {
                     VoucherType = pi.IsReturn ? "Debit Note" : "Purchase Invoice",
@@ -182,6 +285,37 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
                 });
             }
 
+            // Journal Entry rows in period (per ERPNext PR #59888 / commits 4f95812874 & fd1c361cfc)
+            if (_journalRepository != null)
+            {
+                var jeQuery = await GetJournalQueryableWithLinesAsync();
+                var periodJournals = jeQuery
+                    .Where(j => j.CompanyId == input.CompanyId
+                             && j.Status == DocumentStatus.Posted
+                             && j.PostingDate >= from
+                             && j.PostingDate <= to
+                             && j.Lines.Any(l => l.PartyType == "Supplier" && l.PartyId == supplierId))
+                    .ToList();
+
+                foreach (var je in periodJournals)
+                {
+                    foreach (var line in je.Lines.Where(l => l.PartyType == "Supplier" && l.PartyId == supplierId))
+                    {
+                        lines.Add(new PurchaseRegisterLineDto
+                        {
+                            VoucherType = "Journal Entry",
+                            JournalEntryId = je.Id,
+                            InvoiceNumber = je.EntryNumber ?? "JE",
+                            PostingDate = je.PostingDate,
+                            SupplierId = supplierId,
+                            GrandTotal = line.Credit > 0 ? line.Credit : line.Debit,
+                            Debit = line.Debit,
+                            Credit = line.Credit,
+                        });
+                    }
+                }
+            }
+
             // Order chronologically (opening first, then by date, then by voucher type)
             var openingRow = lines[0];
             var orderedDetails = lines.Skip(1).OrderBy(l => l.PostingDate).ThenBy(l => l.VoucherType).ToList();
@@ -209,22 +343,30 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
         }
 
         // Standard register (invoices only)
+        var internalStandardMap = await GetInternalSupplierMapAsync(invoices.Select(pi => pi.SupplierId), input.CompanyId);
         var sortedInvoices = invoices.OrderByDescending(pi => pi.IssueDate).ToList();
-        var items = sortedInvoices.Select(pi => new PurchaseRegisterLineDto
+        var items = sortedInvoices.Select(pi =>
         {
-            VoucherType = pi.IsReturn ? "Debit Note" : "Purchase Invoice",
-            InvoiceId = pi.Id,
-            InvoiceNumber = pi.InvoiceNumber ?? "",
-            PostingDate = pi.IssueDate,
-            SupplierId = pi.SupplierId,
-            NetTotal = pi.NetTotal,
-            TaxAmount = pi.TaxAmount,
-            GrandTotal = pi.GrandTotal,
-            AmountPaid = pi.AmountPaid,
-            Outstanding = pi.OutstandingAmount,
-            IsReturn = pi.IsReturn,
-            Debit = pi.IsReturn ? GetPayableDebitForReturn(pi) : 0,
-            Credit = pi.IsReturn ? 0 : GetPayableCredit(pi),
+            bool isInternal = internalStandardMap.GetValueOrDefault(pi.SupplierId);
+            decimal inInvoiceDebit = isInternal ? 0 : GetInInvoicePayableDebit(pi);
+            decimal debit = isInternal ? 0 : ((pi.IsReturn ? GetPayableDebitForReturn(pi) : 0) + inInvoiceDebit);
+            decimal credit = isInternal ? 0 : (pi.IsReturn ? 0 : GetPayableCredit(pi));
+            return new PurchaseRegisterLineDto
+            {
+                VoucherType = pi.IsReturn ? "Debit Note" : "Purchase Invoice",
+                InvoiceId = pi.Id,
+                InvoiceNumber = pi.InvoiceNumber ?? "",
+                PostingDate = pi.IssueDate,
+                SupplierId = pi.SupplierId,
+                NetTotal = pi.NetTotal,
+                TaxAmount = pi.TaxAmount,
+                GrandTotal = pi.GrandTotal,
+                AmountPaid = pi.AmountPaid,
+                Outstanding = pi.OutstandingAmount,
+                IsReturn = pi.IsReturn,
+                Debit = debit,
+                Credit = credit,
+            };
         }).ToList();
 
         await PopulateSupplierDetailsAsync(items);
@@ -322,5 +464,21 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
         }
 
         return Math.Abs(inv.BaseGrandTotal != 0 ? inv.BaseGrandTotal : inv.GrandTotal);
+    }
+
+    /// <summary>
+    /// Amount the invoice settles against its own payable, as in its GL entries.
+    /// Per ERPNext PR #59888 (commit 7dda7c3335):
+    /// Includes write-off for all invoices, plus direct paid amount for paid/cash invoices.
+    /// </summary>
+    private static decimal GetInInvoicePayableDebit(PurchaseInvoice inv)
+    {
+        decimal rate = inv.ExchangeRate > 0 ? inv.ExchangeRate : 1m;
+        decimal debit = inv.WriteOffAmount * rate;
+        if (inv.AmountPaid > 0)
+        {
+            debit += inv.AmountPaid * rate;
+        }
+        return debit;
     }
 }

@@ -85,7 +85,7 @@
                 @if (filters.get('includePayments')?.value) {
                   <tr [class.table-secondary]="item.voucherType === 'Opening'" [class.text-danger]="item.isReturn">
                     <td class="ps-3">
-                      <span class="badge" [class.bg-secondary]="item.voucherType === 'Opening'" [class.bg-primary]="item.voucherType === 'Purchase Invoice'" [class.bg-success]="item.voucherType === 'Payment Entry'" [class.bg-warning]="item.voucherType === 'Debit Note' || item.voucherType === 'Refund'">
+                      <span class="badge" [class.bg-secondary]="item.voucherType === 'Opening'" [class.bg-primary]="item.voucherType === 'Purchase Invoice'" [class.bg-success]="item.voucherType === 'Payment Entry'" [class.bg-info]="item.voucherType === 'Journal Entry'" [class.bg-warning]="item.voucherType === 'Debit Note' || item.voucherType === 'Refund'">
                         {{ item.voucherType }}
                       </span>
                     </td>

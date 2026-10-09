@@ -674,6 +674,7 @@ export interface PurchaseRegisterLineDto {
   voucherType?: string;
   invoiceId?: string;
   paymentEntryId?: string;
+  journalEntryId?: string;
   invoiceNumber?: string;
   postingDate?: string;
   supplierId?: string;

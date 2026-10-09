@@ -7,6 +7,7 @@ public class SalesRegisterLineDto
     public string VoucherType { get; set; } = "Sales Invoice";
     public Guid? InvoiceId { get; set; }
     public Guid? PaymentEntryId { get; set; }
+    public Guid? JournalEntryId { get; set; }
     public string InvoiceNumber { get; set; } = null!;
     public DateTime PostingDate { get; set; }
     public Guid CustomerId { get; set; }

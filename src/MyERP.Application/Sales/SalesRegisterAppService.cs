@@ -21,17 +21,20 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
     private readonly IRepository<PaymentEntry, Guid> _paymentRepository;
     private readonly IRepository<Customer, Guid>? _customerRepository;
     private readonly IRepository<CustomerGroup, Guid>? _customerGroupRepository;
+    private readonly IRepository<JournalEntry, Guid>? _journalRepository;
 
     public SalesRegisterAppService(
         IRepository<SalesInvoice, Guid> invoiceRepository,
         IRepository<PaymentEntry, Guid> paymentRepository,
         IRepository<Customer, Guid>? customerRepository = null,
-        IRepository<CustomerGroup, Guid>? customerGroupRepository = null)
+        IRepository<CustomerGroup, Guid>? customerGroupRepository = null,
+        IRepository<JournalEntry, Guid>? journalRepository = null)
     {
         _invoiceRepository = invoiceRepository;
         _paymentRepository = paymentRepository;
         _customerRepository = customerRepository;
         _customerGroupRepository = customerGroupRepository;
+        _journalRepository = journalRepository;
     }
 
     private async Task<IQueryable<PaymentEntry>> GetPaymentQueryableWithTaxesAsync()
@@ -46,6 +49,56 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
             // Fallback if WithDetailsAsync is not configured or unsupported in mock/provider
         }
         return await _paymentRepository.GetQueryableAsync();
+    }
+
+    private async Task<IQueryable<JournalEntry>> GetJournalQueryableWithLinesAsync()
+    {
+        if (_journalRepository == null) return Enumerable.Empty<JournalEntry>().AsQueryable();
+        try
+        {
+            var withDetails = await _journalRepository.WithDetailsAsync(j => j.Lines);
+            if (withDetails != null) return withDetails;
+        }
+        catch
+        {
+            // Fallback if WithDetailsAsync is not configured or unsupported in mock/provider
+        }
+        return await _journalRepository.GetQueryableAsync();
+    }
+
+    private async Task<HashSet<Guid>> GetCustomerGroupWithDescendantIdsAsync(Guid rootGroupId)
+    {
+        var result = new HashSet<Guid> { rootGroupId };
+        if (_customerGroupRepository == null) return result;
+
+        try
+        {
+            var allGroups = await _customerGroupRepository.GetListAsync();
+            if (allGroups != null)
+            {
+                var queue = new Queue<Guid>();
+                queue.Enqueue(rootGroupId);
+
+                while (queue.Count > 0)
+                {
+                    var current = queue.Dequeue();
+                    var children = allGroups.Where(g => g.ParentId == current).Select(g => g.Id);
+                    foreach (var childId in children)
+                    {
+                        if (result.Add(childId))
+                        {
+                            queue.Enqueue(childId);
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Fallback if repository fails or in test setup
+        }
+
+        return result;
     }
 
     public async Task<RegisterReportDto<SalesRegisterLineDto>> GetReportAsync(RegisterFilterDto input)
@@ -67,9 +120,10 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
 
         if (input.CustomerGroupId.HasValue && _customerRepository != null)
         {
+            var targetGroupIds = await GetCustomerGroupWithDescendantIdsAsync(input.CustomerGroupId.Value);
             var custQuery = await _customerRepository.GetQueryableAsync();
             var matchedCustomerIds = custQuery
-                .Where(c => c.CustomerGroupId == input.CustomerGroupId.Value)
+                .Where(c => c.CustomerGroupId.HasValue && targetGroupIds.Contains(c.CustomerGroupId.Value))
                 .Select(c => c.Id)
                 .ToList();
             invoicesQuery = invoicesQuery.Where(si => matchedCustomerIds.Contains(si.CustomerId));
@@ -84,8 +138,9 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
 
             if (input.CustomerGroupId.HasValue && _customerRepository != null)
             {
+                var targetGroupIds = await GetCustomerGroupWithDescendantIdsAsync(input.CustomerGroupId.Value);
                 var cust = await _customerRepository.FindAsync(customerId);
-                if (cust == null || cust.CustomerGroupId != input.CustomerGroupId.Value)
+                if (cust == null || !cust.CustomerGroupId.HasValue || !targetGroupIds.Contains(cust.CustomerGroupId.Value))
                 {
                     return new RegisterReportDto<SalesRegisterLineDto>();
                 }
@@ -112,6 +167,28 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
                 + priorPayments.Where(pe => pe.PaymentType == PaymentType.Pay).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
             decimal priorCredits = priorInvoices.Sum(si => (si.IsReturn ? GetReceivableCreditForReturn(si) : 0) + GetInInvoiceReceivableCredit(si))
                 + priorPayments.Where(pe => pe.PaymentType != PaymentType.Pay).Sum(pe => pe.TotalSettledBaseAmount > 0 ? pe.TotalSettledBaseAmount : pe.PaidAmount);
+
+            // Journal Entry rows prior to 'from' date (per ERPNext PR #59888 / commit 4f95812874)
+            if (_journalRepository != null)
+            {
+                var jeQuery = await GetJournalQueryableWithLinesAsync();
+                var priorJournals = jeQuery
+                    .Where(j => j.CompanyId == input.CompanyId
+                             && j.Status == DocumentStatus.Posted
+                             && j.PostingDate < from
+                             && j.Lines.Any(l => l.PartyType == "Customer" && l.PartyId == customerId))
+                    .ToList();
+
+                foreach (var je in priorJournals)
+                {
+                    foreach (var line in je.Lines.Where(l => l.PartyType == "Customer" && l.PartyId == customerId))
+                    {
+                        priorDebits += line.Debit;
+                        priorCredits += line.Credit;
+                    }
+                }
+            }
+
             decimal openingBalance = priorDebits - priorCredits;
 
             var periodPayments = peQuery
@@ -180,6 +257,37 @@ public class SalesRegisterAppService : ApplicationService, ISalesRegisterAppServ
                     Debit = debit,
                     Credit = credit,
                 });
+            }
+
+            // Journal Entry rows in period (per ERPNext PR #59888 / commits 4f95812874 & fd1c361cfc)
+            if (_journalRepository != null)
+            {
+                var jeQuery = await GetJournalQueryableWithLinesAsync();
+                var periodJournals = jeQuery
+                    .Where(j => j.CompanyId == input.CompanyId
+                             && j.Status == DocumentStatus.Posted
+                             && j.PostingDate >= from
+                             && j.PostingDate <= to
+                             && j.Lines.Any(l => l.PartyType == "Customer" && l.PartyId == customerId))
+                    .ToList();
+
+                foreach (var je in periodJournals)
+                {
+                    foreach (var line in je.Lines.Where(l => l.PartyType == "Customer" && l.PartyId == customerId))
+                    {
+                        lines.Add(new SalesRegisterLineDto
+                        {
+                            VoucherType = "Journal Entry",
+                            JournalEntryId = je.Id,
+                            InvoiceNumber = je.EntryNumber ?? "JE",
+                            PostingDate = je.PostingDate,
+                            CustomerId = customerId,
+                            GrandTotal = line.Debit > 0 ? line.Debit : line.Credit,
+                            Debit = line.Debit,
+                            Credit = line.Credit,
+                        });
+                    }
+                }
             }
 
             // Order chronologically (opening first, then by date, then by voucher type)

@@ -1686,6 +1686,7 @@ export interface SalesRegisterLineDto {
   voucherType?: string;
   invoiceId?: string;
   paymentEntryId?: string;
+  journalEntryId?: string;
   invoiceNumber?: string;
   postingDate?: string;
   customerId?: string;
