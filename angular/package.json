@@ -36,7 +36,7 @@
     "@angular/localize": "~21.2.0",
     "@angular/platform-browser": "~21.2.0",
     "@angular/platform-browser-dynamic": "~21.2.0",
-    "@angular/router": "~21.2.0",
+    "@angular/router": "~21.2.24",
     "@ngrx/signals": "^21.1.1",
     "chart.js": "^4.5.1",
     "rxjs": "~7.8.0",
