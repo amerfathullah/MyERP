@@ -623,6 +623,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                         : EInvoiceDocumentType.Invoice;
         }
 
+        invoice.ValidateEInvoiceDocumentType();
+
         // Per MyInvois commit 780a4cf: sync buyer TIN with Customer TIN
         if (!string.IsNullOrWhiteSpace(invoice.BuyerTin))
         {

@@ -349,6 +349,7 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         }
 
         ValidateDebitNote();
+        ValidateEInvoiceDocumentType();
 
         Status = DocumentStatus.Submitted;
         AddLocalEvent(new SalesInvoiceSubmittedEvent(this));
@@ -373,6 +374,39 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed,
                 "You cannot update stock for a Debit Note. A Debit Note is a financial document that should not affect inventory. Please disable 'Update Stock'.")
                 .WithData("detail", "You cannot update stock for a Debit Note. A Debit Note is a financial document that should not affect inventory. Please disable 'Update Stock'.");
+        }
+    }
+
+    /// <summary>
+    /// Validates consistency between EInvoiceDocType and transaction flags (IsReturn, IsReturnRefund, IsDebitNote)
+    /// per LHDN MyInvois regulations (commit 37d716d).
+    /// </summary>
+    public void ValidateEInvoiceDocumentType()
+    {
+        if (!EInvoiceDocType.HasValue) return;
+
+        if (IsDebitNote && EInvoiceDocType != EInvoiceDocumentType.DebitNote)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "As per LHDN Regulation, choose the invoice type code as '03 : Debit Note'.");
+        }
+
+        if (IsReturn && !IsReturnRefund && EInvoiceDocType != EInvoiceDocumentType.CreditNote)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "As per LHDN Regulation, choose the invoice type code as '02 : Credit Note'.");
+        }
+
+        if (IsReturn && IsReturnRefund && EInvoiceDocType != EInvoiceDocumentType.RefundNote)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "As per LHDN Regulation, choose the invoice type code as '04 : Refund Note'.");
+        }
+
+        if (!IsReturn && !IsDebitNote && EInvoiceDocType is EInvoiceDocumentType.CreditNote or EInvoiceDocumentType.DebitNote or EInvoiceDocumentType.RefundNote)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Standard Sales Invoice cannot use Credit Note, Debit Note, or Refund Note e-Invoice document type.");
         }
     }
 

@@ -370,6 +370,7 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         }
 
         ValidateDebitNote();
+        ValidateEInvoiceDocumentType();
 
         Status = DocumentStatus.Submitted;
         AddLocalEvent(new PurchaseInvoiceSubmittedEvent(this));
@@ -394,6 +395,33 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed,
                 "You cannot update stock for a Debit Note. A Debit Note is a financial document that should not affect inventory. Please disable 'Update Stock'.")
                 .WithData("detail", "You cannot update stock for a Debit Note. A Debit Note is a financial document that should not affect inventory. Please disable 'Update Stock'.");
+        }
+    }
+
+    /// <summary>
+    /// Validates consistency between EInvoiceDocType and transaction flags (IsReturn, IsReturnRefund, IsDebitNote)
+    /// per LHDN MyInvois regulations (commit 37d716d).
+    /// </summary>
+    public void ValidateEInvoiceDocumentType()
+    {
+        if (!EInvoiceDocType.HasValue) return;
+
+        if (IsDebitNote && EInvoiceDocType != EInvoiceDocumentType.SelfBilledDebitNote && EInvoiceDocType != EInvoiceDocumentType.DebitNote)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "As per LHDN Regulation, choose the e-Invoice document type as 'Self-Billed Debit Note'.");
+        }
+
+        if (IsReturn && !IsReturnRefund && EInvoiceDocType != EInvoiceDocumentType.SelfBilledCreditNote && EInvoiceDocType != EInvoiceDocumentType.CreditNote)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "As per LHDN Regulation, choose the e-Invoice document type as 'Self-Billed Credit Note'.");
+        }
+
+        if (IsReturn && IsReturnRefund && EInvoiceDocType != EInvoiceDocumentType.SelfBilledRefundNote && EInvoiceDocType != EInvoiceDocumentType.RefundNote)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "As per LHDN Regulation, choose the e-Invoice document type as 'Self-Billed Refund Note'.");
         }
     }
 

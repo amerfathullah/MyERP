@@ -637,6 +637,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                         : EInvoiceDocumentType.SelfBilledInvoice;
         }
 
+        invoice.ValidateEInvoiceDocumentType();
+
         invoice.UpdateStock = input.UpdateStock;
         // Skip stock update for items already received via Purchase Receipt to prevent double receipt (mirror PR #60230)
         if (input.Items.Any(i => i.PurchaseReceiptItemId.HasValue))
