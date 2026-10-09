@@ -246,7 +246,7 @@ public class StockPostingService : DomainService
                          (!item.SetBasicRateManually || rate <= 0))
                 {
                     // Standalone manufacture without work order derives FG valuation rate from consumed raw materials
-                    // split across all eligible finished good rows (PR #59881 / commit 37f16db9d8).
+                    // split across all eligible finished good rows (PR #59881 / commit 37f16db9d8 & commit 8148dd486b).
                     if (item.AllowZeroValuationRate)
                     {
                         rate = 0m;
@@ -254,7 +254,15 @@ public class StockPostingService : DomainService
                     else
                     {
                         var finishedItemsQty = stockEntry.GetFinishedItemsQty();
-                        var basicRate = finishedItemsQty > 0 ? (totalRawMaterialOutwardValue / finishedItemsQty) : 0m;
+                        var costedOutItemsCost = stockEntry.Items
+                            .Where(d => (d.IsFinishedItem || !d.SourceWarehouseId.HasValue) &&
+                                        d.TargetWarehouseId.HasValue &&
+                                        d.SetBasicRateManually &&
+                                        !d.AllowZeroValuationRate)
+                            .Sum(d => d.Quantity * (d.ValuationRate ?? 0m));
+
+                        var netOutgoingCost = Math.Max(0m, totalRawMaterialOutwardValue - costedOutItemsCost);
+                        var basicRate = finishedItemsQty > 0 ? (netOutgoingCost / finishedItemsQty) : 0m;
                         var additionalCostPerUnit = item.Quantity > 0 ? (item.AdditionalCost / item.Quantity) : 0m;
                         rate = Math.Round(basicRate + additionalCostPerUnit, 4);
                     }

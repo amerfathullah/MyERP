@@ -237,4 +237,96 @@ public class StockEntrySplitFinishedGoodsValuationTests
         se.TotalOutgoingValue.ShouldBe(1000m);
         se.TotalValueDifference.ShouldBe(0m);
     }
+
+    [Fact]
+    public void CalculateManufactureFgRate_Deducts_Manually_Rated_FG_Row_Value()
+    {
+        var manager = CreateManager();
+        var entry = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Manufacture, DateTime.UtcNow);
+
+        // RM: 10 units @ 100 = 1000 total outgoing cost
+        entry.AddItem(_rmItemId, 10m, sourceWarehouseId: _sourceWhId, targetWarehouseId: null, valuationRate: 100m);
+
+        // FG 1: 5 units with manual rate 50 (value 250)
+        entry.AddItem(_fgItemId, 5m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id, isFinishedItem: true, setBasicRateManually: true, valuationRate: 50m);
+
+        // FG 2: 5 units with derived rate
+        entry.AddItem(_fgItemId, 5m, sourceWarehouseId: null, targetWarehouseId: _targetWh2Id, isFinishedItem: true);
+
+        var rate = manager.CalculateManufactureFgRate(entry.Items);
+
+        // (1000 - 250) / 5 = 150
+        rate.ShouldBe(150m);
+    }
+
+    [Fact]
+    public void ValidateManufactureItems_ManualCostExceedsConsumedCost_Throws()
+    {
+        var manager = CreateManager();
+        var entry = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Manufacture, DateTime.UtcNow);
+
+        // RM: 10 units @ 100 = 1000 total outgoing cost
+        entry.AddItem(_rmItemId, 10m, sourceWarehouseId: _sourceWhId, targetWarehouseId: null, valuationRate: 100m);
+
+        // FG 1: 5 units with manual rate 300 = 1500 (exceeds 1000)
+        entry.AddItem(_fgItemId, 5m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id, isFinishedItem: true, setBasicRateManually: true, valuationRate: 300m);
+
+        // FG 2: 5 units normal (derived)
+        entry.AddItem(_fgItemId, 5m, sourceWarehouseId: null, targetWarehouseId: _targetWh2Id, isFinishedItem: true);
+
+        var ex = Should.Throw<Volo.Abp.BusinessException>(() => manager.ValidateManufactureItems(entry));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public async Task StockPostingService_PostStockEntry_Manufacture_Takes_Manually_Rated_Finished_Good_Value_Out_Of_Cost()
+    {
+        var sleRepo = Substitute.For<IRepository<StockLedgerEntry, Guid>>();
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+        var company = new Company(_companyId, "Test Company");
+        companyRepo.GetAsync(_companyId).Returns(company);
+        companyRepo.FindAsync(_companyId).Returns(company);
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var whRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var binRepo = Substitute.For<IRepository<Bin, Guid>>();
+        var settingProvider = Substitute.For<ISettingProvider>();
+
+        var rmItem = new Item(_rmItemId, _companyId, "RM-01", "Raw Material 1", ItemType.Goods) { MaintainStock = true, AllowNegativeStock = true };
+        var fgItem = new Item(_fgItemId, _companyId, "FG-01", "Finished Good 1", ItemType.Goods) { MaintainStock = true, AllowNegativeStock = true };
+        itemRepo.FindAsync(_rmItemId).Returns(rmItem);
+        itemRepo.FindAsync(_fgItemId).Returns(fgItem);
+        itemRepo.GetAsync(_rmItemId).Returns(rmItem);
+        itemRepo.GetAsync(_fgItemId).Returns(fgItem);
+
+        var binService = new BinService(binRepo);
+        var valService = new StockValuationService(sleRepo, itemRepo, settingProvider);
+        var valSp = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        valSp.LazyGetService<Volo.Abp.Guids.IGuidGenerator>().Returns(Volo.Abp.Guids.SimpleGuidGenerator.Instance);
+        typeof(Volo.Abp.Domain.Services.DomainService)
+            .GetProperty("LazyServiceProvider", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)?
+            .SetValue(valService, valSp);
+
+        var postingService = new StockPostingService(
+            sleRepo, companyRepo, itemRepo, whRepo, binService, valService);
+
+        var se = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Manufacture, DateTime.UtcNow);
+        // RM: 10 @ 100 = 1000
+        se.AddItem(_rmItemId, 10m, sourceWarehouseId: _sourceWhId, targetWarehouseId: null, valuationRate: 100m);
+        // FG 1: 5 units with manual rate 50
+        var fg1 = se.AddItem(_fgItemId, 5m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id, isFinishedItem: true, setBasicRateManually: true, valuationRate: 50m);
+        // FG 2: 5 units normal (derived)
+        var fg2 = se.AddItem(_fgItemId, 5m, sourceWarehouseId: null, targetWarehouseId: _targetWh2Id, isFinishedItem: true);
+
+        await postingService.PostStockEntryAsync(se);
+
+        // FG 1 keeps manual rate 50
+        fg1.ValuationRate.ShouldBe(50m);
+        // FG 2 gets derived rate: (1000 - 250) / 5 = 150
+        fg2.ValuationRate.ShouldBe(150m);
+
+        // Total incoming == Total outgoing (1000 == 1000)
+        se.TotalIncomingValue.ShouldBe(1000m);
+        se.TotalOutgoingValue.ShouldBe(1000m);
+        se.TotalValueDifference.ShouldBe(0m);
+    }
 }

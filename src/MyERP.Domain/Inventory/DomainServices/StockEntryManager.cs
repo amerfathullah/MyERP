@@ -455,6 +455,31 @@ public class StockEntryManager : DomainService
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ManufactureMultiFgItemsNotAllowed);
             }
+
+            // Per ERPNext PR #59881 (commit 8148dd486b / commit 4029c1198a):
+            // Reject manual costs above the consumed raw material cost when there are remaining FG rows
+            var rawMaterialCost = entry.Items
+                .Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem)
+                .Sum(i => i.Quantity * (i.ValuationRate ?? 0m));
+
+            var manualFgCost = entry.Items
+                .Where(i => (i.IsFinishedItem || !i.SourceWarehouseId.HasValue)
+                    && i.TargetWarehouseId.HasValue
+                    && i.SetBasicRateManually
+                    && !i.AllowZeroValuationRate)
+                .Sum(i => i.Quantity * (i.ValuationRate ?? 0m));
+
+            var hasDerivedFg = entry.Items.Any(i =>
+                (i.IsFinishedItem || !i.SourceWarehouseId.HasValue)
+                && i.TargetWarehouseId.HasValue
+                && !i.SetBasicRateManually
+                && !i.AllowZeroValuationRate);
+
+            if (hasDerivedFg && rawMaterialCost > 0 && manualFgCost > rawMaterialCost)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Total value of manually rated finished good rows ({manualFgCost}) exceeds the total consumed raw material cost ({rawMaterialCost}).");
+            }
         }
 
         // Per ERPNext PR #58005: mandatory manufactured qty check for manufacture entries
@@ -640,6 +665,7 @@ public class StockEntryManager : DomainService
     /// <summary>
     /// Calculates basic valuation rate for manufactured FG item(s).
     /// Cost is split over all eligible finished good rows (PR #59881 / commit 37f16db9d8).
+    /// Deducts value of manually-rated finished good rows (commit 8148dd486b).
     /// Per ERPNext PR #57334: when inputs are consumed at zero cost (e.g. free raw materials),
     /// rate remains zero (plus additional operating cost) and must not fall back to BOM or standard rates.
     /// </summary>
@@ -647,7 +673,8 @@ public class StockEntryManager : DomainService
         IReadOnlyList<StockEntryItem> items,
         decimal? fgQty = null,
         decimal additionalOperatingCost = 0m,
-        decimal? bomEstimatedCost = null)
+        decimal? bomEstimatedCost = null,
+        bool viaRepost = false)
     {
         var resolvedFgQty = fgQty.HasValue && fgQty.Value > 0 ? fgQty.Value : GetFinishedItemsQty(items);
         if (resolvedFgQty <= 0) return 0m;
@@ -657,13 +684,26 @@ public class StockEntryManager : DomainService
 
         var outgoingCost = rawMaterialItems.Sum(i => i.Quantity * (i.ValuationRate ?? 0m));
 
-        if (!hasConsumptionBasis && bomEstimatedCost.HasValue)
+        var manualCost = items
+            .Where(d => (d.IsFinishedItem || !d.SourceWarehouseId.HasValue)
+                && d.TargetWarehouseId.HasValue
+                && d.SetBasicRateManually
+                && !d.AllowZeroValuationRate)
+            .Sum(d => d.Quantity * (d.ValuationRate ?? 0m));
+
+        if (!hasConsumptionBasis && bomEstimatedCost.HasValue && manualCost <= 0)
         {
             outgoingCost = bomEstimatedCost.Value;
         }
 
-        var totalFgCost = outgoingCost + additionalOperatingCost;
-        return Math.Round(totalFgCost / resolvedFgQty, 4);
+        var costLeft = outgoingCost - manualCost;
+        if (viaRepost || costLeft < 0)
+        {
+            costLeft = Math.Max(costLeft, 0m);
+        }
+
+        var totalFgCost = costLeft + additionalOperatingCost;
+        return Math.Round(Math.Max(totalFgCost, 0m) / resolvedFgQty, 4);
     }
 
     /// <summary>
