@@ -111,4 +111,84 @@ public abstract class CampaignEfficiencyAppServiceTests<TStartupModule> : MyERPA
             report.TotalOrderValue.ShouldBe(500m);
         });
     }
+
+    [Fact]
+    public async Task GetReportAsync_CancelledAndDraftSalesOrders_ExcludedFromOrderCountAndValue()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var leadRepo = GetRequiredService<IRepository<Lead, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var quotRepo = GetRequiredService<IRepository<Quotation, Guid>>();
+            var soRepo = GetRequiredService<IRepository<SalesOrder, Guid>>();
+            var service = GetRequiredService<ICampaignEfficiencyAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Camp Eff Exclude Co"), autoSave: true);
+
+            var lead = new Lead(Guid.NewGuid(), company.Id, "LEAD-EX-1", "Charlie")
+            {
+                UtmCampaign = "Fall_Launch"
+            };
+            await leadRepo.InsertAsync(lead, autoSave: true);
+
+            var customer = new Customer(Guid.NewGuid(), company.Id, "Charlie Corp")
+            {
+                LeadId = lead.Id
+            };
+            await customerRepo.InsertAsync(customer, autoSave: true);
+
+            var quot = new Quotation(Guid.NewGuid(), company.Id, customer.Id, "QTN-EX-1", DateTime.UtcNow)
+            {
+                GrandTotal = 1000m
+            };
+            quot.AddItem(Guid.NewGuid(), "Gadget", 1m, 1000m, 0m, "Unit");
+            quot.Submit();
+            await quotRepo.InsertAsync(quot, autoSave: true);
+
+            // Cancelled Sales Order
+            var soCancelled = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-CANCELLED", DateTime.UtcNow)
+            {
+                QuotationId = quot.Id
+            };
+            soCancelled.AddItem(Guid.NewGuid(), "Gadget", 1m, 1000m, 0m, "Unit", quotationItemId: quot.Items[0].Id);
+            soCancelled.Submit();
+            soCancelled.Cancel();
+            await soRepo.InsertAsync(soCancelled, autoSave: true);
+
+            // Draft Sales Order
+            var soDraft = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-DRAFT", DateTime.UtcNow)
+            {
+                QuotationId = quot.Id
+            };
+            soDraft.AddItem(Guid.NewGuid(), "Gadget", 1m, 1000m, 0m, "Unit", quotationItemId: quot.Items[0].Id);
+            await soRepo.InsertAsync(soDraft, autoSave: true);
+
+            // Submitted Sales Order
+            var soSubmitted = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-SUBMITTED", DateTime.UtcNow)
+            {
+                QuotationId = quot.Id
+            };
+            soSubmitted.AddItem(Guid.NewGuid(), "Gadget", 1m, 1000m, 0m, "Unit", quotationItemId: quot.Items[0].Id);
+            soSubmitted.Submit();
+            await soRepo.InsertAsync(soSubmitted, autoSave: true);
+
+            quot.Items[0].OrderedQty = 1m;
+            await quotRepo.UpdateAsync(quot, autoSave: true);
+
+            var report = await service.GetReportAsync(new CampaignEfficiencyFilterDto
+            {
+                CompanyId = company.Id,
+                BasedOn = "UtmCampaign"
+            });
+
+            report.Rows.Count.ShouldBe(1);
+            var row = report.Rows[0];
+            row.Campaign.ShouldBe("Fall_Launch");
+            row.LeadCount.ShouldBe(1);
+            row.QuotCount.ShouldBe(1);
+            row.OrderCount.ShouldBe(1);
+            row.OrderValue.ShouldBe(1000m);
+        });
+    }
 }

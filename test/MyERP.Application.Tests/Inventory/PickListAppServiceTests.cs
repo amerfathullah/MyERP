@@ -99,4 +99,47 @@ public abstract class PickListAppService_Tests<TStartupModule> : MyERPApplicatio
             insight.HoldingPickLists.ShouldContain(h => h.PickListId == pl1.Id && h.HoldingQty == 50m);
         });
     }
+
+    [Fact]
+    public async Task CreateDeliveryNoteFromPickList_WithMismatchedSalesOrder_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyId = Guid.NewGuid();
+            var soId = Guid.NewGuid();
+            var otherSoId = Guid.NewGuid();
+
+            var pickList = new MyERP.Inventory.Entities.PickList(Guid.NewGuid(), companyId, "Delivery", null)
+            {
+                SalesOrderId = soId,
+                CustomerId = Guid.NewGuid()
+            };
+            pickList.AddItem(Guid.NewGuid(), Guid.NewGuid(), 10, 10, "Test Item");
+            pickList.Submit();
+            await _pickListRepository.InsertAsync(pickList, autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                _pickListAppService.CreateDeliveryNoteFromPickListAsync(pickList.Id, otherSoId));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
+
+    [Fact]
+    public async Task CreateDeliveryNoteFromPickList_DraftPickList_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyId = Guid.NewGuid();
+            var pickList = new MyERP.Inventory.Entities.PickList(Guid.NewGuid(), companyId, "Delivery", null)
+            {
+                CustomerId = Guid.NewGuid()
+            };
+            pickList.AddItem(Guid.NewGuid(), Guid.NewGuid(), 10, 10, "Draft Item");
+            await _pickListRepository.InsertAsync(pickList, autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                _pickListAppService.CreateDeliveryNoteFromPickListAsync(pickList.Id));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+        });
+    }
 }

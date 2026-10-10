@@ -207,7 +207,7 @@ public class PickListAppService : ApplicationService, IPickListAppService
     /// </summary>
     [Authorize(MyERPPermissions.DeliveryNotes.Create)]
     [Volo.Abp.Uow.UnitOfWork]
-    public async Task<Guid> CreateDeliveryNoteFromPickListAsync(Guid pickListId)
+    public async Task<Guid> CreateDeliveryNoteFromPickListAsync(Guid pickListId, Guid? salesOrderId = null)
     {
         await AuthorizationService.CheckAsync(MyERPPermissions.StockEntries.Default);
 
@@ -220,17 +220,25 @@ public class PickListAppService : ApplicationService, IPickListAppService
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Delivery purpose Pick Lists can create Delivery Notes");
 
+        if (salesOrderId.HasValue && pl.SalesOrderId.HasValue && pl.SalesOrderId.Value != salesOrderId.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Specified Sales Order does not match the Pick List Sales Order.");
+        }
+
         var numberGenerator = LazyServiceProvider.LazyGetRequiredService<IDocumentNumberGenerator>();
         var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.DeliveryNote, Guid>>();
+
+        var targetSalesOrderId = salesOrderId ?? pl.SalesOrderId;
 
         // Resolve customer: SO takes priority, then Pick List customer (per PR #57412)
         Guid? customerId = null;
         Guid? warehouseId = null;
 
-        if (pl.SalesOrderId.HasValue)
+        if (targetSalesOrderId.HasValue)
         {
             var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
-            var so = await soRepo.GetAsync(pl.SalesOrderId.Value);
+            var so = await soRepo.GetAsync(targetSalesOrderId.Value);
             customerId = so.CustomerId;
             warehouseId = so.Items.FirstOrDefault(i => i.WarehouseId.HasValue)?.WarehouseId;
         }
@@ -260,14 +268,28 @@ public class PickListAppService : ApplicationService, IPickListAppService
             Clock.Now.Date,
             pl.TenantId);
 
-        dn.SalesOrderId = pl.SalesOrderId;
+        dn.SalesOrderId = targetSalesOrderId;
         dn.PickListId = pl.Id;
 
         // Map pending transfer items to DN items
         var pickListManager = LazyServiceProvider.LazyGetRequiredService<PickListManager>();
         var pendingItems = pickListManager.GetPendingTransfers(pl);
 
-        foreach (var item in pendingItems.Where(p => p.PendingQty > 0))
+        if (targetSalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+            var so = await soRepo.GetAsync(targetSalesOrderId.Value);
+            var soItemIds = so.Items.Select(i => i.Id).ToHashSet();
+            pendingItems = pendingItems.Where(p => p.SourceDocumentItemId.HasValue && soItemIds.Contains(p.SourceDocumentItemId.Value)).ToList();
+        }
+
+        var itemsToDeliver = pendingItems.Where(p => p.PendingQty > 0).ToList();
+        if (itemsToDeliver.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+        }
+
+        foreach (var item in itemsToDeliver)
         {
             // PendingTransfer doesn't carry ItemName; use empty string (DN detail resolves from Item master)
             dn.AddItem(item.ItemId, "", item.PendingQty, 0m, 0m, "Unit",

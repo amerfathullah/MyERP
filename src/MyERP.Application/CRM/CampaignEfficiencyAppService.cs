@@ -94,8 +94,11 @@ public class CampaignEfficiencyAppService : ApplicationService, ICampaignEfficie
         var allQuotIds = allQuots.Select(q => q.Id).ToList();
 
         var soQuery = (await _salesOrderRepository.WithDetailsAsync(s => s.Items)).AsQueryable();
+        // Per ERPNext PR #59906 / commit b08f1eacf3 & f5ca48542c:
+        // Only count submitted sales orders in order count and order value (leave cancelled and draft documents out)
         var allSalesOrders = soQuery
-            .Where(s => s.Status != DocumentStatus.Cancelled && s.QuotationId.HasValue && allQuotIds.Contains(s.QuotationId.Value))
+            .Where(s => s.Status != DocumentStatus.Draft && s.Status != DocumentStatus.Cancelled
+                     && s.QuotationId.HasValue && allQuotIds.Contains(s.QuotationId.Value))
             .ToList();
 
         var report = new CampaignEfficiencyReportDto();
@@ -123,11 +126,11 @@ public class CampaignEfficiencyAppService : ApplicationService, ICampaignEfficie
             // Per ERPNext PR #59916 / commit 2deb1549f9: count partly ordered quotations
             var orderCount = groupQuots.Count(q => q.OrderStatus == "Ordered" || q.OrderStatus == "Partially Ordered");
 
-            // Order value from Sales Orders converted from these quotations
+            // Order value from submitted Sales Orders in company base currency
             var groupOrders = allSalesOrders
                 .Where(s => s.QuotationId.HasValue && groupQuotIds.Contains(s.QuotationId.Value))
                 .ToList();
-            var orderValue = groupOrders.Sum(s => s.GrandTotal);
+            var orderValue = groupOrders.Sum(s => (s.NetTotal > 0 ? s.NetTotal : s.GrandTotal) * (s.ExchangeRate > 0 ? s.ExchangeRate : 1m));
 
             var leadCount = group.Count();
             var oppCount = groupOpps.Count;

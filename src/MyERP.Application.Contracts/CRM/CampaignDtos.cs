@@ -46,4 +46,5 @@ public interface ICampaignAppService : IApplicationService
     Task<CampaignDto> CreateAsync(CreateUpdateCampaignDto input);
     Task<CampaignDto> UpdateAsync(Guid id, CreateUpdateCampaignDto input);
     Task DeleteAsync(Guid id);
+    Task<string> GetUtmCampaignAsync(Guid id);
 }

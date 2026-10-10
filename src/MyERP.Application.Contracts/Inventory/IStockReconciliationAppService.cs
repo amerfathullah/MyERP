@@ -14,5 +14,6 @@ public interface IStockReconciliationAppService : IApplicationService
     Task<StockReconciliationDto> SubmitAsync(Guid id);
     Task<StockReconciliationDto> CancelAsync(Guid id);
     Task<System.Collections.Generic.List<StockReconciliationItemPreviewDto>> GetItemsForReconciliationAsync(GetStockReconciliationItemsInputDto input);
+    Task<StockBalanceForPreviewDto> GetStockBalanceForAsync(GetStockBalanceForInputDto input);
 }
 

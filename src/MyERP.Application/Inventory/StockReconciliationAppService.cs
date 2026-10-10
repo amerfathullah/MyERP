@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
+using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Inventory;
@@ -464,17 +465,66 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
 
     /// <summary>
     /// Fetches items for stock reconciliation for the specified warehouse as of posting date.
-    /// Per ERPNext stock_reconciliation.py get_items() and commit b132e3f22a:
-    /// For batched items: returns batch-wise stock balance with individual batch valuation rate
-    /// (not the warehouse-pooled item rate).
+    /// Per ERPNext stock_reconciliation.py get_items() and commit b132e3f22a / PR #60263:
+    /// Enforces warehouse & item company validation, expands group warehouse to descendant leaf warehouses,
+    /// and returns batch-wise stock balance with individual batch valuation rate for batched items.
     /// </summary>
     public async Task<List<StockReconciliationItemPreviewDto>> GetItemsForReconciliationAsync(GetStockReconciliationItemsInputDto input)
     {
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+        var warehouse = await whRepo.FindAsync(input.WarehouseId);
+        if (warehouse == null)
+            throw new EntityNotFoundException(typeof(Warehouse), input.WarehouseId);
+
+        if (warehouse.CompanyId != input.CompanyId)
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("warehouseCompany", warehouse.CompanyId)
+                .WithData("reconciliationCompany", input.CompanyId);
+
+        List<Warehouse> targetWarehouses;
+        if (warehouse.IsGroup)
+        {
+            var allWhs = (await whRepo.GetQueryableAsync())
+                .Where(w => w.CompanyId == input.CompanyId && w.IsActive)
+                .ToList();
+
+            var leafWhs = new List<Warehouse>();
+            void CollectLeaves(Guid parentId)
+            {
+                var children = allWhs.Where(w => w.ParentWarehouseId == parentId).ToList();
+                foreach (var child in children)
+                {
+                    if (child.IsGroup)
+                        CollectLeaves(child.Id);
+                    else
+                        leafWhs.Add(child);
+                }
+            }
+            CollectLeaves(warehouse.Id);
+            targetWarehouses = leafWhs;
+        }
+        else
+        {
+            targetWarehouses = new List<Warehouse> { warehouse };
+        }
+
+        if (targetWarehouses.Count == 0)
+            return new List<StockReconciliationItemPreviewDto>();
+
         var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
         var itemQ = await itemRepo.GetQueryableAsync();
         var itemsQuery = itemQ.Where(i => i.CompanyId == input.CompanyId && i.MaintainStock && i.IsActive);
         if (input.ItemId.HasValue)
         {
+            var singleItem = await itemRepo.FindAsync(input.ItemId.Value);
+            if (singleItem == null)
+                throw new EntityNotFoundException(typeof(Item), input.ItemId.Value);
+
+            if (singleItem.CompanyId != input.CompanyId)
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("itemCompany", singleItem.CompanyId)
+                    .WithData("reconciliationCompany", input.CompanyId);
+
             itemsQuery = itemsQuery.Where(i => i.Id == input.ItemId.Value);
         }
         var items = itemsQuery.OrderBy(i => i.ItemCode).ToList();
@@ -482,13 +532,14 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
             return new List<StockReconciliationItemPreviewDto>();
 
         var batchedItemIds = items.Where(i => i.HasBatchNo).Select(i => i.Id).ToHashSet();
+        var targetWarehouseIds = targetWarehouses.Select(w => w.Id).ToHashSet();
 
         var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
         var sleQ = await sleRepo.GetQueryableAsync();
 
         var batchSles = sleQ
             .Where(s => s.CompanyId == input.CompanyId
-                && s.WarehouseId == input.WarehouseId
+                && targetWarehouseIds.Contains(s.WarehouseId)
                 && batchedItemIds.Contains(s.ItemId)
                 && s.BatchId != null
                 && s.PostingDate <= input.PostingDate
@@ -503,7 +554,7 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
             .ToDictionary(b => b.Id);
 
         var batchGroups = batchSles
-            .GroupBy(s => new { s.ItemId, BatchId = s.BatchId!.Value })
+            .GroupBy(s => new { s.ItemId, s.WarehouseId, BatchId = s.BatchId!.Value })
             .ToDictionary(g => g.Key, g => new
             {
                 Qty = g.Sum(s => s.QuantityChange),
@@ -513,91 +564,180 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
 
         var result = new List<StockReconciliationItemPreviewDto>();
 
-        foreach (var item in items)
+        foreach (var targetWh in targetWarehouses)
         {
-            if (item.HasBatchNo)
+            foreach (var item in items)
             {
-                var itemBatches = batchGroups.Where(kv => kv.Key.ItemId == item.Id).ToList();
-                if (itemBatches.Count > 0)
+                if (item.HasBatchNo)
                 {
-                    foreach (var (key, data) in itemBatches)
+                    var itemBatches = batchGroups.Where(kv => kv.Key.ItemId == item.Id && kv.Key.WarehouseId == targetWh.Id).ToList();
+                    if (itemBatches.Count > 0)
                     {
-                        if (input.IgnoreEmptyStock && data.Qty == 0)
-                            continue;
-
-                        var batchInfo = batches.GetValueOrDefault(key.BatchId);
-                        // Per ERPNext commit b132e3f22a: fetch batch-wise valuation rate
-                        decimal batchRate;
-                        if (data.Qty > 0 && data.StockValue > 0)
+                        foreach (var (key, data) in itemBatches)
                         {
-                            batchRate = Math.Round(data.StockValue / data.Qty, 4);
-                        }
-                        else
-                        {
-                            batchRate = data.LastValuationRate > 0 ? data.LastValuationRate : (item.StandardBuyingPrice ?? 0);
-                        }
+                            if (input.IgnoreEmptyStock && data.Qty == 0)
+                                continue;
 
+                            var batchInfo = batches.GetValueOrDefault(key.BatchId);
+                            // Per ERPNext commit b132e3f22a: fetch batch-wise valuation rate
+                            decimal batchRate;
+                            if (data.Qty > 0 && data.StockValue > 0)
+                            {
+                                batchRate = Math.Round(data.StockValue / data.Qty, 4);
+                            }
+                            else
+                            {
+                                batchRate = data.LastValuationRate > 0 ? data.LastValuationRate : (item.StandardBuyingPrice ?? 0);
+                            }
+
+                            result.Add(new StockReconciliationItemPreviewDto
+                            {
+                                ItemId = item.Id,
+                                ItemCode = item.ItemCode,
+                                ItemName = item.ItemName,
+                                WarehouseId = targetWh.Id,
+                                StockUom = item.Uom,
+                                CurrentQuantity = Math.Round(data.Qty, 4),
+                                CurrentValuationRate = Math.Round(batchRate, 4),
+                                BatchId = key.BatchId,
+                                BatchNo = batchInfo?.BatchNo,
+                                HasBatchNo = true,
+                                HasSerialNo = item.HasSerialNo
+                            });
+                        }
+                    }
+                    else if (!input.IgnoreEmptyStock)
+                    {
                         result.Add(new StockReconciliationItemPreviewDto
                         {
                             ItemId = item.Id,
                             ItemCode = item.ItemCode,
                             ItemName = item.ItemName,
-                            WarehouseId = input.WarehouseId,
+                            WarehouseId = targetWh.Id,
                             StockUom = item.Uom,
-                            CurrentQuantity = Math.Round(data.Qty, 4),
-                            CurrentValuationRate = Math.Round(batchRate, 4),
-                            BatchId = key.BatchId,
-                            BatchNo = batchInfo?.BatchNo,
+                            CurrentQuantity = 0,
+                            CurrentValuationRate = item.StandardBuyingPrice ?? 0,
+                            BatchId = null,
+                            BatchNo = null,
                             HasBatchNo = true,
                             HasSerialNo = item.HasSerialNo
                         });
                     }
                 }
-                else if (!input.IgnoreEmptyStock)
+                else
                 {
+                    var prevSle = await _valuationService.GetPreviousSleAsync(item.Id, targetWh.Id, input.PostingDate);
+                    var qty = prevSle?.BalanceQuantity ?? 0m;
+                    var rate = prevSle?.ValuationRate ?? (item.StandardBuyingPrice ?? 0m);
+
+                    if (input.IgnoreEmptyStock && qty == 0)
+                        continue;
+
                     result.Add(new StockReconciliationItemPreviewDto
                     {
                         ItemId = item.Id,
                         ItemCode = item.ItemCode,
                         ItemName = item.ItemName,
-                        WarehouseId = input.WarehouseId,
+                        WarehouseId = targetWh.Id,
                         StockUom = item.Uom,
-                        CurrentQuantity = 0,
-                        CurrentValuationRate = item.StandardBuyingPrice ?? 0,
+                        CurrentQuantity = Math.Round(qty, 4),
+                        CurrentValuationRate = Math.Round(rate, 4),
                         BatchId = null,
                         BatchNo = null,
-                        HasBatchNo = true,
+                        HasBatchNo = false,
                         HasSerialNo = item.HasSerialNo
                     });
                 }
-            }
-            else
-            {
-                var prevSle = await _valuationService.GetPreviousSleAsync(item.Id, input.WarehouseId, input.PostingDate);
-                var qty = prevSle?.BalanceQuantity ?? 0m;
-                var rate = prevSle?.ValuationRate ?? (item.StandardBuyingPrice ?? 0m);
-
-                if (input.IgnoreEmptyStock && qty == 0)
-                    continue;
-
-                result.Add(new StockReconciliationItemPreviewDto
-                {
-                    ItemId = item.Id,
-                    ItemCode = item.ItemCode,
-                    ItemName = item.ItemName,
-                    WarehouseId = input.WarehouseId,
-                    StockUom = item.Uom,
-                    CurrentQuantity = Math.Round(qty, 4),
-                    CurrentValuationRate = Math.Round(rate, 4),
-                    BatchId = null,
-                    BatchNo = null,
-                    HasBatchNo = false,
-                    HasSerialNo = item.HasSerialNo
-                });
             }
         }
 
         return result;
     }
+
+    /// <summary>
+    /// Fetches single-item stock balance and valuation rate for stock reconciliation row lookup.
+    /// Per ERPNext stock_reconciliation.py get_stock_balance_for() / PR #60263:
+    /// Enforces warehouse & item company validation, prevents querying group warehouses directly.
+    /// </summary>
+    public async Task<StockBalanceForPreviewDto> GetStockBalanceForAsync(GetStockBalanceForInputDto input)
+    {
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+        var warehouse = await whRepo.FindAsync(input.WarehouseId);
+        if (warehouse == null)
+            throw new EntityNotFoundException(typeof(Warehouse), input.WarehouseId);
+
+        if (warehouse.CompanyId != input.CompanyId)
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("warehouseCompany", warehouse.CompanyId)
+                .WithData("reconciliationCompany", input.CompanyId);
+
+        if (warehouse.IsGroup)
+            throw new BusinessException(MyERPDomainErrorCodes.GroupWarehouseCannotReceiveStock)
+                .WithData("warehouseName", warehouse.Name);
+
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var item = await itemRepo.FindAsync(input.ItemId);
+        if (item == null)
+            throw new EntityNotFoundException(typeof(Item), input.ItemId);
+
+        if (item.CompanyId != input.CompanyId)
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("itemCompany", item.CompanyId)
+                .WithData("reconciliationCompany", input.CompanyId);
+
+        if (item.HasBatchNo && input.BatchId.HasValue)
+        {
+            var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+            var sleQ = await sleRepo.GetQueryableAsync();
+            var batchSles = sleQ
+                .Where(s => s.CompanyId == input.CompanyId
+                    && s.WarehouseId == input.WarehouseId
+                    && s.ItemId == input.ItemId
+                    && s.BatchId == input.BatchId.Value
+                    && s.PostingDate <= input.PostingDate
+                    && !s.IsCancelled)
+                .ToList();
+
+            var qty = batchSles.Sum(s => s.QuantityChange);
+            var stockVal = batchSles.Sum(s => s.StockValueDifference != 0 ? s.StockValueDifference : s.StockValue);
+            var lastValRate = batchSles.OrderByDescending(s => s.PostingDateTime).ThenByDescending(s => s.CreationTime).Select(s => s.ValuationRate).FirstOrDefault();
+
+            decimal rate;
+            if (qty > 0 && stockVal > 0)
+                rate = Math.Round(stockVal / qty, 4);
+            else
+                rate = lastValRate > 0 ? lastValRate : (item.StandardBuyingPrice ?? 0);
+
+            var batchRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Batch, Guid>>();
+            var batch = await batchRepo.FindAsync(input.BatchId.Value);
+
+            return new StockBalanceForPreviewDto
+            {
+                ItemId = item.Id,
+                WarehouseId = warehouse.Id,
+                CurrentQuantity = Math.Round(qty, 4),
+                CurrentValuationRate = Math.Round(rate, 4),
+                BatchId = input.BatchId.Value,
+                BatchNo = batch?.BatchNo,
+                StockUom = item.Uom
+            };
+        }
+        else
+        {
+            var prevSle = await _valuationService.GetPreviousSleAsync(item.Id, input.WarehouseId, input.PostingDate);
+            var qty = prevSle?.BalanceQuantity ?? 0m;
+            var rate = prevSle?.ValuationRate ?? (item.StandardBuyingPrice ?? 0m);
+
+            return new StockBalanceForPreviewDto
+            {
+                ItemId = item.Id,
+                WarehouseId = warehouse.Id,
+                CurrentQuantity = Math.Round(qty, 4),
+                CurrentValuationRate = Math.Round(rate, 4),
+                StockUom = item.Uom
+            };
+        }
+    }
 }
+
 

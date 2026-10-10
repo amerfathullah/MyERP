@@ -93,6 +93,17 @@ public class CampaignAppService : ApplicationService, ICampaignAppService
         await _repository.DeleteAsync(id);
     }
 
+    /// <summary>
+    /// Resolves the UTM Campaign identifier that leads link to for this campaign.
+    /// Per ERPNext PR #59906 / commit 8afb4a6e39: whitelisted method for users with campaign read access.
+    /// </summary>
+    [Authorize(MyERPPermissions.Leads.Default)]
+    public async Task<string> GetUtmCampaignAsync(Guid id)
+    {
+        var campaign = await _repository.GetAsync(id);
+        return campaign.CampaignName;
+    }
+
     private static CampaignDto MapToDto(Campaign e) => new()
     {
         Id = e.Id,

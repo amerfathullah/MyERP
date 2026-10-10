@@ -321,4 +321,143 @@ public abstract class StockReconciliationValidationTests<TStartupModule> : MyERP
             previewAll[0].CurrentValuationRate.ShouldBe(10m);
         });
     }
+
+    [Fact]
+    public async Task GetItemsForReconciliationAsync_CrossCompanyWarehouse_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var srAppService = GetRequiredService<IStockReconciliationAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SR Scope Co 1"), autoSave: true);
+            var otherCompany = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SR Scope Co 2"), autoSave: true);
+            var otherWh = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), otherCompany.Id, "Other Co WH"), autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                srAppService.GetItemsForReconciliationAsync(new GetStockReconciliationItemsInputDto
+                {
+                    CompanyId = company.Id,
+                    WarehouseId = otherWh.Id,
+                    PostingDate = DateTime.Today
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.CompanyMismatch);
+        });
+    }
+
+    [Fact]
+    public async Task GetItemsForReconciliationAsync_GroupWarehouse_ExpandsDescendants()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var sleRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.StockLedgerEntry, Guid>>();
+            var srAppService = GetRequiredService<IStockReconciliationAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SR Group Co"), autoSave: true);
+            var groupWh = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "All Stores")
+            {
+                IsGroup = true
+            }, autoSave: true);
+
+            var leafWh = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "Stores Leaf 1")
+            {
+                ParentWarehouseId = groupWh.Id,
+                IsGroup = false
+            }, autoSave: true);
+
+            var item = await itemRepo.InsertAsync(new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "GRP-ITEM-1", "Group Item 1", MyERP.Inventory.ItemType.Goods)
+            {
+                StandardBuyingPrice = 20m
+            }, autoSave: true);
+
+            var today = DateTime.Today;
+            await sleRepo.InsertAsync(new MyERP.Inventory.Entities.StockLedgerEntry(
+                Guid.NewGuid(), company.Id, item.Id, leafWh.Id, today.AddDays(-1),
+                quantityChange: 15m, valuationRate: 20m, balanceQuantity: 15m, balanceValue: 300m), autoSave: true);
+
+            var preview = await srAppService.GetItemsForReconciliationAsync(new GetStockReconciliationItemsInputDto
+            {
+                CompanyId = company.Id,
+                WarehouseId = groupWh.Id,
+                PostingDate = today,
+                ItemId = item.Id
+            });
+
+            preview.Count.ShouldBe(1);
+            preview[0].WarehouseId.ShouldBe(leafWh.Id);
+            preview[0].CurrentQuantity.ShouldBe(15m);
+            preview[0].CurrentValuationRate.ShouldBe(20m);
+        });
+    }
+
+    [Fact]
+    public async Task GetStockBalanceForAsync_ValidItem_ReturnsBalanceAndRate()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var sleRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.StockLedgerEntry, Guid>>();
+            var srAppService = GetRequiredService<IStockReconciliationAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SR Bal Co"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "SR Bal WH"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "BAL-ITEM-1", "Bal Item 1", MyERP.Inventory.ItemType.Goods)
+            {
+                StandardBuyingPrice = 18m
+            }, autoSave: true);
+
+            var today = DateTime.Today;
+            await sleRepo.InsertAsync(new MyERP.Inventory.Entities.StockLedgerEntry(
+                Guid.NewGuid(), company.Id, item.Id, wh.Id, today.AddDays(-1),
+                quantityChange: 8m, valuationRate: 18m, balanceQuantity: 8m, balanceValue: 144m), autoSave: true);
+
+            var result = await srAppService.GetStockBalanceForAsync(new GetStockBalanceForInputDto
+            {
+                CompanyId = company.Id,
+                WarehouseId = wh.Id,
+                ItemId = item.Id,
+                PostingDate = today
+            });
+
+            result.ItemId.ShouldBe(item.Id);
+            result.WarehouseId.ShouldBe(wh.Id);
+            result.CurrentQuantity.ShouldBe(8m);
+            result.CurrentValuationRate.ShouldBe(18m);
+        });
+    }
+
+    [Fact]
+    public async Task GetStockBalanceForAsync_GroupWarehouse_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var srAppService = GetRequiredService<IStockReconciliationAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SR Bal Group Co"), autoSave: true);
+            var groupWh = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "Group Bal WH")
+            {
+                IsGroup = true
+            }, autoSave: true);
+            var item = await itemRepo.InsertAsync(new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "BAL-GRP-1", "Bal Group Item", MyERP.Inventory.ItemType.Goods), autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                srAppService.GetStockBalanceForAsync(new GetStockBalanceForInputDto
+                {
+                    CompanyId = company.Id,
+                    WarehouseId = groupWh.Id,
+                    ItemId = item.Id,
+                    PostingDate = DateTime.Today
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.GroupWarehouseCannotReceiveStock);
+        });
+    }
 }

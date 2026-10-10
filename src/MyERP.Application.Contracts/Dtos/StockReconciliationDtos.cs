@@ -88,3 +88,24 @@ public class StockReconciliationItemPreviewDto
     public bool HasSerialNo { get; set; }
 }
 
+public class GetStockBalanceForInputDto
+{
+    public Guid CompanyId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public DateTime PostingDate { get; set; }
+    public Guid? BatchId { get; set; }
+}
+
+public class StockBalanceForPreviewDto
+{
+    public Guid ItemId { get; set; }
+    public Guid WarehouseId { get; set; }
+    public decimal CurrentQuantity { get; set; }
+    public decimal CurrentValuationRate { get; set; }
+    public Guid? BatchId { get; set; }
+    public string? BatchNo { get; set; }
+    public string? StockUom { get; set; }
+}
+
+
