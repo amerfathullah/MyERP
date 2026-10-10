@@ -127,7 +127,8 @@ public class ProspectAppService : ApplicationService, IProspectAppService
             }
         }
 
-        if (leadId != Guid.Empty && (string.IsNullOrWhiteSpace(leadName) || string.IsNullOrWhiteSpace(email)))
+        LeadStatus? leadStatus = null;
+        if (leadId != Guid.Empty)
         {
             var leadRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Lead, Guid>>();
             var lead = await leadRepo.FindAsync(leadId);
@@ -135,10 +136,11 @@ public class ProspectAppService : ApplicationService, IProspectAppService
             {
                 leadName ??= lead.GetFullName();
                 email ??= lead.Email;
+                leadStatus = lead.Status;
             }
         }
 
-        entity.AddLead(GuidGenerator.Create(), leadId, leadName, email);
+        entity.AddLead(GuidGenerator.Create(), leadId, leadName, email, leadStatus);
         await _repository.UpdateAsync(entity);
         return MapToDto(entity);
     }
@@ -180,7 +182,16 @@ public class ProspectAppService : ApplicationService, IProspectAppService
         ConvertedCustomerId = e.ConvertedCustomerId,
         LeadCount = e.Leads.Count,
         OpportunityCount = e.Opportunities.Count,
-        Notes = e.Notes
+        Notes = e.Notes,
+        Leads = e.Leads.Select(l => new ProspectLeadDto
+        {
+            Id = l.Id,
+            ProspectId = l.ProspectId,
+            LeadId = l.LeadId,
+            LeadName = l.LeadName,
+            Email = l.Email,
+            Status = l.Status,
+        }).ToList()
     };
 }
 

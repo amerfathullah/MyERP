@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Inventory;
@@ -218,6 +219,108 @@ public class WorkOrderManager : DomainService
                     .WithData("warehouseId", req.SourceWarehouseId?.ToString() ?? "default")
                     .WithData("required", req.RequiredQty)
                     .WithData("available", available);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates sufficient raw material stock exists before production using batch lookup.
+    /// Per ERPNext PR #60200 (commit 0646a4147b): batch work order stock availability.
+    /// </summary>
+    public async Task ValidateRawMaterialAvailabilityAsync(
+        WorkOrderMaterialRequirement[] requirements,
+        Func<Dictionary<Guid, HashSet<Guid>>, Task<Dictionary<(Guid ItemId, Guid WarehouseId), decimal>>> getAvailableQtysBatch)
+    {
+        var itemsByWarehouse = new Dictionary<Guid, HashSet<Guid>>();
+        foreach (var req in requirements)
+        {
+            if (req.SourceWarehouseId.HasValue)
+            {
+                if (!itemsByWarehouse.TryGetValue(req.SourceWarehouseId.Value, out var set))
+                {
+                    set = new HashSet<Guid>();
+                    itemsByWarehouse[req.SourceWarehouseId.Value] = set;
+                }
+                set.Add(req.ItemId);
+            }
+        }
+
+        var availableMap = await getAvailableQtysBatch(itemsByWarehouse);
+
+        foreach (var req in requirements)
+        {
+            var available = 0m;
+            if (req.SourceWarehouseId.HasValue &&
+                availableMap.TryGetValue((req.ItemId, req.SourceWarehouseId.Value), out var qty))
+            {
+                available = qty;
+            }
+
+            if (available < req.RequiredQty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InsufficientRawMaterial)
+                    .WithData("itemId", req.ItemId)
+                    .WithData("warehouseId", req.SourceWarehouseId?.ToString() ?? "default")
+                    .WithData("required", req.RequiredQty)
+                    .WithData("available", available);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sets available stock quantities at source warehouse and WIP warehouse for all Work Order items in batch.
+    /// Per ERPNext PR #60200 (commit 0646a4147b): RequiredItemsService.set_available_qty using get_latest_stock_qty_for_items.
+    /// </summary>
+    public async Task SetAvailableQuantitiesAsync(
+        WorkOrder workOrder,
+        Func<Dictionary<Guid, HashSet<Guid>>, Task<Dictionary<(Guid ItemId, Guid WarehouseId), decimal>>> getAvailableQtysBatch)
+    {
+        var itemsByWarehouse = new Dictionary<Guid, HashSet<Guid>>();
+        foreach (var item in workOrder.RequiredItems)
+        {
+            if (item.SourceWarehouseId.HasValue)
+            {
+                if (!itemsByWarehouse.TryGetValue(item.SourceWarehouseId.Value, out var set))
+                {
+                    set = new HashSet<Guid>();
+                    itemsByWarehouse[item.SourceWarehouseId.Value] = set;
+                }
+                set.Add(item.ItemId);
+            }
+
+            if (workOrder.WipWarehouseId.HasValue)
+            {
+                if (!itemsByWarehouse.TryGetValue(workOrder.WipWarehouseId.Value, out var set))
+                {
+                    set = new HashSet<Guid>();
+                    itemsByWarehouse[workOrder.WipWarehouseId.Value] = set;
+                }
+                set.Add(item.ItemId);
+            }
+        }
+
+        var availableQtys = await getAvailableQtysBatch(itemsByWarehouse);
+
+        foreach (var item in workOrder.RequiredItems)
+        {
+            if (item.SourceWarehouseId.HasValue &&
+                availableQtys.TryGetValue((item.ItemId, item.SourceWarehouseId.Value), out var srcQty))
+            {
+                item.AvailableQtyAtSourceWarehouse = srcQty;
+            }
+            else
+            {
+                item.AvailableQtyAtSourceWarehouse = 0m;
+            }
+
+            if (workOrder.WipWarehouseId.HasValue &&
+                availableQtys.TryGetValue((item.ItemId, workOrder.WipWarehouseId.Value), out var wipQty))
+            {
+                item.AvailableQtyAtWipWarehouse = wipQty;
+            }
+            else
+            {
+                item.AvailableQtyAtWipWarehouse = 0m;
             }
         }
     }

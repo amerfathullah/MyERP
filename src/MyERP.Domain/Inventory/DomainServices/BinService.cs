@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Inventory.Entities;
@@ -247,5 +248,37 @@ public class BinService : DomainService
         {
             await SetBalanceAsync(itemId, warehouseId, 0m, 0m, tenantId);
         }
+    }
+
+    /// <summary>
+    /// Returns stock quantities by (ItemId, WarehouseId), batch querying bins for requested items by warehouse.
+    /// Per ERPNext PR #60200 (commit 0646a4147b): get_latest_stock_qty_for_items.
+    /// </summary>
+    public virtual async Task<Dictionary<(Guid ItemId, Guid WarehouseId), decimal>> GetStockQuantitiesForItemsAsync(
+        Dictionary<Guid, HashSet<Guid>> itemsByWarehouse)
+    {
+        var result = new Dictionary<(Guid ItemId, Guid WarehouseId), decimal>();
+        if (itemsByWarehouse == null || itemsByWarehouse.Count == 0)
+            return result;
+
+        var allWarehouseIds = itemsByWarehouse.Keys.ToList();
+        var allItemIds = itemsByWarehouse.Values.SelectMany(x => x).Distinct().ToList();
+
+        var query = await _binRepository.GetQueryableAsync();
+        var bins = query
+            .Where(b => allWarehouseIds.Contains(b.WarehouseId) && allItemIds.Contains(b.ItemId))
+            .Select(b => new { b.ItemId, b.WarehouseId, b.ActualQty })
+            .ToList();
+
+        foreach (var bin in bins)
+        {
+            if (itemsByWarehouse.TryGetValue(bin.WarehouseId, out var itemSet) && itemSet.Contains(bin.ItemId))
+            {
+                var key = (bin.ItemId, bin.WarehouseId);
+                result[key] = result.TryGetValue(key, out var existing) ? existing + bin.ActualQty : bin.ActualQty;
+            }
+        }
+
+        return result;
     }
 }

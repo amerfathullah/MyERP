@@ -204,6 +204,20 @@ public class ProspectTests
         prospect.Leads.ShouldBeEmpty();
         prospect.ProspectName.ShouldBe("Corp");
     }
+
+    [Fact]
+    public void UpdateLeadStatus_Updates_Status()
+    {
+        // Per ERPNext PR #59907 / commit eb445464ca: update lead's Prospect row status
+        var prospect = new Prospect(Guid.NewGuid(), Guid.NewGuid(), "Corp");
+        var leadId = Guid.NewGuid();
+        prospect.AddLead(Guid.NewGuid(), leadId, "Lead 1", "lead1@corp.com", LeadStatus.Open);
+
+        prospect.Leads[0].Status.ShouldBe(LeadStatus.Open);
+
+        prospect.UpdateLeadStatus(leadId, LeadStatus.Converted);
+        prospect.Leads[0].Status.ShouldBe(LeadStatus.Converted);
+    }
 }
 
 public class ContractTests

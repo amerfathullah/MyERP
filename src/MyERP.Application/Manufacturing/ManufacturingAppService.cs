@@ -480,6 +480,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
     public async Task<WorkOrderDto> GetWorkOrderAsync(Guid id)
     {
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
+        var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+        await woManager.SetAvailableQuantitiesAsync(wo, _binService.GetStockQuantitiesForItemsAsync);
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
@@ -639,6 +641,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             bom.ScrapWarehouseId,
             wo.RequiredItems.Select(r => r.SourceWarehouseId));
 
+        await woManager.SetAvailableQuantitiesAsync(wo, _binService.GetStockQuantitiesForItemsAsync);
+
         await _workOrderRepository.InsertAsync(wo);
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
@@ -765,6 +769,8 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             fgWarehouseId,
             bom.ScrapWarehouseId,
             wo.RequiredItems.Select(r => r.SourceWarehouseId));
+
+        await woManager.SetAvailableQuantitiesAsync(wo, _binService.GetStockQuantitiesForItemsAsync);
 
         await _workOrderRepository.UpdateAsync(wo);
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);

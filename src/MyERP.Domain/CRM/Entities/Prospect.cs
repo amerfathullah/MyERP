@@ -52,7 +52,7 @@ public class Prospect : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TenantId = tenantId;
     }
 
-    public void AddLead(Guid leadLinkId, Guid leadId, string? leadName = null, string? email = null)
+    public void AddLead(Guid leadLinkId, Guid leadId, string? leadName = null, string? email = null, LeadStatus? status = null)
     {
         if (ConvertedCustomerId.HasValue)
             throw new BusinessException(MyERPDomainErrorCodes.ProspectAlreadyConverted)
@@ -65,7 +65,20 @@ public class Prospect : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("leadName", leadName ?? leadId.ToString())
                 .WithData("prospectName", ProspectName);
 
-        _leads.Add(new ProspectLead(leadLinkId, Id, leadId, leadName, email));
+        _leads.Add(new ProspectLead(leadLinkId, Id, leadId, leadName, email, status));
+    }
+
+    /// <summary>
+    /// Synchronizes the status of a linked lead row.
+    /// Per ERPNext commit eb445464ca: updates lead row status in prospect (e.g., Converted).
+    /// </summary>
+    public void UpdateLeadStatus(Guid leadId, LeadStatus status)
+    {
+        var leadRow = _leads.FirstOrDefault(l => l.LeadId == leadId);
+        if (leadRow != null)
+        {
+            leadRow.Status = status;
+        }
     }
 
     /// <summary>
@@ -98,16 +111,18 @@ public class ProspectLead : FullAuditedEntity<Guid>
     public Guid LeadId { get; set; }
     public string? LeadName { get; set; }
     public string? Email { get; set; }
+    public LeadStatus? Status { get; set; }
 
     protected ProspectLead() { }
 
-    public ProspectLead(Guid id, Guid prospectId, Guid leadId, string? leadName, string? email)
+    public ProspectLead(Guid id, Guid prospectId, Guid leadId, string? leadName, string? email, LeadStatus? status = null)
         : base(id)
     {
         ProspectId = prospectId;
         LeadId = leadId;
         LeadName = leadName;
         Email = email;
+        Status = status;
     }
 }
 

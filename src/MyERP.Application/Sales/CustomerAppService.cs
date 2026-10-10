@@ -152,6 +152,17 @@ public class CustomerAppService :
                 await leadRepo.UpdateAsync(lead, autoSave: true);
             }
 
+            // Per ERPNext PR #59907 / commit eb445464ca: update lead's Prospect row status to Converted
+            var prospectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Prospect, Guid>>();
+            var prospects = (await prospectRepo.WithDetailsAsync(p => p.Leads))
+                .Where(p => p.Leads.Any(l => l.LeadId == input.LeadId.Value))
+                .ToList();
+            foreach (var p in prospects)
+            {
+                p.UpdateLeadStatus(input.LeadId.Value, CRM.LeadStatus.Converted);
+                await prospectRepo.UpdateAsync(p, autoSave: true);
+            }
+
             var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
             var oppQuery = await oppRepo.GetQueryableAsync();
             var leadOpps = oppQuery.Where(o => o.LeadId == input.LeadId.Value && o.CustomerId == null).ToList();
@@ -160,9 +171,23 @@ public class CustomerAppService :
                 opp.CustomerId = result.Id;
                 await oppRepo.UpdateAsync(opp, autoSave: true);
             }
+
+            // Per ERPNext PR #60279 / commit 9f9cf26639: link lead's quotations to the new customer
+            var leadOppIds = leadOpps.Select(o => o.Id).ToList();
+            if (leadOppIds.Count > 0)
+            {
+                var quotRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
+                var quotQuery = await quotRepo.GetQueryableAsync();
+                var linkedQuotes = quotQuery.Where(q => q.OpportunityId.HasValue && leadOppIds.Contains(q.OpportunityId.Value)).ToList();
+                foreach (var q in linkedQuotes)
+                {
+                    q.CustomerId = result.Id;
+                    await quotRepo.UpdateAsync(q, autoSave: true);
+                }
+            }
         }
 
-        // Link source opportunity to customer (PR #60279)
+        // Link source opportunity and its quotations to customer (PR #60279 / commit 9f9cf26639)
         if (input.OpportunityId.HasValue)
         {
             var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
@@ -171,6 +196,15 @@ public class CustomerAppService :
             {
                 opp.CustomerId = result.Id;
                 await oppRepo.UpdateAsync(opp, autoSave: true);
+            }
+
+            var quotRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
+            var quotQuery = await quotRepo.GetQueryableAsync();
+            var oppQuotes = quotQuery.Where(q => q.OpportunityId == input.OpportunityId.Value).ToList();
+            foreach (var q in oppQuotes)
+            {
+                q.CustomerId = result.Id;
+                await quotRepo.UpdateAsync(q, autoSave: true);
             }
         }
 

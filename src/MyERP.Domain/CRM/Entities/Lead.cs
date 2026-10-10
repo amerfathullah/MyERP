@@ -39,6 +39,12 @@ public class Lead : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid CompanyId { get; set; }
     public string? Notes { get; set; }
 
+    // Campaign & UTM tracking (per ERPNext Lead doctype utm_analytics_section)
+    public string? CampaignName { get; set; }
+    public string? UtmCampaign { get; set; }
+    public string? UtmSource { get; set; }
+    public string? UtmMedium { get; set; }
+
     protected Lead() { }
 
     public Lead(Guid id, Guid companyId, string leadNumber, string firstName, Guid? tenantId = null)

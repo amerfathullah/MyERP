@@ -19,6 +19,16 @@ public class ProspectDto : EntityDto<Guid>
     public int LeadCount { get; set; }
     public int OpportunityCount { get; set; }
     public string? Notes { get; set; }
+    public List<ProspectLeadDto> Leads { get; set; } = new();
+}
+
+public class ProspectLeadDto : EntityDto<Guid>
+{
+    public Guid ProspectId { get; set; }
+    public Guid LeadId { get; set; }
+    public string? LeadName { get; set; }
+    public string? Email { get; set; }
+    public LeadStatus? Status { get; set; }
 }
 
 public class CreateProspectDto

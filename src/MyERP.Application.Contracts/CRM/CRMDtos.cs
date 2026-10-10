@@ -32,6 +32,10 @@ public class LeadDto : AuditedEntityDto<Guid>
     public Guid CompanyId { get; set; }
     public string? Notes { get; set; }
     public string? FullName { get; set; }
+    public string? CampaignName { get; set; }
+    public string? UtmCampaign { get; set; }
+    public string? UtmSource { get; set; }
+    public string? UtmMedium { get; set; }
 }
 
 public class CreateLeadDto
@@ -84,6 +88,18 @@ public class CreateLeadDto
 
     [StringLength(LeadConsts.MaxNoteLength)]
     public string? Notes { get; set; }
+
+    [StringLength(200)]
+    public string? CampaignName { get; set; }
+
+    [StringLength(200)]
+    public string? UtmCampaign { get; set; }
+
+    [StringLength(200)]
+    public string? UtmSource { get; set; }
+
+    [StringLength(200)]
+    public string? UtmMedium { get; set; }
 }
 
 public class UpdateLeadDto
@@ -133,6 +149,18 @@ public class UpdateLeadDto
 
     [StringLength(LeadConsts.MaxNoteLength)]
     public string? Notes { get; set; }
+
+    [StringLength(200)]
+    public string? CampaignName { get; set; }
+
+    [StringLength(200)]
+    public string? UtmCampaign { get; set; }
+
+    [StringLength(200)]
+    public string? UtmSource { get; set; }
+
+    [StringLength(200)]
+    public string? UtmMedium { get; set; }
 }
 
 public class GetLeadListDto : PagedAndSortedResultRequestDto

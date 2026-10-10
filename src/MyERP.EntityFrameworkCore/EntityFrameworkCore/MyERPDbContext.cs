@@ -2847,6 +2847,10 @@ public class MyERPDbContext :
             b.Property(x => x.Industry).HasMaxLength(LeadConsts.MaxIndustryLength);
             b.Property(x => x.Notes).HasMaxLength(LeadConsts.MaxNoteLength);
             b.Property(x => x.AnnualRevenue).HasColumnType("decimal(18,2)");
+            b.Property(x => x.CampaignName).HasMaxLength(200);
+            b.Property(x => x.UtmCampaign).HasMaxLength(200);
+            b.Property(x => x.UtmSource).HasMaxLength(200);
+            b.Property(x => x.UtmMedium).HasMaxLength(200);
             b.HasIndex(x => new { x.TenantId, x.LeadNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.Email });
@@ -3223,6 +3227,8 @@ public class MyERPDbContext :
             b.Property(x => x.TransferredQuantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.ConsumedQuantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.StockReservedQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.AvailableQtyAtSourceWarehouse).HasColumnType("decimal(18,4)");
+            b.Property(x => x.AvailableQtyAtWipWarehouse).HasColumnType("decimal(18,4)");
         });
 
         builder.Entity<ProductionPlan>(b =>
@@ -4771,6 +4777,7 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.LeadName).HasMaxLength(200);
             b.Property(x => x.Email).HasMaxLength(200);
+            b.Property(x => x.Status);
             b.HasIndex(x => new { x.ProspectId, x.LeadId }).IsUnique();
         });
 

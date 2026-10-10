@@ -446,6 +446,100 @@ public class WorkOrderManagerTests
         wh3.ShouldBe(groupWh);
     }
 
+    // ========== Batch Availability (PR #60200) ==========
+
+    [Fact]
+    public async System.Threading.Tasks.Task ValidateRawMaterialAvailabilityAsync_Batch_Succeeds_When_All_Available()
+    {
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var bomRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<ManufacturingSettings, Guid>>();
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        var item1 = Guid.NewGuid();
+        var item2 = Guid.NewGuid();
+        var wh = Guid.NewGuid();
+
+        var reqs = new[]
+        {
+            new WorkOrderMaterialRequirement { ItemId = item1, ItemName = "Item 1", RequiredQty = 10m, Rate = 5m, SourceWarehouseId = wh },
+            new WorkOrderMaterialRequirement { ItemId = item2, ItemName = "Item 2", RequiredQty = 20m, Rate = 8m, SourceWarehouseId = wh }
+        };
+
+        await manager.ValidateRawMaterialAvailabilityAsync(reqs, batch =>
+        {
+            var dict = new System.Collections.Generic.Dictionary<(Guid, Guid), decimal>
+            {
+                { (item1, wh), 15m },
+                { (item2, wh), 25m }
+            };
+            return System.Threading.Tasks.Task.FromResult(dict);
+        });
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ValidateRawMaterialAvailabilityAsync_Batch_Throws_When_Insufficient()
+    {
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var bomRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<ManufacturingSettings, Guid>>();
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        var item1 = Guid.NewGuid();
+        var wh = Guid.NewGuid();
+
+        var reqs = new[]
+        {
+            new WorkOrderMaterialRequirement { ItemId = item1, ItemName = "Item 1", RequiredQty = 10m, Rate = 5m, SourceWarehouseId = wh }
+        };
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            manager.ValidateRawMaterialAvailabilityAsync(reqs, batch =>
+            {
+                var dict = new System.Collections.Generic.Dictionary<(Guid, Guid), decimal>
+                {
+                    { (item1, wh), 5m }
+                };
+                return System.Threading.Tasks.Task.FromResult(dict);
+            }));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.InsufficientRawMaterial);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task SetAvailableQuantitiesAsync_Sets_Source_And_Wip_Warehouses_In_Batch()
+    {
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var bomRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<ManufacturingSettings, Guid>>();
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        var srcWh = Guid.NewGuid();
+        var wipWh = Guid.NewGuid();
+        var item1 = Guid.NewGuid();
+
+        var wo = CreateWorkOrder(10);
+        wo.WipWarehouseId = wipWh;
+        var woItem = new WorkOrderItem(Guid.NewGuid(), wo.Id, item1, "RM 1", 5m)
+        {
+            SourceWarehouseId = srcWh
+        };
+        wo.RequiredItems.Add(woItem);
+
+        await manager.SetAvailableQuantitiesAsync(wo, batch =>
+        {
+            var dict = new System.Collections.Generic.Dictionary<(Guid, Guid), decimal>
+            {
+                { (item1, srcWh), 100m },
+                { (item1, wipWh), 25m }
+            };
+            return System.Threading.Tasks.Task.FromResult(dict);
+        });
+
+        woItem.AvailableQtyAtSourceWarehouse.ShouldBe(100m);
+        woItem.AvailableQtyAtWipWarehouse.ShouldBe(25m);
+    }
+
     // ========== Helper ==========
 
     private static WorkOrder CreateWorkOrder(decimal qty)

@@ -24,6 +24,18 @@ public class WorkOrderItem : Entity<Guid>
     public Guid? SourceWarehouseId { get; set; }
 
     /// <summary>
+    /// Available stock quantity at the source warehouse at the time of check/display.
+    /// Maps to ERPNext manufacturing/doctype/work_order_item/work_order_item.json (available_qty_at_source_warehouse) / PR #60200.
+    /// </summary>
+    public decimal AvailableQtyAtSourceWarehouse { get; set; }
+
+    /// <summary>
+    /// Available stock quantity at the WIP warehouse at the time of check/display.
+    /// Maps to ERPNext manufacturing/doctype/work_order_item/work_order_item.json (available_qty_at_wip_warehouse) / PR #60200.
+    /// </summary>
+    public decimal AvailableQtyAtWipWarehouse { get; set; }
+
+    /// <summary>
     /// Per ERPNext: operation_row_id links RM to specific BOM operation for
     /// semi-finished-goods tracking. When track_semi_finished_goods is enabled,
     /// each operation has its own set of raw materials.

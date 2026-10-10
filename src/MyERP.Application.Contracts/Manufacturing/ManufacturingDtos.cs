@@ -212,6 +212,8 @@ public class WorkOrderItemDto
     public decimal TransferredQuantity { get; set; }
     public decimal ConsumedQuantity { get; set; }
     public decimal StockReservedQty { get; set; }
+    public decimal AvailableQtyAtSourceWarehouse { get; set; }
+    public decimal AvailableQtyAtWipWarehouse { get; set; }
     public bool IsAdditionalItem { get; set; }
     public Guid? VoucherDetailReference { get; set; }
 }

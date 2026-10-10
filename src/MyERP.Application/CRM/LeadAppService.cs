@@ -101,6 +101,10 @@ public class LeadAppService : ApplicationService, ILeadAppService
             AnnualRevenue = input.AnnualRevenue,
             AssignedUserId = input.AssignedUserId,
             Notes = input.Notes,
+            CampaignName = input.CampaignName,
+            UtmCampaign = input.UtmCampaign,
+            UtmSource = input.UtmSource,
+            UtmMedium = input.UtmMedium,
         };
 
         await _leadRepository.InsertAsync(lead);
@@ -135,6 +139,10 @@ public class LeadAppService : ApplicationService, ILeadAppService
         lead.AnnualRevenue = input.AnnualRevenue;
         lead.AssignedUserId = input.AssignedUserId;
         lead.Notes = input.Notes;
+        lead.CampaignName = input.CampaignName;
+        lead.UtmCampaign = input.UtmCampaign;
+        lead.UtmSource = input.UtmSource;
+        lead.UtmMedium = input.UtmMedium;
 
         await _leadRepository.UpdateAsync(lead);
         return ObjectMapper.Map<Lead, LeadDto>(lead);
@@ -164,6 +172,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
         var lead = await _leadRepository.GetAsync(id);
         lead.Qualify();
         await _leadRepository.UpdateAsync(lead);
+        await SyncProspectLeadStatusAsync(lead.Id, lead.Status);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -181,6 +190,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
         var lead = await _leadRepository.GetAsync(id);
         lead.MarkLost();
         await _leadRepository.UpdateAsync(lead);
+        await SyncProspectLeadStatusAsync(lead.Id, lead.Status);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -227,6 +237,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
         await _opportunityRepository.InsertAsync(opportunity);
         lead.ConvertToOpportunity(opportunity.Id);
         await _leadRepository.UpdateAsync(lead);
+        await SyncProspectLeadStatusAsync(lead.Id, lead.Status);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -337,6 +348,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
         // Mark lead as converted
         lead.ConvertToCustomer(customer.Id);
         await _leadRepository.UpdateAsync(lead);
+        await SyncProspectLeadStatusAsync(lead.Id, lead.Status);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -474,6 +486,19 @@ public class LeadAppService : ApplicationService, ILeadAppService
             "status desc" => query.OrderByDescending(l => l.Status),
             _ => query.OrderByDescending(l => l.CreationTime),
         };
+    }
+
+    private async Task SyncProspectLeadStatusAsync(Guid leadId, LeadStatus status)
+    {
+        var prospectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Prospect, Guid>>();
+        var prospects = (await prospectRepo.WithDetailsAsync(p => p.Leads))
+            .Where(p => p.Leads.Any(l => l.LeadId == leadId))
+            .ToList();
+        foreach (var p in prospects)
+        {
+            p.UpdateLeadStatus(leadId, status);
+            await prospectRepo.UpdateAsync(p, autoSave: true);
+        }
     }
 }
 
