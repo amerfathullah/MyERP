@@ -4976,6 +4976,8 @@
     "MyERP:05087": "Cannot regenerate Stock Closing Entry because a later Stock Closing Entry exists. Cancel it first.",
     "MyERP:05088": "Cannot cancel Stock Closing Entry because a later Stock Closing Entry exists. Cancel it first.",
     "MyERP:05089": "Stock Closing Entry must be submitted to generate the closing balance.",
-    "MyERP:05090": "Company is required for Stock Closing Entry."
+    "MyERP:05090": "Company is required for Stock Closing Entry.",
+    "MyERP:05091": "Cannot change default Unit of Measure for Item {item} because transactions or active documents exist for it.",
+    "MyERP:05092": "Cannot change Maintain Stock for Item {item} because transactions or active documents exist for it."
   }
 }

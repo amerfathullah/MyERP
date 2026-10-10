@@ -55,6 +55,18 @@ public class ItemAppService :
         await ValidateDefaultUomsAsync(id, input);
         var existing = await Repository.GetAsync(id);
 
+        // If changing default Unit of Measure (Stock UOM), validate no transactions or active documents exist (ERPNext PR #60318 / commit 56d058f26c)
+        if (!string.Equals(existing.Uom, input.Uom, StringComparison.OrdinalIgnoreCase))
+        {
+            await ValidateCanChangeStockUomAsync(id, existing.ItemCode);
+        }
+
+        // If toggling MaintainStock (is_stock_item), validate no stock transactions or active documents exist (ERPNext PR #60318)
+        if (existing.MaintainStock != input.MaintainStock)
+        {
+            await ValidateCanChangeMaintainStockAsync(id, existing.ItemCode);
+        }
+
         // If deactivating (was active → now inactive), validate no active orders use this item
         if (existing.IsActive && !input.IsActive)
         {
@@ -163,6 +175,215 @@ public class ItemAppService :
             throw new BusinessException("MyERP:05017")
                 .WithData("itemId", itemId)
                 .WithData("reason", "Item is used in active Work Orders.");
+        }
+    }
+
+    private async Task ValidateCanChangeStockUomAsync(Guid itemId, string itemCode)
+    {
+        // Check for existing Stock Ledger Entries
+        var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        var sleQuery = await sleRepo.GetQueryableAsync();
+        var hasSle = sleQuery.Any(s => s.ItemId == itemId);
+        if (hasSle)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeStockUom)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Default Unit of Measure cannot be changed because stock transactions already exist for this item.");
+        }
+
+        // Check for Bin quantities (actual, ordered, planned, reserved, indented)
+        var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Bin, Guid>>();
+        var binQuery = await binRepo.GetQueryableAsync();
+        var hasActiveBin = binQuery.Any(b => b.ItemId == itemId && (
+            b.ActualQty != 0 ||
+            b.OrderedQty > 0 ||
+            b.PlannedQty > 0 ||
+            b.ReservedQty > 0 ||
+            b.IndentedQty > 0 ||
+            b.ReservedQtyForProduction > 0 ||
+            b.ReservedQtyForSubContract > 0 ||
+            b.ReservedQtyForProductionPlan > 0
+        ));
+        if (hasActiveBin)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeStockUom)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Default Unit of Measure cannot be changed because reserved, ordered, indented, planned, or actual quantities exist in stock bins.");
+        }
+
+        // Check active Sales Orders
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+        var soQuery = await soRepo.GetQueryableAsync();
+        var hasActiveSo = soQuery.Any(so =>
+            so.Items.Any(i => i.ItemId == itemId)
+            && so.Status != DocumentStatus.Draft
+            && so.Status != DocumentStatus.Cancelled
+            && so.Status != DocumentStatus.Completed);
+        if (hasActiveSo)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeStockUom)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Default Unit of Measure cannot be changed because active Sales Orders exist for this item.");
+        }
+
+        // Check active Purchase Orders
+        var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+        var poQuery = await poRepo.GetQueryableAsync();
+        var hasActivePo = poQuery.Any(po =>
+            po.Items.Any(i => i.ItemId == itemId)
+            && po.Status != DocumentStatus.Draft
+            && po.Status != DocumentStatus.Cancelled
+            && po.Status != DocumentStatus.Completed);
+        if (hasActivePo)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeStockUom)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Default Unit of Measure cannot be changed because active Purchase Orders exist for this item.");
+        }
+
+        // Check active Material Requests
+        var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MaterialRequest, Guid>>();
+        var mrQuery = await mrRepo.GetQueryableAsync();
+        var hasActiveMr = mrQuery.Any(mr =>
+            mr.Items.Any(i => i.ItemId == itemId)
+            && mr.Status != DocumentStatus.Draft
+            && mr.Status != DocumentStatus.Cancelled
+            && mr.Status != DocumentStatus.Completed);
+        if (hasActiveMr)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeStockUom)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Default Unit of Measure cannot be changed because active Material Requests exist for this item.");
+        }
+
+        // Check active Work Orders (ERPNext PR #60318 / commit 56d058f26c)
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var woQuery = await woRepo.GetQueryableAsync();
+        var hasActiveWo = woQuery.Any(wo =>
+            (wo.ItemId == itemId || wo.RequiredItems.Any(i => i.ItemId == itemId))
+            && wo.Status != WorkOrderStatus.Draft
+            && wo.Status != WorkOrderStatus.Cancelled
+            && wo.Status != WorkOrderStatus.Completed
+            && wo.Status != WorkOrderStatus.Stopped);
+        if (hasActiveWo)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeStockUom)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Default Unit of Measure cannot be changed because active Work Orders exist for this item.");
+        }
+
+        // Check active BOMs
+        var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
+        var bomQuery = await bomRepo.GetQueryableAsync();
+        var hasActiveBom = bomQuery.Any(bom =>
+            (bom.ItemId == itemId || bom.Items.Any(i => i.ItemId == itemId))
+            && bom.IsActive);
+        if (hasActiveBom)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeStockUom)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Default Unit of Measure cannot be changed because active Bill of Materials exist for this item.");
+        }
+    }
+
+    private async Task ValidateCanChangeMaintainStockAsync(Guid itemId, string itemCode)
+    {
+        // Check for existing Stock Ledger Entries
+        var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+        var sleQuery = await sleRepo.GetQueryableAsync();
+        var hasSle = sleQuery.Any(s => s.ItemId == itemId);
+        if (hasSle)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeMaintainStock)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Cannot change Maintain Stock because stock transactions already exist for this item.");
+        }
+
+        // Check active Sales Orders
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+        var soQuery = await soRepo.GetQueryableAsync();
+        var hasActiveSo = soQuery.Any(so =>
+            so.Items.Any(i => i.ItemId == itemId)
+            && so.Status != DocumentStatus.Draft
+            && so.Status != DocumentStatus.Cancelled
+            && so.Status != DocumentStatus.Completed);
+        if (hasActiveSo)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeMaintainStock)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Cannot change Maintain Stock because active Sales Orders exist for this item.");
+        }
+
+        // Check active Purchase Orders
+        var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+        var poQuery = await poRepo.GetQueryableAsync();
+        var hasActivePo = poQuery.Any(po =>
+            po.Items.Any(i => i.ItemId == itemId)
+            && po.Status != DocumentStatus.Draft
+            && po.Status != DocumentStatus.Cancelled
+            && po.Status != DocumentStatus.Completed);
+        if (hasActivePo)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeMaintainStock)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Cannot change Maintain Stock because active Purchase Orders exist for this item.");
+        }
+
+        // Check active Material Requests
+        var mrRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MaterialRequest, Guid>>();
+        var mrQuery = await mrRepo.GetQueryableAsync();
+        var hasActiveMr = mrQuery.Any(mr =>
+            mr.Items.Any(i => i.ItemId == itemId)
+            && mr.Status != DocumentStatus.Draft
+            && mr.Status != DocumentStatus.Cancelled
+            && mr.Status != DocumentStatus.Completed);
+        if (hasActiveMr)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeMaintainStock)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Cannot change Maintain Stock because active Material Requests exist for this item.");
+        }
+
+        // Check active Work Orders (ERPNext PR #60318 / commit 56d058f26c)
+        var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+        var woQuery = await woRepo.GetQueryableAsync();
+        var hasActiveWo = woQuery.Any(wo =>
+            (wo.ItemId == itemId || wo.RequiredItems.Any(i => i.ItemId == itemId))
+            && wo.Status != WorkOrderStatus.Draft
+            && wo.Status != WorkOrderStatus.Cancelled
+            && wo.Status != WorkOrderStatus.Completed
+            && wo.Status != WorkOrderStatus.Stopped);
+        if (hasActiveWo)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeMaintainStock)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Cannot change Maintain Stock because active Work Orders exist for this item.");
+        }
+
+        // Check active BOMs
+        var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
+        var bomQuery = await bomRepo.GetQueryableAsync();
+        var hasActiveBom = bomQuery.Any(bom =>
+            (bom.ItemId == itemId || bom.Items.Any(i => i.ItemId == itemId))
+            && bom.IsActive);
+        if (hasActiveBom)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotChangeMaintainStock)
+                .WithData("item", itemCode)
+                .WithData("itemId", itemId)
+                .WithData("reason", "Cannot change Maintain Stock because active Bill of Materials exist for this item.");
         }
     }
 

@@ -619,4 +619,9 @@ public static class MyERPDomainErrorCodes
     public const string StockClosingCannotCancelWithLaterClosing = "MyERP:05088";
     public const string StockClosingMustBeSubmittedToGenerate = "MyERP:05089";
     public const string StockClosingCompanyRequired = "MyERP:05090";
+
+    // Item Stock UOM and Maintain Stock Guards (ERPNext PR #60318 / commit 56d058f26c)
+    public const string CannotChangeStockUom = "MyERP:05091";
+    public const string CannotChangeMaintainStock = "MyERP:05092";
 }
+
