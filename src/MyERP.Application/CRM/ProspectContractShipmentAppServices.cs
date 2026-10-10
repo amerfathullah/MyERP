@@ -85,6 +85,15 @@ public class ProspectAppService : ApplicationService, IProspectAppService
 
         if (leadId != Guid.Empty)
         {
+            // Per ERPNext PR #59907 / commit 688c26c951: refuse lead if already in this prospect
+            if (entity.Leads.Any(l => l.LeadId == leadId))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.LeadAlreadyInProspect)
+                    .WithData("leadId", leadId)
+                    .WithData("leadName", leadName ?? leadId.ToString())
+                    .WithData("prospectName", entity.ProspectName);
+            }
+
             // Per ERPNext PR #59907 / commit b07b8053ad: refuse lead if already in another Prospect; hide other prospect name if cannot read
             var allProspects = await _repository.WithDetailsAsync(x => x.Leads);
             var otherProspect = allProspects.FirstOrDefault(p => p.Id != id && p.Leads.Any(l => l.LeadId == leadId));

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
@@ -54,9 +55,26 @@ public class Prospect : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void AddLead(Guid leadLinkId, Guid leadId, string? leadName = null, string? email = null)
     {
         if (ConvertedCustomerId.HasValue)
-            throw new BusinessException("MyERP:17001")
+            throw new BusinessException(MyERPDomainErrorCodes.ProspectAlreadyConverted)
                 .WithData("prospectName", ProspectName);
+
+        // Per ERPNext PR #59907 / commit 688c26c951: reject duplicate leads in the same prospect
+        if (_leads.Any(l => l.LeadId == leadId))
+            throw new BusinessException(MyERPDomainErrorCodes.LeadAlreadyInProspect)
+                .WithData("leadId", leadId)
+                .WithData("leadName", leadName ?? leadId.ToString())
+                .WithData("prospectName", ProspectName);
+
         _leads.Add(new ProspectLead(leadLinkId, Id, leadId, leadName, email));
+    }
+
+    /// <summary>
+    /// Removes a lead from the prospect.
+    /// Per ERPNext commit 5e9c7cb58a: deleting a lead removes only its row, keeping the prospect intact.
+    /// </summary>
+    public void RemoveLead(Guid leadId)
+    {
+        _leads.RemoveAll(l => l.LeadId == leadId);
     }
 
     public void AddOpportunity(Guid linkId, Guid opportunityId, string? opportunityName = null, decimal? amount = null)

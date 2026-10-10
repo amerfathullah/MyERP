@@ -176,6 +176,34 @@ public class ProspectTests
         prospect.AddLead(Guid.NewGuid(), Guid.NewGuid(), "Charlie", "charlie@corp.com");
         prospect.Leads.Count.ShouldBe(3);
     }
+
+    [Fact]
+    public void AddLead_DuplicateLeadInSameProspect_Throws()
+    {
+        // Per ERPNext PR #59907 / commit 688c26c951: reject duplicate lead in same prospect
+        var prospect = new Prospect(Guid.NewGuid(), Guid.NewGuid(), "Corp");
+        var leadId = Guid.NewGuid();
+        prospect.AddLead(Guid.NewGuid(), leadId, "Lead 1", "lead1@corp.com");
+
+        var ex = Should.Throw<BusinessException>(() =>
+            prospect.AddLead(Guid.NewGuid(), leadId, "Lead 1 Dup", "lead1@corp.com"));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.LeadAlreadyInProspect);
+    }
+
+    [Fact]
+    public void RemoveLead_RemovesLead_KeepsProspectIntact()
+    {
+        // Per ERPNext PR #59907 / commit 5e9c7cb58a: deleting a lead keeps the prospect even if it was the only lead
+        var prospect = new Prospect(Guid.NewGuid(), Guid.NewGuid(), "Corp");
+        var leadId = Guid.NewGuid();
+        prospect.AddLead(Guid.NewGuid(), leadId, "Lead 1", "lead1@corp.com");
+
+        prospect.Leads.Count.ShouldBe(1);
+        prospect.RemoveLead(leadId);
+
+        prospect.Leads.ShouldBeEmpty();
+        prospect.ProspectName.ShouldBe("Corp");
+    }
 }
 
 public class ContractTests

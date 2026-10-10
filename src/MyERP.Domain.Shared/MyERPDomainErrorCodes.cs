@@ -413,6 +413,7 @@ public static class MyERPDomainErrorCodes
     public const string OpportunityAlreadyHasCustomer = "MyERP:17012";
     public const string OpportunityCustomerAlreadyExists = "MyERP:17013";
     public const string LeadAlreadyInAnotherProspect = "MyERP:17014";
+    public const string LeadAlreadyInProspect = "MyERP:17015";
 
     // Cost Center Allocation
     public const string CostCenterAllocationSelfReference = "MyERP:02038";

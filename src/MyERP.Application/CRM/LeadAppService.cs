@@ -143,6 +143,18 @@ public class LeadAppService : ApplicationService, ILeadAppService
     [Authorize(MyERPPermissions.Leads.Delete)]
     public async Task DeleteAsync(Guid id)
     {
+        // Per ERPNext PR #59907 / commit 5e9c7cb58a: deleting a lead unlinks it from linked prospects without deleting the prospect
+        var prospectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Prospect, Guid>>();
+        var prospectsWithLead = (await prospectRepo.WithDetailsAsync(p => p.Leads))
+            .Where(p => p.Leads.Any(l => l.LeadId == id))
+            .ToList();
+
+        foreach (var prospect in prospectsWithLead)
+        {
+            prospect.RemoveLead(id);
+            await prospectRepo.UpdateAsync(prospect, autoSave: true);
+        }
+
         await _leadRepository.DeleteAsync(id);
     }
 
