@@ -17,6 +17,7 @@ public interface IJobCardAppService : IApplicationService
     Task<JobCardDto> CancelAsync(Guid id);
     Task<JobCardDto> HoldAsync(Guid id);
     Task<JobCardDto> ResumeAsync(Guid id);
+    Task<JobCardCompletionDefaultsDto> GetCompletionDefaultsAsync(Guid id);
     Task<System.Collections.Generic.List<JobCardRawMaterialDto>> GetRawMaterialsAsync(Guid id);
     Task<Inventory.StockEntryDto> CreateMaterialTransferAsync(Guid id);
     Task<Purchasing.DTOs.MaterialRequestDto> CreateMaterialRequestAsync(Guid id);

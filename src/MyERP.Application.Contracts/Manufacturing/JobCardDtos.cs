@@ -23,6 +23,7 @@ public class JobCardDto : EntityDto<Guid>
     public decimal ProcessLossQty { get; set; }
     public decimal TotalTimeInMins { get; set; }
     public decimal PlannedTimeInMins { get; set; }
+    public decimal? MaxCompletableQty { get; set; }
     public int SequenceId { get; set; }
     public int Status { get; set; }
     public DateTime? StartedAt { get; set; }
@@ -30,6 +31,16 @@ public class JobCardDto : EntityDto<Guid>
     public JobCardTimeLogDto[] TimeLogs { get; set; } = [];
     public JobCardSecondaryItemDto[] SecondaryItems { get; set; } = [];
     public DateTime CreationTime { get; set; }
+}
+
+public class JobCardCompletionDefaultsDto
+{
+    public Guid JobCardId { get; set; }
+    public decimal ForQuantity { get; set; }
+    public decimal PendingQty { get; set; }
+    public decimal? MaxCompletableQty { get; set; }
+    public decimal DefaultCompletedQty { get; set; }
+    public decimal DefaultPendingQty { get; set; }
 }
 
 public class JobCardTimeLogDto

@@ -28,6 +28,12 @@ public class ProductionPlanItem : Entity<Guid>
     /// <summary>Source Sales Order, if demand originated from SO.</summary>
     public Guid? SalesOrderId { get; set; }
 
+    /// <summary>Source Sales Order line item ID (for SO line-level planning tracking, PR #60271).</summary>
+    public Guid? SalesOrderItemId { get; set; }
+
+    /// <summary>Whether this item is a component of a Product Bundle in the Sales Order.</summary>
+    public bool IsProductBundleItem { get; set; }
+
     /// <summary>Source Material Request, if demand originated from MR.</summary>
     public Guid? MaterialRequestId { get; set; }
 

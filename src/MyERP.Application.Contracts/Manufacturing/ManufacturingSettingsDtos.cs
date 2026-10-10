@@ -22,12 +22,14 @@ public class ManufacturingSettingsDto : EntityDto<Guid>
     public bool AddCorrectiveOpCostInFGValuation { get; set; }
     public bool ValidateComponentsQuantitiesPerBom { get; set; }
     public bool AllowAlternativeFinishedGoods { get; set; }
+    public decimal OverproductionPercentageForSalesOrder { get; set; }
 }
 
 public class SaveManufacturingSettingsDto
 {
     public Guid CompanyId { get; set; }
     public decimal OverproductionPercentage { get; set; } = 5m;
+    public decimal OverproductionPercentageForSalesOrder { get; set; } = 0m;
     public string BackflushRawMaterialsBasedOn { get; set; } = "BOM";
     public bool MaterialConsumption { get; set; }
     public decimal TransferExtraMaterialsPercentage { get; set; }

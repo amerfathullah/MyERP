@@ -42,6 +42,8 @@ public class ProductionPlanItemDto
     public Guid? WarehouseId { get; set; }
     public DateTime? PlannedStartDate { get; set; }
     public Guid? SalesOrderId { get; set; }
+    public Guid? SalesOrderItemId { get; set; }
+    public bool IsProductBundleItem { get; set; }
     public Guid? MaterialRequestId { get; set; }
     public Guid? WorkOrderId { get; set; }
 }
@@ -89,7 +91,31 @@ public class CreateProductionPlanItemDto
     public Guid? WarehouseId { get; set; }
     public DateTime? PlannedStartDate { get; set; }
     public Guid? SalesOrderId { get; set; }
+    public Guid? SalesOrderItemId { get; set; }
+    public bool IsProductBundleItem { get; set; }
     public Guid? MaterialRequestId { get; set; }
+}
+
+public class OpenSalesOrderItemDto
+{
+    public Guid SalesOrderId { get; set; }
+    public Guid SalesOrderItemId { get; set; }
+    public string SalesOrderNumber { get; set; } = null!;
+    public Guid CustomerId { get; set; }
+    public string? CustomerName { get; set; }
+    public DateTime TransactionDate { get; set; }
+    public DateTime? DeliveryDate { get; set; }
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = null!;
+    public string ItemName { get; set; } = null!;
+    public string? Description { get; set; }
+    public string StockUom { get; set; } = "Unit";
+    public decimal StockQty { get; set; }
+    public decimal OrderedQty { get; set; }
+    public decimal AlreadyPlannedQty { get; set; }
+    public decimal UnplannedQty { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public Guid? BomId { get; set; }
 }
 
 public class GetProductionPlanListDto : PagedAndSortedResultRequestDto
@@ -195,4 +221,7 @@ public interface IProductionPlanAppService : IApplicationService
 
     /// <summary>Generate hierarchical summary report of planned finished goods, sub-assemblies, and linked work/purchase orders (ERPNext PR #58541).</summary>
     Task<ProductionPlanSummaryDto> GetSummaryReportAsync(Guid id);
+
+    /// <summary>Pulls open Sales Order items with remaining unplanned quantity for planning (ERPNext PR #60271).</summary>
+    Task<List<OpenSalesOrderItemDto>> GetOpenSalesOrderItemsAsync(Guid companyId, List<Guid>? salesOrderIds = null);
 }

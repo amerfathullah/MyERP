@@ -201,6 +201,8 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 WarehouseId = item.WarehouseId,
                 PlannedStartDate = item.PlannedStartDate,
                 SalesOrderId = item.SalesOrderId,
+                SalesOrderItemId = item.SalesOrderItemId,
+                IsProductBundleItem = item.IsProductBundleItem,
                 MaterialRequestId = item.MaterialRequestId,
             });
         }
@@ -338,6 +340,8 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 WarehouseId = item.WarehouseId,
                 PlannedStartDate = item.PlannedStartDate,
                 SalesOrderId = item.SalesOrderId,
+                SalesOrderItemId = item.SalesOrderItemId,
+                IsProductBundleItem = item.IsProductBundleItem,
                 MaterialRequestId = item.MaterialRequestId,
             });
         }
@@ -356,6 +360,10 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
     public async Task<ProductionPlanDto> SubmitAsync(Guid id)
     {
         var plan = await _planRepository.GetAsync(id, includeDetails: true);
+
+        // Validate planned quantities against Sales Orders (ERPNext PR #60271 / commit f3ba7ca638)
+        await ValidateSalesOrderPlannedQtyAsync(plan);
+
         plan.Submit();
         await _planRepository.UpdateAsync(plan);
 
@@ -933,6 +941,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 ProductionPlanId = plan.Id,
                 ProductionPlanItemId = item.Id,
                 SalesOrderId = item.SalesOrderId,
+                SalesOrderItemId = item.SalesOrderItemId,
                 SourceWarehouseId = bom.SourceWarehouseId,
                 FgWarehouseId = item.WarehouseId ?? bom.TargetWarehouseId,
                 WipWarehouseId = company?.DefaultWipWarehouseId,
@@ -1570,6 +1579,190 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                     .WithData("detail", $"Cannot create Work Orders from a stopped or closed Material Request {mr.RequestNumber}.");
             }
         }
+    }
+
+    /// <summary>
+    /// Validates planned quantity against Sales Order lines, accounting for overproduction allowance
+    /// and already planned quantities from other submitted Production Plans (ERPNext PR #60271 / commit f3ba7ca638).
+    /// </summary>
+    private async Task ValidateSalesOrderPlannedQtyAsync(ProductionPlan plan)
+    {
+        var plannedMap = new Dictionary<(Guid SalesOrderId, Guid SalesOrderItemId), decimal>();
+        foreach (var row in plan.PlannedItems)
+        {
+            if (row.SalesOrderId.HasValue && row.SalesOrderItemId.HasValue && !row.IsProductBundleItem)
+            {
+                var key = (row.SalesOrderId.Value, row.SalesOrderItemId.Value);
+                plannedMap[key] = (plannedMap.TryGetValue(key, out var val) ? val : 0m) + row.PlannedQty;
+            }
+        }
+
+        if (!plannedMap.Any())
+            return;
+
+        var soIds = plannedMap.Keys.Select(k => k.SalesOrderId).Distinct().ToList();
+        var planQuery = await _planRepository.GetQueryableAsync();
+        var otherPlans = planQuery
+            .Where(p => p.Id != plan.Id &&
+                        (p.Status == ProductionPlanStatus.Submitted ||
+                         p.Status == ProductionPlanStatus.MaterialRequested ||
+                         p.Status == ProductionPlanStatus.InProgress ||
+                         p.Status == ProductionPlanStatus.Completed))
+            .SelectMany(p => p.PlannedItems)
+            .Where(pi => pi.SalesOrderId.HasValue && soIds.Contains(pi.SalesOrderId.Value) && pi.SalesOrderItemId.HasValue && !pi.IsProductBundleItem)
+            .ToList();
+
+        var alreadyPlanned = otherPlans
+            .GroupBy(pi => (pi.SalesOrderId!.Value, pi.SalesOrderItemId!.Value))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.PlannedQty));
+
+        var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+        var settingsQuery = await settingsRepo.GetQueryableAsync();
+        var settings = settingsQuery.FirstOrDefault(s => s.CompanyId == plan.CompanyId);
+        var allowance = settings?.OverproductionPercentageForSalesOrder ?? 0m;
+
+        var soItemIds = plannedMap.Keys.Select(k => k.SalesOrderItemId).Distinct().ToList();
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+        var soQuery = await soRepo.WithDetailsAsync(s => s.Items);
+        var sos = soQuery.Where(s => soIds.Contains(s.Id)).ToList();
+        var soItemMap = sos.SelectMany(s => s.Items).Where(i => soItemIds.Contains(i.Id)).ToDictionary(i => i.Id);
+
+        var itemIds = soItemMap.Values.Select(i => i.ItemId).Distinct().ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var itemMap = itemQuery.Where(i => itemIds.Contains(i.Id)).ToDictionary(i => i.Id);
+
+        foreach (var (key, plannedQty) in plannedMap)
+        {
+            if (!soItemMap.TryGetValue(key.SalesOrderItemId, out var soItem))
+                continue;
+
+            var alreadyPlannedQty = alreadyPlanned.TryGetValue(key, out var ap) ? ap : 0m;
+            var maxAllowed = Math.Round(soItem.StockQty * (1m + allowance / 100m), 4);
+            var unplannedQty = Math.Max(0m, Math.Round(maxAllowed - alreadyPlannedQty, 4));
+
+            if (Math.Round(plannedQty, 4) > unplannedQty)
+            {
+                var so = sos.FirstOrDefault(s => s.Id == key.SalesOrderId);
+                itemMap.TryGetValue(soItem.ItemId, out var invItem);
+                var itemCode = invItem?.ItemCode ?? soItem.ItemId.ToString();
+
+                throw new BusinessException(MyERPDomainErrorCodes.SalesOrderQtyExceeded)
+                    .WithData("plannedQty", plannedQty)
+                    .WithData("uom", soItem.StockUom)
+                    .WithData("itemCode", itemCode)
+                    .WithData("salesOrderNumber", so?.OrderNumber ?? key.SalesOrderId.ToString())
+                    .WithData("unplannedQty", unplannedQty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Pulls open Sales Order items with remaining unplanned quantity for planning (ERPNext PR #60271 / commit a58b88b468).
+    /// </summary>
+    [Authorize(MyERPPermissions.ProductionPlans.Default)]
+    public async Task<List<OpenSalesOrderItemDto>> GetOpenSalesOrderItemsAsync(Guid companyId, List<Guid>? salesOrderIds = null)
+    {
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+        var soQuery = await soRepo.WithDetailsAsync(s => s.Items);
+
+        var query = soQuery.Where(s => s.CompanyId == companyId &&
+                                       s.Status != Core.DocumentStatus.Draft &&
+                                       s.Status != Core.DocumentStatus.Cancelled &&
+                                       s.Status != Core.DocumentStatus.Closed);
+
+        if (salesOrderIds != null && salesOrderIds.Any())
+        {
+            query = query.Where(s => salesOrderIds.Contains(s.Id));
+        }
+
+        var sos = query.ToList();
+        if (!sos.Any())
+            return new List<OpenSalesOrderItemDto>();
+
+        var allSoIds = sos.Select(s => s.Id).ToList();
+
+        // Get already planned quantities from active/submitted production plans
+        var planQuery = await _planRepository.WithDetailsAsync(p => p.PlannedItems);
+        var existingPlans = planQuery
+            .Where(p => p.CompanyId == companyId &&
+                        (p.Status == ProductionPlanStatus.Submitted ||
+                         p.Status == ProductionPlanStatus.MaterialRequested ||
+                         p.Status == ProductionPlanStatus.InProgress ||
+                         p.Status == ProductionPlanStatus.Completed))
+            .SelectMany(p => p.PlannedItems)
+            .Where(pi => pi.SalesOrderId.HasValue && allSoIds.Contains(pi.SalesOrderId.Value) && pi.SalesOrderItemId.HasValue && !pi.IsProductBundleItem)
+            .ToList();
+
+        var alreadyPlannedMap = existingPlans
+            .GroupBy(pi => (pi.SalesOrderId!.Value, pi.SalesOrderItemId!.Value))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.PlannedQty));
+
+        // Get default active BOMs for company
+        var bomQuery = await _bomRepository.GetQueryableAsync();
+        var activeBoms = bomQuery
+            .Where(b => b.CompanyId == companyId && b.IsActive)
+            .ToList();
+        var defaultBomMap = activeBoms
+            .GroupBy(b => b.ItemId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(b => b.IsDefault).First());
+
+        // Get items for code & name lookup
+        var allItemIds = sos.SelectMany(s => s.Items).Select(i => i.ItemId).Distinct().ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var itemMap = itemQuery.Where(i => allItemIds.Contains(i.Id)).ToDictionary(i => i.Id);
+
+        // Get customers for name lookup
+        var customerIds = sos.Select(s => s.CustomerId).Distinct().ToList();
+        var custRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+        var custQuery = await custRepo.GetQueryableAsync();
+        var custMap = custQuery.Where(c => customerIds.Contains(c.Id)).ToDictionary(c => c.Id);
+
+        var result = new List<OpenSalesOrderItemDto>();
+        foreach (var so in sos)
+        {
+            custMap.TryGetValue(so.CustomerId, out var customer);
+
+            foreach (var item in so.Items)
+            {
+                if (item.IsClosed) continue;
+                if (item.StockQty <= 0) continue;
+
+                var key = (so.Id, item.Id);
+                var alreadyPlannedQty = alreadyPlannedMap.TryGetValue(key, out var ap) ? ap : 0m;
+                var unplannedQty = Math.Max(0m, Math.Round(item.StockQty - alreadyPlannedQty, 4));
+
+                if (unplannedQty <= 0m) continue;
+
+                itemMap.TryGetValue(item.ItemId, out var invItem);
+                defaultBomMap.TryGetValue(item.ItemId, out var bom);
+
+                result.Add(new OpenSalesOrderItemDto
+                {
+                    SalesOrderId = so.Id,
+                    SalesOrderItemId = item.Id,
+                    SalesOrderNumber = so.OrderNumber,
+                    CustomerId = so.CustomerId,
+                    CustomerName = customer?.Name,
+                    TransactionDate = so.OrderDate,
+                    DeliveryDate = item.DeliveryDate ?? so.DeliveryDate,
+                    ItemId = item.ItemId,
+                    ItemCode = invItem?.ItemCode ?? string.Empty,
+                    ItemName = invItem?.ItemName ?? item.Description,
+                    Description = item.Description,
+                    StockUom = item.StockUom,
+                    StockQty = item.StockQty,
+                    OrderedQty = item.Quantity,
+                    AlreadyPlannedQty = alreadyPlannedQty,
+                    UnplannedQty = unplannedQty,
+                    WarehouseId = item.WarehouseId,
+                    BomId = bom?.Id,
+                });
+            }
+        }
+
+        return result;
     }
 }
 

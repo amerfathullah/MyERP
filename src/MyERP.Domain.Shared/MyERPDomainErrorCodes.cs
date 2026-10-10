@@ -474,6 +474,9 @@ public static class MyERPDomainErrorCodes
     // Manufacturing — Workstation Working Hours (ERPNext PR #60144 / commit 5d011c5287)
     public const string WorkingHoursOverlap = "MyERP:10035";
 
+    // Manufacturing — Sales Order Line Planning Guard (ERPNext PR #60271 / commit f3ba7ca638)
+    public const string SalesOrderQtyExceeded = "MyERP:10036";
+
     // Manufacturing — BOM Creator
     public const string BomCreatorRequiresItems = "MyERP:10023";
     public const string BomCreatorAlreadyProcessed = "MyERP:10024";

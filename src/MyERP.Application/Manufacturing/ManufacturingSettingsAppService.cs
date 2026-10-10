@@ -51,6 +51,7 @@ public class ManufacturingSettingsAppService : ApplicationService, IManufacturin
         }
 
         existing.OverproductionPercentage = input.OverproductionPercentage;
+        existing.OverproductionPercentageForSalesOrder = input.OverproductionPercentageForSalesOrder;
         existing.BackflushRawMaterialsBasedOn = input.BackflushRawMaterialsBasedOn;
         existing.MaterialConsumption = input.MaterialConsumption;
         existing.TransferExtraMaterialsPercentage = input.TransferExtraMaterialsPercentage;

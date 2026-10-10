@@ -17,6 +17,12 @@ public class ManufacturingSettings : FullAuditedAggregateRoot<Guid>, IMultiTenan
     /// <summary>Maximum overproduction allowed beyond Work Order qty (default 5%).</summary>
     public decimal OverproductionPercentage { get; set; } = 5m;
 
+    /// <summary>
+    /// Percentage by which Work Orders / Production Plans may exceed the Sales Order item quantity.
+    /// Maps to ERPNext manufacturing_settings.overproduction_percentage_for_sales_order (PR #60271).
+    /// </summary>
+    public decimal OverproductionPercentageForSalesOrder { get; set; } = 0m;
+
     /// <summary>"BOM" = consume per BOM qty, "Material Transferred" = consume what was actually transferred.</summary>
     public string BackflushRawMaterialsBasedOn { get; set; } = "BOM";
 

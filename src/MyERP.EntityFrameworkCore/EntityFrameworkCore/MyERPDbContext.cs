@@ -3255,6 +3255,7 @@ public class MyERPDbContext :
             b.Property(x => x.PlannedQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.OrderedQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.ProducedQty).HasColumnType("decimal(18,4)");
+            b.HasIndex(x => new { x.SalesOrderId, x.SalesOrderItemId });
         });
 
         builder.Entity<ProductionPlanMrItem>(b =>
@@ -3688,6 +3689,7 @@ public class MyERPDbContext :
             b.ToTable("Mfg_Settings", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.Property(x => x.OverproductionPercentage).HasColumnType("decimal(5,2)");
+            b.Property(x => x.OverproductionPercentageForSalesOrder).HasColumnType("decimal(5,2)");
             b.Property(x => x.TransferExtraMaterialsPercentage).HasColumnType("decimal(5,2)");
             b.Property(x => x.BackflushRawMaterialsBasedOn).IsRequired().HasMaxLength(50);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();

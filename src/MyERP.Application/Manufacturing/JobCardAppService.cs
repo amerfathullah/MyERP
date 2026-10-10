@@ -48,7 +48,29 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
     public async Task<JobCardDto> GetAsync(Guid id)
     {
         var jc = (await _repository.WithDetailsAsync()).First(j => j.Id == id);
-        return ObjectMapper.Map<JobCard, JobCardDto>(jc);
+        var dto = ObjectMapper.Map<JobCard, JobCardDto>(jc);
+        var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        dto.MaxCompletableQty = await jobCardManager.GetMaxCompletableQtyAsync(jc);
+        return dto;
+    }
+
+    [Authorize(MyERPPermissions.Manufacturing.Default)]
+    public async Task<JobCardCompletionDefaultsDto> GetCompletionDefaultsAsync(Guid id)
+    {
+        var jc = await _repository.GetAsync(id);
+        var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        var maxCompletable = await jobCardManager.GetMaxCompletableQtyAsync(jc);
+        var (defaultCompleted, defaultPending) = jobCardManager.GetCompletionDefaults(jc, maxCompletable);
+
+        return new JobCardCompletionDefaultsDto
+        {
+            JobCardId = jc.Id,
+            ForQuantity = jc.ForQuantity,
+            PendingQty = jc.PendingQty,
+            MaxCompletableQty = maxCompletable,
+            DefaultCompletedQty = defaultCompleted,
+            DefaultPendingQty = defaultPending,
+        };
     }
 
     [Authorize(MyERPPermissions.Manufacturing.Create)]
@@ -309,6 +331,8 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
         await jobCardManager.ValidateWorkOrderNotClosedAsync(jc, woRepo);
         await jobCardManager.ValidateMaterialTransferAsync(jc, woRepo);
+        // Per ERPNext PR #60275 / PR #58256: validate completed quantity against previous operation
+        await jobCardManager.ValidatePreviousOperationManufacturedAsync(jc, jc.CompletedQty > 0 ? jc.CompletedQty : jc.ForQuantity);
 
         var settingsRepoForTimeLogs = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
         var mfgSettings = await settingsRepoForTimeLogs.FindAsync(s => s.CompanyId == jc.CompanyId);

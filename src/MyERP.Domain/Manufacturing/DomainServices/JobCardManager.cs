@@ -272,6 +272,28 @@ public class JobCardManager : DomainService
     }
 
     /// <summary>
+    /// Calculates default completion values (completed qty, pending qty) considering max completable qty.
+    /// Per ERPNext PR #60275 (commits 39d99e8cf1 & 0f50d7d18d).
+    /// </summary>
+    public (decimal completedQty, decimal pendingQty) GetCompletionDefaults(JobCard jobCard, decimal? maxCompletableQty)
+    {
+        var targetQty = jobCard.PendingQty > 0 ? jobCard.PendingQty : jobCard.ForQuantity;
+        decimal completedQty;
+        if (maxCompletableQty.HasValue)
+        {
+            var allowed = Math.Max(0m, maxCompletableQty.Value);
+            completedQty = Math.Min(targetQty, allowed);
+        }
+        else
+        {
+            completedQty = targetQty;
+        }
+
+        var pendingQty = Math.Max(0m, targetQty - completedQty);
+        return (completedQty, pendingQty);
+    }
+
+    /// <summary>
     /// Validates that the previous operation in the routing has been manufactured
     /// before allowing this operation's job card to start or complete.
     /// Per ERPNext PR #57684 and PR #58256: each operation must wait for prior operation output.

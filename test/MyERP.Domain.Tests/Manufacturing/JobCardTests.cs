@@ -326,5 +326,50 @@ public class JobCardTests
         jc.UpdateTransferStatus(allTransferred: true, anyTransferred: true);
         jc.Status.ShouldBe(JobCardStatus.WorkInProgress);
     }
+
+    [Fact]
+    public void GetCompletionDefaults_NoPreviousOperation_DefaultsToPendingQty()
+    {
+        var jcRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        var wsRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        var manager = new MyERP.Manufacturing.DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10m, 1);
+        var (completedQty, pendingQty) = manager.GetCompletionDefaults(jc, maxCompletableQty: null);
+
+        completedQty.ShouldBe(10m);
+        pendingQty.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void GetCompletionDefaults_PreviousOperationCapped_DefaultsToMaxCompletable()
+    {
+        var jcRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        var wsRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        var manager = new MyERP.Manufacturing.DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10m, 2);
+        // Previous op produced 6 units, so max completable is 6
+        var (completedQty, pendingQty) = manager.GetCompletionDefaults(jc, maxCompletableQty: 6m);
+
+        completedQty.ShouldBe(6m);
+        pendingQty.ShouldBe(4m);
+    }
+
+    [Fact]
+    public void GetCompletionDefaults_PreviousOperationZero_DefaultsToZero_DoesNotFallbackToPending()
+    {
+        // Per ERPNext PR #60275 / commit 0f50d7d18d & 39d99e8cf1:
+        // max_completable_qty = 0 is a hard limit and must not fall back to pending qty
+        var jcRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        var wsRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        var manager = new MyERP.Manufacturing.DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10m, 2);
+        var (completedQty, pendingQty) = manager.GetCompletionDefaults(jc, maxCompletableQty: 0m);
+
+        completedQty.ShouldBe(0m);
+        pendingQty.ShouldBe(10m);
+    }
 }
 
