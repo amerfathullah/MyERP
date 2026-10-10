@@ -179,4 +179,55 @@ public class RecurringInvoiceDateShiftingTests
         shiftedStart.ShouldBe(new DateTime(2025, 3, 1));
         shiftedEnd.ShouldBe(new DateTime(2025, 3, 31));
     }
+
+    [Fact]
+    public void ShiftItemServiceDates_OnRecurring_KeepsServiceDatesAfterPeriodEndOrdered()
+    {
+        // Per ERPNext PR #60328 (commit 287e8dab9c):
+        // Auto Repeat moves period 30 Jan-26 Feb to 27 Feb-29 Mar.
+        // Item service dates: 26 Feb - 27 Feb.
+        // Start date moved to period end (29 Mar) passes end date (27 Mar),
+        // so end date is adjusted to period end + 1 (30 Mar).
+        var refFrom = new DateTime(2025, 1, 30);
+        var refTo = new DateTime(2025, 2, 26);
+        var targetFrom = new DateTime(2025, 2, 27);
+        var targetTo = new DateTime(2025, 3, 29);
+
+        var serviceStartDate = new DateTime(2025, 2, 26);
+        var serviceEndDate = new DateTime(2025, 2, 27);
+
+        var (shiftedStart, shiftedEnd) = RecurringInvoiceJob.ShiftItemServiceDates(
+            serviceStartDate, serviceEndDate,
+            refFrom, refTo,
+            targetFrom, targetTo,
+            RepeatFrequency.Monthly);
+
+        shiftedStart.ShouldBe(new DateTime(2025, 3, 29));
+        shiftedEnd.ShouldBe(new DateTime(2025, 3, 30));
+    }
+
+    [Fact]
+    public void ShiftItemServiceDates_OnRecurring_KeepsShortServiceRangeAfterPeriodEnd()
+    {
+        // Per ERPNext PR #60328 (commit 287e8dab9c):
+        // Auto Repeat builds full next month after half-month period: 01-15 Jan to 01-28 Feb.
+        // Service range: 20-25 Jan (after reference period end).
+        // Must stay 20-25 Feb, not pushed to 01 Mar.
+        var refFrom = new DateTime(2025, 1, 1);
+        var refTo = new DateTime(2025, 1, 15);
+        var targetFrom = new DateTime(2025, 2, 1);
+        var targetTo = new DateTime(2025, 2, 28);
+
+        var serviceStartDate = new DateTime(2025, 1, 20);
+        var serviceEndDate = new DateTime(2025, 1, 25);
+
+        var (shiftedStart, shiftedEnd) = RecurringInvoiceJob.ShiftItemServiceDates(
+            serviceStartDate, serviceEndDate,
+            refFrom, refTo,
+            targetFrom, targetTo,
+            RepeatFrequency.Monthly);
+
+        shiftedStart.ShouldBe(new DateTime(2025, 2, 20));
+        shiftedEnd.ShouldBe(new DateTime(2025, 2, 25));
+    }
 }

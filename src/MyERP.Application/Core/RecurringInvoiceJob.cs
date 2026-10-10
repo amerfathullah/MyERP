@@ -184,43 +184,20 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
             newItem.EnableDeferredRevenue = item.EnableDeferredRevenue;
             newItem.DeferredRevenueAccountId = item.DeferredRevenueAccountId;
 
-            // Shift service dates per ERPNext PR #60256 (commit f6dfd4336d)
-            if (template.FromDate.HasValue && template.ToDate.HasValue && newFromDate.HasValue && newToDate.HasValue)
-            {
-                if (item.ServiceStartDate.HasValue)
-                {
-                    newItem.ServiceStartDate = ShiftDate(
-                        item.ServiceStartDate.Value,
-                        template.FromDate.Value,
-                        template.ToDate.Value,
-                        newFromDate.Value,
-                        newToDate.Value,
-                        repeat.Frequency);
-                }
-                if (item.ServiceEndDate.HasValue)
-                {
-                    newItem.ServiceEndDate = ShiftDate(
-                        item.ServiceEndDate.Value,
-                        template.FromDate.Value,
-                        template.ToDate.Value,
-                        newFromDate.Value,
-                        newToDate.Value,
-                        repeat.Frequency);
-                }
-            }
-            else if (item.ServiceStartDate.HasValue || item.ServiceEndDate.HasValue)
-            {
-                if (item.ServiceStartDate.HasValue)
-                {
-                    newItem.ServiceStartDate = ShiftDateByFrequency(
-                        item.ServiceStartDate.Value, repeat.Frequency, args.AsOfDate, template.IssueDate);
-                }
-                if (item.ServiceEndDate.HasValue)
-                {
-                    newItem.ServiceEndDate = ShiftDateByFrequency(
-                        item.ServiceEndDate.Value, repeat.Frequency, args.AsOfDate, template.IssueDate);
-                }
-            }
+            // Shift service dates per ERPNext PR #60256 (commit f6dfd4336d) & PR #60328 (commit 287e8dab9c)
+            var (shiftedStart, shiftedEnd) = ShiftItemServiceDates(
+                item.ServiceStartDate,
+                item.ServiceEndDate,
+                template.FromDate,
+                template.ToDate,
+                newFromDate,
+                newToDate,
+                repeat.Frequency,
+                args.AsOfDate,
+                template.IssueDate);
+
+            newItem.ServiceStartDate = shiftedStart;
+            newItem.ServiceEndDate = shiftedEnd;
         }
 
         // Rebuild payment schedule from template relative to new posting date (PR #60256)
@@ -321,42 +298,20 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
             newItem.EnableDeferredExpense = item.EnableDeferredExpense;
             newItem.DeferredExpenseAccountId = item.DeferredExpenseAccountId;
 
-            if (template.FromDate.HasValue && template.ToDate.HasValue && newFromDate.HasValue && newToDate.HasValue)
-            {
-                if (item.ServiceStartDate.HasValue)
-                {
-                    newItem.ServiceStartDate = ShiftDate(
-                        item.ServiceStartDate.Value,
-                        template.FromDate.Value,
-                        template.ToDate.Value,
-                        newFromDate.Value,
-                        newToDate.Value,
-                        repeat.Frequency);
-                }
-                if (item.ServiceEndDate.HasValue)
-                {
-                    newItem.ServiceEndDate = ShiftDate(
-                        item.ServiceEndDate.Value,
-                        template.FromDate.Value,
-                        template.ToDate.Value,
-                        newFromDate.Value,
-                        newToDate.Value,
-                        repeat.Frequency);
-                }
-            }
-            else if (item.ServiceStartDate.HasValue || item.ServiceEndDate.HasValue)
-            {
-                if (item.ServiceStartDate.HasValue)
-                {
-                    newItem.ServiceStartDate = ShiftDateByFrequency(
-                        item.ServiceStartDate.Value, repeat.Frequency, args.AsOfDate, template.IssueDate);
-                }
-                if (item.ServiceEndDate.HasValue)
-                {
-                    newItem.ServiceEndDate = ShiftDateByFrequency(
-                        item.ServiceEndDate.Value, repeat.Frequency, args.AsOfDate, template.IssueDate);
-                }
-            }
+            // Shift service dates per ERPNext PR #60256 (commit f6dfd4336d) & PR #60328 (commit 287e8dab9c)
+            var (shiftedStart, shiftedEnd) = ShiftItemServiceDates(
+                item.ServiceStartDate,
+                item.ServiceEndDate,
+                template.FromDate,
+                template.ToDate,
+                newFromDate,
+                newToDate,
+                repeat.Frequency,
+                args.AsOfDate,
+                template.IssueDate);
+
+            newItem.ServiceStartDate = shiftedStart;
+            newItem.ServiceEndDate = shiftedEnd;
         }
 
         if (newInvoice.PaymentTermsTemplateId.HasValue)
@@ -450,6 +405,57 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
     }
 
     /// <summary>
+    /// Shifts service start and end dates for an invoice line item.
+    /// Preserves natural month offsets and ensures ordered dates per ERPNext PR #60328 (commit 287e8dab9c).
+    /// </summary>
+    public static (DateTime? ServiceStartDate, DateTime? ServiceEndDate) ShiftItemServiceDates(
+        DateTime? serviceStartDate,
+        DateTime? serviceEndDate,
+        DateTime? refFrom,
+        DateTime? refTo,
+        DateTime? targetFrom,
+        DateTime? targetTo,
+        RepeatFrequency frequency,
+        DateTime? newPostingDate = null,
+        DateTime? refPostingDate = null)
+    {
+        DateTime? newStart = null;
+        DateTime? newEnd = null;
+
+        if (refFrom.HasValue && refTo.HasValue && targetFrom.HasValue && targetTo.HasValue)
+        {
+            if (serviceStartDate.HasValue)
+            {
+                newStart = ShiftDate(serviceStartDate.Value, refFrom.Value, refTo.Value, targetFrom.Value, targetTo.Value, frequency);
+            }
+            if (serviceEndDate.HasValue)
+            {
+                newEnd = ShiftDate(serviceEndDate.Value, refFrom.Value, refTo.Value, targetFrom.Value, targetTo.Value, frequency);
+            }
+
+            // The new period can end later in the month, e.g. 30 Jan-26 Feb becomes 27 Feb-29 Mar.
+            // A start date moved to the period end can then pass the end date, so move the end date after it (ERPNext PR #60328).
+            if (newStart.HasValue && newEnd.HasValue && newEnd.Value < newStart.Value)
+            {
+                newEnd = targetTo.Value.AddDays(1);
+            }
+        }
+        else if (serviceStartDate.HasValue || serviceEndDate.HasValue)
+        {
+            if (serviceStartDate.HasValue && newPostingDate.HasValue && refPostingDate.HasValue)
+            {
+                newStart = ShiftDateByFrequency(serviceStartDate.Value, frequency, newPostingDate.Value, refPostingDate.Value);
+            }
+            if (serviceEndDate.HasValue && newPostingDate.HasValue && refPostingDate.HasValue)
+            {
+                newEnd = ShiftDateByFrequency(serviceEndDate.Value, frequency, newPostingDate.Value, refPostingDate.Value);
+            }
+        }
+
+        return (newStart, newEnd);
+    }
+
+    /// <summary>
     /// Shift item service dates into the new invoice period.
     /// Per ERPNext PR #60256 (commit f6dfd4336d / accounts_controller.py):
     /// - Keep the period end aligned (reference_to_date becomes target to_date).
@@ -505,9 +511,7 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
             return shifted < targetTo ? shifted : targetTo;
         }
 
-        // Dates after the reference period stay after the new period, which can end later in the month.
-        var afterPeriod = targetTo.AddDays(1);
-        return shifted > afterPeriod ? shifted : afterPeriod;
+        return shifted;
     }
 
     public static DateTime ShiftDateByFrequency(
