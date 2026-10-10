@@ -280,4 +280,39 @@ public class UpstreamPr59883And59906And60301Tests
         filtered.First(l => l.BatchId == batch1).Qty.ShouldBe(20m);
         filtered.First(l => l.BatchId == batch2).Qty.ShouldBe(15m);
     }
+
+    // =========================================================================
+    // ERPNext PR #59883 / commit a1c275a6ee: Block cancelling schedule of submitted asset
+    // =========================================================================
+
+    [Fact]
+    public void Asset_ValidateCanCancelDepreciationSchedule_Throws_WhenSubmitted()
+    {
+        var asset = new Asset(
+            Guid.NewGuid(), Guid.NewGuid(), "AST-SUB-01", "MacBook Pro",
+            new DateTime(2026, 1, 1), 1200m);
+
+        asset.Submit();
+
+        var ex = Should.Throw<BusinessException>(() => asset.ValidateCanCancelDepreciationSchedule(isReschedulingOrAssetCancellation: false));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.CannotCancelScheduleOfSubmittedAsset);
+        ex.Data["assetNumber"].ShouldBe("AST-SUB-01");
+    }
+
+    [Fact]
+    public void Asset_ValidateCanCancelDepreciationSchedule_Succeeds_WhenDraftOrAssetCancellation()
+    {
+        var asset = new Asset(
+            Guid.NewGuid(), Guid.NewGuid(), "AST-DRF-01", "MacBook Pro",
+            new DateTime(2026, 1, 1), 1200m);
+
+        // Succeeds on Draft
+        asset.ValidateCanCancelDepreciationSchedule(isReschedulingOrAssetCancellation: false);
+
+        // Submit
+        asset.Submit();
+
+        // Succeeds when part of asset cancellation or rescheduling replacement
+        asset.ValidateCanCancelDepreciationSchedule(isReschedulingOrAssetCancellation: true);
+    }
 }

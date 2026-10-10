@@ -41,6 +41,19 @@ public class Opportunity : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Notes { get; set; }
 
+    // Campaign & UTM tracking (per ERPNext Lead & Opportunity doctypes)
+    public string? CampaignName { get; set; }
+    public string? UtmCampaign { get; set; }
+    public string? UtmSource { get; set; }
+    public string? UtmMedium { get; set; }
+
+    // Multi-currency conversion rate to company base currency
+    public decimal ConversionRate { get; set; } = 1.0m;
+
+    // Response tracking (per ERPNext PR #59922 / commit ab8a279282)
+    public DateTime? FirstRespondedOn { get; set; }
+    public double? FirstResponseTime { get; set; } // duration in seconds
+
     // Child items
     public List<OpportunityItem> Items { get; private set; } = new();
 
@@ -67,6 +80,21 @@ public class Opportunity : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status != OpportunityStatus.Open)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = OpportunityStatus.Replied;
+        if (!FirstRespondedOn.HasValue)
+        {
+            FirstRespondedOn = DateTime.UtcNow;
+            FirstResponseTime = Math.Max(0, (FirstRespondedOn.Value - CreationTime).TotalSeconds);
+        }
+    }
+
+    /// <summary>
+    /// Explicitly sets first response date and computes duration in seconds.
+    /// Per ERPNext PR #59922 / commit ab8a279282.
+    /// </summary>
+    public void SetFirstResponseTime(DateTime respondedOn)
+    {
+        FirstRespondedOn = respondedOn;
+        FirstResponseTime = Math.Max(0, (respondedOn - CreationTime).TotalSeconds);
     }
 
     public void MarkQuotation()

@@ -2871,6 +2871,12 @@ public class MyERPDbContext :
             b.Property(x => x.ContactPhone).HasMaxLength(30);
             b.Property(x => x.Territory).HasMaxLength(100);
             b.Property(x => x.OpportunityAmount).HasColumnType("decimal(18,2)");
+            b.Property(x => x.CampaignName).HasMaxLength(200);
+            b.Property(x => x.UtmCampaign).HasMaxLength(200);
+            b.Property(x => x.UtmSource).HasMaxLength(200);
+            b.Property(x => x.UtmMedium).HasMaxLength(200);
+            b.Property(x => x.ConversionRate).HasColumnType("decimal(18,6)");
+            b.Property(x => x.FirstResponseTime).HasColumnType("double precision");
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.OpportunityId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.OpportunityNumber }).IsUnique();

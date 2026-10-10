@@ -163,10 +163,10 @@ public class DataIntegrityAndCoverageTests
     }
 
     [Fact]
-    public void UomConversion_ReverseConvert_ZeroFactor_ReturnsZero()
+    public void UomConversion_ZeroFactor_ThrowsBusinessException()
     {
-        var conv = new UomConversion(Guid.NewGuid(), "A", "B", 0m);
-        Assert.Equal(0m, conv.ReverseConvert(100m));
+        Assert.Throws<Volo.Abp.BusinessException>(() =>
+            new UomConversion(Guid.NewGuid(), "A", "B", 0m));
     }
 
     [Fact]

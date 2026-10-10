@@ -221,6 +221,7 @@ public static class MyERPDomainErrorCodes
     public const string AssetShiftInsufficientUnassignedPeriods = "MyERP:15007"; // was hardcoded "MyERP:15003" (collided with AssetDisposalAccountMissing)
     public const string AssetValueAdjustmentAccountMissing = "MyERP:15008";
     public const string AssetCapitalizationAccountMissing = "MyERP:15009";
+    public const string CannotCancelScheduleOfSubmittedAsset = "MyERP:15010";
 
     // Accounting — Additional
     public const string AccountCannotBeDeleted = "MyERP:02013";
@@ -414,6 +415,7 @@ public static class MyERPDomainErrorCodes
     public const string OpportunityCustomerAlreadyExists = "MyERP:17013";
     public const string LeadAlreadyInAnotherProspect = "MyERP:17014";
     public const string LeadAlreadyInProspect = "MyERP:17015";
+    public const string CompanyMandatoryWhenDataBasedOnAmount = "MyERP:17016";
 
     // Cost Center Allocation
     public const string CostCenterAllocationSelfReference = "MyERP:02038";

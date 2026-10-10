@@ -232,6 +232,10 @@ public class LeadAppService : ApplicationService, ILeadAppService
             ContactPhone = lead.Phone ?? lead.MobileNo,
             AssignedUserId = lead.AssignedUserId,
             Territory = lead.State,
+            CampaignName = lead.CampaignName,
+            UtmCampaign = lead.UtmCampaign,
+            UtmSource = lead.UtmSource,
+            UtmMedium = lead.UtmMedium,
         };
 
         await _opportunityRepository.InsertAsync(opportunity);

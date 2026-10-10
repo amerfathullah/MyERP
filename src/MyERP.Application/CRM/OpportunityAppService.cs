@@ -184,6 +184,11 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
             AssignedUserId = input.AssignedUserId,
             Territory = input.Territory,
             Notes = input.Notes,
+            CampaignName = input.CampaignName,
+            UtmCampaign = input.UtmCampaign,
+            UtmSource = input.UtmSource,
+            UtmMedium = input.UtmMedium,
+            ConversionRate = input.ConversionRate > 0 ? input.ConversionRate : 1.0m,
         };
 
         foreach (var item in input.Items)
@@ -277,6 +282,14 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
         opp.AssignedUserId = input.AssignedUserId;
         opp.Territory = input.Territory;
         opp.Notes = input.Notes;
+        opp.CampaignName = input.CampaignName;
+        opp.UtmCampaign = input.UtmCampaign;
+        opp.UtmSource = input.UtmSource;
+        opp.UtmMedium = input.UtmMedium;
+        if (input.ConversionRate > 0)
+        {
+            opp.ConversionRate = input.ConversionRate;
+        }
 
         // Replace items
         opp.Items.Clear();
@@ -304,6 +317,23 @@ public class OpportunityAppService : ApplicationService, IOpportunityAppService
     public async Task DeleteAsync(Guid id)
     {
         await _repository.DeleteAsync(id);
+    }
+
+    [Authorize(MyERPPermissions.Opportunities.Edit)]
+    public async Task<OpportunityDto> MarkRepliedAsync(Guid id)
+    {
+        var opp = await _repository.GetAsync(id);
+        opp.MarkReplied();
+        await _repository.UpdateAsync(opp);
+
+        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
+        await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
+            GuidGenerator.Create(), "Opportunity", opp.Id,
+            "MarkedReplied", opp.CompanyId,
+            opp.OpportunityNumber, "Open", "Replied", CurrentUser.Id,
+            $"Opportunity {opp.OpportunityNumber} marked as Replied. Response time: {opp.FirstResponseTime:N0}s", CurrentTenant.Id));
+
+        return ObjectMapper.Map<Opportunity, OpportunityDto>(opp);
     }
 
     [Authorize(MyERPPermissions.Opportunities.Edit)]

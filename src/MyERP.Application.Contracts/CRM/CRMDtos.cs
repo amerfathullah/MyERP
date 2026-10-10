@@ -208,6 +208,13 @@ public class OpportunityDto : AuditedEntityDto<Guid>
     public string? Territory { get; set; }
     public string? LostReason { get; set; }
     public string? Notes { get; set; }
+    public string? CampaignName { get; set; }
+    public string? UtmCampaign { get; set; }
+    public string? UtmSource { get; set; }
+    public string? UtmMedium { get; set; }
+    public decimal ConversionRate { get; set; } = 1.0m;
+    public DateTime? FirstRespondedOn { get; set; }
+    public double? FirstResponseTime { get; set; }
     public List<OpportunityItemDto> Items { get; set; } = new();
     public List<CompetitorDetailDto> Competitors { get; set; } = new();
 }
@@ -281,6 +288,20 @@ public class CreateOpportunityDto
     [StringLength(OpportunityConsts.MaxNoteLength)]
     public string? Notes { get; set; }
 
+    [StringLength(200)]
+    public string? CampaignName { get; set; }
+
+    [StringLength(200)]
+    public string? UtmCampaign { get; set; }
+
+    [StringLength(200)]
+    public string? UtmSource { get; set; }
+
+    [StringLength(200)]
+    public string? UtmMedium { get; set; }
+
+    public decimal ConversionRate { get; set; } = 1.0m;
+
     public List<CreateOpportunityItemDto> Items { get; set; } = new();
 }
 
@@ -328,6 +349,20 @@ public class UpdateOpportunityDto
 
     [StringLength(OpportunityConsts.MaxNoteLength)]
     public string? Notes { get; set; }
+
+    [StringLength(200)]
+    public string? CampaignName { get; set; }
+
+    [StringLength(200)]
+    public string? UtmCampaign { get; set; }
+
+    [StringLength(200)]
+    public string? UtmSource { get; set; }
+
+    [StringLength(200)]
+    public string? UtmMedium { get; set; }
+
+    public decimal ConversionRate { get; set; } = 1.0m;
 
     public List<CreateOpportunityItemDto> Items { get; set; } = new();
 }

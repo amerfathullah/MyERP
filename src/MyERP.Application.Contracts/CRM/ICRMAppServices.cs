@@ -33,6 +33,7 @@ public interface IOpportunityAppService : IApplicationService
     Task<OpportunityDto> CreateAsync(CreateOpportunityDto input);
     Task<OpportunityDto> UpdateAsync(Guid id, UpdateOpportunityDto input);
     Task DeleteAsync(Guid id);
+    Task<OpportunityDto> MarkRepliedAsync(Guid id);
     Task<OpportunityDto> MarkQuotationAsync(Guid id);
     Task<OpportunityDto> ConvertAsync(Guid id);
     Task<Guid> ConvertToCustomerAsync(ConvertOpportunityToCustomerDto input);
@@ -90,4 +91,7 @@ public interface ISalesPipelineAppService : IApplicationService
 {
     Task<SalesPipelineDashboardDto> GetPipelineDataAsync(Guid? companyId = null);
     Task<List<PipelineOpportunityDto>> GetTopOpportunitiesAsync(Guid? companyId = null, int maxCount = 10);
+    Task<OpportunitySummaryBySalesStageDto> GetOpportunitySummaryBySalesStageAsync(GetOpportunitySummaryBySalesStageRequestDto input);
+    Task<FirstResponseTimeReportDto> GetFirstResponseTimeReportAsync(GetFirstResponseTimeReportRequestDto input);
+    Task<LostOpportunityReportDto> GetLostOpportunityReportAsync(GetLostOpportunityReportRequestDto input);
 }

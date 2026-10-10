@@ -323,6 +323,23 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Validates whether the depreciation schedule can be cancelled directly.
+    /// Per ERPNext PR #59883 / commit a1c275a6ee: block cancelling the depreciation schedule
+    /// of a submitted asset on its own. Cancel the Asset instead.
+    /// </summary>
+    public void ValidateCanCancelDepreciationSchedule(bool isReschedulingOrAssetCancellation = false)
+    {
+        if (isReschedulingOrAssetCancellation)
+            return;
+
+        if (Status is AssetStatus.Submitted or AssetStatus.PartiallyDepreciated or AssetStatus.FullyDepreciated)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotCancelScheduleOfSubmittedAsset)
+                .WithData("assetNumber", AssetNumber);
+        }
+    }
+
+    /// <summary>
     /// Resets depreciation state ahead of a full cancel from PartiallyDepreciated/
     /// FullyDepreciated — clears the schedule and regenerates it fresh (as if no periods had
     /// ever been booked), and resets each finance book's tracked value. Caller MUST reverse

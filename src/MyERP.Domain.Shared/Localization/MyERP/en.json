@@ -2503,6 +2503,8 @@
     "MyERP:10032": "Work Order quantity {workOrderQty} exceeds the allowed Production Plan quantity {maxAllowedQty} (planned: {plannedQty}, committed: {committedQty}, process loss: {processLossQty}).",
     "MyERP:10035": "Working hours overlap with an existing shift on {day}.",
     "MyERP:10036": "Cannot plan {plannedQty} {uom} of Item {itemCode} against Sales Order {salesOrderNumber}. Only {unplannedQty} {uom} is left to plan.",
+    "MyERP:17016": "Company is mandatory when Data Based On is Amount.",
+    "MyERP:15010": "Cannot cancel the depreciation schedule of submitted Asset {assetNumber}. Cancel the Asset instead.",
     "MyERP:00004": "This master record is restricted from being used with the selected company.",
     "MyERP:00005": "A duplicate record already exists.",
     "MyERP:03023": "Commission rate must be between 0 and 100 (got {rate}%).",
