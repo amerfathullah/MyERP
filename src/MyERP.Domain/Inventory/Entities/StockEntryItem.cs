@@ -54,6 +54,12 @@ public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Material Request line this item was pulled from, for fulfillment tracking (Transfer/Issue MR types).</summary>
     public Guid? MaterialRequestItemId { get; set; }
 
+    /// <summary>
+    /// Original BOM / Work Order item ID when this row substitutes an alternative item.
+    /// Maps to ERPNext stock/doctype/stock_entry_detail/stock_entry_detail.json (original_item) / PR #60130.
+    /// </summary>
+    public Guid? OriginalItemId { get; set; }
+
     /// <summary>Cost center for this line item (falls back to parent StockEntry.CostCenterId).</summary>
     public Guid? CostCenterId { get; set; }
 

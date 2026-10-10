@@ -573,6 +573,7 @@ public class ItemAppService :
             GuidGenerator.Create(), input.CompanyId,
             input.ItemCode, input.ItemName, input.ItemType, CurrentTenant.Id);
         MapToEntity(input, item);
+        item.ValidateOpeningStockSettings(input.OpeningStock, input.SerialNoSeries);
         return item;
     }
 
@@ -598,6 +599,7 @@ public class ItemAppService :
         entity.TaxCategoryId = input.TaxCategoryId;
         entity.MaintainStock = input.MaintainStock;
         entity.HasSerialNo = input.HasSerialNo;
+        entity.SerialNoSeries = input.SerialNoSeries;
         entity.HasBatchNo = input.HasBatchNo;
         entity.CreateNewBatch = input.CreateNewBatch;
         entity.BatchNumberSeries = input.BatchNumberSeries;

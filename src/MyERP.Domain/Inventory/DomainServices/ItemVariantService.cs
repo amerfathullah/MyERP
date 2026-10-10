@@ -36,6 +36,93 @@ public class ItemVariantService : DomainService
     }
 
     /// <summary>
+    /// Fields that cannot be copied from a template item to its variants.
+    /// Maps to ERPNext stock/doctype/item_variant_settings/item_variant_settings.py:
+    /// invalid_fields_for_copy_fields_in_variants (PR #60128 / commit ccfecedb81).
+    /// </summary>
+    public static readonly IReadOnlySet<string> InvalidFieldsForCopyFieldsInVariants =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "barcodes",
+            "attributes",
+            "has_variants",
+            "variant_of",
+            nameof(Item.Barcodes),
+            nameof(Item.VariantAttributes),
+            nameof(Item.HasVariants),
+            nameof(Item.VariantOfId)
+        };
+
+    /// <summary>
+    /// Validates that configured copy fields do not include forbidden variant/template fields.
+    /// Maps to ERPNext stock/doctype/item_variant_settings/item_variant_settings.py: validate (PR #60128 / commit ccfecedb81).
+    /// </summary>
+    public void ValidateCopyFields(IEnumerable<string> fieldsToCopy)
+    {
+        if (fieldsToCopy == null) return;
+
+        foreach (var field in fieldsToCopy)
+        {
+            if (!string.IsNullOrWhiteSpace(field) && InvalidFieldsForCopyFieldsInVariants.Contains(field.Trim()))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidVariantCopyField)
+                    .WithData("field", field.Trim());
+            }
+        }
+    }
+
+    /// <summary>
+    /// Copies template attributes to a variant item.
+    /// When updating an existing variant (!isNewVariant) and allowDifferentUom is enabled,
+    /// preserves the variant's existing Stock UOM, Sales UOM, and Purchase UOM instead of overwriting
+    /// with the template's UOMs (ERPNext PR #60128 / commit ccfecedb81).
+    /// </summary>
+    public void CopyAttributesToVariant(Item template, Item variant, bool isNewVariant, bool allowDifferentUom = false)
+    {
+        variant.VariantOfId = template.Id;
+        if (isNewVariant || !allowDifferentUom)
+        {
+            variant.Uom = template.Uom;
+            variant.SalesUom = template.SalesUom;
+            variant.PurchaseUom = template.PurchaseUom;
+        }
+        variant.ValuationMethod = template.ValuationMethod;
+        variant.StandardSellingPrice = template.StandardSellingPrice;
+        variant.StandardBuyingPrice = template.StandardBuyingPrice;
+        variant.TaxCategoryId = template.TaxCategoryId;
+        variant.MaintainStock = template.MaintainStock;
+        variant.ItemGroupId = template.ItemGroupId;
+        variant.ItemGroup = template.ItemGroup;
+        variant.Brand = template.Brand;
+        variant.DefaultIncomeAccountId = template.DefaultIncomeAccountId;
+        variant.DefaultExpenseAccountId = template.DefaultExpenseAccountId;
+        variant.DefaultInventoryAccountId = template.DefaultInventoryAccountId;
+    }
+
+    /// <summary>
+    /// Synchronizes template attributes to all existing variants of the template.
+    /// Preserves variant UOMs when allowDifferentUom is true (ERPNext PR #60128 / commit ccfecedb81).
+    /// </summary>
+    public async Task<List<Item>> SyncTemplateToVariantsAsync(Guid templateItemId, bool allowDifferentUom = false)
+    {
+        var template = await _itemRepository.GetAsync(templateItemId);
+        if (!template.HasVariants)
+            throw new BusinessException("MyERP:05023")
+                .WithData("item", template.ItemCode);
+
+        var query = await _itemRepository.GetQueryableAsync();
+        var variants = query.Where(i => i.VariantOfId == templateItemId).ToList();
+
+        foreach (var variant in variants)
+        {
+            CopyAttributesToVariant(template, variant, isNewVariant: false, allowDifferentUom: allowDifferentUom);
+            await _itemRepository.UpdateAsync(variant);
+        }
+
+        return variants;
+    }
+
+    /// <summary>
     /// Create a variant from a template item with specific attribute values.
     /// </summary>
     public async Task<Item> CreateVariantAsync(
@@ -66,14 +153,7 @@ public class ItemVariantService : DomainService
             template.ItemType,
             template.TenantId);
 
-        variant.VariantOfId = templateItemId;
-        variant.Uom = template.Uom;
-        variant.ValuationMethod = template.ValuationMethod;
-        variant.StandardSellingPrice = template.StandardSellingPrice;
-        variant.StandardBuyingPrice = template.StandardBuyingPrice;
-        variant.TaxCategoryId = template.TaxCategoryId;
-        variant.MaintainStock = template.MaintainStock;
-        variant.ItemGroupId = template.ItemGroupId;
+        CopyAttributesToVariant(template, variant, isNewVariant: true, allowDifferentUom: false);
 
         // Add attribute values
         foreach (var attr in attributes)

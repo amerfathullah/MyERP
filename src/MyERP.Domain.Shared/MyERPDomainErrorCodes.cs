@@ -623,5 +623,14 @@ public static class MyERPDomainErrorCodes
     // Item Stock UOM and Maintain Stock Guards (ERPNext PR #60318 / commit 56d058f26c)
     public const string CannotChangeStockUom = "MyERP:05091";
     public const string CannotChangeMaintainStock = "MyERP:05092";
+
+    // Shipment Parcel Template, Opening Stock, Variant Copy & Work Order Alternative Guards (PR #60132, #60319, #60128, #60130)
+    public const string ParcelTemplateDimensionsMustBePositive = "MyERP:05093";
+    public const string OpeningStockRequiresSerialNoSeries = "MyERP:05094";
+    public const string OpeningStockRequiresCreateNewBatch = "MyERP:05095";
+    public const string InvalidVariantCopyField = "MyERP:05096";
+    public const string WorkOrderDoesNotAllowAlternativeItems = "MyERP:05097";
+    public const string ItemIsNotAlternativeOfOriginal = "MyERP:05098";
 }
+
 

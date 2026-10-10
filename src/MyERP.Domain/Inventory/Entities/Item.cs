@@ -50,6 +50,12 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Item requires serial number tracking (per-unit identification).</summary>
     public bool HasSerialNo { get; set; }
 
+    /// <summary>
+    /// Serial number naming series (e.g., "SN-.#####").
+    /// Maps to ERPNext stock/doctype/item/item.json: serial_no_series.
+    /// </summary>
+    public string? SerialNoSeries { get; set; }
+
     /// <summary>Item requires batch/lot number tracking.</summary>
     public bool HasBatchNo { get; set; }
 
@@ -320,6 +326,29 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.SampleQuantityMustBeGreaterThanZero)
                 .WithData("item", ItemCode)
                 .WithData("sampleQuantity", SampleQuantity);
+        }
+    }
+
+    /// <summary>
+    /// Validates serial and batch settings when creating a stock item with positive opening stock.
+    /// Maps to ERPNext stock/doctype/item/item.py: validate_opening_stock (PR #60319 / commit 19c81cec44).
+    /// </summary>
+    public void ValidateOpeningStockSettings(decimal openingStock, string? serialNoSeries = null)
+    {
+        if (!MaintainStock || openingStock <= 0)
+            return;
+
+        var effectiveSerialSeries = serialNoSeries ?? SerialNoSeries;
+        if (HasSerialNo && string.IsNullOrWhiteSpace(effectiveSerialSeries))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.OpeningStockRequiresSerialNoSeries)
+                .WithData("item", ItemCode);
+        }
+
+        if (HasBatchNo && !CreateNewBatch)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.OpeningStockRequiresCreateNewBatch)
+                .WithData("item", ItemCode);
         }
     }
 }

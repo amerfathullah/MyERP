@@ -86,6 +86,7 @@ public class ShipmentParcelTemplateAppService : MyERPAppService, IShipmentParcel
         entity.Weight = input.Weight;
         entity.Description = input.Description;
         entity.IsActive = input.IsActive;
+        entity.ValidateDimensionsAndWeight();
 
         await _repository.UpdateAsync(entity);
         return new ShipmentParcelTemplateMapper().Map(entity);

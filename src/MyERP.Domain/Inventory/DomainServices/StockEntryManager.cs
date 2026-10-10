@@ -335,6 +335,109 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Checks whether <paramref name="alternativeItemId"/> is a registered alternative for <paramref name="originalItemId"/>
+    /// (either direct 1-way or reverse 2-way).
+    /// Maps to ERPNext stock/doctype/item_alternative/item_alternative.py: is_alternative_item (PR #60130 / commit 3b014ad602).
+    /// </summary>
+    public static bool IsAlternativeItem(
+        Guid originalItemId,
+        Guid alternativeItemId,
+        IEnumerable<ItemAlternative> alternatives)
+    {
+        if (originalItemId == Guid.Empty || alternativeItemId == Guid.Empty || alternatives == null)
+            return false;
+
+        return alternatives.Any(a =>
+            (a.ItemId == originalItemId && a.AlternativeItemId == alternativeItemId) ||
+            (a.ItemId == alternativeItemId && a.AlternativeItemId == originalItemId && a.TwoWay));
+    }
+
+    /// <summary>
+    /// Validates alternative item substitutions on Work Order Stock Entries
+    /// (MaterialTransferForManufacture, Manufacture, MaterialConsumptionForManufacture).
+    /// If an alternative item pair was already transferred in a submitted non-return MaterialTransferForManufacture
+    /// entry for the Work Order, consuming or returning it is permitted even if alternative approval was later removed.
+    /// Maps to ERPNext stock/doctype/stock_entry/stock_entry.py: validate_work_order_alternative_items (PR #60130 / commit 3b014ad602).
+    /// </summary>
+    public void ValidateWorkOrderAlternativeItems(
+        StockEntry entry,
+        WorkOrder? wo,
+        IEnumerable<ItemAlternative> alternatives,
+        IEnumerable<StockEntry>? submittedWorkOrderEntries = null,
+        IReadOnlyDictionary<Guid, string>? itemCodeMap = null)
+    {
+        if (!entry.WorkOrderId.HasValue || wo == null)
+            return;
+
+        if (entry.EntryType is not (
+            StockEntryType.MaterialTransferForManufacture or
+            StockEntryType.Manufacture or
+            StockEntryType.MaterialConsumptionForManufacture))
+        {
+            return;
+        }
+
+        var transferredAlternativePairs = new HashSet<(Guid OriginalItemId, Guid AlternativeItemId)>();
+        if (submittedWorkOrderEntries != null)
+        {
+            foreach (var se in submittedWorkOrderEntries)
+            {
+                if (se.Id == entry.Id ||
+                    se.WorkOrderId != wo.Id ||
+                    se.EntryType != StockEntryType.MaterialTransferForManufacture ||
+                    se.IsReturn ||
+                    se.Status is not (Core.DocumentStatus.Submitted or Core.DocumentStatus.Posted))
+                {
+                    continue;
+                }
+
+                foreach (var item in se.Items)
+                {
+                    if (item.OriginalItemId.HasValue && item.OriginalItemId.Value != item.ItemId)
+                    {
+                        transferredAlternativePairs.Add((item.OriginalItemId.Value, item.ItemId));
+                    }
+                }
+            }
+        }
+
+        var canUseAlreadyTransferred =
+            entry.EntryType is StockEntryType.Manufacture or StockEntryType.MaterialConsumptionForManufacture ||
+            (entry.EntryType == StockEntryType.MaterialTransferForManufacture && entry.IsReturn);
+
+        var altList = alternatives?.ToList() ?? new List<ItemAlternative>();
+
+        for (int idx = 0; idx < entry.Items.Count; idx++)
+        {
+            var row = entry.Items[idx];
+            if (!row.OriginalItemId.HasValue || row.OriginalItemId.Value == row.ItemId)
+                continue;
+
+            var pair = (row.OriginalItemId.Value, row.ItemId);
+            if (canUseAlreadyTransferred && transferredAlternativePairs.Contains(pair))
+                continue;
+
+            if (!wo.AllowAlternativeItem)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.WorkOrderDoesNotAllowAlternativeItems)
+                    .WithData("row", idx + 1)
+                    .WithData("workOrder", wo.WorkOrderNumber ?? wo.Id.ToString());
+            }
+
+            if (!IsAlternativeItem(row.OriginalItemId.Value, row.ItemId, altList))
+            {
+                var altCode = itemCodeMap != null && itemCodeMap.TryGetValue(row.ItemId, out var ac) ? ac : row.ItemId.ToString();
+                var origCode = itemCodeMap != null && itemCodeMap.TryGetValue(row.OriginalItemId.Value, out var oc) ? oc : row.OriginalItemId.Value.ToString();
+
+                throw new BusinessException(MyERPDomainErrorCodes.ItemIsNotAlternativeOfOriginal)
+                    .WithData("row", idx + 1)
+                    .WithData("item", altCode)
+                    .WithData("originalItem", origCode);
+            }
+        }
+    }
+
+    /// <summary>
     /// Calculates the effective finished goods completed quantity covered by transferred raw materials.
     /// Per ERPNext PR #58482 (commit b90e3d4656):
     /// When transferring materials against a Work Order or Job Card, caps fg_completed_qty

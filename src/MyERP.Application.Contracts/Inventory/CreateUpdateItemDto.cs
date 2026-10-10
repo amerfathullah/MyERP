@@ -101,9 +101,11 @@ public class CreateUpdateItemDto
 
     public bool MaintainStock { get; set; } = true;
     public bool HasSerialNo { get; set; }
+    [StringLength(100)] public string? SerialNoSeries { get; set; }
     public bool HasBatchNo { get; set; }
     public bool CreateNewBatch { get; set; }
     [StringLength(100)] public string? BatchNumberSeries { get; set; }
+    [Range(0, double.MaxValue)] public decimal OpeningStock { get; set; }
     public bool HasExpiryDate { get; set; }
     [Range(0, int.MaxValue)] public int? ShelfLifeInDays { get; set; }
     public bool RetainSample { get; set; }

@@ -77,6 +77,12 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool ReserveStock { get; set; }
 
+    /// <summary>
+    /// Allow substituting required items with registered Item Alternatives during material transfer/consumption.
+    /// Maps to ERPNext manufacturing/doctype/work_order/work_order.json (allow_alternative_item).
+    /// </summary>
+    public bool AllowAlternativeItem { get; set; }
+
     public List<WorkOrderItem> RequiredItems { get; private set; } = new();
 
     protected WorkOrder() { }
