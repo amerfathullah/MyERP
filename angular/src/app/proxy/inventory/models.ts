@@ -857,11 +857,14 @@ export interface GetBatchSplitTreeDto {
 }
 
 export interface GetBatchWiseBalanceRequestDto {
+  companyId?: string | null;
   itemId?: string | null;
   warehouseId?: string | null;
+  batchId?: string | null;
   fromDate?: string | null;
   toDate?: string | null;
   includeZeroBalance?: boolean;
+  includeExpiredBatches?: boolean;
 }
 
 export interface GetBundleListDto extends CompanyFilteredPagedRequestDto {

@@ -177,9 +177,14 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
         if (input.BatchId.HasValue)
             sleQuery = sleQuery.Where(s => s.BatchId == input.BatchId.Value);
         if (input.FromDate.HasValue)
-            sleQuery = sleQuery.Where(s => s.PostingDate >= input.FromDate.Value);
-        if (input.ToDate.HasValue)
-            sleQuery = sleQuery.Where(s => s.PostingDate <= input.ToDate.Value);
+            sleQuery = sleQuery.Where(s => s.PostingDateTime >= input.FromDate.Value.Date);
+
+        // Per ERPNext PR #60757 / commit 7485463837:
+        // Unconditionally apply batch report cutoff for to_date (including when to_date is today).
+        // Uses end-of-day cutoff on PostingDateTime to prevent transactions posted after cutoff
+        // or on future dates from leaking into the report.
+        var toDateCutoff = (input.ToDate?.Date ?? DateTime.UtcNow.Date).AddDays(1).AddTicks(-1);
+        sleQuery = sleQuery.Where(s => s.PostingDateTime <= toDateCutoff);
 
         // Aggregate by (item, batch, warehouse) — net qty from SLE
         var grouped = sleQuery
@@ -230,7 +235,7 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
         var pooledRates = new Dictionary<(Guid ItemId, Guid WarehouseId), decimal>();
         if (pooledItemIds.Count > 0)
         {
-            var cutoff = input.ToDate?.Date.AddDays(1).AddTicks(-1) ?? DateTime.MaxValue;
+            var cutoff = toDateCutoff;
             var allSleQuery = await _sleRepository.GetQueryableAsync();
             var latestSles = allSleQuery
                 .Where(s => !s.IsCancelled && pooledItemIds.Contains(s.ItemId) && warehouseIds.Contains(s.WarehouseId) && s.PostingDateTime <= cutoff)
@@ -392,6 +397,13 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
         })
         .OrderBy(r => r.ItemName).ThenBy(r => r.BatchNo).ThenBy(r => r.WarehouseName)
         .ToList();
+
+        // Per ERPNext PR #60757 (available_batch_report.py):
+        // When include_expired_batches is false, exclude expired batches from report and totals.
+        if (!input.IncludeExpiredBatches)
+        {
+            rows = rows.Where(r => !r.IsExpired).ToList();
+        }
 
         return new BatchWiseBalanceReportDto
         {

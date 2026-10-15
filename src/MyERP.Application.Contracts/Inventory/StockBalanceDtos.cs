@@ -61,6 +61,11 @@ public class GetBatchWiseBalanceRequestDto
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
     public bool IncludeZeroBalance { get; set; }
+    /// <summary>
+    /// When false, excludes expired batches when checking stock balance.
+    /// Per ERPNext PR #60757 (available_batch_report.py).
+    /// </summary>
+    public bool IncludeExpiredBatches { get; set; } = true;
 }
 
 public class BatchWiseBalanceReportDto
