@@ -381,6 +381,7 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
                 SerialNos = serialList != null && serialList.Count > 0 ? string.Join(", ", serialList.OrderBy(x => x)) : null,
                 ReservedStockQty = Math.Round(reservedMap.GetValueOrDefault(reservedKey, 0m), 4),
                 ExpiryDate = batch?.ExpiryDate,
+                ExpiresInDays = batch?.ExpiryDate.HasValue == true ? (int)(batch.ExpiryDate.Value.Date - DateTime.UtcNow.Date).TotalDays : null,
                 IsExpired = batch?.ExpiryDate.HasValue == true && batch.ExpiryDate < DateTime.UtcNow.Date,
                 IsDisabled = batch?.IsDisabled ?? false,
             };

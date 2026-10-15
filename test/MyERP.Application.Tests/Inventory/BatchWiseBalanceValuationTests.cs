@@ -263,4 +263,81 @@ public class BatchWiseBalanceValuationTests
         result.WarehouseBalances[0].ValuationRate.ShouldBe(15m);
         result.WarehouseBalances[0].StockValue.ShouldBe(300m);
     }
+
+    [Fact]
+    public async Task GetBatchWiseBalanceAsync_SignedExpiresInDays_NegativeWhenExpired()
+    {
+        // Arrange
+        var itemId = Guid.NewGuid();
+        var activeBatchId = Guid.NewGuid();
+        var expiredBatchId = Guid.NewGuid();
+        var noExpiryBatchId = Guid.NewGuid();
+
+        var item = new Item(itemId, _companyId, "ITEM-EXP", "Expiry Test Item", ItemType.Goods)
+        {
+            HasBatchNo = true,
+            ValuationMethod = ValuationMethod.FIFO
+        };
+
+        var activeBatch = new Batch(activeBatchId, itemId, "BATCH-ACTIVE")
+        {
+            ExpiryDate = DateTime.UtcNow.Date.AddDays(10)
+        };
+        var expiredBatch = new Batch(expiredBatchId, itemId, "BATCH-EXPIRED")
+        {
+            ExpiryDate = DateTime.UtcNow.Date.AddDays(-5)
+        };
+        var noExpiryBatch = new Batch(noExpiryBatchId, itemId, "BATCH-NOEXP");
+
+        _settingProvider.GetOrNullAsync(MyERPSettings.Stock.DoNotUseBatchwiseValuation).Returns(Task.FromResult<string?>("false"));
+
+        var sles = new List<StockLedgerEntry>
+        {
+            new StockLedgerEntry(Guid.NewGuid(), _companyId, itemId, _warehouseId, DateTime.UtcNow.AddDays(-1), 10m, 5m, 10m, 50m)
+            {
+                BatchId = activeBatchId,
+                StockValue = 50m
+            },
+            new StockLedgerEntry(Guid.NewGuid(), _companyId, itemId, _warehouseId, DateTime.UtcNow.AddDays(-1), 5m, 5m, 15m, 75m)
+            {
+                BatchId = expiredBatchId,
+                StockValue = 25m
+            },
+            new StockLedgerEntry(Guid.NewGuid(), _companyId, itemId, _warehouseId, DateTime.UtcNow.AddDays(-1), 2m, 5m, 17m, 85m)
+            {
+                BatchId = noExpiryBatchId,
+                StockValue = 10m
+            }
+        }.AsQueryable();
+
+        _itemRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { item }.AsQueryable()));
+        _batchRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Batch> { activeBatch, expiredBatch, noExpiryBatch }.AsQueryable()));
+        _sleRepo.GetQueryableAsync().Returns(Task.FromResult(sles));
+
+        var appService = new StockBalanceAppService(_binRepo, _itemRepo, _warehouseRepo, _sleRepo, _batchRepo, _binService)
+        {
+            LazyServiceProvider = _lazySp
+        };
+
+        // Act
+        var report = await appService.GetBatchWiseBalanceAsync(new GetBatchWiseBalanceRequestDto
+        {
+            CompanyId = _companyId,
+            ItemId = itemId,
+            WarehouseId = _warehouseId
+        });
+
+        // Assert per ERPNext PR #60573:
+        var activeRow = report.Rows.First(r => r.BatchId == activeBatchId);
+        activeRow.ExpiresInDays.ShouldBe(10);
+        activeRow.IsExpired.ShouldBeFalse();
+
+        var expiredRow = report.Rows.First(r => r.BatchId == expiredBatchId);
+        expiredRow.ExpiresInDays.ShouldBe(-5); // Negative for expired batches
+        expiredRow.IsExpired.ShouldBeTrue();
+
+        var noExpiryRow = report.Rows.First(r => r.BatchId == noExpiryBatchId);
+        noExpiryRow.ExpiresInDays.ShouldBeNull();
+        noExpiryRow.IsExpired.ShouldBeFalse();
+    }
 }

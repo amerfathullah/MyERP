@@ -80,7 +80,7 @@ public class CreateDeliveryNoteItemDto
 {
     [Required] public Guid ItemId { get; set; }
     [Required][StringLength(500)] public string Description { get; set; } = null!;
-    [Required][Range(0.0001, double.MaxValue)] public decimal Quantity { get; set; }
+    [Required] public decimal Quantity { get; set; }
     [Required][Range(0, double.MaxValue)] public decimal UnitPrice { get; set; }
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(50)] public string Uom { get; set; } = "Unit";

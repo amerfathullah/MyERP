@@ -38,13 +38,16 @@ public class ProductionAnalyticsAppService : ApplicationService, IProductionAnal
         var inProcessCount = workOrders.Count(wo => wo.Status == WorkOrderStatus.InProcess);
         var notStartedCount = workOrders.Count(wo => wo.Status == WorkOrderStatus.NotStarted);
         var stoppedCount = workOrders.Count(wo => wo.Status == WorkOrderStatus.Stopped);
+        var closedCount = workOrders.Count(wo => wo.Status == WorkOrderStatus.Closed);
         var draftCount = workOrders.Count(wo => wo.Status == WorkOrderStatus.Draft);
 
         var overdueCount = workOrders.Count(wo =>
             wo.PlannedEndDate.HasValue &&
             wo.PlannedEndDate.Value < DateTime.UtcNow &&
             wo.Status != WorkOrderStatus.Completed &&
-            wo.Status != WorkOrderStatus.Cancelled);
+            wo.Status != WorkOrderStatus.Cancelled &&
+            wo.Status != WorkOrderStatus.Closed &&
+            wo.Status != WorkOrderStatus.Stopped);
 
         var totalPlannedQty = workOrders.Sum(wo => wo.Quantity);
         var totalProducedQty = workOrders.Sum(wo => wo.ProducedQuantity);
@@ -58,6 +61,7 @@ public class ProductionAnalyticsAppService : ApplicationService, IProductionAnal
             new() { Status = "InProcess", Count = inProcessCount, Color = "primary" },
             new() { Status = "Completed", Count = completedCount, Color = "success" },
             new() { Status = "Stopped", Count = stoppedCount, Color = "warning" },
+            new() { Status = "Closed", Count = closedCount, Color = "dark" },
         };
 
         // Daily production trend (last 30 days within range)

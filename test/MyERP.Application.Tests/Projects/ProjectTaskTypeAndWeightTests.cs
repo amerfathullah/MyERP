@@ -186,4 +186,109 @@ public abstract class ProjectTaskTypeAndWeightTests<TStartupModule> : MyERPAppli
         Should.Throw<BusinessException>(() =>
             valid.SetWeight(-1m));
     }
+
+    [Fact]
+    public async Task CreateTaskAsync_WithParentTaskFromDifferentProject_ThrowsValidationFailed()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var projectRepo = GetRequiredService<IRepository<Project, Guid>>();
+            var projectAppService = GetRequiredService<IProjectAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Parent Project Co 1"), autoSave: true);
+            var project1 = await projectRepo.InsertAsync(new Project(Guid.NewGuid(), company.Id, "PROJ-P1-001", "Project 1"), autoSave: true);
+            var project2 = await projectRepo.InsertAsync(new Project(Guid.NewGuid(), company.Id, "PROJ-P2-002", "Project 2"), autoSave: true);
+
+            var parentGroupInP1 = await projectAppService.CreateTaskAsync(new CreateProjectTaskDto
+            {
+                ProjectId = project1.Id,
+                Subject = "Group in P1",
+                IsGroup = true,
+            });
+
+            // Trying to create a task in project2 with parent from project1 must fail (ERPNext PR #60578)
+            var ex = await Should.ThrowAsync<BusinessException>(async () =>
+            {
+                await projectAppService.CreateTaskAsync(new CreateProjectTaskDto
+                {
+                    ProjectId = project2.Id,
+                    Subject = "Child in P2",
+                    ParentTaskId = parentGroupInP1.Id,
+                });
+            });
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
+
+    [Fact]
+    public async Task CreateTaskAsync_WithParentTaskFromSameProject_Succeeds()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var projectRepo = GetRequiredService<IRepository<Project, Guid>>();
+            var projectAppService = GetRequiredService<IProjectAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Parent Project Co 2"), autoSave: true);
+            var project = await projectRepo.InsertAsync(new Project(Guid.NewGuid(), company.Id, "PROJ-P-002", "Project 2"), autoSave: true);
+
+            var parentGroup = await projectAppService.CreateTaskAsync(new CreateProjectTaskDto
+            {
+                ProjectId = project.Id,
+                Subject = "Group in Project",
+                IsGroup = true,
+            });
+
+            var childTask = await projectAppService.CreateTaskAsync(new CreateProjectTaskDto
+            {
+                ProjectId = project.Id,
+                Subject = "Child in Project",
+                ParentTaskId = parentGroup.Id,
+            });
+
+            childTask.ParentTaskId.ShouldBe(parentGroup.Id);
+            childTask.ProjectId.ShouldBe(project.Id);
+        });
+    }
+
+    [Fact]
+    public async Task UpdateTaskAsync_WithParentTaskFromDifferentProject_ThrowsValidationFailed()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var projectRepo = GetRequiredService<IRepository<Project, Guid>>();
+            var projectAppService = GetRequiredService<IProjectAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Parent Project Co 3"), autoSave: true);
+            var project1 = await projectRepo.InsertAsync(new Project(Guid.NewGuid(), company.Id, "PROJ-P1-003", "Project 1"), autoSave: true);
+            var project2 = await projectRepo.InsertAsync(new Project(Guid.NewGuid(), company.Id, "PROJ-P2-004", "Project 2"), autoSave: true);
+
+            var parentGroupInP1 = await projectAppService.CreateTaskAsync(new CreateProjectTaskDto
+            {
+                ProjectId = project1.Id,
+                Subject = "Group in P1",
+                IsGroup = true,
+            });
+
+            var taskInP2 = await projectAppService.CreateTaskAsync(new CreateProjectTaskDto
+            {
+                ProjectId = project2.Id,
+                Subject = "Task in P2",
+            });
+
+            var ex = await Should.ThrowAsync<BusinessException>(async () =>
+            {
+                await projectAppService.UpdateTaskAsync(taskInP2.Id, new UpdateProjectTaskDto
+                {
+                    Subject = taskInP2.Subject,
+                    ParentTaskId = parentGroupInP1.Id,
+                });
+            });
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
 }

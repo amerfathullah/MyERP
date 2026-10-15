@@ -99,6 +99,11 @@ public class BatchWiseBalanceRowDto
     /// </summary>
     public decimal ReservedStockQty { get; set; }
     public DateTime? ExpiryDate { get; set; }
+    /// <summary>
+    /// Days until expiry. Signed integer: negative indicates days already elapsed since expiry.
+    /// Per ERPNext PR #60573 / commit ae601b96c5f0 & e2d90b1448.
+    /// </summary>
+    public int? ExpiresInDays { get; set; }
     public bool IsExpired { get; set; }
     public bool IsDisabled { get; set; }
 }

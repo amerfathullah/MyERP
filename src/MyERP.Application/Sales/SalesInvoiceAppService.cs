@@ -1238,84 +1238,138 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             invoice.UpdateStock = false;
         }
 
-        if (invoice.UpdateStock && invoice.WarehouseId.HasValue && !invoice.IsReturn)
+        if (invoice.UpdateStock && invoice.WarehouseId.HasValue)
         {
             var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
 
-            // Batch expiry validation — block expired/disabled batches on stock-out
-            // Per DO-NOT: must block expired batch consumption in transactions
-            // Note: SI items don't have per-item BatchId; batch tracking is via Serial and Batch Bundle.
-            // When SABB integration is fully wired, batch validation will fire via the bundle path.
-            // For now, skip batch validation on SI (DN handles it in the standard delivery flow).
-
-            // Quality Inspection enforcement — block if items require QI but none submitted+accepted
-            var stockItemIds = new List<Guid>();
-            foreach (var item in invoice.Items)
+            if (invoice.IsReturn)
             {
-                var itemEntity = await itemRepo.FindAsync(item.ItemId);
-                if (itemEntity != null && itemEntity.MaintainStock)
-                    stockItemIds.Add(item.ItemId);
+                // RETURN SALES INVOICE (Credit Note) WITH UPDATE STOCK:
+                // Stock comes BACK to warehouse (positive SLE, positive Bin)
+                SalesInvoice? origSiForRates = invoice.ReturnAgainstId.HasValue
+                    ? await _repository.FindAsync(invoice.ReturnAgainstId.Value)
+                    : null;
+
+                foreach (var item in invoice.Items)
+                {
+                    var itemEntity = await itemRepo.FindAsync(item.ItemId);
+                    if (itemEntity != null && !itemEntity.MaintainStock)
+                        continue;
+
+                    var returnStockQty = Math.Abs(item.StockQty);
+
+                    // Per ERPNext PR #60614 (commit 86a28694b9 & 0f0c78053a):
+                    // Linked return uses original invoice valuation rate.
+                    // Standalone return uses current warehouse valuation rate (fallback to item valuation rate / standard buying price).
+                    decimal incomingRate = 0m;
+                    if (origSiForRates != null)
+                    {
+                        var origItem = origSiForRates.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                        if (origItem != null && origItem.ValuationRate > 0)
+                        {
+                            incomingRate = origItem.ValuationRate;
+                        }
+                    }
+
+                    if (incomingRate <= 0)
+                    {
+                        var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, invoice.WarehouseId.Value);
+                        incomingRate = balance.ValuationRate > 0
+                            ? balance.ValuationRate
+                            : (itemEntity?.StandardBuyingPrice ?? 0m);
+                    }
+
+                    item.ValuationRate = incomingRate;
+
+                    await _valuationService.CreateLedgerEntryAsync(
+                        invoice.CompanyId, item.ItemId, invoice.WarehouseId.Value,
+                        invoice.IssueDate, returnStockQty, incomingRate,
+                        voucherType: "SalesInvoice", voucherId: invoice.Id,
+                        tenantId: invoice.TenantId);
+
+                    await _binService.ApplyStockMovementAsync(
+                        item.ItemId, invoice.WarehouseId.Value,
+                        returnStockQty, returnStockQty * incomingRate, invoice.TenantId);
+                }
             }
-            if (stockItemIds.Any())
+            else
             {
-                var qiEnforcement = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.QualityInspectionEnforcementService>();
-                await qiEnforcement.ValidateForSalesInvoiceAsync(invoice.Id, stockItemIds.ToArray(), invoice.TenantId);
-            }
+                // NORMAL SALES INVOICE WITH UPDATE STOCK:
+                // Batch expiry validation — block expired/disabled batches on stock-out
+                // Per DO-NOT: must block expired batch consumption in transactions
+                // Note: SI items don't have per-item BatchId; batch tracking is via Serial and Batch Bundle.
+                // When SABB integration is fully wired, batch validation will fire via the bundle path.
+                // For now, skip batch validation on SI (DN handles it in the standard delivery flow).
 
-            foreach (var item in invoice.Items)
-            {
-                // Skip non-stock items (service items don't create SLE)
-                var itemEntity = await itemRepo.FindAsync(item.ItemId);
-                if (itemEntity != null && !itemEntity.MaintainStock)
-                    continue;
+                // Quality Inspection enforcement — block if items require QI but none submitted+accepted
+                var stockItemIds = new List<Guid>();
+                foreach (var item in invoice.Items)
+                {
+                    var itemEntity = await itemRepo.FindAsync(item.ItemId);
+                    if (itemEntity != null && itemEntity.MaintainStock)
+                        stockItemIds.Add(item.ItemId);
+                }
+                if (stockItemIds.Any())
+                {
+                    var qiEnforcement = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.QualityInspectionEnforcementService>();
+                    await qiEnforcement.ValidateForSalesInvoiceAsync(invoice.Id, stockItemIds.ToArray(), invoice.TenantId);
+                }
 
-                // Capture valuation rate BEFORE stock-out (actual cost, not selling price)
-                // Per ERPNext: stock movements always use valuation rate for value calculation
-                var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, invoice.WarehouseId.Value);
-                var ratePerStockUnit = balance.ValuationRate;
-                item.ValuationRate = ratePerStockUnit; // Store for cancel reversal + gross profit
+                foreach (var item in invoice.Items)
+                {
+                    // Skip non-stock items (service items don't create SLE)
+                    var itemEntity = await itemRepo.FindAsync(item.ItemId);
+                    if (itemEntity != null && !itemEntity.MaintainStock)
+                        continue;
 
-                // Use StockQty for SLE (respects UOM conversion)
-                var stockQty = item.StockQty;
+                    // Capture valuation rate BEFORE stock-out (actual cost, not selling price)
+                    // Per ERPNext: stock movements always use valuation rate for value calculation
+                    var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, invoice.WarehouseId.Value);
+                    var ratePerStockUnit = balance.ValuationRate;
+                    item.ValuationRate = ratePerStockUnit; // Store for cancel reversal + gross profit
 
-                await _valuationService.CreateLedgerEntryAsync(
-                    invoice.CompanyId, item.ItemId, invoice.WarehouseId.Value,
-                    invoice.IssueDate, -stockQty, ratePerStockUnit,
-                    voucherType: "SalesInvoice", voucherId: invoice.Id,
-                    tenantId: invoice.TenantId);
+                    // Use StockQty for SLE (respects UOM conversion)
+                    var stockQty = item.StockQty;
 
-                await _binService.ApplyStockMovementAsync(
-                    item.ItemId, invoice.WarehouseId.Value,
-                    -stockQty, -(stockQty * ratePerStockUnit), invoice.TenantId);
+                    await _valuationService.CreateLedgerEntryAsync(
+                        invoice.CompanyId, item.ItemId, invoice.WarehouseId.Value,
+                        invoice.IssueDate, -stockQty, ratePerStockUnit,
+                        voucherType: "SalesInvoice", voucherId: invoice.Id,
+                        tenantId: invoice.TenantId);
 
-                // Trigger auto-reorder check after stock-out
-                var autoReorder = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.AutoReorderService>();
-                await autoReorder.CheckSingleItemAsync(
-                    item.ItemId, invoice.WarehouseId.Value, invoice.CompanyId, invoice.TenantId);
-            }
+                    await _binService.ApplyStockMovementAsync(
+                        item.ItemId, invoice.WarehouseId.Value,
+                        -stockQty, -(stockQty * ratePerStockUnit), invoice.TenantId);
 
-            // Low-stock alert for procurement staff, distinct from AutoReorderService above (which
-            // auto-creates a Material Request) — batched once for all stock items, not per-item,
-            // since every SI item shares the same document-level WarehouseId here. Reuses
-            // stockItemIds (computed above for QI enforcement) to skip service items the same way
-            // the stock-out loop itself does.
-            if (stockItemIds.Any())
-            {
-                var stockAlert = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockAlertNotificationService>();
-                await stockAlert.CheckMultipleAndNotifyAsync(
-                    stockItemIds, invoice.WarehouseId.Value, invoice.CompanyId, invoice.TenantId);
-            }
+                    // Trigger auto-reorder check after stock-out
+                    var autoReorder = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.AutoReorderService>();
+                    await autoReorder.CheckSingleItemAsync(
+                        item.ItemId, invoice.WarehouseId.Value, invoice.CompanyId, invoice.TenantId);
+                }
 
-            // Consume Stock Reservation Entries for UpdateStock SI (direct sales without DN)
-            // Per ERPNext: update_stock_reservation_entries on SI submit with update_stock=true
-            var sreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
-            foreach (var item in invoice.Items)
-            {
-                var itemEntity = await itemRepo.FindAsync(item.ItemId);
-                if (itemEntity == null || !itemEntity.MaintainStock) continue;
+                // Low-stock alert for procurement staff, distinct from AutoReorderService above (which
+                // auto-creates a Material Request) — batched once for all stock items, not per-item,
+                // since every SI item shares the same document-level WarehouseId here. Reuses
+                // stockItemIds (computed above for QI enforcement) to skip service items the same way
+                // the stock-out loop itself does.
+                if (stockItemIds.Any())
+                {
+                    var stockAlert = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockAlertNotificationService>();
+                    await stockAlert.CheckMultipleAndNotifyAsync(
+                        stockItemIds, invoice.WarehouseId.Value, invoice.CompanyId, invoice.TenantId);
+                }
 
-                await sreManager.ConsumeOnDeliveryAsync(
-                    item.ItemId, invoice.WarehouseId.Value, item.StockQty);
+                // Consume Stock Reservation Entries for UpdateStock SI (direct sales without DN)
+                // Per ERPNext: update_stock_reservation_entries on SI submit with update_stock=true
+                var sreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+                foreach (var item in invoice.Items)
+                {
+                    var itemEntity = await itemRepo.FindAsync(item.ItemId);
+                    if (itemEntity == null || !itemEntity.MaintainStock) continue;
+
+                    await sreManager.ConsumeOnDeliveryAsync(
+                        item.ItemId, invoice.WarehouseId.Value, item.StockQty);
+                }
             }
         }
 
@@ -1566,28 +1620,33 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 if (itemEntity != null && !itemEntity.MaintainStock)
                     continue;
 
-                var stockQty = item.StockQty;
+                var stockQty = Math.Abs(item.StockQty);
                 // Use the valuation rate that was captured during submit (actual cost rate)
                 // Fallback to current balance rate if ValuationRate wasn't set (legacy data)
                 var ratePerStockUnit = item.ValuationRate > 0
                     ? item.ValuationRate
                     : (await _valuationService.GetCurrentBalanceAsync(item.ItemId, invoice.WarehouseId.Value)).ValuationRate;
 
+                var qtyChange = invoice.IsReturn ? -stockQty : stockQty;
+
                 await _valuationService.CreateLedgerEntryAsync(
                     invoice.CompanyId, item.ItemId, invoice.WarehouseId.Value,
-                    invoice.IssueDate, stockQty, ratePerStockUnit, // Positive = stock back in
+                    invoice.IssueDate, qtyChange, ratePerStockUnit,
                     voucherType: "SalesInvoice", voucherId: invoice.Id,
                     tenantId: invoice.TenantId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, invoice.WarehouseId.Value,
-                    stockQty, stockQty * ratePerStockUnit, invoice.TenantId);
+                    qtyChange, qtyChange * ratePerStockUnit, invoice.TenantId);
 
-                // Restore StockReservationEntry DeliveredQty (per ERPNext PR #58613 / commit 7ecfa6b356)
-                var sreManager = LazyServiceProvider
-                    .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
-                await sreManager.RestoreOnCancelDeliveryAsync(
-                    item.ItemId, invoice.WarehouseId.Value, stockQty);
+                if (!invoice.IsReturn)
+                {
+                    // Restore StockReservationEntry DeliveredQty (per ERPNext PR #58613 / commit 7ecfa6b356)
+                    var sreManager = LazyServiceProvider
+                        .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+                    await sreManager.RestoreOnCancelDeliveryAsync(
+                        item.ItemId, invoice.WarehouseId.Value, stockQty);
+                }
             }
         }
 

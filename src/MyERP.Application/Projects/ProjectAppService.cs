@@ -359,6 +359,12 @@ public class ProjectAppService : ApplicationService, IProjectAppService
                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Parent Task '{parent.Subject}' must be a Group Task.");
             }
+            // Per ERPNext PR #60578 / commit 4973292edc: parent task must be from the same project
+            if (parent.ProjectId != input.ProjectId)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Parent Task '{parent.Subject}' is not in Project '{input.ProjectId}'. Pick a group task of the same project.");
+            }
         }
 
         decimal resolvedWeight = input.TaskWeight ?? 1m;
@@ -400,6 +406,8 @@ public class ProjectAppService : ApplicationService, IProjectAppService
                 .WithData("detail", "Progress % for a task cannot be more than 100.");
         }
 
+        var task = await _taskRepository.GetAsync(taskId);
+
         if (input.ParentTaskId.HasValue)
         {
             if (input.ParentTaskId.Value == taskId)
@@ -414,9 +422,13 @@ public class ProjectAppService : ApplicationService, IProjectAppService
                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Parent Task '{parent.Subject}' must be a Group Task.");
             }
+            // Per ERPNext PR #60578 / commit 4973292edc: parent task must be from the same project
+            if (parent.ProjectId != task.ProjectId)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Parent Task '{parent.Subject}' is not in Project '{task.ProjectId}'. Pick a group task of the same project.");
+            }
         }
-
-        var task = await _taskRepository.GetAsync(taskId);
 
         // Per ERPNext PR #60635 / commit ba5e28ebee:
         // Type change fetches the task weight unless the weight changes explicitly

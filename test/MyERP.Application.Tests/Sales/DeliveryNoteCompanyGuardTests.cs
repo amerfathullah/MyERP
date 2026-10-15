@@ -435,4 +435,171 @@ public abstract class DeliveryNoteCompanyGuardTests<TStartupModule> : MyERPAppli
             ex.Code.ShouldBe(MyERPDomainErrorCodes.PartyDisabled);
         });
     }
+
+    [Fact]
+    public async Task SubmitAsync_StandaloneReturn_UsesValuationRateNotSellingPrice()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "DN Standalone Return Co"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(new Customer(Guid.NewGuid(), company.Id, "DN Standalone Return Cust"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(new Item(Guid.NewGuid(), company.Id, "DN-RET-ITEM", "DN Return Item", ItemType.Goods)
+            {
+                StandardBuyingPrice = 45m,
+            }, autoSave: true);
+            var wh = await GetRequiredService<IRepository<Warehouse, Guid>>().InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "DN Return WH"), autoSave: true);
+
+            await SeedGlAndSeriesFixtureAsync(
+                company,
+                GetRequiredService<IRepository<Account, Guid>>(),
+                GetRequiredService<IRepository<CostCenter, Guid>>(),
+                GetRequiredService<IRepository<FiscalYear, Guid>>(),
+                GetRequiredService<IRepository<AccountingRule, Guid>>(),
+                GetRequiredService<IRepository<Company, Guid>>(),
+                GetRequiredService<IRepository<DocumentSeries, Guid>>(),
+                "RET1");
+
+            var dnAppService = GetRequiredService<IDeliveryNoteAppService>();
+            var dnRepo = GetRequiredService<IRepository<DeliveryNote, Guid>>();
+
+            // Create standalone return: selling price = 150, quantity = -2
+            var returnDn = await dnAppService.CreateAsync(new CreateDeliveryNoteDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                WarehouseId = wh.Id,
+                IsReturn = true,
+                PostingDate = DateTime.UtcNow.Date,
+                Items = new List<CreateDeliveryNoteItemDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        Description = "Returned Goods",
+                        Quantity = 2m,
+                        UnitPrice = 150m,
+                    }
+                }
+            });
+
+            // Submit return
+            await dnAppService.SubmitAsync(returnDn.Id);
+
+            var submittedDn = await dnRepo.GetAsync(returnDn.Id);
+            // Per ERPNext PR #60614: standalone return uses current valuation rate (45), NOT selling price (150)
+            submittedDn.Items[0].ValuationRate.ShouldBe(45m);
+            submittedDn.StockCostTotal.ShouldBe(90m); // 2 * 45m
+
+            // Cancel return
+            await dnAppService.CancelAsync(returnDn.Id);
+            var cancelledDn = await dnRepo.GetAsync(returnDn.Id);
+            cancelledDn.Status.ShouldBe(Core.DocumentStatus.Cancelled);
+        });
+    }
+
+    [Fact]
+    public async Task SubmitAsync_ReturnAgainstOriginalDelivery_UsesOriginalValuationRate()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "DN Linked Return Co"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<Customer, Guid>>().InsertAsync(new Customer(Guid.NewGuid(), company.Id, "DN Linked Return Cust"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(new Item(Guid.NewGuid(), company.Id, "DN-LINK-RET-ITEM", "DN Linked Return Item", ItemType.Goods)
+            {
+                StandardBuyingPrice = 40m,
+            }, autoSave: true);
+            var wh = await GetRequiredService<IRepository<Warehouse, Guid>>().InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "DN Linked Return WH"), autoSave: true);
+
+            await SeedGlAndSeriesFixtureAsync(
+                company,
+                GetRequiredService<IRepository<Account, Guid>>(),
+                GetRequiredService<IRepository<CostCenter, Guid>>(),
+                GetRequiredService<IRepository<FiscalYear, Guid>>(),
+                GetRequiredService<IRepository<AccountingRule, Guid>>(),
+                GetRequiredService<IRepository<Company, Guid>>(),
+                GetRequiredService<IRepository<DocumentSeries, Guid>>(),
+                "RET2");
+
+            var dnAppService = GetRequiredService<IDeliveryNoteAppService>();
+            var dnRepo = GetRequiredService<IRepository<DeliveryNote, Guid>>();
+
+            // 1. Normal delivery note with ValuationRate = 40
+            var origDn = new DeliveryNote(Guid.NewGuid(), company.Id, customer.Id, wh.Id, "DN-ORIG-001", DateTime.UtcNow.Date);
+            origDn.AddItem(item.Id, "Delivered Goods", 5m, 120m, 0m);
+            origDn.Items[0].ValuationRate = 40m;
+            origDn.Submit();
+            await dnRepo.InsertAsync(origDn, autoSave: true);
+
+            // Change item master standard buying price to 60 to distinguish original vs current
+            item.StandardBuyingPrice = 60m;
+            await GetRequiredService<IRepository<Item, Guid>>().UpdateAsync(item, autoSave: true);
+
+            // 2. Return against original delivery note
+            var returnDn = await dnAppService.CreateAsync(new CreateDeliveryNoteDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                WarehouseId = wh.Id,
+                IsReturn = true,
+                ReturnAgainstId = origDn.Id,
+                PostingDate = DateTime.UtcNow.Date,
+                Items = new List<CreateDeliveryNoteItemDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        Description = "Returned Goods",
+                        Quantity = 2m,
+                        UnitPrice = 120m,
+                    }
+                }
+            });
+
+            await dnAppService.SubmitAsync(returnDn.Id);
+
+            var submittedReturn = await dnRepo.GetAsync(returnDn.Id);
+            // Must use original delivery valuation rate (40), not current (60) or selling price (120)
+            submittedReturn.Items[0].ValuationRate.ShouldBe(40m);
+            submittedReturn.StockCostTotal.ShouldBe(80m); // 2 * 40m
+        });
+    }
+
+    private static async Task SeedGlAndSeriesFixtureAsync(
+        Company company,
+        IRepository<Account, Guid> accountRepo,
+        IRepository<CostCenter, Guid> costCenterRepo,
+        IRepository<FiscalYear, Guid> fiscalYearRepo,
+        IRepository<AccountingRule, Guid> ruleRepo,
+        IRepository<Company, Guid> companyRepo,
+        IRepository<DocumentSeries, Guid> seriesRepo,
+        string tag)
+    {
+        var stockAccount = await accountRepo.InsertAsync(
+            new Account(Guid.NewGuid(), company.Id, $"1140-{tag}", $"Test Stock {tag}", AccountType.Asset), autoSave: true);
+        var cogsAccount = await accountRepo.InsertAsync(
+            new Account(Guid.NewGuid(), company.Id, $"5000-{tag}", $"Test COGS {tag}", AccountType.Expense), autoSave: true);
+        var costCenter = await costCenterRepo.InsertAsync(
+            new CostCenter(Guid.NewGuid(), company.Id, $"Cost Center {tag}"), autoSave: true);
+
+        company.DefaultInventoryAccountId = stockAccount.Id;
+        company.DefaultExpenseAccountId = cogsAccount.Id;
+        company.DefaultCostCenterId = costCenter.Id;
+        await companyRepo.UpdateAsync(company, autoSave: true);
+
+        await fiscalYearRepo.InsertAsync(
+            new FiscalYear(Guid.NewGuid(), company.Id, $"FY {tag}", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)),
+            autoSave: true);
+
+        await ruleRepo.InsertAsync(
+            new AccountingRule(Guid.NewGuid(), company.Id, $"DN DR COGS {tag}", "DeliveryNote", true, AccountSource.ItemExpense, AmountSource.NetTotal) { SortOrder = 1 },
+            autoSave: true);
+        await ruleRepo.InsertAsync(
+            new AccountingRule(Guid.NewGuid(), company.Id, $"DN CR Stock {tag}", "DeliveryNote", false, AccountSource.FixedAccount, AmountSource.NetTotal) { SortOrder = 2, FixedAccountId = stockAccount.Id },
+            autoSave: true);
+
+        await seriesRepo.InsertAsync(
+            new DocumentSeries(Guid.NewGuid(), company.Id, $"DN Series {tag}", "DeliveryNote", $"DN{tag}-"), autoSave: true);
+        await seriesRepo.InsertAsync(
+            new DocumentSeries(Guid.NewGuid(), company.Id, $"SI Series {tag}", "SalesInvoice", $"SI{tag}-"), autoSave: true);
+    }
 }

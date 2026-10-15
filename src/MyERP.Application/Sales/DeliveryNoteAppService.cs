@@ -285,7 +285,8 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         var itemRepoForUom = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
         foreach (var item in input.Items)
         {
-            dn.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice,
+            var qty = dn.IsReturn ? -Math.Abs(item.Quantity) : item.Quantity;
+            dn.AddItem(item.ItemId, item.Description, qty, item.UnitPrice,
                 item.TaxAmount, item.Uom, item.SalesOrderItemId, item.PickListItemId);
             var lastItem = dn.Items[^1];
             var itemEntity = await itemRepoForUom.FindAsync(item.ItemId);
@@ -416,7 +417,8 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         dn.ClearItems();
         foreach (var item in input.Items)
         {
-            dn.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.SalesOrderItemId, item.PickListItemId);
+            var qty = dn.IsReturn ? -Math.Abs(item.Quantity) : item.Quantity;
+            dn.AddItem(item.ItemId, item.Description, qty, item.UnitPrice, item.TaxAmount, item.Uom, item.SalesOrderItemId, item.PickListItemId);
         }
 
         await _repository.UpdateAsync(dn, autoSave: true);
@@ -552,6 +554,8 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
             // RETURN: Stock comes BACK to warehouse (positive SLE, positive Bin)
             var returnItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            DeliveryNote? origDnForRates = dn.ReturnAgainstId.HasValue ? await _repository.FindAsync(dn.ReturnAgainstId.Value) : null;
+
             foreach (var item in dn.Items)
             {
                 // Skip non-stock items
@@ -559,23 +563,51 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 if (itemEntity != null && !itemEntity.MaintainStock)
                     continue;
 
+                var returnWarehouseId = item.WarehouseId ?? dn.WarehouseId;
                 // Use StockQty for SLE (returns in stock UOM)
                 var returnStockQty = Math.Abs(item.StockQty);
-                var ratePerStockUnit = item.ConversionFactor != 0
-                    ? item.UnitPrice / item.ConversionFactor
-                    : item.UnitPrice;
+
+                // Per ERPNext PR #60614 (commit 86a28694b9 & 0f0c78053a):
+                // A return linked to original delivery uses original delivery incoming rate.
+                // A standalone return uses current warehouse valuation rate (fallback to item valuation rate / standard buying price).
+                decimal incomingRate = 0m;
+                if (origDnForRates != null)
+                {
+                    var origItem = origDnForRates.Items.FirstOrDefault(i =>
+                        (item.SalesOrderItemId.HasValue && i.SalesOrderItemId == item.SalesOrderItemId) ||
+                        (!item.SalesOrderItemId.HasValue && i.ItemId == item.ItemId));
+                    if (origItem != null && origItem.ValuationRate > 0)
+                    {
+                        incomingRate = origItem.ValuationRate;
+                    }
+                }
+
+                if (incomingRate <= 0)
+                {
+                    var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, returnWarehouseId);
+                    incomingRate = balance.ValuationRate > 0
+                        ? balance.ValuationRate
+                        : (itemEntity?.StandardBuyingPrice ?? 0m);
+                }
+
+                item.ValuationRate = incomingRate;
 
                 await _valuationService.CreateLedgerEntryAsync(
-                    dn.CompanyId, item.ItemId, dn.WarehouseId,
-                    dn.PostingDate, returnStockQty, ratePerStockUnit,
+                    dn.CompanyId, item.ItemId, returnWarehouseId,
+                    dn.PostingDate, returnStockQty, incomingRate,
                     voucherType: "DeliveryNote", voucherId: dn.Id,
                     tenantId: dn.TenantId, batchId: item.BatchId);
 
                 await _binService.ApplyStockMovementAsync(
-                    item.ItemId, dn.WarehouseId,
-                    returnStockQty, returnStockQty * ratePerStockUnit, dn.TenantId);
+                    item.ItemId, returnWarehouseId,
+                    returnStockQty, returnStockQty * incomingRate, dn.TenantId);
                 // No reserved qty release on returns — stock wasn't reserved for a return
             }
+
+            // Calculate StockCostTotal for reverse COGS GL posting
+            dn.StockCostTotal = dn.Items
+                .Where(i => i.ValuationRate > 0)
+                .Sum(i => Math.Abs(i.StockQty) * i.ValuationRate);
 
             // Reverse GL: DR Stock, CR COGS (opposite of normal DN)
             var warehouseAccountService = LazyServiceProvider
@@ -954,7 +986,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         {
             if (bundleItemIds.Contains(item.ItemId))
             {
-                // Product Bundle: reverse components that were stock-out on submit
+                // Product Bundle: reverse components that were affected on submit
                 var components = await bundleService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice);
                 foreach (var comp in components)
                 {
@@ -964,24 +996,28 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
                     var compBalance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, dn.WarehouseId);
                     var compValuationRate = compBalance.ValuationRate;
+                    var compQtyChange = dn.IsReturn ? -Math.Abs(comp.Qty) : Math.Abs(comp.Qty);
 
                     await _valuationService.CreateLedgerEntryAsync(
                         dn.CompanyId, comp.ComponentItemId, dn.WarehouseId,
-                        dn.PostingDate, comp.Qty, compValuationRate,
+                        dn.PostingDate, compQtyChange, compValuationRate,
                         voucherType: "DeliveryNote", voucherId: dn.Id,
                         tenantId: dn.TenantId);
 
                     await _binService.ApplyStockMovementAsync(
                         comp.ComponentItemId, dn.WarehouseId,
-                        comp.Qty, comp.Qty * compValuationRate, dn.TenantId);
+                        compQtyChange, compQtyChange * compValuationRate, dn.TenantId);
 
-                    await _binService.UpdateReservedQtyAsync(
-                        comp.ComponentItemId, dn.WarehouseId, comp.Qty, dn.TenantId);
+                    if (!dn.IsReturn)
+                    {
+                        await _binService.UpdateReservedQtyAsync(
+                            comp.ComponentItemId, dn.WarehouseId, comp.Qty, dn.TenantId);
 
-                    var sreManager = LazyServiceProvider
-                        .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
-                    await sreManager.RestoreOnCancelDeliveryAsync(
-                        comp.ComponentItemId, dn.WarehouseId, comp.Qty, dn.SalesOrderId);
+                        var sreManager = LazyServiceProvider
+                            .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+                        await sreManager.RestoreOnCancelDeliveryAsync(
+                            comp.ComponentItemId, dn.WarehouseId, comp.Qty, dn.SalesOrderId);
+                    }
                 }
             }
             else
@@ -992,28 +1028,31 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 if (itemEntity != null && !itemEntity.MaintainStock)
                     continue;
 
-                var stockQty = item.StockQty;
+                var stockQtyChange = dn.IsReturn ? -Math.Abs(item.StockQty) : Math.Abs(item.StockQty);
                 var itemWarehouseId = item.WarehouseId ?? dn.WarehouseId;
 
                 await _valuationService.CreateLedgerEntryAsync(
                     dn.CompanyId, item.ItemId, itemWarehouseId,
-                    dn.PostingDate, stockQty, item.ValuationRate,
+                    dn.PostingDate, stockQtyChange, item.ValuationRate,
                     voucherType: "DeliveryNote", voucherId: dn.Id,
                     tenantId: dn.TenantId, batchId: item.BatchId);
 
                 await _binService.ApplyStockMovementAsync(
                     item.ItemId, itemWarehouseId,
-                    stockQty, stockQty * item.ValuationRate, dn.TenantId);
+                    stockQtyChange, stockQtyChange * item.ValuationRate, dn.TenantId);
 
-                // Re-reserve qty in stock UOM
-                await _binService.UpdateReservedQtyAsync(
-                    item.ItemId, itemWarehouseId, stockQty, dn.TenantId);
+                if (!dn.IsReturn)
+                {
+                    // Re-reserve qty in stock UOM (returns never held reservations)
+                    await _binService.UpdateReservedQtyAsync(
+                        item.ItemId, itemWarehouseId, Math.Abs(item.StockQty), dn.TenantId);
 
-                // Restore StockReservationEntry DeliveredQty (per ERPNext PR #58613 / commit 7ecfa6b356)
-                var sreManager = LazyServiceProvider
-                    .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
-                await sreManager.RestoreOnCancelDeliveryAsync(
-                    item.ItemId, itemWarehouseId, stockQty, dn.SalesOrderId, item.BatchId);
+                    // Restore StockReservationEntry DeliveredQty (per ERPNext PR #58613 / commit 7ecfa6b356)
+                    var sreManager = LazyServiceProvider
+                        .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+                    await sreManager.RestoreOnCancelDeliveryAsync(
+                        item.ItemId, itemWarehouseId, Math.Abs(item.StockQty), dn.SalesOrderId, item.BatchId);
+                }
             }
         }
 
