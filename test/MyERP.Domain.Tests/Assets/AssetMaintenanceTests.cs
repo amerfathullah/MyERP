@@ -88,4 +88,53 @@ public class AssetMaintenanceTests
         log.CheckOverdue(new DateTime(2026, 2, 5, 0, 0, 0, DateTimeKind.Utc));
         log.Status.ShouldBe(AssetMaintenanceStatus.Overdue);
     }
+
+    [Fact]
+    public void AssetMaintenanceTeam_DuplicateMember_ThrowsValidationFailed()
+    {
+        var team = new AssetMaintenanceTeam(Guid.NewGuid(), Guid.NewGuid(), "Duplicate Member Team");
+        var empId = Guid.NewGuid();
+
+        var ex = Should.Throw<BusinessException>(() =>
+            team.SetMembers(new (Guid EmployeeId, string? MaintenanceRole)[]
+            {
+                (empId, "Technician"),
+                (empId, "Senior Technician"),
+            }));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
+    public void AssetMaintenanceTeam_ManagerNotMember_ThrowsMaintenanceManagerMustBeMember()
+    {
+        var team = new AssetMaintenanceTeam(Guid.NewGuid(), Guid.NewGuid(), "Manager Validation Team")
+        {
+            MaintenanceManagerId = Guid.NewGuid(),
+        };
+        team.SetMembers(new (Guid EmployeeId, string? MaintenanceRole)[]
+        {
+            (Guid.NewGuid(), "Technician"),
+        });
+
+        var ex = Should.Throw<BusinessException>(() => team.Validate());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.MaintenanceManagerMustBeMember);
+    }
+
+    [Fact]
+    public void AssetMaintenanceTeam_ManagerIsMember_PassesValidation()
+    {
+        var managerId = Guid.NewGuid();
+        var team = new AssetMaintenanceTeam(Guid.NewGuid(), Guid.NewGuid(), "Valid Team")
+        {
+            MaintenanceManagerId = managerId,
+        };
+        team.SetMembers(new (Guid EmployeeId, string? MaintenanceRole)[]
+        {
+            (managerId, "Manager"),
+            (Guid.NewGuid(), "Technician"),
+        });
+
+        Should.NotThrow(() => team.Validate());
+    }
 }

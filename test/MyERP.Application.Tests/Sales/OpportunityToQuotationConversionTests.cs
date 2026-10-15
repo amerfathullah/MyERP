@@ -174,4 +174,41 @@ public abstract class OpportunityToQuotationConversionTests<TStartupModule> : My
             (await opportunityRepository.GetAsync(opportunity.Id)).Status.ShouldBe(OpportunityStatus.Quotation);
         });
     }
+
+    [Fact]
+    public async Task ConvertOpportunityToQuotationAsync_OpportunityWithDisabledLead_ThrowsLeadIsDisabled()
+    {
+        // Per ERPNext PR #60227 / commit 2e7807e09c: refuse conversion when linked lead is disabled
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepository = GetRequiredService<IRepository<Customer, Guid>>();
+            var leadRepository = GetRequiredService<IRepository<Lead, Guid>>();
+            var opportunityRepository = GetRequiredService<IRepository<Opportunity, Guid>>();
+            var seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var conversionAppService = GetRequiredService<IDocumentConversionAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Opp Conv Disabled Lead Co"), autoSave: true);
+            await seriesRepository.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "Quotation Series 5", "Quotation", "QTN5-"), autoSave: true);
+            var customer = await customerRepository.InsertAsync(
+                new Customer(Guid.NewGuid(), company.Id, "Test Customer 5"), autoSave: true);
+
+            var lead = new Lead(Guid.NewGuid(), company.Id, "LEAD-DIS-CONV-1", "Disabled Lead")
+            {
+                Disabled = true,
+            };
+            await leadRepository.InsertAsync(lead, autoSave: true);
+
+            var opportunity = new Opportunity(Guid.NewGuid(), company.Id, "OPP-DIS-CONV-1", "Disabled Deal")
+            {
+                CustomerId = customer.Id,
+                LeadId = lead.Id,
+            };
+            await opportunityRepository.InsertAsync(opportunity, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(
+                () => conversionAppService.ConvertOpportunityToQuotationAsync(opportunity.Id));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.LeadIsDisabled);
+        });
+    }
 }

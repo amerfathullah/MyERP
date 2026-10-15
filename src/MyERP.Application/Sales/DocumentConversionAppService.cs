@@ -690,6 +690,19 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             }
         }
 
+        // Per ERPNext PR #60227 (commit 2e7807e09c): refuse quotations for disabled leads
+        if (opp.LeadId.HasValue)
+        {
+            var leadRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Lead, Guid>>();
+            var lead = await leadRepo.FindAsync(opp.LeadId.Value);
+            if (lead != null && lead.Disabled)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.LeadIsDisabled)
+                    .WithData("0", lead.LeadNumber)
+                    .WithData("1", "Quotation");
+            }
+        }
+
         // Per ERPNext: check if quotation already exists for this opportunity
         var existingQuery = await _quotationRepository.GetQueryableAsync();
         var alreadyExists = existingQuery.Any(q =>

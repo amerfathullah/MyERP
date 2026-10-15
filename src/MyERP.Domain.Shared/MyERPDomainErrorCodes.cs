@@ -632,6 +632,10 @@ public static class MyERPDomainErrorCodes
     public const string InvalidVariantCopyField = "MyERP:05096";
     public const string WorkOrderDoesNotAllowAlternativeItems = "MyERP:05097";
     public const string ItemIsNotAlternativeOfOriginal = "MyERP:05098";
+
+    // Asset Maintenance Team (ERPNext PR #60036 / commit ba3dfc7989, 95bec1a0ed)
+    public const string MaintenanceManagerMustBeMember = "MyERP:15011";
+    public const string CannotRemoveTeamMemberWithTasks = "MyERP:15012";
 }
 
 

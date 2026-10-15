@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
@@ -34,8 +35,48 @@ public class AssetMaintenanceTeam : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void SetMembers(IEnumerable<(Guid EmployeeId, string? MaintenanceRole)> members)
     {
         _members.Clear();
+        var seenEmployees = new HashSet<Guid>();
+        var row = 1;
         foreach (var (employeeId, role) in members)
+        {
+            if (!seenEmployees.Add(employeeId))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{row}: Employee is already a member of this team.");
+            }
             _members.Add(new AssetMaintenanceTeamMember(Guid.NewGuid(), Id, employeeId, role));
+            row++;
+        }
+    }
+
+    public void Validate()
+    {
+        ValidateUniqueMembers();
+        ValidateManagerIsMember();
+    }
+
+    public void ValidateUniqueMembers()
+    {
+        var seenEmployees = new HashSet<Guid>();
+        var row = 1;
+        foreach (var member in _members)
+        {
+            if (!seenEmployees.Add(member.EmployeeId))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{row}: Employee is already a member of this team.");
+            }
+            row++;
+        }
+    }
+
+    public void ValidateManagerIsMember()
+    {
+        if (MaintenanceManagerId.HasValue && !_members.Any(m => m.EmployeeId == MaintenanceManagerId.Value))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.MaintenanceManagerMustBeMember)
+                .WithData("detail", "Maintenance Manager must be a member of the team.");
+        }
     }
 }
 

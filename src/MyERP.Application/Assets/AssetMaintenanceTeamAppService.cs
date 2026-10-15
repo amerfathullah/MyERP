@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MyERP.Maintenance.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -55,6 +56,7 @@ public class AssetMaintenanceTeamAppService : ApplicationService, IAssetMaintena
             MaintenanceManagerId = input.MaintenanceManagerId,
         };
         team.SetMembers(input.Members.Select(m => (m.EmployeeId, m.MaintenanceRole)));
+        team.Validate();
         await _repository.InsertAsync(team);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
@@ -71,9 +73,49 @@ public class AssetMaintenanceTeamAppService : ApplicationService, IAssetMaintena
     public async Task<AssetMaintenanceTeamDto> UpdateAsync(Guid id, CreateUpdateAssetMaintenanceTeamDto input)
     {
         var team = await _repository.GetAsync(id, includeDetails: true);
+
+        // Per ERPNext PR #60036 (commit ba3dfc7989): validate removed members have no active assigned tasks
+        var currentMemberIds = team.Members.Select(m => m.EmployeeId).ToHashSet();
+        var newMemberIds = input.Members.Select(m => m.EmployeeId).ToHashSet();
+        var removedMemberIds = currentMemberIds.Except(newMemberIds).ToList();
+
+        if (removedMemberIds.Count > 0)
+        {
+            var maintenanceRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<AssetMaintenance, Guid>>();
+            var maintenancesQuery = await maintenanceRepo.WithDetailsAsync(am => am.Tasks);
+            var maintenances = maintenancesQuery
+                .Where(am => am.MaintenanceTeamId == team.Id)
+                .ToList();
+
+            var assignedRemovedMemberIds = maintenances
+                .SelectMany(am => am.Tasks)
+                .Where(t => t.AssignToEmployeeId.HasValue && removedMemberIds.Contains(t.AssignToEmployeeId.Value))
+                .Select(t => t.AssignToEmployeeId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (assignedRemovedMemberIds.Count > 0)
+            {
+                var employeeQuery = await _employeeRepository.GetQueryableAsync();
+                var employeeNames = employeeQuery
+                    .Where(e => assignedRemovedMemberIds.Contains(e.Id))
+                    .Select(e => e.FullName)
+                    .ToList();
+
+                var namesDisplay = employeeNames.Count > 0
+                    ? string.Join(", ", employeeNames)
+                    : string.Join(", ", assignedRemovedMemberIds);
+
+                throw new BusinessException(MyERPDomainErrorCodes.CannotRemoveTeamMemberWithTasks)
+                    .WithData("0", namesDisplay)
+                    .WithData("detail", $"Reassign the maintenance tasks of {namesDisplay} before removing them from the team.");
+            }
+        }
+
         team.TeamName = input.TeamName;
         team.MaintenanceManagerId = input.MaintenanceManagerId;
         team.SetMembers(input.Members.Select(m => (m.EmployeeId, m.MaintenanceRole)));
+        team.Validate();
         await _repository.UpdateAsync(team);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
