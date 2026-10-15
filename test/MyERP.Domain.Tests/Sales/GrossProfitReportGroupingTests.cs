@@ -567,6 +567,139 @@ public class GrossProfitReportGroupingTests
         report.GrossProfit.ShouldBe(400m);  // NOT 800!
     }
 
+    [Fact]
+    public async Task GrossProfitReportAppService_InvoiceFromDeliveryNote_ResolvesValuationRateFromDeliveryNoteItem()
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+
+        var invoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var warehouseRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var dnRepo = Substitute.For<IRepository<DeliveryNote, Guid>>();
+
+        var customer = new Customer(customerId, companyId, "Customer");
+        var warehouse = new Warehouse(warehouseId, companyId, "Stores");
+        customerRepo.GetListAsync(Arg.Any<Expression<Func<Customer, bool>>>()).Returns(new List<Customer> { customer });
+        warehouseRepo.GetListAsync(Arg.Any<Expression<Func<Warehouse, bool>>>()).Returns(new List<Warehouse> { warehouse });
+        var item = new Item(itemId, companyId, "WIDGET", "Widget", ItemType.Goods);
+        itemRepo.GetListAsync(Arg.Any<Expression<Func<Item, bool>>>()).Returns(new List<Item> { item });
+
+        var dn = new DeliveryNote(Guid.NewGuid(), companyId, customerId, warehouseId, "DN-001", new DateTime(2026, 3, 10));
+        dn.AddItem(itemId, "Widget", 5m, 100m, 0m);
+        dn.Items[0].ValuationRate = 60m;
+        dn.Submit();
+
+        dnRepo.GetListAsync(Arg.Any<Expression<Func<DeliveryNote, bool>>>()).Returns(new List<DeliveryNote> { dn });
+
+        // Non-update_stock SI created from DN: ValuationRate on SI item is initially 0
+        var si = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "INV-001", new DateTime(2026, 3, 15));
+        si.WarehouseId = warehouseId;
+        si.AddItem(itemId, "Widget", 5m, 100m, 0m);
+        si.Items[0].DeliveryNoteItemId = dn.Items[0].Id;
+        si.Items[0].ValuationRate = 0m;
+        si.Submit();
+        si.Post();
+
+        invoiceRepo.GetQueryableAsync().Returns(new List<SalesInvoice> { si }.AsQueryable());
+
+        var grossProfitService = new GrossProfitService(null!);
+        var appService = new GrossProfitReportAppService(
+            invoiceRepo, grossProfitService, customerRepo, itemRepo, warehouseRepo,
+            deliveryNoteRepository: dnRepo);
+
+        var report = await appService.GetReportAsync(new GrossProfitRequestDto
+        {
+            CompanyId = companyId,
+            FromDate = new DateTime(2026, 1, 1),
+            ToDate = new DateTime(2026, 12, 31)
+        });
+
+        report.ShouldNotBeNull();
+        report.Items.Count.ShouldBe(1);
+        report.Items[0].ValuationRate.ShouldBe(60m);
+        report.Items[0].Revenue.ShouldBe(500m);
+        report.Items[0].Cost.ShouldBe(300m);
+        report.Items[0].GrossProfit.ShouldBe(200m);
+        report.TotalRevenue.ShouldBe(500m);
+        report.TotalCost.ShouldBe(300m);
+        report.GrossProfit.ShouldBe(200m);
+    }
+
+    [Fact]
+    public async Task GrossProfitReportAppService_SalesOrderWithFullyReturnedDelivery_GuardsZeroDeliveredQtyAndUsesFallback_PerPR59885()
+    {
+        // Per ERPNext PR #59885 / commit 3aa0af6844:
+        // A fully returned delivery leaves total delivered qty at zero. Must not divide by zero;
+        // falls back to Item's StandardBuyingPrice.
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var soItemId = Guid.NewGuid();
+
+        var invoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var warehouseRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var dnRepo = Substitute.For<IRepository<DeliveryNote, Guid>>();
+
+        var customer = new Customer(customerId, companyId, "Customer");
+        var warehouse = new Warehouse(warehouseId, companyId, "Stores");
+        customerRepo.GetListAsync(Arg.Any<Expression<Func<Customer, bool>>>()).Returns(new List<Customer> { customer });
+        warehouseRepo.GetListAsync(Arg.Any<Expression<Func<Warehouse, bool>>>()).Returns(new List<Warehouse> { warehouse });
+        var item = new Item(itemId, companyId, "PART", "Part", ItemType.Goods) { StandardBuyingPrice = 45m };
+        itemRepo.GetListAsync(Arg.Any<Expression<Func<Item, bool>>>()).Returns(new List<Item> { item });
+
+        // Outward delivery of 2 @ valuation 70
+        var dn1 = new DeliveryNote(Guid.NewGuid(), companyId, customerId, warehouseId, "DN-002", new DateTime(2026, 3, 5));
+        dn1.AddItem(itemId, "Part", 2m, 100m, 0m, salesOrderItemId: soItemId);
+        dn1.Items[0].ValuationRate = 70m;
+        dn1.Submit();
+
+        // Return delivery of -2 @ valuation 70 -> Net delivered qty = 0
+        var dnReturn = new DeliveryNote(Guid.NewGuid(), companyId, customerId, warehouseId, "DN-RET-001", new DateTime(2026, 3, 8));
+        dnReturn.IsReturn = true;
+        dnReturn.AddItem(itemId, "Part", -2m, 100m, 0m, salesOrderItemId: soItemId);
+        dnReturn.Items[0].ValuationRate = 70m;
+        dnReturn.Submit();
+
+        dnRepo.GetListAsync(Arg.Any<Expression<Func<DeliveryNote, bool>>>()).Returns(new List<DeliveryNote> { dn1, dnReturn });
+
+        var si = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "INV-002", new DateTime(2026, 3, 15));
+        si.WarehouseId = warehouseId;
+        si.AddItem(itemId, "Part", 2m, 100m, 0m);
+        si.Items[0].SalesOrderItemId = soItemId;
+        si.Items[0].ValuationRate = 0m;
+        si.Submit();
+        si.Post();
+
+        invoiceRepo.GetQueryableAsync().Returns(new List<SalesInvoice> { si }.AsQueryable());
+
+        var grossProfitService = new GrossProfitService(null!);
+        var appService = new GrossProfitReportAppService(
+            invoiceRepo, grossProfitService, customerRepo, itemRepo, warehouseRepo,
+            deliveryNoteRepository: dnRepo);
+
+        var report = await appService.GetReportAsync(new GrossProfitRequestDto
+        {
+            CompanyId = companyId,
+            FromDate = new DateTime(2026, 1, 1),
+            ToDate = new DateTime(2026, 12, 31)
+        });
+
+        report.ShouldNotBeNull();
+        report.Items.Count.ShouldBe(1);
+        // Falls back to StandardBuyingPrice 45m without divide-by-zero
+        report.Items[0].ValuationRate.ShouldBe(45m);
+        report.Items[0].Revenue.ShouldBe(200m);
+        report.Items[0].Cost.ShouldBe(90m);
+        report.Items[0].GrossProfit.ShouldBe(110m);
+    }
+
     [Theory]
     [InlineData("SellingRate")]
     [InlineData("AvgSellingRate")]

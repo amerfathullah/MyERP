@@ -30,6 +30,7 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
     private readonly IRepository<SalesPerson, Guid>? _salesPersonRepository;
     private readonly IRepository<SalesTeamEntry, Guid>? _salesTeamRepository;
     private readonly IRepository<PaymentScheduleEntry, Guid>? _paymentScheduleRepository;
+    private readonly IRepository<DeliveryNote, Guid>? _deliveryNoteRepository;
 
     public GrossProfitReportAppService(
         IRepository<SalesInvoice, Guid> invoiceRepository,
@@ -42,7 +43,8 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
         IRepository<Project, Guid>? projectRepository = null,
         IRepository<SalesPerson, Guid>? salesPersonRepository = null,
         IRepository<SalesTeamEntry, Guid>? salesTeamRepository = null,
-        IRepository<PaymentScheduleEntry, Guid>? paymentScheduleRepository = null)
+        IRepository<PaymentScheduleEntry, Guid>? paymentScheduleRepository = null,
+        IRepository<DeliveryNote, Guid>? deliveryNoteRepository = null)
     {
         _invoiceRepository = invoiceRepository;
         _grossProfitService = grossProfitService;
@@ -55,6 +57,7 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
         _salesPersonRepository = salesPersonRepository;
         _salesTeamRepository = salesTeamRepository;
         _paymentScheduleRepository = paymentScheduleRepository;
+        _deliveryNoteRepository = deliveryNoteRepository;
     }
 
     public async Task<GrossProfitReportDto> GetReportAsync(GrossProfitRequestDto input)
@@ -200,6 +203,39 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
             }
         }
 
+        // Load Delivery Note incoming rates for invoices created from DN or SO (per ERPNext PR #59885)
+        var dnItemRates = new Dictionary<Guid, decimal>();
+        var soDeliveryItems = new Dictionary<Guid, List<DeliveryNoteItem>>();
+        var dnRepo = _deliveryNoteRepository ?? LazyServiceProvider?.LazyGetService<IRepository<DeliveryNote, Guid>>();
+        if (dnRepo != null)
+        {
+            var dnList = await dnRepo.GetListAsync(d =>
+                d.CompanyId == input.CompanyId
+                && (d.Status == Core.DocumentStatus.Submitted || d.Status == Core.DocumentStatus.Posted)
+                && d.PostingDate <= to);
+
+            foreach (var dn in dnList)
+            {
+                foreach (var dnItem in dn.Items)
+                {
+                    if (dnItem.ValuationRate > 0)
+                    {
+                        dnItemRates[dnItem.Id] = dnItem.ValuationRate;
+                    }
+
+                    if (dnItem.SalesOrderItemId.HasValue)
+                    {
+                        if (!soDeliveryItems.TryGetValue(dnItem.SalesOrderItemId.Value, out var list))
+                        {
+                            list = new List<DeliveryNoteItem>();
+                            soDeliveryItems[dnItem.SalesOrderItemId.Value] = list;
+                        }
+                        list.Add(dnItem);
+                    }
+                }
+            }
+        }
+
         var lineData = new List<GrossProfitLineDto>();
 
         foreach (var invoice in invoices)
@@ -223,10 +259,30 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
                 var itemEntity = items.GetValueOrDefault(itemDetail.ItemId);
                 var valuationRate = itemDetail.ValuationRate;
 
+                // Per ERPNext gross_profit.py: if invoice row has no ValuationRate (e.g. non-update_stock SI from DN/SO),
+                // resolve rate from linked Delivery Note or Sales Order deliveries.
+                if (valuationRate == 0 && itemDetail.DeliveryNoteItemId.HasValue && dnItemRates.TryGetValue(itemDetail.DeliveryNoteItemId.Value, out var dnValRate) && dnValRate > 0)
+                {
+                    valuationRate = dnValRate;
+                }
+                else if (valuationRate == 0 && itemDetail.SalesOrderItemId.HasValue && soDeliveryItems.TryGetValue(itemDetail.SalesOrderItemId.Value, out var soItems))
+                {
+                    // Per ERPNext PR #59885 (commit 3aa0af6844):
+                    // Calculate weighted delivery incoming rate, guarded against zero delivered qty (when fully returned)
+                    var fallbackRate = itemEntity?.StandardBuyingPrice ?? 0m;
+                    valuationRate = _grossProfitService.CalculateDeliveryIncomingRate(soItems, fallbackRate);
+                }
+
                 // Commit e8496405d4: fallback to discounted last purchase net rate for non-stock items
                 if (valuationRate == 0 && lastNetPurchaseRates.TryGetValue(itemDetail.ItemId, out var lastNetRate))
                 {
                     valuationRate = lastNetRate;
+                }
+
+                // Fallback to Item's StandardBuyingPrice if still 0
+                if (valuationRate == 0 && itemEntity?.StandardBuyingPrice.HasValue == true)
+                {
+                    valuationRate = itemEntity.StandardBuyingPrice.Value;
                 }
 
                 var revenue = Math.Round(itemDetail.Quantity * itemDetail.SellingRate, 2);

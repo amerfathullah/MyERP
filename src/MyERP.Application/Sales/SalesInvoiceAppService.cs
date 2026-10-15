@@ -1372,6 +1372,55 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 }
             }
         }
+        else if (!invoice.IsReturn)
+        {
+            // For non-update_stock invoices (e.g. invoiced from DN or direct SO billing),
+            // ensure ValuationRate is populated for stock items so Gross Profit reports reflect accurate COGS.
+            var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+            var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
+            var unratedDnItemIds = invoice.Items
+                .Where(i => i.DeliveryNoteItemId.HasValue && i.ValuationRate <= 0)
+                .Select(i => i.DeliveryNoteItemId!.Value)
+                .ToHashSet();
+
+            var dnRates = new Dictionary<Guid, decimal>();
+            if (unratedDnItemIds.Any())
+            {
+                var dnQuery = await dnRepo.GetQueryableAsync();
+                var dns = dnQuery.Where(d => d.Items.Any(di => unratedDnItemIds.Contains(di.Id))).ToList();
+                foreach (var dnItem in dns.SelectMany(d => d.Items).Where(di => unratedDnItemIds.Contains(di.Id)))
+                {
+                    if (dnItem.ValuationRate > 0)
+                    {
+                        dnRates[dnItem.Id] = dnItem.ValuationRate;
+                    }
+                }
+            }
+
+            foreach (var item in invoice.Items)
+            {
+                if (item.ValuationRate > 0) continue;
+
+                var itemEntity = await itemRepo.FindAsync(item.ItemId);
+                if (itemEntity != null && !itemEntity.MaintainStock) continue;
+
+                if (item.DeliveryNoteItemId.HasValue && dnRates.TryGetValue(item.DeliveryNoteItemId.Value, out var dnRate))
+                {
+                    item.ValuationRate = dnRate;
+                }
+                else if (invoice.WarehouseId.HasValue)
+                {
+                    var balance = await _valuationService.GetCurrentBalanceAsync(item.ItemId, invoice.WarehouseId.Value);
+                    item.ValuationRate = balance.ValuationRate > 0
+                        ? balance.ValuationRate
+                        : (itemEntity?.StandardBuyingPrice ?? 0m);
+                }
+                else if (itemEntity?.StandardBuyingPrice.HasValue == true)
+                {
+                    item.ValuationRate = itemEntity.StandardBuyingPrice.Value;
+                }
+            }
+        }
 
         // Over-billing validation + SO BilledQty update (domain service)
         if (!invoice.IsReturn)
@@ -2104,11 +2153,18 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         var result = await CreateAsync(createDto);
 
-        // Link SI items back to DN items for billing tracking (DeliveryNoteItemId)
+        // Link SI items back to DN items for billing tracking (DeliveryNoteItemId) and populate ValuationRate
         var invoice = await _repository.GetAsync(result.Id);
+        var dnItemDict = deliveryNotes.SelectMany(d => d.Items).ToDictionary(x => x.Id);
         for (int i = 0; i < Math.Min(invoice.Items.Count, dnItemLinks.Count); i++)
         {
-            invoice.Items.ElementAt(i).DeliveryNoteItemId = dnItemLinks[i].dnItemId;
+            var dnItemId = dnItemLinks[i].dnItemId;
+            var siItem = invoice.Items.ElementAt(i);
+            siItem.DeliveryNoteItemId = dnItemId;
+            if (dnItemDict.TryGetValue(dnItemId, out var dnItem) && dnItem.ValuationRate > 0)
+            {
+                siItem.ValuationRate = dnItem.ValuationRate;
+            }
         }
         await _repository.UpdateAsync(invoice, autoSave: true);
 

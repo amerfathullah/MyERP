@@ -74,6 +74,8 @@ public class GrossProfitService : DomainService
                 Quantity = i.Quantity,
                 SellingRate = i.UnitPrice,
                 ValuationRate = costRate,
+                DeliveryNoteItemId = i.DeliveryNoteItemId,
+                SalesOrderItemId = i.SalesOrderItemId,
                 GrossProfit = profit,
                 GrossProfitPercentage = Math.Round(profitPercent, 2)
             };
@@ -131,6 +133,8 @@ public class GrossProfitItemDetail
     public decimal Quantity { get; set; }
     public decimal SellingRate { get; set; }
     public decimal ValuationRate { get; set; }
+    public Guid? DeliveryNoteItemId { get; set; }
+    public Guid? SalesOrderItemId { get; set; }
     public decimal GrossProfit { get; set; }
     public decimal GrossProfitPercentage { get; set; }
 }
