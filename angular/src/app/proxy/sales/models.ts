@@ -2085,5 +2085,93 @@ export interface PosRegisterRowDto {
   groupKey?: string | null;
 }
 
+export interface CustomerAcquisitionAndLoyaltyInputDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  customerId?: string | null;
+  territoryId?: string | null;
+  treeView?: boolean;
+}
+
+export interface CustomerAcquisitionAndLoyaltyReportDto {
+  rows?: CustomerAcquisitionAndLoyaltyRowDto[];
+  totalNewCustomers: number;
+  totalRepeatCustomers: number;
+  totalNewRevenue: number;
+  totalRepeatRevenue: number;
+  totalRevenue: number;
+}
+
+export interface CustomerAcquisitionAndLoyaltyRowDto {
+  key?: string;
+  newCustomerCount: number;
+  newCustomerRevenue: number;
+  repeatCustomerCount: number;
+  repeatCustomerRevenue: number;
+  totalRevenue: number;
+}
+
+export interface CustomerWiseItemPriceInputDto {
+  customerId: string;
+  priceListId?: string | null;
+  itemId?: string | null;
+  companyId?: string | null;
+}
+
+export interface CustomerWiseItemPriceDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  stockUom?: string;
+  sellingRate: number;
+  priceListId?: string | null;
+  priceListName?: string | null;
+  availableStock: number;
+}
+
+export interface CustomerCreditBalanceInputDto {
+  companyId: string;
+  customerId?: string | null;
+}
+
+export interface CustomerCreditBalanceDto {
+  customerId?: string;
+  customerName?: string;
+  creditLimit: number;
+  outstandingAmount: number;
+  creditBalance: number;
+  bypassCreditLimitCheckAtSalesOrder: boolean;
+  isFrozen: boolean;
+  disabled: boolean;
+}
+
+export interface CustomersWithoutSalesInputDto {
+  companyId?: string | null;
+}
+
+export interface CustomerWithoutSalesDto {
+  customerId?: string;
+  customerName?: string;
+  customerGroup?: string | null;
+  territory?: string | null;
+}
+
+export interface AvailableStockForPackingItemsInputDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  bundleItemId?: string | null;
+}
+
+export interface AvailableStockForPackingItemDto {
+  bundleItemId?: string;
+  bundleItemCode?: string;
+  bundleItemName?: string;
+  description?: string | null;
+  warehouseId?: string;
+  warehouseName?: string;
+  availablePackableBundles: number;
+}
+
 
 

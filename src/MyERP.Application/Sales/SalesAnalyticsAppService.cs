@@ -526,49 +526,76 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
     /// <summary>
     /// Computes Customer Acquisition and Loyalty metrics across territories or periods.
     /// Per ERPNext PR #60697 / commit cdcb0de6b8:
-    /// - Resolve customer acquisition (first non-return invoice) BEFORE assigning revenue.
+    /// - Resolve customer acquisition (first non-return invoice) BEFORE assigning revenue,
+    ///   so same-day returns are matched to acquisition period regardless of row order.
     /// - Returns never acquire a customer; they only net revenue.
-    /// - Without an acquiring sale (e.g. standalone credit note), the customer is never classified as "new".
+    /// - Without an acquiring sale (e.g. standalone credit note), the customer is never "new".
+    /// - Headcount: distinct customers per period are counted once; returns net revenue but not headcount.
     /// </summary>
     public async Task<CustomerAcquisitionAndLoyaltyReportDto> GetCustomerAcquisitionAndLoyaltyReportAsync(CustomerAcquisitionAndLoyaltyInputDto input)
     {
         var siQuery = await _siRepo.GetQueryableAsync();
         siQuery = siQuery.Where(si => si.CompanyId == input.CompanyId
-            && (si.Status == DocumentStatus.Submitted || si.Status == DocumentStatus.Posted));
+            && (si.Status == DocumentStatus.Submitted || si.Status == DocumentStatus.Posted)
+            && si.IssueDate <= input.ToDate);
 
         if (input.CustomerId.HasValue)
         {
             siQuery = siQuery.Where(si => si.CustomerId == input.CustomerId.Value);
         }
 
-        var invoices = siQuery.OrderBy(si => si.IssueDate).ThenBy(si => si.CreationTime).ToList();
+        var invoices = siQuery
+            .OrderBy(si => si.IssueDate)
+            .ThenBy(si => si.InvoiceNumber)
+            .ThenBy(si => si.CreationTime)
+            .ToList();
 
         var customerIds = invoices.Select(si => si.CustomerId).Distinct().ToList();
         var customerTerritoryMap = new Dictionary<Guid, string>();
+        var territoryRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Territory, Guid>>();
+        var allTerritories = (await territoryRepo.GetQueryableAsync()).ToList();
+
         if (customerIds.Count > 0)
         {
-            var territoryRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Territory, Guid>>();
             var customers = (await _customerRepo.GetQueryableAsync())
                 .Where(c => customerIds.Contains(c.Id))
                 .Select(c => new { c.Id, c.TerritoryId })
                 .ToList();
 
-            var territoryIds = customers.Where(c => c.TerritoryId.HasValue).Select(c => c.TerritoryId!.Value).Distinct().ToList();
-            var territoryNames = new Dictionary<Guid, string>();
-            if (territoryIds.Count > 0)
-            {
-                territoryNames = (await territoryRepo.GetQueryableAsync())
-                    .Where(t => territoryIds.Contains(t.Id))
-                    .Select(t => new { t.Id, t.Name })
-                    .ToDictionary(t => t.Id, t => t.Name);
-            }
+            var territoryNames = allTerritories.ToDictionary(t => t.Id, t => t.Name);
 
             customerTerritoryMap = customers.ToDictionary(
                 c => c.Id,
                 c => c.TerritoryId.HasValue && territoryNames.TryGetValue(c.TerritoryId.Value, out var tName) ? tName : "Unassigned");
         }
 
-        // 1. Resolve acquisition per customer
+        // Territory filter scoping (PR #60697 / ERPNext filters)
+        if (input.TerritoryId.HasValue)
+        {
+            var targetTerritoryId = input.TerritoryId.Value;
+            var matchingTerritoryIds = new HashSet<Guid> { targetTerritoryId };
+            bool addedAny;
+            do
+            {
+                addedAny = false;
+                foreach (var t in allTerritories)
+                {
+                    if (t.ParentId.HasValue && matchingTerritoryIds.Contains(t.ParentId.Value) && matchingTerritoryIds.Add(t.Id))
+                    {
+                        addedAny = true;
+                    }
+                }
+            } while (addedAny);
+
+            var customersInTerritories = (await _customerRepo.GetQueryableAsync())
+                .Where(c => c.TerritoryId.HasValue && matchingTerritoryIds.Contains(c.TerritoryId.Value))
+                .Select(c => c.Id)
+                .ToHashSet();
+
+            invoices = invoices.Where(si => customersInTerritories.Contains(si.CustomerId)).ToList();
+        }
+
+        // 1. Resolve acquisition per customer before assigning revenue
         var acquisition = new Dictionary<Guid, (string Key, DateTime Date)>();
         foreach (var si in invoices)
         {
@@ -576,70 +603,193 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
             {
                 var territory = customerTerritoryMap.GetValueOrDefault(si.CustomerId, "Unassigned");
                 var key = input.TreeView ? territory : si.IssueDate.ToString("yyyy-MM");
-                acquisition[si.CustomerId] = (key, si.IssueDate);
+                acquisition[si.CustomerId] = (key, si.IssueDate.Date);
             }
         }
 
         // 2. Classify and aggregate within date range
-        var newCustomerSets = new Dictionary<string, HashSet<Guid>>();
-        var repeatCustomerSets = new Dictionary<string, HashSet<Guid>>();
-        var newRevenueMap = new Dictionary<string, decimal>();
-        var repeatRevenueMap = new Dictionary<string, decimal>();
-
         var fromDate = input.FromDate.Date;
         var toDate = input.ToDate.Date;
 
+        var counted = new Dictionary<string, (HashSet<Guid> NewCustomers, HashSet<Guid> RepeatCustomers)>();
+        var revenue = new Dictionary<string, (decimal NewRevenue, decimal RepeatRevenue)>();
+
         foreach (var si in invoices)
         {
-            var issueDate = si.IssueDate.Date;
-            if (issueDate < fromDate || issueDate > toDate) continue;
+            var postingDate = si.IssueDate.Date;
+            if (postingDate < fromDate)
+                continue;
 
             var territory = customerTerritoryMap.GetValueOrDefault(si.CustomerId, "Unassigned");
-            var key = input.TreeView ? territory : issueDate.ToString("yyyy-MM");
+            var key = input.TreeView ? territory : postingDate.ToString("yyyy-MM");
 
             var acq = acquisition.GetValueOrDefault(si.CustomerId);
-            var isNew = acq != default && key == acq.Key && acq.Date.Date >= fromDate;
+            // without an acquiring sale (e.g. a standalone credit note), the customer is never "new"
+            var isNew = acq != default && key == acq.Key && acq.Date >= fromDate;
 
-            var netAmount = si.IsReturn ? -Math.Abs(si.GrandTotal) : Math.Abs(si.GrandTotal);
+            if (!counted.ContainsKey(key))
+            {
+                counted[key] = (new HashSet<Guid>(), new HashSet<Guid>());
+                revenue[key] = (0m, 0m);
+            }
+
+            var currentCounted = counted[key];
+            var currentRevenue = revenue[key];
+
+            // count each customer once per period; returns net revenue but not the headcount
+            if (!si.IsReturn)
+            {
+                if (isNew)
+                {
+                    currentCounted.NewCustomers.Add(si.CustomerId);
+                }
+                else
+                {
+                    currentCounted.RepeatCustomers.Add(si.CustomerId);
+                }
+            }
+
+            var invoiceAmount = si.BaseGrandTotal != 0
+                ? si.BaseGrandTotal
+                : (si.GrandTotal * (si.ExchangeRate > 0 ? si.ExchangeRate : 1m));
+            var netAmount = si.IsReturn ? -Math.Abs(invoiceAmount) : Math.Abs(invoiceAmount);
 
             if (isNew)
             {
-                if (!newCustomerSets.ContainsKey(key)) newCustomerSets[key] = new HashSet<Guid>();
-                newCustomerSets[key].Add(si.CustomerId);
-                newRevenueMap[key] = newRevenueMap.GetValueOrDefault(key, 0m) + netAmount;
+                revenue[key] = (currentRevenue.NewRevenue + netAmount, currentRevenue.RepeatRevenue);
             }
             else
             {
-                if (!repeatCustomerSets.ContainsKey(key)) repeatCustomerSets[key] = new HashSet<Guid>();
-                repeatCustomerSets[key].Add(si.CustomerId);
-                repeatRevenueMap[key] = repeatRevenueMap.GetValueOrDefault(key, 0m) + netAmount;
+                revenue[key] = (currentRevenue.NewRevenue, currentRevenue.RepeatRevenue + netAmount);
             }
         }
 
-        var allKeys = newCustomerSets.Keys.Union(repeatCustomerSets.Keys).OrderBy(k => k).ToList();
         var rows = new List<CustomerAcquisitionAndLoyaltyRowDto>();
 
-        foreach (var key in allKeys)
+        if (input.TreeView)
         {
-            var newCount = newCustomerSets.GetValueOrDefault(key)?.Count ?? 0;
-            var newRev = Math.Round(newRevenueMap.GetValueOrDefault(key, 0m), 2);
-            var repeatCount = repeatCustomerSets.GetValueOrDefault(key)?.Count ?? 0;
-            var repeatRev = Math.Round(repeatRevenueMap.GetValueOrDefault(key, 0m), 2);
-
-            rows.Add(new CustomerAcquisitionAndLoyaltyRowDto
+            if (allTerritories.Count > 0)
             {
-                Key = key,
-                NewCustomerCount = newCount,
-                NewCustomerRevenue = newRev,
-                RepeatCustomerCount = repeatCount,
-                RepeatCustomerRevenue = repeatRev
-            });
+                var territoryById = allTerritories.ToDictionary(t => t.Id);
+
+                int GetDepth(Territory t)
+                {
+                    int depth = 0;
+                    var curr = t;
+                    while (curr.ParentId.HasValue && territoryById.TryGetValue(curr.ParentId.Value, out var parent))
+                    {
+                        depth++;
+                        curr = parent;
+                    }
+                    return depth;
+                }
+
+                var territoryData = allTerritories.ToDictionary(t => t.Id, t =>
+                {
+                    var c = counted.GetValueOrDefault(t.Name);
+                    var r = revenue.GetValueOrDefault(t.Name);
+                    return new TerritoryAgg
+                    {
+                        Territory = t,
+                        Depth = GetDepth(t),
+                        NewCustomers = c.NewCustomers != null ? new HashSet<Guid>(c.NewCustomers) : new HashSet<Guid>(),
+                        RepeatCustomers = c.RepeatCustomers != null ? new HashSet<Guid>(c.RepeatCustomers) : new HashSet<Guid>(),
+                        NewRevenue = r.NewRevenue,
+                        RepeatRevenue = r.RepeatRevenue
+                    };
+                });
+
+                // Roll up from leaves (deepest depth) to root
+                var orderedByDepthDesc = territoryData.Values.OrderByDescending(x => x.Depth).ToList();
+                foreach (var item in orderedByDepthDesc)
+                {
+                    if (item.Territory.ParentId.HasValue && territoryData.TryGetValue(item.Territory.ParentId.Value, out var parentItem))
+                    {
+                        foreach (var custId in item.NewCustomers) parentItem.NewCustomers.Add(custId);
+                        foreach (var custId in item.RepeatCustomers) parentItem.RepeatCustomers.Add(custId);
+                        parentItem.NewRevenue += item.NewRevenue;
+                        parentItem.RepeatRevenue += item.RepeatRevenue;
+                    }
+                }
+
+                var orderedHierarchy = territoryData.Values
+                    .OrderBy(x => x.Depth)
+                    .ThenBy(x => x.Territory.Name)
+                    .ToList();
+
+                foreach (var item in orderedHierarchy)
+                {
+                    rows.Add(new CustomerAcquisitionAndLoyaltyRowDto
+                    {
+                        Key = item.Territory.Name,
+                        NewCustomerCount = item.NewCustomers.Count,
+                        NewCustomerRevenue = Math.Round(item.NewRevenue, 2),
+                        RepeatCustomerCount = item.RepeatCustomers.Count,
+                        RepeatCustomerRevenue = Math.Round(item.RepeatRevenue, 2)
+                    });
+                }
+
+                if (counted.ContainsKey("Unassigned") || revenue.ContainsKey("Unassigned"))
+                {
+                    var c = counted.GetValueOrDefault("Unassigned");
+                    var r = revenue.GetValueOrDefault("Unassigned");
+                    rows.Add(new CustomerAcquisitionAndLoyaltyRowDto
+                    {
+                        Key = "Unassigned",
+                        NewCustomerCount = c.NewCustomers?.Count ?? 0,
+                        NewCustomerRevenue = Math.Round(r.NewRevenue, 2),
+                        RepeatCustomerCount = c.RepeatCustomers?.Count ?? 0,
+                        RepeatCustomerRevenue = Math.Round(r.RepeatRevenue, 2)
+                    });
+                }
+            }
+            else
+            {
+                var allKeys = counted.Keys.Union(revenue.Keys).OrderBy(k => k).ToList();
+                foreach (var key in allKeys)
+                {
+                    var c = counted.GetValueOrDefault(key);
+                    var r = revenue.GetValueOrDefault(key);
+                    rows.Add(new CustomerAcquisitionAndLoyaltyRowDto
+                    {
+                        Key = key,
+                        NewCustomerCount = c.NewCustomers?.Count ?? 0,
+                        NewCustomerRevenue = Math.Round(r.NewRevenue, 2),
+                        RepeatCustomerCount = c.RepeatCustomers?.Count ?? 0,
+                        RepeatCustomerRevenue = Math.Round(r.RepeatRevenue, 2)
+                    });
+                }
+            }
+        }
+        else
+        {
+            // Monthly time series: generate every month in range
+            var currentMonth = new DateTime(fromDate.Year, fromDate.Month, 1);
+            var endMonth = new DateTime(toDate.Year, toDate.Month, 1);
+
+            while (currentMonth <= endMonth)
+            {
+                var key = currentMonth.ToString("yyyy-MM");
+                var c = counted.GetValueOrDefault(key);
+                var r = revenue.GetValueOrDefault(key);
+
+                rows.Add(new CustomerAcquisitionAndLoyaltyRowDto
+                {
+                    Key = key,
+                    NewCustomerCount = c.NewCustomers?.Count ?? 0,
+                    NewCustomerRevenue = Math.Round(r.NewRevenue, 2),
+                    RepeatCustomerCount = c.RepeatCustomers?.Count ?? 0,
+                    RepeatCustomerRevenue = Math.Round(r.RepeatRevenue, 2)
+                });
+
+                currentMonth = currentMonth.AddMonths(1);
+            }
         }
 
-        var totalNewCustomers = newCustomerSets.Values.SelectMany(s => s).Distinct().Count();
-        var totalRepeatCustomers = repeatCustomerSets.Values.SelectMany(s => s).Distinct().Count();
-        var totalNewRev = Math.Round(rows.Sum(r => r.NewCustomerRevenue), 2);
-        var totalRepeatRev = Math.Round(rows.Sum(r => r.RepeatCustomerRevenue), 2);
+        var totalNewCustomers = counted.Values.SelectMany(c => c.NewCustomers).Distinct().Count();
+        var totalRepeatCustomers = counted.Values.SelectMany(c => c.RepeatCustomers).Distinct().Count();
+        var totalNewRev = Math.Round(revenue.Values.Sum(r => r.NewRevenue), 2);
+        var totalRepeatRev = Math.Round(revenue.Values.Sum(r => r.RepeatRevenue), 2);
 
         return new CustomerAcquisitionAndLoyaltyReportDto
         {
@@ -650,6 +800,16 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
             TotalRepeatRevenue = totalRepeatRev,
             TotalRevenue = totalNewRev + totalRepeatRev
         };
+    }
+
+    private class TerritoryAgg
+    {
+        public Territory Territory { get; set; } = null!;
+        public int Depth { get; set; }
+        public HashSet<Guid> NewCustomers { get; set; } = new();
+        public HashSet<Guid> RepeatCustomers { get; set; } = new();
+        public decimal NewRevenue { get; set; }
+        public decimal RepeatRevenue { get; set; }
     }
 
     private static decimal CalculateGrowth(List<decimal> values)
