@@ -23,7 +23,8 @@ public class QualityInspectionTemplateAppService : ApplicationService, IQualityI
 
     public async Task<QiTemplateDto> GetAsync(Guid id)
     {
-        var entity = await _repository.GetAsync(id);
+        var entity = (await _repository.WithDetailsAsync()).FirstOrDefault(x => x.Id == id)
+            ?? await _repository.GetAsync(id);
         return MapToDto(entity);
     }
 
@@ -54,7 +55,34 @@ public class QualityInspectionTemplateAppService : ApplicationService, IQualityI
                 p.FormulaBased, p.Formula, p.AcceptanceCriteria);
         }
 
+        entity.Validate();
+
         await _repository.InsertAsync(entity);
+        return MapToDto(entity);
+    }
+
+    [Authorize(MyERPPermissions.QualityInspections.Edit)]
+    public async Task<QiTemplateDto> UpdateAsync(Guid id, UpdateQiTemplateDto input)
+    {
+        var entity = (await _repository.WithDetailsAsync()).FirstOrDefault(x => x.Id == id)
+            ?? await _repository.GetAsync(id);
+
+        entity.Name = input.Name;
+        entity.Description = input.Description;
+        entity.ItemId = input.ItemId;
+        entity.BomId = input.BomId;
+
+        entity.ClearParameters();
+        foreach (var p in input.Parameters ?? [])
+        {
+            entity.AddParameter(GuidGenerator.Create(), p.Specification,
+                p.ExpectedValue, p.MinValue, p.MaxValue, p.IsNumeric,
+                p.FormulaBased, p.Formula, p.AcceptanceCriteria);
+        }
+
+        entity.Validate();
+
+        await _repository.UpdateAsync(entity);
         return MapToDto(entity);
     }
 

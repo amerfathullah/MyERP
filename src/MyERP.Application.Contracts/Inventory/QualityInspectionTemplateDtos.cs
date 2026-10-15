@@ -47,3 +47,8 @@ public class CreateQiTemplateParameterDto
     public string? Formula { get; set; }
     public string? AcceptanceCriteria { get; set; }
 }
+
+public class UpdateQiTemplateDto : CreateQiTemplateDto
+{
+}
+

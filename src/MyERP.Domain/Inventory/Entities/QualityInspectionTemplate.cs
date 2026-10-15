@@ -47,6 +47,69 @@ public class QualityInspectionTemplate : FullAuditedAggregateRoot<Guid>, IMultiT
             expectedValue, minValue, maxValue, isNumeric, formulaBased, formula, acceptanceCriteria));
     }
 
+    public void ClearParameters()
+    {
+        _parameters.Clear();
+    }
+
+    /// <summary>
+    /// Validates template parameters per ERPNext PR #58940 / commits aae67879ae, 0ae42aec9b, a6203ca59df034f21984175a25cbc1233515f41c:
+    /// 1. Reject duplicate parameters and identify row number and specification.
+    /// 2. For numeric parameters, minimum value cannot exceed maximum value.
+    /// 3. For non-numeric non-formula parameters, acceptance criteria value is required.
+    /// 4. For formula-based criteria, acceptance formula is required and cannot be whitespace.
+    /// </summary>
+    public void Validate()
+    {
+        var seenSpecs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (int i = 0; i < _parameters.Count; i++)
+        {
+            var p = _parameters[i];
+            var rowIdx = i + 1;
+
+            if (seenSpecs.Contains(p.Specification))
+            {
+                var msg = $"Row #{rowIdx}: Parameter {p.Specification} is added more than once";
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", msg)
+                    .WithData("message", msg);
+            }
+            seenSpecs.Add(p.Specification);
+
+            if (p.FormulaBased)
+            {
+                if (string.IsNullOrWhiteSpace(p.Formula))
+                {
+                    var msg = $"Row #{rowIdx}: Acceptance Criteria Formula is required for parameter {p.Specification}";
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", msg)
+                        .WithData("message", msg);
+                }
+            }
+            else if (p.IsNumeric)
+            {
+                if (p.MinValue.HasValue && p.MaxValue.HasValue && p.MinValue.Value > p.MaxValue.Value)
+                {
+                    var msg = $"Row #{rowIdx}: Minimum Value cannot be greater than Maximum Value for parameter {p.Specification}";
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", msg)
+                        .WithData("message", msg);
+                }
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(p.ExpectedValue))
+                {
+                    var msg = $"Row #{rowIdx}: Acceptance Criteria Value is required for parameter {p.Specification}";
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", msg)
+                        .WithData("message", msg);
+                }
+            }
+        }
+    }
+
     public void Disable() => IsEnabled = false;
     public void Enable() => IsEnabled = true;
 }
