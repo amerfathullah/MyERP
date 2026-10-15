@@ -2045,4 +2045,45 @@ export interface CustomerTransactionDto {
   outstandingAmount?: number | null;
 }
 
+export interface PosRegisterRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  posProfileId?: string | null;
+  cashierId?: string | null;
+  customerId?: string | null;
+  isReturn?: boolean | null;
+  modeOfPayment?: string | null;
+  groupBy?: string | null;
+}
+
+export interface PosRegisterDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  rows?: PosRegisterRowDto[];
+  totalGrandTotal?: number;
+  totalPaidAmount?: number;
+}
+
+export interface PosRegisterRowDto {
+  postingDate?: string | null;
+  invoiceType?: string | null;
+  invoiceId?: string | null;
+  invoiceNumber?: string | null;
+  customerId?: string | null;
+  customerName?: string | null;
+  posProfileId?: string | null;
+  posProfileName?: string | null;
+  cashierId?: string | null;
+  cashierName?: string | null;
+  grandTotal?: number;
+  paidAmount?: number;
+  modeOfPayment?: string | null;
+  isReturn?: boolean;
+  isSubtotal?: boolean;
+  groupKey?: string | null;
+}
+
+
 
