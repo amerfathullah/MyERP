@@ -457,6 +457,32 @@ export interface ProductionPlanSummaryRowDto {
   pendingQty?: number;
 }
 
+export interface PooledBinDetailsDto {
+  actualQty?: number;
+  projectedQty?: number;
+}
+
+export interface OpenSalesOrderItemDto {
+  salesOrderId?: string;
+  salesOrderItemId?: string;
+  salesOrderNumber?: string;
+  customerId?: string;
+  customerName?: string;
+  transactionDate?: string;
+  deliveryDate?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  description?: string;
+  stockUom?: string;
+  stockQty?: number;
+  orderedQty?: number;
+  alreadyPlannedQty?: number;
+  unplannedQty?: number;
+  warehouseId?: string;
+  bomId?: string;
+}
+
 export interface ProductionStatusCountDto {
   status?: string;
   count?: number;

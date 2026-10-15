@@ -193,6 +193,12 @@ public class ProductionPlanSummaryRowDto
     public decimal PendingQty { get; set; }
 }
 
+public class PooledBinDetailsDto
+{
+    public decimal ActualQty { get; set; }
+    public decimal ProjectedQty { get; set; }
+}
+
 // === Interface ===
 
 public interface IProductionPlanAppService : IApplicationService
@@ -222,6 +228,9 @@ public interface IProductionPlanAppService : IApplicationService
     /// <summary>Generate hierarchical summary report of planned finished goods, sub-assemblies, and linked work/purchase orders (ERPNext PR #58541).</summary>
     Task<ProductionPlanSummaryDto> GetSummaryReportAsync(Guid id);
 
-    /// <summary>Pulls open Sales Order items with remaining unplanned quantity for planning (ERPNext PR #60271).</summary>
+    /// <summary>Pulls open Sales Order items with remaining unplanned quantity for planning (ERPNext PR #60271, PR #55685a08be).</summary>
     Task<List<OpenSalesOrderItemDto>> GetOpenSalesOrderItemsAsync(Guid companyId, List<Guid>? salesOrderIds = null);
+
+    /// <summary>Fetch pooled bin details for an item and warehouse, aggregating child warehouse stock if group warehouse (ERPNext PR #60718 / commit 4f7f2aabc3).</summary>
+    Task<PooledBinDetailsDto> GetPooledBinDetailsAsync(Guid companyId, Guid itemId, Guid warehouseId);
 }

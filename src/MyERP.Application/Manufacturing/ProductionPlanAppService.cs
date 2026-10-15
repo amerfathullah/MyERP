@@ -1632,14 +1632,30 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var itemQuery = await itemRepo.GetQueryableAsync();
         var itemMap = itemQuery.Where(i => itemIds.Contains(i.Id)).ToDictionary(i => i.Id);
 
+        // Fetch existing non-cancelled work orders for these sales orders (ERPNext PR #55685a08be)
+        var woQuery = await _workOrderRepository.GetQueryableAsync();
+        var existingWos = woQuery
+            .Where(w => w.SalesOrderId.HasValue && soIds.Contains(w.SalesOrderId.Value)
+                        && w.SalesOrderItemId.HasValue
+                        && w.Status != WorkOrderStatus.Cancelled)
+            .GroupBy(w => w.SalesOrderItemId!.Value)
+            .Select(g => new { SalesOrderItemId = g.Key, TotalWoQty = g.Sum(w => w.Quantity) })
+            .ToList();
+        var existingWoMap = existingWos.ToDictionary(w => w.SalesOrderItemId, w => w.TotalWoQty);
+
         foreach (var (key, plannedQty) in plannedMap)
         {
             if (!soItemMap.TryGetValue(key.SalesOrderItemId, out var soItem))
                 continue;
 
             var alreadyPlannedQty = alreadyPlanned.TryGetValue(key, out var ap) ? ap : 0m;
+            var existingWoQty = existingWoMap.TryGetValue(key.SalesOrderItemId, out var woq) ? woq : 0m;
+            var deliveredStockQty = soItem.DeliveredQty * (soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m);
+
+            // Per ERPNext PR #55685a08be & PR #60271: allowance scales allowed quantity, existing work orders and deliveries deduct from it
             var maxAllowed = Math.Round(soItem.StockQty * (1m + allowance / 100m), 4);
-            var unplannedQty = Math.Max(0m, Math.Round(maxAllowed - alreadyPlannedQty, 4));
+            var unfulfilledStock = Math.Max(0m, maxAllowed - Math.Max(existingWoQty, deliveredStockQty));
+            var unplannedQty = Math.Max(0m, Math.Round(unfulfilledStock - alreadyPlannedQty, 4));
 
             if (Math.Round(plannedQty, 4) > unplannedQty)
             {
@@ -1658,7 +1674,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
     }
 
     /// <summary>
-    /// Pulls open Sales Order items with remaining unplanned quantity for planning (ERPNext PR #60271 / commit a58b88b468).
+    /// Pulls open Sales Order items with remaining unplanned quantity for planning (ERPNext PR #60271, PR #55685a08be).
     /// </summary>
     [Authorize(MyERPPermissions.ProductionPlans.Default)]
     public async Task<List<OpenSalesOrderItemDto>> GetOpenSalesOrderItemsAsync(Guid companyId, List<Guid>? salesOrderIds = null)
@@ -1698,6 +1714,17 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             .GroupBy(pi => (pi.SalesOrderId!.Value, pi.SalesOrderItemId!.Value))
             .ToDictionary(g => g.Key, g => g.Sum(x => x.PlannedQty));
 
+        // Get existing non-cancelled work orders for these sales orders (ERPNext PR #55685a08be)
+        var woQuery = await _workOrderRepository.GetQueryableAsync();
+        var existingWos = woQuery
+            .Where(w => w.SalesOrderId.HasValue && allSoIds.Contains(w.SalesOrderId.Value)
+                        && w.SalesOrderItemId.HasValue
+                        && w.Status != WorkOrderStatus.Cancelled)
+            .GroupBy(w => w.SalesOrderItemId!.Value)
+            .Select(g => new { SalesOrderItemId = g.Key, TotalWoQty = g.Sum(w => w.Quantity) })
+            .ToList();
+        var existingWoMap = existingWos.ToDictionary(w => w.SalesOrderItemId, w => w.TotalWoQty);
+
         // Get default active BOMs for company
         var bomQuery = await _bomRepository.GetQueryableAsync();
         var activeBoms = bomQuery
@@ -1731,7 +1758,12 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
                 var key = (so.Id, item.Id);
                 var alreadyPlannedQty = alreadyPlannedMap.TryGetValue(key, out var ap) ? ap : 0m;
-                var unplannedQty = Math.Max(0m, Math.Round(item.StockQty - alreadyPlannedQty, 4));
+                var existingWoQty = existingWoMap.TryGetValue(item.Id, out var woq) ? woq : 0m;
+                var deliveredStockQty = item.DeliveredQty * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
+
+                // Per ERPNext PR #55685a08be: pending_qty = min(qty - max(wo_qty, delivered_qty * factor), stock_qty - planned_qty)
+                var pendingQty = Math.Max(0m, item.StockQty - Math.Max(existingWoQty, deliveredStockQty));
+                var unplannedQty = Math.Min(pendingQty, Math.Max(0m, Math.Round(item.StockQty - alreadyPlannedQty, 4)));
 
                 if (unplannedQty <= 0m) continue;
 
@@ -1763,6 +1795,43 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Fetch pooled bin details for an item and warehouse, aggregating child warehouse stock if group warehouse (ERPNext PR #60718 / commit 4f7f2aabc3).
+    /// </summary>
+    [Authorize(MyERPPermissions.ProductionPlans.Default)]
+    public async Task<PooledBinDetailsDto> GetPooledBinDetailsAsync(Guid companyId, Guid itemId, Guid warehouseId)
+    {
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+        var allCompanyWarehouses = await whRepo.GetListAsync(w => w.CompanyId == companyId);
+
+        var descendantWhIds = new HashSet<Guid> { warehouseId };
+        var queue = new Queue<Guid>();
+        queue.Enqueue(warehouseId);
+        while (queue.Count > 0)
+        {
+            var curr = queue.Dequeue();
+            foreach (var child in allCompanyWarehouses.Where(w => w.ParentWarehouseId == curr))
+            {
+                if (descendantWhIds.Add(child.Id))
+                {
+                    queue.Enqueue(child.Id);
+                }
+            }
+        }
+
+        var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Bin, Guid>>();
+        var binQuery = await binRepo.GetQueryableAsync();
+        var matchingBins = binQuery
+            .Where(b => b.ItemId == itemId && descendantWhIds.Contains(b.WarehouseId))
+            .ToList();
+
+        return new PooledBinDetailsDto
+        {
+            ActualQty = matchingBins.Sum(b => b.ActualQty),
+            ProjectedQty = matchingBins.Sum(b => b.ProjectedQty)
+        };
     }
 }
 

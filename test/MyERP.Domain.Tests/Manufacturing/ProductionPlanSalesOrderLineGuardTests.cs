@@ -31,10 +31,13 @@ public class ProductionPlanSalesOrderLineGuardTests
         IRepository<ManufacturingSettings, Guid>? settingsRepo = null,
         IRepository<Item, Guid>? itemRepo = null,
         IRepository<Customer, Guid>? custRepo = null,
-        IRepository<BillOfMaterials, Guid>? bomRepo = null)
+        IRepository<BillOfMaterials, Guid>? bomRepo = null,
+        IRepository<WorkOrder, Guid>? woRepo = null,
+        IRepository<Warehouse, Guid>? whRepo = null,
+        IRepository<Bin, Guid>? binRepo = null)
     {
         bomRepo ??= Substitute.For<IRepository<BillOfMaterials, Guid>>();
-        var woRepo = Substitute.For<IRepository<WorkOrder, Guid>>();
+        woRepo ??= Substitute.For<IRepository<WorkOrder, Guid>>();
         var mrRepo = Substitute.For<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
         var numberGen = Substitute.For<IDocumentNumberGenerator>();
         var bomValService = new BomValidationService(bomRepo, Substitute.For<IRepository<Item, Guid>>());
@@ -42,6 +45,8 @@ public class ProductionPlanSalesOrderLineGuardTests
         settingsRepo ??= Substitute.For<IRepository<ManufacturingSettings, Guid>>();
         itemRepo ??= Substitute.For<IRepository<Item, Guid>>();
         custRepo ??= Substitute.For<IRepository<Customer, Guid>>();
+        whRepo ??= Substitute.For<IRepository<Warehouse, Guid>>();
+        binRepo ??= Substitute.For<IRepository<Bin, Guid>>();
 
         var activityLogRepo = Substitute.For<IRepository<DocumentActivityLog, Guid>>();
 
@@ -52,6 +57,8 @@ public class ProductionPlanSalesOrderLineGuardTests
         lazySp.LazyGetRequiredService<IRepository<Item, Guid>>().Returns(itemRepo);
         lazySp.LazyGetRequiredService<IRepository<Customer, Guid>>().Returns(custRepo);
         lazySp.LazyGetRequiredService<IRepository<DocumentActivityLog, Guid>>().Returns(activityLogRepo);
+        lazySp.LazyGetRequiredService<IRepository<Warehouse, Guid>>().Returns(whRepo);
+        lazySp.LazyGetRequiredService<IRepository<Bin, Guid>>().Returns(binRepo);
 
         typeof(Volo.Abp.Application.Services.ApplicationService)
             .GetProperty("LazyServiceProvider", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)?
@@ -317,5 +324,157 @@ public class ProductionPlanSalesOrderLineGuardTests
         rowB.StockQty.ShouldBe(5m);
         rowB.AlreadyPlannedQty.ShouldBe(0m);
         rowB.UnplannedQty.ShouldBe(5m);
+    }
+
+    [Fact]
+    public async Task GetOpenSalesOrderItemsAsync_ExistingWorkOrdersAndDeliveries_ReduceUnplannedQty()
+    {
+        // Arrange: SO line qty 10. Existing WO = 3, Delivered = 2. Max(3, 2) = 3.
+        // Already planned from another plan = 0. Remaining unplanned should be 7 (ERPNext PR #55685a08be).
+        var planRepo = Substitute.For<IRepository<ProductionPlan, Guid>>();
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var custRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var woRepo = Substitute.For<IRepository<WorkOrder, Guid>>();
+
+        var custId = Guid.NewGuid();
+        var cust = new Customer(custId, _companyId, "Acme Corp");
+
+        var soId = Guid.NewGuid();
+        var so = new SalesOrder(soId, _companyId, custId, "SO-WO-1", DateTime.UtcNow);
+        var item = new SalesOrderItem(Guid.NewGuid(), soId, _itemId, "Widget A", quantity: 10m, unitPrice: 100m, taxAmount: 0m, uom: "Unit")
+        {
+            ConversionFactor = 1m,
+            DeliveredQty = 2m
+        };
+        typeof(SalesOrder).GetField("_items", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?
+            .SetValue(so, new List<SalesOrderItem> { item });
+        so.Submit();
+
+        var wo = new WorkOrder(Guid.NewGuid(), _companyId, "WO-001", _itemId, _bomId, 3m)
+        {
+            SalesOrderId = soId,
+            SalesOrderItemId = item.Id
+        };
+
+        soRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<SalesOrder, object>>>())
+            .Returns(Task.FromResult(new List<SalesOrder> { so }.AsQueryable()));
+        planRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<ProductionPlan, object>>>())
+            .Returns(Task.FromResult(new List<ProductionPlan>().AsQueryable()));
+        woRepo.GetQueryableAsync()
+            .Returns(Task.FromResult(new List<WorkOrder> { wo }.AsQueryable()));
+
+        var invItem = new Item(_itemId, _companyId, "WIDGET-A", "Widget A", ItemType.Goods);
+        itemRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { invItem }.AsQueryable()));
+        custRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Customer> { cust }.AsQueryable()));
+
+        var bom = new BillOfMaterials(_bomId, _companyId, "BOM-A", _itemId) { IsActive = true, IsDefault = true };
+        bomRepo.GetQueryableAsync().Returns(Task.FromResult(new List<BillOfMaterials> { bom }.AsQueryable()));
+
+        var appService = CreateAppService(planRepo, soRepo, null, itemRepo, custRepo, bomRepo, woRepo);
+
+        // Act
+        var openItems = await appService.GetOpenSalesOrderItemsAsync(_companyId);
+
+        // Assert: 10 - max(3, 2) = 7
+        openItems.Count.ShouldBe(1);
+        openItems[0].StockQty.ShouldBe(10m);
+        openItems[0].UnplannedQty.ShouldBe(7m);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_ExistingWorkOrdersDeductFromAllowance_ThrowsIfExceeded()
+    {
+        // Arrange: SO line qty 10. Allowance = 0%. Existing WO = 6. Remaining allowed = 4.
+        // Planning 5 should throw SalesOrderQtyExceeded.
+        var planRepo = Substitute.For<IRepository<ProductionPlan, Guid>>();
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var settingsRepo = Substitute.For<IRepository<ManufacturingSettings, Guid>>();
+        var woRepo = Substitute.For<IRepository<WorkOrder, Guid>>();
+
+        var soId = Guid.NewGuid();
+        var so = new SalesOrder(soId, _companyId, Guid.NewGuid(), "SO-WO-2", DateTime.UtcNow);
+        var soItem = new SalesOrderItem(Guid.NewGuid(), soId, _itemId, "Widget", quantity: 10m, unitPrice: 100m, taxAmount: 0m, uom: "Unit")
+        {
+            ConversionFactor = 1m
+        };
+        typeof(SalesOrder).GetField("_items", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?
+            .SetValue(so, new List<SalesOrderItem> { soItem });
+
+        var wo = new WorkOrder(Guid.NewGuid(), _companyId, "WO-EXIST", _itemId, _bomId, 6m)
+        {
+            SalesOrderId = soId,
+            SalesOrderItemId = soItem.Id
+        };
+
+        var planId = Guid.NewGuid();
+        var plan = new ProductionPlan(planId, _companyId, "PP-WO-FAIL", DateTime.UtcNow);
+        var ppItem = new ProductionPlanItem(Guid.NewGuid(), planId, _itemId, "Widget", _bomId, plannedQty: 5m)
+        {
+            SalesOrderId = soId,
+            SalesOrderItemId = soItem.Id
+        };
+        plan.AddPlannedItem(ppItem);
+
+        planRepo.GetAsync(planId, includeDetails: true).Returns(plan);
+        planRepo.GetQueryableAsync().Returns(Task.FromResult(new List<ProductionPlan> { plan }.AsQueryable()));
+        soRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<SalesOrder, object>>>())
+            .Returns(Task.FromResult(new List<SalesOrder> { so }.AsQueryable()));
+        woRepo.GetQueryableAsync().Returns(Task.FromResult(new List<WorkOrder> { wo }.AsQueryable()));
+
+        var invItem = new Item(_itemId, _companyId, "WIDGET", "Widget", ItemType.Goods);
+        itemRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { invItem }.AsQueryable()));
+
+        var appService = CreateAppService(planRepo, soRepo, settingsRepo, itemRepo, null, null, woRepo);
+
+        // Act & Assert: Planning 5 when only 4 allowed throws SalesOrderQtyExceeded
+        var ex = await Should.ThrowAsync<BusinessException>(() => appService.SubmitAsync(planId));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.SalesOrderQtyExceeded);
+    }
+
+    [Fact]
+    public async Task GetPooledBinDetailsAsync_GroupWarehouse_SumsAcrossChildWarehouses()
+    {
+        // Arrange: Group warehouse with two child warehouses
+        var planRepo = Substitute.For<IRepository<ProductionPlan, Guid>>();
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var whRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var binRepo = Substitute.For<IRepository<Bin, Guid>>();
+
+        var groupWhId = Guid.NewGuid();
+        var childWh1Id = Guid.NewGuid();
+        var childWh2Id = Guid.NewGuid();
+
+        var groupWh = new Warehouse(groupWhId, _companyId, "All Warehouses") { IsGroup = true };
+        var childWh1 = new Warehouse(childWh1Id, _companyId, "Stores 1") { ParentWarehouseId = groupWhId };
+        var childWh2 = new Warehouse(childWh2Id, _companyId, "Stores 2") { ParentWarehouseId = groupWhId };
+
+        whRepo.GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<Warehouse, bool>>>())
+            .Returns(Task.FromResult(new List<Warehouse> { groupWh, childWh1, childWh2 }));
+
+        var bin1 = new Bin(Guid.NewGuid(), _itemId, childWh1Id)
+        {
+            ActualQty = 15m,
+            OrderedQty = 5m // ProjectedQty = 15 + 5 = 20
+        };
+        var bin2 = new Bin(Guid.NewGuid(), _itemId, childWh2Id)
+        {
+            ActualQty = 25m,
+            OrderedQty = 5m // ProjectedQty = 25 + 5 = 30
+        };
+
+        binRepo.GetQueryableAsync()
+            .Returns(Task.FromResult(new List<Bin> { bin1, bin2 }.AsQueryable()));
+
+        var appService = CreateAppService(planRepo, soRepo, null, null, null, null, null, whRepo, binRepo);
+
+        // Act: Request pooled details for group warehouse
+        var result = await appService.GetPooledBinDetailsAsync(_companyId, _itemId, groupWhId);
+
+        // Assert: 15 + 25 = 40 Actual, 20 + 30 = 50 Projected (PR #60718 / commit 4f7f2aabc3)
+        result.ActualQty.ShouldBe(40m);
+        result.ProjectedQty.ShouldBe(50m);
     }
 }

@@ -6,6 +6,7 @@ export enum AnalyticsGroupBy {
   Territory = 2,
   SalesPerson = 3,
   ItemGroup = 4,
+  Project = 5,
 }
 
 export const analyticsGroupByOptions = mapEnumToOptions(AnalyticsGroupBy);

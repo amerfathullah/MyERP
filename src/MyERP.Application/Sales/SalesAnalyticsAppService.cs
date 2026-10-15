@@ -159,6 +159,30 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
                 });
             }
         }
+        else if (input.GroupBy == AnalyticsGroupBy.Project)
+        {
+            // Per ERPNext PR #60011 / commit a3eb5e6b09: exclude invoices without a project in project view
+            var projectInvoices = invoices.Where(si => si.ProjectId.HasValue).ToList();
+            var projectIds = projectInvoices.Select(si => si.ProjectId!.Value).Distinct().ToList();
+            var projectNames = new Dictionary<Guid, string>();
+            if (projectIds.Count > 0)
+            {
+                var projectRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Projects.Entities.Project, Guid>>();
+                var projects = (await projectRepo.GetQueryableAsync())
+                    .Where(p => projectIds.Contains(p.Id))
+                    .Select(p => new { p.Id, p.ProjectName })
+                    .ToList();
+                projectNames = projects.ToDictionary(p => p.Id, p => p.ProjectName);
+            }
+
+            var grouped = projectInvoices.GroupBy(si => si.ProjectId!.Value);
+            foreach (var g in grouped)
+            {
+                var projectName = projectNames.GetValueOrDefault(g.Key, g.Key.ToString().Substring(0, 8));
+                var row = BuildRow(g.Key.ToString(), projectName, g.ToList(), periods, useQty);
+                rows.Add(row);
+            }
+        }
         else
         {
             // Territory/SalesPerson: group by customer as fallback

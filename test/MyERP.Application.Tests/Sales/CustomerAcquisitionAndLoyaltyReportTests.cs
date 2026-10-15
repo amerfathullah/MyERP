@@ -214,4 +214,53 @@ public class CustomerAcquisitionAndLoyaltyReportTests
         southRow.ShouldNotBeNull();
         southRow.NewCustomerRevenue.ShouldBe(800m);
     }
+
+    [Fact]
+    public async Task GetReportAsync_GroupByProject_ExcludesInvoicesWithoutProject()
+    {
+        // Arrange (ERPNext PR #60011 / commit a3eb5e6b09):
+        // Invoice 1 has Project A (rate 1000).
+        // Invoice 2 has NO Project (rate 4000).
+        // Report grouped by Project should only include Project A (total 1000) and exclude Invoice 2.
+        var projectId = Guid.NewGuid();
+        var project = new MyERP.Projects.Entities.Project(projectId, _companyId, "PRJ-001", "Project Alpha");
+        var projectRepo = Substitute.For<IRepository<MyERP.Projects.Entities.Project, Guid>>();
+        projectRepo.GetQueryableAsync().Returns(Task.FromResult(new List<MyERP.Projects.Entities.Project> { project }.AsQueryable()));
+
+        var lazySp = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        lazySp.LazyGetRequiredService<IRepository<MyERP.Projects.Entities.Project, Guid>>().Returns(projectRepo);
+        _appService.LazyServiceProvider = lazySp;
+
+        var invWithProj = new SalesInvoice(Guid.NewGuid(), _companyId, _customer1Id, "INV-PRJ", new DateTime(2025, 4, 10))
+        {
+            ProjectId = projectId
+        };
+        invWithProj.AddItem(Guid.NewGuid(), "Item", 1m, 1000m, 0m);
+        invWithProj.Submit();
+        invWithProj.Post();
+
+        var invNoProj = new SalesInvoice(Guid.NewGuid(), _companyId, _customer1Id, "INV-NOPRJ", new DateTime(2025, 4, 15));
+        invNoProj.AddItem(Guid.NewGuid(), "Item", 1m, 4000m, 0m);
+        invNoProj.Submit();
+        invNoProj.Post();
+
+        _siRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SalesInvoice> { invWithProj, invNoProj }.AsQueryable()));
+
+        // Act
+        var result = await _appService.GetReportAsync(new SalesAnalyticsRequestDto
+        {
+            CompanyId = _companyId,
+            FromDate = new DateTime(2025, 4, 1),
+            ToDate = new DateTime(2025, 4, 30),
+            GroupBy = AnalyticsGroupBy.Project,
+            PeriodType = AnalyticsPeriodType.Monthly
+        });
+
+        // Assert
+        result.Rows.Count.ShouldBe(1);
+        result.Rows[0].EntityId.ShouldBe(projectId.ToString());
+        result.Rows[0].EntityName.ShouldBe("Project Alpha");
+        result.Rows[0].Total.ShouldBe(1000m);
+        result.GrandTotal.ShouldBe(1000m);
+    }
 }

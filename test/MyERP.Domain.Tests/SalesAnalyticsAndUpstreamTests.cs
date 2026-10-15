@@ -16,6 +16,7 @@ public class SalesAnalyticsAndUpstreamTests
         Assert.Equal(2, (int)AnalyticsGroupBy.Territory);
         Assert.Equal(3, (int)AnalyticsGroupBy.SalesPerson);
         Assert.Equal(4, (int)AnalyticsGroupBy.ItemGroup);
+        Assert.Equal(5, (int)AnalyticsGroupBy.Project);
     }
 
     [Fact]

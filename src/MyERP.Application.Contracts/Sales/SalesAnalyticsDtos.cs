@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MyERP.Sales;
 
-public enum AnalyticsGroupBy { Customer = 0, Item = 1, Territory = 2, SalesPerson = 3, ItemGroup = 4 }
+public enum AnalyticsGroupBy { Customer = 0, Item = 1, Territory = 2, SalesPerson = 3, ItemGroup = 4, Project = 5 }
 public enum AnalyticsPeriodType { Monthly = 0, Quarterly = 1, Yearly = 2 }
 
 public class SalesAnalyticsRequestDto
