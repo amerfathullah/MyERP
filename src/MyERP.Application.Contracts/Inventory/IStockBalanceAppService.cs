@@ -25,4 +25,10 @@ public interface IStockBalanceAppService : IApplicationService
     /// Per ERPNext PR #47125 / commit 36081413d8: provision to recalculate the qty in the Bin.
     /// </summary>
     Task RecalculateBinQtyAsync(Guid itemId, Guid warehouseId);
+
+    /// <summary>
+    /// Product Bundle Balance Report — calculates available product bundle quantities based on component stock.
+    /// Bundle qty is never negative per ERPNext PR #60627 (max(0, actual_qty // minimum_qty)).
+    /// </summary>
+    Task<ProductBundleBalanceReportDto> GetProductBundleBalanceAsync(GetProductBundleBalanceRequestDto input);
 }

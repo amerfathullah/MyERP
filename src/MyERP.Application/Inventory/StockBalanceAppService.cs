@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
+using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
@@ -22,6 +23,7 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
     private readonly IRepository<StockLedgerEntry, Guid> _sleRepository;
     private readonly IRepository<Batch, Guid> _batchRepository;
     private readonly DomainServices.BinService _binService;
+    private readonly IRepository<ProductBundle, Guid>? _productBundleRepository;
 
     public StockBalanceAppService(
         IRepository<Bin, Guid> binRepository,
@@ -29,7 +31,8 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
         IRepository<Warehouse, Guid> warehouseRepository,
         IRepository<StockLedgerEntry, Guid> sleRepository,
         IRepository<Batch, Guid> batchRepository,
-        DomainServices.BinService binService)
+        DomainServices.BinService binService,
+        IRepository<ProductBundle, Guid>? productBundleRepository = null)
     {
         _binRepository = binRepository;
         _itemRepository = itemRepository;
@@ -37,6 +40,7 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
         _sleRepository = sleRepository;
         _batchRepository = batchRepository;
         _binService = binService;
+        _productBundleRepository = productBundleRepository;
     }
 
     /// <summary>
@@ -623,6 +627,123 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
     public async Task RecalculateBinQtyAsync(Guid itemId, Guid warehouseId)
     {
         await _binService.RecalculateFullBinAsync(itemId, warehouseId, _sleRepository);
+    }
+
+    /// <summary>
+    /// Product Bundle Balance Report — calculates available product bundle quantities based on component stock.
+    /// Per ERPNext PR #60627 / commit 6632996587 (prevent negative product bundle quantities):
+    /// Bundle qty is never negative (max(0, actual_qty // minimum_qty)).
+    /// </summary>
+    public async Task<ProductBundleBalanceReportDto> GetProductBundleBalanceAsync(GetProductBundleBalanceRequestDto input)
+    {
+        var bundleRepo = _productBundleRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<ProductBundle, Guid>>();
+        var bundleQuery = (await bundleRepo.WithDetailsAsync()).AsQueryable();
+
+        bundleQuery = bundleQuery.Where(b => b.IsActive && !b.IsDisabled);
+        if (input.ParentItemId.HasValue)
+            bundleQuery = bundleQuery.Where(b => b.ItemId == input.ParentItemId.Value);
+
+        var bundles = bundleQuery.ToList();
+        if (bundles.Count == 0)
+        {
+            return new ProductBundleBalanceReportDto();
+        }
+
+        var parentItemIds = bundles.Select(b => b.ItemId).Distinct().ToList();
+        var componentItemIds = bundles.SelectMany(b => b.Items.Select(i => i.ComponentItemId)).Distinct().ToList();
+        var allItemIds = parentItemIds.Concat(componentItemIds).Distinct().ToList();
+
+        var itemQuery = await _itemRepository.GetQueryableAsync();
+        var items = itemQuery.Where(i => allItemIds.Contains(i.Id)).ToList().ToDictionary(i => i.Id);
+
+        var whQuery = await _warehouseRepository.GetQueryableAsync();
+        if (input.WarehouseId.HasValue)
+            whQuery = whQuery.Where(w => w.Id == input.WarehouseId.Value);
+        if (input.CompanyId.HasValue)
+            whQuery = whQuery.Where(w => w.CompanyId == input.CompanyId.Value);
+
+        var warehouses = whQuery.Where(w => !w.IsGroup && w.IsActive).ToList();
+        var warehouseIds = warehouses.Select(w => w.Id).ToList();
+
+        var binQuery = await _binRepository.GetQueryableAsync();
+        binQuery = binQuery.Where(b => componentItemIds.Contains(b.ItemId) && warehouseIds.Contains(b.WarehouseId));
+        var bins = binQuery.ToList();
+
+        var rows = new List<ProductBundleBalanceRowDto>();
+
+        foreach (var bundle in bundles)
+        {
+            if (!items.TryGetValue(bundle.ItemId, out var parentItem))
+                continue;
+
+            List<Warehouse> targetWarehouses;
+            if (input.WarehouseId.HasValue)
+            {
+                targetWarehouses = warehouses.Where(w => w.Id == input.WarehouseId.Value).ToList();
+            }
+            else
+            {
+                var bundleComponentIds = bundle.Items.Select(i => i.ComponentItemId).ToHashSet();
+                var activeWhIds = bins.Where(b => bundleComponentIds.Contains(b.ItemId) && b.ActualQty > 0)
+                                      .Select(b => b.WarehouseId)
+                                      .ToHashSet();
+                targetWarehouses = warehouses.Where(w => activeWhIds.Contains(w.Id)).ToList();
+            }
+
+            foreach (var wh in targetWarehouses)
+            {
+                var childRows = new List<ProductBundleBalanceRowDto>();
+                foreach (var child in bundle.Items)
+                {
+                    items.TryGetValue(child.ComponentItemId, out var childItem);
+                    var childBin = bins.FirstOrDefault(b => b.ItemId == child.ComponentItemId && b.WarehouseId == wh.Id);
+                    var actualQty = childBin?.ActualQty ?? 0m;
+                    var minimumQty = child.Qty;
+                    // Never negative per ERPNext PR #60627 (max(0, actual_qty // minimum_qty))
+                    var childBundleQty = Math.Max(0m, Math.Floor(minimumQty > 0 ? actualQty / minimumQty : 0m));
+
+                    childRows.Add(new ProductBundleBalanceRowDto
+                    {
+                        Indent = 1,
+                        ParentItemId = bundle.ItemId,
+                        ItemId = child.ComponentItemId,
+                        ItemCode = childItem?.ItemCode ?? string.Empty,
+                        ItemName = childItem?.ItemName ?? child.ItemName ?? string.Empty,
+                        Description = childItem?.Description,
+                        WarehouseId = wh.Id,
+                        WarehouseName = wh.Name,
+                        CompanyId = wh.CompanyId,
+                        Uom = child.Uom ?? childItem?.Uom,
+                        ActualQty = actualQty,
+                        MinimumQty = minimumQty,
+                        BundleQty = childBundleQty
+                    });
+                }
+
+                var minBundleQty = childRows.Count > 0 ? childRows.Min(r => r.BundleQty) : 0m;
+                var parentRow = new ProductBundleBalanceRowDto
+                {
+                    Indent = 0,
+                    ParentItemId = null,
+                    ItemId = bundle.ItemId,
+                    ItemCode = parentItem.ItemCode,
+                    ItemName = parentItem.ItemName,
+                    Description = parentItem.Description,
+                    WarehouseId = wh.Id,
+                    WarehouseName = wh.Name,
+                    CompanyId = wh.CompanyId,
+                    Uom = parentItem.Uom,
+                    ActualQty = 0m,
+                    MinimumQty = 0m,
+                    BundleQty = minBundleQty
+                };
+
+                rows.Add(parentRow);
+                rows.AddRange(childRows);
+            }
+        }
+
+        return new ProductBundleBalanceReportDto { Rows = rows };
     }
 }
 

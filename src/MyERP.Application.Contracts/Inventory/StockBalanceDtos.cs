@@ -153,3 +153,37 @@ public class StockBalanceReportRowDto
     public decimal ValuationRate { get; set; }
 }
 
+// --- Product Bundle Balance Report DTOs (PR #60627) ---
+
+public class GetProductBundleBalanceRequestDto
+{
+    public Guid? CompanyId { get; set; }
+    public Guid? ParentItemId { get; set; }
+    public Guid? WarehouseId { get; set; }
+}
+
+public class ProductBundleBalanceReportDto
+{
+    public List<ProductBundleBalanceRowDto> Rows { get; set; } = new();
+}
+
+public class ProductBundleBalanceRowDto
+{
+    public int Indent { get; set; }
+    public Guid? ParentItemId { get; set; }
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? Uom { get; set; }
+    public Guid WarehouseId { get; set; }
+    public string WarehouseName { get; set; } = string.Empty;
+    public Guid? CompanyId { get; set; }
+    public decimal ActualQty { get; set; }
+    public decimal MinimumQty { get; set; }
+    /// <summary>
+    /// Calculated available bundle quantity. Never negative per ERPNext PR #60627 (max(0, actual_qty // minimum_qty)).
+    /// </summary>
+    public decimal BundleQty { get; set; }
+}
+
