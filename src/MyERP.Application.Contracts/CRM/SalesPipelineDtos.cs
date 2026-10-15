@@ -191,3 +191,31 @@ public class LostOpportunityReportDto
 {
     public List<LostOpportunityRowDto> Data { get; set; } = new();
 }
+
+// =========================================================================
+// Sales Funnel (ERPNext PR #59941 / commit 6103b5027d & PR #59940 / commit b3fa56f4f4)
+// =========================================================================
+
+public class SalesFunnelInputDto
+{
+    [System.ComponentModel.DataAnnotations.Required]
+    public Guid CompanyId { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+}
+
+public class SalesFunnelStageItemDto
+{
+    public string Title { get; set; } = null!;
+    public int Value { get; set; }
+    public string Color { get; set; } = null!;
+}
+
+public class SalesFunnelDto
+{
+    public int ActiveLeads { get; set; }
+    public int Opportunities { get; set; }
+    public int Quotations { get; set; }
+    public int Converted { get; set; }
+    public List<SalesFunnelStageItemDto> Stages { get; set; } = new();
+}

@@ -94,4 +94,5 @@ public interface ISalesPipelineAppService : IApplicationService
     Task<OpportunitySummaryBySalesStageDto> GetOpportunitySummaryBySalesStageAsync(GetOpportunitySummaryBySalesStageRequestDto input);
     Task<FirstResponseTimeReportDto> GetFirstResponseTimeReportAsync(GetFirstResponseTimeReportRequestDto input);
     Task<LostOpportunityReportDto> GetLostOpportunityReportAsync(GetLostOpportunityReportRequestDto input);
+    Task<SalesFunnelDto> GetSalesFunnelAsync(SalesFunnelInputDto input);
 }

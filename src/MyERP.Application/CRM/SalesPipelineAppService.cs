@@ -20,19 +20,22 @@ public class SalesPipelineAppService : ApplicationService, ISalesPipelineAppServ
     private readonly IRepository<Quotation, Guid> _quotationRepository;
     private readonly IRepository<SalesOrder, Guid> _salesOrderRepository;
     private readonly IRepository<SalesStage, Guid> _salesStageRepository;
+    private readonly IRepository<Customer, Guid>? _customerRepository;
 
     public SalesPipelineAppService(
         IRepository<Lead, Guid> leadRepository,
         IRepository<Opportunity, Guid> opportunityRepository,
         IRepository<Quotation, Guid> quotationRepository,
         IRepository<SalesOrder, Guid> salesOrderRepository,
-        IRepository<SalesStage, Guid> salesStageRepository)
+        IRepository<SalesStage, Guid> salesStageRepository,
+        IRepository<Customer, Guid>? customerRepository = null)
     {
         _leadRepository = leadRepository;
         _opportunityRepository = opportunityRepository;
         _quotationRepository = quotationRepository;
         _salesOrderRepository = salesOrderRepository;
         _salesStageRepository = salesStageRepository;
+        _customerRepository = customerRepository;
     }
 
     /// <summary>
@@ -384,6 +387,75 @@ public class SalesPipelineAppService : ApplicationService, ISalesPipelineAppServ
         if (ts.TotalMinutes >= 1)
             return $"{ts.Minutes}m {ts.Seconds}s";
         return $"{ts.Seconds}s";
+    }
+
+    /// <summary>
+    /// Returns the Sales Funnel counts for Active Leads, Opportunities, Quotations, and Converted customers.
+    /// Per ERPNext PR #59941 / commit 6103b5027d &amp; PR #59940 / commit b3fa56f4f4:
+    /// - Active Leads: leads created in date range for company
+    /// - Opportunities: opportunities created in date range for company originating from Lead (LeadId != null)
+    /// - Quotations: submitted quotations created in date range for company that are lead-originated
+    /// - Converted: customers created in date range linked to a lead belonging to company
+    /// </summary>
+    public async Task<SalesFunnelDto> GetSalesFunnelAsync(SalesFunnelInputDto input)
+    {
+        var fromDate = input.FromDate?.Date;
+        var toDate = input.ToDate?.Date.AddDays(1).AddTicks(-1);
+
+        var leadQuery = await _leadRepository.GetQueryableAsync();
+        leadQuery = leadQuery.Where(l => l.CompanyId == input.CompanyId);
+        if (fromDate.HasValue) leadQuery = leadQuery.Where(l => l.CreationTime >= fromDate.Value);
+        if (toDate.HasValue) leadQuery = leadQuery.Where(l => l.CreationTime <= toDate.Value);
+
+        var activeLeads = leadQuery.Count();
+
+        var oppQuery = await _opportunityRepository.GetQueryableAsync();
+        oppQuery = oppQuery.Where(o => o.CompanyId == input.CompanyId && o.LeadId.HasValue);
+        if (fromDate.HasValue) oppQuery = oppQuery.Where(o => o.CreationTime >= fromDate.Value);
+        if (toDate.HasValue) oppQuery = oppQuery.Where(o => o.CreationTime <= toDate.Value);
+
+        var opportunities = oppQuery.Count();
+
+        var qtnQuery = await _quotationRepository.GetQueryableAsync();
+        qtnQuery = qtnQuery.Where(q => q.CompanyId == input.CompanyId && q.Status == DocumentStatus.Submitted);
+        if (fromDate.HasValue) qtnQuery = qtnQuery.Where(q => q.CreationTime >= fromDate.Value);
+        if (toDate.HasValue) qtnQuery = qtnQuery.Where(q => q.CreationTime <= toDate.Value);
+
+        var quotationsList = qtnQuery.ToList();
+
+        var allOppQuery = await _opportunityRepository.GetQueryableAsync();
+        var leadOppIds = allOppQuery.Where(o => o.LeadId.HasValue).Select(o => o.Id).ToHashSet();
+
+        var customerRepo = _customerRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+        var customerQuery = await customerRepo.GetQueryableAsync();
+        var leadCustomerIds = customerQuery.Where(c => c.LeadId.HasValue).Select(c => c.Id).ToHashSet();
+
+        var quotations = quotationsList.Count(q =>
+            (q.OpportunityId.HasValue && leadOppIds.Contains(q.OpportunityId.Value)) ||
+            (!q.OpportunityId.HasValue && leadCustomerIds.Contains(q.CustomerId)));
+
+        var convertedCustomerQuery = customerQuery.Where(c => c.LeadId.HasValue);
+        if (fromDate.HasValue) convertedCustomerQuery = convertedCustomerQuery.Where(c => c.CreationTime >= fromDate.Value);
+        if (toDate.HasValue) convertedCustomerQuery = convertedCustomerQuery.Where(c => c.CreationTime <= toDate.Value);
+
+        var convertedCustomerLeadIds = convertedCustomerQuery.Select(c => c.LeadId!.Value).ToList();
+        var companyLeadQuery = await _leadRepository.GetQueryableAsync();
+        var converted = companyLeadQuery.Count(l => l.CompanyId == input.CompanyId && convertedCustomerLeadIds.Contains(l.Id));
+
+        return new SalesFunnelDto
+        {
+            ActiveLeads = activeLeads,
+            Opportunities = opportunities,
+            Quotations = quotations,
+            Converted = converted,
+            Stages = new List<SalesFunnelStageItemDto>
+            {
+                new() { Title = "Active Leads", Value = activeLeads, Color = "#B03B46" },
+                new() { Title = "Opportunities", Value = opportunities, Color = "#F09C00" },
+                new() { Title = "Quotations", Value = quotations, Color = "#006685" },
+                new() { Title = "Converted", Value = converted, Color = "#00AD65" }
+            }
+        };
     }
 }
 
