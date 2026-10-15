@@ -358,6 +358,71 @@ public class DashboardAppService : ApplicationService, IDashboardAppService
         }
         catch (Exception ex) { Logger.LogWarning(ex, "Low stock query failed"); metrics.LowStockItems = 0; }
 
+        // Open Work Orders (ERPNext PR #60657 / commit ff9e9f88af)
+        try
+        {
+            var woRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.WorkOrder, Guid>>();
+            var seRepo = LazyServiceProvider.LazyGetService<IRepository<StockEntry, Guid>>();
+            if (woRepo != null)
+            {
+                var woQuery = await woRepo.GetQueryableAsync();
+                var candidateWos = woQuery
+                    .Where(w => w.CompanyId == companyId
+                        && w.Status != Manufacturing.WorkOrderStatus.Draft
+                        && w.Status != Manufacturing.WorkOrderStatus.Closed
+                        && w.Status != Manufacturing.WorkOrderStatus.Stopped
+                        && w.Status != Manufacturing.WorkOrderStatus.Completed
+                        && w.Status != Manufacturing.WorkOrderStatus.Cancelled
+                        && w.ProducedQuantity < w.Quantity)
+                    .Select(w => w.Id)
+                    .ToList();
+
+                if (candidateWos.Count > 0 && seRepo != null)
+                {
+                    var seQuery = await seRepo.GetQueryableAsync();
+                    var wosWithSubmittedStockEntries = seQuery
+                        .Where(se => se.WorkOrderId.HasValue
+                            && candidateWos.Contains(se.WorkOrderId.Value)
+                            && (se.Status == DocumentStatus.Submitted || se.Status == DocumentStatus.Posted))
+                        .Select(se => se.WorkOrderId!.Value)
+                        .Distinct()
+                        .ToHashSet();
+
+                    metrics.OpenWorkOrders = candidateWos.Count(id => !wosWithSubmittedStockEntries.Contains(id));
+                }
+                else
+                {
+                    metrics.OpenWorkOrders = candidateWos.Count;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Open work orders query failed");
+            metrics.OpenWorkOrders = 0;
+        }
+
+        // Pending Material Requests
+        try
+        {
+            var mrRepo = LazyServiceProvider.LazyGetService<IRepository<MaterialRequest, Guid>>();
+            if (mrRepo != null)
+            {
+                var mrQuery = await mrRepo.GetQueryableAsync();
+                metrics.PendingMaterialRequests = mrQuery
+                    .Count(mr => mr.CompanyId == companyId
+                        && mr.Status != DocumentStatus.Draft
+                        && mr.Status != DocumentStatus.Cancelled
+                        && mr.Status != DocumentStatus.Approved
+                        && mr.Status != DocumentStatus.Posted);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Pending material requests query failed");
+            metrics.PendingMaterialRequests = 0;
+        }
+
         return metrics;
     }
 

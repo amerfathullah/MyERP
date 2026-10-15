@@ -208,4 +208,13 @@ public class ManufacturingController : MyERPController
     [HttpPost("mrp/create-orders")]
     public Task<MrpOrdersCreatedDto> CreateOrdersAsync([FromBody] CreateOrdersFromMrpInput input)
         => _mrpService.CreateOrdersAsync(input);
+
+    // Open Work Orders & In Progress Reports (ERPNext PR #60657 / commit ff9e9f88af)
+    [HttpGet("open-work-orders")]
+    public Task<List<OpenWorkOrderItemDto>> GetOpenWorkOrdersReportAsync([FromQuery] Guid companyId)
+        => _service.GetOpenWorkOrdersReportAsync(companyId);
+
+    [HttpGet("work-orders-in-progress")]
+    public Task<List<WorkOrderInProgressItemDto>> GetWorkOrdersInProgressReportAsync([FromQuery] Guid companyId)
+        => _service.GetWorkOrdersInProgressReportAsync(companyId);
 }

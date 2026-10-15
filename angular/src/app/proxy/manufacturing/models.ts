@@ -1297,3 +1297,36 @@ export interface ProcessLossReportRowDto {
   totalRmValue?: number;
 }
 
+export interface OpenWorkOrderItemDto {
+  workOrderId?: string;
+  workOrderNumber?: string;
+  creationTime?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  quantity?: number;
+  producedQuantity?: number;
+  remainingQuantity?: number;
+  status?: number;
+  statusLabel?: string;
+  plannedStartDate?: string | null;
+  plannedEndDate?: string | null;
+}
+
+export interface WorkOrderInProgressItemDto {
+  workOrderId?: string;
+  workOrderNumber?: string;
+  creationTime?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  quantity?: number;
+  producedQuantity?: number;
+  remainingQuantity?: number;
+  status?: number;
+  statusLabel?: string;
+  plannedStartDate?: string | null;
+  plannedEndDate?: string | null;
+  stockEntryCount?: number;
+}
+

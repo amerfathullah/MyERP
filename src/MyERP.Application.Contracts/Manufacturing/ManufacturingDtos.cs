@@ -420,6 +420,10 @@ public interface IManufacturingAppService : IApplicationService
     // Material Availability & Readiness
     Task<List<MaterialAvailabilityDto>> GetMaterialAvailabilityAsync(Guid workOrderId);
     Task<List<WorkOrderMaterialReadinessDto>> GetBatchMaterialReadinessAsync(Guid? companyId);
+
+    // Open Work Orders & In Progress Reports (ERPNext PR #60657 / commit ff9e9f88af)
+    Task<List<OpenWorkOrderItemDto>> GetOpenWorkOrdersReportAsync(Guid companyId);
+    Task<List<WorkOrderInProgressItemDto>> GetWorkOrdersInProgressReportAsync(Guid companyId);
 }
 
 /// <summary>
@@ -538,6 +542,41 @@ public class ProductionScheduleDto
     public int Completed { get; set; }
     public int Overdue { get; set; }
     public decimal OverallCompletionRate { get; set; }
+}
+
+public class OpenWorkOrderItemDto
+{
+    public Guid WorkOrderId { get; set; }
+    public string WorkOrderNumber { get; set; } = string.Empty;
+    public DateTime CreationTime { get; set; }
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public decimal ProducedQuantity { get; set; }
+    public decimal RemainingQuantity => Math.Max(0, Quantity - ProducedQuantity);
+    public int Status { get; set; }
+    public string StatusLabel { get; set; } = string.Empty;
+    public DateTime? PlannedStartDate { get; set; }
+    public DateTime? PlannedEndDate { get; set; }
+}
+
+public class WorkOrderInProgressItemDto
+{
+    public Guid WorkOrderId { get; set; }
+    public string WorkOrderNumber { get; set; } = string.Empty;
+    public DateTime CreationTime { get; set; }
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public decimal ProducedQuantity { get; set; }
+    public decimal RemainingQuantity => Math.Max(0, Quantity - ProducedQuantity);
+    public int Status { get; set; }
+    public string StatusLabel { get; set; } = string.Empty;
+    public DateTime? PlannedStartDate { get; set; }
+    public DateTime? PlannedEndDate { get; set; }
+    public int StockEntryCount { get; set; }
 }
 
 // === Cross-WO Material Shortage Summary DTOs ===

@@ -2962,18 +2962,162 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         };
     }
 
+    /// <summary>
+    /// Open Work Orders report: returns submitted work orders where production is incomplete
+    /// and no submitted stock entry has been linked.
+    /// Per ERPNext PR #60657 / commit ff9e9f88af:
+    /// - Excludes inactive orders: Closed, Stopped, Completed, Cancelled, Draft.
+    /// - Condition: produced_qty < qty
+    /// - Condition: NOT EXISTS (submitted stock entry linked to work order)
+    /// </summary>
+    public async Task<List<OpenWorkOrderItemDto>> GetOpenWorkOrdersReportAsync(Guid companyId)
+    {
+        var woQuery = await _workOrderRepository.GetQueryableAsync();
+        var candidateOrders = woQuery
+            .Where(wo => wo.CompanyId == companyId
+                && wo.Status != WorkOrderStatus.Draft
+                && wo.Status != WorkOrderStatus.Closed
+                && wo.Status != WorkOrderStatus.Stopped
+                && wo.Status != WorkOrderStatus.Completed
+                && wo.Status != WorkOrderStatus.Cancelled
+                && wo.ProducedQuantity < wo.Quantity)
+            .OrderBy(wo => wo.CreationTime)
+            .ToList();
+
+        if (candidateOrders.Count == 0) return new List<OpenWorkOrderItemDto>();
+
+        var candidateIds = candidateOrders.Select(wo => wo.Id).ToList();
+
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
+        var seQuery = await seRepo.GetQueryableAsync();
+        var wosWithSubmittedStockEntries = seQuery
+            .Where(se => se.WorkOrderId.HasValue
+                && candidateIds.Contains(se.WorkOrderId.Value)
+                && (se.Status == Core.DocumentStatus.Submitted || se.Status == Core.DocumentStatus.Posted))
+            .Select(se => se.WorkOrderId!.Value)
+            .Distinct()
+            .ToHashSet();
+
+        var openOrders = candidateOrders
+            .Where(wo => !wosWithSubmittedStockEntries.Contains(wo.Id))
+            .ToList();
+
+        if (openOrders.Count == 0) return new List<OpenWorkOrderItemDto>();
+
+        var itemIds = openOrders.Select(wo => wo.ItemId).Distinct().ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var itemQueryable = await itemRepo.GetQueryableAsync();
+        var itemLookup = itemQueryable.Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName })
+            .ToList()
+            .ToDictionary(x => x.Id);
+
+        return openOrders.Select(wo =>
+        {
+            var item = itemLookup.GetValueOrDefault(wo.ItemId);
+            return new OpenWorkOrderItemDto
+            {
+                WorkOrderId = wo.Id,
+                WorkOrderNumber = wo.WorkOrderNumber ?? wo.Id.ToString()[..8],
+                CreationTime = wo.CreationTime,
+                ItemId = wo.ItemId,
+                ItemCode = item?.ItemCode ?? "—",
+                ItemName = item?.ItemName ?? "—",
+                Quantity = wo.Quantity,
+                ProducedQuantity = wo.ProducedQuantity,
+                Status = (int)wo.Status,
+                StatusLabel = GetWoStatusLabel((int)wo.Status),
+                PlannedStartDate = wo.PlannedStartDate,
+                PlannedEndDate = wo.PlannedEndDate
+            };
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Work Orders in Progress report: returns submitted work orders where production is incomplete
+    /// and at least one submitted stock entry has been created.
+    /// Per ERPNext PR #60657 / commit ff9e9f88af:
+    /// - Excludes inactive orders: Stopped, Closed, Completed, Cancelled, Draft.
+    /// - Condition: produced_qty < qty
+    /// - Condition: EXISTS (submitted stock entry linked to work order)
+    /// </summary>
+    public async Task<List<WorkOrderInProgressItemDto>> GetWorkOrdersInProgressReportAsync(Guid companyId)
+    {
+        var woQuery = await _workOrderRepository.GetQueryableAsync();
+        var candidateOrders = woQuery
+            .Where(wo => wo.CompanyId == companyId
+                && wo.Status != WorkOrderStatus.Draft
+                && wo.Status != WorkOrderStatus.Closed
+                && wo.Status != WorkOrderStatus.Stopped
+                && wo.Status != WorkOrderStatus.Completed
+                && wo.Status != WorkOrderStatus.Cancelled
+                && wo.ProducedQuantity < wo.Quantity)
+            .OrderBy(wo => wo.CreationTime)
+            .ToList();
+
+        if (candidateOrders.Count == 0) return new List<WorkOrderInProgressItemDto>();
+
+        var candidateIds = candidateOrders.Select(wo => wo.Id).ToList();
+
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
+        var seQuery = await seRepo.GetQueryableAsync();
+        var seCounts = seQuery
+            .Where(se => se.WorkOrderId.HasValue
+                && candidateIds.Contains(se.WorkOrderId.Value)
+                && (se.Status == Core.DocumentStatus.Submitted || se.Status == Core.DocumentStatus.Posted))
+            .GroupBy(se => se.WorkOrderId!.Value)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var inProgressOrders = candidateOrders
+            .Where(wo => seCounts.ContainsKey(wo.Id))
+            .ToList();
+
+        if (inProgressOrders.Count == 0) return new List<WorkOrderInProgressItemDto>();
+
+        var itemIds = inProgressOrders.Select(wo => wo.ItemId).Distinct().ToList();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var itemQueryable = await itemRepo.GetQueryableAsync();
+        var itemLookup = itemQueryable.Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName })
+            .ToList()
+            .ToDictionary(x => x.Id);
+
+        return inProgressOrders.Select(wo =>
+        {
+            var item = itemLookup.GetValueOrDefault(wo.ItemId);
+            return new WorkOrderInProgressItemDto
+            {
+                WorkOrderId = wo.Id,
+                WorkOrderNumber = wo.WorkOrderNumber ?? wo.Id.ToString()[..8],
+                CreationTime = wo.CreationTime,
+                ItemId = wo.ItemId,
+                ItemCode = item?.ItemCode ?? "—",
+                ItemName = item?.ItemName ?? "—",
+                Quantity = wo.Quantity,
+                ProducedQuantity = wo.ProducedQuantity,
+                Status = (int)wo.Status,
+                StatusLabel = GetWoStatusLabel((int)wo.Status),
+                PlannedStartDate = wo.PlannedStartDate,
+                PlannedEndDate = wo.PlannedEndDate,
+                StockEntryCount = seCounts.GetValueOrDefault(wo.Id, 0)
+            };
+        }).ToList();
+    }
+
     private static string GetWoStatusLabel(int status) => status switch
     {
         0 => "Draft", 1 => "Submitted", 2 => "Not Started",
         3 => "In Process", 4 => "Completed", 5 => "Stopped",
-        6 => "Cancelled", _ => "Unknown"
+        6 => "Cancelled", 7 => "Closed", 8 => "Stock Reserved",
+        9 => "Stock Partially Reserved", _ => "Unknown"
     };
 
     private static string GetWoStatusColor(int status) => status switch
     {
         0 => "secondary", 1 => "info", 2 => "warning",
         3 => "primary", 4 => "success", 5 => "danger",
-        6 => "dark", _ => "secondary"
+        6 => "dark", 7 => "secondary", 8 => "primary",
+        9 => "warning", _ => "secondary"
     };
 
     /// <summary>

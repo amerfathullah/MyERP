@@ -1,7 +1,7 @@
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { AlternativeFinishedGoodsDetailsDto, BatchCreateWorkOrdersResultDto, BomDto, CreateBomDto, CreateDisassemblyDto, CreateFgConversionEntryDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateOperationDto, CreateRoutingDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialShortageAcrossOrdersDto, OperationDto, ProductionCostBreakdownDto, ProductionScheduleDto, ReplaceBomDto, ReplaceBomResultDto, RoutingDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto, WorkstationUtilizationDto } from '../manufacturing/models';
+import type { AlternativeFinishedGoodsDetailsDto, BatchCreateWorkOrdersResultDto, BomDto, CreateBomDto, CreateDisassemblyDto, CreateFgConversionEntryDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateOperationDto, CreateRoutingDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialShortageAcrossOrdersDto, OpenWorkOrderItemDto, OperationDto, ProductionCostBreakdownDto, ProductionScheduleDto, ReplaceBomDto, ReplaceBomResultDto, RoutingDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderInProgressItemDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto, WorkstationUtilizationDto } from '../manufacturing/models';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -409,6 +409,22 @@ export class ManufacturingService {
       method: 'PUT',
       url: `/api/app/manufacturing/workstations/${id}`,
       body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  getOpenWorkOrdersReport = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, OpenWorkOrderItemDto[]>({
+      method: 'GET',
+      url: '/api/app/manufacturing/open-work-orders',
+      params: { companyId },
+    },
+    { apiName: this.apiName,...config });
+
+  getWorkOrdersInProgressReport = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, WorkOrderInProgressItemDto[]>({
+      method: 'GET',
+      url: '/api/app/manufacturing/work-orders-in-progress',
+      params: { companyId },
     },
     { apiName: this.apiName,...config });
 }
