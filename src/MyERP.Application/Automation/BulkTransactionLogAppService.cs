@@ -104,6 +104,29 @@ public class BulkTransactionLogAppService : MyERPAppService, IBulkTransactionLog
     public async Task<BulkTransactionLogDto> RetryDetailAsync(Guid id, Guid detailId)
     {
         var entity = await _repository.GetAsync(id);
+        var detail = entity.Details.FirstOrDefault(d => d.Id == detailId);
+        if (detail == null)
+        {
+            throw new UserFriendlyException($"Detail with id {detailId} not found");
+        }
+
+        // Per ERPNext PR #60007 / commit a439708aad: do not retry sources a later run already converted
+        var allLogsQuery = await _repository.WithDetailsAsync(l => l.Details);
+        var alreadySucceededLater = allLogsQuery
+            .SelectMany(l => l.Details)
+            .Any(d => d.TransactionName == detail.TransactionName
+                   && d.FromDocType == detail.FromDocType
+                   && d.ToDocType == detail.ToDocType
+                   && d.Status == BulkTransactionStatus.Success
+                   && d.CreationTime > detail.CreationTime);
+
+        if (alreadySucceededLater)
+        {
+            detail.RetriedCount++;
+            await _repository.UpdateAsync(entity);
+            return new BulkTransactionLogMapper().Map(entity);
+        }
+
         entity.RetryDetail(detailId);
         await _repository.UpdateAsync(entity);
         return new BulkTransactionLogMapper().Map(entity);
