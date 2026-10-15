@@ -220,8 +220,10 @@ public class SerialAndBatchBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>
     /// Applies transfer rates from an outward bundle to this inward bundle.
     /// Preserves batch-wise valuation rates plus additional costs across material transfer.
+    /// Per ERPNext PR #60629 / commit 6e580e3f18: Each entry starts from the row rate (defaultRate),
+    /// so an entry without an outward match does not inherit an earlier entry's transfer rate.
     /// </summary>
-    public void ApplyTransferRates(SerialAndBatchBundle outwardBundle, decimal additionalCost, decimal transferQty)
+    public void ApplyTransferRates(SerialAndBatchBundle outwardBundle, decimal additionalCost, decimal transferQty, decimal defaultRate = 0m)
     {
         var rates = CalculateTransferRates(outwardBundle, additionalCost, transferQty);
         var additionalCostPerUnit = transferQty > 0 ? (additionalCost / transferQty) : 0m;
@@ -239,6 +241,10 @@ public class SerialAndBatchBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 {
                     entry.IncomingRate = match.IncomingRate + additionalCostPerUnit;
                 }
+                else if (defaultRate > 0)
+                {
+                    entry.IncomingRate = defaultRate + additionalCostPerUnit;
+                }
             }
             else if (!string.IsNullOrWhiteSpace(entry.SerialNo))
             {
@@ -247,6 +253,14 @@ public class SerialAndBatchBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 {
                     entry.IncomingRate = match.IncomingRate + additionalCostPerUnit;
                 }
+                else if (defaultRate > 0)
+                {
+                    entry.IncomingRate = defaultRate + additionalCostPerUnit;
+                }
+            }
+            else if (defaultRate > 0)
+            {
+                entry.IncomingRate = defaultRate + additionalCostPerUnit;
             }
         }
 

@@ -304,11 +304,12 @@ public class StockPostingService : DomainService
 
                 if (inwardBundle != null && inwardBundle.Entries.Any())
                 {
-                    // Per ERPNext PR #59657 (commit 1cf560fbc7):
-                    // Keep each batch's rate through a material transfer, adding proportional additional cost.
+                    // Per ERPNext PR #59657 (commit 1cf560fbc7) & PR #60629 (commit 6e580e3f18):
+                    // Keep each batch's rate through a material transfer, adding proportional additional cost,
+                    // falling back to the row rate for any unmatched entry.
                     if (isTransfer && outwardBundle != null && outwardBundle.Entries.Any())
                     {
-                        inwardBundle.ApplyTransferRates(outwardBundle, item.AdditionalCost, item.Quantity);
+                        inwardBundle.ApplyTransferRates(outwardBundle, item.AdditionalCost, item.Quantity, rate);
                         await bundleRepo!.UpdateAsync(inwardBundle);
                     }
 

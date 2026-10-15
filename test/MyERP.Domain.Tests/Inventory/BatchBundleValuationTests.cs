@@ -218,6 +218,42 @@ public class BatchBundleValuationTests
     }
 
     [Fact]
+    public void ApplyTransferRates_UnmatchedEntry_TakesRowRate_NotPreviousEntryRate_PerPR60629()
+    {
+        // Per ERPNext PR #60629 / commit 6e580e3f18:
+        // Each entry starts from the row rate, so an entry without an outward match
+        // takes the default row rate (+ additional cost) rather than inheriting an earlier entry's rate.
+        var outwardBundleId = Guid.NewGuid();
+        var outwardBundle = new SerialAndBatchBundle(
+            outwardBundleId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            BundleTransactionType.Outward, "StockEntry", Guid.NewGuid(), DateTime.UtcNow);
+
+        var batch1Id = Guid.NewGuid();
+        var batch2Id = Guid.NewGuid(); // not present in outward bundle
+
+        outwardBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), outwardBundleId, 1m, 150m, batchId: batch1Id));
+
+        var inwardBundleId = Guid.NewGuid();
+        var inwardBundle = new SerialAndBatchBundle(
+            inwardBundleId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            BundleTransactionType.Inward, "StockEntry", Guid.NewGuid(), DateTime.UtcNow);
+
+        var inEntry1 = new SerialAndBatchEntry(Guid.NewGuid(), inwardBundleId, 1m, 0m, batchId: batch1Id);
+        var inEntry2 = new SerialAndBatchEntry(Guid.NewGuid(), inwardBundleId, 1m, 0m, batchId: batch2Id);
+        inwardBundle.AddEntry(inEntry1);
+        inwardBundle.AddEntry(inEntry2);
+
+        inwardBundle.ApplyTransferRates(outwardBundle, additionalCost: 20m, transferQty: 2m, defaultRate: 80m);
+
+        // inEntry1 matches batch1: 150 + (20/2) = 160
+        Assert.Equal(160m, inEntry1.IncomingRate);
+        // inEntry2 does not match: starts from defaultRate 80 + (20/2) = 90 (not 160!)
+        Assert.Equal(90m, inEntry2.IncomingRate);
+        Assert.Equal(250m, inwardBundle.TotalAmount);
+        Assert.Equal(125m, inwardBundle.AvgRate);
+    }
+
+    [Fact]
     public void Repack_FinishedGoodValuation_ValuesAtConsumedCostOfAutoPickedBundles()
     {
         // Per ERPNext PR #60214 / commit ef827e263b & fc069b5516:
