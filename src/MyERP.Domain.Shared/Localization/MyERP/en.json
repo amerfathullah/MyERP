@@ -4991,6 +4991,11 @@
     "MyERP:05095": "Enable Automatically Create New Batch when entering Opening Stock for a batched item.",
     "MyERP:05096": "Field {field} cannot be added to Copy Fields to Variants.",
     "MyERP:05097": "Work Order {workOrder} does not allow alternative items.",
-    "MyERP:05098": "Item {item} is not an alternative of Item {originalItem}."
+    "MyERP:05098": "Item {item} is not an alternative of Item {originalItem}.",
+    "Kanban": "Kanban",
+    "List": "List",
+    "PendingReview": "Pending Review",
+    "SendForReview": "Send For Review",
+    "Working": "Working"
   }
 }

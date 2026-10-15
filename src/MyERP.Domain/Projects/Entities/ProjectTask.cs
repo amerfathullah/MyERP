@@ -80,9 +80,17 @@ public class ProjectTask : FullAuditedEntity<Guid>
 
     public void Start()
     {
-        if (Status is not (ProjectTaskStatus.Open or ProjectTaskStatus.Overdue))
+        if (Status is not (ProjectTaskStatus.Open or ProjectTaskStatus.Overdue or ProjectTaskStatus.PendingReview))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = ProjectTaskStatus.Working;
+        ActualStartDate ??= DateTime.UtcNow;
+    }
+
+    public void SendForReview()
+    {
+        if (Status is ProjectTaskStatus.Completed or ProjectTaskStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        Status = ProjectTaskStatus.PendingReview;
         ActualStartDate ??= DateTime.UtcNow;
     }
 
@@ -104,7 +112,7 @@ public class ProjectTask : FullAuditedEntity<Guid>
 
     public void Reopen()
     {
-        if (Status is not (ProjectTaskStatus.Completed or ProjectTaskStatus.Cancelled))
+        if (Status is not (ProjectTaskStatus.Completed or ProjectTaskStatus.Cancelled or ProjectTaskStatus.PendingReview))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = ProjectTaskStatus.Open;
         Progress = 0;
@@ -115,5 +123,38 @@ public class ProjectTask : FullAuditedEntity<Guid>
     {
         if (Status is ProjectTaskStatus.Open or ProjectTaskStatus.Working)
             Status = ProjectTaskStatus.Overdue;
+    }
+
+    /// <summary>
+    /// Updates the task workflow status with validation.
+    /// Supports Kanban board movements across lifecycle states.
+    /// </summary>
+    public void SetStatus(ProjectTaskStatus newStatus)
+    {
+        if (Status == newStatus) return;
+
+        switch (newStatus)
+        {
+            case ProjectTaskStatus.Open:
+                Reopen();
+                break;
+            case ProjectTaskStatus.Working:
+                Start();
+                break;
+            case ProjectTaskStatus.PendingReview:
+                SendForReview();
+                break;
+            case ProjectTaskStatus.Completed:
+                Complete();
+                break;
+            case ProjectTaskStatus.Cancelled:
+                Cancel();
+                break;
+            case ProjectTaskStatus.Overdue:
+                MarkOverdue();
+                break;
+            default:
+                throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        }
     }
 }

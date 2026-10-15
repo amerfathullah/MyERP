@@ -143,9 +143,20 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
       </div>
 
       <!-- Tasks Table -->
+      <!-- Tasks Table & Kanban -->
       <div class="card mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h6 class="mb-0"><i class="fas fa-tasks me-2"></i>{{ '::Tasks' | abpLocalization }}</h6>
+          <div class="d-flex align-items-center gap-2">
+            <h6 class="mb-0"><i class="fas fa-tasks me-2"></i>{{ '::Tasks' | abpLocalization }}</h6>
+            <div class="btn-group btn-group-sm ms-2">
+              <button class="btn" [class.btn-primary]="taskViewMode() === 'table'" [class.btn-outline-primary]="taskViewMode() !== 'table'" (click)="taskViewMode.set('table')">
+                <i class="fas fa-list me-1"></i>{{ '::List' | abpLocalization }}
+              </button>
+              <button class="btn" [class.btn-primary]="taskViewMode() === 'kanban'" [class.btn-outline-primary]="taskViewMode() !== 'kanban'" (click)="taskViewMode.set('kanban')">
+                <i class="fas fa-columns me-1"></i>{{ '::Kanban' | abpLocalization }}
+              </button>
+            </div>
+          </div>
           <button class="btn btn-sm btn-outline-primary" (click)="showTaskForm = !showTaskForm">
             <i class="fas fa-plus me-1"></i>{{ '::NewTask' | abpLocalization }}
           </button>
@@ -184,61 +195,128 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
           </div>
         }
         @if (tasks().length > 0) {
-          <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table table-hover mb-0">
-                <thead>
-                  <tr>
-                    <th>{{ '::TaskNumber' | abpLocalization }}</th>
-                    <th>{{ '::Subject' | abpLocalization }}</th>
-                    <th>{{ '::Status' | abpLocalization }}</th>
-                    <th>{{ '::Priority' | abpLocalization }}</th>
-                    <th>{{ '::Progress' | abpLocalization }}</th>
-                    <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (task of tasks(); track task.id) {
+          @if (taskViewMode() === 'table') {
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                  <thead>
                     <tr>
-                      <td>{{ task.taskNumber }}</td>
-                      <td>{{ task.subject }}</td>
-                      <td><span class="badge" [class]="getTaskStatusBadge(task.status ?? 0)">{{ getTaskStatusLabel(task.status ?? 0) }}</span></td>
-                      <td>{{ getPriorityLabel(task.priority ?? 0) }}</td>
-                      <td>
-                        <div class="progress" style="height: 16px; min-width: 80px;">
-                          <div class="progress-bar bg-info" [style.width.%]="task.progress">{{ task.progress | number:'1.0-0' }}%</div>
-                        </div>
-                      </td>
-                      <td class="text-end">
-                        <div class="btn-group btn-group-sm">
-                          @if (task.status === 0 || task.status === 3) {
-                            <button class="btn btn-outline-primary" title="{{ '::Start' | abpLocalization }}" (click)="startTask(task)">
-                              <i class="fas fa-play"></i>
-                            </button>
-                          }
-                          @if (task.status !== 4 && task.status !== 5) {
-                            <button class="btn btn-outline-success" title="{{ '::Complete' | abpLocalization }}" (click)="completeTask(task)">
-                              <i class="fas fa-check"></i>
-                            </button>
-                          }
-                          @if (task.status !== 4) {
-                            <button class="btn btn-outline-danger" title="{{ '::Cancel' | abpLocalization }}" (click)="cancelTask(task)">
-                              <i class="fas fa-ban"></i>
-                            </button>
-                          }
-                          @if (task.status === 0) {
-                            <button class="btn btn-outline-danger" title="{{ '::Delete' | abpLocalization }}" (click)="deleteTask(task)">
-                              <i class="fas fa-trash"></i>
-                            </button>
-                          }
-                        </div>
-                      </td>
+                      <th>{{ '::TaskNumber' | abpLocalization }}</th>
+                      <th>{{ '::Subject' | abpLocalization }}</th>
+                      <th>{{ '::Status' | abpLocalization }}</th>
+                      <th>{{ '::Priority' | abpLocalization }}</th>
+                      <th>{{ '::Progress' | abpLocalization }}</th>
+                      <th class="text-end">{{ '::Actions' | abpLocalization }}</th>
                     </tr>
-                  }
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    @for (task of tasks(); track task.id) {
+                      <tr>
+                        <td>{{ task.taskNumber }}</td>
+                        <td>{{ task.subject }}</td>
+                        <td><span class="badge" [class]="getTaskStatusBadge(task.status ?? 0)">{{ getTaskStatusLabel(task.status ?? 0) }}</span></td>
+                        <td>{{ getPriorityLabel(task.priority ?? 0) }}</td>
+                        <td>
+                          <div class="progress" style="height: 16px; min-width: 80px;">
+                            <div class="progress-bar bg-info" [style.width.%]="task.progress">{{ task.progress | number:'1.0-0' }}%</div>
+                          </div>
+                        </td>
+                        <td class="text-end">
+                          <div class="btn-group btn-group-sm">
+                            @if (task.status === 0 || task.status === 3) {
+                              <button class="btn btn-outline-primary" title="{{ '::Start' | abpLocalization }}" (click)="startTask(task)">
+                                <i class="fas fa-play"></i>
+                              </button>
+                            }
+                            @if (task.status === 1) {
+                              <button class="btn btn-outline-warning" title="{{ '::SendForReview' | abpLocalization }}" (click)="updateTaskStatus(task, 2)">
+                                <i class="fas fa-clipboard-check"></i>
+                              </button>
+                            }
+                            @if (task.status !== 4 && task.status !== 5) {
+                              <button class="btn btn-outline-success" title="{{ '::Complete' | abpLocalization }}" (click)="completeTask(task)">
+                                <i class="fas fa-check"></i>
+                              </button>
+                            }
+                            @if (task.status !== 4) {
+                              <button class="btn btn-outline-danger" title="{{ '::Cancel' | abpLocalization }}" (click)="cancelTask(task)">
+                                <i class="fas fa-ban"></i>
+                              </button>
+                            }
+                            @if (task.status === 0) {
+                              <button class="btn btn-outline-danger" title="{{ '::Delete' | abpLocalization }}" (click)="deleteTask(task)">
+                                <i class="fas fa-trash"></i>
+                              </button>
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          } @else {
+            <div class="card-body bg-light p-3">
+              <div class="row g-3 flex-nowrap overflow-auto" style="min-height: 380px;">
+                @for (col of kanbanColumns; track col.status) {
+                  <div class="col" style="min-width: 240px; max-width: 280px;">
+                    <div class="card h-100 border-0 shadow-sm">
+                      <div class="card-header py-2 d-flex justify-content-between align-items-center bg-white" [style.border-top]="'3px solid ' + col.color">
+                        <span class="fw-semibold small">{{ col.label | abpLocalization }}</span>
+                        <span class="badge rounded-pill bg-secondary">{{ getTasksByStatus(col.status).length }}</span>
+                      </div>
+                      <div class="card-body p-2 overflow-auto" style="max-height: 480px;">
+                        @for (task of getTasksByStatus(col.status); track task.id) {
+                          <div class="card mb-2 border shadow-none">
+                            <div class="card-body p-2">
+                              <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted small fw-bold">{{ task.taskNumber }}</span>
+                                <span class="badge" [class]="getPriorityBadge(task.priority ?? 0)">{{ getPriorityLabel(task.priority ?? 0) }}</span>
+                              </div>
+                              <div class="fw-medium text-dark small mb-2">{{ task.subject }}</div>
+                              @if (task.expectedEndDate) {
+                                <div class="text-muted small mb-2">
+                                  <i class="far fa-calendar-alt me-1"></i>{{ task.expectedEndDate | date:'dd/MM/yyyy' }}
+                                </div>
+                              }
+                              <div class="progress mb-2" style="height: 6px;">
+                                <div class="progress-bar bg-info" [style.width.%]="task.progress"></div>
+                              </div>
+                              <div class="d-flex justify-content-end align-items-center pt-1 border-top">
+                                <div class="btn-group btn-group-sm">
+                                  @if (task.status === 0 || task.status === 3) {
+                                    <button class="btn btn-outline-primary btn-sm py-0 px-2" title="{{ '::Start' | abpLocalization }}" (click)="updateTaskStatus(task, 1)">
+                                      <i class="fas fa-play me-1"></i>{{ '::Start' | abpLocalization }}
+                                    </button>
+                                  }
+                                  @if (task.status === 1) {
+                                    <button class="btn btn-outline-warning btn-sm py-0 px-2" title="{{ '::SendForReview' | abpLocalization }}" (click)="updateTaskStatus(task, 2)">
+                                      <i class="fas fa-clipboard-check me-1"></i>{{ '::SendForReview' | abpLocalization }}
+                                    </button>
+                                  }
+                                  @if (task.status !== 4 && task.status !== 5) {
+                                    <button class="btn btn-outline-success btn-sm py-0 px-2" title="{{ '::Complete' | abpLocalization }}" (click)="completeTask(task)">
+                                      <i class="fas fa-check me-1"></i>{{ '::Complete' | abpLocalization }}
+                                    </button>
+                                  }
+                                  @if (task.status === 4 || task.status === 5) {
+                                    <button class="btn btn-outline-secondary btn-sm py-0 px-2" title="{{ '::Reopen' | abpLocalization }}" (click)="updateTaskStatus(task, 0)">
+                                      <i class="fas fa-undo me-1"></i>{{ '::Reopen' | abpLocalization }}
+                                    </button>
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
         } @else if (!showTaskForm) {
           <div class="card-body text-muted">{{ '::NoData' | abpLocalization }}</div>
         }
@@ -315,8 +393,17 @@ export class ProjectDetailComponent implements OnInit {
 
   project = signal<ProjectDto | null>(null);
   tasks = signal<ProjectTaskDto[]>([]);
+  taskViewMode = signal<'table' | 'kanban'>('table');
   loading = signal(true);
   newMemberUserId = '';
+
+  kanbanColumns = [
+    { status: 0, label: '::Open', color: '#0d6efd' },
+    { status: 1, label: '::Working', color: '#0dcaf0' },
+    { status: 2, label: '::PendingReview', color: '#ffc107' },
+    { status: 4, label: '::Completed', color: '#198754' },
+    { status: 5, label: '::Cancelled', color: '#6c757d' },
+  ];
 
   showTaskForm = false;
   newTask: { subject: string; priority: number; expectedStartDate: string; expectedEndDate: string } = {
@@ -492,6 +579,26 @@ export class ProjectDetailComponent implements OnInit {
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
       });
     });
+  }
+
+  updateTaskStatus(task: ProjectTaskDto, status: number): void {
+    if (!task.id) return;
+    this.service.updateTaskStatus(task.id, status as any).subscribe({
+      next: () => {
+        this.toaster.success('::SuccessfullyUpdated');
+        this.loadTasks(this.project()!.id!);
+      },
+      error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed'),
+    });
+  }
+
+  getTasksByStatus(status: number): ProjectTaskDto[] {
+    return this.tasks().filter(t => (t.status ?? 0) === status);
+  }
+
+  getPriorityBadge(priority: number): string {
+    const map: Record<number, string> = { 0: 'bg-secondary', 1: 'bg-primary', 2: 'bg-warning', 3: 'bg-danger' };
+    return map[priority] ?? 'bg-secondary';
   }
 
   getPriorityLabel(priority: number): string {

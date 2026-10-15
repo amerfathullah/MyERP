@@ -219,6 +219,56 @@ public class ProjectTaskTests
         task.Progress.ShouldBe(0);
     }
 
+    [Fact]
+    public void SetStatus_TransitionsAcrossLifecycle_Succeeds()
+    {
+        var task = CreateTask();
+        task.Status.ShouldBe(ProjectTaskStatus.Open);
+
+        // Move to Working
+        task.SetStatus(ProjectTaskStatus.Working);
+        task.Status.ShouldBe(ProjectTaskStatus.Working);
+        task.ActualStartDate.ShouldNotBeNull();
+
+        // Move to PendingReview
+        task.SetStatus(ProjectTaskStatus.PendingReview);
+        task.Status.ShouldBe(ProjectTaskStatus.PendingReview);
+
+        // Move to Completed
+        task.SetStatus(ProjectTaskStatus.Completed);
+        task.Status.ShouldBe(ProjectTaskStatus.Completed);
+        task.Progress.ShouldBe(100);
+        task.ActualEndDate.ShouldNotBeNull();
+
+        // Reopen to Open
+        task.SetStatus(ProjectTaskStatus.Open);
+        task.Status.ShouldBe(ProjectTaskStatus.Open);
+        task.Progress.ShouldBe(0);
+        task.ActualEndDate.ShouldBeNull();
+
+        // Cancel
+        task.SetStatus(ProjectTaskStatus.Cancelled);
+        task.Status.ShouldBe(ProjectTaskStatus.Cancelled);
+    }
+
+    [Fact]
+    public void SetStatus_CompletedToCancelled_ThrowsBusinessException()
+    {
+        var task = CreateTask();
+        task.SetStatus(ProjectTaskStatus.Completed);
+
+        Assert.Throws<BusinessException>(() => task.SetStatus(ProjectTaskStatus.Cancelled));
+    }
+
+    [Fact]
+    public void SendForReview_FromCompleted_ThrowsBusinessException()
+    {
+        var task = CreateTask();
+        task.SetStatus(ProjectTaskStatus.Completed);
+
+        Assert.Throws<BusinessException>(() => task.SendForReview());
+    }
+
     private static ProjectTask CreateTask() =>
         new(Guid.NewGuid(), Guid.NewGuid(), "TASK-001", "Test Task");
 }

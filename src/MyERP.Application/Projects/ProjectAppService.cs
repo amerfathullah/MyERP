@@ -519,6 +519,22 @@ public class ProjectAppService : ApplicationService, IProjectAppService
     }
 
     [Authorize(MyERPPermissions.Projects.Edit)]
+    public async Task<ProjectTaskDto> UpdateTaskStatusAsync(Guid taskId, ProjectTaskStatus status)
+    {
+        var task = await _taskRepository.GetAsync(taskId);
+        if (status == ProjectTaskStatus.Completed)
+        {
+            var depValidator = LazyServiceProvider.LazyGetRequiredService<MyERP.Projects.DomainServices.TaskDependencyValidationService>();
+            await depValidator.ValidateDependenciesCompletedAsync(taskId);
+        }
+
+        task.SetStatus(status);
+        await _taskRepository.UpdateAsync(task);
+        await UpdateProjectProgress(task.ProjectId);
+        return ObjectMapper.Map<ProjectTask, ProjectTaskDto>(task);
+    }
+
+    [Authorize(MyERPPermissions.Projects.Edit)]
     public async Task<ProjectTaskDto> AddTaskDependencyAsync(Guid taskId, Guid dependsOnTaskId)
     {
         var task = await _taskRepository.GetAsync(taskId);

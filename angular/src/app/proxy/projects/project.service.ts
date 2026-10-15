@@ -1,4 +1,5 @@
 import type { AddProjectUserDto, CreateProjectDto, CreateProjectTaskDto, GetProjectListDto, ProjectDto, ProjectTaskDto, ProjectUserDto, UpdateProjectDto, UpdateProjectTaskDto, UpdateProjectUserDto } from './models';
+import type { ProjectTaskStatus } from './project-task-status.enum';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -168,6 +169,15 @@ export class ProjectService {
       method: 'PUT',
       url: `/api/app/project/task/${taskId}`,
       body: input,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  updateTaskStatus = (taskId: string, status: ProjectTaskStatus, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProjectTaskDto>({
+      method: 'POST',
+      url: `/api/app/project/task-status/${taskId}`,
+      params: { status },
     },
     { apiName: this.apiName,...config });
   
