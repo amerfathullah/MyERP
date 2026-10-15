@@ -365,6 +365,47 @@ public class StockReservationManagerTests
         entry.Items[1].Quantity.ShouldBe(6);
     }
 
+    [Fact]
+    public async Task ReserveStockAsync_BatchReceivedAfterOrderDate_SuccessfullyReserves()
+    {
+        // Arrange
+        // Per ERPNext PR #60725 / commit f8a1b44e98 & test 8a40e693af:
+        // A batch received after the sales order date must be reservable as auto-reserved batches
+        // are picked as of the reservation time, not the order date.
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var orderId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        var orderDate = DateTime.UtcNow.AddDays(-2);
+        var receiptDate = DateTime.UtcNow;
+
+        var sle = new StockLedgerEntry(
+            Guid.NewGuid(), companyId, itemId, warehouseId,
+            receiptDate, quantityChange: 10m, valuationRate: 100m, balanceQuantity: 10m, balanceValue: 1000m)
+        {
+            BatchId = batchId,
+            VoucherType = "PurchaseReceipt"
+        };
+
+        var bin = new Bin(Guid.NewGuid(), itemId, warehouseId) { ActualQty = 10m };
+        var sres = new List<StockReservationEntry>();
+        var manager = CreateManager(sres, sles: new List<StockLedgerEntry> { sle }, bins: new List<Bin> { bin });
+
+        // Act: Reserve batch with past orderDate
+        await manager.ReserveStockAsync(
+            itemId, warehouseId, companyId,
+            qty: 5m, voucherType: "SalesOrder", voucherId: orderId, batchId: batchId,
+            postingDate: orderDate);
+
+        // Assert
+        sres.Count.ShouldBe(1);
+        sres[0].ReservedQty.ShouldBe(5m);
+        sres[0].BatchId.ShouldBe(batchId);
+        sres[0].VoucherId.ShouldBe(orderId);
+    }
+
     private static DomainServices.StockReservationManager CreateManager(
         List<StockReservationEntry> entries,
         List<StockLedgerEntry>? sles = null,
@@ -372,6 +413,13 @@ public class StockReservationManagerTests
     {
         var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
         sreRepo.GetQueryableAsync().Returns(Task.FromResult(entries.AsQueryable()));
+        sreRepo.InsertAsync(Arg.Any<StockReservationEntry>())
+            .Returns(ci =>
+            {
+                var entry = ci.Arg<StockReservationEntry>();
+                entries.Add(entry);
+                return Task.FromResult(entry);
+            });
 
         var binRepo = Substitute.For<IRepository<Bin, Guid>>();
         binRepo.GetQueryableAsync().Returns(Task.FromResult((bins ?? new List<Bin>()).AsQueryable()));

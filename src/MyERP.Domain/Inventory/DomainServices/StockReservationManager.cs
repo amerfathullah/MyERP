@@ -70,13 +70,33 @@ public class StockReservationManager : DomainService
         requestedQty = Math.Round(requestedQty, 4);
 
         decimal actualQty;
-        if (asOfDate.HasValue)
+        if (batchId.HasValue)
+        {
+            var sleQueryable = await _sleRepository.GetQueryableAsync();
+            var sleQuery = sleQueryable
+                .Where(s => s.ItemId == itemId
+                    && s.WarehouseId == warehouseId
+                    && s.BatchId == batchId
+                    && !s.IsCancelled);
+
+            if (asOfDate.HasValue)
+            {
+                sleQuery = sleQuery.Where(s => s.PostingDate <= asOfDate.Value);
+            }
+
+            var lastSle = sleQuery
+                .OrderByDescending(s => s.PostingDate)
+                .ThenByDescending(s => s.CreationTime)
+                .FirstOrDefault();
+
+            actualQty = lastSle?.BalanceQuantity ?? 0m;
+        }
+        else if (asOfDate.HasValue)
         {
             var sleQueryable = await _sleRepository.GetQueryableAsync();
             var lastSle = sleQueryable
                 .Where(s => s.ItemId == itemId
                     && s.WarehouseId == warehouseId
-                    && (batchId == null || s.BatchId == batchId)
                     && s.PostingDate <= asOfDate.Value
                     && !s.IsCancelled)
                 .OrderByDescending(s => s.PostingDate)
@@ -382,7 +402,11 @@ public class StockReservationManager : DomainService
             }
         }
 
-        await ValidateAvailabilityAsync(itemId, warehouseId, qty, batchId, postingDate);
+        // Per ERPNext PR #60725 / commit f8a1b44e98:
+        // Auto-reserved batches and stock are picked as of the reservation time (now), not the order date.
+        // Therefore, stock availability check uses current stock without capping to a past voucher posting date,
+        // allowing batches and stock received after the voucher order date to be reserved.
+        await ValidateAvailabilityAsync(itemId, warehouseId, qty, batchId);
 
         var demandQty = voucherDemandQty.HasValue ? Math.Round(voucherDemandQty.Value, 4) : qty;
 

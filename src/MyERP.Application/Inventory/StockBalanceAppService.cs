@@ -520,7 +520,17 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
 
         var itemQ = await _itemRepository.GetQueryableAsync();
         var items = itemQ.Where(i => itemIds.Contains(i.Id))
-            .Select(i => new { i.Id, i.ItemCode, i.ItemName })
+            .Select(i => new
+            {
+                i.Id,
+                i.ItemCode,
+                i.ItemName,
+                i.HasSerialNo,
+                i.HasBatchNo,
+                i.ValuationMethod,
+                i.UseSerialNoWiseValuation,
+                i.StandardBuyingPrice
+            })
             .ToDictionary(i => i.Id);
 
         var whQ = await _warehouseRepository.GetQueryableAsync();
@@ -532,6 +542,49 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
         var batches = batchQ.Where(b => batchIds.Contains(b.Id))
             .Select(b => new { b.Id, b.BatchNo })
             .ToDictionary(b => b.Id, b => b.BatchNo);
+
+        if (input.ShowDimensionWiseStock)
+        {
+            var doNotUseBatchwiseValuation = await SettingProvider.IsTrueAsync(MyERPSettings.Stock.DoNotUseBatchwiseValuation);
+
+            // Per ERPNext PR #60693 / commits 80c155243f & 8430921d87:
+            // Items valued in the pool (plain items, serial nos without serial-wise valuation,
+            // moving average batches with batch-wise valuation off) have one rate per item and warehouse.
+            // Dimension rows of such items use the item-warehouse valuation rate at report cutoff date (toDate).
+            var pooledItemIds = items.Values
+                .Where(i => (i.HasSerialNo && !i.UseSerialNoWiseValuation) ||
+                            (!i.HasSerialNo && !i.HasBatchNo) ||
+                            (i.HasBatchNo && doNotUseBatchwiseValuation && i.ValuationMethod == ValuationMethod.WeightedAverage))
+                .Select(i => i.Id)
+                .ToHashSet();
+
+            if (pooledItemIds.Count > 0)
+            {
+                var latestRates = new Dictionary<(Guid ItemId, Guid WarehouseId), decimal>();
+                foreach (var entry in entries)
+                {
+                    if (pooledItemIds.Contains(entry.ItemId) && entry.ValuationRate > 0)
+                    {
+                        latestRates[(entry.ItemId, entry.WarehouseId)] = entry.ValuationRate;
+                    }
+                }
+
+                foreach (var r in rows)
+                {
+                    if (pooledItemIds.Contains(r.ItemId))
+                    {
+                        var rate = latestRates.GetValueOrDefault((r.ItemId, r.WarehouseId));
+                        if (rate == 0 && items.TryGetValue(r.ItemId, out var itm) && itm.StandardBuyingPrice.HasValue)
+                        {
+                            rate = itm.StandardBuyingPrice.Value;
+                        }
+
+                        r.ValuationRate = rate;
+                        r.BalanceValue = Math.Round(r.BalanceQty * rate, 4);
+                    }
+                }
+            }
+        }
 
         foreach (var r in rows)
         {

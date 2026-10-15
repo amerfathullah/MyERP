@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MyERP.Inventory;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Settings;
 using NSubstitute;
 using Shouldly;
 using Volo.Abp.DependencyInjection;
@@ -183,5 +184,88 @@ public class DimensionWiseStockReconciliationTests
         result.Rows[0].BalanceValue.ShouldBe(350m);
         result.TotalBalanceQty.ShouldBe(35m);
         result.TotalBalanceValue.ShouldBe(350m);
+    }
+
+    [Fact]
+    public async Task DimensionWise_PooledItem_UsesLatestPoolValuationRateOnDimensionRows()
+    {
+        // Arrange
+        // Per ERPNext PR #60693 / commits 80c155243f & 8430921d87:
+        // When stock is valued in pool (e.g. WeightedAverage / Moving Average with batch-wise valuation disabled),
+        // dimension rows must be valued at the latest pool valuation rate, not individual historical receipt diffs.
+        var movingAvgItem = new Item(Guid.NewGuid(), _companyId, "ITEM-MA", "Moving Average Item", ItemType.Goods)
+        {
+            HasBatchNo = true,
+            ValuationMethod = ValuationMethod.WeightedAverage
+        };
+
+        _settingProvider.GetOrNullAsync(MyERPSettings.Stock.DoNotUseBatchwiseValuation)
+            .Returns(Task.FromResult<string?>("true"));
+
+        _itemRepo.GetQueryableAsync()
+            .Returns(Task.FromResult(new List<Item> { movingAvgItem }.AsQueryable()));
+
+        var sles = new List<StockLedgerEntry>
+        {
+            // Inward Batch 1: 10 units @ 100 = 1000. Balance qty = 10, balance value = 1000, rate = 100.
+            new StockLedgerEntry(Guid.NewGuid(), _companyId, movingAvgItem.Id, _warehouseId, DateTime.UtcNow.AddDays(-3),
+                quantityChange: 10m, valuationRate: 100m, balanceQuantity: 10m, balanceValue: 1000m)
+            {
+                BatchId = _batch1Id,
+                StockValue = 1000m,
+                StockValueDifference = 1000m,
+                VoucherType = "StockEntry"
+            },
+            // Inward Batch 2: 10 units @ 200 = 2000. Balance qty = 20, balance value = 3000, rate = 150.
+            new StockLedgerEntry(Guid.NewGuid(), _companyId, movingAvgItem.Id, _warehouseId, DateTime.UtcNow.AddDays(-2),
+                quantityChange: 10m, valuationRate: 150m, balanceQuantity: 20m, balanceValue: 3000m)
+            {
+                BatchId = _batch2Id,
+                StockValue = 2000m,
+                StockValueDifference = 2000m,
+                VoucherType = "StockEntry"
+            },
+            // Outward from Batch 1: 5 units @ pool rate 150 = -750. Balance qty = 15, balance value = 2250, rate = 150.
+            new StockLedgerEntry(Guid.NewGuid(), _companyId, movingAvgItem.Id, _warehouseId, DateTime.UtcNow.AddDays(-1),
+                quantityChange: -5m, valuationRate: 150m, balanceQuantity: 15m, balanceValue: 2250m)
+            {
+                BatchId = _batch1Id,
+                StockValue = -750m,
+                StockValueDifference = -750m,
+                VoucherType = "StockEntry"
+            }
+        }.AsQueryable();
+
+        _sleRepo.GetQueryableAsync().Returns(Task.FromResult(sles));
+
+        var service = new StockBalanceAppService(_binRepo, _itemRepo, _warehouseRepo, _sleRepo, _batchRepo, _binService)
+        {
+            LazyServiceProvider = _lazySp
+        };
+
+        // Act
+        var result = await service.GetStockBalanceReportAsync(new GetStockBalanceReportRequestDto
+        {
+            CompanyId = _companyId,
+            ItemId = movingAvgItem.Id,
+            WarehouseId = _warehouseId,
+            ShowDimensionWiseStock = true
+        });
+
+        // Assert
+        result.Rows.Count.ShouldBe(2);
+
+        var batch1Row = result.Rows.First(r => r.BatchId == _batch1Id);
+        batch1Row.BalanceQty.ShouldBe(5m);
+        batch1Row.ValuationRate.ShouldBe(150m);
+        batch1Row.BalanceValue.ShouldBe(750m); // 5 * 150 = 750 (not historical 1000 - 750 = 250)
+
+        var batch2Row = result.Rows.First(r => r.BatchId == _batch2Id);
+        batch2Row.BalanceQty.ShouldBe(10m);
+        batch2Row.ValuationRate.ShouldBe(150m);
+        batch2Row.BalanceValue.ShouldBe(1500m); // 10 * 150 = 1500
+
+        result.TotalBalanceQty.ShouldBe(15m);
+        result.TotalBalanceValue.ShouldBe(2250m);
     }
 }
