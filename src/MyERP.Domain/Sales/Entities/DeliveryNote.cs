@@ -123,7 +123,24 @@ public class DeliveryNote : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
                 return Math.Min(100m, Math.Round(billedQty / totalNetQty * 100m, 2));
             }
 
-            return 100m;
+            // All items returned or net is 0. Per ERPNext commit 8290a83591 & PR #60602:
+            // Fall back to original amount/qty basis to determine if it was actually billed before return.
+            // If never billed, PerBilled stays 0 (enabling status "Return Issued"). If billed prior to return, PerBilled stays 100.
+            var origTotal = basis.Sum(i => Math.Abs(i.Quantity) * i.UnitPrice);
+            if (origTotal > 0)
+            {
+                var billedAmt = basis.Sum(i => Math.Min(Math.Abs(i.Quantity), Math.Abs(i.BilledQty)) * i.UnitPrice);
+                return Math.Min(100m, Math.Round(billedAmt / origTotal * 100m, 2));
+            }
+
+            var origQty = basis.Sum(i => Math.Abs(i.Quantity));
+            if (origQty > 0)
+            {
+                var billedQty = basis.Sum(i => Math.Min(Math.Abs(i.Quantity), Math.Abs(i.BilledQty)));
+                return Math.Min(100m, Math.Round(billedQty / origQty * 100m, 2));
+            }
+
+            return 0m;
         }
     }
 

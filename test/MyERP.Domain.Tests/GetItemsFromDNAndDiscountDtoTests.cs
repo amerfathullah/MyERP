@@ -54,6 +54,38 @@ public class GetItemsFromDNAndDiscountDtoTests
         Assert.Equal(0m, item.PendingBillingQty);
     }
 
+    [Fact]
+    public void DeliveryNoteItem_PendingBillingQty_DeductsReturnedQty_PerPR60602()
+    {
+        // Per ERPNext PR #60602 / commit e15d5d3a9b:
+        // Returned goods cannot be billed. BillableQty = Quantity - ReturnedQty.
+        var dn = new DeliveryNote(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "DN-004", DateTime.Today);
+        dn.AddItem(Guid.NewGuid(), "Partially Returned", 50, 10m, 0, "Unit");
+        var item = dn.Items[0];
+        item.ReturnedQty = 20; // 20 units returned via sales return
+        item.BilledQty = 15;   // 15 units already billed
+
+        // 50 total - 20 returned = 30 billable. 30 billable - 15 billed = 15 pending.
+        Assert.Equal(30m, item.BillableQty);
+        Assert.Equal(15m, item.PendingBillingQty);
+    }
+
+    [Fact]
+    public void DeliveryNote_PerReturned_WhenFullyReturned_ReturnsHundredPercent_PerPR60602()
+    {
+        // Per ERPNext PR #60602 / commit e15d5d3a9b:
+        // Fully returned delivery note has PerReturned == 100 and StatusDisplay == "Return Issued"
+        var dn = new DeliveryNote(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "DN-005", DateTime.Today);
+        dn.AddItem(Guid.NewGuid(), "Fully Returned", 30, 15m, 0, "Unit");
+        var item = dn.Items[0];
+        item.ReturnedQty = 30;
+        dn.Submit();
+
+        Assert.Equal(100m, dn.PerReturned);
+        Assert.Equal("Return Issued", dn.BillingStatus);
+        Assert.Equal(0m, item.PendingBillingQty);
+    }
+
     // --- Unbilled items endpoint ---
 
     [Fact]

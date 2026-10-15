@@ -1937,9 +1937,14 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var result = new List<UnbilledDeliveryItemDto>();
         foreach (var dn in deliveryNotes)
         {
+            // Per ERPNext PR #60602 / commit e15d5d3a9b:
+            // Hide fully returned delivery notes (PerReturned >= 100m) or fully billed (PerBilled >= 100m)
+            if (dn.PerReturned >= 100m || dn.PerBilled >= 100m) continue;
+
             foreach (var item in dn.Items)
             {
-                var unbilledQty = item.Quantity - item.BilledQty;
+                if (item.IsClosed) continue;
+                var unbilledQty = item.PendingBillingQty;
                 if (unbilledQty > 0)
                 {
                     result.Add(new UnbilledDeliveryItemDto
@@ -2054,10 +2059,14 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         foreach (var dn in deliveryNotes.OrderBy(d => d.PostingDate))
         {
+            // Per ERPNext PR #60602 / commit e15d5d3a9b:
+            // Skip fully returned delivery notes (PerReturned >= 100m) or fully billed (PerBilled >= 100m)
+            if (dn.PerReturned >= 100m || dn.PerBilled >= 100m) continue;
+
             foreach (var item in dn.Items)
             {
                 if (item.IsClosed) continue;
-                var pendingQty = item.Quantity - item.BilledQty;
+                var pendingQty = item.PendingBillingQty;
                 if (pendingQty <= 0) continue;
 
                 invoiceItems.Add(new CreateSalesInvoiceItemDto
