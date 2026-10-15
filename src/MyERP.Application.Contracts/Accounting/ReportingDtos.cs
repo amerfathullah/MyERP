@@ -49,6 +49,10 @@ public class ProfitLossRequestDto
     [Required] public DateTime ToDate { get; set; }
     /// <summary>When true, includes previous period data for comparison (same duration, immediately preceding).</summary>
     public bool IncludeComparison { get; set; }
+    /// <summary>Finance book filter. When set, includes only entries for this book plus bookless entries per ERPNext PR #60003.</summary>
+    public string? FinanceBook { get; set; }
+    /// <summary>When true, also includes entries from the company's default finance book per ERPNext PR #60003.</summary>
+    public bool IncludeDefaultBookEntries { get; set; }
 }
 
 public class ProfitLossRowDto
@@ -231,6 +235,93 @@ public class FinancialRatiosReportDto
     public List<FinancialRatioRowDto> Rows { get; set; } = new();
 }
 
+// --- General and Payment Ledger Comparison (ERPNext accounts/report/general_and_payment_ledger_comparison, PR #60013 / commits faaae8f27fe, 2727084167) ---
+public class GeneralPaymentLedgerComparisonRequestDto
+{
+    [Required] public Guid CompanyId { get; set; }
+    public DateTime? PeriodStartDate { get; set; }
+    public DateTime? PeriodEndDate { get; set; }
+    public Guid? AccountId { get; set; }
+    public string? VoucherType { get; set; }
+    public string? VoucherNo { get; set; }
+    public string? PartyType { get; set; }
+    public Guid? PartyId { get; set; }
+}
+
+public class GeneralPaymentLedgerComparisonRowDto
+{
+    public Guid CompanyId { get; set; }
+    public Guid AccountId { get; set; }
+    public string AccountCode { get; set; } = string.Empty;
+    public string AccountName { get; set; } = string.Empty;
+    public string VoucherType { get; set; } = string.Empty;
+    public Guid VoucherId { get; set; }
+    public string VoucherNo { get; set; } = string.Empty;
+    public string PartyType { get; set; } = string.Empty;
+    public Guid PartyId { get; set; }
+    public string? PartyName { get; set; }
+    public string AgainstVoucherType { get; set; } = string.Empty;
+    public Guid AgainstVoucherId { get; set; }
+    public string AgainstVoucherNo { get; set; } = string.Empty;
+    public decimal GLBalance { get; set; }
+    public decimal PLBalance { get; set; }
+    public decimal Difference => Math.Round(GLBalance - PLBalance, 2);
+}
+
+public class GeneralPaymentLedgerComparisonReportDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime? PeriodStartDate { get; set; }
+    public DateTime? PeriodEndDate { get; set; }
+    public List<GeneralPaymentLedgerComparisonRowDto> Rows { get; set; } = new();
+    public decimal TotalGLBalance { get; set; }
+    public decimal TotalPLBalance { get; set; }
+    public decimal TotalDifference { get; set; }
+}
+
+// --- Profitability Analysis (ERPNext accounts/report/profitability_analysis, PR #60003 / commits 9ba66b3b3f, 41818912bc) ---
+public class ProfitabilityAnalysisRequestDto
+{
+    [Required] public Guid CompanyId { get; set; }
+    [Required] public DateTime FromDate { get; set; }
+    [Required] public DateTime ToDate { get; set; }
+    /// <summary>Dimension to base the analysis on: "Cost Center" (default) or "Project".</summary>
+    public string BasedOn { get; set; } = "Cost Center";
+    /// <summary>Finance book filter. When set, includes only entries for this book plus bookless entries.</summary>
+    public string? FinanceBook { get; set; }
+    /// <summary>When true, also includes entries from the company's default finance book.</summary>
+    public bool IncludeDefaultBookEntries { get; set; }
+    /// <summary>Whether to show rows with zero income and zero expense.</summary>
+    public bool ShowZeroValues { get; set; }
+}
+
+public class ProfitabilityAnalysisRowDto
+{
+    public Guid DimensionId { get; set; }
+    public string DimensionName { get; set; } = string.Empty;
+    public string? DimensionCode { get; set; }
+    public Guid? ParentDimensionId { get; set; }
+    public bool IsGroup { get; set; }
+    public int Level { get; set; }
+    public decimal Income { get; set; }
+    public decimal Expense { get; set; }
+    public decimal GrossProfitOrLoss { get; set; }
+}
+
+public class ProfitabilityAnalysisReportDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public string BasedOn { get; set; } = "Cost Center";
+    public string? FinanceBook { get; set; }
+    public bool IncludeDefaultBookEntries { get; set; }
+    public List<ProfitabilityAnalysisRowDto> Rows { get; set; } = new();
+    public decimal TotalIncome { get; set; }
+    public decimal TotalExpense { get; set; }
+    public decimal TotalGrossProfitOrLoss { get; set; }
+}
+
 // --- Service Interface ---
 public interface IReportingAppService : IApplicationService
 {
@@ -240,5 +331,8 @@ public interface IReportingAppService : IApplicationService
     Task<MonthlyProfitLossReportDto> GetMonthlyProfitLossAsync(MonthlyProfitLossRequestDto input);
     Task<PartyTrialBalanceReportDto> GetTrialBalanceForPartyAsync(PartyTrialBalanceRequestDto input);
     Task<FinancialRatiosReportDto> GetFinancialRatiosAsync(FinancialRatiosRequestDto input);
+    Task<GeneralPaymentLedgerComparisonReportDto> GetGeneralAndPaymentLedgerComparisonAsync(GeneralPaymentLedgerComparisonRequestDto input);
+    Task<ProfitabilityAnalysisReportDto> GetProfitabilityAnalysisAsync(ProfitabilityAnalysisRequestDto input);
 }
+
 

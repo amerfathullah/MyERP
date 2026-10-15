@@ -7,9 +7,11 @@ using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.Permissions;
+using MyERP.Projects.Entities;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -26,6 +28,10 @@ public class ReportingAppService : ApplicationService, IReportingAppService
     private readonly IRepository<Supplier, Guid> _supplierRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IRepository<FiscalYear, Guid>? _fiscalYearRepository;
+    private readonly IRepository<PaymentLedgerEntry, Guid>? _pleRepository;
+    private readonly IRepository<FinanceBook, Guid>? _financeBookRepository;
+    private readonly IRepository<CostCenter, Guid>? _costCenterRepository;
+    private readonly IRepository<Project, Guid>? _projectRepository;
 
     public ReportingAppService(
         IRepository<Account, Guid> accountRepository,
@@ -35,7 +41,11 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         IRepository<Customer, Guid> customerRepository,
         IRepository<Supplier, Guid> supplierRepository,
         IRepository<Company, Guid> companyRepository,
-        IRepository<FiscalYear, Guid>? fiscalYearRepository = null)
+        IRepository<FiscalYear, Guid>? fiscalYearRepository = null,
+        IRepository<PaymentLedgerEntry, Guid>? pleRepository = null,
+        IRepository<FinanceBook, Guid>? financeBookRepository = null,
+        IRepository<CostCenter, Guid>? costCenterRepository = null,
+        IRepository<Project, Guid>? projectRepository = null)
     {
         _accountRepository = accountRepository;
         _journalLineRepository = journalLineRepository;
@@ -45,6 +55,10 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         _supplierRepository = supplierRepository;
         _companyRepository = companyRepository;
         _fiscalYearRepository = fiscalYearRepository;
+        _pleRepository = pleRepository;
+        _financeBookRepository = financeBookRepository;
+        _costCenterRepository = costCenterRepository;
+        _projectRepository = projectRepository;
     }
 
     public async Task<TrialBalanceReportDto> GetTrialBalanceAsync(TrialBalanceRequestDto input)
@@ -92,7 +106,8 @@ public class ReportingAppService : ApplicationService, IReportingAppService
 
     public async Task<ProfitLossReportDto> GetProfitLossAsync(ProfitLossRequestDto input)
     {
-        var result = await BuildProfitLossForPeriodAsync(input.CompanyId, input.FromDate, input.ToDate);
+        var result = await BuildProfitLossForPeriodAsync(
+            input.CompanyId, input.FromDate, input.ToDate, input.FinanceBook, input.IncludeDefaultBookEntries);
 
         if (input.IncludeComparison)
         {
@@ -101,7 +116,8 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             var prevTo = input.FromDate.AddDays(-1);
             var prevFrom = prevTo - duration;
 
-            var prevResult = await BuildProfitLossForPeriodAsync(input.CompanyId, prevFrom, prevTo);
+            var prevResult = await BuildProfitLossForPeriodAsync(
+                input.CompanyId, prevFrom, prevTo, input.FinanceBook, input.IncludeDefaultBookEntries);
 
             // Merge previous period data into rows
             var prevRevenueMap = prevResult.RevenueRows.ToDictionary(r => r.AccountId, r => r.Amount);
@@ -128,8 +144,16 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         return result;
     }
 
-    private async Task<ProfitLossReportDto> BuildProfitLossForPeriodAsync(Guid companyId, DateTime fromDate, DateTime toDate)
+    private async Task<ProfitLossReportDto> BuildProfitLossForPeriodAsync(
+        Guid companyId,
+        DateTime fromDate,
+        DateTime toDate,
+        string? financeBook = null,
+        bool includeDefaultBookEntries = false)
     {
+        var allowedFinanceBooks = await ResolveAllowedFinanceBooksAsync(
+            companyId, financeBook, includeDefaultBookEntries);
+
         var accounts = await _accountRepository.GetListAsync(
             a => a.CompanyId == companyId && !a.IsGroup
                 && (a.AccountType == AccountType.Revenue || a.AccountType == AccountType.Expense));
@@ -140,7 +164,13 @@ public class ReportingAppService : ApplicationService, IReportingAppService
                 && je.PostingDate >= fromDate
                 && je.PostingDate <= toDate);
 
-        var allLines = journalEntries.SelectMany(je => je.Lines).ToList();
+        var allLines = journalEntries.SelectMany(je => je.Lines)
+            .Where(l =>
+            {
+                var book = l.FinanceBook ?? string.Empty;
+                return allowedFinanceBooks.Contains(book);
+            })
+            .ToList();
 
         var linesByAccount = allLines.GroupBy(l => l.AccountId)
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -905,5 +935,436 @@ public class ReportingAppService : ApplicationService, IReportingAppService
 
         return result;
     }
+
+    public async Task<GeneralPaymentLedgerComparisonReportDto> GetGeneralAndPaymentLedgerComparisonAsync(
+        GeneralPaymentLedgerComparisonRequestDto input)
+    {
+        var accounts = await _accountRepository.GetListAsync(a =>
+            a.CompanyId == input.CompanyId &&
+            !a.IsGroup &&
+            (a.AccountSubType == AccountSubType.AccountsReceivable || a.AccountSubType == AccountSubType.AccountsPayable));
+
+        if (input.AccountId.HasValue)
+        {
+            accounts = accounts.Where(a => a.Id == input.AccountId.Value).ToList();
+        }
+
+        if (accounts.Count == 0)
+        {
+            return new GeneralPaymentLedgerComparisonReportDto
+            {
+                CompanyId = input.CompanyId,
+                PeriodStartDate = input.PeriodStartDate,
+                PeriodEndDate = input.PeriodEndDate
+            };
+        }
+
+        var accountIds = accounts.Select(a => a.Id).ToHashSet();
+        var accountMap = accounts.ToDictionary(a => a.Id);
+
+        var jeQuery = await _journalEntryRepository.GetQueryableAsync();
+        var journalEntries = jeQuery
+            .Where(je => je.CompanyId == input.CompanyId && je.Status == DocumentStatus.Posted)
+            .ToList();
+
+        if (input.PeriodStartDate.HasValue)
+            journalEntries = journalEntries.Where(je => je.PostingDate >= input.PeriodStartDate.Value).ToList();
+        if (input.PeriodEndDate.HasValue)
+            journalEntries = journalEntries.Where(je => je.PostingDate <= input.PeriodEndDate.Value).ToList();
+
+        var glLines = journalEntries
+            .SelectMany(je => je.Lines.Select(line => (JournalEntry: je, Line: line)))
+            .Where(x => accountIds.Contains(x.Line.AccountId) && x.Line.PartyId.HasValue && !string.IsNullOrEmpty(x.Line.PartyType))
+            .ToList();
+
+        if (!string.IsNullOrWhiteSpace(input.PartyType))
+            glLines = glLines.Where(x => string.Equals(x.Line.PartyType, input.PartyType, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (input.PartyId.HasValue)
+            glLines = glLines.Where(x => x.Line.PartyId == input.PartyId.Value).ToList();
+
+        var glGroups = new Dictionary<ComparisonKey, decimal>();
+        var voucherNoLookup = new Dictionary<(string VoucherType, Guid VoucherId), string>();
+
+        foreach (var (je, line) in glLines)
+        {
+            var vType = string.IsNullOrEmpty(je.ReferenceType) ? "JournalEntry" : je.ReferenceType;
+            var vId = string.IsNullOrEmpty(je.ReferenceType) ? je.Id : (je.ReferenceId ?? je.Id);
+            var vNo = je.ReferenceNumber ?? je.EntryNumber ?? je.Id.ToString();
+
+            voucherNoLookup[(vType, vId)] = vNo;
+
+            var againstVType = line.AgainstVoucherType ?? vType;
+            var againstVId = line.AgainstVoucherId ?? vId;
+
+            if (againstVType == vType && againstVId == vId)
+            {
+                voucherNoLookup[(againstVType, againstVId)] = vNo;
+            }
+
+            if (!string.IsNullOrWhiteSpace(input.VoucherType) && !string.Equals(vType, input.VoucherType, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!string.IsNullOrWhiteSpace(input.VoucherNo) && !string.Equals(vNo, input.VoucherNo, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var netBalance = line.IsDebit ? line.Amount : -line.Amount;
+
+            var key = new ComparisonKey(
+                je.CompanyId,
+                line.AccountId,
+                vType,
+                vId,
+                line.PartyType!,
+                line.PartyId!.Value,
+                againstVType,
+                againstVId);
+
+            glGroups[key] = glGroups.GetValueOrDefault(key, 0m) + netBalance;
+        }
+
+        var pleRepo = _pleRepository ?? LazyServiceProvider.LazyGetService<IRepository<PaymentLedgerEntry, Guid>>();
+        var pleEntries = pleRepo != null
+            ? await pleRepo.GetListAsync(p => p.CompanyId == input.CompanyId && !p.Delinked && accountIds.Contains(p.AccountId))
+            : new List<PaymentLedgerEntry>();
+
+        if (input.PeriodStartDate.HasValue)
+            pleEntries = pleEntries.Where(p => p.PostingDate >= input.PeriodStartDate.Value).ToList();
+        if (input.PeriodEndDate.HasValue)
+            pleEntries = pleEntries.Where(p => p.PostingDate <= input.PeriodEndDate.Value).ToList();
+        if (!string.IsNullOrWhiteSpace(input.PartyType))
+            pleEntries = pleEntries.Where(p => string.Equals(p.PartyType, input.PartyType, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (input.PartyId.HasValue)
+            pleEntries = pleEntries.Where(p => p.PartyId == input.PartyId.Value).ToList();
+        if (!string.IsNullOrWhiteSpace(input.VoucherType))
+            pleEntries = pleEntries.Where(p => string.Equals(p.VoucherType, input.VoucherType, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var pleGroups = new Dictionary<ComparisonKey, decimal>();
+        foreach (var ple in pleEntries)
+        {
+            var key = new ComparisonKey(
+                ple.CompanyId,
+                ple.AccountId,
+                ple.VoucherType,
+                ple.VoucherId,
+                ple.PartyType,
+                ple.PartyId,
+                ple.AgainstVoucherType,
+                ple.AgainstVoucherId);
+
+            pleGroups[key] = pleGroups.GetValueOrDefault(key, 0m) + ple.Amount;
+        }
+
+        // Fold reconciled allocations per ERPNext PR #60013 / commit 2727084167:
+        // Payment Reconciliation re-points PLE rows to invoices while GL entry remains unallocated against itself.
+        // Count PLE rows whose against voucher has no GL counterpart under the voucher's unallocated GL row.
+        var glKeys = glGroups.Keys.ToHashSet();
+        var foldedPle = new Dictionary<ComparisonKey, decimal>();
+
+        foreach (var (pleKey, pleAmount) in pleGroups)
+        {
+            var effectiveKey = pleKey;
+            var unallocatedKey = pleKey with { AgainstVoucherType = pleKey.VoucherType, AgainstVoucherId = pleKey.VoucherId };
+
+            if (!glKeys.Contains(pleKey) && glKeys.Contains(unallocatedKey))
+            {
+                effectiveKey = unallocatedKey;
+            }
+
+            foldedPle[effectiveKey] = foldedPle.GetValueOrDefault(effectiveKey, 0m) + pleAmount;
+        }
+
+        var allKeys = glGroups.Keys.Union(foldedPle.Keys).ToList();
+
+        var customerIds = allKeys.Where(k => k.PartyType == "Customer").Select(k => k.PartyId).Distinct().ToList();
+        var supplierIds = allKeys.Where(k => k.PartyType == "Supplier").Select(k => k.PartyId).Distinct().ToList();
+
+        var customerMap = customerIds.Count > 0
+            ? (await _customerRepository.GetListAsync(c => customerIds.Contains(c.Id))).ToDictionary(c => c.Id, c => c.Name)
+            : new Dictionary<Guid, string>();
+        var supplierMap = supplierIds.Count > 0
+            ? (await _supplierRepository.GetListAsync(s => supplierIds.Contains(s.Id))).ToDictionary(s => s.Id, s => s.Name)
+            : new Dictionary<Guid, string>();
+
+        var rows = new List<GeneralPaymentLedgerComparisonRowDto>();
+
+        foreach (var key in allKeys)
+        {
+            var glBalance = Math.Round(glGroups.GetValueOrDefault(key, 0m), 2);
+            var plBalance = Math.Round(foldedPle.GetValueOrDefault(key, 0m), 2);
+
+            if (Math.Abs(glBalance - plBalance) <= 0.005m)
+                continue;
+
+            var acc = accountMap.GetValueOrDefault(key.AccountId);
+            var vNo = voucherNoLookup.GetValueOrDefault((key.VoucherType, key.VoucherId)) ?? key.VoucherId.ToString();
+            var againstVNo = voucherNoLookup.GetValueOrDefault((key.AgainstVoucherType, key.AgainstVoucherId)) ??
+                (key.AgainstVoucherId == key.VoucherId ? vNo : key.AgainstVoucherId.ToString());
+
+            if (!string.IsNullOrWhiteSpace(input.VoucherNo) && !string.Equals(vNo, input.VoucherNo, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            string? partyName = key.PartyType switch
+            {
+                "Customer" => customerMap.GetValueOrDefault(key.PartyId),
+                "Supplier" => supplierMap.GetValueOrDefault(key.PartyId),
+                _ => null
+            };
+
+            rows.Add(new GeneralPaymentLedgerComparisonRowDto
+            {
+                CompanyId = key.CompanyId,
+                AccountId = key.AccountId,
+                AccountCode = acc?.AccountCode ?? string.Empty,
+                AccountName = acc?.AccountName ?? string.Empty,
+                VoucherType = key.VoucherType,
+                VoucherId = key.VoucherId,
+                VoucherNo = vNo,
+                PartyType = key.PartyType,
+                PartyId = key.PartyId,
+                PartyName = partyName,
+                AgainstVoucherType = key.AgainstVoucherType,
+                AgainstVoucherId = key.AgainstVoucherId,
+                AgainstVoucherNo = againstVNo,
+                GLBalance = glBalance,
+                PLBalance = plBalance
+            });
+        }
+
+        rows = rows
+            .OrderBy(r => r.AccountCode)
+            .ThenBy(r => r.VoucherType)
+            .ThenBy(r => r.VoucherNo)
+            .ThenBy(r => r.AgainstVoucherNo)
+            .ToList();
+
+        return new GeneralPaymentLedgerComparisonReportDto
+        {
+            CompanyId = input.CompanyId,
+            PeriodStartDate = input.PeriodStartDate,
+            PeriodEndDate = input.PeriodEndDate,
+            Rows = rows,
+            TotalGLBalance = Math.Round(rows.Sum(r => r.GLBalance), 2),
+            TotalPLBalance = Math.Round(rows.Sum(r => r.PLBalance), 2),
+            TotalDifference = Math.Round(rows.Sum(r => r.Difference), 2)
+        };
+    }
+
+    public async Task<ProfitabilityAnalysisReportDto> GetProfitabilityAnalysisAsync(
+        ProfitabilityAnalysisRequestDto input)
+    {
+        var allowedFinanceBooks = await ResolveAllowedFinanceBooksAsync(
+            input.CompanyId, input.FinanceBook, input.IncludeDefaultBookEntries);
+
+        var accounts = await _accountRepository.GetListAsync(a =>
+            a.CompanyId == input.CompanyId &&
+            !a.IsGroup &&
+            (a.AccountType == AccountType.Revenue || a.AccountType == AccountType.Expense));
+
+        var accountMap = accounts.ToDictionary(a => a.Id);
+        var targetAccountIds = accountMap.Keys.ToHashSet();
+
+        var journalEntries = await _journalEntryRepository.GetListAsync(je =>
+            je.CompanyId == input.CompanyId &&
+            je.Status == DocumentStatus.Posted &&
+            je.PostingDate >= input.FromDate &&
+            je.PostingDate <= input.ToDate);
+
+        var isProject = string.Equals(input.BasedOn, "Project", StringComparison.OrdinalIgnoreCase);
+
+        var lines = journalEntries
+            .SelectMany(je => je.Lines)
+            .Where(l => targetAccountIds.Contains(l.AccountId))
+            .Where(l =>
+            {
+                var book = l.FinanceBook ?? string.Empty;
+                return allowedFinanceBooks.Contains(book);
+            })
+            .ToList();
+
+        var directIncomeByDim = new Dictionary<Guid, decimal>();
+        var directExpenseByDim = new Dictionary<Guid, decimal>();
+
+        foreach (var line in lines)
+        {
+            var dimId = isProject ? line.ProjectId : line.CostCenterId;
+            if (!dimId.HasValue)
+                continue;
+
+            var acc = accountMap[line.AccountId];
+            if (acc.AccountType == AccountType.Revenue)
+            {
+                var inc = !line.IsDebit ? line.Amount : -line.Amount;
+                directIncomeByDim[dimId.Value] = directIncomeByDim.GetValueOrDefault(dimId.Value, 0m) + inc;
+            }
+            else if (acc.AccountType == AccountType.Expense)
+            {
+                var exp = line.IsDebit ? line.Amount : -line.Amount;
+                directExpenseByDim[dimId.Value] = directExpenseByDim.GetValueOrDefault(dimId.Value, 0m) + exp;
+            }
+        }
+
+        var rows = new List<ProfitabilityAnalysisRowDto>();
+
+        if (isProject)
+        {
+            var projectRepo = _projectRepository ?? LazyServiceProvider.LazyGetService<IRepository<Project, Guid>>();
+            var projects = projectRepo != null
+                ? await projectRepo.GetListAsync(p => p.CompanyId == input.CompanyId)
+                : new List<Project>();
+
+            foreach (var proj in projects.OrderBy(p => p.ProjectName))
+            {
+                var inc = Math.Round(directIncomeByDim.GetValueOrDefault(proj.Id, 0m), 2);
+                var exp = Math.Round(directExpenseByDim.GetValueOrDefault(proj.Id, 0m), 2);
+
+                if (!input.ShowZeroValues && inc == 0m && exp == 0m)
+                    continue;
+
+                rows.Add(new ProfitabilityAnalysisRowDto
+                {
+                    DimensionId = proj.Id,
+                    DimensionName = proj.ProjectName,
+                    DimensionCode = proj.ProjectNumber,
+                    Income = inc,
+                    Expense = exp,
+                    GrossProfitOrLoss = inc - exp,
+                    IsGroup = false,
+                    Level = 0
+                });
+            }
+        }
+        else
+        {
+            var ccRepo = _costCenterRepository ?? LazyServiceProvider.LazyGetService<IRepository<CostCenter, Guid>>();
+            var costCenters = ccRepo != null
+                ? await ccRepo.GetListAsync(c => c.CompanyId == input.CompanyId && c.IsActive)
+                : new List<CostCenter>();
+
+            var ccMap = costCenters.ToDictionary(c => c.Id);
+            var childrenMap = costCenters
+                .Where(c => c.ParentId.HasValue)
+                .GroupBy(c => c.ParentId!.Value)
+                .ToDictionary(g => g.Key, g => g.Select(c => c.Id).ToList());
+
+            (decimal Income, decimal Expense) Accumulate(Guid ccId)
+            {
+                var inc = directIncomeByDim.GetValueOrDefault(ccId, 0m);
+                var exp = directExpenseByDim.GetValueOrDefault(ccId, 0m);
+
+                if (childrenMap.TryGetValue(ccId, out var childIds))
+                {
+                    foreach (var childId in childIds)
+                    {
+                        var childTot = Accumulate(childId);
+                        inc += childTot.Income;
+                        exp += childTot.Expense;
+                    }
+                }
+
+                return (inc, exp);
+            }
+
+            int GetLevel(Guid ccId)
+            {
+                int lvl = 0;
+                var curr = ccMap.GetValueOrDefault(ccId);
+                while (curr?.ParentId != null && ccMap.ContainsKey(curr.ParentId.Value))
+                {
+                    lvl++;
+                    curr = ccMap[curr.ParentId.Value];
+                }
+                return lvl;
+            }
+
+            foreach (var cc in costCenters.OrderBy(c => c.Name))
+            {
+                var (totInc, totExp) = Accumulate(cc.Id);
+                totInc = Math.Round(totInc, 2);
+                totExp = Math.Round(totExp, 2);
+
+                if (!input.ShowZeroValues && totInc == 0m && totExp == 0m)
+                    continue;
+
+                rows.Add(new ProfitabilityAnalysisRowDto
+                {
+                    DimensionId = cc.Id,
+                    DimensionName = cc.Name,
+                    DimensionCode = cc.CostCenterNumber,
+                    ParentDimensionId = cc.ParentId,
+                    IsGroup = cc.IsGroup,
+                    Level = GetLevel(cc.Id),
+                    Income = totInc,
+                    Expense = totExp,
+                    GrossProfitOrLoss = totInc - totExp
+                });
+            }
+        }
+
+        var totalIncome = Math.Round(directIncomeByDim.Values.Sum(), 2);
+        var totalExpense = Math.Round(directExpenseByDim.Values.Sum(), 2);
+        var totalGrossProfit = totalIncome - totalExpense;
+
+        return new ProfitabilityAnalysisReportDto
+        {
+            CompanyId = input.CompanyId,
+            FromDate = input.FromDate,
+            ToDate = input.ToDate,
+            BasedOn = input.BasedOn,
+            FinanceBook = input.FinanceBook,
+            IncludeDefaultBookEntries = input.IncludeDefaultBookEntries,
+            Rows = rows,
+            TotalIncome = totalIncome,
+            TotalExpense = totalExpense,
+            TotalGrossProfitOrLoss = totalGrossProfit
+        };
+    }
+
+    private async Task<HashSet<string>> ResolveAllowedFinanceBooksAsync(
+        Guid companyId,
+        string? financeBook,
+        bool includeDefaultBookEntries)
+    {
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { string.Empty };
+
+        if (!string.IsNullOrWhiteSpace(financeBook))
+        {
+            allowed.Add(financeBook.Trim());
+        }
+
+        if (includeDefaultBookEntries)
+        {
+            var defaultBook = await GetDefaultFinanceBookNameAsync(companyId);
+            if (!string.IsNullOrWhiteSpace(defaultBook))
+            {
+                if (!string.IsNullOrWhiteSpace(financeBook) &&
+                    !string.Equals(financeBook.Trim(), defaultBook, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new UserFriendlyException("To use a different finance book, please uncheck 'Include Default FB Entries'");
+                }
+                allowed.Add(defaultBook);
+            }
+        }
+
+        return allowed;
+    }
+
+    private async Task<string?> GetDefaultFinanceBookNameAsync(Guid companyId)
+    {
+        var repo = _financeBookRepository ?? LazyServiceProvider.LazyGetService<IRepository<FinanceBook, Guid>>();
+        if (repo == null) return null;
+
+        var list = await repo.GetListAsync(fb => fb.CompanyId == companyId && fb.IsDefault);
+        return list.FirstOrDefault()?.Name;
+    }
+
+    private sealed record ComparisonKey(
+        Guid CompanyId,
+        Guid AccountId,
+        string VoucherType,
+        Guid VoucherId,
+        string PartyType,
+        Guid PartyId,
+        string AgainstVoucherType,
+        Guid AgainstVoucherId);
 }
+
 

@@ -118,6 +118,15 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
         RecalculateTotals();
     }
 
+    public void AddLine(JournalEntryLine line)
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        _lines.Add(line);
+        RecalculateTotals();
+    }
+
     /// <summary>
     /// Adds a GL line with dimension support (cost center, project, finance book).
     /// Per ERPNext gotcha #24: accounting dimensions must propagate to exchange gain/loss JEs.
