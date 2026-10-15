@@ -165,6 +165,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
             var taskNumber = $"TASK-{Guid.NewGuid().ToString()[..6].ToUpper()}";
             var task = new ProjectTask(GuidGenerator.Create(), projectId, taskNumber, templateTask.Subject)
             {
+                TaskTypeId = templateTask.TaskTypeId,
                 TaskWeight = templateTask.TaskWeight,
                 ExpectedHours = templateTask.ExpectedHours,
                 IsMilestone = templateTask.IsMilestone,
@@ -360,14 +361,23 @@ public class ProjectAppService : ApplicationService, IProjectAppService
             }
         }
 
+        decimal resolvedWeight = input.TaskWeight ?? 1m;
+        if (input.TaskTypeId.HasValue && !input.TaskWeight.HasValue)
+        {
+            var taskTypeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<TaskType, Guid>>();
+            var taskType = await taskTypeRepo.GetAsync(input.TaskTypeId.Value);
+            resolvedWeight = taskType.Weight;
+        }
+
         var taskNumber = $"TASK-{Guid.NewGuid().ToString()[..6].ToUpper()}";
         var task = new ProjectTask(GuidGenerator.Create(), input.ProjectId, taskNumber, input.Subject)
         {
             Priority = input.Priority,
             ParentTaskId = input.ParentTaskId,
+            TaskTypeId = input.TaskTypeId,
             IsGroup = input.IsGroup,
             IsMilestone = input.IsMilestone,
-            TaskWeight = input.TaskWeight,
+            TaskWeight = resolvedWeight,
             ExpectedStartDate = input.ExpectedStartDate,
             ExpectedEndDate = input.ExpectedEndDate,
             ExpectedHours = input.ExpectedHours,
@@ -408,12 +418,28 @@ public class ProjectAppService : ApplicationService, IProjectAppService
 
         var task = await _taskRepository.GetAsync(taskId);
 
+        // Per ERPNext PR #60635 / commit ba5e28ebee:
+        // Type change fetches the task weight unless the weight changes explicitly
+        var typeChanged = input.TaskTypeId != task.TaskTypeId;
+        var weightChanged = input.TaskWeight.HasValue && input.TaskWeight.Value != task.TaskWeight;
+
+        if (input.TaskTypeId.HasValue && (typeChanged && !weightChanged))
+        {
+            var taskTypeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<TaskType, Guid>>();
+            var taskType = await taskTypeRepo.GetAsync(input.TaskTypeId.Value);
+            task.SetDefaultWeight(taskType.Weight);
+        }
+        else if (input.TaskWeight.HasValue)
+        {
+            task.TaskWeight = input.TaskWeight.Value;
+        }
+
+        task.TaskTypeId = input.TaskTypeId;
         task.Subject = input.Subject;
         task.Priority = input.Priority;
         task.ParentTaskId = input.ParentTaskId;
         task.IsGroup = input.IsGroup;
         task.IsMilestone = input.IsMilestone;
-        task.TaskWeight = input.TaskWeight;
         task.Progress = input.Progress;
         task.ExpectedStartDate = input.ExpectedStartDate;
         task.ExpectedEndDate = input.ExpectedEndDate;
@@ -556,6 +582,7 @@ public class ProjectAppService : ApplicationService, IProjectAppService
                 Priority = st.Priority,
                 IsGroup = st.IsGroup,
                 IsMilestone = st.IsMilestone,
+                TaskTypeId = st.TaskTypeId,
                 TaskWeight = st.TaskWeight,
                 ExpectedStartDate = st.ExpectedStartDate,
                 ExpectedEndDate = st.ExpectedEndDate,

@@ -25,8 +25,23 @@ public class TaskType : FullAuditedAggregateRoot<Guid>, IMultiTenant
         : base(id)
     {
         Name = Check.NotNullOrWhiteSpace(name, nameof(name), maxLength: TaskTypeConsts.MaxNameLength);
-        Weight = weight >= 0 ? weight : 1;
+        if (weight < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Weight cannot be negative.");
+        }
+        Weight = weight;
         Description = description;
         TenantId = tenantId;
+    }
+
+    public void SetWeight(decimal weight)
+    {
+        if (weight < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Weight cannot be negative.");
+        }
+        Weight = weight;
     }
 }

@@ -2947,9 +2947,11 @@ public class MyERPDbContext :
             b.Property(x => x.Progress).HasColumnType("decimal(5,1)");
             b.Property(x => x.ExpectedHours).HasColumnType("decimal(8,2)");
             b.Property(x => x.ActualHours).HasColumnType("decimal(8,2)");
+            b.Property(x => x.TaskTypeId);
             b.HasMany(x => x.Dependencies).WithOne().HasForeignKey(x => x.TaskId).IsRequired();
             b.Navigation(x => x.Dependencies).AutoInclude();
             b.HasIndex(x => new { x.ProjectId, x.Status });
+            b.HasIndex(x => x.TaskTypeId);
         });
 
         builder.Entity<TaskDependency>(b =>
@@ -2976,8 +2978,10 @@ public class MyERPDbContext :
             b.Property(x => x.Subject).IsRequired().HasMaxLength(140);
             b.Property(x => x.TaskWeight).HasColumnType("decimal(5,2)");
             b.Property(x => x.ExpectedHours).HasColumnType("decimal(8,2)");
+            b.Property(x => x.TaskTypeId);
             b.HasMany(x => x.Dependencies).WithOne().HasForeignKey(x => x.ProjectTemplateTaskId).IsRequired();
             b.Navigation(x => x.Dependencies).AutoInclude();
+            b.HasIndex(x => x.TaskTypeId);
         });
 
         builder.Entity<ProjectTemplateTaskDependency>(b =>

@@ -71,8 +71,8 @@ public class ProjectTemplateAppService : ApplicationService, IProjectTemplateApp
     [Authorize(MyERPPermissions.Projects.Delete)]
     public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
 
-    private static (Guid Key, string Subject, decimal TaskWeight, decimal ExpectedHours, bool IsMilestone, System.Collections.Generic.List<Guid> DependsOnKeys) ToTaskTuple(ProjectTemplateTaskDto t)
-        => (t.Key, t.Subject, t.TaskWeight, t.ExpectedHours, t.IsMilestone, t.DependsOnKeys);
+    private static (Guid Key, string Subject, decimal TaskWeight, decimal ExpectedHours, bool IsMilestone, System.Collections.Generic.List<Guid> DependsOnKeys, Guid? TaskTypeId) ToTaskTuple(ProjectTemplateTaskDto t)
+        => (t.Key, t.Subject, t.TaskWeight, t.ExpectedHours, t.IsMilestone, t.DependsOnKeys, t.TaskTypeId);
 
     private static ProjectTemplateDto MapToDto(ProjectTemplate template) => new()
     {
@@ -83,6 +83,7 @@ public class ProjectTemplateAppService : ApplicationService, IProjectTemplateApp
         {
             Key = t.Id,
             Subject = t.Subject,
+            TaskTypeId = t.TaskTypeId,
             TaskWeight = t.TaskWeight,
             ExpectedHours = t.ExpectedHours,
             IsMilestone = t.IsMilestone,

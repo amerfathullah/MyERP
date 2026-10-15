@@ -8840,6 +8840,11 @@ namespace MyERP.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("DeletionTime");
 
+                    b.Property<bool>("Disabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -10247,6 +10252,12 @@ namespace MyERP.Migrations
                     b.Property<Guid?>("CreatorId")
                         .HasColumnType("uuid")
                         .HasColumnName("CreatorId");
+
+                    b.Property<decimal>("CreditLimit")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasDefaultValue(0m);
 
                     b.Property<string>("CurrencyCode")
                         .IsRequired()
@@ -14869,6 +14880,9 @@ namespace MyERP.Migrations
                     b.Property<int>("SampleQuantity")
                         .HasColumnType("integer");
 
+                    b.Property<string>("SerialNoSeries")
+                        .HasColumnType("text");
+
                     b.Property<int?>("ShelfLifeInDays")
                         .HasColumnType("integer");
 
@@ -14889,6 +14903,9 @@ namespace MyERP.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("UseSerialNoWiseValuation")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("ValuationMethod")
                         .HasColumnType("integer");
@@ -18584,6 +18601,9 @@ namespace MyERP.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("MaterialRequestItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OriginalItemId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("ProcessLossPercentage")
@@ -22325,6 +22345,9 @@ namespace MyERP.Migrations
                     b.Property<DateTime?>("ActualStartDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<bool>("AllowAlternativeItem")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("BomId")
                         .HasColumnType("uuid");
 
@@ -23306,10 +23329,15 @@ namespace MyERP.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<Guid?>("TaskTypeId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("TaskWeight")
                         .HasColumnType("decimal(5,2)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TaskTypeId");
 
                     b.HasIndex("ProjectId", "Status");
 
@@ -23432,12 +23460,17 @@ namespace MyERP.Migrations
                         .HasMaxLength(140)
                         .HasColumnType("character varying(140)");
 
+                    b.Property<Guid?>("TaskTypeId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("TaskWeight")
                         .HasColumnType("decimal(5,2)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ProjectTemplateId");
+
+                    b.HasIndex("TaskTypeId");
 
                     b.ToTable("Prj_ProjectTemplateTasks", (string)null);
                 });
@@ -24266,6 +24299,9 @@ namespace MyERP.Migrations
                     b.Property<bool>("IsSubcontracted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsSubmitToLhdn")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("IssueDate")
                         .HasColumnType("timestamp without time zone");
 
@@ -24967,6 +25003,11 @@ namespace MyERP.Migrations
 
                     b.Property<Guid?>("RejectedWarehouseId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("ReturnQtyFromRejectedWarehouse")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("StockUom")
                         .IsRequired()
@@ -29740,6 +29781,9 @@ namespace MyERP.Migrations
                     b.Property<bool>("IsReturnRefund")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsSubmitToLhdn")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("IssueDate")
                         .HasColumnType("timestamp without time zone");
 
@@ -29840,6 +29884,11 @@ namespace MyERP.Migrations
 
                     b.Property<decimal>("TotalAdvance")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<bool>("UpdateBilledAmountInSalesOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("UpdateStock")
                         .HasColumnType("boolean");

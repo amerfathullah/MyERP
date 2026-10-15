@@ -71,7 +71,7 @@ public class TaskTypeAppService : MyERPAppService, ITaskTypeAppService
     {
         var entity = await _repository.GetAsync(id);
         entity.Name = input.Name;
-        entity.Weight = input.Weight;
+        entity.SetWeight(input.Weight);
         entity.Description = input.Description;
 
         await _repository.UpdateAsync(entity);

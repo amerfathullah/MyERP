@@ -139,6 +139,7 @@ public class ProjectTaskDto
     public ProjectTaskStatus Status { get; set; }
     public ProjectPriority Priority { get; set; }
     public Guid? ParentTaskId { get; set; }
+    public Guid? TaskTypeId { get; set; }
     public bool IsGroup { get; set; }
     public bool IsMilestone { get; set; }
     public decimal TaskWeight { get; set; }
@@ -164,9 +165,10 @@ public class CreateProjectTaskDto
 
     public ProjectPriority Priority { get; set; } = ProjectPriority.Medium;
     public Guid? ParentTaskId { get; set; }
+    public Guid? TaskTypeId { get; set; }
     public bool IsGroup { get; set; }
     public bool IsMilestone { get; set; }
-    public decimal TaskWeight { get; set; } = 1;
+    public decimal? TaskWeight { get; set; }
     public DateTime? ExpectedStartDate { get; set; }
     public DateTime? ExpectedEndDate { get; set; }
     public decimal ExpectedHours { get; set; }
@@ -184,9 +186,10 @@ public class UpdateProjectTaskDto
 
     public ProjectPriority Priority { get; set; }
     public Guid? ParentTaskId { get; set; }
+    public Guid? TaskTypeId { get; set; }
     public bool IsGroup { get; set; }
     public bool IsMilestone { get; set; }
-    public decimal TaskWeight { get; set; }
+    public decimal? TaskWeight { get; set; }
     public decimal Progress { get; set; }
     public DateTime? ExpectedStartDate { get; set; }
     public DateTime? ExpectedEndDate { get; set; }

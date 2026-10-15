@@ -44,6 +44,11 @@ public class ProjectTemplate : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public void SetTasks(IEnumerable<(Guid Key, string Subject, decimal TaskWeight, decimal ExpectedHours, bool IsMilestone, List<Guid> DependsOnKeys)> tasks)
     {
+        SetTasks(tasks.Select(t => (t.Key, t.Subject, t.TaskWeight, t.ExpectedHours, t.IsMilestone, t.DependsOnKeys, (Guid?)null)));
+    }
+
+    public void SetTasks(IEnumerable<(Guid Key, string Subject, decimal TaskWeight, decimal ExpectedHours, bool IsMilestone, List<Guid> DependsOnKeys, Guid? TaskTypeId)> tasks)
+    {
         var taskList = tasks.ToList();
         var keys = taskList.Select(t => t.Key).ToHashSet();
 
@@ -64,7 +69,7 @@ public class ProjectTemplate : FullAuditedAggregateRoot<Guid>, IMultiTenant
         var idByKey = taskList.ToDictionary(t => t.Key, _ => Guid.NewGuid());
         foreach (var t in taskList)
         {
-            var task = new ProjectTemplateTask(idByKey[t.Key], Id, t.Subject, t.TaskWeight, t.ExpectedHours, t.IsMilestone);
+            var task = new ProjectTemplateTask(idByKey[t.Key], Id, t.Subject, t.TaskWeight, t.ExpectedHours, t.IsMilestone, t.TaskTypeId);
             foreach (var dep in t.DependsOnKeys)
                 task.AddDependency(idByKey[dep]);
             _tasks.Add(task);
@@ -76,6 +81,7 @@ public class ProjectTemplateTask : FullAuditedEntity<Guid>
 {
     public Guid ProjectTemplateId { get; set; }
     public string Subject { get; set; } = null!;
+    public Guid? TaskTypeId { get; set; }
     public decimal TaskWeight { get; set; } = 1;
     public decimal ExpectedHours { get; set; }
     public bool IsMilestone { get; set; }
@@ -85,7 +91,7 @@ public class ProjectTemplateTask : FullAuditedEntity<Guid>
 
     protected ProjectTemplateTask() { }
 
-    public ProjectTemplateTask(Guid id, Guid projectTemplateId, string subject, decimal taskWeight, decimal expectedHours, bool isMilestone)
+    public ProjectTemplateTask(Guid id, Guid projectTemplateId, string subject, decimal taskWeight, decimal expectedHours, bool isMilestone, Guid? taskTypeId = null)
         : base(id)
     {
         ProjectTemplateId = projectTemplateId;
@@ -93,6 +99,7 @@ public class ProjectTemplateTask : FullAuditedEntity<Guid>
         TaskWeight = taskWeight;
         ExpectedHours = expectedHours;
         IsMilestone = isMilestone;
+        TaskTypeId = taskTypeId;
     }
 
     public void AddDependency(Guid dependsOnTaskId)

@@ -14,6 +14,7 @@ public class ProjectTask : FullAuditedEntity<Guid>
     public ProjectPriority Priority { get; set; }
 
     public Guid? ParentTaskId { get; set; }
+    public Guid? TaskTypeId { get; set; }
     public bool IsGroup { get; set; }
     public bool IsMilestone { get; set; }
     public decimal TaskWeight { get; set; } = 1;
@@ -56,6 +57,14 @@ public class ProjectTask : FullAuditedEntity<Guid>
                 .WithData("taskId", Id);
 
         Dependencies.Add(new TaskDependency(Guid.NewGuid(), Id, dependsOnTaskId));
+    }
+
+    /// <summary>
+    /// Sets default weight from Task Type if missing or when only type changes (per ERPNext PR #60635 / commit ba5e28ebee).
+    /// </summary>
+    public void SetDefaultWeight(decimal defaultWeight)
+    {
+        TaskWeight = defaultWeight;
     }
 
     /// <summary>

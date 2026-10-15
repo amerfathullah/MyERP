@@ -11,6 +11,7 @@ public class ProjectTemplateTaskDto
     /// <summary>Caller-assigned key, unique within the request, used to wire dependency edges before ids exist.</summary>
     public Guid Key { get; set; }
     public string Subject { get; set; } = null!;
+    public Guid? TaskTypeId { get; set; }
     public decimal TaskWeight { get; set; } = 1;
     public decimal ExpectedHours { get; set; }
     public bool IsMilestone { get; set; }
