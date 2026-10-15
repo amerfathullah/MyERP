@@ -11,5 +11,6 @@ public interface ISalesAnalyticsAppService : IApplicationService
     Task<List<CustomerWithoutSalesDto>> GetCustomersWithoutSalesTransactionsAsync(CustomersWithoutSalesInputDto input);
     Task<List<CustomerWiseItemPriceDto>> GetCustomerWiseItemPriceReportAsync(CustomerWiseItemPriceInputDto input);
     Task<CustomerAcquisitionAndLoyaltyReportDto> GetCustomerAcquisitionAndLoyaltyReportAsync(CustomerAcquisitionAndLoyaltyInputDto input);
+    Task<List<AvailableStockForPackingItemDto>> GetAvailableStockForPackingItemsReportAsync(AvailableStockForPackingItemsInputDto input);
 }
 

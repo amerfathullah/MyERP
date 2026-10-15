@@ -707,4 +707,136 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
         public DateTime From => Start;
         public DateTime To => End;
     }
+
+    /// <summary>
+    /// Available Stock for Packing Items report — calculates available packable whole bundles per warehouse.
+    /// Per ERPNext PR #60058 / commits bbd6f880a7 & 8d9300a549:
+    /// - Only active, non-disabled Product Bundles are included.
+    /// - Packable bundles = min(floor(round(projected_qty / component_qty, 9))) across all bundle components.
+    /// - Genuine fractions are floored (e.g. 13/2 = 6, 8.99/3 = 2).
+    /// - Float division noise is eliminated (e.g. 0.3 / 0.1 evaluates to 3, not 2).
+    /// - Negative or zero projected stock cannot yield any bundles (dropped).
+    /// - Scoped by company and warehouse filters.
+    /// </summary>
+    public async Task<List<AvailableStockForPackingItemDto>> GetAvailableStockForPackingItemsReportAsync(AvailableStockForPackingItemsInputDto input)
+    {
+        var bundleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ProductBundle, Guid>>();
+        var bundleQuery = (await bundleRepo.WithDetailsAsync(b => b.Items)).AsQueryable();
+
+        bundleQuery = bundleQuery.Where(b => b.IsActive && !b.IsDisabled && b.Items.Any());
+
+        if (input.BundleItemId.HasValue)
+        {
+            bundleQuery = bundleQuery.Where(b => b.ItemId == input.BundleItemId.Value);
+        }
+
+        var bundles = bundleQuery.ToList();
+        if (bundles.Count == 0)
+        {
+            return new List<AvailableStockForPackingItemDto>();
+        }
+
+        var allComponentIds = bundles.SelectMany(b => b.Items.Select(i => i.ComponentItemId)).Distinct().ToList();
+
+        var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Bin, Guid>>();
+        var binQuery = await binRepo.GetQueryableAsync();
+
+        binQuery = binQuery.Where(b => allComponentIds.Contains(b.ItemId));
+
+        if (input.WarehouseId.HasValue)
+        {
+            binQuery = binQuery.Where(b => b.WarehouseId == input.WarehouseId.Value);
+        }
+
+        var bins = binQuery.ToList();
+
+        // Scope by company warehouse if company is provided
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+        var whQuery = await whRepo.GetQueryableAsync();
+
+        if (input.CompanyId.HasValue)
+        {
+            whQuery = whQuery.Where(w => w.CompanyId == input.CompanyId.Value);
+        }
+
+        var validWarehouses = whQuery.Select(w => new { w.Id, w.Name }).ToDictionary(w => w.Id, w => w.Name);
+
+        // Filter bins to only allowed warehouses and compute projected_qty
+        var binProjected = bins
+            .Where(b => validWarehouses.ContainsKey(b.WarehouseId))
+            .ToDictionary(b => (b.ItemId, b.WarehouseId), b => b.ProjectedQty);
+
+        var candidateWarehouses = binProjected.Keys.Select(k => k.WarehouseId).Distinct().ToList();
+
+        // Resolve bundle item codes and names
+        var bundleItemIds = bundles.Select(b => b.ItemId).Distinct().ToList();
+        var itemEntities = (await _itemRepo.GetQueryableAsync())
+            .Where(i => bundleItemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName, i.Description })
+            .ToList()
+            .ToDictionary(i => i.Id);
+
+        var result = new List<AvailableStockForPackingItemDto>();
+
+        foreach (var bundle in bundles)
+        {
+            itemEntities.TryGetValue(bundle.ItemId, out var item);
+            var itemCode = item?.ItemCode ?? bundle.ItemName ?? bundle.ItemId.ToString()[..8];
+            var itemName = item?.ItemName ?? bundle.ItemName ?? itemCode;
+            var description = item?.Description ?? bundle.Description;
+
+            foreach (var whId in candidateWarehouses)
+            {
+                decimal minPackable = decimal.MaxValue;
+                bool hasStockForAny = false;
+
+                foreach (var component in bundle.Items)
+                {
+                    if (component.Qty <= 0) continue;
+
+                    var projected = binProjected.GetValueOrDefault((component.ComponentItemId, whId), 0m);
+                    if (projected <= 0)
+                    {
+                        minPackable = 0m;
+                        break;
+                    }
+
+                    hasStockForAny = true;
+                    var possible = projected / component.Qty;
+                    if (possible < minPackable)
+                    {
+                        minPackable = possible;
+                    }
+                }
+
+                if (!hasStockForAny || minPackable <= 0 || minPackable == decimal.MaxValue)
+                {
+                    continue;
+                }
+
+                // Strip float-division noise (round 9 places), then floor: only whole bundles can be packed
+                var cleaned = Math.Round(minPackable, 9);
+                var wholeBundles = Math.Max(0m, Math.Floor(cleaned));
+
+                if (wholeBundles > 0)
+                {
+                    result.Add(new AvailableStockForPackingItemDto
+                    {
+                        BundleItemId = bundle.ItemId,
+                        BundleItemCode = itemCode,
+                        BundleItemName = itemName,
+                        Description = description,
+                        WarehouseId = whId,
+                        WarehouseName = validWarehouses.GetValueOrDefault(whId, "—"),
+                        AvailablePackableBundles = wholeBundles
+                    });
+                }
+            }
+        }
+
+        return result
+            .OrderBy(r => r.BundleItemName)
+            .ThenBy(r => r.WarehouseName)
+            .ToList();
+    }
 }

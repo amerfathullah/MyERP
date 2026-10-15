@@ -117,4 +117,22 @@ public class CustomerAcquisitionAndLoyaltyRowDto
     public decimal TotalRevenue => NewCustomerRevenue + RepeatCustomerRevenue;
 }
 
+public class AvailableStockForPackingItemsInputDto
+{
+    public Guid? CompanyId { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public Guid? BundleItemId { get; set; }
+}
+
+public class AvailableStockForPackingItemDto
+{
+    public Guid BundleItemId { get; set; }
+    public string BundleItemCode { get; set; } = string.Empty;
+    public string BundleItemName { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public Guid WarehouseId { get; set; }
+    public string WarehouseName { get; set; } = string.Empty;
+    public decimal AvailablePackableBundles { get; set; }
+}
+
 
