@@ -93,6 +93,11 @@
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0"><i class="fa fa-list me-2"></i>{{ '::Items' | abpLocalization }}</h5>
+        @if (items.length > 0) {
+          <span class="badge bg-light text-dark border">
+            {{ '::TotalAmount' | abpLocalization }}: {{ totalAmount() | number:'1.2-2' }}
+          </span>
+        }
       </div>
       <div class="card-body">
         <!-- Barcode Scanner -->
@@ -108,12 +113,14 @@
             <thead>
               <tr>
                 <th>{{ '::Item' | abpLocalization }}</th>
-                <th style="width: 110px">{{ '::Qty' | abpLocalization }}</th>
-                <th style="width: 100px">{{ '::UoM' | abpLocalization }}</th>
+                <th style="width: 100px">{{ '::Qty' | abpLocalization }}</th>
+                <th style="width: 90px">{{ '::UoM' | abpLocalization }}</th>
+                <th style="width: 110px" class="text-end">{{ '::Rate' | abpLocalization }}</th>
+                <th style="width: 110px" class="text-end">{{ '::Amount' | abpLocalization }}</th>
                 @if (isStockOutType()) {
-                  <th style="width: 90px" class="text-end">{{ '::Available' | abpLocalization }}</th>
+                  <th style="width: 80px" class="text-end">{{ '::Available' | abpLocalization }}</th>
                 }
-                <th style="width: 50px"></th>
+                <th style="width: 45px"></th>
               </tr>
             </thead>
             <tbody>
@@ -122,8 +129,10 @@
                   <td>
                     <app-item-picker formControlName="itemId" (itemSelected)="onItemSelected(i, $event)" />
                   </td>
-                  <td><input type="number" class="form-control form-control-sm" formControlName="qty" /></td>
+                  <td><input type="number" class="form-control form-control-sm text-end" formControlName="qty" (input)="onRowQtyOrConversionChanged(i)" /></td>
                   <td><input type="text" class="form-control form-control-sm" formControlName="uom" /></td>
+                  <td><input type="number" class="form-control form-control-sm text-end" formControlName="basicRate" (input)="onRateChanged(i)" /></td>
+                  <td class="text-end align-middle font-monospace">{{ ($any(row).get('amount')?.value ?? 0) | number:'1.2-2' }}</td>
                   @if (isStockOutType()) {
                     <td class="text-end align-middle">
                       @if (getItemAvailableQty(i) !== null) {

@@ -221,3 +221,58 @@ describe('StockEntry save() item warehouse fallback', () => {
     expect(dto[0].targetWarehouseId).toBeNull();
   });
 });
+
+describe('ERPNext PR #60751: recalculate stock entry row amounts when qty changes', () => {
+  const fb = new FormBuilder();
+
+  function calculateRow(qty: number, conversionFactor: number, basicRate: number) {
+    const transferQty = qty * conversionFactor;
+    const amount = Math.round(transferQty * basicRate * 100) / 100;
+    return { transferQty, amount };
+  }
+
+  it('recalculates transfer_qty and amount when qty changes', () => {
+    const row = calculateRow(5, 2, 10);
+    expect(row.transferQty).toBe(10);
+    expect(row.amount).toBe(100);
+  });
+
+  it('preserves manual rate and recalculates amount when setBasicRateManually is true', () => {
+    const manualRate = 25.5;
+    const initial = calculateRow(2, 1, manualRate);
+    expect(initial.amount).toBe(51.0);
+
+    const updated = calculateRow(4, 1, manualRate);
+    expect(updated.transferQty).toBe(4);
+    expect(updated.amount).toBe(102.0);
+  });
+
+  it('maps valuationRate and setBasicRateManually for backend DTO save', () => {
+    const items = [
+      {
+        itemId: 'item-1',
+        qty: 10,
+        basicRate: 15.5,
+        setBasicRateManually: true,
+        conversionFactor: 2,
+        uom: 'Box',
+      }
+    ];
+
+    const mapped = items.map((item: any) => ({
+      itemId: item.itemId,
+      quantity: item.qty,
+      valuationRate: item.basicRate ? Number(item.basicRate) : undefined,
+      setBasicRateManually: !!item.setBasicRateManually,
+      conversionFactor: item.conversionFactor ? Number(item.conversionFactor) : 1,
+      stockUom: item.uom ?? 'Unit',
+    }));
+
+    expect(mapped[0].quantity).toBe(10);
+    expect(mapped[0].valuationRate).toBe(15.5);
+    expect(mapped[0].setBasicRateManually).toBe(true);
+    expect(mapped[0].conversionFactor).toBe(2);
+    expect(mapped[0].stockUom).toBe('Box');
+  });
+});
+

@@ -248,13 +248,21 @@ export class StockEntryFormComponent implements OnInit {
         // Populate items
         while (this.items.length > 0) this.items.removeAt(0);
         for (const item of result.items ?? []) {
+          const qty = item.quantity ?? 0;
+          const rate = item.basicRate ?? 0;
           this.items.push(this.fb.group({
             itemId: [item.itemId, Validators.required],
             itemName: [item.itemName ?? '', Validators.required],
-            quantity: [item.quantity, [Validators.required, Validators.min(0.001)]],
+            qty: [qty, [Validators.required, Validators.min(0.001)]],
+            uom: [item.uom ?? 'Unit'],
+            conversionFactor: [1],
+            transferQty: [qty],
+            basicRate: [rate],
+            amount: [Math.round(qty * rate * 100) / 100],
+            setBasicRateManually: [false],
+            isFinishedItem: [false],
             sourceWarehouseId: [result.sourceWarehouseId ?? ''],
             targetWarehouseId: [item.warehouseId ?? result.targetWarehouseId ?? ''],
-            basicRate: [0],
             materialRequestItemId: [item.materialRequestItemId ?? null],
           }));
         }
@@ -306,6 +314,15 @@ export class StockEntryFormComponent implements OnInit {
       itemName: ['', Validators.required],
       qty: [1, [Validators.required, Validators.min(0.01)]],
       uom: ['Unit'],
+      conversionFactor: [1],
+      transferQty: [1],
+      basicRate: [0],
+      amount: [0],
+      setBasicRateManually: [false],
+      isFinishedItem: [false],
+      sourceWarehouseId: [''],
+      targetWarehouseId: [''],
+      materialRequestItemId: [null],
     }));
   }
 
@@ -315,38 +332,96 @@ export class StockEntryFormComponent implements OnInit {
 
   onItemSelected(index: number, item: ItemDto | null): void {
     if (item?.id) {
-      this.items.at(index).patchValue({ itemName: item.itemName ?? item.itemCode });
-      this.fetchStockForItem(item.id);
+      const basicRate = item.standardBuyingPrice ?? 0;
+      this.items.at(index).patchValue({
+        itemName: item.itemName ?? item.itemCode,
+        uom: item.uom ?? 'Unit',
+        basicRate,
+      });
+      this.calculateRowAmount(index);
+      this.fetchStockAndRateForItem(index, item.id);
     }
   }
 
   /**
-   * Fetches stock availability for an item across all warehouses.
-   * Per ERPNext: update_bin_details() provides projected_qty, actual_qty, reserved_qty.
-   * Enables users to verify stock before issuing/transferring.
+   * Per ERPNext PR #60751 / commit 44b0443ef8:
+   * Recalculates stock entry row amounts and transfer_qty when qty changes.
+   * If source warehouse is set and rate not manually set, refetches basic rate.
+   * Otherwise keeps entered rate and recalculates transfer_qty and amount.
    */
-  private fetchStockForItem(itemId: string): void {
+  onRowQtyOrConversionChanged(index: number): void {
+    const row = this.items.at(index);
+    if (!row) return;
+
+    const qty = Number(row.get('qty')?.value ?? 0);
+    const conv = Number(row.get('conversionFactor')?.value ?? 1) || 1;
+    const transferQty = qty * conv;
+    row.patchValue({ transferQty }, { emitEvent: false });
+
+    const sourceWarehouse = row.get('sourceWarehouseId')?.value || this.form.get('sourceWarehouse')?.value;
+    const itemId = row.get('itemId')?.value;
+    const setBasicRateManually = !!row.get('setBasicRateManually')?.value;
+
+    if (sourceWarehouse && itemId && !setBasicRateManually) {
+      this.fetchStockAndRateForItem(index, itemId);
+    } else {
+      this.calculateRowAmount(index);
+    }
+  }
+
+  onRateChanged(index: number): void {
+    const row = this.items.at(index);
+    if (!row) return;
+    row.patchValue({ setBasicRateManually: true }, { emitEvent: false });
+    this.calculateRowAmount(index);
+  }
+
+  calculateRowAmount(index: number): void {
+    const row = this.items.at(index);
+    if (!row) return;
+    const qty = Number(row.get('qty')?.value ?? 0);
+    const conv = Number(row.get('conversionFactor')?.value ?? 1) || 1;
+    const rate = Number(row.get('basicRate')?.value ?? 0);
+    const transferQty = qty * conv;
+    const amount = transferQty * rate;
+    row.patchValue({ transferQty, amount: Math.round(amount * 100) / 100 }, { emitEvent: false });
+  }
+
+  totalAmount(): number {
+    return this.items.controls.reduce((sum, ctrl) => sum + (Number(ctrl.get('amount')?.value) || 0), 0);
+  }
+
+  /**
+   * Fetches stock availability and valuation rate for an item across warehouses.
+   * Per ERPNext PR #60751 & update_bin_details: updates availability and rate.
+   */
+  fetchStockAndRateForItem(index: number, itemId: string): void {
     if (!itemId) return;
-    const warehouseId = this.form.get('sourceWarehouse')?.value;
-    const params: any = { itemId };
-    if (warehouseId) params.warehouseId = warehouseId;
+    const row = this.items.at(index);
+    const sourceWarehouse = row?.get('sourceWarehouseId')?.value || this.form.get('sourceWarehouse')?.value;
     this.stockBalanceService.getItemStock(itemId).subscribe({
       next: (result: any) => {
         if (result?.length > 0) {
-          const bin = result[0];
+          const matchingBin = sourceWarehouse ? result.find((b: any) => b.warehouseId === sourceWarehouse) || result[0] : result[0];
           const info = this.itemStockInfo();
           this.itemStockInfo.set({
             ...info,
             [itemId]: {
-              actualQty: bin.actualQty ?? 0,
-              reservedQty: bin.reservedQty ?? 0,
-              availableQty: (bin.actualQty ?? 0) - (bin.reservedQty ?? 0),
-              projectedQty: bin.projectedQty ?? 0,
+              actualQty: matchingBin.actualQty ?? 0,
+              reservedQty: matchingBin.reservedQty ?? 0,
+              availableQty: (matchingBin.actualQty ?? 0) - (matchingBin.reservedQty ?? 0),
+              projectedQty: matchingBin.projectedQty ?? 0,
             }
           });
+
+          if (row && !row.get('setBasicRateManually')?.value) {
+            const rate = matchingBin.valuationRate ?? 0;
+            row.patchValue({ basicRate: rate }, { emitEvent: false });
+            this.calculateRowAmount(index);
+          }
         }
       },
-      error: () => {} // Non-blocking — stock info is advisory only
+      error: () => {}
     });
   }
 
@@ -416,7 +491,11 @@ export class StockEntryFormComponent implements OnInit {
       fgCompletedQty: this.produceQty() > 0 ? this.produceQty() : undefined,
       items: (raw.items ?? []).map((item: any) => ({
         itemId: item.itemId,
-        quantity: item.quantity ?? item.qty ?? 0,
+        quantity: item.qty ?? item.quantity ?? 0,
+        valuationRate: item.basicRate ? Number(item.basicRate) : undefined,
+        setBasicRateManually: !!item.setBasicRateManually,
+        conversionFactor: item.conversionFactor ? Number(item.conversionFactor) : 1,
+        stockUom: item.uom ?? 'Unit',
         sourceWarehouseId: item.sourceWarehouseId || raw.sourceWarehouse || null,
         targetWarehouseId: item.targetWarehouseId || raw.targetWarehouse || null,
         isFinishedItem: item.isFinishedItem ?? false,
