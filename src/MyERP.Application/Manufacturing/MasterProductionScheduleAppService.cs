@@ -69,14 +69,30 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
     [Authorize(MyERPPermissions.MasterProductionSchedules.Create)]
     public async Task<MasterProductionScheduleDto> CreateAsync(CreateMasterProductionScheduleDto input)
     {
+        SalesForecast? linkedForecast = null;
+        IRepository<SalesForecast, Guid>? forecastRepo = null;
         if (input.SalesForecastId.HasValue)
         {
-            var forecastRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesForecast, Guid>>();
-            var forecast = await forecastRepo.GetAsync(input.SalesForecastId.Value);
-            if (forecast.CompanyId != input.CompanyId)
+            forecastRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesForecast, Guid>>();
+            linkedForecast = await forecastRepo.GetAsync(input.SalesForecastId.Value);
+            if (linkedForecast.CompanyId != input.CompanyId)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", "The Company of Sales Forecast does not match with the Company of Master Production Schedule.");
+            }
+            if (linkedForecast.Status != DocumentStatus.Submitted)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+            }
+            if (linkedForecast.ForecastStatus != SalesForecastStatus.Planned)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.SalesForecastAlreadyUsedForMps);
+            }
+
+            var mpsQuery = await _repository.GetQueryableAsync();
+            if (mpsQuery.Any(m => m.SalesForecastId == input.SalesForecastId.Value))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.SalesForecastAlreadyUsedForMps);
             }
         }
 
@@ -87,6 +103,13 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
             SalesForecastId = input.SalesForecastId,
         };
         await _repository.InsertAsync(schedule);
+
+        if (linkedForecast != null && forecastRepo != null)
+        {
+            linkedForecast.MarkMpsGenerated();
+            await forecastRepo.UpdateAsync(linkedForecast);
+        }
+
         return ObjectMapper.Map<MasterProductionSchedule, MasterProductionScheduleDto>(schedule);
     }
 
@@ -95,14 +118,31 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
     {
         var schedule = await _repository.GetAsync(id, includeDetails: true);
 
-        if (input.SalesForecastId.HasValue)
+        var oldForecastId = schedule.SalesForecastId;
+        var forecastRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesForecast, Guid>>();
+        SalesForecast? newForecast = null;
+
+        if (input.SalesForecastId.HasValue && input.SalesForecastId != oldForecastId)
         {
-            var forecastRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesForecast, Guid>>();
-            var forecast = await forecastRepo.GetAsync(input.SalesForecastId.Value);
-            if (forecast.CompanyId != schedule.CompanyId)
+            newForecast = await forecastRepo.GetAsync(input.SalesForecastId.Value);
+            if (newForecast.CompanyId != schedule.CompanyId)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", "The Company of Sales Forecast does not match with the Company of Master Production Schedule.");
+            }
+            if (newForecast.Status != DocumentStatus.Submitted)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+            }
+            if (newForecast.ForecastStatus != SalesForecastStatus.Planned)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.SalesForecastAlreadyUsedForMps);
+            }
+
+            var mpsQuery = await _repository.GetQueryableAsync();
+            if (mpsQuery.Any(m => m.SalesForecastId == input.SalesForecastId.Value && m.Id != schedule.Id))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.SalesForecastAlreadyUsedForMps);
             }
         }
 
@@ -122,11 +162,56 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         }
 
         await _repository.UpdateAsync(schedule);
+
+        if (newForecast != null)
+        {
+            newForecast.MarkMpsGenerated();
+            await forecastRepo.UpdateAsync(newForecast);
+        }
+
+        if (oldForecastId.HasValue && oldForecastId != input.SalesForecastId)
+        {
+            var mpsQuery = await _repository.GetQueryableAsync();
+            var anyRemaining = mpsQuery.Any(m => m.SalesForecastId == oldForecastId.Value && m.Id != schedule.Id);
+            if (!anyRemaining)
+            {
+                var oldForecast = await forecastRepo.FindAsync(oldForecastId.Value);
+                if (oldForecast != null)
+                {
+                    oldForecast.ResetMpsStatus();
+                    await forecastRepo.UpdateAsync(oldForecast);
+                }
+            }
+        }
+
         return ObjectMapper.Map<MasterProductionSchedule, MasterProductionScheduleDto>(schedule);
     }
 
     [Authorize(MyERPPermissions.MasterProductionSchedules.Delete)]
-    public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
+    public async Task DeleteAsync(Guid id)
+    {
+        var schedule = await _repository.FindAsync(id);
+        if (schedule == null) return;
+
+        var forecastId = schedule.SalesForecastId;
+        await _repository.DeleteAsync(id);
+
+        if (forecastId.HasValue)
+        {
+            var mpsQuery = await _repository.GetQueryableAsync();
+            var anyRemaining = mpsQuery.Any(m => m.SalesForecastId == forecastId.Value && m.Id != id);
+            if (!anyRemaining)
+            {
+                var forecastRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesForecast, Guid>>();
+                var forecast = await forecastRepo.FindAsync(forecastId.Value);
+                if (forecast != null)
+                {
+                    forecast.ResetMpsStatus();
+                    await forecastRepo.UpdateAsync(forecast);
+                }
+            }
+        }
+    }
 
     [Authorize(MyERPPermissions.MasterProductionSchedules.Edit)]
     public async Task<MasterProductionScheduleDto> FetchSalesOrdersAsync(Guid id, FetchSalesOrdersDto input)

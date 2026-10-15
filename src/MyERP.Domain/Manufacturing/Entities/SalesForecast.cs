@@ -65,6 +65,7 @@ public class SalesForecast : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>
     /// Mirrors generate_manual_demand: one row per selected item per period, default qty 1.
     /// Delivery dates step forward from FromDate by week (Weekly) or month (Monthly).
+    /// ERPNext PR #60546: delivery dates start on FromDate itself (period index 0).
     /// Caller resolves item name/UOM (domain layer has no Item repository access).
     /// </summary>
     public void GenerateDemand(IReadOnlyDictionary<Guid, (string ItemName, string Uom)> itemDetails)
@@ -73,12 +74,14 @@ public class SalesForecast : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         if (_selectedItems.Count == 0)
             throw new BusinessException(MyERPDomainErrorCodes.SalesForecastHasNoSelectedItems);
+        if (DemandNumber <= 0)
+            throw new BusinessException(MyERPDomainErrorCodes.SalesForecastDemandNumberMustBeGreaterThanZero);
 
         _items.Clear();
         foreach (var selected in _selectedItems)
         {
             var (itemName, uom) = itemDetails[selected.ItemId];
-            for (var period = 1; period <= DemandNumber; period++)
+            for (var period = 0; period < DemandNumber; period++)
             {
                 var deliveryDate = Frequency == SalesForecastFrequency.Monthly
                     ? FromDate.AddMonths(period)
@@ -89,6 +92,23 @@ public class SalesForecast : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
     }
 
+    public void SetItems(IEnumerable<SalesForecastItem> items)
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        _items.Clear();
+        _items.AddRange(items);
+    }
+
+    public void AddItem(SalesForecastItem item)
+    {
+        if (Status != DocumentStatus.Draft)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        _items.Add(item);
+    }
+
     /// <summary>Called after a Master Production Schedule is created from this forecast (create_mps).</summary>
     public void MarkMpsGenerated()
     {
@@ -97,14 +117,37 @@ public class SalesForecast : FullAuditedAggregateRoot<Guid>, IMultiTenant
         ForecastStatus = SalesForecastStatus.MpsGenerated;
     }
 
+    /// <summary>Called when linked Master Production Schedule is unlinked or deleted.</summary>
+    public void ResetMpsStatus()
+    {
+        if (Status == DocumentStatus.Submitted)
+            ForecastStatus = SalesForecastStatus.Planned;
+    }
+
     public void Submit()
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        if (DemandNumber <= 0)
+            throw new BusinessException(MyERPDomainErrorCodes.SalesForecastDemandNumberMustBeGreaterThanZero);
+
+        if (_items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
+
+        foreach (var item in _items)
+        {
+            if (item.DeliveryDate.Date < FromDate.Date)
+                throw new BusinessException(MyERPDomainErrorCodes.SalesForecastDeliveryDateBeforeFromDate);
+            if (item.DemandQty <= 0)
+                throw new BusinessException(MyERPDomainErrorCodes.SalesForecastDemandQtyRequired);
+        }
+
         Status = DocumentStatus.Submitted;
+        ForecastStatus = SalesForecastStatus.Planned;
     }
 
-    /// <summary>Cancel or discard — both set ForecastStatus to Cancelled per ERPNext on_discard.</summary>
+    /// <summary>Cancel or discard — both set ForecastStatus to Cancelled per ERPNext on_discard / on_cancel.</summary>
     public void Cancel()
     {
         if (Status == DocumentStatus.Cancelled)

@@ -143,9 +143,13 @@ export class SalesForecastFormComponent implements OnInit {
 
   ngOnInit(): void {
     this.warehouseService.getList({ maxResultCount: 500 } as any).subscribe(r =>
-      this.warehouses.set((r.items ?? []).map((w: any) => ({ id: w.id, warehouseName: w.warehouseName ?? w.name }))));
+      this.warehouses.set((r.items ?? [])
+        .filter((w: any) => w.isGroup === undefined || w.isGroup === true)
+        .map((w: any) => ({ id: w.id, warehouseName: w.warehouseName ?? w.name }))));
     this.itemService.getList({ maxResultCount: 500 } as any).subscribe(r =>
-      this.items.set((r.items ?? []).map((i: any) => ({ id: i.id, itemCode: i.itemCode, itemName: i.itemName }))));
+      this.items.set((r.items ?? [])
+        .filter((i: any) => i.maintainStock !== false)
+        .map((i: any) => ({ id: i.id, itemCode: i.itemCode, itemName: i.itemName }))));
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {

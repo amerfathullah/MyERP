@@ -511,6 +511,11 @@ public static class MyERPDomainErrorCodes
     // Sales Forecast
     public const string SalesForecastHasNoSelectedItems = "MyERP:10026";
     public const string SalesForecastAlreadyUsedForMps = "MyERP:10027";
+    public const string SalesForecastDemandNumberMustBeGreaterThanZero = "MyERP:10037";
+    public const string SalesForecastDeliveryDateBeforeFromDate = "MyERP:10038";
+    public const string SalesForecastParentWarehouseInvalid = "MyERP:10039";
+    public const string SalesForecastOnlyStockItemsAllowed = "MyERP:10040";
+    public const string SalesForecastDemandQtyRequired = "MyERP:10041";
     public const string WorkOrderWarehouseCompanyMismatch = "MyERP:10028"; // was hardcoded "MyERP:10020" (collided with PreviousOperationNotManufactured)
     public const string BomOperationSequenceOutOfOrder = "MyERP:10029"; // was hardcoded "MyERP:10020" (collided with PreviousOperationNotManufactured)
     public const string BomHasNoRouting = "MyERP:10030"; // was hardcoded "MyERP:10017" (collided with BomFgCannotBeSecondaryItem)

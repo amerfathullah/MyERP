@@ -47,6 +47,9 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Track stock for this item (false for services).</summary>
     public bool MaintainStock { get; set; } = true;
 
+    /// <summary>Alias for MaintainStock matching ERPNext is_stock_item.</summary>
+    public bool IsStockItem => MaintainStock;
+
     /// <summary>Item requires serial number tracking (per-unit identification).</summary>
     public bool HasSerialNo { get; set; }
 
