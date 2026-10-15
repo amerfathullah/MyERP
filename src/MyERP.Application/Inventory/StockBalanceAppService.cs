@@ -588,6 +588,48 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
                         r.BalanceValue = Math.Round(r.BalanceQty * rate, 4);
                     }
                 }
+
+                // Per ERPNext PR #60739 / commits 63bd3cebc6 & 6ea7e1d60d:
+                // Keep stranded pool value on the row without dimensions.
+                // Valuing every dimension-wise row at qty times the pool rate dropped pool
+                // value that no quantity carries, such as a residue left at zero qty.
+                // Keep that value on the row without dimensions, and add the row when the pool has none.
+                foreach (var (key, poolBal) in itemWarehouseBalances)
+                {
+                    if (!pooledItemIds.Contains(key.ItemId))
+                        continue;
+
+                    var rate = latestRates.GetValueOrDefault(key);
+                    if (rate == 0 && items.TryGetValue(key.ItemId, out var itm) && itm.StandardBuyingPrice.HasValue)
+                    {
+                        rate = itm.StandardBuyingPrice.Value;
+                    }
+
+                    var strandedValue = poolBal.BalVal - (poolBal.BalQty * rate);
+                    strandedValue = Math.Round(strandedValue, 4);
+
+                    if (strandedValue != 0)
+                    {
+                        var existingRow = rows.FirstOrDefault(r => r.ItemId == key.ItemId && r.WarehouseId == key.WarehouseId && r.BatchId == null);
+                        if (existingRow != null)
+                        {
+                            existingRow.BalanceValue += strandedValue;
+                        }
+                        else
+                        {
+                            var newRow = new StockBalanceReportRowDto
+                            {
+                                ItemId = key.ItemId,
+                                WarehouseId = key.WarehouseId,
+                                BatchId = null,
+                                ValuationRate = rate,
+                                BalanceQty = 0,
+                                BalanceValue = strandedValue
+                            };
+                            rows.Add(newRow);
+                        }
+                    }
+                }
             }
         }
 

@@ -268,4 +268,86 @@ public class DimensionWiseStockReconciliationTests
         result.TotalBalanceQty.ShouldBe(15m);
         result.TotalBalanceValue.ShouldBe(2250m);
     }
+
+    [Fact]
+    public async Task DimensionWiseStock_KeepsStrandedPoolValue_PerPR60739()
+    {
+        // Replicates ERPNext test_dimension_wise_stock_keeps_stranded_pool_value (PR #60739 / commits 63bd3cebc6 & 6ea7e1d60d):
+        // Valuing every dimension row at qty * pool rate drops pool value that no qty carries (e.g. residue left at zero qty).
+        // That value must be kept on the row without dimensions.
+        var movingAvgItem = new Item(Guid.NewGuid(), _companyId, "ITEM-STRANDED", "Stranded Value Item", ItemType.Goods)
+        {
+            HasBatchNo = true,
+            ValuationMethod = ValuationMethod.WeightedAverage
+        };
+
+        _settingProvider.GetOrNullAsync(MyERPSettings.Stock.DoNotUseBatchwiseValuation)
+            .Returns(Task.FromResult<string?>("true"));
+
+        _itemRepo.GetQueryableAsync()
+            .Returns(Task.FromResult(new List<Item> { movingAvgItem }.AsQueryable()));
+
+        var sles = new List<StockLedgerEntry>
+        {
+            // Receipt into Batch 1: 10 units @ 100, but stock_value_difference is 1500 (valuation rate 100, balance value 1500)
+            new StockLedgerEntry(Guid.NewGuid(), _companyId, movingAvgItem.Id, _warehouseId, DateTime.UtcNow.AddDays(-3),
+                quantityChange: 10m, valuationRate: 100m, balanceQuantity: 10m, balanceValue: 1500m)
+            {
+                BatchId = _batch1Id,
+                StockValue = 1500m,
+                StockValueDifference = 1500m,
+                VoucherType = "StockEntry"
+            },
+            // Issue all 10 units out of Batch 1: -10 units, leaving 0 qty and 500 residue balance value
+            new StockLedgerEntry(Guid.NewGuid(), _companyId, movingAvgItem.Id, _warehouseId, DateTime.UtcNow.AddDays(-2),
+                quantityChange: -10m, valuationRate: 100m, balanceQuantity: 0m, balanceValue: 500m)
+            {
+                BatchId = _batch1Id,
+                StockValue = -1000m,
+                StockValueDifference = -1000m,
+                VoucherType = "StockEntry"
+            },
+            // Receipt into Batch 2: 10 units @ 100, total pool balance qty = 10, total pool balance value = 1500, rate = 100
+            new StockLedgerEntry(Guid.NewGuid(), _companyId, movingAvgItem.Id, _warehouseId, DateTime.UtcNow.AddDays(-1),
+                quantityChange: 10m, valuationRate: 100m, balanceQuantity: 10m, balanceValue: 1500m)
+            {
+                BatchId = _batch2Id,
+                StockValue = 1000m,
+                StockValueDifference = 1000m,
+                VoucherType = "StockEntry"
+            }
+        }.AsQueryable();
+
+        _sleRepo.GetQueryableAsync().Returns(Task.FromResult(sles));
+
+        var service = new StockBalanceAppService(_binRepo, _itemRepo, _warehouseRepo, _sleRepo, _batchRepo, _binService)
+        {
+            LazyServiceProvider = _lazySp
+        };
+
+        // Act
+        var result = await service.GetStockBalanceReportAsync(new GetStockBalanceReportRequestDto
+        {
+            CompanyId = _companyId,
+            ItemId = movingAvgItem.Id,
+            WarehouseId = _warehouseId,
+            ShowDimensionWiseStock = true
+        });
+
+        // Assert
+        // Batch 2 row: BalQty = 10, BalVal = 10 * 100 = 1000
+        var batch2Row = result.Rows.First(r => r.BatchId == _batch2Id);
+        batch2Row.BalanceQty.ShouldBe(10m);
+        batch2Row.ValuationRate.ShouldBe(100m);
+        batch2Row.BalanceValue.ShouldBe(1000m);
+
+        // Dimensionless row (BatchId == null): carries stranded pool value 500
+        var strandedRow = result.Rows.First(r => r.BatchId == null);
+        strandedRow.BalanceQty.ShouldBe(0m);
+        strandedRow.BalanceValue.ShouldBe(500m);
+
+        // Total balance value must equal 1500, perfectly matching the ledger!
+        result.TotalBalanceQty.ShouldBe(10m);
+        result.TotalBalanceValue.ShouldBe(1500m);
+    }
 }
