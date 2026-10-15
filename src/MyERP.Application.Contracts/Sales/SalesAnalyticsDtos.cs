@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace MyERP.Sales;
 
@@ -64,4 +65,56 @@ public class CustomerWithoutSalesDto
     public string? CustomerGroup { get; set; }
     public string? Territory { get; set; }
 }
+
+public class CustomerWiseItemPriceInputDto
+{
+    [Required]
+    public Guid CustomerId { get; set; }
+    public Guid? PriceListId { get; set; }
+    public Guid? ItemId { get; set; }
+    public Guid? CompanyId { get; set; }
+}
+
+public class CustomerWiseItemPriceDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public string StockUom { get; set; } = "Unit";
+    public decimal SellingRate { get; set; }
+    public Guid? PriceListId { get; set; }
+    public string? PriceListName { get; set; }
+    public decimal AvailableStock { get; set; }
+}
+
+public class CustomerAcquisitionAndLoyaltyInputDto
+{
+    public Guid CompanyId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public Guid? CustomerId { get; set; }
+    public Guid? TerritoryId { get; set; }
+    public bool TreeView { get; set; }
+}
+
+public class CustomerAcquisitionAndLoyaltyReportDto
+{
+    public List<CustomerAcquisitionAndLoyaltyRowDto> Rows { get; set; } = new();
+    public int TotalNewCustomers { get; set; }
+    public int TotalRepeatCustomers { get; set; }
+    public decimal TotalNewRevenue { get; set; }
+    public decimal TotalRepeatRevenue { get; set; }
+    public decimal TotalRevenue { get; set; }
+}
+
+public class CustomerAcquisitionAndLoyaltyRowDto
+{
+    public string Key { get; set; } = string.Empty;
+    public int NewCustomerCount { get; set; }
+    public decimal NewCustomerRevenue { get; set; }
+    public int RepeatCustomerCount { get; set; }
+    public decimal RepeatCustomerRevenue { get; set; }
+    public decimal TotalRevenue => NewCustomerRevenue + RepeatCustomerRevenue;
+}
+
 

@@ -62,6 +62,8 @@ public class ProfitLossRowDto
     public decimal? PreviousPeriodAmount { get; set; }
     /// <summary>Growth percentage vs previous period. Null when no comparison or previous was zero.</summary>
     public decimal? GrowthPercentage { get; set; }
+    /// <summary>Margin percentage relative to TotalRevenue (100% base) per ERPNext PR #60012.</summary>
+    public decimal? MarginPercentage { get; set; }
     public int Level { get; set; }
     public bool IsGroup { get; set; }
 }
@@ -76,6 +78,10 @@ public class ProfitLossReportDto
     public decimal TotalRevenue { get; set; }
     public decimal TotalExpense { get; set; }
     public decimal NetProfitOrLoss { get; set; }
+    /// <summary>Net profit margin percentage relative to TotalRevenue per ERPNext PR #60012.</summary>
+    public decimal? NetProfitMarginPercentage { get; set; }
+    /// <summary>Total expense margin percentage relative to TotalRevenue per ERPNext PR #60012.</summary>
+    public decimal? TotalExpenseMarginPercentage { get; set; }
     /// <summary>Previous period totals (populated when IncludeComparison=true).</summary>
     public decimal? PreviousTotalRevenue { get; set; }
     public decimal? PreviousTotalExpense { get; set; }

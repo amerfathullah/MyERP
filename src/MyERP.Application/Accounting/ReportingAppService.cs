@@ -177,8 +177,26 @@ public class ReportingAppService : ApplicationService, IReportingAppService
                 expenseRows.Add(row);
         }
 
-        var totalRevenue = revenueRows.Sum(r => r.Amount);
-        var totalExpense = expenseRows.Sum(r => r.Amount);
+        var totalRevenue = Math.Round(revenueRows.Sum(r => r.Amount), 2);
+        var totalExpense = Math.Round(expenseRows.Sum(r => r.Amount), 2);
+        var netProfit = totalRevenue - totalExpense;
+
+        // Base the margin view on the income total row per ERPNext PR #60012 / commits f180489d02, 63040a87d9
+        decimal? totalExpenseMargin = null;
+        decimal? netProfitMargin = null;
+        if (totalRevenue != 0)
+        {
+            foreach (var r in revenueRows)
+            {
+                r.MarginPercentage = Math.Round(r.Amount / totalRevenue * 100m, 2);
+            }
+            foreach (var r in expenseRows)
+            {
+                r.MarginPercentage = Math.Round(r.Amount / totalRevenue * 100m, 2);
+            }
+            totalExpenseMargin = Math.Round(totalExpense / totalRevenue * 100m, 2);
+            netProfitMargin = Math.Round(netProfit / totalRevenue * 100m, 2);
+        }
 
         return new ProfitLossReportDto
         {
@@ -189,7 +207,9 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             ExpenseRows = expenseRows,
             TotalRevenue = totalRevenue,
             TotalExpense = totalExpense,
-            NetProfitOrLoss = totalRevenue - totalExpense,
+            NetProfitOrLoss = netProfit,
+            TotalExpenseMarginPercentage = totalExpenseMargin,
+            NetProfitMarginPercentage = netProfitMargin,
         };
     }
 

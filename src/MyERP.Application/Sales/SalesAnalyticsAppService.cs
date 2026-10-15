@@ -9,6 +9,8 @@ using MyERP.Inventory.Entities;
 using MyERP.Core;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Sales.DomainServices;
+using MyERP.Settings;
+using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -340,6 +342,290 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
             CustomerGroup = c.CustomerGroupId.HasValue && groupNames.TryGetValue(c.CustomerGroupId.Value, out var gName) ? gName : null,
             Territory = c.TerritoryId.HasValue && territoryNames.TryGetValue(c.TerritoryId.Value, out var tName) ? tName : null
         }).ToList();
+    }
+
+    /// <summary>
+    /// Resolves customer-wise item prices identical to how a selling transaction does.
+    /// Per ERPNext PR #60300 / commit a1899ecf69:
+    /// - Customer filter is mandatory.
+    /// - Candidate price lists in priority order: customer default -> fallback to Selling Settings default.
+    /// - Rate lookup strictly excludes other customers' special prices to prevent rate leaks.
+    /// - Rate lookup filters by active date range (valid_from <= today <= valid_upto) and matching UOM.
+    /// - Includes available stock from Bin.
+    /// </summary>
+    public async Task<List<CustomerWiseItemPriceDto>> GetCustomerWiseItemPriceReportAsync(CustomerWiseItemPriceInputDto input)
+    {
+        if (input.CustomerId == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Customer filter is mandatory for Customer-wise Item Price report.");
+        }
+
+        var customer = await _customerRepo.GetAsync(input.CustomerId);
+
+        var priceListRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PriceList, Guid>>();
+        var itemPriceRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ItemPrice, Guid>>();
+        var binRepo = LazyServiceProvider.LazyGetService<IRepository<Bin, Guid>>();
+        var settingProvider = LazyServiceProvider.LazyGetService<Volo.Abp.Settings.ISettingProvider>();
+
+        var candidatePriceListIds = new List<Guid>();
+        var primaryPriceListId = input.PriceListId ?? customer.DefaultPriceListId;
+        if (primaryPriceListId.HasValue && primaryPriceListId.Value != Guid.Empty)
+        {
+            candidatePriceListIds.Add(primaryPriceListId.Value);
+        }
+
+        // Check fallback setting
+        var fallbackEnabled = true;
+        if (settingProvider != null)
+        {
+            var fallbackVal = await settingProvider.GetOrNullAsync(MyERPSettings.Selling.FallbackToDefaultPriceList);
+            if (!string.IsNullOrWhiteSpace(fallbackVal) && bool.TryParse(fallbackVal, out var parsedFallback))
+            {
+                fallbackEnabled = parsedFallback;
+            }
+        }
+
+        if (fallbackEnabled)
+        {
+            Guid? defaultPlId = null;
+            if (settingProvider != null)
+            {
+                var defaultPlVal = await settingProvider.GetOrNullAsync(MyERPSettings.Selling.DefaultPriceList);
+                if (!string.IsNullOrWhiteSpace(defaultPlVal) && Guid.TryParse(defaultPlVal, out var parsedPlId))
+                {
+                    defaultPlId = parsedPlId;
+                }
+            }
+
+            if (defaultPlId.HasValue && defaultPlId.Value != Guid.Empty && !candidatePriceListIds.Contains(defaultPlId.Value))
+            {
+                candidatePriceListIds.Add(defaultPlId.Value);
+            }
+            else if (candidatePriceListIds.Count == 0)
+            {
+                var plQuery = await priceListRepo.GetQueryableAsync();
+                var firstSellingPl = plQuery.FirstOrDefault(p => p.IsSelling && p.IsActive);
+                if (firstSellingPl != null)
+                {
+                    candidatePriceListIds.Add(firstSellingPl.Id);
+                }
+            }
+        }
+
+        var priceListNames = new Dictionary<Guid, string>();
+        if (candidatePriceListIds.Count > 0)
+        {
+            var plQuery = await priceListRepo.GetQueryableAsync();
+            priceListNames = plQuery
+                .Where(pl => candidatePriceListIds.Contains(pl.Id))
+                .Select(pl => new { pl.Id, pl.Name })
+                .ToDictionary(pl => pl.Id, pl => pl.Name);
+        }
+
+        var itemQuery = await _itemRepo.GetQueryableAsync();
+        itemQuery = itemQuery.Where(i => i.IsActive && !i.HasVariants);
+        if (input.ItemId.HasValue)
+        {
+            itemQuery = itemQuery.Where(i => i.Id == input.ItemId.Value);
+        }
+        var items = itemQuery.OrderBy(i => i.ItemName).ToList();
+        if (items.Count == 0) return new List<CustomerWiseItemPriceDto>();
+
+        var itemIds = items.Select(i => i.Id).ToList();
+
+        var stockMap = new Dictionary<Guid, decimal>();
+        if (binRepo != null)
+        {
+            var binQuery = await binRepo.GetQueryableAsync();
+            stockMap = binQuery
+                .Where(b => itemIds.Contains(b.ItemId))
+                .GroupBy(b => b.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(b => b.ActualQty));
+        }
+
+        var today = DateTime.UtcNow.Date;
+        var ipQuery = await itemPriceRepo.GetQueryableAsync();
+        var itemPrices = ipQuery
+            .Where(ip => itemIds.Contains(ip.ItemId)
+                && candidatePriceListIds.Contains(ip.PriceListId)
+                && (ip.CustomerId == null || ip.CustomerId == input.CustomerId)
+                && (ip.ValidFrom == null || ip.ValidFrom <= today)
+                && (ip.ValidUpto == null || ip.ValidUpto >= today))
+            .ToList();
+
+        var result = new List<CustomerWiseItemPriceDto>();
+
+        foreach (var item in items)
+        {
+            decimal resolvedRate = 0m;
+            Guid? resolvedPlId = null;
+
+            foreach (var plId in candidatePriceListIds)
+            {
+                var matchingPrices = itemPrices
+                    .Where(ip => ip.ItemId == item.Id && ip.PriceListId == plId && (string.IsNullOrEmpty(ip.Uom) || ip.Uom == item.Uom))
+                    .ToList();
+
+                var bestPrice = matchingPrices.FirstOrDefault(ip => ip.CustomerId == input.CustomerId)
+                             ?? matchingPrices.FirstOrDefault(ip => ip.CustomerId == null);
+
+                if (bestPrice != null && bestPrice.PriceListRate > 0)
+                {
+                    resolvedRate = bestPrice.PriceListRate;
+                    resolvedPlId = plId;
+                    break;
+                }
+            }
+
+            if (resolvedPlId == null && candidatePriceListIds.Count > 0)
+            {
+                resolvedPlId = candidatePriceListIds.First();
+            }
+
+            result.Add(new CustomerWiseItemPriceDto
+            {
+                ItemId = item.Id,
+                ItemCode = item.ItemCode,
+                ItemName = item.ItemName,
+                StockUom = item.Uom,
+                SellingRate = resolvedRate,
+                PriceListId = resolvedPlId,
+                PriceListName = resolvedPlId.HasValue && priceListNames.TryGetValue(resolvedPlId.Value, out var plName) ? plName : null,
+                AvailableStock = stockMap.GetValueOrDefault(item.Id, 0m)
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Computes Customer Acquisition and Loyalty metrics across territories or periods.
+    /// Per ERPNext PR #60697 / commit cdcb0de6b8:
+    /// - Resolve customer acquisition (first non-return invoice) BEFORE assigning revenue.
+    /// - Returns never acquire a customer; they only net revenue.
+    /// - Without an acquiring sale (e.g. standalone credit note), the customer is never classified as "new".
+    /// </summary>
+    public async Task<CustomerAcquisitionAndLoyaltyReportDto> GetCustomerAcquisitionAndLoyaltyReportAsync(CustomerAcquisitionAndLoyaltyInputDto input)
+    {
+        var siQuery = await _siRepo.GetQueryableAsync();
+        siQuery = siQuery.Where(si => si.CompanyId == input.CompanyId
+            && (si.Status == DocumentStatus.Submitted || si.Status == DocumentStatus.Posted));
+
+        if (input.CustomerId.HasValue)
+        {
+            siQuery = siQuery.Where(si => si.CustomerId == input.CustomerId.Value);
+        }
+
+        var invoices = siQuery.OrderBy(si => si.IssueDate).ThenBy(si => si.CreationTime).ToList();
+
+        var customerIds = invoices.Select(si => si.CustomerId).Distinct().ToList();
+        var customerTerritoryMap = new Dictionary<Guid, string>();
+        if (customerIds.Count > 0)
+        {
+            var territoryRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Territory, Guid>>();
+            var customers = (await _customerRepo.GetQueryableAsync())
+                .Where(c => customerIds.Contains(c.Id))
+                .Select(c => new { c.Id, c.TerritoryId })
+                .ToList();
+
+            var territoryIds = customers.Where(c => c.TerritoryId.HasValue).Select(c => c.TerritoryId!.Value).Distinct().ToList();
+            var territoryNames = new Dictionary<Guid, string>();
+            if (territoryIds.Count > 0)
+            {
+                territoryNames = (await territoryRepo.GetQueryableAsync())
+                    .Where(t => territoryIds.Contains(t.Id))
+                    .Select(t => new { t.Id, t.Name })
+                    .ToDictionary(t => t.Id, t => t.Name);
+            }
+
+            customerTerritoryMap = customers.ToDictionary(
+                c => c.Id,
+                c => c.TerritoryId.HasValue && territoryNames.TryGetValue(c.TerritoryId.Value, out var tName) ? tName : "Unassigned");
+        }
+
+        // 1. Resolve acquisition per customer
+        var acquisition = new Dictionary<Guid, (string Key, DateTime Date)>();
+        foreach (var si in invoices)
+        {
+            if (!si.IsReturn && !acquisition.ContainsKey(si.CustomerId))
+            {
+                var territory = customerTerritoryMap.GetValueOrDefault(si.CustomerId, "Unassigned");
+                var key = input.TreeView ? territory : si.IssueDate.ToString("yyyy-MM");
+                acquisition[si.CustomerId] = (key, si.IssueDate);
+            }
+        }
+
+        // 2. Classify and aggregate within date range
+        var newCustomerSets = new Dictionary<string, HashSet<Guid>>();
+        var repeatCustomerSets = new Dictionary<string, HashSet<Guid>>();
+        var newRevenueMap = new Dictionary<string, decimal>();
+        var repeatRevenueMap = new Dictionary<string, decimal>();
+
+        var fromDate = input.FromDate.Date;
+        var toDate = input.ToDate.Date;
+
+        foreach (var si in invoices)
+        {
+            var issueDate = si.IssueDate.Date;
+            if (issueDate < fromDate || issueDate > toDate) continue;
+
+            var territory = customerTerritoryMap.GetValueOrDefault(si.CustomerId, "Unassigned");
+            var key = input.TreeView ? territory : issueDate.ToString("yyyy-MM");
+
+            var acq = acquisition.GetValueOrDefault(si.CustomerId);
+            var isNew = acq != default && key == acq.Key && acq.Date.Date >= fromDate;
+
+            var netAmount = si.IsReturn ? -Math.Abs(si.GrandTotal) : Math.Abs(si.GrandTotal);
+
+            if (isNew)
+            {
+                if (!newCustomerSets.ContainsKey(key)) newCustomerSets[key] = new HashSet<Guid>();
+                newCustomerSets[key].Add(si.CustomerId);
+                newRevenueMap[key] = newRevenueMap.GetValueOrDefault(key, 0m) + netAmount;
+            }
+            else
+            {
+                if (!repeatCustomerSets.ContainsKey(key)) repeatCustomerSets[key] = new HashSet<Guid>();
+                repeatCustomerSets[key].Add(si.CustomerId);
+                repeatRevenueMap[key] = repeatRevenueMap.GetValueOrDefault(key, 0m) + netAmount;
+            }
+        }
+
+        var allKeys = newCustomerSets.Keys.Union(repeatCustomerSets.Keys).OrderBy(k => k).ToList();
+        var rows = new List<CustomerAcquisitionAndLoyaltyRowDto>();
+
+        foreach (var key in allKeys)
+        {
+            var newCount = newCustomerSets.GetValueOrDefault(key)?.Count ?? 0;
+            var newRev = Math.Round(newRevenueMap.GetValueOrDefault(key, 0m), 2);
+            var repeatCount = repeatCustomerSets.GetValueOrDefault(key)?.Count ?? 0;
+            var repeatRev = Math.Round(repeatRevenueMap.GetValueOrDefault(key, 0m), 2);
+
+            rows.Add(new CustomerAcquisitionAndLoyaltyRowDto
+            {
+                Key = key,
+                NewCustomerCount = newCount,
+                NewCustomerRevenue = newRev,
+                RepeatCustomerCount = repeatCount,
+                RepeatCustomerRevenue = repeatRev
+            });
+        }
+
+        var totalNewCustomers = newCustomerSets.Values.SelectMany(s => s).Distinct().Count();
+        var totalRepeatCustomers = repeatCustomerSets.Values.SelectMany(s => s).Distinct().Count();
+        var totalNewRev = Math.Round(rows.Sum(r => r.NewCustomerRevenue), 2);
+        var totalRepeatRev = Math.Round(rows.Sum(r => r.RepeatCustomerRevenue), 2);
+
+        return new CustomerAcquisitionAndLoyaltyReportDto
+        {
+            Rows = rows,
+            TotalNewCustomers = totalNewCustomers,
+            TotalRepeatCustomers = totalRepeatCustomers,
+            TotalNewRevenue = totalNewRev,
+            TotalRepeatRevenue = totalRepeatRev,
+            TotalRevenue = totalNewRev + totalRepeatRev
+        };
     }
 
     private static decimal CalculateGrowth(List<decimal> values)
