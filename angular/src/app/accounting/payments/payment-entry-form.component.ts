@@ -56,6 +56,8 @@ export class PaymentEntryFormComponent implements OnInit {
   totalOrderPending = signal(0);
   isEditMode = false;
   entityId: string | null = null;
+  paidFromAccountCurrency = signal<string>('MYR');
+  paidToAccountCurrency = signal<string>('MYR');
 
   // Payment Entry tax/charge rows — PE has its own tax engine, separate from SI/PI.
   taxRows = signal<PaymentEntryTaxDto[]>([]);
@@ -183,6 +185,15 @@ export class PaymentEntryFormComponent implements OnInit {
       } else {
         this.fetchExchangeRate(currency);
       }
+    }, error: () => {} });
+
+    // Re-derive bank side amount when bank account changes currency (ERPNext PR #59582)
+    this.form.get('paidFromAccount')?.valueChanges.subscribe({ next: (acctId) => {
+      this.handlePaidFromAccountChange(acctId);
+    }, error: () => {} });
+
+    this.form.get('paidToAccount')?.valueChanges.subscribe({ next: (acctId) => {
+      this.handlePaidToAccountChange(acctId);
     }, error: () => {} });
 
     if (this.isEditMode) {
@@ -415,6 +426,60 @@ export class PaymentEntryFormComponent implements OnInit {
     }
   }
 
+  handlePaidFromAccountChange(acctId: string | null): void {
+    if (!acctId) return;
+    const acct = this.accounts().find(a => a.id === acctId);
+    const newCurrency = acct?.currency || 'MYR';
+    const oldCurrency = this.paidFromAccountCurrency();
+    this.paidFromAccountCurrency.set(newCurrency);
+
+    const paymentType = this.form.get('paymentType')?.value;
+    // Per ERPNext PR #59582:
+    // In Pay: paidFromAccount is bank side. When bank account currency changes and amount is set,
+    // re-derive bank side amount from party side amount using exchange rate.
+    if (paymentType === 'Pay' && oldCurrency && oldCurrency !== newCurrency) {
+      this.rederiveBankSideAmount(this.paidToAccountCurrency(), newCurrency);
+    }
+  }
+
+  handlePaidToAccountChange(acctId: string | null): void {
+    if (!acctId) return;
+    const acct = this.accounts().find(a => a.id === acctId);
+    const newCurrency = acct?.currency || 'MYR';
+    const oldCurrency = this.paidToAccountCurrency();
+    this.paidToAccountCurrency.set(newCurrency);
+
+    const paymentType = this.form.get('paymentType')?.value;
+    // Per ERPNext PR #59582:
+    // In Receive: paidToAccount is bank side. When bank account currency changes and amount is set,
+    // re-derive bank side amount from party side amount using exchange rate.
+    if (paymentType === 'Receive' && oldCurrency && oldCurrency !== newCurrency) {
+      this.rederiveBankSideAmount(this.paidFromAccountCurrency(), newCurrency);
+    }
+  }
+
+  rederiveBankSideAmount(partyCurrency: string, bankCurrency: string): void {
+    const currentAmount = this.form.get('amount')?.value ?? 0;
+    if (currentAmount <= 0) return;
+
+    if (partyCurrency === bankCurrency) {
+      this.form.patchValue({ currency: bankCurrency, exchangeRate: 1 });
+      return;
+    }
+
+    const date = this.form.get('paymentDate')?.value || new Date().toISOString().split('T')[0];
+    this.currencyExchangeService.getRate(partyCurrency, bankCurrency, date).subscribe({
+      next: (res: any) => {
+        const rate = res?.rate ?? 1;
+        this.form.patchValue({
+          currency: bankCurrency,
+          exchangeRate: rate,
+        });
+      },
+      error: () => {}
+    });
+  }
+
   loadParties(partyType: string): void {
     const service$: any = partyType === 'Customer'
       ? this.customerService.getList({ skipCount: 0, maxResultCount: 200 } as any)
@@ -575,6 +640,8 @@ export class PaymentEntryFormComponent implements OnInit {
       paidAmount: raw.amount,
       paidFromAccountId: raw.paidFromAccount,
       paidToAccountId: raw.paidToAccount,
+      paidFromAccountCurrency: this.paidFromAccountCurrency(),
+      paidToAccountCurrency: this.paidToAccountCurrency(),
       referenceNumber: raw.reference,
       referenceDate: raw.referenceDate || null,
     };

@@ -19,9 +19,8 @@ public class TaskTypeTests
     }
 
     [Fact]
-    public void TaskType_Creation_NegativeWeight_DefaultsToOne()
+    public void TaskType_Creation_NegativeWeight_Throws()
     {
-        var taskType = new TaskType(Guid.NewGuid(), "Feature", -5m);
-        Assert.Equal(1m, taskType.Weight);
+        Assert.Throws<Volo.Abp.BusinessException>(() => new TaskType(Guid.NewGuid(), "Feature", -5m));
     }
 }

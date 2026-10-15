@@ -167,6 +167,60 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         Check.NotDefaultOrNull<Guid>(input.CompanyId, nameof(input.CompanyId));
         Check.NotDefaultOrNull<Guid>(input.PaidFromAccountId, nameof(input.PaidFromAccountId));
         Check.NotDefaultOrNull<Guid>(input.PaidToAccountId, nameof(input.PaidToAccountId));
+        // Per ERPNext PR #47069 / commit a854beeb40: set account type and currency if missing
+        await PopulateAccountDetailsAsync(input);
+
+        // Per ERPNext PR #59582 / commit 655186714c:
+        // Re-derive bank side amount when payment account currency changes / differs:
+        // In Pay: PaidFrom is bank side, PaidTo is party side. If bank PaidAmount is 0 and party ReceivedAmount > 0,
+        // re-derive PaidAmount from party side ReceivedAmount using exchange rate.
+        if (input.PaymentType == PaymentType.Pay)
+        {
+            if (input.PaidAmount <= 0 && input.ReceivedAmount.HasValue && input.ReceivedAmount.Value > 0)
+            {
+                var rate = input.ExchangeRate > 0 ? input.ExchangeRate : 1m;
+                input.PaidAmount = Math.Round(input.ReceivedAmount.Value * rate, 2);
+            }
+            else if ((!input.ReceivedAmount.HasValue || input.ReceivedAmount.Value <= 0) && input.PaidAmount > 0)
+            {
+                if (string.Equals(input.PaidFromAccountCurrency, input.PaidToAccountCurrency, StringComparison.OrdinalIgnoreCase))
+                {
+                    input.ReceivedAmount = input.PaidAmount;
+                }
+                else
+                {
+                    var rate = input.ExchangeRate > 0 ? input.ExchangeRate : 1m;
+                    input.ReceivedAmount = Math.Round(input.PaidAmount / rate, 2);
+                }
+            }
+        }
+        else if (input.PaymentType == PaymentType.Receive)
+        {
+            // In Receive: PaidFrom is party side, PaidTo is bank side.
+            if ((!input.ReceivedAmount.HasValue || input.ReceivedAmount.Value <= 0) && input.PaidAmount > 0)
+            {
+                if (string.Equals(input.PaidFromAccountCurrency, input.PaidToAccountCurrency, StringComparison.OrdinalIgnoreCase))
+                {
+                    input.ReceivedAmount = input.PaidAmount;
+                }
+                else
+                {
+                    var rate = input.ExchangeRate > 0 ? input.ExchangeRate : 1m;
+                    input.ReceivedAmount = Math.Round(input.PaidAmount * rate, 2);
+                }
+            }
+        }
+        else if (input.PaymentType == PaymentType.InternalTransfer)
+        {
+            if ((!input.ReceivedAmount.HasValue || input.ReceivedAmount.Value <= 0) && input.PaidAmount > 0)
+            {
+                var rate = input.ExchangeRate > 0 ? input.ExchangeRate : 1m;
+                input.ReceivedAmount = string.Equals(input.PaidFromAccountCurrency, input.PaidToAccountCurrency, StringComparison.OrdinalIgnoreCase)
+                    ? input.PaidAmount
+                    : Math.Round(input.PaidAmount * rate, 2);
+            }
+        }
+
         if (input.PaidAmount <= 0)
             throw new Volo.Abp.BusinessException("MyERP:01008")
                 .WithData("field", "PaidAmount");
@@ -179,9 +233,6 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             accountIds: new[] { input.PaidFromAccountId, input.PaidToAccountId });
 
         await ValidatePartyUsableAsync(input.PartyType, input.PartyId, input.CompanyId);
-
-        // Per ERPNext PR #47069 / commit a854beeb40: set account type and currency if missing
-        await PopulateAccountDetailsAsync(input);
 
         // Per gotcha #197: Receive type cannot have net negative allocation for Customer
         if (input.PaymentType == PaymentType.Receive && string.Equals(input.PartyType, "Customer", StringComparison.OrdinalIgnoreCase))
@@ -228,10 +279,9 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         pe.Notes = input.Notes;
         pe.AgainstOrderId = input.AgainstOrderId;
         pe.AgainstOrderType = input.AgainstOrderType;
-        if (input.ReceivedAmount.HasValue && input.ReceivedAmount.Value > 0)
-        {
-            pe.ReceivedAmount = input.ReceivedAmount.Value;
-        }
+        pe.ReceivedAmount = input.ReceivedAmount.HasValue && input.ReceivedAmount.Value > 0
+            ? input.ReceivedAmount.Value
+            : input.PaidAmount;
 
         // Multi-currency: auto-resolve exchange rate if not explicitly provided
         // Per ERPNext: when payment currency ≠ company currency, fetch rate from CurrencyExchange

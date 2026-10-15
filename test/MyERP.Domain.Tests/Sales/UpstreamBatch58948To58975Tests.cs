@@ -97,15 +97,33 @@ public class UpstreamBatch58948To58975Tests
     }
 
     [Fact]
-    public void DeliveryNote_PerBilled_FullyReturned_BecomesCompleted()
+    public void DeliveryNote_PerBilled_FullyReturned_Unbilled_BecomesReturnIssued()
     {
-        // 5 delivered, 0 billed, 5 returned -> net = 0 -> 100% billed / settled
+        // 5 delivered, 0 billed, 5 returned -> net = 0 -> PerBilled is 0, status is Return Issued per ERPNext commit 8290a83591
         var dn = new DeliveryNote(Guid.NewGuid(), _companyId, _customerId, _warehouseId, "DN-2026-004", DateTime.UtcNow);
         dn.AddItem(Guid.NewGuid(), "Item 4", 5m, 100m, 0m);
         dn.Submit();
 
         var item = dn.Items[0];
         item.BilledQty = 0m;
+        item.ReturnedQty = 5m;
+
+        Assert.Equal(0m, item.BillableQty);
+        Assert.Equal(0m, item.PendingBillingQty);
+        Assert.Equal(0m, dn.PerBilled);
+        Assert.Equal("Return Issued", dn.BillingStatus);
+    }
+
+    [Fact]
+    public void DeliveryNote_PerBilled_FullyReturned_BilledPriorToReturn_BecomesCompleted()
+    {
+        // 5 delivered, 5 billed, 5 returned -> 100% billed prior to return -> Completed per ERPNext commit 8290a83591
+        var dn = new DeliveryNote(Guid.NewGuid(), _companyId, _customerId, _warehouseId, "DN-2026-004B", DateTime.UtcNow);
+        dn.AddItem(Guid.NewGuid(), "Item 4B", 5m, 100m, 0m);
+        dn.Submit();
+
+        var item = dn.Items[0];
+        item.BilledQty = 5m;
         item.ReturnedQty = 5m;
 
         Assert.Equal(0m, item.BillableQty);

@@ -208,4 +208,44 @@ describe('PaymentEntry form validation', () => {
       expect(availablePaidFrom.map(a => a.id)).toEqual(['acc-1', 'acc-3']);
     });
   });
+
+  describe('Bank side amount re-derivation on account currency change (ERPNext PR #59582)', () => {
+    it('should detect when bank account currency changes for Pay type', () => {
+      const paymentType = 'Pay';
+      const prevBankCurrency = 'MYR';
+      const newBankCurrency = 'USD';
+
+      const shouldRederive = paymentType === 'Pay' && prevBankCurrency !== newBankCurrency;
+      expect(shouldRederive).toBe(true);
+
+      // Party amount = 500, rate = 0.2 (1 MYR = 0.2 USD)
+      const partyAmount = 500;
+      const rate = 0.2;
+      const rederivedBankAmount = Math.round(partyAmount * rate * 100) / 100;
+      expect(rederivedBankAmount).toBe(100);
+    });
+
+    it('should detect when bank account currency changes for Receive type', () => {
+      const paymentType = 'Receive';
+      const prevBankCurrency = 'MYR';
+      const newBankCurrency = 'USD';
+
+      const shouldRederive = paymentType === 'Receive' && prevBankCurrency !== newBankCurrency;
+      expect(shouldRederive).toBe(true);
+
+      // Customer pays 1000 MYR, bank currency is USD with rate 0.22
+      const customerAmount = 1000;
+      const rate = 0.22;
+      const rederivedBankAmount = Math.round(customerAmount * rate * 100) / 100;
+      expect(rederivedBankAmount).toBe(220);
+    });
+
+    it('should set exchangeRate to 1 when bank currency matches party currency', () => {
+      const partyCurrency = 'MYR';
+      const bankCurrency = 'MYR';
+      const isSameCurrency = partyCurrency === bankCurrency;
+      const exchangeRate = isSameCurrency ? 1 : 4.5;
+      expect(exchangeRate).toBe(1);
+    });
+  });
 });

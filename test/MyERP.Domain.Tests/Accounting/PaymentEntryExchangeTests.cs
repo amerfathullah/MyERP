@@ -172,4 +172,50 @@ public class PaymentEntryExchangeTests
 
         pe.ExchangeGainLoss.ShouldBe(130m);
     }
+
+    [Fact]
+    public void PaymentEntry_BankSideAmount_PayType_WithdrawalMatchesPaidAmountAfterTax()
+    {
+        // Per ERPNext PR #57740 & PR #59582:
+        // For Pay: bank side amount is PaidAmountAfterTax (withdrawal)
+        var pe = CreatePE(1000m, "USD");
+        pe.PaymentType = PaymentType.Pay;
+        pe.PaidAmount = 1000m;
+        pe.ReceivedAmount = 1000m;
+
+        pe.GetBankSideAmount(isDeposit: false).ShouldBe(1000m);
+    }
+
+    [Fact]
+    public void PaymentEntry_BankSideAmount_ReceiveType_DepositMatchesReceivedAmountAfterTax()
+    {
+        // Per ERPNext PR #57740 & PR #59582:
+        // For Receive: bank side amount is ReceivedAmountAfterTax (deposit)
+        var pe = CreatePE(1000m, "USD");
+        pe.PaymentType = PaymentType.Receive;
+        pe.PaidAmount = 1000m;
+        pe.ReceivedAmount = 4500m;
+
+        pe.GetBankSideAmount(isDeposit: true).ShouldBe(4500m);
+    }
+
+    [Fact]
+    public void PaymentEntry_BankSideAmount_PayType_WithDeductions_ReflectsApplicableTaxes()
+    {
+        var pe = CreatePE(1000m, "MYR");
+        pe.PaymentType = PaymentType.Pay;
+        pe.PaidAmount = 1000m;
+        pe.ReceivedAmount = 1000m;
+
+        var taxRow = new PaymentEntryTax(Guid.NewGuid(), pe.Id, Guid.NewGuid())
+        {
+            Description = "Bank Charges",
+            AddDeductTax = TaxAddDeduct.Add,
+            TaxAmount = 15m,
+            IncludedInPaidAmount = false,
+        };
+        pe.AddTax(taxRow);
+
+        pe.GetBankSideAmount(isDeposit: false).ShouldBe(1015m);
+    }
 }
