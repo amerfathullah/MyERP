@@ -56,6 +56,8 @@ public class StockEntryItemDto
     public decimal ConversionFactor { get; set; } = 1m;
     public string StockUom { get; set; } = "Unit";
     public decimal StockQty { get; set; }
+    public decimal BasicAmount { get; set; }
+    public decimal Amount { get; set; }
 }
 
 public class CreateStockEntryDto

@@ -81,6 +81,18 @@ public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Additional costs distributed onto this incoming item line (per ERPNext commit 074c84e880 / PR #58433).</summary>
     public decimal AdditionalCost { get; set; }
 
+    /// <summary>
+    /// Basic amount of line item (Quantity * ValuationRate).
+    /// Recalculates when quantity changes per ERPNext PR #60751 / commit 44b0443ef8.
+    /// </summary>
+    public decimal BasicAmount => Quantity * (ValuationRate ?? 0m);
+
+    /// <summary>
+    /// Total amount of line item including distributed additional costs.
+    /// Recalculates when quantity changes per ERPNext PR #60751 / commit 44b0443ef8.
+    /// </summary>
+    public decimal Amount => BasicAmount + AdditionalCost;
+
     protected StockEntryItem() { }
 
     public StockEntryItem(Guid id, Guid stockEntryId, Guid itemId, decimal quantity,

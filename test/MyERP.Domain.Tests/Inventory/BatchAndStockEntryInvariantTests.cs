@@ -296,4 +296,34 @@ public class BatchAndStockEntryInvariantTests
         var ex = Assert.Throws<Volo.Abp.BusinessException>(() => manager.ValidateManufacturedQty(entry));
         Assert.Equal(MyERP.MyERPDomainErrorCodes.ValidationFailed, ex.Code);
     }
+
+    [Fact]
+    public void StockEntryItem_RecalculatesBasicAmountAndAmount_WhenQtyChanges_PerPR60751()
+    {
+        // Per ERPNext PR #60751 / commit 44b0443ef8:
+        // Editing a row's qty recalculates transfer_qty (StockQty), basic_amount, and total amount.
+        var entryId = Guid.NewGuid();
+        var item = new StockEntryItem(Guid.NewGuid(), entryId, _itemId, 5m, null, Guid.NewGuid(), 20m)
+        {
+            ConversionFactor = 1m,
+            AdditionalCost = 10m
+        };
+
+        Assert.Equal(5m, item.StockQty);
+        Assert.Equal(100m, item.BasicAmount);
+        Assert.Equal(110m, item.Amount);
+
+        // Update quantity and conversion factor
+        item.Quantity = 8m;
+        item.ConversionFactor = 2m;
+
+        Assert.Equal(16m, item.StockQty);
+        Assert.Equal(160m, item.BasicAmount);
+        Assert.Equal(170m, item.Amount);
+
+        // Null valuation rate defaults to 0
+        item.ValuationRate = null;
+        Assert.Equal(0m, item.BasicAmount);
+        Assert.Equal(10m, item.Amount);
+    }
 }
