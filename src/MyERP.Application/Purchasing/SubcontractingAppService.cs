@@ -85,11 +85,18 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         {
             var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
             po = await poRepo.FindAsync(input.PurchaseOrderId.Value, includeDetails: true);
-            if (po != null && po.CompanyId != input.CompanyId)
+            if (po != null)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                    .WithData("purchaseOrderCompany", po.CompanyId)
-                    .WithData("orderCompany", input.CompanyId);
+                if (po.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("purchaseOrderCompany", po.CompanyId)
+                        .WithData("orderCompany", input.CompanyId);
+                }
+
+                // Per ERPNext PR #59832: validate PO status, PerReceived, and closed PO item rows
+                var scoManager = LazyServiceProvider.LazyGetRequiredService<DomainServices.SubcontractingManager>();
+                scoManager.ValidateOrderAgainstPurchaseOrder(po, input.Items.Select(i => i.ItemId));
             }
         }
 
@@ -256,6 +263,17 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
     public async Task<SubcontractingOrderDto> SubmitOrderAsync(Guid id)
     {
         var sco = await _scoRepository.GetAsync(id, includeDetails: true);
+
+        if (sco.PurchaseOrderId.HasValue)
+        {
+            var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            var po = await poRepo.FindAsync(sco.PurchaseOrderId.Value, includeDetails: true);
+            if (po != null)
+            {
+                var scoManager = LazyServiceProvider.LazyGetRequiredService<DomainServices.SubcontractingManager>();
+                scoManager.ValidateOrderAgainstPurchaseOrder(po, sco.Items.Select(i => i.ItemId));
+            }
+        }
 
         // Populate RM requirements (SuppliedItems) from BOM explosion on first submit.
         // Without this, SuppliedItems stays empty forever: ValidateTransferQuantityAsync

@@ -380,6 +380,21 @@ public class PurchaseOrderManager : DomainService
                 .WithData("detail", "Same item cannot be entered multiple times.");
         }
     }
+
+    /// <summary>
+    /// Converts drop-ship received quantity from Purchase Order UOM to Sales Order UOM via stock UOM.
+    /// Per ERPNext PR #59832 (commit 008fb0c12e): get_drop_ship_delivered_qty.
+    /// </summary>
+    public static decimal CalculateDropShipDeliveredQty(
+        decimal poReceivedQty,
+        decimal poConversionFactor,
+        decimal soConversionFactor)
+    {
+        var effectivePoFactor = poConversionFactor > 0 ? poConversionFactor : 1m;
+        var effectiveSoFactor = soConversionFactor > 0 ? soConversionFactor : 1m;
+        var receivedStockQty = poReceivedQty * effectivePoFactor;
+        return Math.Round(receivedStockQty / effectiveSoFactor, 4);
+    }
 }
 
 /// <summary>Summary of overdue items in a Purchase Order.</summary>

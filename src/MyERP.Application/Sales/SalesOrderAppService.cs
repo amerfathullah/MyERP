@@ -1571,9 +1571,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     {
         var so = await _repository.GetAsync(id);
 
-        if (so.Status == Core.DocumentStatus.Draft || so.Status == Core.DocumentStatus.Cancelled)
-            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("detail", "Only submitted orders can have items updated. Use Edit for draft orders.");
+        // Per ERPNext PR #59832: reject Draft, Cancelled, Closed, and OnHold orders
+        _childItemUpdateService.ValidateOrderStatusForItemUpdate(so.Status, "Sales Order", so.OrderNumber);
 
         var previousGrandTotal = so.GrandTotal;
         var warnings = new List<string>();
@@ -1634,6 +1633,15 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
             _childItemUpdateService.ValidateSalesOrderItemUpdate(soItem, update.Quantity, update.UnitPrice);
 
+            // Per ERPNext PR #59832: cannot change UOM or conversion factor once item is partially/fully delivered
+            _childItemUpdateService.ValidateUomUnchangedAfterFulfilment(
+                soItem.Description,
+                soItem.DeliveredQty,
+                soItem.Uom,
+                update.Uom,
+                soItem.ConversionFactor,
+                update.ConversionFactor);
+
             var newConversionFactor = update.ConversionFactor.HasValue && update.ConversionFactor.Value > 0
                 ? update.ConversionFactor.Value
                 : soItem.ConversionFactor;
@@ -1662,6 +1670,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             var oldStockQty = soItem.StockQty;
 
             soItem.Quantity = update.Quantity;
+            if (!string.IsNullOrWhiteSpace(update.Uom))
+                soItem.Uom = update.Uom;
             soItem.ConversionFactor = newConversionFactor;
             soItem.UnitPrice = update.UnitPrice;
             if (update.DeliveryDate.HasValue)

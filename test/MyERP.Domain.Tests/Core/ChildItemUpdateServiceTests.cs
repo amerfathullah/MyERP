@@ -190,4 +190,71 @@ public class ChildItemUpdateServiceTests
         var ex = Should.Throw<BusinessException>(() => _service.ValidateSupplierQuotationItemStockQty(item, 4, 2));
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
     }
+
+    // =========================================================================
+    // ERPNext PR #59832 (commit 008fb0c12e): Order status and UOM/conversion locks
+    // =========================================================================
+
+    [Theory]
+    [InlineData(DocumentStatus.Draft)]
+    [InlineData(DocumentStatus.Cancelled)]
+    public void ValidateOrderStatusForItemUpdate_DraftOrCancelled_ThrowsInvalidStatusTransition(DocumentStatus status)
+    {
+        var ex = Should.Throw<BusinessException>(() => _service.ValidateOrderStatusForItemUpdate(status, "Purchase Order", "PO-001"));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
+        ex.Data["detail"]!.ToString()!.ShouldContain("Only submitted orders can have items updated");
+    }
+
+    [Theory]
+    [InlineData(DocumentStatus.Closed)]
+    public void ValidateOrderStatusForItemUpdate_Closed_ThrowsInvalidStatusTransition(DocumentStatus status)
+    {
+        var ex = Should.Throw<BusinessException>(() => _service.ValidateOrderStatusForItemUpdate(status, "Sales Order", "SO-001"));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
+        ex.Data["detail"]!.ToString()!.ShouldContain("Cannot update items on Sales Order SO-001");
+    }
+
+    [Theory]
+    [InlineData(DocumentStatus.ToDeliverAndBill)]
+    [InlineData(DocumentStatus.ToBill)]
+    [InlineData(DocumentStatus.ToDeliver)]
+    [InlineData(DocumentStatus.Completed)]
+    public void ValidateOrderStatusForItemUpdate_ActiveSubmittedStatus_Succeeds(DocumentStatus status)
+    {
+        Should.NotThrow(() => _service.ValidateOrderStatusForItemUpdate(status, "Purchase Order", "PO-001"));
+    }
+
+    [Fact]
+    public void ValidateUomUnchangedAfterFulfilment_FulfilledItem_ChangesToUomOrConversionFactor_Throws()
+    {
+        // Changing UOM after part of it received
+        var ex1 = Should.Throw<BusinessException>(() =>
+            _service.ValidateUomUnchangedAfterFulfilment("Steel Rod", 5m, "Box", "Kg", 10m, null));
+        ex1.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex1.Data["detail"]!.ToString()!.ShouldContain("Cannot change the UOM or conversion factor of Item 'Steel Rod'");
+
+        // Changing conversion factor after part of it received
+        var ex2 = Should.Throw<BusinessException>(() =>
+            _service.ValidateUomUnchangedAfterFulfilment("Steel Rod", 5m, "Box", "Box", 10m, 12m));
+        ex2.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex2.Data["detail"]!.ToString()!.ShouldContain("Cannot change the UOM or conversion factor of Item 'Steel Rod'");
+    }
+
+    [Fact]
+    public void ValidateUomUnchangedAfterFulfilment_UnfulfilledItem_AllowsChanges()
+    {
+        // Not fulfilled yet (fulfilledQty = 0) -> change allowed
+        Should.NotThrow(() =>
+            _service.ValidateUomUnchangedAfterFulfilment("Steel Rod", 0m, "Box", "Kg", 10m, 5m));
+    }
+
+    [Fact]
+    public void ValidateUomUnchangedAfterFulfilment_FulfilledItem_SameUomAndFactor_Succeeds()
+    {
+        // Fulfilled, but UOM and conversion factor remain unchanged
+        Should.NotThrow(() =>
+            _service.ValidateUomUnchangedAfterFulfilment("Steel Rod", 5m, "Box", "Box", 10m, 10m));
+        Should.NotThrow(() =>
+            _service.ValidateUomUnchangedAfterFulfilment("Steel Rod", 5m, "Box", null, 10m, null));
+    }
 }

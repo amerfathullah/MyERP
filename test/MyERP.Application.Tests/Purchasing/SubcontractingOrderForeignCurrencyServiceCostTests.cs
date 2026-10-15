@@ -44,6 +44,7 @@ public abstract class SubcontractingOrderForeignCurrencyServiceCostTests<TStartu
                 IsSubcontracted = true
             };
             po.AddItem(fgItem.Id, fgItem.ItemName, 10m, 100m, 0m, "Unit", null); // Rate in USD = 100
+            po.Submit();
             await poRepo.InsertAsync(po, autoSave: true);
 
             // Create SubcontractingOrder against foreign currency PO

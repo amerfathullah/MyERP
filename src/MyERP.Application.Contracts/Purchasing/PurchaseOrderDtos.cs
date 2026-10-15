@@ -182,7 +182,10 @@ public class UpdateOrderItemDto
     /// <summary>Updated warehouse (optional).</summary>
     public Guid? WarehouseId { get; set; }
 
-    /// <summary>Updated conversion factor to stock UOM (optional, per ERPNext PR #58603).</summary>
+    /// <summary>Updated UOM (optional; locked once item is partially received/delivered per ERPNext PR #59832).</summary>
+    public string? Uom { get; set; }
+
+    /// <summary>Updated conversion factor to stock UOM (optional, per ERPNext PR #58603 / PR #59832).</summary>
     public decimal? ConversionFactor { get; set; }
 }
 

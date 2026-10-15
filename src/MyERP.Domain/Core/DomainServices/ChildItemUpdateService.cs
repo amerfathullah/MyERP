@@ -207,4 +207,63 @@ public class ChildItemUpdateService : DomainService
                 .WithData("detail", $"Cannot set quantity less than ordered quantity ({orderedStockQty} in stock UOM).");
         }
     }
+
+    /// <summary>
+    /// Validates whether an order's document status permits post-submit item updates.
+    /// Per ERPNext PR #59832 (commit 008fb0c12e):
+    /// - Rejects Draft and Cancelled ("Only submitted orders can have items updated. Use Edit for draft orders.").
+    /// - Rejects Closed and OnHold ("Cannot update items on a Closed/OnHold order.").
+    /// </summary>
+    public void ValidateOrderStatusForItemUpdate(DocumentStatus status, string orderType, string? orderNumber = null)
+    {
+        if (status == DocumentStatus.Draft || status == DocumentStatus.Cancelled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", orderType)
+                .WithData("status", status.ToString())
+                .WithData("detail", "Only submitted orders can have items updated. Use Edit for draft orders.");
+        }
+
+        if (status == DocumentStatus.Closed)
+        {
+            var refLabel = string.IsNullOrWhiteSpace(orderNumber) ? orderType : $"{orderType} {orderNumber}";
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", orderType)
+                .WithData("status", status.ToString())
+                .WithData("detail", $"Cannot update items on {refLabel} because it is {status}.");
+        }
+    }
+
+    /// <summary>
+    /// Validates that UOM and conversion factor are not changed after an order item has already been
+    /// partially or fully fulfilled (received on Purchase Order or delivered on Sales Order).
+    /// Per ERPNext PR #59832 (commit 008fb0c12e):
+    /// "Cannot change the UOM or conversion factor of Item after part of it was received or delivered".
+    /// </summary>
+    public void ValidateUomUnchangedAfterFulfilment(
+        string itemDescription,
+        decimal fulfilledQty,
+        string currentUom,
+        string? newUom,
+        decimal currentConversionFactor,
+        decimal? newConversionFactor)
+    {
+        if (fulfilledQty <= 0)
+            return;
+
+        var uomChanged = !string.IsNullOrWhiteSpace(newUom)
+            && !string.Equals(currentUom, newUom, StringComparison.OrdinalIgnoreCase);
+
+        var factorChanged = newConversionFactor.HasValue
+            && newConversionFactor.Value > 0
+            && newConversionFactor.Value != currentConversionFactor;
+
+        if (uomChanged || factorChanged)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("item", itemDescription)
+                .WithData("fulfilledQty", fulfilledQty)
+                .WithData("detail", $"Cannot change the UOM or conversion factor of Item '{itemDescription}' after part of it was received or delivered.");
+        }
+    }
 }

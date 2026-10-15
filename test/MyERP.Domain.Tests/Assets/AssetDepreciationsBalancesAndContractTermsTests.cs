@@ -10,6 +10,7 @@ using MyERP.Core;
 using MyERP.CRM;
 using NSubstitute;
 using Shouldly;
+using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Xunit;
 
@@ -255,6 +256,147 @@ public class AssetDepreciationsBalancesAndContractTermsTests
         result.Rows[0].ValueAsOnToDate.ShouldBe(110_000m);
     }
 
+    // =========================================================================
+    // ERPNext PR #59928 (commit 59862127b8): Fixed Asset Register Report
+    // =========================================================================
+
+    [Fact]
+    public void FixedAssetRegister_IsDisposedBy_EvaluatesAgainstEndDate()
+    {
+        var companyId = Guid.NewGuid();
+        var asset = new Asset(Guid.NewGuid(), companyId, "AST-DISP-1", "Disposed Item", new DateTime(2020, 1, 1), 50_000m);
+        asset.Submit();
+
+        // Active asset is not disposed
+        AssetReportingAppService.IsDisposedBy(asset, new DateTime(2021, 12, 31)).ShouldBeFalse();
+
+        // Disposed on 2021-06-30
+        asset.Scrap(new DateTime(2021, 6, 30));
+
+        // When end_date is 2021-12-31 (after disposal) -> disposed
+        AssetReportingAppService.IsDisposedBy(asset, new DateTime(2021, 12, 31)).ShouldBeTrue();
+
+        // When end_date is 2021-03-31 (before disposal) -> NOT disposed as of that date
+        AssetReportingAppService.IsDisposedBy(asset, new DateTime(2021, 3, 31)).ShouldBeFalse();
+
+        // When no end_date is specified -> disposed
+        AssetReportingAppService.IsDisposedBy(asset, null).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void FixedAssetRegister_CalculateAssetValue_CarriesZeroIfDisposedByEndDate_ElseCarriesValue()
+    {
+        var companyId = Guid.NewGuid();
+        var asset = new Asset(Guid.NewGuid(), companyId, "AST-VAL-1", "Machine", new DateTime(2020, 1, 1), 100_000m)
+        {
+            OpeningAccumulatedDepreciation = 10_000m
+        };
+        asset.Submit();
+
+        // When active: 100k - 10k opening - 20k depr + 5k reval = 75k
+        var activeValue = AssetReportingAppService.CalculateAssetValue(asset, 20_000m, 5_000m, new DateTime(2021, 12, 31));
+        activeValue.ShouldBe(75_000m);
+
+        // Disposed on 2021-06-30
+        asset.Scrap(new DateTime(2021, 6, 30));
+
+        // As of 2021-12-31 (after disposal) -> carries 0 value
+        var disposedValue = AssetReportingAppService.CalculateAssetValue(asset, 20_000m, 5_000m, new DateTime(2021, 12, 31));
+        disposedValue.ShouldBe(0m);
+
+        // As of 2021-03-31 (before disposal) -> carries computed carrying value as of that date
+        var priorPeriodValue = AssetReportingAppService.CalculateAssetValue(asset, 20_000m, 5_000m, new DateTime(2021, 3, 31));
+        priorPeriodValue.ShouldBe(75_000m);
+    }
+
+    [Fact]
+    public async Task FixedAssetRegister_FromDateGreaterThanToDate_ThrowsDateRangeInvalid()
+    {
+        var companyId = Guid.NewGuid();
+        var service = BuildReportingService(Array.Empty<Asset>(), Array.Empty<AssetValueAdjustment>());
+
+        var request = new FixedAssetRegisterRequestDto
+        {
+            CompanyId = companyId,
+            FilterBasedOn = "Date Range",
+            FromDate = new DateTime(2021, 12, 31),
+            ToDate = new DateTime(2021, 1, 1),
+        };
+
+        var ex = await Should.ThrowAsync<BusinessException>(() => service.GetFixedAssetRegisterAsync(request));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.DateRangeInvalid);
+    }
+
+    [Fact]
+    public async Task FixedAssetRegister_IncludeDefaultBookAndDifferentBook_ThrowsValidationFailed()
+    {
+        var companyId = Guid.NewGuid();
+        var defaultBookId = Guid.NewGuid();
+        var otherBookId = Guid.NewGuid();
+
+        var defaultBook = new FinanceBook(defaultBookId, companyId, "Default Book") { IsDefault = true };
+        var otherBook = new FinanceBook(otherBookId, companyId, "Tax Book") { IsDefault = false };
+
+        var service = BuildReportingService(
+            Array.Empty<Asset>(),
+            Array.Empty<AssetValueAdjustment>(),
+            books: new[] { defaultBook, otherBook });
+
+        var request = new FixedAssetRegisterRequestDto
+        {
+            CompanyId = companyId,
+            IncludeDefaultBookAssets = true,
+            FinanceBookId = otherBookId,
+        };
+
+        var ex = await Should.ThrowAsync<BusinessException>(() => service.GetFixedAssetRegisterAsync(request));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString()!.ShouldContain("please uncheck 'Include Default FB Assets'");
+    }
+
+    [Fact]
+    public async Task FixedAssetRegister_GeneratesReportWithAccurateValuesAndGrouping()
+    {
+        var companyId = Guid.NewGuid();
+        var categoryId = Guid.NewGuid();
+        var category = new AssetCategory(categoryId, "Vehicles");
+
+        var asset1 = new Asset(Guid.NewGuid(), companyId, "AST-V1", "Truck 1", new DateTime(2020, 1, 1), 80_000m)
+        {
+            AssetCategoryId = categoryId,
+            OpeningAccumulatedDepreciation = 10_000m,
+        };
+        asset1.Submit();
+
+        var asset2 = new Asset(Guid.NewGuid(), companyId, "AST-V2", "Van 2", new DateTime(2020, 1, 1), 40_000m)
+        {
+            AssetCategoryId = categoryId,
+            OpeningAccumulatedDepreciation = 5_000m,
+        };
+        asset2.Submit();
+
+        var service = BuildReportingService(
+            new[] { asset1, asset2 },
+            Array.Empty<AssetValueAdjustment>(),
+            categories: new[] { category });
+
+        var request = new FixedAssetRegisterRequestDto
+        {
+            CompanyId = companyId,
+            GroupBy = "Asset Category",
+            AssetCategoryId = categoryId,
+        };
+
+        var result = await service.GetFixedAssetRegisterAsync(request);
+
+        result.Rows.Count.ShouldBe(1);
+        var groupRow = result.Rows[0];
+        groupRow.AssetCategoryName.ShouldBe("Vehicles");
+        groupRow.GrossPurchaseAmount.ShouldBe(120_000m); // 80k + 40k
+        groupRow.OpeningAccumulatedDepreciation.ShouldBe(15_000m); // 10k + 5k
+        groupRow.AssetValue.ShouldBe(105_000m); // 120k - 15k
+    }
+
     private static AssetReportingAppService BuildReportingService(
         IEnumerable<Asset> assets,
         IEnumerable<AssetValueAdjustment> adjustments,
@@ -277,12 +419,20 @@ public class AssetDepreciationsBalancesAndContractTermsTests
         adjRepo.GetQueryableAsync().Returns(Task.FromResult(adjList.AsQueryable()));
 
         var bookRepo = Substitute.For<IRepository<FinanceBook, Guid>>();
+        bookRepo.FindAsync(Arg.Any<Expression<Func<FinanceBook, bool>>>())
+            .Returns(call =>
+            {
+                var predicate = call.Arg<Expression<Func<FinanceBook, bool>>>().Compile();
+                return Task.FromResult(bookList.FirstOrDefault(predicate));
+            });
         bookRepo.FirstOrDefaultAsync(Arg.Any<Expression<Func<FinanceBook, bool>>>())
             .Returns(call =>
             {
                 var predicate = call.Arg<Expression<Func<FinanceBook, bool>>>().Compile();
                 return Task.FromResult(bookList.FirstOrDefault(predicate));
             });
+        bookRepo.GetQueryableAsync()
+            .Returns(Task.FromResult(bookList.AsQueryable()));
 
         var capRepo = Substitute.For<IRepository<AssetCapitalization, Guid>>();
         capRepo.WithDetailsAsync(Arg.Any<Expression<Func<AssetCapitalization, object>>[]>())

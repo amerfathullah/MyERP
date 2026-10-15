@@ -105,7 +105,79 @@ public class AssetDepreciationsAndBalancesReportDto
     public List<AssetDepreciationsAndBalancesRowDto> Rows { get; set; } = new();
 }
 
+public class FixedAssetRegisterRequestDto
+{
+    [Required]
+    public Guid CompanyId { get; set; }
+
+    /// <summary>
+    /// Asset status filter: "In Location" (default) or "Disposed".
+    /// </summary>
+    public string Status { get; set; } = "In Location";
+
+    public Guid? AssetCategoryId { get; set; }
+
+    public Guid? FinanceBookId { get; set; }
+
+    /// <summary>
+    /// Include assets linked to Company's default Finance Book (per ERPNext include_default_book_assets).
+    /// </summary>
+    public bool IncludeDefaultBookAssets { get; set; } = true;
+
+    public bool OnlyExistingAssets { get; set; }
+
+    /// <summary>
+    /// Optional date filter mode: "Date Range" or "Fiscal Year" (null/empty = all dates).
+    /// </summary>
+    public string? FilterBasedOn { get; set; }
+
+    /// <summary>
+    /// Date field to filter on when FilterBasedOn is set: "Purchase Date" (default) or "Available For Use Date".
+    /// </summary>
+    public string DateBasedOn { get; set; } = "Purchase Date";
+
+    public DateTime? FromDate { get; set; }
+
+    public DateTime? ToDate { get; set; }
+
+    public Guid? LocationId { get; set; }
+
+    /// <summary>
+    /// Grouping mode: "--Select a group--" (default, individual assets), "Asset Category", or "Location".
+    /// </summary>
+    public string GroupBy { get; set; } = "--Select a group--";
+}
+
+public class FixedAssetRegisterRowDto
+{
+    public Guid? AssetId { get; set; }
+    public string? AssetNumber { get; set; }
+    public string? AssetName { get; set; }
+    public Guid? AssetCategoryId { get; set; }
+    public string? AssetCategoryName { get; set; }
+    public string? Status { get; set; }
+    public DateTime? PurchaseDate { get; set; }
+    public DateTime? AvailableForUseDate { get; set; }
+    public decimal GrossPurchaseAmount { get; set; }
+    public decimal OpeningAccumulatedDepreciation { get; set; }
+    public decimal DepreciatedAmount { get; set; }
+    public decimal RevaluationAmount { get; set; }
+    public decimal AssetValue { get; set; }
+    public Guid? LocationId { get; set; }
+    public string? Location { get; set; }
+    public Guid? CustodianEmployeeId { get; set; }
+}
+
+public class FixedAssetRegisterReportDto
+{
+    public Guid CompanyId { get; set; }
+    public string Status { get; set; } = "In Location";
+    public string GroupBy { get; set; } = "--Select a group--";
+    public List<FixedAssetRegisterRowDto> Rows { get; set; } = new();
+}
+
 public interface IAssetReportingAppService : IApplicationService
 {
     Task<AssetDepreciationsAndBalancesReportDto> GetAssetDepreciationsAndBalancesAsync(AssetDepreciationsAndBalancesRequestDto input);
+    Task<FixedAssetRegisterReportDto> GetFixedAssetRegisterAsync(FixedAssetRegisterRequestDto input);
 }

@@ -237,4 +237,104 @@ public class SubcontractingAndWiringTests
 
         await mgr.ValidateReceiptAgainstOrderAsync(receipt);
     }
+
+    // =========================================================================
+    // ERPNext PR #59832 (commit 008fb0c12e): Subcontracting Order against Purchase Order Guards
+    // =========================================================================
+
+    [Fact]
+    public void ValidateOrderAgainstPurchaseOrder_DraftPo_ThrowsInvalidStatusTransition()
+    {
+        var mgr = new SubcontractingManager(null!, null!);
+        var po = new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-001", DateTime.UtcNow);
+        po.AddItem(Guid.NewGuid(), "FG Part", 10m, 100m, 0m);
+
+        var ex = Should.Throw<BusinessException>(() => mgr.ValidateOrderAgainstPurchaseOrder(po));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
+        ex.Data["detail"]!.ToString()!.ShouldContain("Please submit Purchase Order PO-001 before proceeding");
+    }
+
+    [Fact]
+    public void ValidateOrderAgainstPurchaseOrder_CancelledPo_ThrowsInvalidStatusTransition()
+    {
+        var mgr = new SubcontractingManager(null!, null!);
+        var po = new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-002", DateTime.UtcNow);
+        po.AddItem(Guid.NewGuid(), "FG Part", 10m, 100m, 0m);
+        po.Submit();
+        po.Cancel();
+
+        var ex = Should.Throw<BusinessException>(() => mgr.ValidateOrderAgainstPurchaseOrder(po));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
+    }
+
+    [Fact]
+    public void ValidateOrderAgainstPurchaseOrder_ClosedPo_ThrowsLinkedPurchaseOrderClosed()
+    {
+        var mgr = new SubcontractingManager(null!, null!);
+        var po = new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-003", DateTime.UtcNow);
+        po.AddItem(Guid.NewGuid(), "FG Part", 10m, 100m, 0m);
+        po.Submit();
+        po.Close();
+
+        var ex = Should.Throw<BusinessException>(() => mgr.ValidateOrderAgainstPurchaseOrder(po));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed);
+        ex.Data["detail"]!.ToString()!.ShouldContain("because it is Closed");
+    }
+
+    [Fact]
+    public void ValidateOrderAgainstPurchaseOrder_FullyReceivedPo_ThrowsOverReceipt()
+    {
+        var mgr = new SubcontractingManager(null!, null!);
+        var po = new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-004", DateTime.UtcNow);
+        var poItem = po.AddItem(Guid.NewGuid(), "FG Part", 10m, 100m, 0m);
+        po.Submit();
+        poItem.ReceivedQty = 10m; // 100% received
+
+        var ex = Should.Throw<BusinessException>(() => mgr.ValidateOrderAgainstPurchaseOrder(po));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.OverReceipt);
+        ex.Data["detail"]!.ToString()!.ShouldContain("Cannot create more Subcontracting Orders against a fully received Purchase Order");
+    }
+
+    [Fact]
+    public void ValidateOrderAgainstPurchaseOrder_ClosedItemRow_ThrowsLinkedPurchaseOrderClosed()
+    {
+        var mgr = new SubcontractingManager(null!, null!);
+        var po = new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-005", DateTime.UtcNow);
+        var itemId = Guid.NewGuid();
+        var poItem = po.AddItem(itemId, "FG Part", 10m, 100m, 0m);
+        po.Submit();
+        poItem.IsClosed = true;
+
+        var ex = Should.Throw<BusinessException>(() => mgr.ValidateOrderAgainstPurchaseOrder(po, new[] { itemId }));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed);
+        ex.Data["detail"]!.ToString()!.ShouldContain("Cannot create a Subcontracting Order for closed Purchase Order item");
+    }
+
+    [Fact]
+    public void ValidateOrderAgainstPurchaseOrder_ValidSubmittedPo_Succeeds()
+    {
+        var mgr = new SubcontractingManager(null!, null!);
+        var po = new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-006", DateTime.UtcNow);
+        var itemId = Guid.NewGuid();
+        po.AddItem(itemId, "FG Part", 10m, 100m, 0m);
+        po.Submit();
+
+        Should.NotThrow(() => mgr.ValidateOrderAgainstPurchaseOrder(po, new[] { itemId }));
+    }
+
+    // =========================================================================
+    // ERPNext PR #59832: Drop-ship delivered quantity conversion from PO UOM to SO UOM
+    // =========================================================================
+
+    [Theory]
+    [InlineData(10, 2, 1, 20)]    // 10 boxes of 2 = 20 units -> 20 single units in SO
+    [InlineData(5, 1, 2, 2.5)]    // 5 units in PO (conversion 1) -> 2.5 pairs in SO (conversion 2)
+    [InlineData(10, 1, 1, 10)]    // 1:1 conversion
+    public void CalculateDropShipDeliveredQty_ConvertsCorrectly(
+        decimal poReceivedQty, decimal poConversionFactor, decimal soConversionFactor, decimal expectedSoDeliveredQty)
+    {
+        var result = PurchaseOrderManager.CalculateDropShipDeliveredQty(
+            poReceivedQty, poConversionFactor, soConversionFactor);
+        result.ShouldBe(expectedSoDeliveredQty);
+    }
 }

@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core;
 using MyERP.Purchasing.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -24,6 +26,56 @@ public class SubcontractingManager : DomainService
     {
         _scoRepository = scoRepository;
         _scrRepository = scrRepository;
+    }
+
+    /// <summary>
+    /// Validates a Subcontracting Order against its linked Purchase Order.
+    /// Per ERPNext PR #59832 (commit 008fb0c12e):
+    /// - Rejects if PO is Draft or Cancelled ("Please submit Purchase Order before proceeding").
+    /// - Rejects if PO is Closed or OnHold ("Cannot create a Subcontracting Order against Purchase Order because it is Closed/On Hold").
+    /// - Rejects if PO is already 100% received ("Cannot create more Subcontracting Orders against a fully received Purchase Order").
+    /// - Rejects if any matched PO item row is closed ("Cannot create a Subcontracting Order for closed Purchase Order item").
+    /// </summary>
+    public void ValidateOrderAgainstPurchaseOrder(PurchaseOrder po, IEnumerable<Guid>? itemIds = null)
+    {
+        if (po.Status == DocumentStatus.Draft || po.Status == DocumentStatus.Cancelled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("documentType", "PurchaseOrder")
+                .WithData("status", po.Status.ToString())
+                .WithData("detail", $"Please submit Purchase Order {po.OrderNumber} before proceeding.");
+        }
+
+        if (po.Status == DocumentStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed)
+                .WithData("orderNumber", po.OrderNumber)
+                .WithData("status", po.Status.ToString())
+                .WithData("detail", $"Cannot create a Subcontracting Order against Purchase Order {po.OrderNumber} because it is {po.Status}.");
+        }
+
+        if (po.PerReceived >= 100m)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.OverReceipt)
+                .WithData("orderNumber", po.OrderNumber)
+                .WithData("perReceived", po.PerReceived)
+                .WithData("detail", $"Cannot create more Subcontracting Orders against a fully received Purchase Order {po.OrderNumber}.");
+        }
+
+        if (itemIds != null)
+        {
+            foreach (var itemId in itemIds)
+            {
+                var poItem = po.Items.FirstOrDefault(i => i.ItemId == itemId);
+                if (poItem != null && poItem.IsClosed)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed)
+                        .WithData("orderNumber", po.OrderNumber)
+                        .WithData("itemId", itemId)
+                        .WithData("detail", $"Cannot create a Subcontracting Order for closed Purchase Order item '{poItem.Description}'.");
+                }
+            }
+        }
     }
 
     /// <summary>

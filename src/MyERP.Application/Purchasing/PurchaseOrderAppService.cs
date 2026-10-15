@@ -937,10 +937,8 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
     {
         var po = await _repository.GetAsync(id);
 
-        // Only active submitted orders can have items updated
-        if (po.Status == Core.DocumentStatus.Draft || po.Status == Core.DocumentStatus.Cancelled)
-            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("detail", "Only submitted orders can have items updated. Use Edit for draft orders.");
+        // Per ERPNext PR #59832: reject Draft, Cancelled, Closed, and OnHold orders
+        _childItemUpdateService.ValidateOrderStatusForItemUpdate(po.Status, "Purchase Order", po.OrderNumber);
 
         // Guard: cannot update items once a Subcontracting Order exists for this PO — per
         // ERPNext can_update_items(), even a DRAFT SCO blocks this (stricter than the cancel
@@ -988,6 +986,15 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
 
             _childItemUpdateService.ValidatePurchaseOrderItemUpdate(poItem, update.Quantity, update.UnitPrice);
 
+            // Per ERPNext PR #59832: cannot change UOM or conversion factor once item is partially/fully received
+            _childItemUpdateService.ValidateUomUnchangedAfterFulfilment(
+                poItem.Description,
+                poItem.ReceivedQty,
+                poItem.Uom,
+                update.Uom,
+                poItem.ConversionFactor,
+                update.ConversionFactor);
+
             var newConversionFactor = update.ConversionFactor.HasValue && update.ConversionFactor.Value > 0
                 ? update.ConversionFactor.Value
                 : poItem.ConversionFactor;
@@ -1018,6 +1025,8 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
 
             // Update fields
             poItem.Quantity = update.Quantity;
+            if (!string.IsNullOrWhiteSpace(update.Uom))
+                poItem.Uom = update.Uom;
             poItem.ConversionFactor = newConversionFactor;
             poItem.UnitPrice = update.UnitPrice;
             if (update.WarehouseId.HasValue)
@@ -1316,14 +1325,17 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                 var hasDropShipItems = so.Items.Any(i => i.DeliveredBySupplier && i.SupplierId == po.SupplierId);
                 if (!hasDropShipItems) continue;
 
-                // Update SO item delivered qty from PO received qty
+                // Update SO item delivered qty from PO received qty converted to SO UOM (per ERPNext PR #59832)
                 foreach (var soItem in so.Items.Where(i => i.DeliveredBySupplier && i.SupplierId == po.SupplierId))
                 {
                     // Find matching PO item by ItemId
                     var matchingPoItem = po.Items.FirstOrDefault(pi => pi.ItemId == soItem.ItemId);
                     if (matchingPoItem != null)
                     {
-                        soItem.DeliveredQty = matchingPoItem.ReceivedQty;
+                        soItem.DeliveredQty = Purchasing.DomainServices.PurchaseOrderManager.CalculateDropShipDeliveredQty(
+                            matchingPoItem.ReceivedQty,
+                            matchingPoItem.ConversionFactor,
+                            soItem.ConversionFactor);
                     }
                 }
                 so.UpdateFulfillmentStatus();
