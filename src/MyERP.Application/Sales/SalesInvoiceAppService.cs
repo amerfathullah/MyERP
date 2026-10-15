@@ -592,6 +592,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.IsReturn = input.IsReturn;
         invoice.IsDebitNote = input.IsDebitNote;
         invoice.IsReturnRefund = input.IsReturnRefund;
+        invoice.UpdateBilledAmountInSalesOrder = input.UpdateBilledAmountInSalesOrder;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
         if (invoice.IsReturn)
         {

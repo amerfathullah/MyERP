@@ -248,6 +248,11 @@ public class SalesInvoiceManager : DomainService
     /// </summary>
     public async Task UpdateLinkedOrderBillingAsync(SalesInvoice invoice, bool reverse = false)
     {
+        // Per ERPNext PR #59947 / sales_invoice.py:
+        // if is_return and not update_billed_amount_in_sales_order, do not update linked sales order
+        if (invoice.IsReturn && !invoice.UpdateBilledAmountInSalesOrder)
+            return;
+
         var soItemIds = invoice.Items
             .Where(i => i.SalesOrderItemId.HasValue)
             .Select(i => i.SalesOrderItemId!.Value)

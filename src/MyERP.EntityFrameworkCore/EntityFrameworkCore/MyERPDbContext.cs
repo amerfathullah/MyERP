@@ -1249,7 +1249,7 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.InvoiceNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.CustomerId, x.Status });
 
-            // Optimistic concurrency on AmountPaid — prevents lost payments under concurrent PE posting
+            b.Property(x => x.UpdateBilledAmountInSalesOrder).HasDefaultValue(true);
             b.Property(x => x.ConcurrencyStamp).IsConcurrencyToken().HasMaxLength(40);
         });
 

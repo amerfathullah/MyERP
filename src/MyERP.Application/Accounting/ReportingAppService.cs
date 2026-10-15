@@ -25,6 +25,7 @@ public class ReportingAppService : ApplicationService, IReportingAppService
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IRepository<Supplier, Guid> _supplierRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly IRepository<FiscalYear, Guid>? _fiscalYearRepository;
 
     public ReportingAppService(
         IRepository<Account, Guid> accountRepository,
@@ -33,7 +34,8 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         AccountBalanceService balanceService,
         IRepository<Customer, Guid> customerRepository,
         IRepository<Supplier, Guid> supplierRepository,
-        IRepository<Company, Guid> companyRepository)
+        IRepository<Company, Guid> companyRepository,
+        IRepository<FiscalYear, Guid>? fiscalYearRepository = null)
     {
         _accountRepository = accountRepository;
         _journalLineRepository = journalLineRepository;
@@ -42,6 +44,7 @@ public class ReportingAppService : ApplicationService, IReportingAppService
         _customerRepository = customerRepository;
         _supplierRepository = supplierRepository;
         _companyRepository = companyRepository;
+        _fiscalYearRepository = fiscalYearRepository;
     }
 
     public async Task<TrialBalanceReportDto> GetTrialBalanceAsync(TrialBalanceRequestDto input)
@@ -252,6 +255,89 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             }
         }
 
+        var totalAssets = Math.Round(assetRows.Sum(r => r.Amount), 2);
+        var totalLiabilities = Math.Round(liabilityRows.Sum(r => r.Amount), 2);
+        var initialEquity = Math.Round(equityRows.Sum(r => r.Amount), 2);
+
+        // Fundamental accounting equation: Assets = Liabilities + Equity + Net Profit
+        // Net Profit = Assets - Liabilities - Equity
+        var totalNetProfit = Math.Round(totalAssets - totalLiabilities - initialEquity, 2);
+
+        // Split into unclosed prior fiscal years vs current fiscal year provisional profit/loss
+        // Per ERPNext PR #60004 / commits 89012ba339, 509e2f1581:
+        // "show profit or loss of unclosed earlier years"
+        decimal unclosedProfit = 0m;
+        decimal currentYearProvisionalProfit = totalNetProfit;
+
+        var fyRepo = _fiscalYearRepository ?? LazyServiceProvider.LazyGetService<IRepository<FiscalYear, Guid>>();
+        if (fyRepo != null)
+        {
+            var fiscalYears = await fyRepo.GetListAsync(f => f.CompanyId == input.CompanyId);
+            var currentFy = fiscalYears.FirstOrDefault(f => f.StartDate <= input.AsOfDate && f.EndDate >= input.AsOfDate);
+
+            if (currentFy != null)
+            {
+                var priorEntries = journalEntries.Where(je => je.PostingDate < currentFy.StartDate).ToList();
+                if (priorEntries.Count > 0)
+                {
+                    var priorLines = priorEntries.SelectMany(je => je.Lines).ToList();
+                    var priorLinesByAccount = priorLines.GroupBy(l => l.AccountId)
+                        .ToDictionary(g => g.Key, g => g.ToList());
+
+                    decimal priorAssets = 0m;
+                    decimal priorLiabilities = 0m;
+                    decimal priorEquity = 0m;
+
+                    foreach (var account in accounts)
+                    {
+                        var lines = priorLinesByAccount.GetValueOrDefault(account.Id) ?? new List<JournalEntryLine>();
+                        var debit = lines.Where(l => l.IsDebit).Sum(l => l.Amount);
+                        var credit = lines.Where(l => !l.IsDebit).Sum(l => l.Amount);
+                        var amt = account.AccountType == AccountType.Asset ? debit - credit : credit - debit;
+
+                        switch (account.AccountType)
+                        {
+                            case AccountType.Asset: priorAssets += amt; break;
+                            case AccountType.Liability: priorLiabilities += amt; break;
+                            case AccountType.Equity: priorEquity += amt; break;
+                        }
+                    }
+
+                    unclosedProfit = Math.Round(priorAssets - priorLiabilities - priorEquity, 2);
+                    currentYearProvisionalProfit = Math.Round(totalNetProfit - unclosedProfit, 2);
+                }
+            }
+        }
+
+        // Add unclosed earlier years profit/loss and provisional profit/loss to equity rows with labels per PR #60004
+        if (unclosedProfit != 0)
+        {
+            equityRows.Add(new BalanceSheetRowDto
+            {
+                AccountId = Guid.Empty,
+                AccountCode = "",
+                AccountName = "Unclosed Fiscal Years Profit / Loss (Credit)",
+                AccountType = AccountType.Equity.ToString(),
+                Amount = unclosedProfit,
+                Level = 0,
+                IsGroup = false
+            });
+        }
+
+        if (currentYearProvisionalProfit != 0 || unclosedProfit != 0)
+        {
+            equityRows.Add(new BalanceSheetRowDto
+            {
+                AccountId = Guid.Empty,
+                AccountCode = "",
+                AccountName = "Provisional Profit / Loss (Credit)",
+                AccountType = AccountType.Equity.ToString(),
+                Amount = currentYearProvisionalProfit,
+                Level = 0,
+                IsGroup = false
+            });
+        }
+
         return new BalanceSheetReportDto
         {
             AsOfDate = input.AsOfDate,
@@ -259,9 +345,11 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             AssetRows = assetRows,
             LiabilityRows = liabilityRows,
             EquityRows = equityRows,
-            TotalAssets = assetRows.Sum(r => r.Amount),
-            TotalLiabilities = liabilityRows.Sum(r => r.Amount),
-            TotalEquity = equityRows.Sum(r => r.Amount),
+            TotalAssets = totalAssets,
+            TotalLiabilities = totalLiabilities,
+            TotalEquity = Math.Round(equityRows.Sum(r => r.Amount), 2),
+            ProvisionalProfitLoss = currentYearProvisionalProfit,
+            UnclosedFiscalYearsProfitLoss = unclosedProfit,
         };
     }
 

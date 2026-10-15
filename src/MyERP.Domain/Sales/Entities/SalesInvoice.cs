@@ -129,6 +129,13 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Link to the Delivery Note that triggered this credit note (return flow).</summary>
     public Guid? DeliveryNoteId { get; set; }
 
+    /// <summary>
+    /// When IsReturn=true, whether this return invoice updates the billed amount and quantity
+    /// in the linked Sales Order. Defaults to true. Maps to ERPNext update_billed_amount_in_sales_order.
+    /// (PR #59947 / commit c706da2899)
+    /// </summary>
+    public bool UpdateBilledAmountInSalesOrder { get; set; } = true;
+
     // Amendment (cancel-and-amend workflow)
     /// <summary>Reference to the cancelled invoice this was amended from.</summary>
     public Guid? AmendedFromId { get; set; }

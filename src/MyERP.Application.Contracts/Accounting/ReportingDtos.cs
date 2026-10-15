@@ -113,6 +113,9 @@ public class BalanceSheetReportDto
     public decimal TotalAssets { get; set; }
     public decimal TotalLiabilities { get; set; }
     public decimal TotalEquity { get; set; }
+    public decimal ProvisionalProfitLoss { get; set; }
+    public decimal UnclosedFiscalYearsProfitLoss { get; set; }
+    public decimal TotalLiabilitiesAndEquity => TotalLiabilities + TotalEquity;
 }
 
 // --- Monthly P&L Columnar Report (12-month side-by-side) ---
