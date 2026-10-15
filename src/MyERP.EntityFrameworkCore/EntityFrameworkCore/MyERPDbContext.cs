@@ -630,6 +630,7 @@ public class MyERPDbContext :
             b.Property(x => x.PostalCode).HasMaxLength(CompanyConsts.MaxPostalCodeLength);
             b.Property(x => x.Country).HasMaxLength(CompanyConsts.MaxCountryLength);
             b.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(CompanyConsts.MaxCurrencyCodeLength);
+            b.Property(x => x.CreditLimit).HasPrecision(18, 2).HasDefaultValue(0m);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
         });
 

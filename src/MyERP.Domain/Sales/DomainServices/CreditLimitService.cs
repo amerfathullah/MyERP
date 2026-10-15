@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
+using MyERP.Core.Entities;
 using MyERP.Sales.Entities;
 using MyERP.Settings;
 using Volo.Abp;
@@ -50,7 +51,7 @@ public class CreditLimitService : DomainService
     /// so they still enforce the limit even for a customer whose SO check is bypassed.
     /// Outstanding = sum of unpaid posted invoices for the company.
     /// </summary>
-    public async Task ValidateCreditLimitAsync(
+    public virtual async Task ValidateCreditLimitAsync(
         Guid customerId, decimal newTransactionAmount, Guid? companyId = null,
         string[]? currentUserRoles = null, bool isAtSalesOrder = false)
     {
@@ -66,43 +67,7 @@ public class CreditLimitService : DomainService
         if (isAtSalesOrder && customer.BypassCreditLimitCheckAtSalesOrder)
             return;
 
-        // Resolve per-company credit limit if company is specified
-        decimal creditLimit = customer.CreditLimit;
-        bool bypass = false;
-
-        if (companyId.HasValue)
-        {
-            var perCompanyLimits = await _creditLimitRepository.GetQueryableAsync();
-            var companyLimit = perCompanyLimits.FirstOrDefault(
-                cl => cl.CustomerId == customerId && cl.CompanyId == companyId.Value);
-
-            if (companyLimit != null)
-            {
-                if (companyLimit.BypassCreditLimitCheck)
-                {
-                    bypass = true;
-                }
-                else if (companyLimit.CreditLimit > 0)
-                {
-                    creditLimit = companyLimit.CreditLimit;
-                }
-                // If companyLimit.CreditLimit == 0, keep customer.CreditLimit fallback (PR #59376 / commit 932ec6305c: "Set to 0 to use the Customer Group or Company credit limit, if set")
-            }
-        }
-
-        // Fallback to CustomerGroup.DefaultCreditLimit if customer credit limit is not set
-        if (!bypass && creditLimit <= 0 && customer.CustomerGroupId.HasValue)
-        {
-            var customerGroupRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.CustomerGroup, Guid>>();
-            if (customerGroupRepo != null)
-            {
-                var group = await customerGroupRepo.FindAsync(customer.CustomerGroupId.Value);
-                if (group != null && group.DefaultCreditLimit > 0)
-                {
-                    creditLimit = group.DefaultCreditLimit;
-                }
-            }
-        }
+        var (creditLimit, bypass) = await GetResolvedCreditLimitAsync(customerId, companyId);
 
         // Bypass flag = no limit check for this company
         if (bypass)
@@ -134,7 +99,7 @@ public class CreditLimitService : DomainService
     /// MaintainSameRate/RoleToOverrideStopAction bypass-role pattern used elsewhere in this codebase.
     /// Resolution: per-company CustomerCreditLimit.OverdueBillingThreshold → 0 = disabled.
     /// </summary>
-    public async Task ValidateOverdueBillingThresholdAsync(
+    public virtual async Task ValidateOverdueBillingThresholdAsync(
         Guid customerId, Guid companyId, string[]? currentUserRoles = null)
     {
         var enabled = await _settingProvider.GetOrNullAsync(MyERPSettings.Accounts.EnableOverdueBillingThreshold);
@@ -195,7 +160,7 @@ public class CreditLimitService : DomainService
     /// Gets total outstanding amount for a customer (posted invoices with outstanding > 0).
     /// Optionally scoped to a specific company.
     /// </summary>
-    public async Task<decimal> GetCustomerOutstandingAsync(Guid customerId, Guid? companyId = null)
+    public virtual async Task<decimal> GetCustomerOutstandingAsync(Guid customerId, Guid? companyId = null)
     {
         var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
         var query = invoiceQuery
@@ -211,11 +176,73 @@ public class CreditLimitService : DomainService
     }
 
     /// <summary>
+    /// Resolves the effective credit limit and bypass flag for a customer and company.
+    /// Hierarchy: per-company CustomerCreditLimit → Customer.CreditLimit → CustomerGroup.DefaultCreditLimit → Company.CreditLimit.
+    /// (PR #59376 / commit 932ec6305c, PR #60286 / commit 56fdfcbbcd)
+    /// </summary>
+    public virtual async Task<(decimal CreditLimit, bool Bypass)> GetResolvedCreditLimitAsync(Guid customerId, Guid? companyId = null)
+    {
+        var customer = await _customerRepository.GetAsync(customerId);
+        decimal creditLimit = customer.CreditLimit;
+        bool bypass = false;
+
+        if (companyId.HasValue)
+        {
+            var perCompanyLimits = await _creditLimitRepository.GetQueryableAsync();
+            var companyLimit = perCompanyLimits.FirstOrDefault(
+                cl => cl.CustomerId == customerId && cl.CompanyId == companyId.Value);
+
+            if (companyLimit != null)
+            {
+                if (companyLimit.BypassCreditLimitCheck)
+                {
+                    bypass = true;
+                }
+                else if (companyLimit.CreditLimit > 0)
+                {
+                    creditLimit = companyLimit.CreditLimit;
+                }
+                // If companyLimit.CreditLimit == 0, keep customer.CreditLimit fallback (PR #59376 / commit 932ec6305c: "Set to 0 to use the Customer Group or Company credit limit, if set")
+            }
+        }
+
+        // Fallback to CustomerGroup.DefaultCreditLimit if credit limit is not set
+        if (!bypass && creditLimit <= 0 && customer.CustomerGroupId.HasValue)
+        {
+            var customerGroupRepo = LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.CustomerGroup, Guid>>();
+            if (customerGroupRepo != null)
+            {
+                var group = await customerGroupRepo.FindAsync(customer.CustomerGroupId.Value);
+                if (group != null && group.DefaultCreditLimit > 0)
+                {
+                    creditLimit = group.DefaultCreditLimit;
+                }
+            }
+        }
+
+        // Fallback to Company.CreditLimit if customer and group credit limits are not set (PR #59376 / commit 932ec6305c)
+        if (!bypass && creditLimit <= 0 && companyId.HasValue)
+        {
+            var companyRepo = LazyServiceProvider?.LazyGetService<IRepository<Company, Guid>>();
+            if (companyRepo != null)
+            {
+                var company = await companyRepo.FindAsync(companyId.Value);
+                if (company != null && company.CreditLimit > 0)
+                {
+                    creditLimit = company.CreditLimit;
+                }
+            }
+        }
+
+        return (creditLimit, bypass);
+    }
+
+    /// <summary>
     /// Validates customer credit limit configuration (Gotcha #302):
     /// (1) Same company cannot appear twice in credit_limit list.
     /// (2) New credit limit cannot be set below current outstanding amount for that company.
     /// </summary>
-    public async Task ValidateCustomerCreditLimitsAsync(
+    public virtual async Task ValidateCustomerCreditLimitsAsync(
         Guid customerId, IEnumerable<CustomerCreditLimit> creditLimits)
     {
         var list = creditLimits.ToList();

@@ -8,6 +8,7 @@ using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Core;
 using Microsoft.AspNetCore.Authorization;
+using MyERP.Sales.DomainServices;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -215,6 +216,130 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
             Total = periodValues.Sum(),
             Growth = CalculateGrowth(periodValues),
         };
+    }
+
+    public async Task<List<CustomerCreditBalanceDto>> GetCustomerCreditBalanceReportAsync(CustomerCreditBalanceInputDto input)
+    {
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        await companyRepo.GetAsync(input.CompanyId);
+        var creditLimitService = LazyServiceProvider.LazyGetRequiredService<CreditLimitService>();
+
+        var customerQuery = await _customerRepo.GetQueryableAsync();
+        if (input.CustomerId.HasValue)
+        {
+            customerQuery = customerQuery.Where(c => c.Id == input.CustomerId.Value);
+        }
+
+        var customers = customerQuery.ToList();
+        var result = new List<CustomerCreditBalanceDto>();
+
+        foreach (var customer in customers)
+        {
+            var (creditLimit, _) = await creditLimitService.GetResolvedCreditLimitAsync(customer.Id, input.CompanyId);
+
+            // Per ERPNext PR #60286 / commit 56fdfcbbcd:
+            // List customers with group or company credit limits in Customer Credit Balance report
+            // Only list customers that have an active credit limit (> 0)
+            if (creditLimit > 0)
+            {
+                var outstanding = await creditLimitService.GetCustomerOutstandingAsync(customer.Id, input.CompanyId);
+                result.Add(new CustomerCreditBalanceDto
+                {
+                    CustomerId = customer.Id,
+                    CustomerName = customer.Name,
+                    CreditLimit = creditLimit,
+                    OutstandingAmount = outstanding,
+                    CreditBalance = creditLimit - outstanding,
+                    BypassCreditLimitCheckAtSalesOrder = customer.BypassCreditLimitCheckAtSalesOrder,
+                    IsFrozen = customer.IsFrozen,
+                    Disabled = !customer.IsActive
+                });
+            }
+        }
+
+        return result;
+    }
+
+    public async Task<List<CustomerWithoutSalesDto>> GetCustomersWithoutSalesTransactionsAsync(CustomersWithoutSalesInputDto input)
+    {
+        if (input.CompanyId.HasValue)
+        {
+            var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+            await companyRepo.GetAsync(input.CompanyId.Value);
+        }
+
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+        var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
+        var customerGroupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CustomerGroup, Guid>>();
+        var territoryRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Territory, Guid>>();
+
+        // Query customers
+        var customerQuery = await _customerRepo.GetQueryableAsync();
+        var customers = customerQuery.ToList();
+
+        // 1. Sales Invoice (includes POS Invoice where IsPos == true per PR #60308 / commit 21e96defdb)
+        var siQuery = await _siRepo.GetQueryableAsync();
+        siQuery = siQuery.Where(si => si.Status != DocumentStatus.Draft && si.Status != DocumentStatus.Cancelled);
+        if (input.CompanyId.HasValue)
+        {
+            siQuery = siQuery.Where(si => si.CompanyId == input.CompanyId.Value);
+        }
+        var siCustomerIds = siQuery.Select(si => si.CustomerId).Distinct().ToHashSet();
+
+        // 2. Sales Order
+        var soQuery = await soRepo.GetQueryableAsync();
+        soQuery = soQuery.Where(so => so.Status != DocumentStatus.Draft && so.Status != DocumentStatus.Cancelled);
+        if (input.CompanyId.HasValue)
+        {
+            soQuery = soQuery.Where(so => so.CompanyId == input.CompanyId.Value);
+        }
+        var soCustomerIds = soQuery.Select(so => so.CustomerId).Distinct().ToHashSet();
+
+        // 3. Delivery Note (per PR #60308 / commit 21e96defdb)
+        var dnQuery = await dnRepo.GetQueryableAsync();
+        dnQuery = dnQuery.Where(dn => dn.Status != DocumentStatus.Draft && dn.Status != DocumentStatus.Cancelled);
+        if (input.CompanyId.HasValue)
+        {
+            dnQuery = dnQuery.Where(dn => dn.CompanyId == input.CompanyId.Value);
+        }
+        var dnCustomerIds = dnQuery.Select(dn => dn.CustomerId).Distinct().ToHashSet();
+
+        // Filter customers who have NO transactions in any of the three doctypes
+        var filteredCustomers = customers
+            .Where(c => !siCustomerIds.Contains(c.Id)
+                     && !soCustomerIds.Contains(c.Id)
+                     && !dnCustomerIds.Contains(c.Id))
+            .ToList();
+
+        // Resolve CustomerGroup and Territory names
+        var groupIds = filteredCustomers.Where(c => c.CustomerGroupId.HasValue).Select(c => c.CustomerGroupId!.Value).Distinct().ToList();
+        var territoryIds = filteredCustomers.Where(c => c.TerritoryId.HasValue).Select(c => c.TerritoryId!.Value).Distinct().ToList();
+
+        var groupNames = new Dictionary<Guid, string>();
+        if (groupIds.Count > 0)
+        {
+            groupNames = (await customerGroupRepo.GetQueryableAsync())
+                .Where(g => groupIds.Contains(g.Id))
+                .Select(g => new { g.Id, g.Name })
+                .ToDictionary(g => g.Id, g => g.Name);
+        }
+
+        var territoryNames = new Dictionary<Guid, string>();
+        if (territoryIds.Count > 0)
+        {
+            territoryNames = (await territoryRepo.GetQueryableAsync())
+                .Where(t => territoryIds.Contains(t.Id))
+                .Select(t => new { t.Id, t.Name })
+                .ToDictionary(t => t.Id, t => t.Name);
+        }
+
+        return filteredCustomers.Select(c => new CustomerWithoutSalesDto
+        {
+            CustomerId = c.Id,
+            CustomerName = c.Name,
+            CustomerGroup = c.CustomerGroupId.HasValue && groupNames.TryGetValue(c.CustomerGroupId.Value, out var gName) ? gName : null,
+            Territory = c.TerritoryId.HasValue && territoryNames.TryGetValue(c.TerritoryId.Value, out var tName) ? tName : null
+        }).ToList();
     }
 
     private static decimal CalculateGrowth(List<decimal> values)

@@ -56,6 +56,13 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>Per MyInvois PR d9adf36: Enable or disable LHDN submission for this company.</summary>
     public bool EnableLhdnInvoice { get; set; } = false;
+
+    /// <summary>
+    /// Company-wide default credit limit in company currency (ERPNext PR #59376 / PR #60286).
+    /// Used when customer and customer group credit limits are not set. 0 = no company limit.
+    /// </summary>
+    public decimal CreditLimit { get; set; }
+
     /// <summary>Stock transactions before this date are frozen (blocked for non-admin users).</summary>
     public DateTime? StockFrozenUpto { get; set; }
 

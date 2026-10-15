@@ -60,6 +60,7 @@ public class CreateUpdateCompanyDto
     public int FiscalYearStartMonth { get; set; } = 1;
 
     public bool IsActive { get; set; } = true;
+    public decimal CreditLimit { get; set; }
 
     public bool AllowUomWithConversionRateDefinedInItem { get; set; }
 

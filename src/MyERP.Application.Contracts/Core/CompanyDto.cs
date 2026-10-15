@@ -23,6 +23,7 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public string? DefaultSalesContact { get; set; }
     public int FiscalYearStartMonth { get; set; }
     public bool IsActive { get; set; }
+    public decimal CreditLimit { get; set; }
     public DateTime? StockFrozenUpto { get; set; }
     public DateTime? AccountsFrozenTillDate { get; set; }
     public bool EnablePerpetualInventory { get; set; }

@@ -24,6 +24,7 @@ public class UpdateCompanySettingsDto
     public string? AccountsFrozenTillDate { get; set; }
     public string? DefaultValuationMethod { get; set; }
     public bool EnablePerpetualInventory { get; set; }
+    public decimal? CreditLimit { get; set; }
     public decimal OverDeliveryAllowance { get; set; }
     public decimal OverBillingAllowance { get; set; }
     public bool AllowUomWithConversionRateDefinedInItem { get; set; }
@@ -130,6 +131,7 @@ public class CompanyAppService :
         entity.FiscalYearStartMonth = input.FiscalYearStartMonth;
         entity.DefaultSalesContact = input.DefaultSalesContact;
         entity.IsActive = input.IsActive;
+        entity.CreditLimit = input.CreditLimit;
         entity.AllowUomWithConversionRateDefinedInItem = input.AllowUomWithConversionRateDefinedInItem;
 
         // Warehouse Defaults (per PR #57571)
@@ -196,6 +198,8 @@ public class CompanyAppService :
         company.OverDeliveryReceiptAllowance = input.OverDeliveryAllowance;
         company.OverBillingAllowance = input.OverBillingAllowance;
         company.EnablePerpetualInventory = input.EnablePerpetualInventory;
+        if (input.CreditLimit.HasValue)
+            company.CreditLimit = input.CreditLimit.Value;
         company.AllowUomWithConversionRateDefinedInItem = input.AllowUomWithConversionRateDefinedInItem;
 
         company.DefaultValuationMethod = string.IsNullOrWhiteSpace(input.DefaultValuationMethod)

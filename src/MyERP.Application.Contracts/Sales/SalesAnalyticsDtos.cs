@@ -33,3 +33,35 @@ public class SalesAnalyticsRowDto
     public decimal Total { get; set; }
     public decimal Growth { get; set; }
 }
+
+public class CustomerCreditBalanceInputDto
+{
+    public Guid CompanyId { get; set; }
+    public Guid? CustomerId { get; set; }
+}
+
+public class CustomerCreditBalanceDto
+{
+    public Guid CustomerId { get; set; }
+    public string CustomerName { get; set; } = string.Empty;
+    public decimal CreditLimit { get; set; }
+    public decimal OutstandingAmount { get; set; }
+    public decimal CreditBalance { get; set; }
+    public bool BypassCreditLimitCheckAtSalesOrder { get; set; }
+    public bool IsFrozen { get; set; }
+    public bool Disabled { get; set; }
+}
+
+public class CustomersWithoutSalesInputDto
+{
+    public Guid? CompanyId { get; set; }
+}
+
+public class CustomerWithoutSalesDto
+{
+    public Guid CustomerId { get; set; }
+    public string CustomerName { get; set; } = string.Empty;
+    public string? CustomerGroup { get; set; }
+    public string? Territory { get; set; }
+}
+
