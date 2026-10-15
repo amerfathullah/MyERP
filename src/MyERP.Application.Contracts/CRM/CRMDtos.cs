@@ -36,6 +36,7 @@ public class LeadDto : AuditedEntityDto<Guid>
     public string? UtmCampaign { get; set; }
     public string? UtmSource { get; set; }
     public string? UtmMedium { get; set; }
+    public bool Disabled { get; set; }
 }
 
 public class CreateLeadDto
@@ -100,6 +101,8 @@ public class CreateLeadDto
 
     [StringLength(200)]
     public string? UtmMedium { get; set; }
+
+    public bool Disabled { get; set; }
 }
 
 public class UpdateLeadDto
@@ -161,6 +164,8 @@ public class UpdateLeadDto
 
     [StringLength(200)]
     public string? UtmMedium { get; set; }
+
+    public bool Disabled { get; set; }
 }
 
 public class GetLeadListDto : PagedAndSortedResultRequestDto
@@ -169,6 +174,7 @@ public class GetLeadListDto : PagedAndSortedResultRequestDto
     public LeadSource? Source { get; set; }
     public string? Filter { get; set; }
     public Guid? CompanyId { get; set; }
+    public bool? Disabled { get; set; }
 }
 
 public class CreateProspectAndContactDto

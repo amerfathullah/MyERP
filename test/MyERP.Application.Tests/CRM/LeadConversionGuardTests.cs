@@ -1,7 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
 using MyERP.CRM.Entities;
+using MyERP.Inventory;
+using MyERP.Inventory.Entities;
+using MyERP.Sales;
 using MyERP.Sales.Entities;
 using Shouldly;
 using Volo.Abp;
@@ -343,6 +347,137 @@ public abstract class LeadConversionGuardTests<TStartupModule> : MyERPApplicatio
                 }));
 
             ex.Code.ShouldBe(MyERPDomainErrorCodes.OpportunityCustomerAlreadyExists);
+        });
+    }
+
+    [Fact]
+    public async Task ConvertToCustomerAsync_DisabledLead_ThrowsLeadIsDisabled()
+    {
+        // Per ERPNext PR #60227 / commit 2e7807e09c: refuse disabled leads
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var leadRepo = GetRequiredService<IRepository<Lead, Guid>>();
+            var leadAppService = GetRequiredService<ILeadAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Lead Disabled Co 1"), autoSave: true);
+            var lead = new Lead(Guid.NewGuid(), company.Id, "LEAD-DIS-01", "DisabledLead1")
+            {
+                Disabled = true
+            };
+            await leadRepo.InsertAsync(lead, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                leadAppService.ConvertToCustomerAsync(new ConvertLeadToCustomerDto
+                {
+                    LeadId = lead.Id
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.LeadIsDisabled);
+        });
+    }
+
+    [Fact]
+    public async Task ConvertToOpportunityAsync_DisabledLead_ThrowsLeadIsDisabled()
+    {
+        // Per ERPNext PR #60227 / commit 2e7807e09c: refuse disabled leads
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var leadRepo = GetRequiredService<IRepository<Lead, Guid>>();
+            var leadAppService = GetRequiredService<ILeadAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Lead Disabled Co 2"), autoSave: true);
+            var lead = new Lead(Guid.NewGuid(), company.Id, "LEAD-DIS-02", "DisabledLead2")
+            {
+                Disabled = true
+            };
+            await leadRepo.InsertAsync(lead, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                leadAppService.ConvertToOpportunityAsync(new ConvertLeadToOpportunityDto
+                {
+                    LeadId = lead.Id,
+                    Title = "Opp From Disabled"
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.LeadIsDisabled);
+        });
+    }
+
+    [Fact]
+    public async Task CreateProspectAndContactAsync_DisabledLead_ThrowsLeadIsDisabled()
+    {
+        // Per ERPNext PR #60227 / commit 2e7807e09c: refuse disabled leads
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var leadRepo = GetRequiredService<IRepository<Lead, Guid>>();
+            var leadAppService = GetRequiredService<ILeadAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Lead Disabled Co 3"), autoSave: true);
+            var lead = new Lead(Guid.NewGuid(), company.Id, "LEAD-DIS-03", "DisabledLead3")
+            {
+                Disabled = true
+            };
+            await leadRepo.InsertAsync(lead, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                leadAppService.CreateProspectAndContactAsync(lead.Id, new CreateProspectAndContactDto
+                {
+                    CreateProspect = true
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.LeadIsDisabled);
+        });
+    }
+
+    [Fact]
+    public async Task QuotationAppService_CreateAsync_FromOpportunityWithDisabledLead_ThrowsLeadIsDisabled()
+    {
+        // Per ERPNext PR #60227 / commit 2e7807e09c: refuse quotations against opportunity linked to disabled lead
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var leadRepo = GetRequiredService<IRepository<Lead, Guid>>();
+            var oppRepo = GetRequiredService<IRepository<Opportunity, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var quotationAppService = GetRequiredService<IQuotationAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Lead Disabled Co 4"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "Quotation Series", "Quotation", "QTN-"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Quotation Cust"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "QUOT-ITEM-01", "Quot Item", ItemType.Goods), autoSave: true);
+
+            var lead = new Lead(Guid.NewGuid(), company.Id, "LEAD-DIS-04", "DisabledLead4")
+            {
+                Disabled = true
+            };
+            await leadRepo.InsertAsync(lead, autoSave: true);
+
+            var opp = new Opportunity(Guid.NewGuid(), company.Id, "OPP-DIS-01", "Opp With Disabled Lead")
+            {
+                LeadId = lead.Id,
+                CustomerId = customer.Id
+            };
+            await oppRepo.InsertAsync(opp, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                quotationAppService.CreateAsync(new CreateQuotationDto
+                {
+                    CompanyId = company.Id,
+                    CustomerId = customer.Id,
+                    IssueDate = DateTime.UtcNow,
+                    OpportunityId = opp.Id,
+                    Items = new List<CreateQuotationItemDto>
+                    {
+                        new() { ItemId = item.Id, Description = item.ItemName, Quantity = 1m, UnitPrice = 100m }
+                    }
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.LeadIsDisabled);
         });
     }
 }

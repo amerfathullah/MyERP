@@ -49,6 +49,8 @@ public class LeadAppService : ApplicationService, ILeadAppService
             query = query.Where(l => l.Source == input.Source.Value);
         if (input.CompanyId.HasValue)
             query = query.Where(l => l.CompanyId == input.CompanyId.Value);
+        if (input.Disabled.HasValue)
+            query = query.Where(l => l.Disabled == input.Disabled.Value);
         if (!string.IsNullOrWhiteSpace(input.Filter))
         {
             var filter = input.Filter;
@@ -105,6 +107,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
             UtmCampaign = input.UtmCampaign,
             UtmSource = input.UtmSource,
             UtmMedium = input.UtmMedium,
+            Disabled = input.Disabled,
         };
 
         await _leadRepository.InsertAsync(lead);
@@ -143,6 +146,7 @@ public class LeadAppService : ApplicationService, ILeadAppService
         lead.UtmCampaign = input.UtmCampaign;
         lead.UtmSource = input.UtmSource;
         lead.UtmMedium = input.UtmMedium;
+        lead.Disabled = input.Disabled;
 
         await _leadRepository.UpdateAsync(lead);
         return ObjectMapper.Map<Lead, LeadDto>(lead);
@@ -207,6 +211,14 @@ public class LeadAppService : ApplicationService, ILeadAppService
     {
         var lead = await _leadRepository.GetAsync(input.LeadId);
 
+        // Per ERPNext PR #60227 / commit 2e7807e09c: refuse disabled leads
+        if (lead.Disabled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.LeadIsDisabled)
+                .WithData("0", lead.LeadNumber)
+                .WithData("1", "Opportunity");
+        }
+
         if (lead.Status is not (LeadStatus.Open or LeadStatus.Interested or LeadStatus.Qualified or LeadStatus.Replied))
         {
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
@@ -263,6 +275,14 @@ public class LeadAppService : ApplicationService, ILeadAppService
     public async Task<Guid> ConvertToCustomerAsync(ConvertLeadToCustomerDto input)
     {
         var lead = await _leadRepository.GetAsync(input.LeadId);
+
+        // Per ERPNext PR #60227 / commit 2e7807e09c: refuse disabled leads
+        if (lead.Disabled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.LeadIsDisabled)
+                .WithData("0", lead.LeadNumber)
+                .WithData("1", "Customer");
+        }
 
         if (lead.Status is not (LeadStatus.New or LeadStatus.Open or LeadStatus.Replied or LeadStatus.Interested or LeadStatus.Qualified or LeadStatus.DoNotContact))
         {
@@ -372,6 +392,15 @@ public class LeadAppService : ApplicationService, ILeadAppService
     public async Task<CreateProspectAndContactResultDto> CreateProspectAndContactAsync(Guid id, CreateProspectAndContactDto input)
     {
         var lead = await _leadRepository.GetAsync(id);
+
+        // Per ERPNext PR #60227 / commit 2e7807e09c: refuse disabled leads
+        if (lead.Disabled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.LeadIsDisabled)
+                .WithData("0", lead.LeadNumber)
+                .WithData("1", "Prospect");
+        }
+
         var result = new CreateProspectAndContactResultDto();
 
         if (input.CreateContact)

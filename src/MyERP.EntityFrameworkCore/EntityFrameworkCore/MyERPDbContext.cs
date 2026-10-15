@@ -1440,6 +1440,7 @@ public class MyERPDbContext :
             b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.BilledQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.AmountDifferenceWithPurchaseInvoice).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ReturnQtyFromRejectedWarehouse).HasDefaultValue(false);
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
             b.HasIndex(x => x.MaterialRequestItemId);
         });
@@ -2851,6 +2852,7 @@ public class MyERPDbContext :
             b.Property(x => x.UtmCampaign).HasMaxLength(200);
             b.Property(x => x.UtmSource).HasMaxLength(200);
             b.Property(x => x.UtmMedium).HasMaxLength(200);
+            b.Property(x => x.Disabled).HasDefaultValue(false);
             b.HasIndex(x => new { x.TenantId, x.LeadNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.Email });

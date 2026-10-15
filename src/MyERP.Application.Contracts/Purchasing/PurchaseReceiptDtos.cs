@@ -43,6 +43,7 @@ public class PurchaseReceiptItemDto
     public decimal RejectedQty { get; set; }
     public Guid? RejectedWarehouseId { get; set; }
     public string? RejectedWarehouseName { get; set; }
+    public bool ReturnQtyFromRejectedWarehouse { get; set; }
     public decimal StockQty { get; set; }
     public string StockUom { get; set; } = "Unit";
     public decimal ConversionFactor { get; set; } = 1m;
@@ -103,6 +104,7 @@ public class CreatePurchaseReceiptItemDto
     public decimal ReceivedQty { get; set; }
     public decimal RejectedQty { get; set; }
     public Guid? RejectedWarehouseId { get; set; }
+    public bool ReturnQtyFromRejectedWarehouse { get; set; }
 }
 
 public class PutawayItemInput

@@ -162,7 +162,8 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         Guid? rejectedWarehouseId = null,
         decimal receivedQty = 0,
         Guid? fromWarehouseId = null,
-        Guid? materialRequestItemId = null)
+        Guid? materialRequestItemId = null,
+        bool returnQtyFromRejectedWarehouse = false)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -180,6 +181,7 @@ public class PurchaseReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
             FromWarehouseId = fromWarehouseId,
             RejectedQty = rejectedQty,
             RejectedWarehouseId = rejectedWarehouseId,
+            ReturnQtyFromRejectedWarehouse = returnQtyFromRejectedWarehouse,
             ReceivedQty = receivedQty != 0 ? receivedQty : (quantity + rejectedQty),
         };
         item.Idx = _items.Count;

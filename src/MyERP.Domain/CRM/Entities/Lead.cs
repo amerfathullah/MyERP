@@ -22,6 +22,11 @@ public class Lead : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public LeadStatus Status { get; private set; }
     public LeadSource Source { get; set; }
 
+    /// <summary>
+    /// When true, prevents conversions to Customer/Opportunity/Quotation (PR #60227 / commit 2e7807e09c).
+    /// </summary>
+    public bool Disabled { get; set; }
+
     // Location
     public string? City { get; set; }
     public string? State { get; set; }

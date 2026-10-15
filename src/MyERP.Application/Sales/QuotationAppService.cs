@@ -235,6 +235,20 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
                 throw new BusinessException(MyERPDomainErrorCodes.CannotChangeCustomerForQuotationFromOpportunity)
                     .WithData("opportunity", opp.OpportunityNumber);
             }
+
+            // Per ERPNext PR #60227 / commit 2e7807e09c: refuse quotations for disabled leads
+            if (opp != null && opp.LeadId.HasValue)
+            {
+                var leadRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Lead, Guid>>();
+                var lead = await leadRepo.FindAsync(opp.LeadId.Value);
+                if (lead != null && lead.Disabled)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.LeadIsDisabled)
+                        .WithData("0", lead.LeadNumber)
+                        .WithData("1", "Quotation");
+                }
+            }
+
             quotation.OpportunityId = input.OpportunityId.Value;
 
             // Per ERPNext: raising a Quotation against an Opportunity moves its stage to

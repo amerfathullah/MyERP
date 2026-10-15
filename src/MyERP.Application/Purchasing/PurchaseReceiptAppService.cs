@@ -308,7 +308,8 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 item.RejectedWarehouseId,
                 item.ReceivedQty,
                 item.FromWarehouseId,
-                item.MaterialRequestItemId);
+                item.MaterialRequestItemId,
+                item.ReturnQtyFromRejectedWarehouse);
         }
 
         // Resolve UOM conversion factors
@@ -493,7 +494,8 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 item.RejectedWarehouseId,
                 item.ReceivedQty,
                 fromWarehouseId: null,
-                materialRequestItemId: item.MaterialRequestItemId);
+                materialRequestItemId: item.MaterialRequestItemId,
+                returnQtyFromRejectedWarehouse: item.ReturnQtyFromRejectedWarehouse);
         }
 
         var allowMultipleUpdate = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);

@@ -416,6 +416,7 @@ public static class MyERPDomainErrorCodes
     public const string LeadAlreadyInAnotherProspect = "MyERP:17014";
     public const string LeadAlreadyInProspect = "MyERP:17015";
     public const string CompanyMandatoryWhenDataBasedOnAmount = "MyERP:17016";
+    public const string LeadIsDisabled = "MyERP:17017";
 
     // Cost Center Allocation
     public const string CostCenterAllocationSelfReference = "MyERP:02038";

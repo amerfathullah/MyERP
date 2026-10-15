@@ -183,4 +183,53 @@ public abstract class SubcontractingBomTemplateFallbackTests<TStartupModule> : M
             scioDto.Items[0].BomId.ShouldBe(templateBom.Id);
         });
     }
+
+    [Fact]
+    public async Task CreateOrderAsync_WithInactiveBom_ThrowsValidationFailed()
+    {
+        // Per ERPNext PR #60689 / commit d95fac279f: Refuse draft or inactive BOMs on subcontracting rows
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<Manufacturing.Entities.BillOfMaterials, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var scoAppService = GetRequiredService<ISubcontractingAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SCO Inactive BOM Co"), autoSave: true);
+            var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "SCO Inactive BOM Supplier"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SCO Series", "SCO", "SCO-.####"), autoSave: true);
+
+            var item = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "SCO-FG-INACTIVE", "SCO FG Inactive Item", ItemType.Goods), autoSave: true);
+
+            var rawMaterial = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "SCO-RM-INACTIVE", "SCO RM Inactive", ItemType.Goods), autoSave: true);
+
+            var inactiveBom = new Manufacturing.Entities.BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-INACTIVE-01", item.Id)
+            {
+                Quantity = 1,
+                IsActive = false, // Inactive / Draft BOM
+                IsDefault = true
+            };
+            inactiveBom.Items.Add(new Manufacturing.Entities.BomItem(Guid.NewGuid(), inactiveBom.Id, rawMaterial.Id, "RM Item", 1, 10));
+            await bomRepo.InsertAsync(inactiveBom, autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                scoAppService.CreateOrderAsync(new CreateSubcontractingOrderDto
+                {
+                    CompanyId = company.Id,
+                    SupplierId = supplier.Id,
+                    OrderDate = DateTime.UtcNow,
+                    Items = new List<CreateScoItemDto>
+                    {
+                        new() { ItemId = item.Id, ItemName = item.ItemName, Qty = 2m, Rate = 50m, BomId = inactiveBom.Id }
+                    }
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            ex.Data["detail"]?.ToString().ShouldNotBeNull().ShouldContain("Please select an active BOM for Item");
+        });
+    }
 }

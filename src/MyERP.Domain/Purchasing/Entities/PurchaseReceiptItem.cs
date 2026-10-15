@@ -20,6 +20,8 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     public decimal ReceivedQty { get; set; }
     public decimal RejectedQty { get; set; }
     public Guid? RejectedWarehouseId { get; set; }
+    /// <summary>Per ERPNext PR #60672 / commit 4cc2ffb2a8: marks whether return row returns from rejected warehouse.</summary>
+    public bool ReturnQtyFromRejectedWarehouse { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal TaxAmount { get; set; }
 

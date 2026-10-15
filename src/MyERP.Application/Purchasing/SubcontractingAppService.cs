@@ -146,8 +146,9 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.BillOfMaterials, Guid>>();
         var bomQueryable = await bomRepo.GetQueryableAsync();
 
-        foreach (var item in input.Items)
+        for (int i = 0; i < input.Items.Count; i++)
         {
+            var item = input.Items[i];
             var itemEntity = itemDict.GetValueOrDefault(item.ItemId);
             Item? templateItem = itemEntity?.VariantOfId.HasValue == true
                 ? templateDict.GetValueOrDefault(itemEntity.VariantOfId.Value)
@@ -191,6 +192,13 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                         throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
                             .WithData("bomCompany", bom.CompanyId)
                             .WithData("orderCompany", input.CompanyId);
+                    }
+
+                    // Per ERPNext PR #60689 / commit d95fac279f: Refuse draft or inactive BOMs on subcontracting rows
+                    if (!bom.IsActive)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"Row {i + 1}: Please select an active BOM for Item {itemEntity?.ItemName ?? item.ItemName}.");
                     }
 
                     // PR #59373: BOM must belong to finished good or its template item (for variants)

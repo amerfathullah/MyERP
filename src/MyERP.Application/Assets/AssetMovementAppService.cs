@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -196,6 +197,19 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
         if (!am.Items.Any())
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
 
+        // Per ERPNext PR #60019 (commit 23adc7295b): Refuse the same asset in more than one row
+        var seenAssets = new HashSet<Guid>();
+        for (int i = 0; i < am.Items.Count; i++)
+        {
+            var item = am.Items[i];
+            if (!seenAssets.Add(item.AssetId))
+            {
+                var asset = await _assetRepository.FindAsync(item.AssetId);
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{i + 1}: Asset '{asset?.AssetName ?? item.AssetId.ToString()}' is already added in another row.");
+            }
+        }
+
         // Validate each asset item before submit
         foreach (var item in am.Items)
         {
@@ -207,7 +221,8 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
                     .WithData("assetName", asset.AssetName);
             }
 
-            if (asset.Status == AssetStatus.Draft || asset.Status == AssetStatus.Scrapped || asset.Status == AssetStatus.Sold)
+            // Per ERPNext PR #60019 (commit 6b8511def7): Refuse moving unsubmitted or disposed assets for every purpose
+            if (asset.Status is AssetStatus.Draft or AssetStatus.Scrapped or AssetStatus.Sold or AssetStatus.Capitalized)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.AssetCannotBeMoved)
                     .WithData("assetName", asset.AssetName)
@@ -266,21 +281,86 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
 
         am.Submit();
 
-        // Update target assets location and custodian
+        // Update target assets location and custodian separately (PR #60019 / commits f3d11a89fc, 1073df2a15)
         foreach (var item in am.Items)
         {
             var asset = await _assetRepository.FindAsync(item.AssetId);
             if (asset != null)
             {
-                asset.UpdateLocationAndCustodian(item.TargetLocation, item.ToEmployeeId, item.TargetLocationId);
+                string? changedLocation = null;
+                Guid? changedLocationId = null;
+                Guid? previousCustodian = null;
+                Guid? changedCustodian = null;
+
+                // Location update (Receipt, Transfer, TransferAndIssue, or explicit target location)
+                if (am.Purpose is AssetMovementPurpose.Receipt or AssetMovementPurpose.Transfer or AssetMovementPurpose.TransferAndIssue
+                    || item.TargetLocationId.HasValue || !string.IsNullOrWhiteSpace(item.TargetLocation))
+                {
+                    if (item.TargetLocationId != asset.LocationId || item.TargetLocation != asset.Location)
+                    {
+                        changedLocation = item.TargetLocation;
+                        changedLocationId = item.TargetLocationId;
+                        asset.Location = changedLocation;
+                        asset.LocationId = changedLocationId;
+                    }
+                }
+
+                // Custodian update (Issue, Receipt, TransferAndIssue, or row with employee)
+                if (am.Purpose is AssetMovementPurpose.Issue or AssetMovementPurpose.Receipt or AssetMovementPurpose.TransferAndIssue
+                    || item.ToEmployeeId.HasValue)
+                {
+                    if (item.ToEmployeeId != asset.CustodianEmployeeId)
+                    {
+                        previousCustodian = asset.CustodianEmployeeId;
+                        changedCustodian = item.ToEmployeeId;
+                        asset.CustodianEmployeeId = changedCustodian;
+                    }
+                }
+
                 await _assetRepository.UpdateAsync(asset);
 
-                // Audit Activity
+                // Audit Activity based on what actually changed (PR #60019 / commits f3d11a89fc, 1073df2a15)
+                string? employeeName = null;
+                if (changedCustodian.HasValue)
+                {
+                    var emp = await _employeeRepository.FindAsync(changedCustodian.Value);
+                    employeeName = emp?.FullName ?? changedCustodian.Value.ToString();
+                }
+
+                string? prevEmpName = null;
+                if (previousCustodian.HasValue)
+                {
+                    var emp = await _employeeRepository.FindAsync(previousCustodian.Value);
+                    prevEmpName = emp?.FullName ?? previousCustodian.Value.ToString();
+                }
+
+                string activitySubject;
+                if (!string.IsNullOrWhiteSpace(changedLocation) && !string.IsNullOrWhiteSpace(employeeName))
+                {
+                    activitySubject = $"Asset transferred to location {changedLocation} and issued to Employee {employeeName}";
+                }
+                else if (!string.IsNullOrWhiteSpace(changedLocation))
+                {
+                    activitySubject = $"Asset transferred to location {changedLocation}";
+                }
+                else if (!string.IsNullOrWhiteSpace(employeeName))
+                {
+                    activitySubject = $"Asset issued to Employee {employeeName}";
+                }
+                else if (!string.IsNullOrWhiteSpace(prevEmpName))
+                {
+                    activitySubject = $"Asset returned by Employee {prevEmpName}";
+                }
+                else
+                {
+                    activitySubject = $"Asset moved: #{am.MovementNumber}";
+                }
+
                 var activity = new AssetActivity(
                     GuidGenerator.Create(),
                     asset.Id,
                     AssetActivityType.Moved,
-                    $"Asset moved to location {item.TargetLocation ?? "N/A"}",
+                    activitySubject,
                     am.TransactionDate,
                     $"Movement #{am.MovementNumber} purpose: {am.Purpose}",
                     "AssetMovement",
@@ -326,20 +406,62 @@ public class AssetMovementAppService : ApplicationService, IAssetMovementAppServ
 
         am.Cancel();
 
-        // Revert location and custodian
+        // Revert location and custodian separately from latest submitted movements (PR #60019)
+        var allSubmittedMovements = allMovements
+            .Where(m => m.Id != am.Id && m.Status == DocumentStatus.Submitted)
+            .OrderByDescending(m => m.TransactionDate)
+            .ThenByDescending(m => m.CreationTime)
+            .ToList();
+
         foreach (var item in am.Items)
         {
             var asset = await _assetRepository.FindAsync(item.AssetId);
             if (asset != null)
             {
-                asset.UpdateLocationAndCustodian(item.SourceLocation, item.FromEmployeeId, item.SourceLocationId);
+                var latestLocMovement = allSubmittedMovements
+                    .FirstOrDefault(m => (m.Purpose is AssetMovementPurpose.Receipt or AssetMovementPurpose.Transfer or AssetMovementPurpose.TransferAndIssue)
+                        && m.Items.Any(i => i.AssetId == item.AssetId && (i.TargetLocationId.HasValue || !string.IsNullOrWhiteSpace(i.TargetLocation))));
+
+                string? revertedLocation = null;
+                Guid? revertedLocationId = null;
+
+                if (latestLocMovement != null)
+                {
+                    var locItem = latestLocMovement.Items.First(i => i.AssetId == item.AssetId);
+                    revertedLocation = locItem.TargetLocation;
+                    revertedLocationId = locItem.TargetLocationId;
+                }
+                else
+                {
+                    revertedLocation = item.SourceLocation;
+                    revertedLocationId = item.SourceLocationId;
+                }
+
+                var latestCustMovement = allSubmittedMovements
+                    .FirstOrDefault(m => (m.Purpose is AssetMovementPurpose.Issue or AssetMovementPurpose.Receipt or AssetMovementPurpose.TransferAndIssue)
+                        && m.Items.Any(i => i.AssetId == item.AssetId));
+
+                Guid? revertedCustodian = null;
+                if (latestCustMovement != null)
+                {
+                    var custItem = latestCustMovement.Items.First(i => i.AssetId == item.AssetId);
+                    revertedCustodian = custItem.ToEmployeeId;
+                }
+                else
+                {
+                    revertedCustodian = item.FromEmployeeId;
+                }
+
+                asset.Location = revertedLocation;
+                asset.LocationId = revertedLocationId;
+                asset.CustodianEmployeeId = revertedCustodian;
                 await _assetRepository.UpdateAsync(asset);
 
                 var activity = new AssetActivity(
                     GuidGenerator.Create(),
                     asset.Id,
                     AssetActivityType.Moved,
-                    $"Asset movement cancelled: reverted to location {item.SourceLocation ?? "N/A"}",
+                    $"Asset movement cancelled: reverted to location {revertedLocation ?? "N/A"}",
                     DateTime.UtcNow,
                     $"Cancelled Movement #{am.MovementNumber}",
                     "AssetMovement",
