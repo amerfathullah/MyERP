@@ -1234,3 +1234,40 @@ export interface CreatedWorkOrderInfo {
   itemName?: string;
   quantity?: number;
 }
+
+export interface ProcessLossReportRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  itemId?: string | null;
+  workOrderId?: string | null;
+}
+
+export interface ProcessLossReportDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  rows?: ProcessLossReportRowDto[];
+  totalProducedQty?: number;
+  totalProcessLossQty?: number;
+  totalProcessLossValue?: number;
+  totalFgValue?: number;
+  totalRmValue?: number;
+}
+
+export interface ProcessLossReportRowDto {
+  workOrderId: string;
+  workOrderNumber: string;
+  productionItemId: string;
+  itemCode: string;
+  itemName: string;
+  status: string;
+  qtyToManufacture?: number;
+  producedQty?: number;
+  outputQty?: number;
+  processLossQty?: number;
+  totalProcessLossValue?: number;
+  totalFgValue?: number;
+  totalRmValue?: number;
+}
+
