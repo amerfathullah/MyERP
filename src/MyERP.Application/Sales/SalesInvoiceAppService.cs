@@ -621,6 +621,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.SupplierTin = input.SupplierTin;
         invoice.PosProfileId = input.PosProfileId;
         invoice.EInvoiceDocType = input.EInvoiceDocType;
+        invoice.IsSubmitToLhdn = input.IsSubmitToLhdn;
 
         invoice.ValidateDebitNote();
 

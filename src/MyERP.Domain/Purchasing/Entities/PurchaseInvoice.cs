@@ -137,6 +137,11 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     public Guid? LhdnSubmissionId { get; set; }
     public DateTime? LhdnSubmittedAt { get; set; }
     public string? LhdnLongId { get; set; }
+    /// <summary>
+    /// Whether this invoice should be submitted to LHDN e-Invoice.
+    /// Maps to MyInvois custom_is_submit_to_lhdn. Default: true.
+    /// </summary>
+    public bool IsSubmitToLhdn { get; set; } = true;
 
     public string? Notes { get; set; }
 

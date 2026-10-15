@@ -35,6 +35,7 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public EInvoiceDocumentType? EInvoiceDocType { get; set; }
     public string EInvoiceStatus { get; set; } = null!;
     public string? LhdnUuid { get; set; }
+    public bool IsSubmitToLhdn { get; set; } = true;
     public bool IsReturn { get; set; }
     public bool IsDebitNote { get; set; }
     public bool IsReturnRefund { get; set; }
@@ -195,6 +196,9 @@ public class CreatePurchaseInvoiceDto
 
     /// <summary>LHDN self-billed e-Invoice document type (SelfBilledInvoice=11, SelfBilledCreditNote=12, SelfBilledDebitNote=13, SelfBilledRefundNote=14). When omitted, auto-derived from IsReturn.</summary>
     public EInvoiceDocumentType? EInvoiceDocType { get; set; }
+
+    /// <summary>Whether this purchase invoice should be submitted to LHDN e-Invoice.</summary>
+    public bool IsSubmitToLhdn { get; set; } = true;
 
     /// <summary>When true, stock is received on invoice submit (direct purchase without PR).</summary>
     public bool UpdateStock { get; set; }

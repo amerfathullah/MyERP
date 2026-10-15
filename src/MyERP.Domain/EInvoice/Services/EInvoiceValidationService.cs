@@ -52,6 +52,12 @@ public class EInvoiceValidationService : ITransientDependency
         var company = await _companyRepository.GetAsync(companyId);
 
         // Company validations
+        if (!company.EnableLhdnInvoice)
+            errors.Add("LHDN Invoice Submission is not enabled for company in settings.");
+
+        if (!invoice.IsSubmitToLhdn)
+            errors.Add("Invoice is not marked for submission to LHDN.");
+
         if (string.IsNullOrWhiteSpace(company.TaxId))
             errors.Add("Company TIN (Tax Identification Number) is required for e-Invoice submission.");
 
@@ -205,6 +211,12 @@ public class EInvoiceValidationService : ITransientDependency
         var supplier = await _supplierRepository.FindAsync(invoice.SupplierId);
 
         // Company validations (in self-billed, Company is Buyer)
+        if (!company.EnableLhdnInvoice)
+            errors.Add("LHDN Invoice Submission is not enabled for company in settings.");
+
+        if (!invoice.IsSubmitToLhdn)
+            errors.Add("Purchase Invoice is not marked for submission to LHDN.");
+
         if (string.IsNullOrWhiteSpace(company.TaxId))
             errors.Add("Company TIN (Tax Identification Number) is required for e-Invoice submission.");
 

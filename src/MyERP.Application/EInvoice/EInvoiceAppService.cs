@@ -86,11 +86,21 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
         if (input.SourceDocumentType == "SalesInvoice")
         {
             var invoice = await _salesInvoiceRepository.GetAsync(input.SourceDocumentId, includeDetails: true);
+            if (!invoice.IsSubmitToLhdn)
+            {
+                // Per MyInvois commit d9adf36: Skip submission if IsSubmitToLhdn is unchecked.
+                return new EInvoiceSubmissionDto { Status = "NotSubmitted" };
+            }
             await _validationService.EnsureValidForSubmissionAsync(invoice, input.CompanyId);
         }
         else if (input.SourceDocumentType == "PurchaseInvoice")
         {
             var invoice = await _purchaseInvoiceRepository.GetAsync(input.SourceDocumentId, includeDetails: true);
+            if (!invoice.IsSubmitToLhdn)
+            {
+                // Per MyInvois commit d9adf36: Skip submission if IsSubmitToLhdn is unchecked.
+                return new EInvoiceSubmissionDto { Status = "NotSubmitted" };
+            }
             await _validationService.EnsureValidPurchaseInvoiceForSubmissionAsync(invoice, input.CompanyId);
         }
 
@@ -339,6 +349,25 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems)
                 .WithData("documentType", "BatchEInvoice");
 
+        var company = await _companyRepository.GetAsync(input.CompanyId);
+        if (!company.EnableLhdnInvoice)
+        {
+            // Per MyInvois PR d9adf36: Gracefully bypass LHDN submission if disabled.
+            return new BatchSubmitResultDto
+            {
+                TotalRequested = input.DocumentIds.Count,
+                SkippedCount = input.DocumentIds.Count,
+                Results = input.DocumentIds.Select(id => new BatchSubmitItemResult
+                {
+                    DocumentId = id,
+                    DocumentNumber = id.ToString()[..8],
+                    Success = false,
+                    ErrorMessage = "LHDN Invoice Submission is not enabled in company settings.",
+                    Status = "NotSubmitted"
+                }).ToList()
+            };
+        }
+
         var result = new BatchSubmitResultDto { TotalRequested = input.DocumentIds.Count };
 
         foreach (var docId in input.DocumentIds)
@@ -351,6 +380,19 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 {
                     var si = await _salesInvoiceRepository.FindAsync(docId);
                     if (si == null) { result.SkippedCount++; continue; }
+                    if (!si.IsSubmitToLhdn)
+                    {
+                        result.Results.Add(new BatchSubmitItemResult
+                        {
+                            DocumentId = docId,
+                            DocumentNumber = si.InvoiceNumber,
+                            Success = false,
+                            ErrorMessage = "Submit to LHDN is not checked for this invoice.",
+                            Status = si.EInvoiceStatus.ToString()
+                        });
+                        result.SkippedCount++;
+                        continue;
+                    }
                     if (si.EInvoiceStatus != Sales.EInvoiceStatus.NotSubmitted)
                     {
                         result.Results.Add(new BatchSubmitItemResult
@@ -370,6 +412,19 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 {
                     var pi = await _purchaseInvoiceRepository.FindAsync(docId);
                     if (pi == null) { result.SkippedCount++; continue; }
+                    if (!pi.IsSubmitToLhdn)
+                    {
+                        result.Results.Add(new BatchSubmitItemResult
+                        {
+                            DocumentId = docId,
+                            DocumentNumber = pi.InvoiceNumber,
+                            Success = false,
+                            ErrorMessage = "Submit to LHDN is not checked for this invoice.",
+                            Status = pi.EInvoiceStatus.ToString()
+                        });
+                        result.SkippedCount++;
+                        continue;
+                    }
                     if (pi.EInvoiceStatus != Sales.EInvoiceStatus.NotSubmitted)
                     {
                         result.Results.Add(new BatchSubmitItemResult

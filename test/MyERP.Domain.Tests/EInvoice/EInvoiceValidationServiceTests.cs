@@ -41,7 +41,8 @@ public class EInvoiceValidationServiceTests
             MsicCode = "62010",
             RegistrationNumber = "202001012345",
             Address = "123 Tech Park, Cyberjaya",
-            Country = "MYS"
+            Country = "MYS",
+            EnableLhdnInvoice = true
         });
 
         _customerRepository.FindAsync(_customerId).Returns(new Customer(_customerId, _companyId, "Test Customer")
@@ -191,7 +192,8 @@ public class EInvoiceValidationServiceTests
             TaxId = "C1234567890",
             MsicCode = "62010",
             RegistrationNumber = "202001012345",
-            AllowCreditNoteWithoutOriginalInvoice = true
+            AllowCreditNoteWithoutOriginalInvoice = true,
+            EnableLhdnInvoice = true
         };
         _companyRepository.GetAsync(_companyId).Returns(companyWithSetting);
 
@@ -217,7 +219,8 @@ public class EInvoiceValidationServiceTests
             TaxId = "C1234567890",
             MsicCode = "62010",
             RegistrationNumber = "202001012345",
-            AllowCreditNoteWithoutOriginalInvoice = true
+            AllowCreditNoteWithoutOriginalInvoice = true,
+            EnableLhdnInvoice = true
         };
         _companyRepository.GetAsync(_companyId).Returns(companyWithSetting);
 

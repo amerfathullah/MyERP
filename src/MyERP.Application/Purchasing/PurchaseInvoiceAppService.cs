@@ -633,6 +633,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         var transactionValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
         await transactionValidation.ValidatePriceListAsync(invoice.PriceListId, invoice.IsReturn, returnAgainstPriceListId);
         invoice.EInvoiceDocType = input.EInvoiceDocType;
+        invoice.IsSubmitToLhdn = input.IsSubmitToLhdn;
 
         invoice.ValidateDebitNote();
 
