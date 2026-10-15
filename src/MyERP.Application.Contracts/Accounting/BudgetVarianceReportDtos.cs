@@ -9,6 +9,11 @@ public class BudgetVarianceRequestDto
     public Guid FiscalYearId { get; set; }
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
+    public string? BudgetAgainst { get; set; }
+    public Guid? BudgetAgainstId { get; set; }
+    public string? FinanceBook { get; set; }
 }
 
 public class BudgetVarianceReportDto

@@ -226,5 +226,107 @@ public class AccountBalanceServiceTests
         companyCurrency.ShouldBe(0m);
     }
 
+    [Fact]
+    public async Task GetPeriodBalance_ExcludePeriodClosing_ExcludesPeriodClosingVouchers()
+    {
+        var companyId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var date = new DateTime(2026, 12, 31);
+
+        // Standard journal entry: DR 1000
+        var stdJe = new JournalEntry(Guid.NewGuid(), companyId, Guid.NewGuid(), date)
+        {
+            VoucherType = JournalEntryVoucherType.JournalEntry
+        };
+        stdJe.AddLine(accountId, 1000m, true);
+        stdJe.AddLine(Guid.NewGuid(), 1000m, false);
+        stdJe.Validate();
+        stdJe.Post();
+
+        // Period closing voucher: CR 1000 (zeros out expense at year end)
+        var pcvJe = new JournalEntry(Guid.NewGuid(), companyId, Guid.NewGuid(), date)
+        {
+            VoucherType = JournalEntryVoucherType.PeriodClosing
+        };
+        pcvJe.AddLine(accountId, 1000m, false);
+        pcvJe.AddLine(Guid.NewGuid(), 1000m, true);
+        pcvJe.Validate();
+        pcvJe.Post();
+
+        var allJournals = new List<JournalEntry> { stdJe, pcvJe };
+
+        _journalRepo.GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<JournalEntry, bool>>>())
+            .Returns(ci =>
+            {
+                var predicate = ci.Arg<System.Linq.Expressions.Expression<Func<JournalEntry, bool>>>().Compile();
+                return allJournals.Where(predicate).ToList();
+            });
+
+        _lineRepo.GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<JournalEntryLine, bool>>>())
+            .Returns(ci =>
+            {
+                var predicate = ci.Arg<System.Linq.Expressions.Expression<Func<JournalEntryLine, bool>>>().Compile();
+                var lines = allJournals.SelectMany(j => j.Lines).Where(predicate).ToList();
+                return lines;
+            });
+
+        // 1. With excludePeriodClosing = true: only stdJe is counted (DR 1000, CR 0)
+        var balanceExcluding = await _service.GetPeriodBalanceAsync(
+            companyId, accountId, new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), excludePeriodClosing: true);
+        balanceExcluding.Debit.ShouldBe(1000m);
+        balanceExcluding.Credit.ShouldBe(0m);
+
+        // 2. With excludePeriodClosing = false: both entries counted (DR 1000, CR 1000)
+        var balanceIncluding = await _service.GetPeriodBalanceAsync(
+            companyId, accountId, new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), excludePeriodClosing: false);
+        balanceIncluding.Debit.ShouldBe(1000m);
+        balanceIncluding.Credit.ShouldBe(1000m);
+    }
+
+    [Fact]
+    public async Task GetPeriodBalance_FinanceBook_FiltersAlternativeBookWhenNotSpecified()
+    {
+        var companyId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var date = new DateTime(2026, 6, 1);
+
+        var je = new JournalEntry(Guid.NewGuid(), companyId, Guid.NewGuid(), date);
+        var defaultBookLine = new JournalEntryLine(Guid.NewGuid(), je.Id, accountId, 500m, true)
+        {
+            FinanceBook = null
+        };
+        var taxBookLine = new JournalEntryLine(Guid.NewGuid(), je.Id, accountId, 300m, true)
+        {
+            FinanceBook = "Tax Book"
+        };
+        var creditLine = new JournalEntryLine(Guid.NewGuid(), je.Id, Guid.NewGuid(), 800m, false);
+
+        je.AddLine(defaultBookLine);
+        je.AddLine(taxBookLine);
+        je.AddLine(creditLine);
+        je.Validate();
+        je.Post();
+
+        _journalRepo.GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<JournalEntry, bool>>>())
+            .Returns(new List<JournalEntry> { je });
+
+        _lineRepo.GetListAsync(Arg.Any<System.Linq.Expressions.Expression<Func<JournalEntryLine, bool>>>())
+            .Returns(ci =>
+            {
+                var predicate = ci.Arg<System.Linq.Expressions.Expression<Func<JournalEntryLine, bool>>>().Compile();
+                return je.Lines.Where(predicate).ToList();
+            });
+
+        // 1. financeBook = null: only defaultBookLine (500)
+        var defaultResult = await _service.GetPeriodBalanceAsync(
+            companyId, accountId, new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), financeBook: null);
+        defaultResult.Debit.ShouldBe(500m);
+
+        // 2. financeBook = "Tax Book": defaultBookLine (500) + taxBookLine (300) = 800
+        var taxResult = await _service.GetPeriodBalanceAsync(
+            companyId, accountId, new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), financeBook: "Tax Book");
+        taxResult.Debit.ShouldBe(800m);
+    }
+
     #endregion
 }

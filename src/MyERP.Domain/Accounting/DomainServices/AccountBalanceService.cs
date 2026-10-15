@@ -128,6 +128,7 @@ public class AccountBalanceService : DomainService
     /// <summary>
     /// Gets period balance (activity during a specific date range).
     /// Used for P&L reports: revenue/expenses for a period.
+    /// Per ERPNext PR #60001: supports excludePeriodClosing to leave period closing entries out of actuals.
     /// </summary>
     public async Task<AccountBalanceResult> GetPeriodBalanceAsync(
         Guid companyId,
@@ -135,10 +136,11 @@ public class AccountBalanceService : DomainService
         DateTime fromDate,
         DateTime toDate,
         Guid? costCenterId = null,
-        string? financeBook = null)
+        string? financeBook = null,
+        bool excludePeriodClosing = false)
     {
         var (debit, credit) = await GetGlTotalsAsync(
-            companyId, accountId, fromDate, toDate, costCenterId, financeBook);
+            companyId, accountId, fromDate, toDate, costCenterId, financeBook, excludePeriodClosing);
 
         return new AccountBalanceResult(debit, credit);
     }
@@ -220,13 +222,14 @@ public class AccountBalanceService : DomainService
 
     private async Task<(decimal Debit, decimal Credit)> GetGlTotalsAsync(
         Guid companyId, Guid accountId, DateTime fromDate, DateTime toDate,
-        Guid? costCenterId = null, string? financeBook = null)
+        Guid? costCenterId = null, string? financeBook = null, bool excludePeriodClosing = false)
     {
         var journals = await _journalRepository.GetListAsync(je =>
             je.CompanyId == companyId &&
             je.Status == DocumentStatus.Posted &&
             je.PostingDate >= fromDate &&
-            je.PostingDate <= toDate);
+            je.PostingDate <= toDate &&
+            (!excludePeriodClosing || je.VoucherType != JournalEntryVoucherType.PeriodClosing));
 
         if (!journals.Any())
             return (0m, 0m);
@@ -238,8 +241,16 @@ public class AccountBalanceService : DomainService
         var filteredLines = lines.AsEnumerable();
         if (costCenterId.HasValue)
             filteredLines = filteredLines.Where(l => l.CostCenterId == costCenterId);
+
+        // Per ERPNext PR #60001 / commit a9d6834682: count actuals from default finance book only when not specified
         if (!string.IsNullOrWhiteSpace(financeBook))
-            filteredLines = filteredLines.Where(l => l.FinanceBook == financeBook || l.FinanceBook == null);
+        {
+            filteredLines = filteredLines.Where(l => string.IsNullOrWhiteSpace(l.FinanceBook) || l.FinanceBook == financeBook);
+        }
+        else
+        {
+            filteredLines = filteredLines.Where(l => string.IsNullOrWhiteSpace(l.FinanceBook));
+        }
 
         var debit = filteredLines.Where(l => l.IsDebit).Sum(l => l.Amount);
         var credit = filteredLines.Where(l => !l.IsDebit).Sum(l => l.Amount);

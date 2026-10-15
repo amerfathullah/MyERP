@@ -50,6 +50,31 @@ public class BudgetVarianceReportAppService : ApplicationService, IBudgetVarianc
             b.FiscalYearId == input.FiscalYearId &&
             b.Status == DocumentStatus.Submitted);
 
+        // Filter budgets by dimension if specified
+        var targetBudgetAgainst = input.BudgetAgainst;
+        var targetBudgetAgainstId = input.BudgetAgainstId;
+
+        if (!targetBudgetAgainstId.HasValue && input.CostCenterId.HasValue)
+        {
+            targetBudgetAgainst = string.IsNullOrWhiteSpace(targetBudgetAgainst) ? "Cost Center" : targetBudgetAgainst;
+            targetBudgetAgainstId = input.CostCenterId;
+        }
+        else if (!targetBudgetAgainstId.HasValue && input.ProjectId.HasValue)
+        {
+            targetBudgetAgainst = string.IsNullOrWhiteSpace(targetBudgetAgainst) ? "Project" : targetBudgetAgainst;
+            targetBudgetAgainstId = input.ProjectId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(targetBudgetAgainst))
+        {
+            budgets = budgets.Where(b => string.Equals(b.BudgetAgainst, targetBudgetAgainst, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        if (targetBudgetAgainstId.HasValue)
+        {
+            budgets = budgets.Where(b => b.BudgetAgainstId == targetBudgetAgainstId.Value).ToList();
+        }
+
         if (!budgets.Any())
             return new BudgetVarianceReportDto { CompanyId = input.CompanyId, Rows = new() };
 
@@ -77,6 +102,10 @@ public class BudgetVarianceReportAppService : ApplicationService, IBudgetVarianc
         var accounts = await _accountRepository.GetListAsync(a => accountIds.Contains(a.Id));
         var accountLookup = accounts.ToDictionary(a => a.Id);
 
+        // Cost center filter for GL query
+        var costCenterFilter = input.CostCenterId ??
+            (string.Equals(targetBudgetAgainst, "Cost Center", StringComparison.OrdinalIgnoreCase) ? targetBudgetAgainstId : null);
+
         // Get actual GL totals for the period per account
         var rows = new List<BudgetVarianceRowDto>();
         foreach (var (accountId, budgetAmount) in budgetMap.OrderBy(kvp => accountLookup.GetValueOrDefault(kvp.Key)?.AccountCode))
@@ -84,8 +113,15 @@ public class BudgetVarianceReportAppService : ApplicationService, IBudgetVarianc
             if (!accountLookup.TryGetValue(accountId, out var account))
                 continue;
 
+            // ERPNext PR #60001: exclude Period Closing Vouchers from actuals and respect finance book filter
             var actualBalance = await _balanceService.GetPeriodBalanceAsync(
-                input.CompanyId, accountId, fromDate, toDate);
+                input.CompanyId,
+                accountId,
+                fromDate,
+                toDate,
+                costCenterId: costCenterFilter,
+                financeBook: input.FinanceBook,
+                excludePeriodClosing: true);
 
             // For expense accounts: actual = debit - credit (expenses are debit-normal)
             // For revenue accounts: actual = credit - debit (revenue is credit-normal)

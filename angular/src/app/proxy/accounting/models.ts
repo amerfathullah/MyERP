@@ -533,6 +533,11 @@ export interface BudgetVarianceRequestDto {
   fiscalYearId?: string;
   fromDate?: string | null;
   toDate?: string | null;
+  costCenterId?: string | null;
+  projectId?: string | null;
+  budgetAgainst?: string | null;
+  budgetAgainstId?: string | null;
+  financeBook?: string | null;
 }
 
 export interface BudgetVarianceRowDto {
