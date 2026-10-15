@@ -102,3 +102,49 @@ public class BatchWiseBalanceRowDto
     public bool IsExpired { get; set; }
     public bool IsDisabled { get; set; }
 }
+
+// --- Stock Balance Report DTOs (PR #60698) ---
+
+public class GetStockBalanceReportRequestDto
+{
+    public Guid? CompanyId { get; set; }
+    public Guid? ItemId { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+    public bool ShowDimensionWiseStock { get; set; }
+    public bool ExcludeZeroStock { get; set; }
+}
+
+public class StockBalanceReportDto
+{
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public List<StockBalanceReportRowDto> Rows { get; set; } = new();
+    public decimal TotalOpeningQty { get; set; }
+    public decimal TotalInQty { get; set; }
+    public decimal TotalOutQty { get; set; }
+    public decimal TotalBalanceQty { get; set; }
+    public decimal TotalBalanceValue { get; set; }
+}
+
+public class StockBalanceReportRowDto
+{
+    public Guid ItemId { get; set; }
+    public string ItemCode { get; set; } = "";
+    public string ItemName { get; set; } = "";
+    public Guid WarehouseId { get; set; }
+    public string WarehouseName { get; set; } = "";
+    public Guid? BatchId { get; set; }
+    public string? BatchNo { get; set; }
+    public decimal OpeningQty { get; set; }
+    public decimal OpeningValue { get; set; }
+    public decimal InQty { get; set; }
+    public decimal InValue { get; set; }
+    public decimal OutQty { get; set; }
+    public decimal OutValue { get; set; }
+    public decimal BalanceQty { get; set; }
+    public decimal BalanceValue { get; set; }
+    public decimal ValuationRate { get; set; }
+}
+

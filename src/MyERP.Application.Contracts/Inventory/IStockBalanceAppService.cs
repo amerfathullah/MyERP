@@ -14,6 +14,13 @@ public interface IStockBalanceAppService : IApplicationService
     Task<BatchWiseBalanceReportDto> GetBatchWiseBalanceAsync(GetBatchWiseBalanceRequestDto input);
 
     /// <summary>
+    /// Stock Balance Report — shows opening, inward, outward, and closing quantities and values.
+    /// Incorporates inventory dimension handling and applies reconciliations against total warehouse balance
+    /// to prevent dimension double-counting per ERPNext PR #60698 / commit c8eb481d32.
+    /// </summary>
+    Task<StockBalanceReportDto> GetStockBalanceReportAsync(GetStockBalanceReportRequestDto input);
+
+    /// <summary>
     /// Recalculates the stock quantities in the Bin for the specified item and warehouse from source ledger entries.
     /// Per ERPNext PR #47125 / commit 36081413d8: provision to recalculate the qty in the Bin.
     /// </summary>

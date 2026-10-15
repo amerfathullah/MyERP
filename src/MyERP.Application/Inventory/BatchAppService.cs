@@ -185,16 +185,51 @@ public class BatchAppService : ApplicationService, IBatchAppService
             }
         }
 
+        var itemRepo = LazyServiceProvider.LazyGetService<IRepository<Item, Guid>>();
+        var item = itemRepo != null ? await itemRepo.FindAsync(batch.ItemId) : null;
+        var doNotUseBatchwiseValuation = await SettingProvider.IsTrueAsync(MyERPSettings.Stock.DoNotUseBatchwiseValuation);
+        var isPooled = item != null && ((item.HasSerialNo && !item.UseSerialNoWiseValuation) || (doNotUseBatchwiseValuation && item.ValuationMethod == ValuationMethod.WeightedAverage));
+
+        var pooledWhRates = new Dictionary<Guid, decimal>();
+        if (isPooled)
+        {
+            var latestSles = sleQuery
+                .Where(s => s.ItemId == batch.ItemId && warehouseIds.Contains(s.WarehouseId) && !s.IsCancelled)
+                .OrderByDescending(s => s.PostingDateTime).ThenByDescending(s => s.CreationTime)
+                .ToList();
+
+            foreach (var s in latestSles)
+            {
+                if (!pooledWhRates.ContainsKey(s.WarehouseId))
+                {
+                    pooledWhRates[s.WarehouseId] = s.ValuationRate;
+                }
+            }
+        }
+
         var entries = warehouseBalances.Select(w =>
         {
             var reserved = Math.Round(reservedByWarehouse.GetValueOrDefault(w.WarehouseId, 0m), 4);
+            var stockVal = w.Value;
+            var valRate = w.Qty != 0 ? w.Value / w.Qty : 0m;
+
+            if (isPooled)
+            {
+                var rate = pooledWhRates.GetValueOrDefault(w.WarehouseId);
+                if (rate == 0 && item?.StandardBuyingPrice.HasValue == true)
+                    rate = item.StandardBuyingPrice.Value;
+
+                stockVal = Math.Round(w.Qty * rate, 4);
+                valRate = Math.Round(rate, 4);
+            }
+
             return new BatchWarehouseBalanceDto
             {
                 WarehouseId = w.WarehouseId,
                 WarehouseName = warehouseNames.GetValueOrDefault(w.WarehouseId, "Unknown"),
                 Quantity = w.Qty,
-                StockValue = w.Value,
-                ValuationRate = w.Qty != 0 ? w.Value / w.Qty : 0,
+                StockValue = stockVal,
+                ValuationRate = valRate,
                 ReservedQuantity = reserved,
                 AvailableQuantity = Math.Max(0m, w.Qty - reserved),
             };

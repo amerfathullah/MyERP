@@ -56,6 +56,13 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public string? SerialNoSeries { get; set; }
 
+    /// <summary>
+    /// When true, each serial number maintains its own distinct valuation rate.
+    /// When false, serialized units share the warehouse-level pooled valuation.
+    /// Maps to ERPNext stock/doctype/item: use_serial_no_wise_valuation. Default: false.
+    /// </summary>
+    public bool UseSerialNoWiseValuation { get; set; }
+
     /// <summary>Item requires batch/lot number tracking.</summary>
     public bool HasBatchNo { get; set; }
 

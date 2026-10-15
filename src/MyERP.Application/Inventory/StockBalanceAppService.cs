@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Settings;
+using MyERP.Settings;
 
 namespace MyERP.Inventory;
 
@@ -199,8 +201,47 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
 
         var itemQ = await _itemRepository.GetQueryableAsync();
         var itemMap = itemQ.Where(i => itemIds.Contains(i.Id))
-            .Select(i => new { i.Id, i.ItemCode, i.ItemName, i.HasSerialNo, i.HasBatchNo }).ToList()
+            .Select(i => new
+            {
+                i.Id,
+                i.ItemCode,
+                i.ItemName,
+                i.HasSerialNo,
+                i.HasBatchNo,
+                i.ValuationMethod,
+                i.UseSerialNoWiseValuation,
+                i.StandardBuyingPrice
+            }).ToList()
             .ToDictionary(i => i.Id);
+
+        var doNotUseBatchwiseValuation = await SettingProvider.IsTrueAsync(MyERPSettings.Stock.DoNotUseBatchwiseValuation);
+
+        // Per ERPNext PR #60673 / commits c520e2f067 & 90aa56065e:
+        // Value pooled batches at the warehouse rate at report cutoff.
+        var pooledItemIds = itemMap.Values
+            .Where(i => (i.HasSerialNo && !i.UseSerialNoWiseValuation) || (doNotUseBatchwiseValuation && i.ValuationMethod == ValuationMethod.WeightedAverage))
+            .Select(i => i.Id)
+            .ToHashSet();
+
+        var pooledRates = new Dictionary<(Guid ItemId, Guid WarehouseId), decimal>();
+        if (pooledItemIds.Count > 0)
+        {
+            var cutoff = input.ToDate?.Date.AddDays(1).AddTicks(-1) ?? DateTime.MaxValue;
+            var allSleQuery = await _sleRepository.GetQueryableAsync();
+            var latestSles = allSleQuery
+                .Where(s => !s.IsCancelled && pooledItemIds.Contains(s.ItemId) && warehouseIds.Contains(s.WarehouseId) && s.PostingDateTime <= cutoff)
+                .OrderByDescending(s => s.PostingDateTime).ThenByDescending(s => s.CreationTime)
+                .ToList();
+
+            foreach (var s in latestSles)
+            {
+                var key = (s.ItemId, s.WarehouseId);
+                if (!pooledRates.ContainsKey(key))
+                {
+                    pooledRates[key] = s.ValuationRate;
+                }
+            }
+        }
 
         var batchQ = await _batchRepository.GetQueryableAsync();
         var batchMap = batchQ.Where(b => batchIds.Contains(b.Id))
@@ -306,7 +347,25 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
             var reservedKey = (g.ItemId, g.WarehouseId, g.BatchId);
             var serialList = serialMap.GetValueOrDefault(reservedKey)
                 ?? (g.BatchId == null ? serialMap.GetValueOrDefault((g.ItemId, g.WarehouseId, null)) : null);
-            var valRate = g.Balance != 0 ? Math.Round(g.StockValue / g.Balance, 4) : 0m;
+
+            var isPooled = pooledItemIds.Contains(g.ItemId);
+            decimal stockValue;
+            decimal valRate;
+
+            if (isPooled)
+            {
+                var rate = pooledRates.GetValueOrDefault((g.ItemId, g.WarehouseId));
+                if (rate == 0 && item?.StandardBuyingPrice.HasValue == true)
+                    rate = item.StandardBuyingPrice.Value;
+
+                stockValue = Math.Round(g.Balance * rate, 4);
+                valRate = Math.Round(rate, 4);
+            }
+            else
+            {
+                stockValue = g.StockValue;
+                valRate = g.Balance != 0 ? Math.Round(g.StockValue / g.Balance, 4) : 0m;
+            }
 
             return new BatchWiseBalanceRowDto
             {
@@ -317,7 +376,7 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
                 WarehouseId = g.WarehouseId,
                 WarehouseName = whMap.GetValueOrDefault(g.WarehouseId, "—"),
                 Balance = g.Balance,
-                StockValue = g.StockValue,
+                StockValue = stockValue,
                 ValuationRate = valRate,
                 SerialNos = serialList != null && serialList.Count > 0 ? string.Join(", ", serialList.OrderBy(x => x)) : null,
                 ReservedStockQty = Math.Round(reservedMap.GetValueOrDefault(reservedKey, 0m), 4),
@@ -337,6 +396,169 @@ public class StockBalanceAppService : ApplicationService, IStockBalanceAppServic
             TotalStockValue = rows.Sum(r => r.StockValue),
             TotalReservedStock = rows.Sum(r => r.ReservedStockQty),
             ExpiredBatchCount = rows.Count(r => r.IsExpired),
+        };
+    }
+
+    /// <summary>
+    /// Stock Balance Report — shows opening, inward, outward, and closing quantities and values.
+    /// Incorporates inventory dimension handling and applies reconciliations against total warehouse balance
+    /// to prevent dimension double-counting per ERPNext PR #60698 / commit c8eb481d32.
+    /// </summary>
+    public async Task<StockBalanceReportDto> GetStockBalanceReportAsync(GetStockBalanceReportRequestDto input)
+    {
+        var fromDate = input.FromDate ?? DateTime.MinValue;
+        var toDate = input.ToDate?.Date.AddDays(1).AddTicks(-1) ?? DateTime.MaxValue;
+
+        var sleQuery = await _sleRepository.GetQueryableAsync();
+        sleQuery = sleQuery.Where(s => !s.IsCancelled && s.PostingDateTime <= toDate);
+
+        if (input.CompanyId.HasValue)
+            sleQuery = sleQuery.Where(s => s.CompanyId == input.CompanyId.Value);
+        if (input.ItemId.HasValue)
+            sleQuery = sleQuery.Where(s => s.ItemId == input.ItemId.Value);
+        if (input.WarehouseId.HasValue)
+            sleQuery = sleQuery.Where(s => s.WarehouseId == input.WarehouseId.Value);
+
+        var entries = sleQuery
+            .OrderBy(s => s.PostingDateTime)
+            .ThenBy(s => s.CreationTime)
+            .ToList();
+
+        var rowMap = new Dictionary<(Guid ItemId, Guid WarehouseId, Guid? BatchId), StockBalanceReportRowDto>();
+        var itemWarehouseBalances = new Dictionary<(Guid ItemId, Guid WarehouseId), (decimal BalQty, decimal BalVal)>();
+
+        foreach (var entry in entries)
+        {
+            var itemWhKey = (entry.ItemId, entry.WarehouseId);
+            if (!itemWarehouseBalances.TryGetValue(itemWhKey, out var whBal))
+            {
+                whBal = (0m, 0m);
+            }
+
+            var batchKey = input.ShowDimensionWiseStock ? entry.BatchId : null;
+            var groupKey = (entry.ItemId, entry.WarehouseId, batchKey);
+
+            if (!rowMap.TryGetValue(groupKey, out var row))
+            {
+                row = new StockBalanceReportRowDto
+                {
+                    ItemId = entry.ItemId,
+                    WarehouseId = entry.WarehouseId,
+                    BatchId = batchKey
+                };
+                rowMap[groupKey] = row;
+            }
+
+            decimal qtyDiff;
+            decimal valueDiff;
+
+            if (entry.VoucherType == "StockReconciliation")
+            {
+                if (input.ShowDimensionWiseStock)
+                {
+                    // Per ERPNext PR #60698 / commit c8eb481d32:
+                    // A normal Stock Reconciliation has no inventory dimension, so with Show
+                    // Dimension Wise Stock it lands on the row without dimensions.
+                    // Calculate change against total item-warehouse balance, not the dimension row's balance,
+                    // so the row does not absorb other dimensions' stock.
+                    qtyDiff = entry.BalanceQuantity - whBal.BalQty;
+                    valueDiff = entry.BalanceValue - whBal.BalVal;
+                }
+                else
+                {
+                    qtyDiff = entry.BalanceQuantity - row.BalanceQty;
+                    valueDiff = entry.BalanceValue - row.BalanceValue;
+                }
+            }
+            else
+            {
+                qtyDiff = entry.QuantityChange;
+                valueDiff = entry.StockValueDifference != 0 ? entry.StockValueDifference : entry.StockValue;
+            }
+
+            // Update row balance
+            if (entry.PostingDateTime < fromDate)
+            {
+                row.OpeningQty += qtyDiff;
+                row.OpeningValue += valueDiff;
+            }
+            else
+            {
+                if (qtyDiff > 0)
+                {
+                    row.InQty += qtyDiff;
+                    row.InValue += valueDiff;
+                }
+                else if (qtyDiff < 0)
+                {
+                    row.OutQty += Math.Abs(qtyDiff);
+                    row.OutValue += Math.Abs(valueDiff);
+                }
+            }
+
+            row.BalanceQty += qtyDiff;
+            row.BalanceValue += valueDiff;
+            row.ValuationRate = entry.ValuationRate;
+
+            // Always update running item-warehouse balance
+            whBal.BalQty += qtyDiff;
+            whBal.BalVal += valueDiff;
+            itemWarehouseBalances[itemWhKey] = whBal;
+        }
+
+        var rows = rowMap.Values.ToList();
+
+        if (input.ExcludeZeroStock)
+        {
+            rows = rows.Where(r => r.OpeningQty != 0 || r.InQty != 0 || r.OutQty != 0 || r.BalanceQty != 0).ToList();
+        }
+
+        // Resolve names
+        var itemIds = rows.Select(r => r.ItemId).Distinct().ToList();
+        var whIds = rows.Select(r => r.WarehouseId).Distinct().ToList();
+        var batchIds = rows.Where(r => r.BatchId.HasValue).Select(r => r.BatchId!.Value).Distinct().ToList();
+
+        var itemQ = await _itemRepository.GetQueryableAsync();
+        var items = itemQ.Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName })
+            .ToDictionary(i => i.Id);
+
+        var whQ = await _warehouseRepository.GetQueryableAsync();
+        var warehouses = whQ.Where(w => whIds.Contains(w.Id))
+            .Select(w => new { w.Id, w.Name })
+            .ToDictionary(w => w.Id, w => w.Name);
+
+        var batchQ = await _batchRepository.GetQueryableAsync();
+        var batches = batchQ.Where(b => batchIds.Contains(b.Id))
+            .Select(b => new { b.Id, b.BatchNo })
+            .ToDictionary(b => b.Id, b => b.BatchNo);
+
+        foreach (var r in rows)
+        {
+            if (items.TryGetValue(r.ItemId, out var item))
+            {
+                r.ItemCode = item.ItemCode;
+                r.ItemName = item.ItemName;
+            }
+            r.WarehouseName = warehouses.GetValueOrDefault(r.WarehouseId, "Unknown");
+            if (r.BatchId.HasValue)
+            {
+                r.BatchNo = batches.GetValueOrDefault(r.BatchId.Value, "Unknown");
+            }
+        }
+
+        rows = rows.OrderBy(r => r.ItemCode).ThenBy(r => r.WarehouseName).ThenBy(r => r.BatchNo).ToList();
+
+        return new StockBalanceReportDto
+        {
+            FromDate = input.FromDate ?? DateTime.MinValue,
+            ToDate = input.ToDate ?? DateTime.UtcNow,
+            Rows = rows,
+            TotalOpeningQty = rows.Sum(r => r.OpeningQty),
+            TotalInQty = rows.Sum(r => r.InQty),
+            TotalOutQty = rows.Sum(r => r.OutQty),
+            TotalBalanceQty = rows.Sum(r => r.BalanceQty),
+            TotalBalanceValue = rows.Sum(r => r.BalanceValue)
         };
     }
 
