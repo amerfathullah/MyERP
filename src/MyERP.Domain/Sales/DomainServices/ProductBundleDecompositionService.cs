@@ -63,8 +63,12 @@ public class ProductBundleDecompositionService : DomainService
     /// <param name="transactionQty">Quantity of the parent in the transaction</param>
     /// <param name="parentRate">Rate/unit price of the parent bundle item</param>
     /// <param name="warehouseId">Optional warehouse from parent item row</param>
+    /// <param name="parentDetailId">Optional row ID of the parent bundle transaction item (for exact packed item matching per PR #60745)</param>
+    /// <param name="parentIndex">Optional row index of the parent bundle transaction item (for exact packed item matching per PR #60745)</param>
     /// <returns>List of decomposed component items with qty and proportional rate</returns>
-    public async Task<List<DecomposedItem>> DecomposeAsync(Guid itemId, decimal transactionQty, decimal parentRate, Guid? warehouseId = null)
+    public async Task<List<DecomposedItem>> DecomposeAsync(
+        Guid itemId, decimal transactionQty, decimal parentRate,
+        Guid? warehouseId = null, Guid? parentDetailId = null, int? parentIndex = null)
     {
         var queryable = await _bundleRepository.GetQueryableAsync();
         var bundle = queryable.FirstOrDefault(b => b.ItemId == itemId && b.IsActive && !b.IsDisabled);
@@ -94,7 +98,9 @@ public class ProductBundleDecompositionService : DomainService
                 Uom: component.Uom ?? "Unit",
                 ParentBundleItemId: itemId,
                 ParentBundleId: bundle.Id,
-                WarehouseId: warehouseId
+                WarehouseId: warehouseId,
+                ParentDetailId: parentDetailId,
+                ParentIndex: parentIndex
             ));
         }
 
@@ -119,7 +125,8 @@ public class ProductBundleDecompositionService : DomainService
         {
             if (bundleItemIds.Contains(item.ItemId))
             {
-                var components = await DecomposeAsync(item.ItemId, item.Qty, item.Rate, item.WarehouseId);
+                var components = await DecomposeAsync(
+                    item.ItemId, item.Qty, item.Rate, item.WarehouseId, item.DetailId, item.Index);
                 packedItems.AddRange(components);
             }
             else
@@ -129,6 +136,20 @@ public class ProductBundleDecompositionService : DomainService
         }
 
         return new DecompositionResult(regularItems, packedItems);
+    }
+
+    /// <summary>
+    /// Matches packed items belonging to a specific parent bundle row.
+    /// Per ERPNext PR #60745 / commit de9d145b06:
+    /// Match packed items to a bundle row only by exact DetailId (name/guid) or exact Index.
+    /// Prevents digit-prefix false positives from reassigning other bundle rows' packed items.
+    /// </summary>
+    public static IEnumerable<DecomposedItem> GetPackedItemsForBundleRow(
+        IEnumerable<DecomposedItem> packedItems, Guid parentDetailId, int? parentIndex = null)
+    {
+        return packedItems.Where(p =>
+            (p.ParentDetailId.HasValue && p.ParentDetailId.Value == parentDetailId) ||
+            (!p.ParentDetailId.HasValue && parentIndex.HasValue && p.ParentIndex.HasValue && p.ParentIndex.Value == parentIndex.Value));
     }
 }
 
@@ -143,7 +164,9 @@ public record DecomposedItem(
     string Uom,
     Guid ParentBundleItemId,
     Guid ParentBundleId,
-    Guid? WarehouseId = null
+    Guid? WarehouseId = null,
+    Guid? ParentDetailId = null,
+    int? ParentIndex = null
 );
 
 /// <summary>
@@ -153,7 +176,9 @@ public record BundleTransactionItem(
     Guid ItemId,
     decimal Qty,
     decimal Rate,
-    Guid? WarehouseId = null
+    Guid? WarehouseId = null,
+    Guid? DetailId = null,
+    int? Index = null
 );
 
 /// <summary>

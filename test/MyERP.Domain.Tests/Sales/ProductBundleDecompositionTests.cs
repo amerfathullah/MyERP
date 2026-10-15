@@ -211,4 +211,55 @@ public class ProductBundleDecompositionTests
         var txnItem = new BundleTransactionItem(Guid.NewGuid(), 2m, 100m, warehouseId);
         txnItem.WarehouseId.ShouldBe(warehouseId);
     }
+
+    [Fact]
+    public void GetPackedItemsForBundleRow_MatchesExactRowIdAndIndex_PerPR60745()
+    {
+        var row1Id = Guid.NewGuid();
+        var row2Id = Guid.NewGuid();
+        var bundleId = Guid.NewGuid();
+        var parentItemId = Guid.NewGuid();
+        var comp1Id = Guid.NewGuid();
+        var comp2Id = Guid.NewGuid();
+
+        var packed1 = new DecomposedItem(
+            ComponentItemId: comp1Id,
+            ComponentItemName: "Comp 1",
+            Qty: 2m,
+            Rate: 50m,
+            Uom: "Nos",
+            ParentBundleItemId: parentItemId,
+            ParentBundleId: bundleId,
+            ParentDetailId: row1Id,
+            ParentIndex: 1
+        );
+
+        var packed2 = new DecomposedItem(
+            ComponentItemId: comp2Id,
+            ComponentItemName: "Comp 2",
+            Qty: 4m,
+            Rate: 25m,
+            Uom: "Nos",
+            ParentBundleItemId: parentItemId,
+            ParentBundleId: bundleId,
+            ParentDetailId: row2Id,
+            ParentIndex: 2
+        );
+
+        var packedItems = new List<DecomposedItem> { packed1, packed2 };
+
+        // Match by row1Id -> must return only packed1
+        var row1Packed = ProductBundleDecompositionService.GetPackedItemsForBundleRow(packedItems, row1Id, 1).ToList();
+        row1Packed.Count.ShouldBe(1);
+        row1Packed[0].ComponentItemId.ShouldBe(comp1Id);
+
+        // Match by row2Id -> must return only packed2
+        var row2Packed = ProductBundleDecompositionService.GetPackedItemsForBundleRow(packedItems, row2Id, 2).ToList();
+        row2Packed.Count.ShouldBe(1);
+        row2Packed[0].ComponentItemId.ShouldBe(comp2Id);
+
+        // Match unknown row -> empty
+        var unknownPacked = ProductBundleDecompositionService.GetPackedItemsForBundleRow(packedItems, Guid.NewGuid(), 99).ToList();
+        unknownPacked.ShouldBeEmpty();
+    }
 }
