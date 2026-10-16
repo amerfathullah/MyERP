@@ -2370,3 +2370,24 @@ export interface InactiveCustomersReportDto {
   daysSinceLastOrderThreshold: number;
 }
 
+export interface CustomersWithoutAnySalesTransactionsFilterDto {
+  companyId?: string;
+  customerGroupId?: string;
+  territoryId?: string;
+}
+
+export interface CustomerWithoutSalesItemDto {
+  customerId: string;
+  customerName: string;
+  customerCode?: string;
+  territory?: string;
+  customerGroup?: string;
+  creationTime: string;
+}
+
+export interface CustomersWithoutAnySalesTransactionsReportDto {
+  items: CustomerWithoutSalesItemDto[];
+  totalCustomers: number;
+}
+
+

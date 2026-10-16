@@ -2631,6 +2631,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Customers',
       },
       {
+        path: '/sales/reports/customers-without-any-sales-transactions',
+        name: '::Menu:CustomersWithoutAnySalesTransactions',
+        iconClass: 'fas fa-user-slash',
+        order: 22.96,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Customers',
+      },
+      {
         path: '/sales/reports/commission',
         name: '::Menu:SalesCommission',
         iconClass: 'fas fa-coins',

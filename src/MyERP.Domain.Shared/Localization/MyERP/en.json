@@ -5120,7 +5120,12 @@
     "TotalOrderConsidered": "Total Order Considered",
     "LastOrderAmount": "Last Order Amount",
     "LastOrderDate": "Last Order Date",
-    "NoInactiveCustomersFound": "No inactive customers found matching the filter criteria."
+    "NoInactiveCustomersFound": "No inactive customers found matching the filter criteria.",
+    "Menu:CustomersWithoutAnySalesTransactions": "Customers Without Sales",
+    "CustomersWithoutAnySalesTransactions": "Customers Without Any Sales Transactions",
+    "CustomersWithoutAnySalesTransactionsDescription": "List all customers who have not made any purchases or completed sales transactions.",
+    "NoCustomersWithoutSalesFound": "No customers without sales transactions found.",
+    "CustomerSince": "Customer Since"
   }
 }
 
