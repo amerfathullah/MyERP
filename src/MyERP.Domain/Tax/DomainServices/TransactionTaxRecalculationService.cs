@@ -57,18 +57,18 @@ public class TransactionTaxRecalculationService : DomainService
             }
         }
 
-        if (taxRows.Count == 0 && input.Items.Count > 0)
+        if (taxRows.Count == 0 && input.Items.Count > 0 && input.DiscountAmount == 0 && !input.Items.Any(i => i.MappedAdditionalDiscountAmount > 0))
         {
-            // No tax rows — totals are just net amounts
+            // No tax rows and no discount — totals are just net amounts
             var netTotal = input.Items.Sum(i => i.Quantity * i.UnitPrice);
             return new RecalculatedTotals
             {
                 NetTotal = netTotal,
                 TaxAmount = 0,
-                GrandTotal = netTotal - input.DiscountAmount,
+                GrandTotal = netTotal,
                 BaseNetTotal = netTotal * input.ExchangeRate,
                 BaseTaxAmount = 0,
-                BaseGrandTotal = (netTotal - input.DiscountAmount) * input.ExchangeRate,
+                BaseGrandTotal = netTotal * input.ExchangeRate,
             };
         }
 
@@ -79,6 +79,10 @@ public class TransactionTaxRecalculationService : DomainService
             Qty = i.Quantity,
             Rate = i.UnitPrice,
             NetAmount = i.Quantity * i.UnitPrice,
+            ConversionFactor = i.ConversionFactor,
+            RejectedQty = i.RejectedQty,
+            BillsRejectedQuantity = i.BillsRejectedQuantity,
+            MappedAdditionalDiscountAmount = i.MappedAdditionalDiscountAmount,
         }).ToList();
 
         // Run the tax cascade
@@ -143,6 +147,10 @@ public class TaxItemInput
     public Guid ItemId { get; set; }
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }
+    public decimal ConversionFactor { get; set; } = 1m;
+    public decimal RejectedQty { get; set; }
+    public bool BillsRejectedQuantity { get; set; }
+    public decimal MappedAdditionalDiscountAmount { get; set; }
 }
 
 public class RecalculatedTotals

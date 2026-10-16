@@ -160,6 +160,13 @@ public class GetAvailableBatchesDto
     public bool IgnoreReservedStock { get; set; }
 
     /// <summary>
+    /// As-of date cutoff for available batches.
+    /// Per ERPNext PR #60757 (commit 7485463837): apply batch report cutoff even for today.
+    /// Excludes future-dated transactions when querying batch stock balances.
+    /// </summary>
+    public DateTime? ToDate { get; set; }
+
+    /// <summary>
     /// Quantities already consumed by other rows in the same document in stock UOM.
     /// Per ERPNext commit 199cae9496: subtract stock qty of same-document rows from batch availability.
     /// </summary>

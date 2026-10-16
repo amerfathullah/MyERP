@@ -32,8 +32,17 @@ public class TaxesAndTotalsService : DomainService
         decimal discountAmount = 0m,
         string applyDiscountOn = "Grand Total",
         List<Guid>? roundOffApplicableAccountIds = null,
-        bool roundRowWiseTax = false)
+        bool roundRowWiseTax = false,
+        bool clearStaleMappedDiscount = false)
     {
+        // Per ERPNext PR #60737 (commit c42b3e8cf5):
+        // When mapping from a source document that had mapped discounts,
+        // clear stale header discount total if none of the mapped destination rows carry one.
+        if (clearStaleMappedDiscount && !items.Any(i => i.MappedAdditionalDiscountAmount > 0))
+        {
+            discountAmount = 0m;
+        }
+
         // Step 0: Calculate exclusive rates for inclusive taxes
         // Per ERPNext taxes_and_totals.py: determine_exclusive_rate()
         // When taxes are included_in_print_rate, the item rate contains tax.
@@ -43,8 +52,33 @@ public class TaxesAndTotalsService : DomainService
         // Step 1: Calculate net total from items
         decimal netTotal = items.Sum(i => i.NetAmount);
 
-        // Step 2: Apply discount on net total (re-distributes to items)
-        if (discountAmount > 0 && applyDiscountOn == "Net Total")
+        // Step 2: Apply discount on net total (re-distributes to items or applies mapped discounts)
+        // Per ERPNext PR #60753 (commit 8cc2a58fe2) & PR #60737 (commit c42b3e8cf5):
+        // When mapped destination rows carry mapped discounts from a source document:
+        // 1) apply_mapped_discount_to_item: distributed_discount_amount = mapped_additional_discount_amount * billed_stock_qty
+        //    (billed_qty * conversion_factor), not raw transaction billed_qty.
+        // 2) clear_stale_mapped_discount_total: if none of the mapped destination rows carry mapped discount,
+        //    clear stale header discount total (discountAmount = 0).
+        // 3) if mapped discount is present, header discount is derived from the sum of item distributed discounts.
+        var hasMappedDiscount = items.Any(i => i.MappedAdditionalDiscountAmount > 0);
+        if (hasMappedDiscount)
+        {
+            foreach (var item in items)
+            {
+                if (item.MappedAdditionalDiscountAmount > 0)
+                {
+                    item.DiscountAmount = Math.Round(item.MappedAdditionalDiscountAmount * item.BilledStockQty, 2);
+                    item.NetAmount = Math.Round(item.NetAmount - item.DiscountAmount, 2);
+                }
+                else
+                {
+                    item.DiscountAmount = 0m;
+                }
+            }
+            discountAmount = items.Sum(i => i.DiscountAmount);
+            netTotal = items.Sum(i => i.NetAmount);
+        }
+        else if (discountAmount > 0 && applyDiscountOn == "Net Total")
         {
             if (netTotal > 0 && discountAmount > netTotal)
             {
@@ -59,6 +93,10 @@ public class TaxesAndTotalsService : DomainService
                     var proportion = item.NetAmount / netTotal;
                     item.DiscountAmount = Math.Round(discountAmount * proportion, 2);
                     item.NetAmount -= item.DiscountAmount;
+                    if (item.BilledStockQty > 0)
+                    {
+                        item.MappedAdditionalDiscountAmount = Math.Round(item.DiscountAmount / item.BilledStockQty, 9);
+                    }
                 }
                 // Last item absorbs rounding difference (per ERPNext PR #58047)
                 var totalDistributed = items.Sum(i => i.DiscountAmount);
@@ -67,10 +105,19 @@ public class TaxesAndTotalsService : DomainService
                     var diff = discountAmount - totalDistributed;
                     items[^1].DiscountAmount += diff;
                     items[^1].NetAmount -= diff;
+                    if (items[^1].BilledStockQty > 0)
+                    {
+                        items[^1].MappedAdditionalDiscountAmount = Math.Round(items[^1].DiscountAmount / items[^1].BilledStockQty, 9);
+                    }
                 }
 
                 netTotal = items.Sum(i => i.NetAmount);
             }
+        }
+        else if (applyDiscountOn == "Net Total")
+        {
+            // Clear stale discount if source had discount but destination rows don't carry one (PR #60737)
+            discountAmount = 0m;
         }
 
         // Step 3: Tax cascade — process items sequentially, taxes sequentially within each
@@ -429,6 +476,13 @@ public class TaxesAndTotalsService : DomainService
 
             item.InclusiveTaxAmount = Math.Round(inclusiveTaxAmount, 2);
             item.NetAmount = Math.Round(netAmount, 2);
+
+            // Per ERPNext PR #60753: track inclusive mapped discount amount
+            if (item.MappedAdditionalDiscountAmount > 0)
+            {
+                item.MappedDiscountInclusiveAmount = Math.Round(
+                    item.MappedAdditionalDiscountAmount * item.BilledStockQty * (1m + totalSlope), 2);
+            }
         }
     }
 }
@@ -442,6 +496,33 @@ public class TransactionItem
     public decimal Amount => Qty * Rate;
     public decimal NetAmount { get; set; }
     public decimal DiscountAmount { get; set; }
+
+    /// <summary>Conversion factor: transaction UOM → stock UOM (default 1.0).</summary>
+    public decimal ConversionFactor { get; set; } = 1m;
+
+    /// <summary>Rejected quantity (damaged, wrong spec).</summary>
+    public decimal RejectedQty { get; set; }
+
+    /// <summary>When true, this item bills rejected quantity on a stock updating invoice.</summary>
+    public bool BillsRejectedQuantity { get; set; }
+
+    /// <summary>Quantity billed: Quantity + RejectedQty when BillsRejectedQuantity is true, else Quantity.</summary>
+    public decimal BilledQty => BillsRejectedQuantity ? (Qty + RejectedQty) : Qty;
+
+    /// <summary>Billed quantity in stock UOM = BilledQty × ConversionFactor.</summary>
+    public decimal BilledStockQty => BilledQty * (ConversionFactor > 0 ? ConversionFactor : 1m);
+
+    /// <summary>
+    /// Tax-exclusive additional discount carried from a source document, per stock unit (precision 9).
+    /// Per ERPNext PR #60753 (commit 8cc2a58fe2) and PR #60737 (commit c42b3e8cf5).
+    /// </summary>
+    public decimal MappedAdditionalDiscountAmount { get; set; }
+
+    /// <summary>
+    /// Inclusive mapped discount amount (including tax slope) for inclusive taxes.
+    /// Per ERPNext PR #60753 (commit 8cc2a58fe2).
+    /// </summary>
+    public decimal MappedDiscountInclusiveAmount { get; set; }
 
     /// <summary>
     /// Tax amount included in the item's print rate (calculated by exclusive rate logic).

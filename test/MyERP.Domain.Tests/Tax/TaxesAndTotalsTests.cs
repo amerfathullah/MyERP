@@ -416,4 +416,114 @@ public class TaxesAndTotalsTests
             (item.Rate * item.Qty - item.DiscountAmount).ShouldBe(item.NetAmount);
         }
     }
+
+    [Fact]
+    public void Calculate_MappedDiscount_ScalesWithConversionFactor()
+    {
+        // Per ERPNext PR #60753 (commit 8cc2a58fe2):
+        // Mapped discount is carried per stock unit and scales with conversion factor
+        var items = new List<TransactionItem>
+        {
+            new()
+            {
+                ItemId = Guid.NewGuid(),
+                Qty = 1,
+                Rate = 1000,
+                NetAmount = 1000,
+                ConversionFactor = 10m, // 1 Box = 10 Units
+                MappedAdditionalDiscountAmount = 10m, // 10 per stock unit
+            },
+        };
+        var taxes = new List<TransactionTaxRow>();
+
+        var result = _service.Calculate(items, taxes, applyDiscountOn: "Net Total");
+
+        // BilledStockQty = 1 * 10 = 10. Discount = 10 * 10 = 100. NetAmount = 1000 - 100 = 900.
+        items[0].DiscountAmount.ShouldBe(100m);
+        items[0].NetAmount.ShouldBe(900m);
+        result.DiscountAmount.ShouldBe(100m);
+        result.NetTotal.ShouldBe(900m);
+        result.GrandTotal.ShouldBe(900m);
+    }
+
+    [Fact]
+    public void Calculate_MappedDiscount_SourceGeneratesDiscountPerStockUnit()
+    {
+        // Per ERPNext PR #60753: source document generates mapped_additional_discount_amount per stock unit
+        var items = new List<TransactionItem>
+        {
+            new()
+            {
+                ItemId = Guid.NewGuid(),
+                Qty = 2,
+                Rate = 500,
+                NetAmount = 1000,
+                ConversionFactor = 5m, // StockQty = 2 * 5 = 10
+            },
+        };
+        var taxes = new List<TransactionTaxRow>();
+
+        var result = _service.Calculate(items, taxes, discountAmount: 100m, applyDiscountOn: "Net Total");
+
+        items[0].DiscountAmount.ShouldBe(100m);
+        items[0].NetAmount.ShouldBe(900m);
+        // Mapped discount per stock unit = 100 / (2 * 5) = 10
+        items[0].MappedAdditionalDiscountAmount.ShouldBe(10m);
+    }
+
+    [Fact]
+    public void Calculate_MappedDiscount_ClearStaleDiscountOnUndiscountedMappedRows()
+    {
+        // Per ERPNext PR #60737 (commit c42b3e8cf5):
+        // If mapped destination rows carry no mapped discount, clear stale header discount total
+        var items = new List<TransactionItem>
+        {
+            new()
+            {
+                ItemId = Guid.NewGuid(),
+                Qty = 2,
+                Rate = 100,
+                NetAmount = 200,
+                MappedAdditionalDiscountAmount = 0m, // Un-discounted row mapped from order
+            },
+        };
+        var taxes = new List<TransactionTaxRow>();
+
+        // Source had discount_amount = 50 copied by mapper, but mapped row has no discount
+        var result = _service.Calculate(items, taxes, discountAmount: 50m, applyDiscountOn: "Net Total", clearStaleMappedDiscount: true);
+
+        // Stale discount is cleared; undiscounted row is not discounted
+        items[0].DiscountAmount.ShouldBe(0m);
+        items[0].NetAmount.ShouldBe(200m);
+        result.DiscountAmount.ShouldBe(0m);
+        result.NetTotal.ShouldBe(200m);
+        result.GrandTotal.ShouldBe(200m);
+    }
+
+    [Fact]
+    public void Calculate_MappedDiscount_PartialMappedQuantityWithUomChange()
+    {
+        // Per ERPNext PR #60753: test UOM change with partial mapped quantity
+        var items = new List<TransactionItem>
+        {
+            new()
+            {
+                ItemId = Guid.NewGuid(),
+                Qty = 4, // 4 individual Units mapped out of a 10-unit Box
+                Rate = 100,
+                NetAmount = 400,
+                ConversionFactor = 1m, // Transaction UOM is Unit
+                MappedAdditionalDiscountAmount = 10m, // Carried from source (10 per stock unit)
+            },
+        };
+        var taxes = new List<TransactionTaxRow>();
+
+        var result = _service.Calculate(items, taxes, applyDiscountOn: "Net Total");
+
+        // BilledStockQty = 4 * 1 = 4. Discount = 10 * 4 = 40. NetAmount = 400 - 40 = 360.
+        items[0].DiscountAmount.ShouldBe(40m);
+        items[0].NetAmount.ShouldBe(360m);
+        result.DiscountAmount.ShouldBe(40m);
+        result.NetTotal.ShouldBe(360m);
+    }
 }

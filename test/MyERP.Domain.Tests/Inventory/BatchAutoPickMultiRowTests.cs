@@ -177,4 +177,43 @@ public class BatchAutoPickMultiRowTests
         // Available in WH-B must still be 5 because exclusion was scoped to WH-A
         Assert.Equal(5m, availableInB[0].AvailableQuantity);
     }
+
+    [Fact]
+    public async Task GetAvailableBatchesAsync_AppliesToDateCutoff_ExcludesFutureDatedStock()
+    {
+        // Per ERPNext PR #60757 (commit 7485463837):
+        // ToDate cutoff applies even for today to exclude future-dated transactions
+        var batch1 = new Batch(Guid.NewGuid(), _itemId, "BATCH-CUTOFF", null);
+        var warehouseA = new Warehouse(Guid.NewGuid(), _companyId, "WH-A");
+
+        _warehouseRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Warehouse> { warehouseA }.AsQueryable()));
+        _batchRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Batch> { batch1 }.AsQueryable()));
+
+        var item = new Item(Guid.NewGuid(), _companyId, "ITEM-BATCH", "Batch Item", ItemType.Goods);
+        _itemRepository.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { item }.AsQueryable()));
+
+        var today = DateTime.UtcNow.Date;
+        var tomorrow = today.AddDays(1);
+
+        var sles = new List<StockLedgerEntry>
+        {
+            new(Guid.NewGuid(), _companyId, _itemId, warehouseA.Id, today, 5m, 10m, 5m, 50m) { BatchId = batch1.Id },
+            new(Guid.NewGuid(), _companyId, _itemId, warehouseA.Id, tomorrow, 10m, 10m, 15m, 150m) { BatchId = batch1.Id }
+        };
+        _sleRepository.GetQueryableAsync().Returns(Task.FromResult(sles.AsQueryable()));
+
+        var input = new GetAvailableBatchesDto
+        {
+            CompanyId = _companyId,
+            ItemId = _itemId,
+            WarehouseId = warehouseA.Id,
+            ToDate = today, // cutoff as of today
+        };
+
+        var available = await _appService.GetAvailableBatchesAsync(input);
+
+        Assert.Single(available);
+        // Only today's 5 qty is available; tomorrow's 10 qty is excluded by cutoff
+        Assert.Equal(5m, available[0].AvailableQuantity);
+    }
 }
