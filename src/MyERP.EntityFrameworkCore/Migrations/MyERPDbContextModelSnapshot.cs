@@ -19737,6 +19737,9 @@ namespace MyERP.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("LastModifierId");
 
+                    b.Property<int>("MaintenanceStatus")
+                        .HasColumnType("integer");
+
                     b.Property<string>("MaintenanceTask")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -19746,7 +19749,7 @@ namespace MyERP.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<DateTime>("NextDueDate")
+                    b.Property<DateTime?>("NextDueDate")
                         .HasColumnType("timestamp without time zone");
 
                     b.Property<int>("Periodicity")

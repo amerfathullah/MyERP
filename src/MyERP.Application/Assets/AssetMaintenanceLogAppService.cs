@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using MyERP.Maintenance.Entities;
 using MyERP.Maintenance;
+using MyERP.Assets.Entities;
 using MyERP.Permissions;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -24,13 +25,16 @@ public class AssetMaintenanceLogAppService :
     IAssetMaintenanceLogAppService
 {
     private readonly IRepository<AssetMaintenance, Guid> _maintenanceRepository;
+    private readonly IRepository<Asset, Guid> _assetRepository;
 
     public AssetMaintenanceLogAppService(
         IRepository<AssetMaintenanceLog, Guid> repository,
-        IRepository<AssetMaintenance, Guid> maintenanceRepository)
+        IRepository<AssetMaintenance, Guid> maintenanceRepository,
+        IRepository<Asset, Guid> assetRepository)
         : base(repository)
     {
         _maintenanceRepository = maintenanceRepository;
+        _assetRepository = assetRepository;
         GetPolicyName = MyERPPermissions.AssetMaintenanceLogs.Default;
         GetListPolicyName = MyERPPermissions.AssetMaintenanceLogs.Default;
         CreatePolicyName = MyERPPermissions.AssetMaintenanceLogs.Create;
@@ -151,8 +155,8 @@ public class AssetMaintenanceLogAppService :
                 task.UpdateOnCompletion(input.CompletionDate);
                 await _maintenanceRepository.UpdateAsync(maintenance, autoSave: true);
 
-                // Auto-create next planned maintenance log if not Random
-                if (task.Periodicity != MaintenancePeriodicity.Random)
+                // Auto-create next planned maintenance log if not Random and within EndDate
+                if (task.Periodicity != MaintenancePeriodicity.Random && task.NextDueDate.HasValue)
                 {
                     var nextLog = new AssetMaintenanceLog(
                         GuidGenerator.Create(),
@@ -161,7 +165,7 @@ public class AssetMaintenanceLogAppService :
                         task.Id,
                         log.AssetId,
                         task.MaintenanceTask,
-                        task.NextDueDate,
+                        task.NextDueDate.Value,
                         task.Periodicity)
                     {
                         AssetName = log.AssetName,
@@ -176,12 +180,30 @@ public class AssetMaintenanceLogAppService :
                         Description = task.Description,
                         CertificateNo = task.CertificateNo,
                     };
+                    nextLog.CheckOverdue(DateTime.UtcNow.Date);
                     await Repository.InsertAsync(nextLog, autoSave: false);
                 }
             }
         }
 
         await Repository.UpdateAsync(log, autoSave: true);
+
+        // Update asset status: exit InMaintenance if no open due logs remain - ERPNext PR #59998 / commit 730bb168b7
+        var hasDueLogs = await Repository.AnyAsync(l =>
+            l.AssetId == log.AssetId &&
+            l.Id != log.Id &&
+            (l.Status == AssetMaintenanceStatus.Planned || l.Status == AssetMaintenanceStatus.Overdue) &&
+            l.DueDate.Date <= DateTime.UtcNow.Date);
+        if (!hasDueLogs)
+        {
+            var asset = await _assetRepository.FindAsync(log.AssetId);
+            if (asset != null && asset.Status == AssetStatus.InMaintenance)
+            {
+                asset.ResetMaintenanceStatus();
+                await _assetRepository.UpdateAsync(asset);
+            }
+        }
+
         return ObjectMapper.Map<AssetMaintenanceLog, AssetMaintenanceLogDto>(log);
     }
 

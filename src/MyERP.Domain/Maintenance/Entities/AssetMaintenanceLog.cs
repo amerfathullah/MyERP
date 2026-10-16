@@ -93,9 +93,13 @@ public class AssetMaintenanceLog : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void CheckOverdue(DateTime currentDate)
     {
-        if (Status == AssetMaintenanceStatus.Planned && DueDate < currentDate)
+        if (Status == AssetMaintenanceStatus.Planned && DueDate.Date < currentDate.Date)
         {
             Status = AssetMaintenanceStatus.Overdue;
+        }
+        else if (Status == AssetMaintenanceStatus.Overdue && DueDate.Date >= currentDate.Date)
+        {
+            Status = AssetMaintenanceStatus.Planned;
         }
     }
 }

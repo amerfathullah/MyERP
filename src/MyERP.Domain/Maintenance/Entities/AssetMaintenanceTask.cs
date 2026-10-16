@@ -17,8 +17,10 @@ public class AssetMaintenanceTask : FullAuditedEntity<Guid>, IMultiTenant
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
 
-    public DateTime NextDueDate { get; set; }
+    public DateTime? NextDueDate { get; set; }
     public DateTime? LastCompletionDate { get; set; }
+
+    public AssetMaintenanceStatus MaintenanceStatus { get; set; } = AssetMaintenanceStatus.Planned;
 
     public Guid? AssignToEmployeeId { get; set; }
     public string? AssignTo { get; set; }
@@ -44,12 +46,22 @@ public class AssetMaintenanceTask : FullAuditedEntity<Guid>, IMultiTenant
         Periodicity = periodicity;
         StartDate = startDate;
         EndDate = endDate;
-        NextDueDate = nextDueDate ?? CalculateNextDueDate(periodicity, startDate);
+        NextDueDate = nextDueDate ?? CalculateNextDueDate(periodicity, startDate, endDate);
+        MaintenanceStatus = AssetMaintenanceStatus.Planned;
     }
 
-    public static DateTime CalculateNextDueDate(MaintenancePeriodicity periodicity, DateTime fromDate)
+    /// <summary>
+    /// Calculates next due date respecting periodicity, start/end dates, and last completion date.
+    /// Per ERPNext PR #59998 / commit ea529f57d2 & 4375048459.
+    /// </summary>
+    public static DateTime? CalculateNextDueDate(
+        MaintenancePeriodicity periodicity,
+        DateTime startDate,
+        DateTime? endDate = null,
+        DateTime? lastCompletionDate = null)
     {
-        return periodicity switch
+        var fromDate = lastCompletionDate ?? startDate;
+        DateTime next = periodicity switch
         {
             MaintenancePeriodicity.Daily => fromDate.AddDays(1),
             MaintenancePeriodicity.Weekly => fromDate.AddDays(7),
@@ -62,6 +74,37 @@ public class AssetMaintenanceTask : FullAuditedEntity<Guid>, IMultiTenant
             MaintenancePeriodicity.Random => fromDate,
             _ => fromDate.AddMonths(1),
         };
+
+        if (endDate.HasValue)
+        {
+            if (startDate.Date >= endDate.Value.Date ||
+                (lastCompletionDate.HasValue && lastCompletionDate.Value.Date >= endDate.Value.Date) ||
+                next.Date > endDate.Value.Date)
+            {
+                return null;
+            }
+        }
+
+        return next;
+    }
+
+    /// <summary>
+    /// Updates maintenance task status based on next due date relative to as-of date.
+    /// Per ERPNext PR #59998 / commit 9ecd9425fb.
+    /// </summary>
+    public void SetStatus(DateTime asOfDate)
+    {
+        if (MaintenanceStatus == AssetMaintenanceStatus.Cancelled)
+            return;
+
+        if (NextDueDate.HasValue && NextDueDate.Value.Date < asOfDate.Date)
+        {
+            MaintenanceStatus = AssetMaintenanceStatus.Overdue;
+        }
+        else if (MaintenanceStatus == AssetMaintenanceStatus.Overdue)
+        {
+            MaintenanceStatus = AssetMaintenanceStatus.Planned;
+        }
     }
 
     public void UpdateOnCompletion(DateTime completionDate)
@@ -69,7 +112,11 @@ public class AssetMaintenanceTask : FullAuditedEntity<Guid>, IMultiTenant
         LastCompletionDate = completionDate;
         if (Periodicity != MaintenancePeriodicity.Random)
         {
-            NextDueDate = CalculateNextDueDate(Periodicity, completionDate);
+            NextDueDate = CalculateNextDueDate(Periodicity, StartDate, EndDate, completionDate);
+        }
+        if (NextDueDate.HasValue)
+        {
+            SetStatus(DateTime.UtcNow.Date);
         }
     }
 }

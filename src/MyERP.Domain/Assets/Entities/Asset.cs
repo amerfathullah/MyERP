@@ -421,6 +421,27 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Sets asset status to InMaintenance when open maintenance logs are due on or before today.
+    /// Per ERPNext PR #59998 / commit 730bb168b7.
+    /// </summary>
+    public void SetInMaintenance()
+    {
+        if (Status is AssetStatus.Sold or AssetStatus.Scrapped or AssetStatus.Cancelled or AssetStatus.Draft or AssetStatus.Capitalized or AssetStatus.WorkInProgress)
+            return;
+        Status = AssetStatus.InMaintenance;
+    }
+
+    /// <summary>
+    /// Resets asset status from InMaintenance back to its standard lifecycle status.
+    /// Per ERPNext PR #59998 / commit 730bb168b7.
+    /// </summary>
+    public void ResetMaintenanceStatus()
+    {
+        if (Status != AssetStatus.InMaintenance) return;
+        RecalculateStatus();
+    }
+
+    /// <summary>
     /// Computes depreciation rate and initial value after depreciation.
     /// Per ERPNext commit 48311ee5c5: called on asset creation/update before checking CalculateDepreciation.
     /// </summary>

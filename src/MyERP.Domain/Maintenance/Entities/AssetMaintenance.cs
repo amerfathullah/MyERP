@@ -5,6 +5,8 @@ using System.Linq;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 using Volo.Abp.MultiTenancy;
+using MyERP.Assets;
+using MyERP.Assets.Entities;
 
 namespace MyERP.Maintenance.Entities;
 
@@ -86,6 +88,72 @@ public class AssetMaintenance : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (task != null)
         {
             Tasks.Remove(task);
+        }
+    }
+
+    /// <summary>
+    /// Validates asset state, task date sequences, and team member assignments.
+    /// Per ERPNext PR #59998 / commit ea529f57d2 & 9ecd9425fb.
+    /// </summary>
+    public void Validate(
+        Asset asset,
+        ICollection<string>? teamMemberNames = null,
+        ICollection<Guid>? teamMemberEmployeeIds = null)
+    {
+        if (asset.Status == AssetStatus.Draft || asset.Status == AssetStatus.Cancelled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AssetMustBeSubmitted)
+                .WithData("assetName", AssetName ?? asset.AssetName);
+        }
+
+        foreach (var task in Tasks)
+        {
+            if (task.EndDate.HasValue && task.StartDate.Date >= task.EndDate.Value.Date)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.StartDateMustBeLessThanEndDate)
+                    .WithData("task", task.MaintenanceTask);
+            }
+
+            if (!task.NextDueDate.HasValue && task.Periodicity != MaintenancePeriodicity.Random)
+            {
+                task.NextDueDate = AssetMaintenanceTask.CalculateNextDueDate(
+                    task.Periodicity, task.StartDate, task.EndDate, task.LastCompletionDate);
+            }
+
+            if (task.NextDueDate.HasValue && task.NextDueDate.Value.Date < task.StartDate.Date)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.NextDueDateCannotBeBeforeStartDate)
+                    .WithData("task", task.MaintenanceTask);
+            }
+
+            task.SetStatus(DateTime.UtcNow.Date);
+
+            // Assignee validation: skip cancelled tasks
+            if (task.MaintenanceStatus != AssetMaintenanceStatus.Cancelled)
+            {
+                var isInvalid = false;
+                if (teamMemberEmployeeIds != null && task.AssignToEmployeeId.HasValue)
+                {
+                    if (!teamMemberEmployeeIds.Contains(task.AssignToEmployeeId.Value))
+                    {
+                        isInvalid = true;
+                    }
+                }
+                else if (teamMemberNames != null && !string.IsNullOrWhiteSpace(task.AssignTo))
+                {
+                    if (!teamMemberNames.Contains(task.AssignTo))
+                    {
+                        isInvalid = true;
+                    }
+                }
+
+                if (isInvalid)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.AssigneeNotInMaintenanceTeam)
+                        .WithData("assignTo", task.AssignTo ?? task.AssignToEmployeeId?.ToString() ?? string.Empty)
+                        .WithData("team", MaintenanceTeamName ?? string.Empty);
+                }
+            }
         }
     }
 }

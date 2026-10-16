@@ -14,8 +14,9 @@ public class AssetMaintenanceTaskDto : FullAuditedEntityDto<Guid>
     public string? MaintenanceType { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime? EndDate { get; set; }
-    public DateTime NextDueDate { get; set; }
+    public DateTime? NextDueDate { get; set; }
     public DateTime? LastCompletionDate { get; set; }
+    public AssetMaintenanceStatus MaintenanceStatus { get; set; }
     public Guid? AssignToEmployeeId { get; set; }
     public string? AssignTo { get; set; }
     public string? AssignToName { get; set; }
@@ -33,6 +34,7 @@ public class CreateUpdateAssetMaintenanceTaskDto
     public DateTime StartDate { get; set; } = DateTime.UtcNow;
     public DateTime? EndDate { get; set; }
     public DateTime? NextDueDate { get; set; }
+    public AssetMaintenanceStatus MaintenanceStatus { get; set; } = AssetMaintenanceStatus.Planned;
     public Guid? AssignToEmployeeId { get; set; }
     public string? AssignTo { get; set; }
     public string? AssignToName { get; set; }

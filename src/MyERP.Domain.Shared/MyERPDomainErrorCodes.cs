@@ -651,6 +651,13 @@ public static class MyERPDomainErrorCodes
     // Workstation Job Card Validation (ERPNext PR #60595 / commit da8343617a)
     public const string JobCardNotOpen = "MyERP:10044";
     public const string JobCardWorkstationMismatch = "MyERP:10045";
+
+    // Asset Maintenance Review Guards (ERPNext PR #59998 / commit ea529f57d2, 9ecd9425fb, etc.)
+    public const string AssetMustBeSubmitted = "MyERP:15013";
+    public const string StartDateMustBeLessThanEndDate = "MyERP:15014";
+    public const string NextDueDateCannotBeBeforeStartDate = "MyERP:15015";
+    public const string AssigneeNotInMaintenanceTeam = "MyERP:15016";
+    public const string CannotDeleteWithCompletedLogs = "MyERP:15017";
 }
 
 

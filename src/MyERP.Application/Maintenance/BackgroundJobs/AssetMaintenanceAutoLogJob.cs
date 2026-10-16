@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using MyERP.Assets;
+using MyERP.Assets.Entities;
 using MyERP.Maintenance.Entities;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.DependencyInjection;
@@ -18,17 +20,20 @@ public class AssetMaintenanceAutoLogJob : AsyncBackgroundJob<AssetMaintenanceAut
 {
     private readonly IRepository<AssetMaintenance, Guid> _maintenanceRepository;
     private readonly IRepository<AssetMaintenanceLog, Guid> _logRepository;
+    private readonly IRepository<Asset, Guid> _assetRepository;
     private readonly IGuidGenerator _guidGenerator;
     private readonly ILogger<AssetMaintenanceAutoLogJob> _logger;
 
     public AssetMaintenanceAutoLogJob(
         IRepository<AssetMaintenance, Guid> maintenanceRepository,
         IRepository<AssetMaintenanceLog, Guid> logRepository,
+        IRepository<Asset, Guid> assetRepository,
         IGuidGenerator guidGenerator,
         ILogger<AssetMaintenanceAutoLogJob> logger)
     {
         _maintenanceRepository = maintenanceRepository;
         _logRepository = logRepository;
+        _assetRepository = assetRepository;
         _guidGenerator = guidGenerator;
         _logger = logger;
     }
@@ -66,11 +71,11 @@ public class AssetMaintenanceAutoLogJob : AsyncBackgroundJob<AssetMaintenanceAut
                     continue;
 
                 // Check if due within next 7 days
-                if (task.NextDueDate <= upcomingWindow)
+                if (task.NextDueDate.HasValue && task.NextDueDate.Value <= upcomingWindow)
                 {
                     // Check if log already generated
                     var logExists = existingLogs.Any(l => l.AssetMaintenanceTaskId == task.Id &&
-                                                         l.DueDate.Date == task.NextDueDate.Date);
+                                                         l.DueDate.Date == task.NextDueDate.Value.Date);
                     if (!logExists)
                     {
                         var log = new AssetMaintenanceLog(
@@ -80,7 +85,7 @@ public class AssetMaintenanceAutoLogJob : AsyncBackgroundJob<AssetMaintenanceAut
                             task.Id,
                             maint.AssetId,
                             task.MaintenanceTask,
-                            task.NextDueDate,
+                            task.NextDueDate.Value,
                             task.Periodicity)
                         {
                             TenantId = args.TenantId,
@@ -96,12 +101,32 @@ public class AssetMaintenanceAutoLogJob : AsyncBackgroundJob<AssetMaintenanceAut
                             CertificateNo = task.CertificateNo,
                         };
 
+                        log.CheckOverdue(asOfDate);
                         await _logRepository.InsertAsync(log);
+                        existingLogs.Add(log);
                         generatedCount++;
 
-                        // Advance next due date
-                        task.NextDueDate = AssetMaintenanceTask.CalculateNextDueDate(task.Periodicity, task.NextDueDate);
+                        // Advance next due date respecting EndDate - ERPNext PR #59998 / commit ea529f57d2
+                        task.NextDueDate = AssetMaintenanceTask.CalculateNextDueDate(
+                            task.Periodicity, task.StartDate, task.EndDate, task.NextDueDate);
                     }
+                }
+            }
+
+            // Update asset maintenance status: in maintenance if any open logs are due on or before asOfDate
+            var hasDueLog = existingLogs.Any(l => l.AssetId == maint.AssetId && l.DueDate.Date <= asOfDate);
+            var asset = await _assetRepository.FindAsync(maint.AssetId);
+            if (asset != null)
+            {
+                if (hasDueLog && asset.Status != AssetStatus.InMaintenance)
+                {
+                    asset.SetInMaintenance();
+                    await _assetRepository.UpdateAsync(asset);
+                }
+                else if (!hasDueLog && asset.Status == AssetStatus.InMaintenance)
+                {
+                    asset.ResetMaintenanceStatus();
+                    await _assetRepository.UpdateAsync(asset);
                 }
             }
 
