@@ -2730,6 +2730,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Quotations',
       },
       {
+        path: '/sales/reports/territory-wise-sales',
+        name: '::Menu:TerritoryWiseSales',
+        iconClass: 'fas fa-map-marked-alt',
+        order: 22.993,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesOrders',
+      },
+      {
         path: '/sales/reports/commission',
         name: '::Menu:SalesCommission',
         iconClass: 'fas fa-coins',

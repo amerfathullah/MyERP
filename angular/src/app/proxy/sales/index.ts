@@ -59,3 +59,4 @@ export * from './lost-quotations.service';
 export * from './customer-wise-item-price.service';
 export * from './sales-order-trends.service';
 export * from './quotation-trends.service';
+export * from './territory-wise-sales.service';

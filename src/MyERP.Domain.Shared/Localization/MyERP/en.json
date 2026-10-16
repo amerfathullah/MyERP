@@ -5194,7 +5194,19 @@
     "NoContact": "No contact on file",
     "Primary": "Primary",
     "SalesPartner": "Sales Partner",
-    "Refresh": "Refresh"
+    "Refresh": "Refresh",
+    "Menu:TerritoryWiseSales": "Territory-wise Sales",
+    "TerritoryWiseSales": "Territory-wise Sales",
+    "TerritoryWiseSalesDescription": "Funnel analysis of Opportunity, Quotation, Order, and Billing pipeline by sales territory.",
+    "TotalOpportunityAmount": "Total Opportunity Amount",
+    "TotalQuotationAmount": "Total Quotation Amount",
+    "TotalOrderAmount": "Total Order Amount",
+    "OpportunityAmount": "Opportunity Amount",
+    "QuotationAmount": "Quotation Amount",
+    "OrderAmount": "Order Amount",
+    "AllTerritories": "All Territories",
+    "Opportunities": "Opportunities",
+    "ConversionRate": "Conversion Rate"
   }
 }
 

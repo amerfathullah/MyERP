@@ -2565,6 +2565,31 @@ export interface QuotationTrendsReportDto {
   chart: QuotationTrendsChartDto;
 }
 
+export interface GetTerritoryWiseSalesInput {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  territoryId?: string | null;
+}
 
+export interface TerritoryWiseSalesRowDto {
+  territoryId?: string | null;
+  territoryName: string;
+  opportunityAmount: number;
+  quotationAmount: number;
+  orderAmount: number;
+  billingAmount: number;
+  opportunityCount: number;
+  quotationCount: number;
+  orderCount: number;
+  billingCount: number;
+}
 
-
+export interface TerritoryWiseSalesReportDto {
+  currency: string;
+  rows: TerritoryWiseSalesRowDto[];
+  totalOpportunityAmount: number;
+  totalQuotationAmount: number;
+  totalOrderAmount: number;
+  totalBillingAmount: number;
+}

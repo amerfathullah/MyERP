@@ -694,6 +694,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Quotations' },
   },
   {
+    path: 'sales/reports/territory-wise-sales',
+    loadComponent: () => import('./sales/reports/territory-wise-sales/territory-wise-sales.component').then(c => c.TerritoryWiseSalesComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesOrders' },
+  },
+  {
     path: 'sales/reports/commission',
     loadComponent: () => import('./sales/reports/sales-commission-report/sales-commission-report.component').then(c => c.SalesCommissionReportComponent),
     canActivate: [authGuard, permissionGuard],
