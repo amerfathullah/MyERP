@@ -118,4 +118,18 @@ public class DeferredAccountingTests
         var schedule = service.GenerateSchedule(item, DateTime.Today);
         schedule.ShouldBeEmpty();
     }
+
+    [Fact]
+    public void DeferredSchedule_SingleDayService_GeneratesSingleEntryWithExactPostingDate()
+    {
+        var service = new DeferredAccountingService(null!, null!, null!, null!, null!);
+        var sameDay = new DateTime(2026, 4, 15);
+        var item = CreateDeferredItem(sameDay, sameDay, 500m);
+
+        var schedule = service.GenerateSchedule(item, sameDay);
+
+        schedule.Count.ShouldBe(1);
+        schedule[0].Amount.ShouldBe(500m);
+        schedule[0].PostingDate.ShouldBe(sameDay);
+    }
 }

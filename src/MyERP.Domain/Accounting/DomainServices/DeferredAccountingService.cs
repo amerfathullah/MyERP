@@ -179,6 +179,21 @@ public class DeferredAccountingService : DomainService
             : item.ServiceEndDate.Value;
         var totalAmount = item.LineTotal;
 
+        if (start.Date == end.Date)
+        {
+            return new List<DeferredScheduleEntry>
+            {
+                new DeferredScheduleEntry
+                {
+                    PostingDate = end.Date,
+                    Amount = totalAmount,
+                    AlreadyBooked = end.Date < asOfDate,
+                    PeriodIndex = 1,
+                    TotalPeriods = 1,
+                }
+            };
+        }
+
         var totalMonths = ((end.Year - start.Year) * 12) + end.Month - start.Month + 1;
         if (totalMonths <= 0) totalMonths = 1;
 
@@ -252,6 +267,21 @@ public class DeferredAccountingService : DomainService
             ? item.ServiceStopDate.Value
             : item.ServiceEndDate.Value;
         var totalAmount = item.LineTotal;
+
+        if (start.Date == end.Date)
+        {
+            return new List<DeferredScheduleEntry>
+            {
+                new DeferredScheduleEntry
+                {
+                    PostingDate = end.Date,
+                    Amount = totalAmount,
+                    AlreadyBooked = end.Date < asOfDate,
+                    PeriodIndex = 1,
+                    TotalPeriods = 1,
+                }
+            };
+        }
 
         // Calculate total months in service period
         var totalMonths = ((end.Year - start.Year) * 12) + end.Month - start.Month + 1;
