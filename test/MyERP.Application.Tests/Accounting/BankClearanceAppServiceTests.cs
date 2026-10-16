@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
+using MyERP.Purchasing.Entities;
+using MyERP.Sales.Entities;
 using NSubstitute;
 using Shouldly;
 using Volo.Abp;
@@ -22,6 +24,7 @@ namespace MyERP.Accounting;
 /// - Journal Entries touching bank accounts aggregated per entry
 /// - Clearance date bulk update and posting date validation
 /// - Uncleared vs cleared entry filtering
+/// - POS Sales Invoice & Paid Purchase Invoice clearance date and reference number resolution
 /// </summary>
 public class BankClearanceAppServiceTests
 {
@@ -30,6 +33,8 @@ public class BankClearanceAppServiceTests
     private readonly IRepository<JournalEntryLine, Guid> _journalLineRepo = Substitute.For<IRepository<JournalEntryLine, Guid>>();
     private readonly IRepository<Account, Guid> _accountRepo = Substitute.For<IRepository<Account, Guid>>();
     private readonly IRepository<Company, Guid> _companyRepo = Substitute.For<IRepository<Company, Guid>>();
+    private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+    private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepo = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
 
     private readonly Guid _companyId = Guid.NewGuid();
     private readonly Guid _bankAccountId = Guid.NewGuid();
@@ -42,7 +47,9 @@ public class BankClearanceAppServiceTests
             _journalRepo,
             _journalLineRepo,
             _accountRepo,
-            _companyRepo);
+            _companyRepo,
+            _salesInvoiceRepo,
+            _purchaseInvoiceRepo);
     }
 
     private void MockPaymentQuery(List<PaymentEntry> list)
@@ -351,5 +358,179 @@ public class BankClearanceAppServiceTests
             }));
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ClearanceDateBeforePostingDate);
+    }
+
+    [Fact]
+    public async Task GetEntriesAsync_SalesInvoiceJournalEntry_ResolvesDocTypeAndReference()
+    {
+        var company = new Company(_companyId, "Test Co") { CurrencyCode = "MYR" };
+        var bankAccount = new Account(_bankAccountId, _companyId, "1120", "Bank Account", AccountType.Asset) { Currency = "MYR" };
+
+        _companyRepo.FindAsync(_companyId).Returns(Task.FromResult<Company?>(company));
+        _accountRepo.FindAsync(_bankAccountId).Returns(Task.FromResult<Account?>(bankAccount));
+
+        var postingDate = new DateTime(2026, 6, 15);
+        var fiscalYearId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+
+        var si = new SalesInvoice(Guid.NewGuid(), _companyId, customerId, "POS-INV-2026-001", postingDate)
+        {
+            Notes = "UTR-POS-999"
+        };
+        _salesInvoiceRepo.FindAsync(si.Id).Returns(Task.FromResult<SalesInvoice?>(si));
+
+        var je = new JournalEntry(Guid.NewGuid(), _companyId, fiscalYearId, postingDate)
+        {
+            ReferenceType = "SalesInvoice",
+            ReferenceId = si.Id
+        };
+        je.AddLineWithDimensions(_bankAccountId, 300m, true, description: "POS sale deposit");
+        je.AddLineWithDimensions(_otherAccountId, 300m, false, description: "Receivable credit");
+        je.Post();
+
+        MockPaymentQuery(new List<PaymentEntry>());
+        _journalRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JournalEntry> { je }.AsQueryable()));
+        _journalLineRepo.GetQueryableAsync().Returns(Task.FromResult(je.Lines.AsQueryable()));
+
+        var appService = CreateAppService();
+        var result = await appService.GetEntriesAsync(new GetBankClearanceEntriesInput
+        {
+            CompanyId = _companyId,
+            BankAccountId = _bankAccountId,
+            FromDate = new DateTime(2026, 6, 1),
+            ToDate = new DateTime(2026, 6, 30),
+            IncludeCleared = false
+        });
+
+        result.Count.ShouldBe(1);
+        var entry = result[0];
+        entry.DocumentType.ShouldBe("SalesInvoice");
+        entry.DocumentId.ShouldBe(je.Id);
+        entry.DocumentNumber.ShouldBe("POS-INV-2026-001");
+        entry.ReferenceNumber.ShouldBe("UTR-POS-999");
+        entry.Debit.ShouldBe(300m);
+        entry.Credit.ShouldBe(0m);
+    }
+
+    [Fact]
+    public async Task GetEntriesAsync_PurchaseInvoiceJournalEntry_ResolvesSupplierInvoiceNumberAsReference()
+    {
+        var company = new Company(_companyId, "Test Co") { CurrencyCode = "MYR" };
+        var bankAccount = new Account(_bankAccountId, _companyId, "1120", "Bank Account", AccountType.Asset) { Currency = "MYR" };
+
+        _companyRepo.FindAsync(_companyId).Returns(Task.FromResult<Company?>(company));
+        _accountRepo.FindAsync(_bankAccountId).Returns(Task.FromResult<Account?>(bankAccount));
+
+        var postingDate = new DateTime(2026, 6, 15);
+        var fiscalYearId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+
+        var pi = new PurchaseInvoice(Guid.NewGuid(), _companyId, supplierId, "PINV-2026-005", postingDate)
+        {
+            SupplierInvoiceNumber = "BILL-SUPP-1234"
+        };
+        _purchaseInvoiceRepo.FindAsync(pi.Id).Returns(Task.FromResult<PurchaseInvoice?>(pi));
+
+        var je = new JournalEntry(Guid.NewGuid(), _companyId, fiscalYearId, postingDate)
+        {
+            ReferenceType = "PurchaseInvoice",
+            ReferenceId = pi.Id
+        };
+        je.AddLineWithDimensions(_otherAccountId, 450m, true, description: "Payable debit");
+        je.AddLineWithDimensions(_bankAccountId, 450m, false, description: "Bank payment");
+        je.Post();
+
+        MockPaymentQuery(new List<PaymentEntry>());
+        _journalRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JournalEntry> { je }.AsQueryable()));
+        _journalLineRepo.GetQueryableAsync().Returns(Task.FromResult(je.Lines.AsQueryable()));
+
+        var appService = CreateAppService();
+        var result = await appService.GetEntriesAsync(new GetBankClearanceEntriesInput
+        {
+            CompanyId = _companyId,
+            BankAccountId = _bankAccountId,
+            FromDate = new DateTime(2026, 6, 1),
+            ToDate = new DateTime(2026, 6, 30),
+            IncludeCleared = false
+        });
+
+        result.Count.ShouldBe(1);
+        var entry = result[0];
+        entry.DocumentType.ShouldBe("PurchaseInvoice");
+        entry.DocumentId.ShouldBe(je.Id);
+        entry.DocumentNumber.ShouldBe("PINV-2026-005");
+        entry.ReferenceNumber.ShouldBe("BILL-SUPP-1234");
+        entry.Debit.ShouldBe(0m);
+        entry.Credit.ShouldBe(450m);
+    }
+
+    [Fact]
+    public async Task SetClearanceDateAsync_SalesInvoiceDocType_UpdatesLinkedJournalEntry()
+    {
+        var postingDate = new DateTime(2026, 6, 15);
+        var fiscalYearId = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+
+        var je = new JournalEntry(Guid.NewGuid(), _companyId, fiscalYearId, postingDate)
+        {
+            ReferenceType = "SalesInvoice",
+            ReferenceId = invoiceId
+        };
+        je.AddLineWithDimensions(_bankAccountId, 200m, true, description: "Bank deposit");
+        je.AddLineWithDimensions(_otherAccountId, 200m, false, description: "AR credit");
+        je.Post();
+
+        _journalRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JournalEntry> { je }.AsQueryable()));
+        _journalRepo.UpdateAsync(je).Returns(Task.FromResult(je));
+
+        var appService = CreateAppService();
+        var clearanceDate = new DateTime(2026, 6, 18);
+
+        var result = await appService.SetClearanceDateAsync(new SetClearanceDateDto
+        {
+            ClearanceDate = clearanceDate,
+            Entries = new List<BankClearanceDocRefDto>
+            {
+                new() { DocumentType = "SalesInvoice", DocumentId = invoiceId }
+            }
+        });
+
+        result.UpdatedCount.ShouldBe(1);
+        je.ClearanceDate.ShouldBe(clearanceDate);
+    }
+
+    [Fact]
+    public async Task SetClearanceDateAsync_PurchaseInvoiceDocType_UpdatesLinkedJournalEntry()
+    {
+        var postingDate = new DateTime(2026, 6, 15);
+        var fiscalYearId = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+
+        var je = new JournalEntry(Guid.NewGuid(), _companyId, fiscalYearId, postingDate)
+        {
+            ReferenceType = "PurchaseInvoice",
+            ReferenceId = invoiceId
+        };
+        je.AddLineWithDimensions(_otherAccountId, 350m, true, description: "AP debit");
+        je.AddLineWithDimensions(_bankAccountId, 350m, false, description: "Bank payment");
+        je.Post();
+
+        _journalRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JournalEntry> { je }.AsQueryable()));
+        _journalRepo.UpdateAsync(je).Returns(Task.FromResult(je));
+
+        var appService = CreateAppService();
+        var clearanceDate = new DateTime(2026, 6, 20);
+
+        var result = await appService.SetClearanceDateAsync(new SetClearanceDateDto
+        {
+            ClearanceDate = clearanceDate,
+            Entries = new List<BankClearanceDocRefDto>
+            {
+                new() { DocumentType = "PurchaseInvoice", DocumentId = invoiceId }
+            }
+        });
+
+        result.UpdatedCount.ShouldBe(1);
+        je.ClearanceDate.ShouldBe(clearanceDate);
     }
 }

@@ -39,7 +39,7 @@ public class GetBankClearanceEntriesInput
 
 public class BankClearanceEntryDto
 {
-    /// <summary>"PaymentEntry" or "JournalEntry".</summary>
+    /// <summary>"PaymentEntry", "JournalEntry", "SalesInvoice", or "PurchaseInvoice".</summary>
     public string DocumentType { get; set; } = null!;
     public Guid DocumentId { get; set; }
     public string DocumentNumber { get; set; } = null!;
@@ -62,7 +62,7 @@ public class SetClearanceDateDto
 
 public class BankClearanceDocRefDto
 {
-    /// <summary>"PaymentEntry" or "JournalEntry".</summary>
+    /// <summary>"PaymentEntry", "JournalEntry", "SalesInvoice", or "PurchaseInvoice".</summary>
     [Required]
     public string DocumentType { get; set; } = null!;
 

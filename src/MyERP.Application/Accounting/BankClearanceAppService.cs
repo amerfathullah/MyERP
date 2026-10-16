@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Permissions;
+using MyERP.Purchasing.Entities;
+using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
@@ -13,8 +15,9 @@ using Volo.Abp.Domain.Repositories;
 namespace MyERP.Accounting;
 
 /// <summary>
-/// Bank Clearance — marks Payment Entries and Journal Entries as cleared against a bank
-/// statement by setting ClearanceDate. Per ERPNext accounts/doctype/bank_clearance.
+/// Bank Clearance — marks Payment Entries, Journal Entries, POS Sales Invoices, and Paid Purchase Invoices
+/// as cleared against a bank statement by setting ClearanceDate. Per ERPNext accounts/doctype/bank_clearance
+/// and bank_clearance_summary (PR #60044 / commit b5ecdf00f1).
 /// Distinct from BankReconciliationAppService: reconciliation matches a bank statement LINE
 /// to a voucher; clearance marks the voucher itself as confirmed-cleared at the bank
 /// (drives the Bank Reconciliation Statement's outstanding/uncleared calculation).
@@ -27,6 +30,8 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
     private readonly IRepository<JournalEntryLine, Guid> _journalEntryLineRepository;
     private readonly IRepository<Account, Guid>? _accountRepository;
     private readonly IRepository<MyERP.Core.Entities.Company, Guid>? _companyRepository;
+    private readonly IRepository<SalesInvoice, Guid>? _salesInvoiceRepository;
+    private readonly IRepository<PurchaseInvoice, Guid>? _purchaseInvoiceRepository;
 
     private IRepository<Account, Guid> AccountRepository =>
         _accountRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
@@ -34,18 +39,28 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
     private IRepository<MyERP.Core.Entities.Company, Guid> CompanyRepository =>
         _companyRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
 
+    private IRepository<SalesInvoice, Guid> SalesInvoiceRepository =>
+        _salesInvoiceRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+
+    private IRepository<PurchaseInvoice, Guid> PurchaseInvoiceRepository =>
+        _purchaseInvoiceRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseInvoice, Guid>>();
+
     public BankClearanceAppService(
         IRepository<PaymentEntry, Guid> paymentEntryRepository,
         IRepository<JournalEntry, Guid> journalEntryRepository,
         IRepository<JournalEntryLine, Guid> journalEntryLineRepository,
         IRepository<Account, Guid>? accountRepository = null,
-        IRepository<MyERP.Core.Entities.Company, Guid>? companyRepository = null)
+        IRepository<MyERP.Core.Entities.Company, Guid>? companyRepository = null,
+        IRepository<SalesInvoice, Guid>? salesInvoiceRepository = null,
+        IRepository<PurchaseInvoice, Guid>? purchaseInvoiceRepository = null)
     {
         _paymentEntryRepository = paymentEntryRepository;
         _journalEntryRepository = journalEntryRepository;
         _journalEntryLineRepository = journalEntryLineRepository;
         _accountRepository = accountRepository;
         _companyRepository = companyRepository;
+        _salesInvoiceRepository = salesInvoiceRepository;
+        _purchaseInvoiceRepository = purchaseInvoiceRepository;
     }
 
     public async Task<List<BankClearanceEntryDto>> GetEntriesAsync(GetBankClearanceEntriesInput input)
@@ -126,15 +141,54 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
                         l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount,
                         l.Amount));
 
+                var docType = je.ReferenceType is "SalesInvoice" or "PurchaseInvoice" ? je.ReferenceType : "JournalEntry";
+                var docNumber = je.EntryNumber ?? je.Id.ToString()[..8];
+                var refNumber = je.ReferenceNumber;
+
+                if (je.ReferenceType == "SalesInvoice" && je.ReferenceId.HasValue)
+                {
+                    try
+                    {
+                        var si = await SalesInvoiceRepository.FindAsync(je.ReferenceId.Value);
+                        if (si != null)
+                        {
+                            docNumber = si.InvoiceNumber;
+                            // Per ERPNext PR #60044 / commit b5ecdf00f1: show POS / invoice reference number
+                            refNumber ??= si.Notes ?? si.InvoiceNumber;
+                        }
+                    }
+                    catch
+                    {
+                        // Repository fallback if unavailable in unit test context
+                    }
+                }
+                else if (je.ReferenceType == "PurchaseInvoice" && je.ReferenceId.HasValue)
+                {
+                    try
+                    {
+                        var pi = await PurchaseInvoiceRepository.FindAsync(je.ReferenceId.Value);
+                        if (pi != null)
+                        {
+                            docNumber = pi.InvoiceNumber;
+                            // Per ERPNext PR #60044: bill_no / supplier invoice number as cheque number
+                            refNumber ??= pi.SupplierInvoiceNumber ?? pi.InvoiceNumber;
+                        }
+                    }
+                    catch
+                    {
+                        // Repository fallback if unavailable in unit test context
+                    }
+                }
+
                 entries.Add(new BankClearanceEntryDto
                 {
-                    DocumentType = "JournalEntry",
+                    DocumentType = docType,
                     DocumentId = je.Id,
-                    DocumentNumber = je.EntryNumber ?? je.Id.ToString()[..8],
+                    DocumentNumber = docNumber,
                     PostingDate = je.PostingDate,
                     Debit = debit,
                     Credit = credit,
-                    ReferenceNumber = je.ReferenceNumber,
+                    ReferenceNumber = refNumber,
                     ClearanceDate = je.ClearanceDate,
                 });
             }
@@ -150,7 +204,9 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
 
         foreach (var docRef in input.Entries)
         {
-            switch (docRef.DocumentType)
+            var normalizedType = docRef.DocumentType.Replace(" ", "");
+
+            switch (normalizedType)
             {
                 case "PaymentEntry":
                     var pe = await _paymentEntryRepository.GetAsync(docRef.DocumentId);
@@ -162,6 +218,25 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
                     var je = await _journalEntryRepository.GetAsync(docRef.DocumentId);
                     je.SetClearanceDate(input.ClearanceDate);
                     await _journalEntryRepository.UpdateAsync(je);
+                    break;
+
+                case "SalesInvoice":
+                case "PurchaseInvoice":
+                    // Support clearance by invoice ID or direct JournalEntry ID (PR #60044)
+                    var jeQuery = await _journalEntryRepository.GetQueryableAsync();
+                    var linkedJe = jeQuery.FirstOrDefault(j =>
+                        j.Id == docRef.DocumentId
+                        || (j.ReferenceType == normalizedType && j.ReferenceId == docRef.DocumentId));
+                    if (linkedJe != null)
+                    {
+                        linkedJe.SetClearanceDate(input.ClearanceDate);
+                        await _journalEntryRepository.UpdateAsync(linkedJe);
+                    }
+                    else
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.EntityNotFound)
+                            .WithData("detail", $"No journal entry found for {docRef.DocumentType} {docRef.DocumentId}");
+                    }
                     break;
 
                 default:
