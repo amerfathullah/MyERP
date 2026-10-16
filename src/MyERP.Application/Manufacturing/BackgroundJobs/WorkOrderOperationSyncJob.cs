@@ -28,6 +28,7 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
     private readonly IRepository<JobCard, Guid> _jobCardRepository;
     private readonly IRepository<ManufacturingSettings, Guid> _settingsRepository;
     private readonly IRepository<Inventory.Entities.StockEntry, Guid> _stockEntryRepository;
+    private readonly IRepository<BillOfMaterials, Guid> _bomRepository;
     private readonly StockValuationService _valuationService;
     private readonly BinService _binService;
     private readonly StockPostingService _stockPostingService;
@@ -44,6 +45,7 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
         IRepository<JobCard, Guid> jobCardRepository,
         IRepository<ManufacturingSettings, Guid> settingsRepository,
         IRepository<Inventory.Entities.StockEntry, Guid> stockEntryRepository,
+        IRepository<BillOfMaterials, Guid> bomRepository,
         StockValuationService valuationService,
         BinService binService,
         StockPostingService stockPostingService,
@@ -59,6 +61,7 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
         _jobCardRepository = jobCardRepository;
         _settingsRepository = settingsRepository;
         _stockEntryRepository = stockEntryRepository;
+        _bomRepository = bomRepository;
         _valuationService = valuationService;
         _binService = binService;
         _stockPostingService = stockPostingService;
@@ -71,6 +74,7 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
         _woManager = woManager;
     }
 
+    [UnitOfWork]
     public override async Task ExecuteAsync(WorkOrderOperationSyncJobArgs args)
     {
         _logger.LogInformation("WorkOrderOperationSyncJob: Synchronizing work orders and job cards for company {CompanyId}",
@@ -136,12 +140,22 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
 
         wo.RecordProduction(delta, overproductionPercentage: overproductionPct);
 
+        string entryNumber;
+        try
+        {
+            entryNumber = await _numberGenerator.GenerateAsync("SE", wo.CompanyId);
+        }
+        catch (Volo.Abp.BusinessException ex) when (ex.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+        {
+            entryNumber = await _numberGenerator.GenerateAsync("StockEntry", wo.CompanyId);
+        }
+
         var entry = new Inventory.Entities.StockEntry(
             _guidGenerator.Create(), wo.CompanyId, StockEntryType.Manufacture,
             DateTime.UtcNow.Date, tenantId ?? _currentTenant.Id)
         {
             WorkOrderId = wo.Id,
-            EntryNumber = await _numberGenerator.GenerateAsync("SE", wo.CompanyId),
+            EntryNumber = entryNumber,
             FgCompletedQty = delta,
             Notes = $"Production recorded — WO {wo.WorkOrderNumber} (WorkOrderOperationSyncJob catch-up)",
         };
@@ -169,17 +183,64 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
             }
         }
 
+        var bom = await _bomRepository.FindAsync(wo.BomId);
+        var fgCostAllocationPct = bom?.CostAllocationPercentage ?? 100m;
+        var fgAllocatedCost = totalRmCost * (fgCostAllocationPct / 100m);
+
+        // Operating cost from BOM operations (ERPNext PR #59804 / PR #60595)
+        var unitOperatingCost = (bom?.Quantity > 0 && bom.OperatingCost > 0)
+            ? bom.OperatingCost / bom.Quantity
+            : 0m;
+        var opCost = Math.Round(unitOperatingCost * delta, 4);
+        if (opCost > 0)
+        {
+            entry.TotalAdditionalCosts += opCost;
+        }
+
         if (wo.FgWarehouseId.HasValue && delta > 0)
         {
-            var fgRate = totalRmCost / delta;
+            var fgRate = fgAllocatedCost / delta;
 
             entry.AddItem(
                 itemId: wo.ItemId, quantity: delta,
                 sourceWarehouseId: null, targetWarehouseId: wo.FgWarehouseId.Value,
-                valuationRate: fgRate);
+                valuationRate: fgRate, isFinishedItem: true);
 
             await _binService.UpdatePlannedQtyAsync(
                 wo.ItemId, wo.FgWarehouseId.Value, -delta, wo.TenantId);
+        }
+
+        // Produce secondary items (co-products, by-products, scrap) when BOM defines them
+        if (bom != null && bom.SecondaryItems.Any())
+        {
+            foreach (var secItem in bom.SecondaryItems)
+            {
+                var secQty = secItem.EffectiveQuantity * (delta / bom.Quantity);
+                if (secQty <= 0) continue;
+
+                var secCost = totalRmCost * (secItem.CostAllocationPercentage / 100m);
+                var secRate = secCost / secQty;
+
+                var secWarehouseId = secItem.SecondaryItemType == SecondaryItemType.Scrap
+                    ? (wo.ScrapWarehouseId ?? bom.ScrapWarehouseId ?? wo.FgWarehouseId)
+                    : wo.FgWarehouseId;
+
+                if (secWarehouseId.HasValue)
+                {
+                    entry.AddItem(
+                        itemId: secItem.ItemId, quantity: secQty,
+                        sourceWarehouseId: null, targetWarehouseId: secWarehouseId.Value,
+                        valuationRate: secRate,
+                        secondaryItemType: secItem.SecondaryItemType.ToString(),
+                        processLossPercentage: secItem.ProcessLossPercentage);
+                }
+            }
+        }
+
+        // Distribute operating / additional costs to finished goods item
+        if (entry.TotalAdditionalCosts > 0)
+        {
+            Inventory.DomainServices.StockEntryManager.DistributeAdditionalCosts(entry);
         }
 
         entry.Submit();

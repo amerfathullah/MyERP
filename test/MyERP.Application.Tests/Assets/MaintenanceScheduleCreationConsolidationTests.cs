@@ -57,4 +57,40 @@ public abstract class MaintenanceScheduleCreationConsolidationTests<TStartupModu
             dates[3].ShouldBe(new DateTime(2026, 3, 30));
         });
     }
+
+    [Fact]
+    public async Task CreateScheduleAsync_WhenBackwardShiftPrecedesStartDate_ShiftsForward()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var holidayListRepository = GetRequiredService<IRepository<HolidayList, Guid>>();
+            var maintenanceAppService = GetRequiredService<IMaintenanceAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Schedule Shift Forward Co"), autoSave: true);
+
+            var holidayList = new HolidayList(Guid.NewGuid(), company.Id, "MY 2026 Shift Forward", 2026);
+            for (int d = 2; d <= 9; d++)
+            {
+                holidayList.AddHoliday(new Holiday(Guid.NewGuid(), holidayList.Id, new DateTime(2026, 3, d), $"Holiday {d}"));
+            }
+            await holidayListRepository.InsertAsync(holidayList, autoSave: true);
+
+            var created = await maintenanceAppService.CreateScheduleAsync(new CreateMaintenanceScheduleDto
+            {
+                CompanyId = company.Id,
+                StartDate = new DateTime(2026, 3, 2),
+                EndDate = new DateTime(2026, 3, 30),
+                Periodicity = "Weekly",
+            });
+
+            var dates = created.Details.OrderBy(d => d.ScheduledDate).Select(d => d.ScheduledDate).ToList();
+
+            // First scheduled visit (2026-03-09): backward shift would go to 2026-03-01 (< StartDate 2026-03-02),
+            // so per ERPNext PR #60486 it resets and shifts forward to 2026-03-10!
+            dates.Count.ShouldBeGreaterThan(0);
+            dates[0].ShouldBe(new DateTime(2026, 3, 10));
+        });
+    }
 }
+

@@ -109,19 +109,25 @@ public class ProcessLossReportAppService : ApplicationService, IProcessLossRepor
             var totalFgValue = group.Sum(se => se.TotalIncomingValue);
             var totalRmValue = group.Sum(se => se.TotalOutgoingValue);
 
-            // Produced Qty: quantity of primary production item finished goods
-            var producedQty = group
-                .SelectMany(se => se.Items)
-                .Where(i => i.IsFinishedItem && i.ItemId == wo.ItemId)
-                .Sum(i => i.Quantity);
+            var finishedItems = group.SelectMany(se => se.Items).Where(i => i.IsFinishedItem).ToList();
+            var primaryItems = finishedItems.Where(i => i.ItemId == wo.ItemId).ToList();
+            var primaryProducedQty = primaryItems.Sum(i => i.Quantity);
+
+            // Produced Qty per ERPNext PR #60683 / commit cf66deb1dd:
+            // Work Order formula: FgCompletedQty - ProcessLossQty avoids mixing units when conversion factor != 1
+            var fgCompletedQty = group.Sum(se => se.FgCompletedQty);
+            var producedQty = (fgCompletedQty > 0 && primaryItems.Any())
+                ? Math.Max(0m, fgCompletedQty - totalProcessLossQty)
+                : primaryProducedQty;
 
             // Output Qty: quantity of all finished items across entries (PR #60680)
-            var outputQty = group
-                .SelectMany(se => se.Items)
-                .Where(i => i.IsFinishedItem)
-                .Sum(i => i.Quantity);
+            var outputQty = finishedItems.Sum(i => i.Quantity);
+            if (outputQty == 0 && fgCompletedQty > 0)
+            {
+                outputQty = fgCompletedQty;
+            }
 
-            // Processed Qty denominator = outputQty + processLossQty
+            // Processed Qty denominator = outputQty + processLossQty (ERPNext PR #60680 / PR #60683)
             var processedQty = outputQty + totalProcessLossQty;
 
             // Total Process Loss Value per ERPNext PR #60680

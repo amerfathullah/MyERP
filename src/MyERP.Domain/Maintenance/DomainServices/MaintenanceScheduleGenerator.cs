@@ -55,15 +55,25 @@ public class MaintenanceScheduleGenerator : DomainService
 
             if (holidayList != null)
             {
-                // Shift BACKWARD off a holiday, capped at holidays.Count iterations, never before
-                // the schedule start.
-                var maxIterations = holidayList.Holidays.Count;
-                for (int iter = 0; iter < maxIterations && holidayList.IsHoliday(scheduledDate); iter++)
+                // Shift BACKWARD off a holiday. If shifting backward pushes before schedule.StartDate,
+                // reset to original scheduled date and shift FORWARD instead (ERPNext PR #60486 / commit 3f5c260d0f).
+                var workingDate = scheduledDate;
+                var maxIterations = Math.Max(365, holidayList.Holidays.Count);
+                for (int iter = 0; iter < maxIterations && holidayList.IsHoliday(workingDate); iter++)
                 {
-                    scheduledDate = scheduledDate.AddDays(-1);
-                    if (scheduledDate <= schedule.StartDate)
-                        break;
+                    workingDate = workingDate.AddDays(-1);
                 }
+
+                if (workingDate < schedule.StartDate)
+                {
+                    workingDate = scheduledDate;
+                    for (int iter = 0; iter < maxIterations && holidayList.IsHoliday(workingDate); iter++)
+                    {
+                        workingDate = workingDate.AddDays(1);
+                    }
+                }
+
+                scheduledDate = workingDate;
             }
 
             schedule.AddDetail(new MaintenanceScheduleDetail(GuidGenerator.Create(), schedule.Id, scheduledDate));
