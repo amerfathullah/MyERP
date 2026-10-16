@@ -22,6 +22,7 @@ export * from './party-specific-item-restrict-based-on.enum';
 export * from './party-specific-item.service';
 export * from './payment-terms-status-for-sales-order.service';
 export * from './pending-delivery.service';
+export * from './pending-so-items-for-purchase-request.service';
 export * from './pos-closing.service';
 export * from './pos-opening.service';
 export * from './pos-profile.service';

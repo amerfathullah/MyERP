@@ -2252,3 +2252,39 @@ export interface PaymentTermsStatusForSalesOrderRowDto {
   status: string;
   currency: string;
 }
+
+export interface PendingSoItemsForPurchaseRequestRequestDto {
+  companyId: string;
+  customerId?: string | null;
+  salesOrderId?: string | null;
+  itemId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface PendingSoItemsForPurchaseRequestReportDto {
+  companyId: string;
+  rows: PendingSoItemsForPurchaseRequestRowDto[];
+  totalSalesOrders: number;
+  totalItems: number;
+  totalSoQuantity: number;
+  totalRequestedQuantity: number;
+  totalPendingQuantity: number;
+}
+
+export interface PendingSoItemsForPurchaseRequestRowDto {
+  salesOrderId: string;
+  salesOrderNumber: string;
+  orderDate: string;
+  customerId: string;
+  customerName: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description?: string | null;
+  materialRequests: string;
+  soQuantity: number;
+  requestedQuantity: number;
+  pendingQuantity: number;
+  isProductBundleComponent: boolean;
+}

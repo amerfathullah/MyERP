@@ -2550,6 +2550,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesOrders',
       },
       {
+        path: '/sales/reports/pending-so-items',
+        name: '::Menu:PendingSoItemsForPurchaseRequest',
+        iconClass: 'fas fa-boxes-packing',
+        order: 22.8,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesOrders',
+      },
+      {
         path: '/sales/reports/commission',
         name: '::Menu:SalesCommission',
         iconClass: 'fas fa-coins',
