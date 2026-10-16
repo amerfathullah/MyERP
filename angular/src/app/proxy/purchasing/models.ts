@@ -1649,4 +1649,55 @@ export interface SubcontractOrderSummaryReportDto {
   totalConsumedQty: number;
 }
 
+export interface GetItemWisePurchaseHistoryDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  supplierId?: string;
+  itemId?: string;
+  itemCode?: string;
+  itemGroupId?: string;
+}
+
+export interface ItemWisePurchaseHistoryRowDto {
+  purchaseOrderId: string;
+  purchaseOrderNumber: string;
+  transactionDate: string;
+  supplierId: string;
+  supplierName: string;
+  supplierGroup?: string | null;
+  project?: string | null;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  itemGroup?: string | null;
+  description?: string | null;
+  quantity: number;
+  uom: string;
+  rate: number;
+  amount: number;
+  receivedQuantity: number;
+  billedAmount: number;
+  companyId: string;
+  companyName: string;
+  currency: string;
+}
+
+export interface ItemWisePurchaseChartPointDto {
+  itemCode: string;
+  itemName: string;
+  amount: number;
+}
+
+export interface ItemWisePurchaseHistoryReportDto {
+  rows: ItemWisePurchaseHistoryRowDto[];
+  totalQuantity: number;
+  totalAmount: number;
+  totalReceivedQuantity: number;
+  totalBilledAmount: number;
+  totalOrders: number;
+  chartData: ItemWisePurchaseChartPointDto[];
+}
+
+
 

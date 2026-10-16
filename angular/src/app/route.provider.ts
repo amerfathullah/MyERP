@@ -456,6 +456,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseOrders',
       },
       {
+        path: '/purchasing/reports/item-wise-purchase-history',
+        name: '::Menu:ItemWisePurchaseHistory',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-boxes-stacked',
+        order: 23,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseOrders',
+      },
+      {
         path: '/accounting',
         name: '::Menu:Accounting',
         iconClass: 'fas fa-calculator',

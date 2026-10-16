@@ -5125,7 +5125,12 @@
     "CustomersWithoutAnySalesTransactions": "Customers Without Any Sales Transactions",
     "CustomersWithoutAnySalesTransactionsDescription": "List all customers who have not made any purchases or completed sales transactions.",
     "NoCustomersWithoutSalesFound": "No customers without sales transactions found.",
-    "CustomerSince": "Customer Since"
+    "CustomerSince": "Customer Since",
+    "Menu:ItemWisePurchaseHistory": "Item-wise Purchase History",
+    "ItemWisePurchaseHistory": "Item-wise Purchase History",
+    "ItemWisePurchaseHistoryDescription": "Track item-level purchase order details, received quantities, billed amounts, and top purchased items.",
+    "NoItemWisePurchasesFound": "No purchase order items found matching the filter criteria.",
+    "ReceivedQuantity": "Received Quantity"
   }
 }
 
