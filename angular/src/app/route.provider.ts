@@ -2532,6 +2532,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesInvoices',
       },
       {
+        path: '/sales/reports/customer-credit-balance',
+        name: '::Menu:CustomerCreditBalance',
+        iconClass: 'fas fa-hand-holding-usd',
+        order: 22.5,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Customers',
+      },
+      {
         path: '/sales/reports/commission',
         name: '::Menu:SalesCommission',
         iconClass: 'fas fa-coins',
