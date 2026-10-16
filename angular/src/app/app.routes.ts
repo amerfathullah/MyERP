@@ -652,6 +652,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesOrders' },
   },
   {
+    path: 'sales/reports/inactive-customers',
+    loadComponent: () => import('./sales/reports/inactive-customers/inactive-customers.component').then(c => c.InactiveCustomersComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Customers' },
+  },
+  {
     path: 'sales/reports/commission',
     loadComponent: () => import('./sales/reports/sales-commission-report/sales-commission-report.component').then(c => c.SalesCommissionReportComponent),
     canActivate: [authGuard, permissionGuard],

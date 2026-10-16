@@ -2336,3 +2336,37 @@ export interface SalesOrderAnalysisReportDto {
   totalDeliveredQty: number;
 }
 
+export interface InactiveCustomersFilterDto {
+  companyId?: string;
+  docType: string;
+  daysSinceLastOrder: number;
+  customerGroupId?: string;
+  territoryId?: string;
+  customerId?: string;
+  asOfDate?: string;
+}
+
+export interface InactiveCustomerItemDto {
+  customerId: string;
+  customerName: string;
+  customerCode?: string;
+  territory?: string;
+  customerGroup?: string;
+  numOfOrder: number;
+  totalOrderValue: number;
+  totalOrderConsidered: number;
+  lastOrderAmount: number;
+  lastOrderDate?: string;
+  daysSinceLastOrder: number;
+}
+
+export interface InactiveCustomersReportDto {
+  items: InactiveCustomerItemDto[];
+  totalCustomers: number;
+  totalOrders: number;
+  totalOrderValue: number;
+  totalOrderConsidered: number;
+  docType: string;
+  daysSinceLastOrderThreshold: number;
+}
+

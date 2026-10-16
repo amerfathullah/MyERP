@@ -53,3 +53,4 @@ export * from './shipping-rule-type.enum';
 export * from './shipping-rule.service';
 export * from './subscription.service';
 export * from './tracking-board-stage.enum';
+export * from './inactive-customers.service';

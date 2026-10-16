@@ -2622,6 +2622,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesOrders',
       },
       {
+        path: '/sales/reports/inactive-customers',
+        name: '::Menu:InactiveCustomers',
+        iconClass: 'fas fa-user-clock',
+        order: 22.95,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Customers',
+      },
+      {
         path: '/sales/reports/commission',
         name: '::Menu:SalesCommission',
         iconClass: 'fas fa-coins',

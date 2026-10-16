@@ -5109,7 +5109,18 @@
     "SubcontractOrderSummaryDescription": "Comprehensive summary of subcontract orders, finished goods, and supplied raw materials.",
     "SubcontractedItem": "Subcontracted Item",
     "SuppliedItem": "Supplied Item",
-    "NoSubcontractOrdersFound": "No subcontract orders found matching the filter criteria."
+    "NoSubcontractOrdersFound": "No subcontract orders found matching the filter criteria.",
+    "Menu:InactiveCustomers": "Inactive Customers",
+    "InactiveCustomers": "Inactive Customers",
+    "InactiveCustomersDescription": "Analyze customers with no sales orders or invoices within a threshold number of days.",
+    "DaysSinceLastOrder": "Days Since Last Order",
+    "DaysSinceLastOrderThreshold": "Days Since Last Order Threshold",
+    "NumOfOrder": "Number of Orders",
+    "TotalOrderValue": "Total Order Value",
+    "TotalOrderConsidered": "Total Order Considered",
+    "LastOrderAmount": "Last Order Amount",
+    "LastOrderDate": "Last Order Date",
+    "NoInactiveCustomersFound": "No inactive customers found matching the filter criteria."
   }
 }
 
