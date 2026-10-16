@@ -135,7 +135,8 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
         string? secondaryItemType = null, decimal processLossPercentage = 0,
         decimal conversionFactor = 1m, string stockUom = "Unit",
         SecondaryItemValuationType? valuationType = null, Guid? bomSecondaryItemId = null,
-        bool allowZeroValuationRate = false, bool setBasicRateManually = false)
+        bool allowZeroValuationRate = false, bool setBasicRateManually = false,
+        Guid? originalItemId = null, bool allowAlternativeItem = false)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -152,7 +153,9 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
             ConversionFactor = conversionFactor > 0 ? conversionFactor : 1m,
             StockUom = stockUom,
             ValuationType = valuationType,
-            BomSecondaryItemId = bomSecondaryItemId
+            BomSecondaryItemId = bomSecondaryItemId,
+            OriginalItemId = originalItemId,
+            AllowAlternativeItem = allowAlternativeItem
         };
         _items.Add(item);
         return item;

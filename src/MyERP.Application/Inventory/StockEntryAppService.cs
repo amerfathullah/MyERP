@@ -226,6 +226,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         var overproductionPct = mfgSettings?.OverproductionPercentage ?? 5m;
         await seManager.ValidateDuplicateManufactureEntryAsync(entry, woRepo, _repository, overproductionPct);
 
+        await seManager.SetAllowAlternativeItemAsync(entry, woRepo);
+
         var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
         await seManager.ValidateOperationsCompletedAsync(entry, woRepo, jcRepo, overproductionPct);
 
@@ -304,7 +306,22 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             var wo = await woRepo.FindAsync(entry.WorkOrderId.Value);
             seManager.ValidateManufacturedQty(entry, wo);
             await seManager.ValidateDuplicateManufactureEntryAsync(entry, woRepo, _repository, overproductionPct);
+
+            if (wo != null && wo.BomId != Guid.Empty)
+            {
+                var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
+                var bom = await bomRepo.FindAsync(wo.BomId, includeDetails: true);
+                if (bom != null && bom.Items.Any())
+                {
+                    var bomItems = bom.Items
+                        .Select(bi => (bi.ItemId, bi.ItemName, bi.GetQtyConsumedPerUnit(bom.Quantity)))
+                        .ToList();
+                    seManager.ValidateManufactureBomComponentQty(entry, bomItems, bom.BomNumber);
+                }
+            }
         }
+
+        await seManager.SetAllowAlternativeItemAsync(entry, woRepo);
 
         if (entry.WorkOrderId.HasValue && entry.IsReturn)
         {
@@ -1302,6 +1319,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         var mfgSettings = await mfgSettingsRepo.FindAsync(s => s.CompanyId == entry.CompanyId);
         var overproductionPct = mfgSettings?.OverproductionPercentage ?? 5m;
         await seManager.ValidateDuplicateManufactureEntryAsync(entry, woRepo, _repository, overproductionPct);
+
+        await seManager.SetAllowAlternativeItemAsync(entry, woRepo);
 
         if (entry.WorkOrderId.HasValue && entry.IsReturn)
         {

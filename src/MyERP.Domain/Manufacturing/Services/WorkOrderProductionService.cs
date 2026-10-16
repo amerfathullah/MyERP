@@ -346,7 +346,98 @@ public class WorkOrderProductionService : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Splits raw material consumption across the original item and transferred alternative items
+    /// in the ratio they were transferred to the WIP warehouse.
+    /// Per ERPNext PR #60090 / commit 00efe4e233.
+    /// </summary>
+    public List<MaterialConsumptionSplit> CalculateAlternativeItemConsumption(
+        Guid originalItemId,
+        decimal requiredQty,
+        IEnumerable<StockEntryItem> transferredItems,
+        IEnumerable<StockEntryItem> priorConsumedItems)
+    {
+        var result = new List<MaterialConsumptionSplit>();
+        if (requiredQty <= 0) return result;
+
+        // Filter transfers matching this BOM item (either original item or alternative item)
+        var matchingTransfers = transferredItems
+            .Where(t => !t.IsFinishedItem && ((t.OriginalItemId.HasValue && t.OriginalItemId.Value == originalItemId) || (!t.OriginalItemId.HasValue && t.ItemId == originalItemId)))
+            .ToList();
+
+        // If no alternative item was transferred (only the base item, or nothing), return single item
+        var hasAlternative = matchingTransfers.Any(t => t.OriginalItemId == originalItemId || (t.ItemId != originalItemId && t.OriginalItemId == originalItemId));
+        if (!hasAlternative)
+        {
+            result.Add(new MaterialConsumptionSplit(originalItemId, null, Math.Round(requiredQty, 4)));
+            return result;
+        }
+
+        // Group candidate items transferred against this original item
+        var candidateItemIds = matchingTransfers.Select(t => t.ItemId).Distinct().ToList();
+
+        // Calculate available qty in WIP: transferred - prior consumed
+        var candidates = new List<(Guid ItemId, decimal TransferredQty, decimal AvailableQty)>();
+        foreach (var cItemId in candidateItemIds)
+        {
+            var transferred = matchingTransfers
+                .Where(t => t.ItemId == cItemId)
+                .Sum(t => Math.Abs(t.Quantity));
+
+            var consumed = priorConsumedItems
+                .Where(c => !c.IsFinishedItem && c.ItemId == cItemId && ((c.OriginalItemId.HasValue && c.OriginalItemId.Value == originalItemId) || (!c.OriginalItemId.HasValue && c.ItemId == originalItemId)))
+                .Sum(c => Math.Abs(c.Quantity));
+
+            var available = Math.Max(0m, transferred - consumed);
+            candidates.Add((cItemId, transferred, available));
+        }
+
+        // If available qty exists, use available ratio; else fallback to transferred ratio (for overproduction)
+        var totalAvailable = candidates.Sum(c => c.AvailableQty);
+        var weights = totalAvailable > 0
+            ? candidates.Select(c => (c.ItemId, Weight: c.AvailableQty)).ToList()
+            : candidates.Select(c => (c.ItemId, Weight: c.TransferredQty)).ToList();
+
+        var totalWeight = weights.Sum(w => w.Weight);
+        if (totalWeight <= 0)
+        {
+            result.Add(new MaterialConsumptionSplit(originalItemId, null, Math.Round(requiredQty, 4)));
+            return result;
+        }
+
+        var activeWeights = weights.Where(w => w.Weight > 0).ToList();
+        var pending = requiredQty;
+        for (int i = 0; i < activeWeights.Count; i++)
+        {
+            var w = activeWeights[i];
+            decimal splitQty;
+            if (i == activeWeights.Count - 1)
+            {
+                splitQty = pending;
+            }
+            else
+            {
+                splitQty = Math.Min(pending, Math.Round(requiredQty * (w.Weight / totalWeight), 4));
+            }
+
+            pending -= splitQty;
+            if (splitQty > 0)
+            {
+                var isAlt = w.ItemId != originalItemId;
+                result.Add(new MaterialConsumptionSplit(w.ItemId, isAlt ? originalItemId : null, splitQty));
+            }
+        }
+
+        return result;
+    }
 }
+
+/// <summary>Split breakdown for raw material consumption when alternative items were transferred (PR #60090).</summary>
+public record MaterialConsumptionSplit(
+    Guid ItemId,
+    Guid? OriginalItemId,
+    decimal Quantity);
 
 /// <summary>Raw material consumption line for production stock entry.</summary>
 public record MaterialConsumptionItem(

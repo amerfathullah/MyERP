@@ -60,6 +60,11 @@ public class StockEntryItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// </summary>
     public Guid? OriginalItemId { get; set; }
 
+    /// <summary>
+    /// Indicates whether alternative item substitution is allowed on this line (PR #60090).
+    /// </summary>
+    public bool AllowAlternativeItem { get; set; }
+
     /// <summary>Cost center for this line item (falls back to parent StockEntry.CostCenterId).</summary>
     public Guid? CostCenterId { get; set; }
 

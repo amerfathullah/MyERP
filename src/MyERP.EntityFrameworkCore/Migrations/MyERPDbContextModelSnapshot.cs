@@ -18568,6 +18568,9 @@ namespace MyERP.Migrations
                     b.Property<decimal>("AdditionalCost")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<bool>("AllowAlternativeItem")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("AllowZeroValuationRate")
                         .HasColumnType("boolean");
 

@@ -1003,6 +1003,94 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Validates consumed raw material quantities against BOM requirements for a Manufacture Stock Entry.
+    /// Per ERPNext PR #60090 / commit 00efe4e233:
+    /// Aggregates consumed items by OriginalItemId ?? ItemId so that alternative item substitutions
+    /// are verified collectively against the required BOM component quantity.
+    /// </summary>
+    public void ValidateManufactureBomComponentQty(
+        StockEntry entry,
+        IReadOnlyList<(Guid ItemId, string ItemCode, decimal Qty)> bomItems,
+        string? bomNumber = null,
+        int precision = 4)
+    {
+        if (entry.EntryType != StockEntryType.Manufacture || entry.FgCompletedQty <= 0 || bomItems == null || bomItems.Count == 0)
+            return;
+
+        var tolerance = 1m / (decimal)Math.Pow(10, precision);
+
+        var consumedByOriginalItem = entry.Items
+            .Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem && string.IsNullOrWhiteSpace(i.SecondaryItemType))
+            .GroupBy(i => i.OriginalItemId ?? i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+
+        foreach (var bomItem in bomItems)
+        {
+            var expectedQty = Math.Round(bomItem.Qty * entry.FgCompletedQty, precision);
+            if (consumedByOriginalItem.TryGetValue(bomItem.ItemId, out var actualQty))
+            {
+                if (Math.Abs(actualQty - expectedQty) > tolerance)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"For item {bomItem.ItemCode}, the consumed quantity ({actualQty}) should be {expectedQty} according to BOM {bomNumber ?? "referenced"}.");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sets AllowAlternativeItem on raw material rows when both the Work Order and the Item master allow it.
+    /// Per ERPNext PR #60090 / commit 00efe4e233.
+    /// </summary>
+    public async Task SetAllowAlternativeItemAsync(
+        StockEntry entry,
+        IRepository<WorkOrder, Guid> woRepository,
+        IRepository<Item, Guid>? itemRepository = null)
+    {
+        if (!entry.WorkOrderId.HasValue)
+            return;
+
+        if (entry.EntryType != StockEntryType.MaterialTransferForManufacture &&
+            entry.EntryType != StockEntryType.Manufacture &&
+            entry.EntryType != StockEntryType.MaterialConsumptionForManufacture)
+            return;
+
+        var wo = await woRepository.FindAsync(entry.WorkOrderId.Value);
+        if (wo == null || !wo.AllowAlternativeItem)
+        {
+            foreach (var item in entry.Items.Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem))
+            {
+                item.AllowAlternativeItem = false;
+            }
+            return;
+        }
+
+        var sourceItems = entry.Items
+            .Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem)
+            .ToList();
+
+        if (!sourceItems.Any()) return;
+
+        var itemIdsToCheck = sourceItems
+            .Select(i => i.OriginalItemId ?? i.ItemId)
+            .Distinct()
+            .ToList();
+
+        var itemRepo = itemRepository ?? _itemRepository;
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var allowedItemIds = itemQuery
+            .Where(i => itemIdsToCheck.Contains(i.Id) && i.AllowAlternativeItem)
+            .Select(i => i.Id)
+            .ToHashSet();
+
+        foreach (var row in sourceItems)
+        {
+            var baseId = row.OriginalItemId ?? row.ItemId;
+            row.AllowAlternativeItem = allowedItemIds.Contains(baseId);
+        }
+    }
+
+    /// <summary>
     /// Validates Finished Good Conversion Repack Stock Entry (upstream PR #58479).
     /// Converts produced finished goods of a Work Order into alternative finished goods.
     /// </summary>
