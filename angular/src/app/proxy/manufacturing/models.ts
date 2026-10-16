@@ -1330,3 +1330,48 @@ export interface WorkOrderInProgressItemDto {
   stockEntryCount?: number;
 }
 
+export interface BomDiffRequestDto {
+  bomId1: string;
+  bomId2: string;
+}
+
+export interface BomFieldChangeDto {
+  fieldName: string;
+  fieldLabel: string;
+  oldValue?: string | null;
+  newValue?: string | null;
+}
+
+export interface BomRowChangedDto {
+  tableName: string;
+  rowIndex: number;
+  identifier: string;
+  changes: BomFieldChangeDto[];
+}
+
+export interface BomChildRowDiffDto {
+  tableName: string;
+  itemId?: string | null;
+  itemCode?: string | null;
+  itemName?: string | null;
+  quantity: number;
+  rate: number;
+  amount: number;
+  uom?: string | null;
+  operationId?: string | null;
+  operationName?: string | null;
+  timeInMins?: number | null;
+  operatingCost?: number | null;
+  sequenceId?: number | null;
+}
+
+export interface BomDiffResultDto {
+  bomId1: string;
+  bomNumber1: string;
+  bomId2: string;
+  bomNumber2: string;
+  headerChanges: BomFieldChangeDto[];
+  rowChanges: BomRowChangedDto[];
+  addedRows: BomChildRowDiffDto[];
+  removedRows: BomChildRowDiffDto[];
+}

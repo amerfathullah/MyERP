@@ -2133,6 +2133,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing.Edit' },
   },
   {
+    path: 'manufacturing/bom-comparison-tool',
+    loadComponent: () => import('./manufacturing/bom/bom-comparison-tool.component').then(c => c.BomComparisonToolComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
     path: 'manufacturing/bom-explorer',
     loadComponent: () => import('./manufacturing/bom/bom-explorer.component').then(c => c.BomExplorerComponent),
     canActivate: [authGuard, permissionGuard],

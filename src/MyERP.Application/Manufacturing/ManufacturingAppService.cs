@@ -475,7 +475,500 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         };
     }
 
+    /// <summary>
+    /// Compares two Bill of Materials and returns differences in header fields and child tables.
+    /// Preserves repeated rows per ERPNext PR #60755 (commit 5461b27589 / 1795a37bef / 88b92db7ce).
+    /// </summary>
+    public async Task<BomDiffResultDto> GetBomDiffAsync(BomDiffRequestDto input)
+    {
+        if (input.BomId1 == Guid.Empty || input.BomId2 == Guid.Empty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Both BOM 1 and BOM 2 must be selected.");
+        }
+
+        if (input.BomId1 == input.BomId2)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.BomDiffSameBom);
+        }
+
+        var bom1 = await _bomRepository.GetAsync(input.BomId1, includeDetails: true);
+        var bom2 = await _bomRepository.GetAsync(input.BomId2, includeDetails: true);
+
+        // Collect all item IDs for display resolution
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var allItemIds = new HashSet<Guid> { bom1.ItemId, bom2.ItemId };
+        foreach (var item in bom1.Items) allItemIds.Add(item.ItemId);
+        foreach (var item in bom2.Items) allItemIds.Add(item.ItemId);
+        foreach (var sec in bom1.SecondaryItems) allItemIds.Add(sec.ItemId);
+        foreach (var sec in bom2.SecondaryItems) allItemIds.Add(sec.ItemId);
+
+        var itemMap = new Dictionary<Guid, (string Code, string Name)>();
+        if (allItemIds.Count > 0)
+        {
+            var itemQuery = await itemRepo.GetQueryableAsync();
+            var items = itemQuery
+                .Where(i => allItemIds.Contains(i.Id))
+                .Select(i => new { i.Id, i.ItemCode, i.ItemName })
+                .ToList();
+            foreach (var i in items)
+            {
+                itemMap[i.Id] = (i.ItemCode, i.ItemName);
+            }
+        }
+
+        // Collect all operation IDs for display resolution
+        var opRepo = LazyServiceProvider.LazyGetService<IRepository<Operation, Guid>>();
+        var allOpIds = new HashSet<Guid>();
+        foreach (var op in bom1.Operations) allOpIds.Add(op.OperationId);
+        foreach (var op in bom2.Operations) allOpIds.Add(op.OperationId);
+
+        var opMap = new Dictionary<Guid, string>();
+        if (opRepo != null && allOpIds.Count > 0)
+        {
+            var opQuery = await opRepo.GetQueryableAsync();
+            var ops = opQuery
+                .Where(o => allOpIds.Contains(o.Id))
+                .Select(o => new { o.Id, o.Name })
+                .ToList();
+            foreach (var o in ops)
+            {
+                opMap[o.Id] = o.Name;
+            }
+        }
+
+        var result = new BomDiffResultDto
+        {
+            BomId1 = bom1.Id,
+            BomNumber1 = bom1.BomNumber,
+            BomId2 = bom2.Id,
+            BomNumber2 = bom2.BomNumber,
+        };
+
+        // 1. Header Differences
+        CompareHeader(bom1, bom2, itemMap, result.HeaderChanges);
+
+        // 2. Child tables diff with repeated rows preservation (ERPNext PR #60755)
+        CompareBomItems(bom1.Items, bom2.Items, itemMap, result);
+        CompareBomOperations(bom1.Operations, bom2.Operations, opMap, result);
+        CompareBomSecondaryItems(bom1.SecondaryItems, bom2.SecondaryItems, itemMap, result);
+
+        return result;
+    }
+
+    private static void CompareHeader(
+        BillOfMaterials b1,
+        BillOfMaterials b2,
+        Dictionary<Guid, (string Code, string Name)> itemMap,
+        List<BomFieldChangeDto> headerChanges)
+    {
+        if (b1.ItemId != b2.ItemId)
+        {
+            itemMap.TryGetValue(b1.ItemId, out var i1);
+            itemMap.TryGetValue(b2.ItemId, out var i2);
+            headerChanges.Add(new BomFieldChangeDto
+            {
+                FieldName = "ItemId",
+                FieldLabel = "Finished Good",
+                OldValue = !string.IsNullOrEmpty(i1.Name) ? i1.Name : b1.ItemId.ToString(),
+                NewValue = !string.IsNullOrEmpty(i2.Name) ? i2.Name : b2.ItemId.ToString(),
+            });
+        }
+
+        if (b1.Quantity != b2.Quantity)
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "Quantity", FieldLabel = "Quantity", OldValue = b1.Quantity.ToString("G29"), NewValue = b2.Quantity.ToString("G29") });
+
+        if (!string.Equals(b1.Uom, b2.Uom, StringComparison.OrdinalIgnoreCase))
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "Uom", FieldLabel = "UOM", OldValue = b1.Uom, NewValue = b2.Uom });
+
+        if (b1.WithOperations != b2.WithOperations)
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "WithOperations", FieldLabel = "With Operations", OldValue = b1.WithOperations.ToString(), NewValue = b2.WithOperations.ToString() });
+
+        if (b1.RoutingId != b2.RoutingId)
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "RoutingId", FieldLabel = "Routing", OldValue = b1.RoutingId?.ToString(), NewValue = b2.RoutingId?.ToString() });
+
+        if (b1.TotalMaterialCost != b2.TotalMaterialCost)
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "TotalMaterialCost", FieldLabel = "Total Material Cost", OldValue = b1.TotalMaterialCost.ToString("F2"), NewValue = b2.TotalMaterialCost.ToString("F2") });
+
+        if (b1.OperatingCost != b2.OperatingCost)
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "OperatingCost", FieldLabel = "Operating Cost", OldValue = b1.OperatingCost.ToString("F2"), NewValue = b2.OperatingCost.ToString("F2") });
+
+        if (b1.TotalCost != b2.TotalCost)
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "TotalCost", FieldLabel = "Total Cost", OldValue = b1.TotalCost.ToString("F2"), NewValue = b2.TotalCost.ToString("F2") });
+
+        if (b1.ProcessLossPercentage != b2.ProcessLossPercentage)
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "ProcessLossPercentage", FieldLabel = "Process Loss %", OldValue = b1.ProcessLossPercentage.ToString("G29"), NewValue = b2.ProcessLossPercentage.ToString("G29") });
+
+        if (b1.FgCostAllocationPercentage != b2.FgCostAllocationPercentage)
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "FgCostAllocationPercentage", FieldLabel = "Cost Allocation %", OldValue = b1.FgCostAllocationPercentage.ToString("G29"), NewValue = b2.FgCostAllocationPercentage.ToString("G29") });
+
+        if (b1.ScrapWarehouseId != b2.ScrapWarehouseId)
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "ScrapWarehouseId", FieldLabel = "Scrap Warehouse", OldValue = b1.ScrapWarehouseId?.ToString(), NewValue = b2.ScrapWarehouseId?.ToString() });
+
+        if (b1.SetQtyBasedOnPercentage != b2.SetQtyBasedOnPercentage)
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "SetQtyBasedOnPercentage", FieldLabel = "Set Qty Based On %", OldValue = b1.SetQtyBasedOnPercentage.ToString(), NewValue = b2.SetQtyBasedOnPercentage.ToString() });
+
+        if (b1.IsActive != b2.IsActive)
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "IsActive", FieldLabel = "Is Active", OldValue = b1.IsActive.ToString(), NewValue = b2.IsActive.ToString() });
+
+        if (b1.IsDefault != b2.IsDefault)
+            headerChanges.Add(new BomFieldChangeDto { FieldName = "IsDefault", FieldLabel = "Is Default", OldValue = b1.IsDefault.ToString(), NewValue = b2.IsDefault.ToString() });
+    }
+
+    private static void CompareBomItems(
+        IReadOnlyList<BomItem> oldItems,
+        IReadOnlyList<BomItem> newItems,
+        Dictionary<Guid, (string Code, string Name)> itemMap,
+        BomDiffResultDto result)
+    {
+        // Group old rows by ItemId (candidate pool per identifier)
+        var oldRows = oldItems
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var unmatched = new List<(int Index, BomItem Row)>();
+
+        // Pass 1: Pop unchanged rows first (exact match on all compared fields per ERPNext PR #60755)
+        for (var i = 0; i < newItems.Count; i++)
+        {
+            var row = newItems[i];
+            if (oldRows.TryGetValue(row.ItemId, out var candidates))
+            {
+                var candidateIdx = candidates.FindIndex(c =>
+                    c.Quantity == row.Quantity &&
+                    c.Rate == row.Rate &&
+                    string.Equals(c.Uom, row.Uom, StringComparison.OrdinalIgnoreCase) &&
+                    c.ConversionFactor == row.ConversionFactor &&
+                    c.DoNotExplode == row.DoNotExplode &&
+                    c.Percentage == row.Percentage &&
+                    c.IsBalanceItem == row.IsBalanceItem &&
+                    c.SetRateOfSubAssemblyItemBasedOnBom == row.SetRateOfSubAssemblyItemBasedOnBom &&
+                    c.SubBomId == row.SubBomId &&
+                    c.SourceWarehouseId == row.SourceWarehouseId);
+
+                if (candidateIdx >= 0)
+                {
+                    candidates.RemoveAt(candidateIdx);
+                    continue;
+                }
+            }
+
+            unmatched.Add((i, row));
+        }
+
+        // Pass 2: Diff unmatched rows against remaining candidates, or mark added
+        foreach (var (index, row) in unmatched)
+        {
+            itemMap.TryGetValue(row.ItemId, out var itemInfo);
+            var identifier = !string.IsNullOrEmpty(itemInfo.Name) ? itemInfo.Name : (row.ItemName ?? row.ItemId.ToString());
+
+            if (oldRows.TryGetValue(row.ItemId, out var candidates) && candidates.Count > 0)
+            {
+                var candidate = candidates[0];
+                candidates.RemoveAt(0);
+
+                var changes = new List<BomFieldChangeDto>();
+                if (candidate.Quantity != row.Quantity)
+                    changes.Add(new BomFieldChangeDto { FieldName = "Quantity", FieldLabel = "Quantity", OldValue = candidate.Quantity.ToString("G29"), NewValue = row.Quantity.ToString("G29") });
+                if (candidate.Rate != row.Rate)
+                    changes.Add(new BomFieldChangeDto { FieldName = "Rate", FieldLabel = "Rate", OldValue = candidate.Rate.ToString("F2"), NewValue = row.Rate.ToString("F2") });
+                if (candidate.Amount != row.Amount)
+                    changes.Add(new BomFieldChangeDto { FieldName = "Amount", FieldLabel = "Amount", OldValue = candidate.Amount.ToString("F2"), NewValue = row.Amount.ToString("F2") });
+                if (!string.Equals(candidate.Uom, row.Uom, StringComparison.OrdinalIgnoreCase))
+                    changes.Add(new BomFieldChangeDto { FieldName = "Uom", FieldLabel = "UOM", OldValue = candidate.Uom, NewValue = row.Uom });
+                if (candidate.ConversionFactor != row.ConversionFactor)
+                    changes.Add(new BomFieldChangeDto { FieldName = "ConversionFactor", FieldLabel = "Conversion Factor", OldValue = candidate.ConversionFactor.ToString("G29"), NewValue = row.ConversionFactor.ToString("G29") });
+                if (candidate.DoNotExplode != row.DoNotExplode)
+                    changes.Add(new BomFieldChangeDto { FieldName = "DoNotExplode", FieldLabel = "Do Not Explode", OldValue = candidate.DoNotExplode.ToString(), NewValue = row.DoNotExplode.ToString() });
+                if (candidate.Percentage != row.Percentage)
+                    changes.Add(new BomFieldChangeDto { FieldName = "Percentage", FieldLabel = "Percentage", OldValue = candidate.Percentage.ToString("G29"), NewValue = row.Percentage.ToString("G29") });
+                if (candidate.IsBalanceItem != row.IsBalanceItem)
+                    changes.Add(new BomFieldChangeDto { FieldName = "IsBalanceItem", FieldLabel = "Balance Item", OldValue = candidate.IsBalanceItem.ToString(), NewValue = row.IsBalanceItem.ToString() });
+                if (candidate.SetRateOfSubAssemblyItemBasedOnBom != row.SetRateOfSubAssemblyItemBasedOnBom)
+                    changes.Add(new BomFieldChangeDto { FieldName = "SetRateOfSubAssemblyItemBasedOnBom", FieldLabel = "Set Rate Based On BOM", OldValue = candidate.SetRateOfSubAssemblyItemBasedOnBom.ToString(), NewValue = row.SetRateOfSubAssemblyItemBasedOnBom.ToString() });
+                if (candidate.SubBomId != row.SubBomId)
+                    changes.Add(new BomFieldChangeDto { FieldName = "SubBomId", FieldLabel = "Sub-BOM", OldValue = candidate.SubBomId?.ToString(), NewValue = row.SubBomId?.ToString() });
+                if (candidate.SourceWarehouseId != row.SourceWarehouseId)
+                    changes.Add(new BomFieldChangeDto { FieldName = "SourceWarehouseId", FieldLabel = "Source Warehouse", OldValue = candidate.SourceWarehouseId?.ToString(), NewValue = row.SourceWarehouseId?.ToString() });
+
+                if (changes.Count > 0)
+                {
+                    result.RowChanges.Add(new BomRowChangedDto
+                    {
+                        TableName = "Items",
+                        RowIndex = index,
+                        Identifier = identifier,
+                        Changes = changes,
+                    });
+                }
+            }
+            else
+            {
+                result.AddedRows.Add(new BomChildRowDiffDto
+                {
+                    TableName = "Items",
+                    ItemId = row.ItemId,
+                    ItemCode = itemInfo.Code,
+                    ItemName = identifier,
+                    Quantity = row.Quantity,
+                    Rate = row.Rate,
+                    Amount = row.Amount,
+                    Uom = row.Uom,
+                });
+            }
+        }
+
+        // Pass 3: Any remaining candidates were removed
+        foreach (var candidates in oldRows.Values)
+        {
+            foreach (var candidate in candidates)
+            {
+                itemMap.TryGetValue(candidate.ItemId, out var itemInfo);
+                var identifier = !string.IsNullOrEmpty(itemInfo.Name) ? itemInfo.Name : (candidate.ItemName ?? candidate.ItemId.ToString());
+                result.RemovedRows.Add(new BomChildRowDiffDto
+                {
+                    TableName = "Items",
+                    ItemId = candidate.ItemId,
+                    ItemCode = itemInfo.Code,
+                    ItemName = identifier,
+                    Quantity = candidate.Quantity,
+                    Rate = candidate.Rate,
+                    Amount = candidate.Amount,
+                    Uom = candidate.Uom,
+                });
+            }
+        }
+    }
+
+    private static void CompareBomOperations(
+        IReadOnlyList<BomOperation> oldOps,
+        IReadOnlyList<BomOperation> newOps,
+        Dictionary<Guid, string> opMap,
+        BomDiffResultDto result)
+    {
+        var oldRows = oldOps
+            .GroupBy(o => o.OperationId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var unmatched = new List<(int Index, BomOperation Row)>();
+
+        // Pass 1: Pop unchanged rows (exact match on all compared fields per ERPNext PR #60755)
+        for (var i = 0; i < newOps.Count; i++)
+        {
+            var row = newOps[i];
+            if (oldRows.TryGetValue(row.OperationId, out var candidates))
+            {
+                var candidateIdx = candidates.FindIndex(c =>
+                    c.SequenceId == row.SequenceId &&
+                    c.WorkstationId == row.WorkstationId &&
+                    c.WorkstationTypeId == row.WorkstationTypeId &&
+                    c.TimeInMins == row.TimeInMins &&
+                    c.OperatingCost == row.OperatingCost &&
+                    c.BatchSize == row.BatchSize &&
+                    c.FixedTime == row.FixedTime &&
+                    c.IsSubcontracted == row.IsSubcontracted &&
+                    c.QualityInspectionRequired == row.QualityInspectionRequired);
+
+                if (candidateIdx >= 0)
+                {
+                    candidates.RemoveAt(candidateIdx);
+                    continue;
+                }
+            }
+
+            unmatched.Add((i, row));
+        }
+
+        // Pass 2: Diff unmatched or mark added
+        foreach (var (index, row) in unmatched)
+        {
+            opMap.TryGetValue(row.OperationId, out var opName);
+            var identifier = !string.IsNullOrEmpty(opName) ? opName : row.OperationId.ToString();
+
+            if (oldRows.TryGetValue(row.OperationId, out var candidates) && candidates.Count > 0)
+            {
+                var candidate = candidates[0];
+                candidates.RemoveAt(0);
+
+                var changes = new List<BomFieldChangeDto>();
+                if (candidate.SequenceId != row.SequenceId)
+                    changes.Add(new BomFieldChangeDto { FieldName = "SequenceId", FieldLabel = "Sequence", OldValue = candidate.SequenceId.ToString(), NewValue = row.SequenceId.ToString() });
+                if (candidate.WorkstationId != row.WorkstationId)
+                    changes.Add(new BomFieldChangeDto { FieldName = "WorkstationId", FieldLabel = "Workstation", OldValue = candidate.WorkstationId?.ToString(), NewValue = row.WorkstationId?.ToString() });
+                if (candidate.WorkstationTypeId != row.WorkstationTypeId)
+                    changes.Add(new BomFieldChangeDto { FieldName = "WorkstationTypeId", FieldLabel = "Workstation Type", OldValue = candidate.WorkstationTypeId?.ToString(), NewValue = row.WorkstationTypeId?.ToString() });
+                if (candidate.TimeInMins != row.TimeInMins)
+                    changes.Add(new BomFieldChangeDto { FieldName = "TimeInMins", FieldLabel = "Time (Minutes)", OldValue = candidate.TimeInMins.ToString("G29"), NewValue = row.TimeInMins.ToString("G29") });
+                if (candidate.OperatingCost != row.OperatingCost)
+                    changes.Add(new BomFieldChangeDto { FieldName = "OperatingCost", FieldLabel = "Operating Cost", OldValue = candidate.OperatingCost.ToString("F2"), NewValue = row.OperatingCost.ToString("F2") });
+                if (candidate.BatchSize != row.BatchSize)
+                    changes.Add(new BomFieldChangeDto { FieldName = "BatchSize", FieldLabel = "Batch Size", OldValue = candidate.BatchSize.ToString(), NewValue = row.BatchSize.ToString() });
+                if (candidate.FixedTime != row.FixedTime)
+                    changes.Add(new BomFieldChangeDto { FieldName = "FixedTime", FieldLabel = "Fixed Time", OldValue = candidate.FixedTime.ToString("G29"), NewValue = row.FixedTime.ToString("G29") });
+                if (candidate.IsSubcontracted != row.IsSubcontracted)
+                    changes.Add(new BomFieldChangeDto { FieldName = "IsSubcontracted", FieldLabel = "Subcontracted", OldValue = candidate.IsSubcontracted.ToString(), NewValue = row.IsSubcontracted.ToString() });
+                if (candidate.QualityInspectionRequired != row.QualityInspectionRequired)
+                    changes.Add(new BomFieldChangeDto { FieldName = "QualityInspectionRequired", FieldLabel = "QI Required", OldValue = candidate.QualityInspectionRequired.ToString(), NewValue = row.QualityInspectionRequired.ToString() });
+
+                if (changes.Count > 0)
+                {
+                    result.RowChanges.Add(new BomRowChangedDto
+                    {
+                        TableName = "Operations",
+                        RowIndex = index,
+                        Identifier = identifier,
+                        Changes = changes,
+                    });
+                }
+            }
+            else
+            {
+                result.AddedRows.Add(new BomChildRowDiffDto
+                {
+                    TableName = "Operations",
+                    OperationId = row.OperationId,
+                    OperationName = identifier,
+                    SequenceId = row.SequenceId,
+                    TimeInMins = row.TimeInMins,
+                    OperatingCost = row.OperatingCost,
+                });
+            }
+        }
+
+        // Pass 3: Removed
+        foreach (var candidates in oldRows.Values)
+        {
+            foreach (var candidate in candidates)
+            {
+                opMap.TryGetValue(candidate.OperationId, out var opName);
+                var identifier = !string.IsNullOrEmpty(opName) ? opName : candidate.OperationId.ToString();
+                result.RemovedRows.Add(new BomChildRowDiffDto
+                {
+                    TableName = "Operations",
+                    OperationId = candidate.OperationId,
+                    OperationName = identifier,
+                    SequenceId = candidate.SequenceId,
+                    TimeInMins = candidate.TimeInMins,
+                    OperatingCost = candidate.OperatingCost,
+                });
+            }
+        }
+    }
+
+    private static void CompareBomSecondaryItems(
+        IReadOnlyList<BomSecondaryItem> oldSecs,
+        IReadOnlyList<BomSecondaryItem> newSecs,
+        Dictionary<Guid, (string Code, string Name)> itemMap,
+        BomDiffResultDto result)
+    {
+        var oldRows = oldSecs
+            .GroupBy(s => s.ItemId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var unmatched = new List<(int Index, BomSecondaryItem Row)>();
+
+        // Pass 1: Pop unchanged rows (exact match on all compared fields per ERPNext PR #60755)
+        for (var i = 0; i < newSecs.Count; i++)
+        {
+            var row = newSecs[i];
+            if (oldRows.TryGetValue(row.ItemId, out var candidates))
+            {
+                var candidateIdx = candidates.FindIndex(c =>
+                    c.SecondaryItemType == row.SecondaryItemType &&
+                    c.Quantity == row.Quantity &&
+                    c.Rate == row.Rate &&
+                    c.CostAllocationPercentage == row.CostAllocationPercentage &&
+                    c.ProcessLossPercentage == row.ProcessLossPercentage &&
+                    string.Equals(c.StockUom, row.StockUom, StringComparison.OrdinalIgnoreCase));
+
+                if (candidateIdx >= 0)
+                {
+                    candidates.RemoveAt(candidateIdx);
+                    continue;
+                }
+            }
+
+            unmatched.Add((i, row));
+        }
+
+        // Pass 2: Diff unmatched or mark added
+        foreach (var (index, row) in unmatched)
+        {
+            itemMap.TryGetValue(row.ItemId, out var itemInfo);
+            var identifier = !string.IsNullOrEmpty(itemInfo.Name) ? itemInfo.Name : (row.ItemName ?? row.ItemId.ToString());
+
+            if (oldRows.TryGetValue(row.ItemId, out var candidates) && candidates.Count > 0)
+            {
+                var candidate = candidates[0];
+                candidates.RemoveAt(0);
+
+                var changes = new List<BomFieldChangeDto>();
+                if (candidate.SecondaryItemType != row.SecondaryItemType)
+                    changes.Add(new BomFieldChangeDto { FieldName = "SecondaryItemType", FieldLabel = "Type", OldValue = candidate.SecondaryItemType.ToString(), NewValue = row.SecondaryItemType.ToString() });
+                if (candidate.Quantity != row.Quantity)
+                    changes.Add(new BomFieldChangeDto { FieldName = "Quantity", FieldLabel = "Quantity", OldValue = candidate.Quantity.ToString("G29"), NewValue = row.Quantity.ToString("G29") });
+                if (candidate.Rate != row.Rate)
+                    changes.Add(new BomFieldChangeDto { FieldName = "Rate", FieldLabel = "Rate", OldValue = candidate.Rate.ToString("F2"), NewValue = row.Rate.ToString("F2") });
+                if (candidate.Amount != row.Amount)
+                    changes.Add(new BomFieldChangeDto { FieldName = "Amount", FieldLabel = "Amount", OldValue = candidate.Amount.ToString("F2"), NewValue = row.Amount.ToString("F2") });
+                if (candidate.CostAllocationPercentage != row.CostAllocationPercentage)
+                    changes.Add(new BomFieldChangeDto { FieldName = "CostAllocationPercentage", FieldLabel = "Cost Allocation %", OldValue = candidate.CostAllocationPercentage.ToString("G29"), NewValue = row.CostAllocationPercentage.ToString("G29") });
+                if (candidate.ProcessLossPercentage != row.ProcessLossPercentage)
+                    changes.Add(new BomFieldChangeDto { FieldName = "ProcessLossPercentage", FieldLabel = "Process Loss %", OldValue = candidate.ProcessLossPercentage.ToString("G29"), NewValue = row.ProcessLossPercentage.ToString("G29") });
+                if (!string.Equals(candidate.StockUom, row.StockUom, StringComparison.OrdinalIgnoreCase))
+                    changes.Add(new BomFieldChangeDto { FieldName = "StockUom", FieldLabel = "Stock UOM", OldValue = candidate.StockUom, NewValue = row.StockUom });
+
+                if (changes.Count > 0)
+                {
+                    result.RowChanges.Add(new BomRowChangedDto
+                    {
+                        TableName = "SecondaryItems",
+                        RowIndex = index,
+                        Identifier = identifier,
+                        Changes = changes,
+                    });
+                }
+            }
+            else
+            {
+                result.AddedRows.Add(new BomChildRowDiffDto
+                {
+                    TableName = "SecondaryItems",
+                    ItemId = row.ItemId,
+                    ItemCode = itemInfo.Code,
+                    ItemName = identifier,
+                    Quantity = row.Quantity,
+                    Rate = row.Rate,
+                    Amount = row.Amount,
+                    Uom = row.StockUom,
+                });
+            }
+        }
+
+        // Pass 3: Removed
+        foreach (var candidates in oldRows.Values)
+        {
+            foreach (var candidate in candidates)
+            {
+                itemMap.TryGetValue(candidate.ItemId, out var itemInfo);
+                var identifier = !string.IsNullOrEmpty(itemInfo.Name) ? itemInfo.Name : (candidate.ItemName ?? candidate.ItemId.ToString());
+                result.RemovedRows.Add(new BomChildRowDiffDto
+                {
+                    TableName = "SecondaryItems",
+                    ItemId = candidate.ItemId,
+                    ItemCode = itemInfo.Code,
+                    ItemName = identifier,
+                    Quantity = candidate.Quantity,
+                    Rate = candidate.Rate,
+                    Amount = candidate.Amount,
+                    Uom = candidate.StockUom,
+                });
+            }
+        }
+    }
+
     // === Work Order ===
+
 
     public async Task<WorkOrderDto> GetWorkOrderAsync(Guid id)
     {

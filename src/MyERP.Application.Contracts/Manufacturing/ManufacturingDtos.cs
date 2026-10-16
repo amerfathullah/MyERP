@@ -46,6 +46,62 @@ public class ReplaceBomResultDto
     public int RecostedBomCount { get; set; }
 }
 
+// === BOM Comparison / Diff DTOs (ERPNext PR #60755 / commit 5461b27589 / 1795a37bef) ===
+
+public class BomDiffRequestDto
+{
+    [Required]
+    public Guid BomId1 { get; set; }
+
+    [Required]
+    public Guid BomId2 { get; set; }
+}
+
+public class BomFieldChangeDto
+{
+    public string FieldName { get; set; } = string.Empty;
+    public string FieldLabel { get; set; } = string.Empty;
+    public string? OldValue { get; set; }
+    public string? NewValue { get; set; }
+}
+
+public class BomRowChangedDto
+{
+    public string TableName { get; set; } = string.Empty;
+    public int RowIndex { get; set; }
+    public string Identifier { get; set; } = string.Empty;
+    public List<BomFieldChangeDto> Changes { get; set; } = new();
+}
+
+public class BomChildRowDiffDto
+{
+    public string TableName { get; set; } = string.Empty;
+    public Guid? ItemId { get; set; }
+    public string? ItemCode { get; set; }
+    public string? ItemName { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal Rate { get; set; }
+    public decimal Amount { get; set; }
+    public string? Uom { get; set; }
+    public Guid? OperationId { get; set; }
+    public string? OperationName { get; set; }
+    public decimal? TimeInMins { get; set; }
+    public decimal? OperatingCost { get; set; }
+    public int? SequenceId { get; set; }
+}
+
+public class BomDiffResultDto
+{
+    public Guid BomId1 { get; set; }
+    public string BomNumber1 { get; set; } = string.Empty;
+    public Guid BomId2 { get; set; }
+    public string BomNumber2 { get; set; } = string.Empty;
+    public List<BomFieldChangeDto> HeaderChanges { get; set; } = new();
+    public List<BomRowChangedDto> RowChanges { get; set; } = new();
+    public List<BomChildRowDiffDto> AddedRows { get; set; } = new();
+    public List<BomChildRowDiffDto> RemovedRows { get; set; } = new();
+}
+
 public class BomOperationDto
 {
     public Guid Id { get; set; }
@@ -369,6 +425,7 @@ public interface IManufacturingAppService : IApplicationService
     Task DeleteBomAsync(Guid id);
     Task<BomDto> UpdateBomCostAsync(Guid bomId);
     Task<ReplaceBomResultDto> ReplaceBomAsync(ReplaceBomDto input);
+    Task<BomDiffResultDto> GetBomDiffAsync(BomDiffRequestDto input);
     Task<SubcontractingBomItemsDto> GetBomItemsForSubcontractingAsync(Guid itemId, Guid companyId, decimal fgQty = 1);
 
     // Work Order

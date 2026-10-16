@@ -1,7 +1,7 @@
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
-import type { AlternativeFinishedGoodsDetailsDto, BatchCreateWorkOrdersResultDto, BomDto, CreateBomDto, CreateDisassemblyDto, CreateFgConversionEntryDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateOperationDto, CreateRoutingDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialShortageAcrossOrdersDto, OpenWorkOrderItemDto, OperationDto, ProductionCostBreakdownDto, ProductionScheduleDto, ReplaceBomDto, ReplaceBomResultDto, RoutingDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderInProgressItemDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto, WorkstationUtilizationDto } from '../manufacturing/models';
+import type { AlternativeFinishedGoodsDetailsDto, BatchCreateWorkOrdersResultDto, BomDiffRequestDto, BomDiffResultDto, BomDto, CreateBomDto, CreateDisassemblyDto, CreateFgConversionEntryDto, CreateManufactureStockEntryDto, CreateMaterialConsumptionDto, CreateOperationDto, CreateRoutingDto, CreateWorkOrderDto, CreateWorkstationDto, DisassemblyResultDto, GetWorkOrderListDto, MaterialAvailabilityDto, MaterialConsumptionResultDto, MaterialShortageAcrossOrdersDto, OpenWorkOrderItemDto, OperationDto, ProductionCostBreakdownDto, ProductionScheduleDto, ReplaceBomDto, ReplaceBomResultDto, RoutingDto, StockEntryResultDto, SubcontractingBomItemsDto, WorkOrderDto, WorkOrderInProgressItemDto, WorkOrderJobCardDto, WorkOrderMaterialReadinessDto, WorkstationDto, WorkstationUtilizationDto } from '../manufacturing/models';
 import type { CompanyFilteredPagedRequestDto } from '../shared/models';
 
 @Injectable({
@@ -170,6 +170,15 @@ export class ManufacturingService {
     this.restService.request<any, BomDto>({
       method: 'GET',
       url: `/api/app/manufacturing/bom/${id}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getBomDiff = (input: BomDiffRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, BomDiffResultDto>({
+      method: 'POST',
+      url: '/api/app/manufacturing/bom/diff',
+      body: input,
     },
     { apiName: this.apiName,...config });
   

@@ -5014,6 +5014,21 @@
     "List": "List",
     "PendingReview": "Pending Review",
     "SendForReview": "Send For Review",
-    "Working": "Working"
+    "Working": "Working",
+    "Menu:BomComparisonTool": "BOM Comparison Tool",
+    "BomComparisonTool": "BOM Comparison Tool",
+    "BomComparisonToolDescription": "Compare two BOMs to view header and component differences with repeated row preservation.",
+    "BOM1": "BOM 1",
+    "BOM2": "BOM 2",
+    "CompareBoms": "Compare BOMs",
+    "HeaderChanges": "Values Changed",
+    "ItemChanges": "Changes in Items",
+    "OperationChanges": "Changes in Operations",
+    "SecondaryItemChanges": "Changes in Scrap / Secondary Items",
+    "AddedRows": "Added Items / Operations",
+    "RemovedRows": "Removed Items / Operations",
+    "NoDifferencesFound": "No differences found between the selected BOMs.",
+    "MyERP:10047": "BOM 1 and BOM 2 should not be the same."
   }
 }
+

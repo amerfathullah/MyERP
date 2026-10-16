@@ -1367,6 +1367,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing.Edit',
       },
       {
+        path: '/manufacturing/bom-comparison-tool',
+        name: '::Menu:BomComparisonTool',
+        iconClass: 'fas fa-code-compare',
+        order: 13.6,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
+      },
+      {
         path: '/manufacturing/settings',
         name: '::Menu:ManufacturingSettings',
         iconClass: 'fas fa-sliders',

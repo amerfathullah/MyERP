@@ -101,6 +101,9 @@ public class ManufacturingController : MyERPController
     [HttpPost("bom/replace")]
     public Task<ReplaceBomResultDto> ReplaceBomAsync([FromBody] ReplaceBomDto input) => _service.ReplaceBomAsync(input);
 
+    [HttpPost("bom/diff")]
+    public Task<BomDiffResultDto> GetBomDiffAsync([FromBody] BomDiffRequestDto input) => _service.GetBomDiffAsync(input);
+
     // Work Order
     [HttpGet("work-order/{id}")]
     public Task<WorkOrderDto> GetWorkOrderAsync(Guid id) => _service.GetWorkOrderAsync(id);

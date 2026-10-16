@@ -662,6 +662,9 @@ public static class MyERPDomainErrorCodes
     // Stock Entry & Disassembly Guards (ERPNext PR #60421 / commit 00ca106bf5)
     public const string DisassembleItemNotInBom = "MyERP:05101";
     public const string ManufactureCannotBeLessThanDisassembled = "MyERP:10046";
+
+    // BOM Comparison (ERPNext PR #60755 / commit 5461b27589 / 1795a37bef)
+    public const string BomDiffSameBom = "MyERP:10047";
 }
 
 
