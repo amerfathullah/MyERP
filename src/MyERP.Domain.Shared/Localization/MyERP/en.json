@@ -5103,7 +5103,13 @@
     "SubcontractedRawMaterialsToBeTransferred": "Subcontracted Raw Materials to Be Transferred",
     "SubcontractedRawMaterialsToBeTransferredDescription": "Track pending raw materials to be transferred to subcontractors against open subcontracting orders.",
     "RmItemCode": "Raw Material Item Code",
-    "NoSubcontractedRawMaterialsFound": "No raw materials pending transfer found."
+    "NoSubcontractedRawMaterialsFound": "No raw materials pending transfer found.",
+    "Menu:SubcontractOrderSummary": "Subcontract Order Summary",
+    "SubcontractOrderSummary": "Subcontract Order Summary",
+    "SubcontractOrderSummaryDescription": "Comprehensive summary of subcontract orders, finished goods, and supplied raw materials.",
+    "SubcontractedItem": "Subcontracted Item",
+    "SuppliedItem": "Supplied Item",
+    "NoSubcontractOrdersFound": "No subcontract orders found matching the filter criteria."
   }
 }
 

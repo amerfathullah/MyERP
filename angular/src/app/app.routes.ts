@@ -718,6 +718,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseOrders' },
   },
   {
+    path: 'purchasing/reports/subcontract-order-summary',
+    loadComponent: () => import('./purchasing/reports/subcontract-order-summary/subcontract-order-summary.component').then(c => c.SubcontractOrderSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
     path: 'purchasing/reports/procurement-tracker',
     loadComponent: () => import('./purchasing/reports/procurement-tracker/procurement-tracker.component').then(c => c.ProcurementTrackerComponent),
     canActivate: [authGuard, permissionGuard],

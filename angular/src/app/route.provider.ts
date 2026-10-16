@@ -429,6 +429,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseOrders',
       },
       {
+        path: '/purchasing/reports/subcontract-order-summary',
+        name: '::Menu:SubcontractOrderSummary',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-clipboard-list',
+        order: 20.7,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseOrders',
+      },
+      {
         path: '/purchasing/reports/procurement-tracker',
         name: '::Menu:ProcurementTracker',
         parentName: '::Menu:Purchasing',

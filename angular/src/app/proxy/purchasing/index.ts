@@ -20,6 +20,7 @@ export * from './subcontracting-receipt-status.enum';
 export * from './subcontracting.service';
 export * from './subcontracted-item-to-be-received.service';
 export * from './subcontracted-raw-materials-to-be-transferred.service';
+export * from './subcontract-order-summary.service';
 export * from './procurement-tracker.service';
 export * from './purchase-order-analysis.service';
 export * from './supplier-delivery-performance.service';
