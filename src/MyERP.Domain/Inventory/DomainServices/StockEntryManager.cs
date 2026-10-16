@@ -800,6 +800,7 @@ public class StockEntryManager : DomainService
     /// Calculates basic valuation rate for manufactured FG item(s).
     /// Cost is split over all eligible finished good rows (PR #59881 / commit 37f16db9d8).
     /// Deducts value of manually-rated finished good rows (commit 8148dd486b).
+    /// Retains co-product cost share for co-products not made (PR #60421 / commit 00ca106bf5).
     /// Per ERPNext PR #57334: when inputs are consumed at zero cost (e.g. free raw materials),
     /// rate remains zero (plus additional operating cost) and must not fall back to BOM or standard rates.
     /// </summary>
@@ -808,7 +809,8 @@ public class StockEntryManager : DomainService
         decimal? fgQty = null,
         decimal additionalOperatingCost = 0m,
         decimal? bomEstimatedCost = null,
-        bool viaRepost = false)
+        bool viaRepost = false,
+        decimal costAllocationPercentage = 100m)
     {
         var resolvedFgQty = fgQty.HasValue && fgQty.Value > 0 ? fgQty.Value : GetFinishedItemsQty(items);
         if (resolvedFgQty <= 0) return 0m;
@@ -831,6 +833,11 @@ public class StockEntryManager : DomainService
         }
 
         var costLeft = outgoingCost - manualCost;
+        if (costAllocationPercentage < 100m && costAllocationPercentage >= 0m)
+        {
+            costLeft *= (costAllocationPercentage / 100m);
+        }
+
         if (viaRepost || costLeft < 0)
         {
             costLeft = Math.Max(costLeft, 0m);
@@ -838,6 +845,32 @@ public class StockEntryManager : DomainService
 
         var totalFgCost = costLeft + additionalOperatingCost;
         return Math.Round(Math.Max(totalFgCost, 0m) / resolvedFgQty, 4);
+    }
+
+    /// <summary>
+    /// Computes cost allocation percentage for finished goods, giving it the share of co-products not made.
+    /// Per ERPNext PR #60421 / commit 00ca106bf5: if co-products defined in BOM are omitted in the Stock Entry,
+    /// their cost share is retained by the finished good instead of being lost.
+    /// </summary>
+    public decimal GetFinishedGoodCostAllocationPercentage(
+        IReadOnlyList<StockEntryItem> items,
+        IReadOnlyList<(Guid BomSecondaryItemId, decimal CostAllocationPercentage)> bomSecondaryItems)
+    {
+        var presentBomSecondaryItemIds = items
+            .Where(i => i.BomSecondaryItemId.HasValue && i.Quantity > 0)
+            .Select(i => i.BomSecondaryItemId!.Value)
+            .ToHashSet();
+
+        if (presentBomSecondaryItemIds.Count == 0 || bomSecondaryItems == null || bomSecondaryItems.Count == 0)
+        {
+            return 100m;
+        }
+
+        var allocatedPer = bomSecondaryItems
+            .Where(b => presentBomSecondaryItemIds.Contains(b.BomSecondaryItemId))
+            .Sum(b => b.CostAllocationPercentage);
+
+        return Math.Max(0m, 100m - allocatedPer);
     }
 
     /// <summary>
@@ -920,6 +953,51 @@ public class StockEntryManager : DomainService
                     .WithData("expectedQty", expectedStockQty)
                     .WithData("actualQty", item.StockQty)
                     .WithData("scaleFactor", scaleFactor);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates standalone BOM disassembly rows against the BOM when no source manufacture entry is referenced.
+    /// Per ERPNext PR #60421 / commit 00ca106bf5: checks that every disassembled component belongs to the BOM
+    /// and its received quantity matches BOM quantity * fgCompletedQty.
+    /// </summary>
+    public void ValidateDisassembleMaterialsAgainstBom(
+        StockEntry entry,
+        IReadOnlyList<(Guid ItemId, decimal Qty)> bomItems,
+        int precision = 4)
+    {
+        if (entry.EntryType != StockEntryType.Disassemble || entry.SourceStockEntryId.HasValue)
+            return;
+
+        if (bomItems == null || bomItems.Count == 0 || entry.FgCompletedQty <= 0)
+            return;
+
+        var expectedQtyMap = bomItems.ToDictionary(
+            b => b.ItemId,
+            b => Math.Round(b.Qty * entry.FgCompletedQty, precision));
+
+        var tolerance = 1m / (decimal)Math.Pow(10, precision);
+
+        var receivedComponents = entry.Items
+            .Where(i => i.TargetWarehouseId.HasValue && !i.IsFinishedItem)
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m)));
+
+        foreach (var (itemId, actualQty) in receivedComponents)
+        {
+            if (!expectedQtyMap.TryGetValue(itemId, out var expectedQty))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.DisassembleItemNotInBom)
+                    .WithData("itemId", itemId);
+            }
+
+            if (Math.Abs(actualQty - expectedQty) > tolerance)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.DisassembleScaleFactorMismatch)
+                    .WithData("itemId", itemId)
+                    .WithData("expectedQty", expectedQty)
+                    .WithData("actualQty", actualQty);
             }
         }
     }

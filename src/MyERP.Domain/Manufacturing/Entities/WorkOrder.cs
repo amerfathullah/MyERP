@@ -251,10 +251,20 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>
     /// Reverses recorded production and process loss (e.g. on Stock Entry cancellation).
     /// Reopens the Work Order to InProcess if below ordered Quantity.
+    /// Per ERPNext PR #60421 (commit 00ca106bf5): manufactured qty cannot be less than disassembled qty.
     /// </summary>
     public void ReverseProduction(decimal quantity, decimal processLoss = 0)
     {
-        ProducedQuantity = Math.Max(0, ProducedQuantity - quantity);
+        var newProducedQuantity = Math.Max(0, ProducedQuantity - quantity);
+        if (newProducedQuantity < DisassembledQuantity)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ManufactureCannotBeLessThanDisassembled)
+                .WithData("produced", newProducedQuantity)
+                .WithData("disassembled", DisassembledQuantity)
+                .WithData("workOrder", WorkOrderNumber ?? Id.ToString());
+        }
+
+        ProducedQuantity = newProducedQuantity;
         if (processLoss > 0)
         {
             ProcessLossQty = Math.Max(0, ProcessLossQty - processLoss);

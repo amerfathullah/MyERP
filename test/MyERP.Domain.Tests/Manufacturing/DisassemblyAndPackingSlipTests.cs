@@ -1,8 +1,13 @@
 using System;
-using Xunit;
-using MyERP.Manufacturing.Entities;
-using MyERP.Manufacturing;
+using System.Collections.Generic;
 using MyERP.Inventory;
+using MyERP.Inventory.DomainServices;
+using MyERP.Inventory.Entities;
+using MyERP.Manufacturing;
+using MyERP.Manufacturing.Entities;
+using Shouldly;
+using Volo.Abp;
+using Xunit;
 
 namespace MyERP.Domain.Tests.Manufacturing;
 
@@ -188,5 +193,129 @@ public class DisassemblyAndPackingSlipTests
         Assert.Contains("\"EnterDisassemblyQty\"", json);
         Assert.Contains("\"InvalidQuantity\"", json);
         Assert.Contains("\"DisassembledQuantity\"", json);
+    }
+
+    [Fact]
+    public void WorkOrder_ReverseProduction_ThrowsWhenBelowDisassembledQty()
+    {
+        var wo = CreateWo(100);
+        wo.Submit();
+        wo.Start();
+        wo.RecordProduction(100);
+        wo.RecordDisassembly(40);
+
+        // Reversing 70 would leave produced=30 < disassembled=40 -> throws
+        var ex = Should.Throw<BusinessException>(() => wo.ReverseProduction(70));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ManufactureCannotBeLessThanDisassembled);
+
+        // Reversing 50 leaves produced=50 >= disassembled=40 -> succeeds
+        Should.NotThrow(() => wo.ReverseProduction(50));
+        wo.ProducedQuantity.ShouldBe(50m);
+    }
+
+    [Fact]
+    public void StockEntry_RemoveFgCompletedQtyIfUnapplicable_PreservesForWorkOrder()
+    {
+        var se = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Manufacture, DateTime.UtcNow)
+        {
+            FgCompletedQty = 10m
+        };
+
+        // When Work Order is linked, FgCompletedQty is retained even if FromBOM is false
+        se.RemoveFgCompletedQtyIfUnapplicable(hasBom: false, hasWorkOrder: true);
+        se.FgCompletedQty.ShouldBe(10m);
+
+        // When neither BOM nor Work Order is linked, FgCompletedQty is cleared to 0
+        se.RemoveFgCompletedQtyIfUnapplicable(hasBom: false, hasWorkOrder: false);
+        se.FgCompletedQty.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void StockEntryManager_GetFinishedGoodCostAllocationPercentage_RetainsCoProductShareWhenOmitted()
+    {
+        var manager = new StockEntryManager(null!, null!, null!);
+
+        var coProductAId = Guid.NewGuid();
+        var coProductBId = Guid.NewGuid();
+        var bomSecondary = new List<(Guid BomSecondaryItemId, decimal CostAllocationPercentage)>
+        {
+            (coProductAId, 15m),
+            (coProductBId, 25m)
+        };
+
+        var se = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Manufacture, DateTime.UtcNow);
+        var fgItemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+
+        // 1. Stock entry has both co-products: FG gets 100 - (15 + 25) = 60%
+        se.AddItem(fgItemId, 1, targetWarehouseId: whId, isFinishedItem: true);
+        se.AddItem(Guid.NewGuid(), 1, targetWarehouseId: whId, bomSecondaryItemId: coProductAId, secondaryItemType: "Co-Product");
+        se.AddItem(Guid.NewGuid(), 1, targetWarehouseId: whId, bomSecondaryItemId: coProductBId, secondaryItemType: "Co-Product");
+
+        manager.GetFinishedGoodCostAllocationPercentage(se.Items, bomSecondary).ShouldBe(60m);
+
+        // 2. Stock entry only has Co-Product A (Co-Product B omitted): FG retains B's share -> 100 - 15 = 85%
+        var se2 = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Manufacture, DateTime.UtcNow);
+        se2.AddItem(fgItemId, 1, targetWarehouseId: whId, isFinishedItem: true);
+        se2.AddItem(Guid.NewGuid(), 1, targetWarehouseId: whId, bomSecondaryItemId: coProductAId, secondaryItemType: "Co-Product");
+
+        manager.GetFinishedGoodCostAllocationPercentage(se2.Items, bomSecondary).ShouldBe(85m);
+
+        // 3. Stock entry has neither co-product: FG gets 100%
+        var se3 = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Manufacture, DateTime.UtcNow);
+        se3.AddItem(fgItemId, 1, targetWarehouseId: whId, isFinishedItem: true);
+
+        manager.GetFinishedGoodCostAllocationPercentage(se3.Items, bomSecondary).ShouldBe(100m);
+    }
+
+    [Fact]
+    public void StockEntryManager_ValidateDisassembleMaterialsAgainstBom_ValidatesQtyAndItems()
+    {
+        var manager = new StockEntryManager(null!, null!, null!);
+
+        var rm1Id = Guid.NewGuid();
+        var rm2Id = Guid.NewGuid();
+        var bomItems = new List<(Guid ItemId, decimal Qty)>
+        {
+            (rm1Id, 2m),
+            (rm2Id, 5m)
+        };
+
+        var whId = Guid.NewGuid();
+
+        // Valid standalone disassembly for FgCompletedQty = 3: expected rm1 = 6, rm2 = 15
+        var validSe = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Disassemble, DateTime.UtcNow)
+        {
+            FgCompletedQty = 3m
+        };
+        validSe.AddItem(rm1Id, 6m, targetWarehouseId: whId);
+        validSe.AddItem(rm2Id, 15m, targetWarehouseId: whId);
+
+        Should.NotThrow(() => manager.ValidateDisassembleMaterialsAgainstBom(validSe, bomItems));
+
+        // Invalid: item not in BOM
+        var strangerItem = Guid.NewGuid();
+        var invalidItemSe = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Disassemble, DateTime.UtcNow)
+        {
+            FgCompletedQty = 3m
+        };
+        invalidItemSe.AddItem(rm1Id, 6m, targetWarehouseId: whId);
+        invalidItemSe.AddItem(strangerItem, 1m, targetWarehouseId: whId);
+
+        var ex1 = Should.Throw<BusinessException>(() =>
+            manager.ValidateDisassembleMaterialsAgainstBom(invalidItemSe, bomItems));
+        ex1.Code.ShouldBe(MyERPDomainErrorCodes.DisassembleItemNotInBom);
+
+        // Invalid: quantity mismatch (expected 6, got 10)
+        var invalidQtySe = new StockEntry(Guid.NewGuid(), Guid.NewGuid(), StockEntryType.Disassemble, DateTime.UtcNow)
+        {
+            FgCompletedQty = 3m
+        };
+        invalidQtySe.AddItem(rm1Id, 10m, targetWarehouseId: whId);
+        invalidQtySe.AddItem(rm2Id, 15m, targetWarehouseId: whId);
+
+        var ex2 = Should.Throw<BusinessException>(() =>
+            manager.ValidateDisassembleMaterialsAgainstBom(invalidQtySe, bomItems));
+        ex2.Code.ShouldBe(MyERPDomainErrorCodes.DisassembleScaleFactorMismatch);
     }
 }

@@ -2515,6 +2515,8 @@
     "MyERP:15015": "Next Due Date cannot be before the Start Date for task {task}.",
     "MyERP:15016": "{assignTo} is not a member of the maintenance team {team}.",
     "MyERP:15017": "Cannot delete Asset Maintenance that has completed maintenance logs.",
+    "MyERP:05101": "Item {itemId} is not part of the BOM and cannot be added to this disassembly.",
+    "MyERP:10046": "Manufactured quantity ({produced}) cannot be less than disassembled quantity ({disassembled}) of Work Order {workOrder}. Cancel the disassembly first.",
     "MyERP:00004": "This master record is restricted from being used with the selected company.",
     "MyERP:00005": "A duplicate record already exists.",
     "MyERP:03023": "Commission rate must be between 0 and 100 (got {rate}%).",

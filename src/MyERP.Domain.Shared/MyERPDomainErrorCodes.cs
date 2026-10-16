@@ -658,6 +658,10 @@ public static class MyERPDomainErrorCodes
     public const string NextDueDateCannotBeBeforeStartDate = "MyERP:15015";
     public const string AssigneeNotInMaintenanceTeam = "MyERP:15016";
     public const string CannotDeleteWithCompletedLogs = "MyERP:15017";
+
+    // Stock Entry & Disassembly Guards (ERPNext PR #60421 / commit 00ca106bf5)
+    public const string DisassembleItemNotInBom = "MyERP:05101";
+    public const string ManufactureCannotBeLessThanDisassembled = "MyERP:10046";
 }
 
 

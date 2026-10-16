@@ -265,4 +265,16 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
             ProcessLossQty = Math.Round((FgCompletedQty * ProcessLossPercentage) / 100m, 4);
         }
     }
+
+    /// <summary>
+    /// Clears FgCompletedQty when neither BOM nor Work Order is linked.
+    /// Per ERPNext PR #60421 / commit 00ca106bf5: keeps FgCompletedQty on Work Order entries without FromBOM.
+    /// </summary>
+    public void RemoveFgCompletedQtyIfUnapplicable(bool hasBom, bool hasWorkOrder)
+    {
+        if (!hasBom && !hasWorkOrder && FgCompletedQty != 0)
+        {
+            FgCompletedQty = 0;
+        }
+    }
 }
