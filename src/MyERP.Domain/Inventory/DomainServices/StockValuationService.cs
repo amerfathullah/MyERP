@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core;
 using MyERP.Inventory.Entities;
 using MyERP.Settings;
 using Volo.Abp.Domain.Repositories;
@@ -23,12 +24,13 @@ public class StockValuationService : DomainService
     private readonly ISettingProvider _settingProvider;
     private readonly IRepository<Batch, Guid>? _batchRepository;
     private readonly IRepository<SerialAndBatchBundle, Guid>? _bundleRepository;
+    private readonly IRepository<SerialNo, Guid>? _serialNoRepository;
 
     public StockValuationService(
         IRepository<StockLedgerEntry, Guid> ledgerRepository,
         IRepository<Item, Guid> itemRepository,
         ISettingProvider settingProvider)
-        : this(ledgerRepository, itemRepository, settingProvider, null, null)
+        : this(ledgerRepository, itemRepository, settingProvider, null, null, null)
     {
     }
 
@@ -37,13 +39,15 @@ public class StockValuationService : DomainService
         IRepository<Item, Guid> itemRepository,
         ISettingProvider settingProvider,
         IRepository<Batch, Guid>? batchRepository = null,
-        IRepository<SerialAndBatchBundle, Guid>? bundleRepository = null)
+        IRepository<SerialAndBatchBundle, Guid>? bundleRepository = null,
+        IRepository<SerialNo, Guid>? serialNoRepository = null)
     {
         _ledgerRepository = ledgerRepository;
         _itemRepository = itemRepository;
         _settingProvider = settingProvider;
         _batchRepository = batchRepository;
         _bundleRepository = bundleRepository;
+        _serialNoRepository = serialNoRepository;
     }
 
     /// <summary>
@@ -61,7 +65,8 @@ public class StockValuationService : DomainService
         Guid? voucherId = null,
         Guid? tenantId = null,
         Guid? batchId = null,
-        bool? isAdjustmentEntry = null)
+        bool? isAdjustmentEntry = null,
+        Guid? serialAndBatchBundleId = null)
     {
         var item = await _itemRepository.GetAsync(itemId);
         var previousSle = await GetPreviousSleAsync(itemId, warehouseId, postingDate);
@@ -152,17 +157,37 @@ public class StockValuationService : DomainService
         }
 
         // Per ERPNext stock_ledger.py get_valuation_rate:
-        // When stock-out is against a batch with batchwise valuation, use the batch's valuation rate
-        if (quantityChange < 0 && batchId.HasValue && incomingRate <= 0)
+        // When stock-out is against a bundle or batch with batchwise valuation, use the specific valuation rate
+        if (quantityChange < 0 && incomingRate <= 0)
         {
-            var batchRate = await GetValuationRateAsync(itemId, warehouseId, batchId, asOfDate: postingDate);
-            if (batchRate > 0)
+            if (serialAndBatchBundleId.HasValue)
             {
-                valuationRate = batchRate;
-                if (item.ValuationMethod == ValuationMethod.WeightedAverage)
+                var bundleRate = await GetValuationRateAsync(
+                    itemId, warehouseId,
+                    serialAndBatchBundleId: serialAndBatchBundleId.Value,
+                    asOfDate: postingDate,
+                    excludeVoucherId: voucherId);
+                if (bundleRate > 0)
                 {
-                    newBalanceQty = (previousSle?.BalanceQuantity ?? 0) + quantityChange;
-                    newBalanceValue = Math.Max(0, newBalanceQty * valuationRate);
+                    valuationRate = bundleRate;
+                    if (item.ValuationMethod == ValuationMethod.WeightedAverage)
+                    {
+                        newBalanceQty = (previousSle?.BalanceQuantity ?? 0) + quantityChange;
+                        newBalanceValue = Math.Max(0, newBalanceQty * valuationRate);
+                    }
+                }
+            }
+            else if (batchId.HasValue)
+            {
+                var batchRate = await GetValuationRateAsync(itemId, warehouseId, batchId, asOfDate: postingDate, excludeVoucherId: voucherId);
+                if (batchRate > 0)
+                {
+                    valuationRate = batchRate;
+                    if (item.ValuationMethod == ValuationMethod.WeightedAverage)
+                    {
+                        newBalanceQty = (previousSle?.BalanceQuantity ?? 0) + quantityChange;
+                        newBalanceValue = Math.Max(0, newBalanceQty * valuationRate);
+                    }
                 }
             }
         }
@@ -203,6 +228,7 @@ public class StockValuationService : DomainService
             VoucherId = voucherId,
             StockQueue = stockQueue,
             BatchId = batchId,
+            SerialAndBatchBundleId = serialAndBatchBundleId,
             IsAdjustmentEntry = isAdjustment,
             StockValueDifference = Math.Round(newBalanceValue - (previousSle?.BalanceValue ?? 0), 2),
             IncomingRate = quantityChange > 0 ? incomingRate : 0m,
@@ -321,6 +347,23 @@ public class StockValuationService : DomainService
                     var totalQty = Math.Abs(bundle.TotalQty);
                     if (totalQty > 0)
                     {
+                        var serialNosNeedingRate = bundle.Entries
+                            .Where(e => e.IncomingRate == 0 && !string.IsNullOrWhiteSpace(e.SerialNo))
+                            .Select(e => e.SerialNo!)
+                            .Distinct()
+                            .ToList();
+
+                        Dictionary<string, decimal> serialRates = new(StringComparer.OrdinalIgnoreCase);
+                        if (serialNosNeedingRate.Count > 0)
+                        {
+                            serialRates = await GetSerialNoWiseIncomingRateAsync(
+                                itemId, warehouseId, serialNosNeedingRate,
+                                asOfDate: asOfDate ?? bundle.PostingDate,
+                                excludeVoucherId: excludeVoucherId ?? (bundle.VoucherId != Guid.Empty ? bundle.VoucherId : null),
+                                postingDateTime: postingDateTime,
+                                creationTime: creationTime);
+                        }
+
                         decimal totalAmount = 0m;
                         foreach (var entry in bundle.Entries)
                         {
@@ -331,6 +374,13 @@ public class StockValuationService : DomainService
                                     itemId, warehouseId, entry.BatchId.Value,
                                     asOfDate: asOfDate ?? bundle.PostingDate,
                                     excludeVoucherId: excludeVoucherId);
+                            }
+                            else if (entryRate == 0 && !string.IsNullOrWhiteSpace(entry.SerialNo))
+                            {
+                                if (serialRates.TryGetValue(entry.SerialNo, out var sRate) && sRate > 0)
+                                {
+                                    entryRate = sRate;
+                                }
                             }
                             totalAmount += entry.Qty * entryRate;
                         }
@@ -370,6 +420,145 @@ public class StockValuationService : DomainService
 
         var item = await _itemRepository.FindAsync(itemId);
         return item?.StandardBuyingPrice ?? 0m;
+    }
+
+    public const int SerialNoQueryBatchSize = 500;
+
+    /// <summary>
+    /// Gets the incoming valuation rate for a specific serial number in a warehouse.
+    /// Per ERPNext PR #60771 (commit 8233482921):
+    /// Returns the latest inward incoming rate for the serial number in this warehouse.
+    /// </summary>
+    public async Task<decimal> GetSerialNoIncomingRateAsync(
+        Guid itemId,
+        Guid warehouseId,
+        string serialNo,
+        DateTime? asOfDate = null,
+        Guid? excludeVoucherId = null,
+        DateTime? postingDateTime = null,
+        DateTime? creationTime = null)
+    {
+        if (string.IsNullOrWhiteSpace(serialNo)) return 0m;
+        var rates = await GetSerialNoWiseIncomingRateAsync(
+            itemId, warehouseId, new[] { serialNo },
+            asOfDate, excludeVoucherId, postingDateTime, creationTime);
+
+        return rates.TryGetValue(serialNo, out var rate) ? rate : 0m;
+    }
+
+    /// <summary>
+    /// Fetches serial number incoming rates with a single indexed query in batches of 500.
+    /// Per ERPNext PR #60771 (commit 8233482921):
+    /// Queries inward Serial and Batch Bundles for the given item and warehouse,
+    /// ordered by posting date descending, creation time descending.
+    /// Returns the latest inward incoming rate for each serial number.
+    /// </summary>
+    public async Task<Dictionary<string, decimal>> GetSerialNoWiseIncomingRateAsync(
+        Guid itemId,
+        Guid warehouseId,
+        IEnumerable<string> serialNos,
+        DateTime? asOfDate = null,
+        Guid? excludeVoucherId = null,
+        DateTime? postingDateTime = null,
+        DateTime? creationTime = null)
+    {
+        var incomingRates = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var serialList = serialNos.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+        if (serialList.Count == 0) return incomingRates;
+
+        var bundleRepo = _bundleRepository ?? LazyServiceProvider.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
+        if (bundleRepo != null)
+        {
+            var bundleQuery = await bundleRepo.GetQueryableAsync();
+            if (bundleQuery != null)
+            {
+                var inwardBundles = bundleQuery.Where(b =>
+                    b.ItemId == itemId
+                    && b.WarehouseId == warehouseId
+                    && b.TypeOfTransaction == BundleTransactionType.Inward
+                    && !b.IsCancelled
+                    && b.Status == DocumentStatus.Submitted);
+
+                if (excludeVoucherId.HasValue)
+                {
+                    inwardBundles = inwardBundles.Where(b => b.VoucherId != excludeVoucherId.Value);
+                }
+
+                if (postingDateTime.HasValue)
+                {
+                    if (creationTime.HasValue)
+                    {
+                        inwardBundles = inwardBundles.Where(b =>
+                            b.PostingDate < postingDateTime.Value
+                            || (b.PostingDate == postingDateTime.Value && b.CreationTime < creationTime.Value));
+                    }
+                    else
+                    {
+                        inwardBundles = inwardBundles.Where(b => b.PostingDate <= postingDateTime.Value);
+                    }
+                }
+                else if (asOfDate.HasValue)
+                {
+                    inwardBundles = inwardBundles.Where(b => b.PostingDate <= asOfDate.Value);
+                }
+
+                inwardBundles = inwardBundles
+                    .OrderByDescending(b => b.PostingDate)
+                    .ThenByDescending(b => b.CreationTime);
+
+                // Batch processing matching ERPNext PR #60771
+                for (int i = 0; i < serialList.Count; i += SerialNoQueryBatchSize)
+                {
+                    var batch = serialList.Skip(i).Take(SerialNoQueryBatchSize).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                    var matchedBundles = inwardBundles
+                        .Where(b => b.Entries.Any(e => e.SerialNo != null && batch.Contains(e.SerialNo) && e.Qty > 0))
+                        .ToList();
+
+                    foreach (var bundle in matchedBundles)
+                    {
+                        foreach (var entry in bundle.Entries)
+                        {
+                            if (!string.IsNullOrWhiteSpace(entry.SerialNo) && entry.Qty > 0 && batch.Contains(entry.SerialNo))
+                            {
+                                if (!incomingRates.ContainsKey(entry.SerialNo))
+                                {
+                                    incomingRates[entry.SerialNo] = entry.IncomingRate;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fallback to SerialNo.PurchaseRate for any serial numbers not found in inward bundles
+        var missingSerials = serialList.Where(s => !incomingRates.ContainsKey(s)).ToList();
+        if (missingSerials.Count > 0)
+        {
+            var serialRepo = _serialNoRepository ?? LazyServiceProvider.LazyGetService<IRepository<SerialNo, Guid>>();
+            if (serialRepo != null)
+            {
+                var serialQuery = await serialRepo.GetQueryableAsync();
+                if (serialQuery != null)
+                {
+                    var foundSerials = serialQuery
+                        .Where(s => s.ItemId == itemId && missingSerials.Contains(s.SerialNumber))
+                        .Select(s => new { s.SerialNumber, s.PurchaseRate })
+                        .ToList();
+
+                    foreach (var s in foundSerials)
+                    {
+                        if (s.PurchaseRate > 0 && !incomingRates.ContainsKey(s.SerialNumber))
+                        {
+                            incomingRates[s.SerialNumber] = s.PurchaseRate;
+                        }
+                    }
+                }
+            }
+        }
+
+        return incomingRates;
     }
 
     /// <summary>
