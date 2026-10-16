@@ -1920,6 +1920,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/reports/bom-variance',
+        name: '::Menu:BomVarianceReport',
+        iconClass: 'fas fa-balance-scale',
+        order: 16.5,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
+      },
+      {
         path: '/manufacturing/reports/work-order-summary',
         name: '::Menu:WorkOrderSummary',
         iconClass: 'fas fa-clipboard-list',

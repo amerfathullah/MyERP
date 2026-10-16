@@ -1485,3 +1485,42 @@ export interface JobCardChartDatasetDto {
   values: number[];
 }
 
+export interface BomVarianceReportRequestDto {
+  companyId: string;
+  bomId?: string | null;
+  workOrderId?: string | null;
+  onlyOverproduced?: boolean;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface BomVarianceReportDto {
+  companyId: string;
+  rows: BomVarianceReportRowDto[];
+  totalWorkOrders: number;
+  totalOrderedQty: number;
+  totalProducedQty: number;
+  totalRequiredQty: number;
+  totalConsumedQty: number;
+  totalVarianceQty: number;
+}
+
+export interface BomVarianceReportRowDto {
+  workOrderId: string;
+  workOrderNumber: string;
+  bomId: string;
+  bomNumber: string;
+  finishedGoodItemId: string;
+  finishedGoodItemCode: string;
+  finishedGoodItemName: string;
+  orderedQty: number;
+  producedQty: number;
+  rawMaterialItemId: string;
+  rawMaterialItemCode: string;
+  rawMaterialItemName: string;
+  requiredQty: number;
+  consumedQty: number;
+  varianceQty: number;
+}
+
+
