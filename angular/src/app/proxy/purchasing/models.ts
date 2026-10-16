@@ -1699,5 +1699,56 @@ export interface ItemWisePurchaseHistoryReportDto {
   chartData: ItemWisePurchaseChartPointDto[];
 }
 
+export interface PurchaseOrderTrendsRequestDto {
+  companyId: string;
+  fiscalYearId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  period: string;
+  basedOn: string;
+  groupBy?: string | null;
+  supplierId?: string | null;
+  itemId?: string | null;
+  itemGroup?: string | null;
+  includeClosedOrders: boolean;
+}
+
+export interface PurchaseOrderTrendsPeriodColumnDto {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface PurchaseOrderTrendsRowDto {
+  entityId: string;
+  entityCode: string;
+  entityName: string;
+  secondaryInfo?: string | null;
+  groupByValue?: string | null;
+  periodQuantities: Record<string, number>;
+  periodAmounts: Record<string, number>;
+  totalQty: number;
+  totalAmount: number;
+}
+
+export interface PurchaseOrderTrendsChartDto {
+  labels: string[];
+  datapoints: number[];
+  currency: string;
+}
+
+export interface PurchaseOrderTrendsReportDto {
+  companyCurrency: string;
+  period: string;
+  basedOn: string;
+  groupBy?: string | null;
+  periodColumns: PurchaseOrderTrendsPeriodColumnDto[];
+  rows: PurchaseOrderTrendsRowDto[];
+  totalRow: PurchaseOrderTrendsRowDto;
+  chart: PurchaseOrderTrendsChartDto;
+}
+
+
 
 

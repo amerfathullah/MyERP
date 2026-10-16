@@ -32,5 +32,6 @@ export * from './supplier-scorecard-variable.service';
 export * from './supplier-scorecard.service';
 export * from './supplier.service';
 export * from './item-wise-purchase-history.service';
+export * from './purchase-order-trends.service';
 export { Dtos };
 

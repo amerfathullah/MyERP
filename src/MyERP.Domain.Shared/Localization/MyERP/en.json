@@ -5166,7 +5166,11 @@
     "Menu:QuotationTrends": "Quotation Trends",
     "QuotationTrends": "Quotation Trends",
     "QuotationTrendsDescription": "Periodic quotation trends analysis across customers, items, or item groups.",
-    "NoQuotationTrendsDataFound": "No quotation trend records found for the selected criteria."
+    "NoQuotationTrendsDataFound": "No quotation trend records found for the selected criteria.",
+    "Menu:PurchaseOrderTrends": "Purchase Order Trends",
+    "PurchaseOrderTrends": "Purchase Order Trends",
+    "PurchaseOrderTrendsDescription": "Periodic purchase order trends analysis across suppliers, items, or item groups.",
+    "NoPurchaseOrderTrendsDataFound": "No purchase order trend records found for the selected criteria."
   }
 }
 
