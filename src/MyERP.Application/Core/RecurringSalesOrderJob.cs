@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using MyERP.Accounting.DomainServices;
+using MyERP.Accounting.Entities;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.Sales.Entities;
@@ -17,6 +19,7 @@ namespace MyERP.Core.BackgroundJobs;
 /// Background job that creates recurring sales orders from Auto-Repeat entries.
 /// Fires nightly per company. Creates a Draft copy of the template SO for each due repeat.
 /// Per ERPNext: creates as Draft (never auto-submits), per DO-NOT: cannot auto-repeat cancelled documents.
+/// Per ERPNext PR #60815 (commit 28265080db): refresh exchange rate on recurring documents for new date.
 /// </summary>
 public class RecurringSalesOrderJobArgs
 {
@@ -29,6 +32,8 @@ public class RecurringSalesOrderJob : AsyncBackgroundJob<RecurringSalesOrderJobA
 {
     private readonly IRepository<AutoRepeat, Guid> _autoRepeatRepository;
     private readonly IRepository<SalesOrder, Guid> _salesOrderRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly CurrencyExchangeService _currencyExchangeService;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly IGuidGenerator _guidGenerator;
     private readonly ILogger<RecurringSalesOrderJob> _logger;
@@ -37,6 +42,8 @@ public class RecurringSalesOrderJob : AsyncBackgroundJob<RecurringSalesOrderJobA
     public RecurringSalesOrderJob(
         IRepository<AutoRepeat, Guid> autoRepeatRepository,
         IRepository<SalesOrder, Guid> salesOrderRepository,
+        IRepository<Company, Guid> companyRepository,
+        CurrencyExchangeService currencyExchangeService,
         IDocumentNumberGenerator numberGenerator,
         IGuidGenerator guidGenerator,
         ILogger<RecurringSalesOrderJob> logger,
@@ -44,6 +51,8 @@ public class RecurringSalesOrderJob : AsyncBackgroundJob<RecurringSalesOrderJobA
     {
         _autoRepeatRepository = autoRepeatRepository;
         _salesOrderRepository = salesOrderRepository;
+        _companyRepository = companyRepository;
+        _currencyExchangeService = currencyExchangeService;
         _numberGenerator = numberGenerator;
         _guidGenerator = guidGenerator;
         _logger = logger;
@@ -118,6 +127,22 @@ public class RecurringSalesOrderJob : AsyncBackgroundJob<RecurringSalesOrderJobA
             args.TenantId);
 
         newOrder.CurrencyCode = template.CurrencyCode;
+        newOrder.ExchangeRate = template.ExchangeRate;
+
+        // Per ERPNext PR #60815 (commit 28265080db):
+        // Refresh exchange rate on auto-repeated recurring documents for the new transaction date
+        var company = await _companyRepository.FindAsync(template.CompanyId);
+        if (company != null && !string.IsNullOrWhiteSpace(newOrder.CurrencyCode) &&
+            !string.Equals(newOrder.CurrencyCode, company.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+        {
+            var refreshedRate = await _currencyExchangeService.GetExchangeRateAsync(
+                newOrder.CurrencyCode, company.CurrencyCode, args.AsOfDate);
+            if (refreshedRate > 0)
+            {
+                newOrder.ExchangeRate = refreshedRate;
+            }
+        }
+
         newOrder.PriceListId = template.PriceListId;
         newOrder.ProjectId = template.ProjectId;
         newOrder.Notes = $"Auto-generated from recurring template {repeat.ReferenceDocumentNumber}";

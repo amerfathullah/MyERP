@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
@@ -20,6 +21,7 @@ namespace MyERP.Core.BackgroundJobs;
 /// Fires nightly per company. Creates a Draft copy of the template SI/PI for each due repeat.
 /// Per ERPNext: creates as Draft (never auto-submits), per DO-NOT: cannot auto-repeat cancelled documents.
 /// Per ERPNext PR #60256 (commit f6dfd4336d): keep payment terms, PO no, and shift service dates into new billing period.
+/// Per ERPNext PR #60815 (commit 28265080db): refresh exchange rate on recurring documents for new date.
 /// </summary>
 public class RecurringInvoiceJobArgs
 {
@@ -35,6 +37,8 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
     private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
     private readonly IRepository<PaymentTermsTemplate, Guid> _paymentTermsRepository;
     private readonly IRepository<PaymentScheduleEntry, Guid> _paymentScheduleRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly CurrencyExchangeService _currencyExchangeService;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly IGuidGenerator _guidGenerator;
     private readonly ILogger<RecurringInvoiceJob> _logger;
@@ -46,6 +50,8 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
         IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
         IRepository<PaymentTermsTemplate, Guid> paymentTermsRepository,
         IRepository<PaymentScheduleEntry, Guid> paymentScheduleRepository,
+        IRepository<Company, Guid> companyRepository,
+        CurrencyExchangeService currencyExchangeService,
         IDocumentNumberGenerator numberGenerator,
         IGuidGenerator guidGenerator,
         ILogger<RecurringInvoiceJob> logger,
@@ -56,6 +62,8 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
         _paymentTermsRepository = paymentTermsRepository;
         _paymentScheduleRepository = paymentScheduleRepository;
+        _companyRepository = companyRepository;
+        _currencyExchangeService = currencyExchangeService;
         _numberGenerator = numberGenerator;
         _guidGenerator = guidGenerator;
         _logger = logger;
@@ -147,6 +155,21 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
 
         newInvoice.CurrencyCode = template.CurrencyCode;
         newInvoice.ExchangeRate = template.ExchangeRate;
+
+        // Per ERPNext PR #60815 (commit 28265080db):
+        // Refresh exchange rate on auto-repeated recurring documents for the new posting date
+        var company = await _companyRepository.FindAsync(template.CompanyId);
+        if (company != null && !string.IsNullOrWhiteSpace(newInvoice.CurrencyCode) &&
+            !string.Equals(newInvoice.CurrencyCode, company.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+        {
+            var refreshedRate = await _currencyExchangeService.GetExchangeRateAsync(
+                newInvoice.CurrencyCode, company.CurrencyCode, args.AsOfDate);
+            if (refreshedRate > 0)
+            {
+                newInvoice.ExchangeRate = refreshedRate;
+            }
+        }
+
         newInvoice.Notes = $"Auto-generated from recurring template {repeat.ReferenceDocumentNumber}";
         newInvoice.ProjectId = template.ProjectId;
         newInvoice.CostCenterId = template.CostCenterId;
@@ -264,6 +287,21 @@ public class RecurringInvoiceJob : AsyncBackgroundJob<RecurringInvoiceJobArgs>, 
 
         newInvoice.CurrencyCode = template.CurrencyCode;
         newInvoice.ExchangeRate = template.ExchangeRate;
+
+        // Per ERPNext PR #60815 (commit 28265080db):
+        // Refresh exchange rate on auto-repeated recurring documents for the new posting date
+        var company = await _companyRepository.FindAsync(template.CompanyId);
+        if (company != null && !string.IsNullOrWhiteSpace(newInvoice.CurrencyCode) &&
+            !string.Equals(newInvoice.CurrencyCode, company.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+        {
+            var refreshedRate = await _currencyExchangeService.GetExchangeRateAsync(
+                newInvoice.CurrencyCode, company.CurrencyCode, args.AsOfDate);
+            if (refreshedRate > 0)
+            {
+                newInvoice.ExchangeRate = refreshedRate;
+            }
+        }
+
         newInvoice.Notes = $"Auto-generated from recurring template {repeat.ReferenceDocumentNumber}";
         newInvoice.CostCenterId = template.CostCenterId;
         newInvoice.CreditToAccountId = template.CreditToAccountId;

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using MyERP.Accounting.DomainServices;
 using MyERP.Core.DomainServices;
 using MyERP.Core.Entities;
 using MyERP.Purchasing.Entities;
@@ -17,6 +18,7 @@ namespace MyERP.Core.BackgroundJobs;
 /// Background job that creates recurring purchase invoices from Auto-Repeat entries.
 /// Fires nightly per company. Creates a Draft copy of the template PI for each due repeat.
 /// Per ERPNext: creates as Draft (never auto-submits), per DO-NOT: cannot auto-repeat cancelled documents.
+/// Per ERPNext PR #60815 (commit 28265080db): refresh exchange rate on recurring documents for new date.
 /// </summary>
 public class RecurringPurchaseInvoiceJobArgs
 {
@@ -29,6 +31,8 @@ public class RecurringPurchaseInvoiceJob : AsyncBackgroundJob<RecurringPurchaseI
 {
     private readonly IRepository<AutoRepeat, Guid> _autoRepeatRepository;
     private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepository;
+    private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly CurrencyExchangeService _currencyExchangeService;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly IGuidGenerator _guidGenerator;
     private readonly ILogger<RecurringPurchaseInvoiceJob> _logger;
@@ -37,6 +41,8 @@ public class RecurringPurchaseInvoiceJob : AsyncBackgroundJob<RecurringPurchaseI
     public RecurringPurchaseInvoiceJob(
         IRepository<AutoRepeat, Guid> autoRepeatRepository,
         IRepository<PurchaseInvoice, Guid> purchaseInvoiceRepository,
+        IRepository<Company, Guid> companyRepository,
+        CurrencyExchangeService currencyExchangeService,
         IDocumentNumberGenerator numberGenerator,
         IGuidGenerator guidGenerator,
         ILogger<RecurringPurchaseInvoiceJob> logger,
@@ -44,6 +50,8 @@ public class RecurringPurchaseInvoiceJob : AsyncBackgroundJob<RecurringPurchaseI
     {
         _autoRepeatRepository = autoRepeatRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
+        _companyRepository = companyRepository;
+        _currencyExchangeService = currencyExchangeService;
         _numberGenerator = numberGenerator;
         _guidGenerator = guidGenerator;
         _logger = logger;
@@ -119,6 +127,21 @@ public class RecurringPurchaseInvoiceJob : AsyncBackgroundJob<RecurringPurchaseI
 
         newInvoice.CurrencyCode = template.CurrencyCode;
         newInvoice.ExchangeRate = template.ExchangeRate;
+
+        // Per ERPNext PR #60815 (commit 28265080db):
+        // Refresh exchange rate on auto-repeated recurring documents for the new posting date
+        var company = await _companyRepository.FindAsync(template.CompanyId);
+        if (company != null && !string.IsNullOrWhiteSpace(newInvoice.CurrencyCode) &&
+            !string.Equals(newInvoice.CurrencyCode, company.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+        {
+            var refreshedRate = await _currencyExchangeService.GetExchangeRateAsync(
+                newInvoice.CurrencyCode, company.CurrencyCode, args.AsOfDate);
+            if (refreshedRate > 0)
+            {
+                newInvoice.ExchangeRate = refreshedRate;
+            }
+        }
+
         newInvoice.PriceListId = template.PriceListId;
         newInvoice.CreditToAccountId = template.CreditToAccountId;
         newInvoice.PaymentTermsTemplateId = template.PaymentTermsTemplateId;
