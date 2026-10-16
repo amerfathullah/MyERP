@@ -628,6 +628,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Customers' },
   },
   {
+    path: 'sales/reports/customer-acquisition-and-loyalty',
+    loadComponent: () => import('./sales/reports/customer-acquisition-and-loyalty/customer-acquisition-and-loyalty.component').then(c => c.CustomerAcquisitionAndLoyaltyComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
     path: 'sales/reports/payment-terms-status',
     loadComponent: () => import('./sales/reports/payment-terms-status-for-sales-order/payment-terms-status-for-sales-order.component').then(c => c.PaymentTermsStatusForSalesOrderComponent),
     canActivate: [authGuard, permissionGuard],

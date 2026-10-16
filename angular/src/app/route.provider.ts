@@ -2568,6 +2568,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Customers',
       },
       {
+        path: '/sales/reports/customer-acquisition-and-loyalty',
+        name: '::Menu:CustomerAcquisitionAndLoyalty',
+        iconClass: 'fas fa-users',
+        order: 22.6,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesInvoices',
+      },
+      {
         path: '/sales/reports/payment-terms-status',
         name: '::Menu:PaymentTermsStatusForSalesOrder',
         iconClass: 'fas fa-file-invoice-dollar',

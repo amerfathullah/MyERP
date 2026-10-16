@@ -5088,7 +5088,17 @@
     "QtyToReceive": "Qty to Receive",
     "ReceivedAmount": "Received Amount",
     "RequiredDate": "Required Date",
-    "NoPurchaseOrdersFound": "No purchase orders matching criteria found."
+    "NoPurchaseOrdersFound": "No purchase orders matching criteria found.",
+    "Menu:CustomerAcquisitionAndLoyalty": "Customer Acquisition and Loyalty",
+    "CustomerAcquisitionAndLoyalty": "Customer Acquisition and Loyalty",
+    "CustomerAcquisitionAndLoyaltyDescription": "Analyze new and repeat customer acquisition and revenue trends across months and territories.",
+    "NewCustomers": "New Customers",
+    "RepeatCustomers": "Repeat Customers",
+    "NewCustomerRevenue": "New Customer Revenue",
+    "RepeatCustomerRevenue": "Repeat Customer Revenue",
+    "ViewByTime": "Monthly Time Series",
+    "ViewByTerritory": "By Territory",
+    "NoAcquisitionDataFound": "No customer acquisition records found for the selected period."
   }
 }
 
