@@ -76,9 +76,31 @@ public class BomCostPropagationService : DomainService
         if (currentBom.ItemId != newBom.ItemId)
             throw new BusinessException(MyERPDomainErrorCodes.BomReplaceItemMismatch);
 
-        var newUnitCost = newBom.Quantity > 0 ? newBom.TotalCost / newBom.Quantity : newBom.TotalCost;
+        // ERPNext PR #60549: replace BOM only with a submitted active BOM of same company
+        if (!newBom.IsActive)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"New BOM {newBom.BomNumber} must be submitted and active.");
+        }
+
+        if (currentBom.CompanyId != newBom.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Current BOM and New BOM must have the same company.");
+        }
 
         var parentBoms = await FindParentBomsAsync(currentBomId);
+
+        // ERPNext PR #60549: refuse replacing BOM of parents that track semi-finished goods
+        var semiFgParents = parentBoms.Where(p => p.TrackSemiFinishedGoods).ToList();
+        if (semiFgParents.Count > 0)
+        {
+            var parentNames = string.Join(", ", semiFgParents.Select(p => p.BomNumber));
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"BOM {currentBom.BomNumber} is used in {parentNames}, which track semi-finished goods. Amend those BOMs to use the new BOM so their operation materials are fetched again.");
+        }
+
+        var newUnitCost = newBom.Quantity > 0 ? newBom.TotalCost / newBom.Quantity : newBom.TotalCost;
         var updatedItemCount = 0;
         foreach (var parentBom in parentBoms)
         {
@@ -114,12 +136,22 @@ public class BomCostPropagationService : DomainService
             .Where(b => b.CompanyId == companyId && b.IsActive)
             .ToList();
 
-        // Process leaf BOMs first (no sub-BOMs), then work upward
+        if (allBoms.Count == 0) return 0;
+
+        var activeBomIds = allBoms.Select(b => b.Id).ToHashSet();
+
+        // Process leaf BOMs first (no active sub-BOMs), then work upward
         var processed = new HashSet<Guid>();
         var updatedCount = 0;
 
-        // Pass 1: BOMs with no sub-assemblies (leaf level)
-        var leafBoms = allBoms.Where(b => !b.Items.Any(i => i.SubBomId.HasValue)).ToList();
+        // Pass 1: BOMs with no active sub-assemblies (leaf level - ERPNext PR #60549)
+        var leafBoms = allBoms.Where(b => !b.Items.Any(i => i.SubBomId.HasValue && activeBomIds.Contains(i.SubBomId.Value))).ToList();
+        if (leafBoms.Count == 0)
+        {
+            // Complete update cost log when there are no leaf BOMs
+            return 0;
+        }
+
         foreach (var bom in leafBoms)
         {
             bom.RecalculateCost();
@@ -128,14 +160,14 @@ public class BomCostPropagationService : DomainService
             updatedCount++;
         }
 
-        // Pass 2+: BOMs whose sub-BOMs are all already processed
+        // Pass 2+: BOMs whose active sub-BOMs are all already processed
         var remaining = allBoms.Where(b => !processed.Contains(b.Id)).ToList();
         var maxIterations = remaining.Count + 1; // prevent infinite loop
         while (remaining.Count > 0 && maxIterations-- > 0)
         {
             var readyBoms = remaining
                 .Where(b => b.Items
-                    .Where(i => i.SubBomId.HasValue)
+                    .Where(i => i.SubBomId.HasValue && activeBomIds.Contains(i.SubBomId.Value))
                     .All(i => processed.Contains(i.SubBomId!.Value)))
                 .ToList();
 
@@ -144,7 +176,7 @@ public class BomCostPropagationService : DomainService
             foreach (var bom in readyBoms)
             {
                 // Update sub-assembly rates from processed child BOMs (PR #59178: respects SetRateOfSubAssemblyItemBasedOnBom per item)
-                foreach (var item in bom.Items.Where(i => i.SubBomId.HasValue))
+                foreach (var item in bom.Items.Where(i => i.SubBomId.HasValue && activeBomIds.Contains(i.SubBomId.Value)))
                 {
                     if (item.SetRateOfSubAssemblyItemBasedOnBom || item.IsPhantom)
                     {

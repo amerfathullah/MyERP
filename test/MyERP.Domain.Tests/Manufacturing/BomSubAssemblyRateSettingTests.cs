@@ -142,4 +142,88 @@ public class BomSubAssemblyRateSettingTests
         parentItem.SubBomId.ShouldBe(newBomId);
         parentItem.Rate.ShouldBe(75); // Rate preserved because SetRateOfSubAssemblyItemBasedOnBom == false
     }
+
+    [Fact]
+    public async Task ReplaceBom_InactiveNewBom_ThrowsBusinessException()
+    {
+        var oldBomId = Guid.NewGuid();
+        var newBomId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var oldBom = new BillOfMaterials(oldBomId, CompanyId, "BOM-OLD", itemId) { IsActive = true };
+        var newBom = new BillOfMaterials(newBomId, CompanyId, "BOM-NEW", itemId) { IsActive = false };
+
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        bomRepo.GetAsync(oldBomId).Returns(oldBom);
+        bomRepo.GetAsync(newBomId).Returns(newBom);
+
+        var service = new BomCostPropagationService(bomRepo);
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => service.ReplaceBomAsync(oldBomId, newBomId));
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("must be submitted and active");
+    }
+
+    [Fact]
+    public async Task ReplaceBom_CompanyMismatch_ThrowsBusinessException()
+    {
+        var oldBomId = Guid.NewGuid();
+        var newBomId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var oldBom = new BillOfMaterials(oldBomId, CompanyId, "BOM-OLD", itemId) { IsActive = true };
+        var newBom = new BillOfMaterials(newBomId, Guid.NewGuid(), "BOM-NEW", itemId) { IsActive = true };
+
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        bomRepo.GetAsync(oldBomId).Returns(oldBom);
+        bomRepo.GetAsync(newBomId).Returns(newBom);
+
+        var service = new BomCostPropagationService(bomRepo);
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => service.ReplaceBomAsync(oldBomId, newBomId));
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("must have the same company");
+    }
+
+    [Fact]
+    public async Task ReplaceBom_ParentTracksSemiFinishedGoods_ThrowsBusinessException()
+    {
+        var oldBomId = Guid.NewGuid();
+        var newBomId = Guid.NewGuid();
+        var subAssemblyItemId = Guid.NewGuid();
+
+        var oldBom = new BillOfMaterials(oldBomId, CompanyId, "BOM-OLD", subAssemblyItemId) { IsActive = true };
+        var newBom = new BillOfMaterials(newBomId, CompanyId, "BOM-NEW", subAssemblyItemId) { IsActive = true };
+
+        var parentBom = new BillOfMaterials(Guid.NewGuid(), CompanyId, "BOM-PARENT", Guid.NewGuid())
+        {
+            IsActive = true,
+            TrackSemiFinishedGoods = true
+        };
+        parentBom.AddItem(new BomItem(Guid.NewGuid(), parentBom.Id, subAssemblyItemId, "Sub", 1, 50) { SubBomId = oldBomId });
+
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        bomRepo.GetAsync(oldBomId).Returns(oldBom);
+        bomRepo.GetAsync(newBomId).Returns(newBom);
+        bomRepo.GetQueryableAsync().Returns(Task.FromResult(new List<BillOfMaterials> { parentBom }.AsQueryable()));
+
+        var service = new BomCostPropagationService(bomRepo);
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => service.ReplaceBomAsync(oldBomId, newBomId));
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("track semi-finished goods");
+    }
+
+    [Fact]
+    public async Task UpdateAllCosts_BomsWithInactiveChild_TreatedAsLeaf()
+    {
+        var parentBomId = Guid.NewGuid();
+        var inactiveChildBomId = Guid.NewGuid();
+
+        var parentBom = new BillOfMaterials(parentBomId, CompanyId, "BOM-PARENT", Guid.NewGuid()) { IsActive = true, Quantity = 1 };
+        parentBom.AddItem(new BomItem(Guid.NewGuid(), parentBomId, Guid.NewGuid(), "Sub", 1, 100) { SubBomId = inactiveChildBomId });
+
+        // inactiveChildBom is NOT in activeBoms list returned from repo
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        bomRepo.GetQueryableAsync().Returns(Task.FromResult(new List<BillOfMaterials> { parentBom }.AsQueryable()));
+
+        var service = new BomCostPropagationService(bomRepo);
+        var updated = await service.UpdateAllCostsAsync(CompanyId);
+
+        updated.ShouldBe(1);
+    }
 }
