@@ -5151,7 +5151,13 @@
     "CustomerWiseItemPrice": "Customer-wise Item Price",
     "CustomerWiseItemPriceDescription": "View selling prices resolved for a specific customer across active selling items, with price list and available stock.",
     "NoCustomerPricesFound": "No item prices found for the selected customer.",
-    "AvailableStock": "Available Stock"
+    "AvailableStock": "Available Stock",
+    "Menu:AvailableStockForPackingItems": "Available Stock for Packing Items",
+    "AvailableStockForPackingItems": "Available Stock for Packing Items",
+    "AvailableStockForPackingItemsDescription": "Track packable product bundle quantities based on component stock availability across warehouses.",
+    "BundleItem": "Bundle Item",
+    "AvailablePackableBundles": "Available Packable Bundles",
+    "NoPackingStockFound": "No packable bundles found for the selected criteria."
   }
 }
 

@@ -676,6 +676,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Customers' },
   },
   {
+    path: 'sales/reports/available-stock-for-packing-items',
+    loadComponent: () => import('./sales/reports/available-stock-for-packing-items/available-stock-for-packing-items.component').then(c => c.AvailableStockForPackingItemsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesOrders' },
+  },
+  {
     path: 'sales/reports/commission',
     loadComponent: () => import('./sales/reports/sales-commission-report/sales-commission-report.component').then(c => c.SalesCommissionReportComponent),
     canActivate: [authGuard, permissionGuard],

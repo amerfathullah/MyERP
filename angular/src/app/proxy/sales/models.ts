@@ -2211,6 +2211,7 @@ export interface AvailableStockForPackingItemDto {
   bundleItemCode?: string;
   bundleItemName?: string;
   description?: string | null;
+  stockUom?: string | null;
   warehouseId?: string;
   warehouseName?: string;
   availablePackableBundles: number;

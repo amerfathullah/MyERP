@@ -135,6 +135,7 @@ public class AvailableStockForPackingItemDto
     public string BundleItemCode { get; set; } = string.Empty;
     public string BundleItemName { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public string? StockUom { get; set; }
     public Guid WarehouseId { get; set; }
     public string WarehouseName { get; set; } = string.Empty;
     public decimal AvailablePackableBundles { get; set; }

@@ -960,7 +960,7 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
         var bundleItemIds = bundles.Select(b => b.ItemId).Distinct().ToList();
         var itemEntities = (await _itemRepo.GetQueryableAsync())
             .Where(i => bundleItemIds.Contains(i.Id))
-            .Select(i => new { i.Id, i.ItemCode, i.ItemName, i.Description })
+            .Select(i => new { i.Id, i.ItemCode, i.ItemName, i.Description, i.Uom })
             .ToList()
             .ToDictionary(i => i.Id);
 
@@ -1014,6 +1014,7 @@ public class SalesAnalyticsAppService : ApplicationService, ISalesAnalyticsAppSe
                         BundleItemCode = itemCode,
                         BundleItemName = itemName,
                         Description = description,
+                        StockUom = item?.Uom ?? "Unit",
                         WarehouseId = whId,
                         WarehouseName = validWarehouses.GetValueOrDefault(whId, "—"),
                         AvailablePackableBundles = wholeBundles

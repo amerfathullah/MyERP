@@ -2667,6 +2667,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Customers',
       },
       {
+        path: '/sales/reports/available-stock-for-packing-items',
+        name: '::Menu:AvailableStockForPackingItems',
+        iconClass: 'fas fa-boxes',
+        order: 22.99,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesOrders',
+      },
+      {
         path: '/sales/reports/commission',
         name: '::Menu:SalesCommission',
         iconClass: 'fas fa-coins',
