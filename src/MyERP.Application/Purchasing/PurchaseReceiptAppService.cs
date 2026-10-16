@@ -1356,6 +1356,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             {
                 ItemId = input.ItemId,
                 Qty = input.Qty,
+                RejectedQty = input.RejectedQty,
                 ItemGroupId = item.ItemGroupId,
                 MustBeWholeNumber = mustBeWholeNumber
             });
@@ -1368,6 +1369,8 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             ItemId = alloc.ItemId,
             WarehouseId = alloc.WarehouseId,
             Qty = alloc.Qty,
+            RejectedQty = alloc.RejectedQty,
+            ReceivedQty = alloc.ReceivedQty,
             IsUnallocated = alloc.IsUnallocated,
         }).ToList();
     }

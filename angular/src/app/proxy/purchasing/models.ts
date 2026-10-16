@@ -700,12 +700,15 @@ export interface PutawayAllocationResultDto {
   itemId?: string;
   warehouseId?: string;
   qty?: number;
+  rejectedQty?: number;
+  receivedQty?: number;
   isUnallocated?: boolean;
 }
 
 export interface PutawayItemInput {
   itemId?: string;
   qty?: number;
+  rejectedQty?: number;
 }
 
 export interface RecordSupplierConfirmationDto {

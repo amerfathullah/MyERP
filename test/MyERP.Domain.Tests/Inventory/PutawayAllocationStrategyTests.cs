@@ -255,4 +255,51 @@ public class PutawayAllocationStrategyTests
         Assert.Equal(50m, result[0].Qty);
         Assert.False(result[0].IsUnallocated);
     }
+
+    [Fact]
+    public async Task Putaway_KeepsRejectedQtyOnFirstSplitRowOnly()
+    {
+        // ERPNext PR #60426 / commit b174ed38a2
+        var ruleRepo = Substitute.For<IRepository<PutawayRule, Guid>>();
+        var binRepo = Substitute.For<IRepository<Bin, Guid>>();
+
+        var rule1 = new PutawayRule(Guid.NewGuid(), _companyId, _wh1)
+        {
+            ItemId = _itemId,
+            StockCapacity = 50,
+            Priority = 1
+        };
+        var rule2 = new PutawayRule(Guid.NewGuid(), _companyId, _wh2)
+        {
+            ItemId = _itemId,
+            StockCapacity = 50,
+            Priority = 2
+        };
+
+        var rules = new List<PutawayRule> { rule1, rule2 }.AsQueryable();
+        ruleRepo.GetQueryableAsync().Returns(Task.FromResult(rules));
+        binRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Bin>().AsQueryable()));
+
+        var service = new PutawayService(ruleRepo, binRepo);
+
+        var result = await service.AllocateAsync(
+            _companyId,
+            _itemId,
+            totalQty: 80m,
+            rejectedQty: 20m);
+
+        Assert.Equal(2, result.Count);
+
+        // First row: takes 50 to _wh1, retains rejected qty (20), received_qty = 50 + 20 = 70
+        Assert.Equal(_wh1, result[0].WarehouseId);
+        Assert.Equal(50m, result[0].Qty);
+        Assert.Equal(20m, result[0].RejectedQty);
+        Assert.Equal(70m, result[0].ReceivedQty);
+
+        // Second row: takes remaining 30 to _wh2, rejected qty = 0, received_qty = 30 + 0 = 30
+        Assert.Equal(_wh2, result[1].WarehouseId);
+        Assert.Equal(30m, result[1].Qty);
+        Assert.Equal(0m, result[1].RejectedQty);
+        Assert.Equal(30m, result[1].ReceivedQty);
+    }
 }

@@ -187,14 +187,19 @@ export class PurchaseReceiptFormComponent implements OnInit {
       .map(row => ({ ...row, allocatable: !!row.itemId && Number(row.quantity) > 0 }));
     if (!rows.some(row => row.allocatable)) { this.toaster.info(this.l.instant('::NoItemsAddedYet')); return; }
 
-    const qtyByItem = new Map<string, number>();
+    const qtyByItem = new Map<string, { qty: number; rejectedQty: number }>();
     rows.filter(row => row.allocatable)
-      .forEach(row => qtyByItem.set(row.itemId, (qtyByItem.get(row.itemId) ?? 0) + Number(row.quantity)));
+      .forEach(row => {
+        const cur = qtyByItem.get(row.itemId) ?? { qty: 0, rejectedQty: 0 };
+        cur.qty += Number(row.quantity);
+        cur.rejectedQty += Number(row.rejectedQty ?? 0);
+        qtyByItem.set(row.itemId, cur);
+      });
 
     this.isApplyingPutaway.set(true);
     this.service.getPutawayAllocations(
       companyId,
-      Array.from(qtyByItem, ([itemId, qty]) => ({ itemId, qty })),
+      Array.from(qtyByItem, ([itemId, val]) => ({ itemId, qty: val.qty, rejectedQty: val.rejectedQty })),
     ).subscribe({
       next: (allocations: any[]) => {
         this.isApplyingPutaway.set(false);
@@ -230,14 +235,32 @@ export class PurchaseReceiptFormComponent implements OnInit {
       while (pending > 0 && queue.length > 0) {
         const head = queue[0];
         const take = Math.min(pending, head.qty);
-        rebuilt.push({ ...row, quantity: take, warehouseId: head.warehouseId });
+        // ERPNext PR #60426 / commit b174ed38a2: keep rejected_qty on the first split row only
+        const rejected = producedForRow === 0 ? Number(row.rejectedQty ?? 0) : 0;
+        rebuilt.push({
+          ...row,
+          quantity: take,
+          warehouseId: head.warehouseId,
+          rejectedQty: rejected,
+          receivedQty: take + rejected,
+        });
         producedForRow++;
         pending -= take;
         head.qty -= take;
         if (head.qty <= 0) queue.shift();
       }
       // Anything left over (allocations ran short of the row) keeps the receipt warehouse.
-      if (pending > 0) { rebuilt.push({ ...row, quantity: pending, warehouseId: '' }); producedForRow++; }
+      if (pending > 0) {
+        const rejected = producedForRow === 0 ? Number(row.rejectedQty ?? 0) : 0;
+        rebuilt.push({
+          ...row,
+          quantity: pending,
+          warehouseId: '',
+          rejectedQty: rejected,
+          receivedQty: pending + rejected,
+        });
+        producedForRow++;
+      }
       if (producedForRow > 1) splitCount++;
     });
 

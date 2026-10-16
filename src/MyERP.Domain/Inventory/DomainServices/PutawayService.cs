@@ -36,7 +36,7 @@ public class PutawayService : DomainService
     public async Task<List<PutawayAllocation>> AllocateAsync(
         Guid companyId, Guid itemId, decimal totalQty,
         Guid? itemGroupId = null, bool mustBeWholeNumber = false,
-        Guid? sourceWarehouseId = null)
+        Guid? sourceWarehouseId = null, decimal rejectedQty = 0m)
     {
         return await AllocateBatchAsync(companyId, new[]
         {
@@ -44,6 +44,7 @@ public class PutawayService : DomainService
             {
                 ItemId = itemId,
                 Qty = totalQty,
+                RejectedQty = rejectedQty,
                 ItemGroupId = itemGroupId,
                 MustBeWholeNumber = mustBeWholeNumber,
                 SourceWarehouseId = sourceWarehouseId
@@ -72,6 +73,7 @@ public class PutawayService : DomainService
         foreach (var item in items)
         {
             var remaining = item.Qty;
+            var keepRejected = true;
             var key = (item.ItemId, item.ItemGroupId);
 
             if (!ruleCache.TryGetValue(key, out var rawRules))
@@ -96,13 +98,15 @@ public class PutawayService : DomainService
 
             if (!rawRules.Any())
             {
-                if (remaining > 0)
+                if (remaining > 0 || item.RejectedQty > 0)
                 {
                     allocations.Add(new PutawayAllocation
                     {
                         ItemId = item.ItemId,
                         WarehouseId = Guid.Empty,
                         Qty = remaining,
+                        RejectedQty = item.RejectedQty,
+                        ReceivedQty = remaining + item.RejectedQty,
                         IsUnallocated = true
                     });
                 }
@@ -154,26 +158,33 @@ public class PutawayService : DomainService
 
                 if (allocateQty <= 0) continue;
 
+                var rejQty = keepRejected ? item.RejectedQty : 0m;
                 allocations.Add(new PutawayAllocation
                 {
                     ItemId = item.ItemId,
                     WarehouseId = rule.WarehouseId,
                     Qty = allocateQty,
+                    RejectedQty = rejQty,
+                    ReceivedQty = allocateQty + rejQty,
                     PutawayRuleId = rule.Id
                 });
+                keepRejected = false;
 
                 allocatedPerWarehouse[rule.WarehouseId] = alreadyAllocated + allocateQty;
                 remaining -= allocateQty;
             }
 
             // Any remaining qty unallocated (no suitable warehouse or all full)
-            if (remaining > 0)
+            if (remaining > 0 || (keepRejected && item.RejectedQty > 0))
             {
+                var rejQty = keepRejected ? item.RejectedQty : 0m;
                 allocations.Add(new PutawayAllocation
                 {
                     ItemId = item.ItemId,
                     WarehouseId = Guid.Empty, // Signal: needs manual assignment
                     Qty = remaining,
+                    RejectedQty = rejQty,
+                    ReceivedQty = remaining + rejQty,
                     IsUnallocated = true
                 });
             }
@@ -209,6 +220,8 @@ public class PutawayAllocation
     public Guid ItemId { get; set; }
     public Guid WarehouseId { get; set; }
     public decimal Qty { get; set; }
+    public decimal RejectedQty { get; set; }
+    public decimal ReceivedQty { get; set; }
     public Guid? PutawayRuleId { get; set; }
     public bool IsUnallocated { get; set; }
 }
@@ -217,6 +230,7 @@ public class PutawayBatchItem
 {
     public Guid ItemId { get; set; }
     public decimal Qty { get; set; }
+    public decimal RejectedQty { get; set; }
     public Guid? ItemGroupId { get; set; }
     public bool MustBeWholeNumber { get; set; }
     public Guid? SourceWarehouseId { get; set; }
