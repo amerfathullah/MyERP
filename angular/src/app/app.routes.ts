@@ -790,6 +790,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseOrders' },
   },
   {
+    path: 'purchasing/reports/supplier-quotation-comparison',
+    loadComponent: () => import('./purchasing/reports/supplier-quotation-comparison/supplier-quotation-comparison.component').then(c => c.SupplierQuotationComparisonComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
     path: 'settings',
     loadComponent: () => import('./settings/settings-overview/settings-overview.component').then(c => c.SettingsOverviewComponent),
     canActivate: [authGuard],

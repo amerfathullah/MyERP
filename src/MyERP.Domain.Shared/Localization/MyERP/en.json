@@ -5170,7 +5170,15 @@
     "Menu:PurchaseOrderTrends": "Purchase Order Trends",
     "PurchaseOrderTrends": "Purchase Order Trends",
     "PurchaseOrderTrendsDescription": "Periodic purchase order trends analysis across suppliers, items, or item groups.",
-    "NoPurchaseOrderTrendsDataFound": "No purchase order trend records found for the selected criteria."
+    "NoPurchaseOrderTrendsDataFound": "No purchase order trend records found for the selected criteria.",
+    "Menu:SupplierQuotationComparison": "Supplier Quotation Comparison",
+    "SupplierQuotationComparison": "Supplier Quotation Comparison",
+    "SupplierQuotationComparisonDescription": "Compare side-by-side quotes from multiple suppliers for the same items and identify lowest rates.",
+    "SelectRfq": "Select RFQ",
+    "LowestPrice": "Lowest Price",
+    "LowestTotal": "Lowest Total",
+    "NotQuoted": "Not Quoted",
+    "NoComparisonData": "No quotation comparison data found for the selected criteria."
   }
 }
 

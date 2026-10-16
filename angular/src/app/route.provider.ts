@@ -474,6 +474,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseOrders',
       },
       {
+        path: '/purchasing/reports/supplier-quotation-comparison',
+        name: '::Menu:SupplierQuotationComparison',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-code-compare',
+        order: 25,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseOrders',
+      },
+      {
         path: '/accounting',
         name: '::Menu:Accounting',
         iconClass: 'fas fa-calculator',
