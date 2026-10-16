@@ -22,34 +22,45 @@ namespace MyERP.Accounting;
 [Authorize(MyERPPermissions.PaymentEntries.Default)]
 public class BankClearanceAppService : ApplicationService, IBankClearanceAppService
 {
-    /// <summary>JE voucher types that can touch a bank/cash GL account and thus be cleared.</summary>
-    private static readonly JournalEntryVoucherType[] BankTouchingVoucherTypes =
-    {
-        JournalEntryVoucherType.BankEntry,
-        JournalEntryVoucherType.ContraEntry,
-        JournalEntryVoucherType.CreditCardEntry,
-    };
-
     private readonly IRepository<PaymentEntry, Guid> _paymentEntryRepository;
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
     private readonly IRepository<JournalEntryLine, Guid> _journalEntryLineRepository;
+    private readonly IRepository<Account, Guid>? _accountRepository;
+    private readonly IRepository<MyERP.Core.Entities.Company, Guid>? _companyRepository;
+
+    private IRepository<Account, Guid> AccountRepository =>
+        _accountRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+
+    private IRepository<MyERP.Core.Entities.Company, Guid> CompanyRepository =>
+        _companyRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
 
     public BankClearanceAppService(
         IRepository<PaymentEntry, Guid> paymentEntryRepository,
         IRepository<JournalEntry, Guid> journalEntryRepository,
-        IRepository<JournalEntryLine, Guid> journalEntryLineRepository)
+        IRepository<JournalEntryLine, Guid> journalEntryLineRepository,
+        IRepository<Account, Guid>? accountRepository = null,
+        IRepository<MyERP.Core.Entities.Company, Guid>? companyRepository = null)
     {
         _paymentEntryRepository = paymentEntryRepository;
         _journalEntryRepository = journalEntryRepository;
         _journalEntryLineRepository = journalEntryLineRepository;
+        _accountRepository = accountRepository;
+        _companyRepository = companyRepository;
     }
 
     public async Task<List<BankClearanceEntryDto>> GetEntriesAsync(GetBankClearanceEntriesInput input)
     {
         var entries = new List<BankClearanceEntryDto>();
 
+        // Account and company currency resolution per ERPNext PR #60044 & PR #60024
+        var account = await AccountRepository.FindAsync(input.BankAccountId);
+        var company = await CompanyRepository.FindAsync(input.CompanyId);
+        var companyCurrency = company?.CurrencyCode ?? "MYR";
+        var bankCurrency = account?.Currency ?? companyCurrency;
+
         // Payment Entries touching this bank account (either side)
-        var peQuery = await _paymentEntryRepository.GetQueryableAsync();
+        // Per ERPNext PR #60044: payment amounts reflect after-tax paid/received amount in bank currency
+        var peQuery = await _paymentEntryRepository.WithDetailsAsync(p => p.Taxes);
         var pes = peQuery
             .Where(p => p.CompanyId == input.CompanyId
                 && p.Status == DocumentStatus.Posted
@@ -61,27 +72,33 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
         foreach (var pe in pes)
         {
             var isDeposit = pe.PaidToAccountId == input.BankAccountId;
+            var bankSideAmount = pe.GetBankSideAmount(isDeposit);
+            var effectiveExchangeRate = isDeposit
+                ? (pe.TargetExchangeRate > 0 ? pe.TargetExchangeRate : pe.ExchangeRate)
+                : pe.ExchangeRate;
+            var baseSideAmount = bankSideAmount * (effectiveExchangeRate > 0 ? effectiveExchangeRate : 1m);
+            var amount = BankReconciliationAppService.GetAmountInBankCurrency(bankCurrency, companyCurrency, bankSideAmount, baseSideAmount);
+
             entries.Add(new BankClearanceEntryDto
             {
                 DocumentType = "PaymentEntry",
                 DocumentId = pe.Id,
                 DocumentNumber = pe.PaymentNumber ?? pe.Id.ToString()[..8],
                 PostingDate = pe.PostingDate,
-                Debit = isDeposit ? pe.PaidAmount : 0,
-                Credit = isDeposit ? 0 : pe.PaidAmount,
+                Debit = isDeposit ? amount : 0,
+                Credit = isDeposit ? 0 : amount,
                 ReferenceNumber = pe.ReferenceNumber,
                 ClearanceDate = pe.ClearanceDate,
             });
         }
 
-        // Journal Entries (Bank/Contra/Credit Card type) with a line on this bank account.
+        // Journal Entries with a line on this bank account.
         // Per ERPNext bank_clearance.py: opening entries excluded, lines aggregated per (account, je).
         var jeQuery = await _journalEntryRepository.GetQueryableAsync();
         var jeCandidates = jeQuery
             .Where(je => je.CompanyId == input.CompanyId
                 && je.Status == DocumentStatus.Posted
                 && !je.IsOpening
-                && BankTouchingVoucherTypes.Contains(je.VoucherType)
                 && je.PostingDate >= input.FromDate && je.PostingDate <= input.ToDate)
             .Where(je => input.IncludeCleared || je.ClearanceDate == null)
             .ToList();
@@ -98,21 +115,32 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
             foreach (var group in linesByJe)
             {
                 var je = jeCandidates.First(j => j.Id == group.Key);
+                var debit = group.Where(l => l.IsDebit)
+                    .Sum(l => BankReconciliationAppService.GetAmountInBankCurrency(
+                        bankCurrency, companyCurrency,
+                        l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount,
+                        l.Amount));
+                var credit = group.Where(l => !l.IsDebit)
+                    .Sum(l => BankReconciliationAppService.GetAmountInBankCurrency(
+                        bankCurrency, companyCurrency,
+                        l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount,
+                        l.Amount));
+
                 entries.Add(new BankClearanceEntryDto
                 {
                     DocumentType = "JournalEntry",
                     DocumentId = je.Id,
                     DocumentNumber = je.EntryNumber ?? je.Id.ToString()[..8],
                     PostingDate = je.PostingDate,
-                    Debit = group.Where(l => l.IsDebit).Sum(l => l.Amount),
-                    Credit = group.Where(l => !l.IsDebit).Sum(l => l.Amount),
+                    Debit = debit,
+                    Credit = credit,
                     ReferenceNumber = je.ReferenceNumber,
                     ClearanceDate = je.ClearanceDate,
                 });
             }
         }
 
-        return entries.OrderBy(e => e.PostingDate).ToList();
+        return entries.OrderBy(e => e.PostingDate).ThenBy(e => e.DocumentNumber).ToList();
     }
 
     [Authorize(MyERPPermissions.PaymentEntries.Edit)]
