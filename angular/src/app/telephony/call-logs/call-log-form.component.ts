@@ -143,30 +143,36 @@ export class CallLogFormComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.callTypeService.getList({ maxResultCount: 100 } as any).subscribe(res => {
+    this.callTypeService.getList({ isActive: true, maxResultCount: 100 } as any).subscribe(res => {
       this.callTypes = res.items ?? [];
-    });
 
-    this.id = this.route.snapshot.paramMap.get('id');
-    if (this.id) {
-      this.isEdit = true;
-      this.service.get(this.id).subscribe(res => {
-        this.form.patchValue({
-          callId: res.callId,
-          from: res.from,
-          to: res.to,
-          callDirection: res.callDirection,
-          status: res.status,
-          duration: res.duration,
-          recordingUrl: res.recordingUrl,
-          medium: res.medium,
-          customerId: res.customerId,
-          callReceivedByEmployeeId: res.callReceivedByEmployeeId,
-          telephonyCallTypeId: res.telephonyCallTypeId,
-          summary: res.summary,
+      this.id = this.route.snapshot.paramMap.get('id');
+      if (this.id) {
+        this.isEdit = true;
+        this.service.get(this.id).subscribe(callLog => {
+          this.form.patchValue({
+            callId: callLog.callId,
+            from: callLog.from,
+            to: callLog.to,
+            callDirection: callLog.callDirection,
+            status: callLog.status,
+            duration: callLog.duration,
+            recordingUrl: callLog.recordingUrl,
+            medium: callLog.medium,
+            customerId: callLog.customerId,
+            callReceivedByEmployeeId: callLog.callReceivedByEmployeeId,
+            telephonyCallTypeId: callLog.telephonyCallTypeId,
+            summary: callLog.summary,
+          });
+
+          if (callLog.telephonyCallTypeId && !this.callTypes.some(t => t.id === callLog.telephonyCallTypeId)) {
+            this.callTypeService.get(callLog.telephonyCallTypeId).subscribe(existingType => {
+              this.callTypes = [...this.callTypes, existingType];
+            });
+          }
         });
-      });
-    }
+      }
+    });
   }
 
   save() {

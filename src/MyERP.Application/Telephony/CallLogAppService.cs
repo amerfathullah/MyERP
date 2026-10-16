@@ -14,10 +14,30 @@ namespace MyERP.Telephony;
 public class CallLogAppService : MyERPAppService, ICallLogAppService
 {
     private readonly IRepository<CallLog, Guid> _repository;
+    private readonly IRepository<TelephonyCallType, Guid>? _callTypeRepository;
 
-    public CallLogAppService(IRepository<CallLog, Guid> repository)
+    public CallLogAppService(
+        IRepository<CallLog, Guid> repository,
+        IRepository<TelephonyCallType, Guid>? callTypeRepository = null)
     {
         _repository = repository;
+        _callTypeRepository = callTypeRepository;
+    }
+
+    private async Task ValidateCallTypeAsync(Guid? callTypeId)
+    {
+        if (!callTypeId.HasValue) return;
+
+        var callTypeRepo = _callTypeRepository ?? LazyServiceProvider.LazyGetService<IRepository<TelephonyCallType, Guid>>();
+        if (callTypeRepo != null)
+        {
+            var callType = await callTypeRepo.FindAsync(callTypeId.Value);
+            if (callType == null || !callType.IsActive)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Call Type '{callType?.CallTypeName ?? callTypeId.ToString()}' is inactive or not found.");
+            }
+        }
     }
 
     public async Task<CallLogDto> GetAsync(Guid id)
@@ -71,6 +91,8 @@ public class CallLogAppService : MyERPAppService, ICallLogAppService
     [Authorize(MyERPPermissions.CallLogs.Create)]
     public async Task<CallLogDto> CreateAsync(CreateCallLogDto input)
     {
+        await ValidateCallTypeAsync(input.TelephonyCallTypeId);
+
         var entity = new CallLog(
             GuidGenerator.Create(),
             input.CallId.Trim(),
@@ -96,6 +118,11 @@ public class CallLogAppService : MyERPAppService, ICallLogAppService
     public async Task<CallLogDto> UpdateAsync(Guid id, UpdateCallLogDto input)
     {
         var entity = await _repository.GetAsync(id);
+
+        if (input.TelephonyCallTypeId.HasValue && input.TelephonyCallTypeId != entity.TelephonyCallTypeId)
+        {
+            await ValidateCallTypeAsync(input.TelephonyCallTypeId);
+        }
 
         entity.Status = input.Status;
         entity.Duration = input.Duration;

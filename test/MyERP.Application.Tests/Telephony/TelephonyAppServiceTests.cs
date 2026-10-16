@@ -78,6 +78,42 @@ public abstract class TelephonyAppServiceTests<TStartupModule> : MyERPApplicatio
 
             var activeGroup = await _incomingCallSettingsAppService.GetActiveEmployeeGroupAsync(DayOfWeek.Monday, new TimeSpan(11, 0, 0));
             activeGroup.ShouldBe(group);
+
+            // Per ERPNext PR #60031 / commit f50d78510c:
+            // Inactive call types cannot be assigned to new calls
+            var inactiveType = await _callTypeAppService.CreateAsync(new CreateUpdateTelephonyCallTypeDto
+            {
+                CallTypeName = "Inactive Type",
+                IsActive = false
+            });
+
+            await Should.ThrowAsync<Volo.Abp.BusinessException>(async () =>
+            {
+                await _callLogAppService.CreateAsync(new CreateCallLogDto
+                {
+                    CallId = "CALL-TEST-INACTIVE",
+                    From = "+60199998888",
+                    To = "+60355554444",
+                    CallDirection = CallDirection.Incoming,
+                    TelephonyCallTypeId = inactiveType.Id,
+                    Status = CallStatus.Ringing
+                });
+            });
+
+            // Updating call with unchanged call type is permitted even after deactivation
+            await _callTypeAppService.UpdateAsync(callType.Id, new CreateUpdateTelephonyCallTypeDto
+            {
+                CallTypeName = "Support Tier 1",
+                IsActive = false
+            });
+
+            var updatedLog = await _callLogAppService.UpdateAsync(callLog.Id, new UpdateCallLogDto
+            {
+                Status = CallStatus.Completed,
+                Duration = 100,
+                TelephonyCallTypeId = callType.Id // unchanged
+            });
+            updatedLog.TelephonyCallTypeId.ShouldBe(callType.Id);
         });
     }
 }
