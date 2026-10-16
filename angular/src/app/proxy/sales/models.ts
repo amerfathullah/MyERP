@@ -2678,3 +2678,37 @@ export interface SalesPersonWiseTransactionSummaryReportDto {
   transactionCount: number;
 }
 
+export interface GetSalesPersonTargetVarianceInput {
+  companyId: string;
+  docType?: string;
+  targetOn?: string;
+  fiscalYearId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  salesPersonId?: string | null;
+  itemGroupId?: string | null;
+}
+
+export interface SalesPersonTargetVarianceRowDto {
+  salesPersonId: string;
+  salesPersonName: string;
+  itemGroupId?: string | null;
+  itemGroupName: string;
+  target: number;
+  achieved: number;
+  variance: number;
+  achievementPercentage: number;
+}
+
+export interface SalesPersonTargetVarianceReportDto {
+  currency: string;
+  docType: string;
+  targetOn: string;
+  fiscalYearName?: string | null;
+  rows: SalesPersonTargetVarianceRowDto[];
+  totalTarget: number;
+  totalAchieved: number;
+  totalVariance: number;
+  overallAchievementPercentage: number;
+}
+

@@ -724,6 +724,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesOrders' },
   },
   {
+    path: 'sales/reports/sales-person-target-variance',
+    loadComponent: () => import('./sales/reports/sales-person-target-variance/sales-person-target-variance.component').then(c => c.SalesPersonTargetVarianceComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesOrders' },
+  },
+  {
     path: 'sales/reports/analytics',
     loadComponent: () => import('./sales/reports/sales-analytics/sales-analytics.component').then(c => c.SalesAnalyticsComponent),
     canActivate: [authGuard, permissionGuard],

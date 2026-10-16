@@ -2775,6 +2775,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesOrders',
       },
       {
+        path: '/sales/reports/sales-person-target-variance',
+        name: '::Menu:SalesPersonTargetVariance',
+        iconClass: 'fas fa-bullseye',
+        order: 23.03,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesOrders',
+      },
+      {
         path: '/sales/reports/pending-delivery',
         name: '::Menu:PendingDelivery',
         iconClass: 'fas fa-truck-clock',

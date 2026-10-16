@@ -5229,7 +5229,18 @@
     "TotalContributionQty": "Total Contribution Qty",
     "TotalContributionAmount": "Total Contribution Amount",
     "ContributionQty": "Contribution Qty",
-    "ContributionAmount": "Contribution Amount"
+    "ContributionAmount": "Contribution Amount",
+    "Menu:SalesPersonTargetVariance": "Sales Person Target Variance",
+    "SalesPersonTargetVariance": "Sales Person Target Variance",
+    "SalesPersonTargetVarianceDescription": "Item group-wise target variance analysis and achievement tracking for sales persons.",
+    "TargetOn": "Target On",
+    "AllFiscalYears": "All Fiscal Years",
+    "AllItemGroups": "All Item Groups",
+    "TotalTarget": "Total Target",
+    "TotalAchieved": "Total Achieved",
+    "OverallAchievement": "Overall Achievement",
+    "Achieved": "Achieved",
+    "Achievement": "Achievement"
   }
 }
 
