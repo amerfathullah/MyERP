@@ -1971,6 +1971,12 @@ export const APP_ROUTES: Routes = [
     canActivate: [authGuard, permissionGuard],
     data: { requiredPolicy: 'MyERP.Leads.Edit' },
   },
+  {
+    path: 'crm/reports/address-and-contacts',
+    loadComponent: () => import('./crm/reports/address-and-contacts/address-and-contacts.component').then(c => c.AddressAndContactsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Leads' },
+  },
   // Sales — Shipments
   {
     path: 'sales/shipments',

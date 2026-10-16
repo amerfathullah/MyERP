@@ -1379,6 +1379,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.CrmSettings',
       },
       {
+        path: '/crm/reports/address-and-contacts',
+        name: '::Menu:AddressAndContacts',
+        parentName: '::Menu:CRM',
+        iconClass: 'fas fa-address-book',
+        order: 15,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Leads',
+      },
+      {
         path: '',
         name: '::Menu:Projects',
         iconClass: 'fas fa-project-diagram',

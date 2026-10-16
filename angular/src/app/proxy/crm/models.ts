@@ -675,3 +675,45 @@ export interface ConvertOpportunityToCustomerDto {
   customerGroupId?: string;
   territoryId?: string;
 }
+
+export interface GetAddressAndContactsInput {
+  companyId: string;
+  partyType?: string;
+  partyId?: string | null;
+  search?: string | null;
+}
+
+export interface AddressAndContactRowDto {
+  partyId: string;
+  partyType: string;
+  partyName: string;
+  partyCode?: string | null;
+  partyGroup?: string | null;
+  addressId?: string | null;
+  addressTitle?: string | null;
+  addressType?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  isPrimaryAddress: boolean;
+  contactId?: string | null;
+  contactName?: string | null;
+  designation?: string | null;
+  department?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  mobileNo?: string | null;
+  isPrimaryContact: boolean;
+}
+
+export interface AddressAndContactsReportDto {
+  partyType: string;
+  rows: AddressAndContactRowDto[];
+  totalParties: number;
+  totalAddresses: number;
+  totalContacts: number;
+}
+

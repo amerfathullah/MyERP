@@ -1,3 +1,4 @@
+export * from './address-and-contacts.service';
 export * from './appointment-booking-settings.service';
 export * from './appointment-status.enum';
 export * from './appointment.service';

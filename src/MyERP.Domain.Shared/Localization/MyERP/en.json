@@ -5182,7 +5182,19 @@
     "Menu:RequestedItemsToOrderAndReceive": "Requested Items to Order and Receive",
     "RequestedItemsToOrderAndReceive": "Requested Items to Order and Receive",
     "RequestedItemsToOrderAndReceiveDescription": "Track items requested in submitted Material Requests, quantities ordered, and quantities received.",
-    "NoRequestedItemsFound": "No requested items found for the selected criteria."
+    "NoRequestedItemsFound": "No requested items found for the selected criteria.",
+    "Menu:AddressAndContacts": "Address and Contacts",
+    "AddressAndContacts": "Address and Contacts",
+    "AddressAndContactsDescription": "Consolidated report of addresses and contacts linked to parties across the system.",
+    "TotalParties": "Total Parties",
+    "TotalAddresses": "Total Addresses",
+    "TotalContacts": "Total Contacts",
+    "SearchAddressContactPlaceholder": "Search by party, contact, email, or address...",
+    "NoAddress": "No address on file",
+    "NoContact": "No contact on file",
+    "Primary": "Primary",
+    "SalesPartner": "Sales Partner",
+    "Refresh": "Refresh"
   }
 }
 
