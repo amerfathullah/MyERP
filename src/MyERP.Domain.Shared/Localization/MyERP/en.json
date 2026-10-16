@@ -5053,7 +5053,12 @@
     "AddedRows": "Added Items / Operations",
     "RemovedRows": "Removed Items / Operations",
     "NoDifferencesFound": "No differences found between the selected BOMs.",
-    "MyERP:10047": "BOM 1 and BOM 2 should not be the same."
+    "MyERP:10047": "BOM 1 and BOM 2 should not be the same.",
+    "Menu:SubcontractedItemToBeReceived": "Subcontracted Item to Be Received",
+    "SubcontractedItemToBeReceived": "Subcontracted Item to Be Received",
+    "SubcontractedItemToBeReceivedDescription": "Track pending finished goods to be received against subcontracting orders.",
+    "FgItemCode": "Finished Good Item Code",
+    "NoSubcontractedItemsToBeReceived": "No subcontracted items pending receipt found."
   }
 }
 

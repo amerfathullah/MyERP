@@ -1441,3 +1441,37 @@ export interface SupplierTransactionDto {
   outstandingAmount?: number | null;
 }
 
+export interface SubcontractedItemToBeReceivedFilterDto {
+  companyId?: string;
+  supplierId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface SubcontractedItemToBeReceivedRowDto {
+  subcontractOrderId?: string;
+  subcontractOrderNumber?: string;
+  orderDate?: string;
+  supplierId?: string;
+  supplierName?: string;
+  fgItemId?: string;
+  fgItemCode?: string;
+  itemName?: string;
+  requiredQty?: number;
+  receivedQty?: number;
+  pendingQty?: number;
+}
+
+export interface SubcontractedItemToBeReceivedSummaryDto {
+  totalRequiredQty?: number;
+  totalReceivedQty?: number;
+  totalPendingQty?: number;
+  totalOrders?: number;
+}
+
+export interface SubcontractedItemToBeReceivedReportDto {
+  rows?: SubcontractedItemToBeReceivedRowDto[];
+  summary?: SubcontractedItemToBeReceivedSummaryDto;
+}
+
+

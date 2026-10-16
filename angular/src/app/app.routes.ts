@@ -694,6 +694,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseInvoices' },
   },
   {
+    path: 'purchasing/reports/subcontracted-item-to-be-received',
+    loadComponent: () => import('./purchasing/reports/subcontracted-item-to-be-received/subcontracted-item-to-be-received.component').then(c => c.SubcontractedItemToBeReceivedComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
     path: 'settings',
     loadComponent: () => import('./settings/settings-overview/settings-overview.component').then(c => c.SettingsOverviewComponent),
     canActivate: [authGuard],

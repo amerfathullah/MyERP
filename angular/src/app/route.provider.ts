@@ -411,6 +411,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseOrders',
       },
       {
+        path: '/purchasing/reports/subcontracted-item-to-be-received',
+        name: '::Menu:SubcontractedItemToBeReceived',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-boxes-packing',
+        order: 20,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseOrders',
+      },
+      {
         path: '/accounting',
         name: '::Menu:Accounting',
         iconClass: 'fas fa-calculator',
