@@ -420,6 +420,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseOrders',
       },
       {
+        path: '/purchasing/reports/procurement-tracker',
+        name: '::Menu:ProcurementTracker',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-route',
+        order: 21,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseOrders',
+      },
+      {
         path: '/accounting',
         name: '::Menu:Accounting',
         iconClass: 'fas fa-calculator',

@@ -5058,7 +5058,18 @@
     "SubcontractedItemToBeReceived": "Subcontracted Item to Be Received",
     "SubcontractedItemToBeReceivedDescription": "Track pending finished goods to be received against subcontracting orders.",
     "FgItemCode": "Finished Good Item Code",
-    "NoSubcontractedItemsToBeReceived": "No subcontracted items pending receipt found."
+    "NoSubcontractedItemsToBeReceived": "No subcontracted items pending receipt found.",
+    "Menu:ProcurementTracker": "Procurement Tracker",
+    "ProcurementTracker": "Procurement Tracker",
+    "ProcurementTrackerDescription": "Track material request, purchase order, receipt, and invoice lifecycle.",
+    "RequestingSite": "Requesting Site",
+    "Requestor": "Requestor",
+    "ActualCost": "Actual Cost",
+    "PurchaseOrderAmount": "Purchase Order Amount",
+    "ActualDeliveryDate": "Actual Delivery Date",
+    "ShowCompletedOrders": "Show Completed Orders",
+    "TotalRequisitions": "Total Requisitions",
+    "NoProcurementRecordsFound": "No procurement tracker records found."
   }
 }
 

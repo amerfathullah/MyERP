@@ -1474,4 +1474,50 @@ export interface SubcontractedItemToBeReceivedReportDto {
   summary?: SubcontractedItemToBeReceivedSummaryDto;
 }
 
+export interface ProcurementTrackerFilterDto {
+  companyId?: string;
+  costCenterId?: string | null;
+  projectId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  showCompletedOrders?: boolean;
+}
+
+export interface ProcurementTrackerRowDto {
+  materialRequestDate?: string | null;
+  materialRequestNo?: string | null;
+  costCenter?: string | null;
+  project?: string | null;
+  requestingSite?: string | null;
+  requestor?: string | null;
+  itemCode?: string;
+  itemName?: string;
+  quantity?: number;
+  unitOfMeasurement?: string;
+  status?: string;
+  purchaseOrderDate?: string | null;
+  purchaseOrderNo?: string | null;
+  supplierName?: string | null;
+  estimatedCost?: number;
+  actualCost?: number;
+  purchaseOrderAmount?: number;
+  purchaseOrderAmountCompanyCurrency?: number;
+  expectedDeliveryDate?: string | null;
+  actualDeliveryDate?: string | null;
+}
+
+export interface ProcurementTrackerSummaryDto {
+  totalRequisitions?: number;
+  totalOrders?: number;
+  totalEstimatedCost?: number;
+  totalActualCost?: number;
+  totalPurchaseOrderAmount?: number;
+}
+
+export interface ProcurementTrackerReportDto {
+  rows?: ProcurementTrackerRowDto[];
+  summary?: ProcurementTrackerSummaryDto;
+}
+
+
 
