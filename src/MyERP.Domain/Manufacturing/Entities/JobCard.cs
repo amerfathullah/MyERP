@@ -127,6 +127,57 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
             Status = JobCardStatus.WorkInProgress;
     }
 
+    /// <summary>
+    /// Starts a time log at the workstation (ERPNext PR #60595 / commit da8343617a).
+    /// </summary>
+    public JobCardTimeLog StartTimeLog(DateTime fromTime)
+    {
+        if (Status is JobCardStatus.Completed or JobCardStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        if (Status is JobCardStatus.Open or JobCardStatus.PartiallyTransferred or JobCardStatus.MaterialTransferred)
+        {
+            Status = JobCardStatus.WorkInProgress;
+            StartedAt ??= fromTime;
+        }
+
+        var log = new JobCardTimeLog(Guid.NewGuid(), Id, fromTime, default, 0m, 0m);
+        _timeLogs.Add(log);
+        return log;
+    }
+
+    /// <summary>
+    /// Completes open time logs and allocates completed quantity (ERPNext PR #60595 / commit da8343617a).
+    /// </summary>
+    public void CompleteTimeLogs(DateTime toTime, decimal completedQty)
+    {
+        if (Status is JobCardStatus.Completed or JobCardStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        var pendingQty = completedQty;
+        var openLogs = _timeLogs.Where(tl => tl.ToTime == default).ToList();
+        if (openLogs.Count > 0)
+        {
+            foreach (var row in openLogs)
+            {
+                row.ToTime = toTime;
+                row.CompletedQty = pendingQty;
+                row.TimeInMins = Math.Max(0m, (decimal)(toTime - row.FromTime).TotalMinutes);
+                pendingQty = 0m;
+            }
+        }
+        else
+        {
+            var fromTime = StartedAt ?? toTime.AddMinutes(-30);
+            if (fromTime >= toTime) fromTime = toTime.AddMinutes(-1);
+            var timeInMins = Math.Max(0m, (decimal)(toTime - fromTime).TotalMinutes);
+            _timeLogs.Add(new JobCardTimeLog(Guid.NewGuid(), Id, fromTime, toTime, timeInMins, completedQty));
+        }
+
+        TotalTimeInMins = _timeLogs.Sum(t => t.TimeInMins);
+        CompletedQty = _timeLogs.Sum(t => t.CompletedQty);
+    }
+
     public void SetPendingQty(decimal pendingQty)
     {
         if (pendingQty < 0)

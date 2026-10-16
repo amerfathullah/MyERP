@@ -32,6 +32,7 @@ public class WorkstationWorkingHourDto : EntityDto<Guid>
     public string DayOfWeek { get; set; } = null!;
     public string StartTime { get; set; } = null!;
     public string EndTime { get; set; } = null!;
+    public bool IsEnabled { get; set; } = true;
 }
 
 public class CreateWorkstationDto
@@ -59,6 +60,24 @@ public class CreateWorkstationWorkingHourDto
     public string DayOfWeek { get; set; } = null!;
     public TimeSpan StartTime { get; set; }
     public TimeSpan EndTime { get; set; }
+    public bool IsEnabled { get; set; } = true;
+}
+
+public class StartWorkstationJobDto
+{
+    [Required]
+    public Guid JobCardId { get; set; }
+    public DateTime FromTime { get; set; }
+    public Guid? EmployeeId { get; set; }
+}
+
+public class CompleteWorkstationJobDto
+{
+    [Required]
+    public Guid JobCardId { get; set; }
+    [Range(0, double.MaxValue)]
+    public decimal CompletedQty { get; set; }
+    public DateTime ToTime { get; set; }
 }
 
 public interface IWorkstationAppService : IApplicationService
@@ -68,6 +87,8 @@ public interface IWorkstationAppService : IApplicationService
     Task<WorkstationDto> CreateAsync(CreateWorkstationDto input);
     Task<WorkstationDto> UpdateAsync(Guid id, CreateWorkstationDto input);
     Task<List<WorkstationUtilizationDto>> GetCapacityUtilizationAsync(Guid? companyId);
+    Task<JobCardDto> StartJobAsync(Guid workstationId, StartWorkstationJobDto input);
+    Task<JobCardDto> CompleteJobAsync(Guid workstationId, CompleteWorkstationJobDto input);
 }
 
 public class WorkstationUtilizationDto

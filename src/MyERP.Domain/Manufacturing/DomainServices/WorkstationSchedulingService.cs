@@ -70,8 +70,8 @@ public class WorkstationSchedulingService : DomainService
             }
         }
 
-        // Get working hours for this workstation (sorted by day)
-        var workingHours = workstation.WorkingHours.ToList();
+        // Get working hours for this workstation (sorted by day, enabled only - ERPNext PR #60595)
+        var workingHours = workstation.WorkingHours.Where(wh => wh.IsEnabled).ToList();
 
         // If no working hours defined, use default 8am-5pm Mon-Fri
         if (!workingHours.Any())

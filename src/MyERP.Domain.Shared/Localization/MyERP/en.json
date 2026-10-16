@@ -2528,6 +2528,8 @@
     "MyERP:10041": "Demand Qty is mandatory and must be greater than zero.",
     "MyERP:10042": "Row #{row}: {item} is received but is neither the finished good nor a secondary item. Set its Secondary Item Type or remove the row.",
     "MyERP:10043": "Item {item}: cannot return {returned} to the store, Work Order {workOrder} has only {unconsumed} of it left unconsumed.",
+    "MyERP:10044": "Job Card {jobCard} is not open.",
+    "MyERP:10045": "Job Card {jobCard} is not for workstation {workstation}.",
     "MyERP:16004": "{reason}",
     "MyERP:16005": "{reason}",
     "MyERP:17003": "The appointment slot at {scheduledTime} is fully booked. Please choose another time.",

@@ -83,35 +83,47 @@ public class Workstation : FullAuditedAggregateRoot<Guid>, IMultiTenant
         RecalculateHourRate();
     }
 
-    public void AddWorkingHour(string day, TimeSpan startTime, TimeSpan endTime)
+    /// <summary>Auto-calculated: SUM of hours for all enabled working hours (ERPNext PR #60595 / commit da8343617a).</summary>
+    public decimal TotalWorkingHours => _workingHours.Where(wh => wh.IsEnabled).Sum(wh => wh.Hours);
+
+    public void AddWorkingHour(string day, TimeSpan startTime, TimeSpan endTime, bool isEnabled = true)
     {
         if (startTime >= endTime)
             throw new ArgumentException("Start time must be before end time.");
 
-        // ERPNext PR #60144 / commit 5d011c5287: allow back-to-back hours (strict < and > check)
-        var overlap = _workingHours.Any(wh =>
-            string.Equals(wh.Day, day, StringComparison.OrdinalIgnoreCase) &&
-            wh.StartTime < endTime &&
-            wh.EndTime > startTime);
-
-        if (overlap)
+        // ERPNext PR #60144, PR #60595: ignore disabled working hours when checking overlap
+        if (isEnabled)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.WorkingHoursOverlap)
-                .WithData("day", day)
-                .WithData("startTime", startTime.ToString(@"hh\:mm"))
-                .WithData("endTime", endTime.ToString(@"hh\:mm"));
+            var overlap = _workingHours.Any(wh =>
+                wh.IsEnabled &&
+                string.Equals(wh.Day, day, StringComparison.OrdinalIgnoreCase) &&
+                wh.StartTime < endTime &&
+                wh.EndTime > startTime);
+
+            if (overlap)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.WorkingHoursOverlap)
+                    .WithData("day", day)
+                    .WithData("startTime", startTime.ToString(@"hh\:mm"))
+                    .WithData("endTime", endTime.ToString(@"hh\:mm"));
+            }
         }
 
-        _workingHours.Add(new WorkstationWorkingHour(Guid.NewGuid(), Id, day, startTime, endTime));
+        _workingHours.Add(new WorkstationWorkingHour(Guid.NewGuid(), Id, day, startTime, endTime, isEnabled));
+    }
+
+    public void ReplaceWorkingHours(IEnumerable<(string Day, TimeSpan StartTime, TimeSpan EndTime, bool IsEnabled)> hours)
+    {
+        _workingHours.Clear();
+        foreach (var (day, startTime, endTime, isEnabled) in hours)
+        {
+            AddWorkingHour(day, startTime, endTime, isEnabled);
+        }
     }
 
     public void ReplaceWorkingHours(IEnumerable<(string Day, TimeSpan StartTime, TimeSpan EndTime)> hours)
     {
-        _workingHours.Clear();
-        foreach (var (day, startTime, endTime) in hours)
-        {
-            AddWorkingHour(day, startTime, endTime);
-        }
+        ReplaceWorkingHours(hours.Select(h => (h.Day, h.StartTime, h.EndTime, true)));
     }
 
     private void RecalculateHourRate()
@@ -145,16 +157,18 @@ public class WorkstationWorkingHour : FullAuditedEntity<Guid>
     public string Day { get; set; } = null!;
     public TimeSpan StartTime { get; set; }
     public TimeSpan EndTime { get; set; }
+    public bool IsEnabled { get; set; } = true;
 
     /// <summary>Auto-calculated shift duration in hours (gotcha #1834).</summary>
     public decimal Hours => (decimal)(EndTime - StartTime).TotalHours;
 
     protected WorkstationWorkingHour() { }
-    public WorkstationWorkingHour(Guid id, Guid workstationId, string day, TimeSpan startTime, TimeSpan endTime) : base(id)
+    public WorkstationWorkingHour(Guid id, Guid workstationId, string day, TimeSpan startTime, TimeSpan endTime, bool isEnabled = true) : base(id)
     {
         WorkstationId = workstationId;
         Day = day;
         StartTime = startTime;
         EndTime = endTime;
+        IsEnabled = isEnabled;
     }
 }

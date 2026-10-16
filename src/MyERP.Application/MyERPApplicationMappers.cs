@@ -1016,7 +1016,7 @@ public partial class WorkstationMapper : MapperBase<Manufacturing.Entities.Works
         }).ToArray();
         destination.WorkingHours = source.WorkingHours.Select(w => new Manufacturing.WorkstationWorkingHourDto
         {
-            DayOfWeek = w.Day, StartTime = w.StartTime.ToString(@"hh\:mm"), EndTime = w.EndTime.ToString(@"hh\:mm")
+            Id = w.Id, DayOfWeek = w.Day, StartTime = w.StartTime.ToString(@"hh\:mm"), EndTime = w.EndTime.ToString(@"hh\:mm"), IsEnabled = w.IsEnabled
         }).ToArray();
     }
 }

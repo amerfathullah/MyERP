@@ -80,7 +80,7 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
         ws.ReplaceCosts(costs);
         if (input.WorkingHours != null && input.WorkingHours.Length > 0)
         {
-            ws.ReplaceWorkingHours(input.WorkingHours.Select(w => (w.DayOfWeek, w.StartTime, w.EndTime)));
+            ws.ReplaceWorkingHours(input.WorkingHours.Select(w => (w.DayOfWeek, w.StartTime, w.EndTime, w.IsEnabled)));
         }
         await _repository.InsertAsync(ws);
 
@@ -134,7 +134,7 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
 
         if (input.WorkingHours != null)
         {
-            ws.ReplaceWorkingHours(input.WorkingHours.Select(w => (w.DayOfWeek, w.StartTime, w.EndTime)));
+            ws.ReplaceWorkingHours(input.WorkingHours.Select(w => (w.DayOfWeek, w.StartTime, w.EndTime, w.IsEnabled)));
         }
 
         await _repository.UpdateAsync(ws);
@@ -237,5 +237,55 @@ public class WorkstationAppService : ApplicationService, IWorkstationAppService
         }
 
         return result;
+    }
+
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<JobCardDto> StartJobAsync(Guid workstationId, StartWorkstationJobDto input)
+    {
+        var ws = await _repository.GetAsync(workstationId);
+        var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
+        var jc = await jcRepo.GetAsync(input.JobCardId, includeDetails: true);
+
+        ValidateWorkstationJobCard(ws, jc);
+
+        var fromTime = input.FromTime == default ? DateTime.UtcNow : input.FromTime;
+        jc.StartTimeLog(fromTime);
+        await jcRepo.UpdateAsync(jc);
+
+        return ObjectMapper.Map<JobCard, JobCardDto>(jc);
+    }
+
+    [Authorize(MyERPPermissions.Manufacturing.Edit)]
+    public async Task<JobCardDto> CompleteJobAsync(Guid workstationId, CompleteWorkstationJobDto input)
+    {
+        var ws = await _repository.GetAsync(workstationId);
+        var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
+        var jc = await jcRepo.GetAsync(input.JobCardId, includeDetails: true);
+
+        ValidateWorkstationJobCard(ws, jc);
+
+        var toTime = input.ToTime == default ? DateTime.UtcNow : input.ToTime;
+        var completedQty = input.CompletedQty > 0 ? input.CompletedQty : (jc.CompletedQty > 0 ? 0m : jc.ForQuantity);
+        jc.CompleteTimeLogs(toTime, completedQty);
+        await jcRepo.UpdateAsync(jc);
+
+        var jcAppService = LazyServiceProvider.LazyGetRequiredService<IJobCardAppService>();
+        return await jcAppService.CompleteAsync(jc.Id);
+    }
+
+    private static void ValidateWorkstationJobCard(Workstation ws, JobCard jc)
+    {
+        if (jc.Status is JobCardStatus.Completed or JobCardStatus.Cancelled)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.JobCardNotOpen)
+                .WithData("jobCard", jc.Id);
+        }
+
+        if (jc.WorkstationId != ws.Id)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.JobCardWorkstationMismatch)
+                .WithData("jobCard", jc.Id)
+                .WithData("workstation", ws.Name);
+        }
     }
 }

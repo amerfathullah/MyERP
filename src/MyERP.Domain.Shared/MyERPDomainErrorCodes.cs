@@ -647,6 +647,10 @@ public static class MyERPDomainErrorCodes
     public const string ItemNotStockItem = "MyERP:05100";
     public const string ManufactureUnvaluedOutput = "MyERP:10042";
     public const string WorkOrderExcessReturn = "MyERP:10043";
+
+    // Workstation Job Card Validation (ERPNext PR #60595 / commit da8343617a)
+    public const string JobCardNotOpen = "MyERP:10044";
+    public const string JobCardWorkstationMismatch = "MyERP:10045";
 }
 
 
