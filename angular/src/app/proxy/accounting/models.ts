@@ -170,10 +170,28 @@ export interface AgingReportDto {
   ageingBasedOn?: string;
   bucketLabels?: string[];
   bucketTotals?: number[];
+  notYetDueAmount?: number;
   totalOutstanding?: number;
   invoiceCount?: number;
   includeRevaluationJournals?: boolean;
   details?: AgingDetailEntryDto[];
+  partySummaries?: AgingPartySummaryDto[];
+}
+
+export interface AgingPartySummaryDto {
+  partyId?: string;
+  partyName?: string | null;
+  partyGroupId?: string | null;
+  partyGroupName?: string | null;
+  invoicedAmount?: number;
+  paidAmount?: number;
+  creditNoteAmount?: number;
+  outstandingAmount?: number;
+  advanceAmount?: number;
+  notYetDueAmount?: number;
+  bucketTotals?: number[];
+  totalDue?: number;
+  invoiceCount?: number;
 }
 
 export interface AgingReportRequestDto {

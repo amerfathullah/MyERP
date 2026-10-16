@@ -114,6 +114,22 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
                 CostCenterId = d.CostCenterId,
                 CostCenterName = d.CostCenterName,
             }).OrderBy(d => d.PartyName).ThenByDescending(d => d.AgeDays).ToArray(),
+            PartySummaries = report.PartySummaries.Select(p => new AgingPartySummaryDto
+            {
+                PartyId = p.PartyId,
+                PartyName = p.PartyName,
+                PartyGroupId = p.PartyGroupId,
+                PartyGroupName = p.PartyGroupName,
+                InvoicedAmount = p.InvoicedAmount,
+                PaidAmount = p.PaidAmount,
+                CreditNoteAmount = p.CreditNoteAmount,
+                OutstandingAmount = p.OutstandingAmount,
+                AdvanceAmount = p.AdvanceAmount,
+                NotYetDueAmount = p.NotYetDueAmount,
+                BucketTotals = p.BucketTotals,
+                TotalDue = p.TotalDue,
+                InvoiceCount = p.InvoiceCount,
+            }).OrderBy(p => p.PartyName).ToArray(),
         };
     }
 

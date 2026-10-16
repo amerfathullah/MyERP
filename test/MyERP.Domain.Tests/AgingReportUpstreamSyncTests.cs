@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 using Xunit;
 using MyERP.Accounting;
+using MyERP.Accounting.DomainServices;
 using MyERP.Sales.Entities;
 using MyERP.Purchasing.Entities;
 
@@ -236,5 +237,80 @@ public class AgingReportUpstreamSyncTests
         // "Posting Date" renamed to "Report Date", "Calculate Ageing With" renamed to "Age as on"
         // "Today Date" option renamed to "Today"
         Assert.True(true);
+    }
+
+    // --- Upstream PR #60040 / commit 66c9332582: Unallocated Credit as Advance ---
+
+    [Theory]
+    [InlineData(300, 500, 0)]    // 300 paid against 500 debt => 0 advance
+    [InlineData(80, 0, 80)]      // 80 paid against 0 debt => 80 advance
+    [InlineData(500, 500, 0)]    // 500 paid against 500 debt => 0 advance
+    [InlineData(600, 500, 100)]  // 600 paid against 500 debt => 100 advance
+    public void GetUnallocatedCredit_OnlyExcessOverDebtCountsAsAdvance(decimal paid, decimal invoiced, decimal expectedAdvance)
+    {
+        var advance = AgingBucketService.GetUnallocatedCredit(paid, invoiced);
+        Assert.Equal(expectedAdvance, advance);
+    }
+
+    [Fact]
+    public void BuildAgingReport_PartySummary_CalculatesUnallocatedCreditProperly()
+    {
+        var partyId = Guid.NewGuid();
+        var asOfDate = new DateTime(2026, 7, 1);
+        var bucketDays = new[] { 30, 60, 90, 120 };
+
+        // Simulating ERPNext test_06_payment_against_journal_entry_is_not_advance:
+        // Debt 500 via JE, 300 payment against JE row, 80 unallocated advance payment
+        var items = new System.Collections.Generic.List<AgingItem>
+        {
+            new AgingItem
+            {
+                PartyId = partyId,
+                PartyName = "Supplier A",
+                DocumentId = Guid.NewGuid(),
+                DocumentNumber = "JE-DEBT-001",
+                PostingDate = asOfDate,
+                DueDate = asOfDate,
+                InvoicedAmount = 500m,
+                PaidAmount = 300m,
+                OutstandingAmount = 200m,
+                IsInvoice = false
+            },
+            new AgingItem
+            {
+                PartyId = partyId,
+                PartyName = "Supplier A",
+                DocumentId = Guid.NewGuid(),
+                DocumentNumber = "PE-ADV-001",
+                PostingDate = asOfDate,
+                DueDate = asOfDate,
+                InvoicedAmount = 0m,
+                PaidAmount = 80m,
+                OutstandingAmount = -80m,
+                IsInvoice = false
+            }
+        };
+
+        var method = typeof(AgingBucketService).GetMethod("BuildAgingReport",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var report = (AgingReport)method.Invoke(null, new object[]
+        {
+            items,
+            asOfDate,
+            bucketDays,
+            "Payable",
+            "Report Date",
+            "Due Date",
+            false
+        })!;
+
+        Assert.Single(report.PartySummaries);
+        var party = report.PartySummaries[0];
+        Assert.Equal(500m, party.InvoicedAmount);
+        Assert.Equal(300m, party.PaidAmount);
+        Assert.Equal(80m, party.AdvanceAmount);
+        Assert.Equal(120m, party.OutstandingAmount);
     }
 }

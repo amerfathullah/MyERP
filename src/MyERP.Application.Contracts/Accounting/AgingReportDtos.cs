@@ -16,6 +16,34 @@ public class AgingReportDto
     public int InvoiceCount { get; set; }
     public bool IncludeRevaluationJournals { get; set; }
     public AgingDetailEntryDto[] Details { get; set; } = [];
+    public AgingPartySummaryDto[] PartySummaries { get; set; } = [];
+}
+
+/// <summary>
+/// Party-level summary entry for Accounts Receivable / Payable Summary report.
+/// Per ERPNext accounts_receivable_summary.py / PR #60040 (commit 66c9332582):
+/// Aggregates invoiced, paid, advance, outstanding, and ageing buckets per party.
+/// Advance amounts from non-invoice vouchers reflect unallocated credit only.
+/// </summary>
+public class AgingPartySummaryDto
+{
+    public Guid PartyId { get; set; }
+    public string? PartyName { get; set; }
+    public Guid? PartyGroupId { get; set; }
+    public string? PartyGroupName { get; set; }
+    public decimal InvoicedAmount { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal CreditNoteAmount { get; set; }
+    public decimal OutstandingAmount { get; set; }
+    /// <summary>
+    /// Advance payments from party. Per ERPNext PR #60040 / commit 66c9332582:
+    /// only unallocated credit (max(paid - invoiced, 0)) on non-invoice vouchers counts as advance.
+    /// </summary>
+    public decimal AdvanceAmount { get; set; }
+    public decimal NotYetDueAmount { get; set; }
+    public decimal[] BucketTotals { get; set; } = [];
+    public decimal TotalDue { get; set; }
+    public int InvoiceCount { get; set; }
 }
 
 public class AgingDetailEntryDto

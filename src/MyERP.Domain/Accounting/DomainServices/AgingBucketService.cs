@@ -145,7 +145,11 @@ public class AgingBucketService : DomainService
             DocumentNumber = si.InvoiceNumber,
             PostingDate = si.IssueDate,
             DueDate = si.DueDate ?? si.IssueDate,
+            InvoicedAmount = si.GrandTotal,
+            PaidAmount = si.AmountPaid,
+            AdvanceAmount = si.TotalAdvance,
             OutstandingAmount = si.OutstandingAmount,
+            IsInvoice = true,
             CostCenterId = si.CostCenterId,
             CostCenterName = si.CostCenterId.HasValue ? costCenterNames.GetValueOrDefault(si.CostCenterId.Value) : null,
         }), asOfDate, bucketDays, "Receivable", calculateAgeingWith, ageingBasedOn, includeRevaluationJournals);
@@ -259,10 +263,25 @@ public class AgingBucketService : DomainService
             DocumentNumber = pi.InvoiceNumber,
             PostingDate = pi.IssueDate,
             DueDate = pi.DueDate ?? pi.IssueDate,
+            InvoicedAmount = pi.GrandTotal,
+            PaidAmount = pi.AmountPaid,
+            AdvanceAmount = pi.TotalAdvance,
             OutstandingAmount = pi.OutstandingAmount,
+            IsInvoice = true,
             CostCenterId = pi.CostCenterId,
             CostCenterName = pi.CostCenterId.HasValue ? costCenterNames.GetValueOrDefault(pi.CostCenterId.Value) : null,
         }), asOfDate, bucketDays, "Payable", calculateAgeingWith, ageingBasedOn, includeRevaluationJournals);
+    }
+
+    /// <summary>
+    /// Calculates unallocated credit on a non-invoice voucher (e.g. Journal Entry or Payment Entry).
+    /// Per ERPNext PR #60040 / commit 66c9332582:
+    /// Payments allocated against debt booked by a Journal Entry land on that entry's row,
+    /// so only the credit left after settling its own debit is an advance.
+    /// </summary>
+    public static decimal GetUnallocatedCredit(decimal paidAmount, decimal invoicedAmount)
+    {
+        return Math.Max(paidAmount - invoicedAmount, 0m);
     }
 
     private static AgingReport BuildAgingReport(
@@ -288,11 +307,47 @@ public class AgingBucketService : DomainService
         // Initialize buckets: [0-30], [31-60], [61-90], [91-120], [120+]
         var bucketCount = bucketDays.Length + 1;
         report.BucketTotals = new decimal[bucketCount];
+        var partyMap = new Dictionary<Guid, AgingPartySummary>();
 
         foreach (var item in items)
         {
             var baseDate = isPostingDate ? item.PostingDate : item.DueDate;
             var ageDays = (int)(asOfDate.Date - baseDate.Date).TotalDays;
+
+            if (!partyMap.TryGetValue(item.PartyId, out var partySummary))
+            {
+                partySummary = new AgingPartySummary
+                {
+                    PartyId = item.PartyId,
+                    PartyName = item.PartyName,
+                    PartyGroupId = item.PartyGroupId,
+                    PartyGroupName = item.PartyGroupName,
+                    BucketTotals = new decimal[bucketCount],
+                };
+                partyMap[item.PartyId] = partySummary;
+            }
+
+            partySummary.PartyName ??= item.PartyName;
+            partySummary.PartyGroupId ??= item.PartyGroupId;
+            partySummary.PartyGroupName ??= item.PartyGroupName;
+            partySummary.InvoiceCount++;
+            partySummary.InvoicedAmount += item.InvoicedAmount;
+            partySummary.OutstandingAmount += item.OutstandingAmount;
+
+            if (!item.IsInvoice)
+            {
+                // Per ERPNext PR #60040 / commit 66c9332582:
+                // non-invoice vouchers (e.g. Journal Entry / Payment Entry):
+                // only unallocated credit (excess of paid over own invoiced/debit) is advance
+                var unallocatedCredit = GetUnallocatedCredit(item.PaidAmount, item.InvoicedAmount);
+                partySummary.AdvanceAmount += unallocatedCredit;
+                partySummary.PaidAmount += item.PaidAmount - unallocatedCredit;
+            }
+            else
+            {
+                partySummary.AdvanceAmount += item.AdvanceAmount;
+                partySummary.PaidAmount += item.PaidAmount;
+            }
 
             if (ageDays < 0)
             {
@@ -300,6 +355,8 @@ public class AgingBucketService : DomainService
                 report.NotYetDueAmount += item.OutstandingAmount;
                 report.TotalOutstanding += item.OutstandingAmount;
                 report.InvoiceCount++;
+
+                partySummary.NotYetDueAmount += item.OutstandingAmount;
 
                 report.Details.Add(new AgingDetailEntry
                 {
@@ -326,6 +383,8 @@ public class AgingBucketService : DomainService
             report.TotalOutstanding += item.OutstandingAmount;
             report.InvoiceCount++;
 
+            partySummary.BucketTotals[bucketIndex] += item.OutstandingAmount;
+
             // Add detail entry for the detailed report view
             report.Details.Add(new AgingDetailEntry
             {
@@ -344,6 +403,12 @@ public class AgingBucketService : DomainService
                 CostCenterId = item.CostCenterId,
                 CostCenterName = item.CostCenterName,
             });
+        }
+
+        foreach (var p in partyMap.Values)
+        {
+            p.TotalDue = p.BucketTotals.Sum();
+            report.PartySummaries.Add(p);
         }
 
         return report;
@@ -387,6 +452,30 @@ public class AgingReport
     /// Per ERPNext AR/AP report: shows invoice-level detail with party grouping.
     /// </summary>
     public List<AgingDetailEntry> Details { get; set; } = new();
+
+    /// <summary>
+    /// Party-level summaries for Accounts Receivable / Payable Summary view.
+    /// Per ERPNext PR #60040 (commit 66c9332582): unallocated credits count as advance.
+    /// </summary>
+    public List<AgingPartySummary> PartySummaries { get; set; } = new();
+}
+
+/// <summary>Per-party summary entry in an aging report (for Accounts Receivable / Payable Summary view).</summary>
+public class AgingPartySummary
+{
+    public Guid PartyId { get; set; }
+    public string? PartyName { get; set; }
+    public Guid? PartyGroupId { get; set; }
+    public string? PartyGroupName { get; set; }
+    public decimal InvoicedAmount { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal CreditNoteAmount { get; set; }
+    public decimal OutstandingAmount { get; set; }
+    public decimal AdvanceAmount { get; set; }
+    public decimal NotYetDueAmount { get; set; }
+    public decimal[] BucketTotals { get; set; } = [];
+    public decimal TotalDue { get; set; }
+    public int InvoiceCount { get; set; }
 }
 
 /// <summary>Per-invoice detail entry in an aging report (for detailed AR/AP view).</summary>
@@ -418,7 +507,11 @@ public class AgingItem
     public string DocumentNumber { get; set; } = null!;
     public DateTime PostingDate { get; set; }
     public DateTime DueDate { get; set; }
+    public decimal InvoicedAmount { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal AdvanceAmount { get; set; }
     public decimal OutstandingAmount { get; set; }
+    public bool IsInvoice { get; set; } = true;
     public Guid? CostCenterId { get; set; }
     public string? CostCenterName { get; set; }
 }
