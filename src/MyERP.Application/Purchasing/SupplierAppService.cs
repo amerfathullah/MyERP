@@ -289,7 +289,16 @@ public class SupplierAppService :
             .ToList();
         var advances = supplierPayments.Sum(pe => pe.UnallocatedAmount);
 
-        // 2. Trend: Purchases vs Payments
+        // 2. Trend: Purchases vs Payments (PR #60554 / commit 8d60c08296)
+        // Includes PaymentEntry, cash Purchase Invoices (is_paid=1), and Bank/Cash JournalEntry payments
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+        var jeList = (await jeRepo.WithDetailsAsync(je => je.Lines))
+            .Where(je => je.CompanyId == input.CompanyId
+                && je.Status == DocumentStatus.Posted
+                && (je.VoucherType == JournalEntryVoucherType.BankEntry || je.VoucherType == JournalEntryVoucherType.CashEntry)
+                && je.PostingDate >= fromDate && je.PostingDate <= toDate)
+            .ToList();
+
         var points = new List<SupplierTrendPointDto>();
         var cursor = new DateTime(fromDate.Year, fromDate.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var endMonth = new DateTime(toDate.Year, toDate.Month, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -305,10 +314,16 @@ public class SupplierAppService :
                 .Sum(pe => pe.PaymentType == PaymentType.Pay ? pe.PaidAmount : -pe.ReceivedAmount);
 
             var cashInvoicePaid = supplierInvoices
-                .Where(pi => pi.IssueDate.Year == cursor.Year && pi.IssueDate.Month == cursor.Month && pi.AmountPaid > 0)
+                .Where(pi => pi.AmountPaid > 0 && pi.IssueDate.Year == cursor.Year && pi.IssueDate.Month == cursor.Month)
                 .Sum(pi => pi.AmountPaid);
 
-            var totalPaidForMonth = Math.Max(monthPaid, cashInvoicePaid);
+            var monthJournalPaid = jeList
+                .Where(je => je.PostingDate.Year == cursor.Year && je.PostingDate.Month == cursor.Month)
+                .SelectMany(je => je.Lines)
+                .Where(l => l.PartyType == "Supplier" && l.PartyId == input.SupplierId)
+                .Sum(l => l.Debit - l.Credit);
+
+            var totalPaidForMonth = monthPaid + cashInvoicePaid + monthJournalPaid;
 
             points.Add(new SupplierTrendPointDto
             {

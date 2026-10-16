@@ -218,4 +218,70 @@ public abstract class SupplierOverviewTests<TStartupModule> : MyERPApplicationTe
             companyIds.ShouldContain(c1.Id);
         });
     }
+
+    [Fact]
+    public async Task GetSupplierOverviewAsync_Trend_IncludesJournalEntryBankAndCashPayments()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var piRepo = GetRequiredService<IRepository<PurchaseInvoice, Guid>>();
+            var peRepo = GetRequiredService<IRepository<PaymentEntry, Guid>>();
+            var jeRepo = GetRequiredService<IRepository<JournalEntry, Guid>>();
+            var supplierService = GetRequiredService<ISupplierAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "JE Trend Test Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "JE Trend Test Supp"), autoSave: true);
+
+            var today = DateTime.UtcNow.Date;
+
+            // 1. Purchase invoice: 1000 grand total (not paid)
+            var pi = new PurchaseInvoice(Guid.NewGuid(), company.Id, supplier.Id, "PINV-JE-001", today);
+            pi.AddItem(Guid.NewGuid(), "Item", 1, 1000m, 0m);
+            pi.BaseNetTotal = 1000m;
+            pi.BaseGrandTotal = 1000m;
+            pi.Submit();
+            pi.Post();
+            await piRepo.InsertAsync(pi, autoSave: true);
+
+            // 2. Payment Entry: 300 paid
+            var pe = new PaymentEntry(Guid.NewGuid(), company.Id, PaymentType.Pay, today, 300m, Guid.NewGuid(), Guid.NewGuid())
+            {
+                PartyType = "Supplier",
+                PartyId = supplier.Id
+            };
+            pe.Submit();
+            await peRepo.InsertAsync(pe, autoSave: true);
+
+            // 3. Journal Entry: Bank Entry paying 200 to supplier
+            var je = new JournalEntry(Guid.NewGuid(), company.Id, Guid.NewGuid(), today)
+            {
+                VoucherType = JournalEntryVoucherType.BankEntry
+            };
+            var debitLine = new JournalEntryLine(Guid.NewGuid(), je.Id, Guid.NewGuid(), 200m, isDebit: true, "Pay to supplier")
+            {
+                PartyType = "Supplier",
+                PartyId = supplier.Id
+            };
+            var creditLine = new JournalEntryLine(Guid.NewGuid(), je.Id, Guid.NewGuid(), 200m, isDebit: false, "Bank credit");
+            je.AddLine(debitLine);
+            je.AddLine(creditLine);
+            je.Post();
+            await jeRepo.InsertAsync(je, autoSave: true);
+
+            var overview = await supplierService.GetSupplierOverviewAsync(new GetSupplierOverviewInputDto
+            {
+                SupplierId = supplier.Id,
+                CompanyId = company.Id,
+                Period = "Last 12 months"
+            });
+
+            overview.ShouldNotBeNull();
+            var currentMonthPoint = overview.Trend.Points.Last();
+            currentMonthPoint.Purchased.ShouldBe(1000m);
+            // Total paid should be 300 (PaymentEntry) + 200 (Bank Journal Entry) = 500
+            currentMonthPoint.Paid.ShouldBe(500m);
+        });
+    }
 }
