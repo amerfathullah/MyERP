@@ -640,6 +640,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesOrders' },
   },
   {
+    path: 'sales/reports/sales-order-analysis',
+    loadComponent: () => import('./sales/reports/sales-order-analysis/sales-order-analysis.component').then(c => c.SalesOrderAnalysisComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesOrders' },
+  },
+  {
     path: 'sales/reports/commission',
     loadComponent: () => import('./sales/reports/sales-commission-report/sales-commission-report.component').then(c => c.SalesCommissionReportComponent),
     canActivate: [authGuard, permissionGuard],

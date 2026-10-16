@@ -2288,3 +2288,51 @@ export interface PendingSoItemsForPurchaseRequestRowDto {
   pendingQuantity: number;
   isProductBundleComponent: boolean;
 }
+
+export interface GetSalesOrderAnalysisDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  customerId?: string | null;
+  salesOrderId?: string | null;
+  itemId?: string | null;
+  groupBySo?: boolean;
+  groupByItem?: boolean;
+}
+
+export interface SalesOrderAnalysisRowDto {
+  salesOrderNumber?: string | null;
+  salesOrderId?: string | null;
+  date?: string | null;
+  customerName?: string | null;
+  customerId?: string | null;
+  itemCode?: string | null;
+  itemId?: string | null;
+  description?: string | null;
+  uom?: string | null;
+  qty: number;
+  deliveredQty: number;
+  pendingQty: number;
+  billedQty: number;
+  qtyToBill: number;
+  amount: number;
+  deliveredQtyAmount: number;
+  billedAmount: number;
+  pendingAmount: number;
+  deliveryDate?: string | null;
+  delayDays: number;
+  warehouseName?: string | null;
+  warehouseId?: string | null;
+  companyName?: string | null;
+  companyId: string;
+}
+
+export interface SalesOrderAnalysisReportDto {
+  rows: SalesOrderAnalysisRowDto[];
+  totalAmount: number;
+  totalBilledAmount: number;
+  totalAmountToBill: number;
+  totalQty: number;
+  totalDeliveredQty: number;
+}
+

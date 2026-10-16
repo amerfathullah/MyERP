@@ -42,6 +42,7 @@ export * from './sales-analytics.service';
 export * from './sales-commission-report.service';
 export * from './sales-invoice.service';
 export * from './sales-order-amendment.service';
+export * from './sales-order-analysis.service';
 export * from './sales-order.service';
 export * from './sales-partner-type.service';
 export * from './sales-partner.service';

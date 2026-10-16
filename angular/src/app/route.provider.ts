@@ -2577,6 +2577,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesOrders',
       },
       {
+        path: '/sales/reports/sales-order-analysis',
+        name: '::Menu:SalesOrderAnalysis',
+        iconClass: 'fas fa-chart-line',
+        order: 22.9,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesOrders',
+      },
+      {
         path: '/sales/reports/commission',
         name: '::Menu:SalesCommission',
         iconClass: 'fas fa-coins',

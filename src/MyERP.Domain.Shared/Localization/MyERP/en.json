@@ -5069,7 +5069,18 @@
     "ActualDeliveryDate": "Actual Delivery Date",
     "ShowCompletedOrders": "Show Completed Orders",
     "TotalRequisitions": "Total Requisitions",
-    "NoProcurementRecordsFound": "No procurement tracker records found."
+    "NoProcurementRecordsFound": "No procurement tracker records found.",
+    "Menu:SalesOrderAnalysis": "Sales Order Analysis",
+    "SalesOrderAnalysis": "Sales Order Analysis",
+    "SalesOrderAnalysisDescription": "Analyze sales orders, fulfillment, pending quantities, billed amounts, and delivery delays.",
+    "GroupBySo": "Group by Sales Order",
+    "GroupByItem": "Group by Item",
+    "QtyToDeliver": "Qty to Deliver",
+    "QtyToBill": "Qty to Bill",
+    "AmountToBill": "Amount to Bill",
+    "DeliveredAmount": "Delivered Amount",
+    "DelayDays": "Delay (in Days)",
+    "NoSalesOrdersFound": "No sales orders matching criteria found."
   }
 }
 
