@@ -5146,7 +5146,12 @@
     "LastWeek": "Last Week",
     "LastQuarter": "Last Quarter",
     "ThisYear": "This Year",
-    "LastYear": "Last Year"
+    "LastYear": "Last Year",
+    "Menu:CustomerWiseItemPrice": "Customer-wise Item Price",
+    "CustomerWiseItemPrice": "Customer-wise Item Price",
+    "CustomerWiseItemPriceDescription": "View selling prices resolved for a specific customer across active selling items, with price list and available stock.",
+    "NoCustomerPricesFound": "No item prices found for the selected customer.",
+    "AvailableStock": "Available Stock"
   }
 }
 

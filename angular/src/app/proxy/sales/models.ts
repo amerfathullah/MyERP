@@ -2445,4 +2445,30 @@ export interface LostQuotationsReportDto {
   chart: LostQuotationsChartDto;
 }
 
+export interface GetCustomerWiseItemPriceInput {
+  companyId: string;
+  customerId: string;
+  itemId?: string | null;
+  itemGroupId?: string | null;
+}
+
+export interface CustomerWiseItemPriceRowDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  sellingRate: number;
+  priceListName?: string | null;
+  availableStock: number;
+  stockUom: string;
+}
+
+export interface CustomerWiseItemPriceReportDto {
+  customerId: string;
+  customerName: string;
+  defaultPriceListName?: string | null;
+  rows: CustomerWiseItemPriceRowDto[];
+  totalItems: number;
+  totalAvailableStock: number;
+}
+
 

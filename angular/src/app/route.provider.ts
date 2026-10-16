@@ -2658,6 +2658,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Quotations',
       },
       {
+        path: '/sales/reports/customer-wise-item-price',
+        name: '::Menu:CustomerWiseItemPrice',
+        iconClass: 'fas fa-tags',
+        order: 22.98,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Customers',
+      },
+      {
         path: '/sales/reports/commission',
         name: '::Menu:SalesCommission',
         iconClass: 'fas fa-coins',

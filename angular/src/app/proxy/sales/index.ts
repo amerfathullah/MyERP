@@ -56,3 +56,4 @@ export * from './tracking-board-stage.enum';
 export * from './inactive-customers.service';
 export * from './customers-without-any-sales-transactions.service';
 export * from './lost-quotations.service';
+export * from './customer-wise-item-price.service';
