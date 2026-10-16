@@ -2472,4 +2472,52 @@ export interface CustomerWiseItemPriceReportDto {
   totalAvailableStock: number;
 }
 
+export interface SalesOrderTrendsRequestDto {
+  companyId: string;
+  fiscalYearId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  period?: string;
+  basedOn?: string;
+  groupBy?: string | null;
+  includeClosedOrders?: boolean;
+}
+
+export interface SalesOrderTrendsPeriodColumnDto {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface SalesOrderTrendsRowDto {
+  entityId: string;
+  entityCode: string;
+  entityName: string;
+  secondaryInfo?: string | null;
+  groupByValue?: string | null;
+  periodQuantities: Record<string, number>;
+  periodAmounts: Record<string, number>;
+  totalQty: number;
+  totalAmount: number;
+}
+
+export interface SalesOrderTrendsChartDto {
+  labels: string[];
+  datapoints: number[];
+  currency: string;
+}
+
+export interface SalesOrderTrendsReportDto {
+  companyCurrency: string;
+  period: string;
+  basedOn: string;
+  groupBy?: string | null;
+  periodColumns: SalesOrderTrendsPeriodColumnDto[];
+  rows: SalesOrderTrendsRowDto[];
+  totalRow: SalesOrderTrendsRowDto;
+  chart: SalesOrderTrendsChartDto;
+}
+
+
 

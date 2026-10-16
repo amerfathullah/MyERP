@@ -5157,7 +5157,12 @@
     "AvailableStockForPackingItemsDescription": "Track packable product bundle quantities based on component stock availability across warehouses.",
     "BundleItem": "Bundle Item",
     "AvailablePackableBundles": "Available Packable Bundles",
-    "NoPackingStockFound": "No packable bundles found for the selected criteria."
+    "NoPackingStockFound": "No packable bundles found for the selected criteria.",
+    "Menu:SalesOrderTrends": "Sales Order Trends",
+    "SalesOrderTrends": "Sales Order Trends",
+    "SalesOrderTrendsDescription": "Periodic sales trends analysis across customers, items, or item groups.",
+    "IncludeClosedOrders": "Include Closed Orders",
+    "NoTrendsDataFound": "No sales order trend records found for the selected criteria."
   }
 }
 
