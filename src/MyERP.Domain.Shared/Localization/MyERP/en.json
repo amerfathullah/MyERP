@@ -5214,7 +5214,14 @@
     "TotalNetAmount": "Total Net Amount",
     "TotalAllocatedAmount": "Total Allocated Amount",
     "TotalIncentives": "Total Incentives",
-    "Transactions": "Transactions"
+    "Transactions": "Transactions",
+    "Menu:ItemWiseSalesHistory": "Item-wise Sales History",
+    "ItemWiseSalesHistory": "Item-wise Sales History",
+    "ItemWiseSalesHistoryDescription": "Historical item-level tracking of quantities ordered, delivered, and billed from Sales Orders.",
+    "FilterByItemCode": "Filter by item code or name...",
+    "TotalDeliveredQty": "Total Delivered Qty",
+    "TotalBilledAmount": "Total Billed Amount",
+    "BilledAmount": "Billed Amount"
   }
 }
 

@@ -2604,6 +2604,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesInvoices',
       },
       {
+        path: '/sales/reports/item-wise-sales-history',
+        name: '::Menu:ItemWiseSalesHistory',
+        iconClass: 'fas fa-history',
+        order: 21.5,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesInvoices',
+      },
+      {
         path: '/sales/reports/analytics',
         name: '::Menu:SalesAnalytics',
         iconClass: 'fas fa-chart-bar',

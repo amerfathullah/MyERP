@@ -616,6 +616,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesInvoices' },
   },
   {
+    path: 'sales/reports/item-wise-sales-history',
+    loadComponent: () => import('./sales/reports/item-wise-sales-history/item-wise-sales-history.component').then(c => c.ItemWiseSalesHistoryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
     path: 'sales/reports/customer-revenue',
     loadComponent: () => import('./sales/reports/customer-revenue-report/customer-revenue-report.component').then(c => c.CustomerRevenueReportComponent),
     canActivate: [authGuard, permissionGuard],
