@@ -16,6 +16,11 @@ public class SalesAnalyticsRequestDto
     public AnalyticsPeriodType PeriodType { get; set; }
     public string? ValueField { get; set; }
     public List<string>? EntityIds { get; set; }
+    /// <summary>
+    /// Date field periods are based on: "PostingDate" (default) or "BillingDate".
+    /// Per ERPNext PR #60045: BillingDate falls back to PostingDate (IssueDate) when empty.
+    /// </summary>
+    public string? PeriodBasedOn { get; set; }
 }
 
 public class SalesAnalyticsReportDto

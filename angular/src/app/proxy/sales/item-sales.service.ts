@@ -1,4 +1,4 @@
-import type { ItemSalesReportDto, RegisterFilterDto } from './models';
+import type { GetItemWiseSalesHistoryDto, ItemSalesReportDto, ItemWiseSalesHistoryReportDto, RegisterFilterDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -17,4 +17,20 @@ export class ItemSalesService {
       params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate },
     },
     { apiName: this.apiName,...config });
+
+  getHistoryReport = (input: GetItemWiseSalesHistoryDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ItemWiseSalesHistoryReportDto>({
+      method: 'GET',
+      url: '/api/app/item-sales/history-report',
+      params: {
+        companyId: input.companyId,
+        fromDate: input.fromDate,
+        toDate: input.toDate,
+        itemId: input.itemId,
+        itemCode: input.itemCode,
+        itemGroupId: input.itemGroupId,
+        customerId: input.customerId,
+      },
+    },
+    { apiName: this.apiName, ...config });
 }

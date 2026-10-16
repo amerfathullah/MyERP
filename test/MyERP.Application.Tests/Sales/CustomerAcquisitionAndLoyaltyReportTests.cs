@@ -162,12 +162,13 @@ public class CustomerAcquisitionAndLoyaltyReportTests
             TreeView = false
         });
 
-        // Assert: Per ERPNext gotcha / PR #60697:
+        // Assert: Per ERPNext gotcha / PR #60697 & commit cdcb0de6b8:
         // "without an acquiring sale (e.g. a standalone credit note) the customer is never 'new'"
+        // and returns net revenue but never count towards headcount
         result.Rows.Count.ShouldBe(1);
         var row = result.Rows[0];
         row.NewCustomerCount.ShouldBe(0);
-        row.RepeatCustomerCount.ShouldBe(1);
+        row.RepeatCustomerCount.ShouldBe(0);
         row.RepeatCustomerRevenue.ShouldBe(-300m);
     }
 

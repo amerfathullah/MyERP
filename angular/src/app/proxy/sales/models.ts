@@ -922,6 +922,46 @@ export interface ItemSalesReportDto {
   toDate?: string;
 }
 
+export interface GetItemWiseSalesHistoryDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  itemId?: string | null;
+  itemCode?: string | null;
+  itemGroupId?: string | null;
+  customerId?: string | null;
+}
+
+export interface ItemWiseSalesHistoryReportDto {
+  rows?: ItemWiseSalesHistoryRowDto[];
+  totalQty?: number;
+  totalAmount?: number;
+  totalDeliveredQty?: number;
+  totalBilledAmount?: number;
+}
+
+export interface ItemWiseSalesHistoryRowDto {
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  itemGroup?: string;
+  description?: string;
+  quantity?: number;
+  uom?: string;
+  rate?: number;
+  amount?: number;
+  salesOrderId?: string;
+  salesOrderNumber?: string;
+  transactionDate?: string;
+  customerId?: string;
+  customerName?: string;
+  customerGroup?: string;
+  deliveredQuantity?: number;
+  billedAmount?: number;
+  companyId?: string;
+  companyName?: string;
+}
+
 export interface LoyaltyBalanceDto {
   customerId?: string;
   programId?: string;
@@ -1466,6 +1506,7 @@ export interface SalesAnalyticsRequestDto {
   periodType?: AnalyticsPeriodType;
   valueField?: string | null;
   entityIds?: string[] | null;
+  periodBasedOn?: string | null;
 }
 
 export interface SalesAnalyticsRowDto {

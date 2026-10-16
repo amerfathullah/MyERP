@@ -50,6 +50,12 @@ public class SalesOrderAnalysisAppService : ApplicationService, ISalesOrderAnaly
                 .WithData("detail", "Cannot combine Group By SO and Group By Item.");
         }
 
+        if (input.FromDate.HasValue && input.ToDate.HasValue && input.FromDate.Value > input.ToDate.Value)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "From Date cannot be greater than To Date.");
+        }
+
         var fromDate = input.FromDate ?? DateTime.UtcNow.Date.AddDays(-30);
         var toDate = input.ToDate ?? DateTime.UtcNow.Date;
 

@@ -56,6 +56,20 @@ public class SalesOrderAnalysisReportTests
     }
 
     [Fact]
+    public async Task GetAnalysisAsync_FromDateGreaterThanToDate_ThrowsValidationException()
+    {
+        var input = new GetSalesOrderAnalysisDto
+        {
+            CompanyId = Guid.NewGuid(),
+            FromDate = new DateTime(2026, 10, 15),
+            ToDate = new DateTime(2026, 10, 1)
+        };
+
+        var ex = await Should.ThrowAsync<BusinessException>(() => _service.GetAnalysisAsync(input));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
+
+    [Fact]
     public async Task GetAnalysisAsync_DetailedRows_CalculatesQuantitiesAndAmounts()
     {
         var companyId = Guid.NewGuid();

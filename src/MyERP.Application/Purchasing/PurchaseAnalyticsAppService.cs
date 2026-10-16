@@ -36,14 +36,24 @@ public class PurchaseAnalyticsAppService : ApplicationService, IPurchaseAnalytic
         var periods = GeneratePeriods(input.FromDate, input.ToDate, input.PeriodType);
         var useQty = string.Equals(input.ValueField, "Quantity", StringComparison.OrdinalIgnoreCase);
 
+        var isBillingDate = string.Equals(input.PeriodBasedOn, "BillingDate", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(input.PeriodBasedOn, "bill_date", StringComparison.OrdinalIgnoreCase);
+
         var piQuery = await _piRepo.GetQueryableAsync();
-        var invoices = piQuery
+        var allInvoices = piQuery
             .Where(pi => pi.CompanyId == input.CompanyId
                 && pi.Status == DocumentStatus.Posted
                 && !pi.IsReturn
-                && !pi.IsOpening
-                && pi.IssueDate >= input.FromDate
-                && pi.IssueDate <= input.ToDate)
+                && !pi.IsOpening)
+            .ToList();
+
+        // Effective date falls back to IssueDate (posting date) when bill date / FromDate is empty (ERPNext PR #60045 / commit 027e969735)
+        var invoices = allInvoices
+            .Where(pi =>
+            {
+                var dt = isBillingDate ? (pi.FromDate ?? pi.IssueDate) : pi.IssueDate;
+                return dt >= input.FromDate && dt <= input.ToDate;
+            })
             .ToList();
 
         var supplierNames = new Dictionary<Guid, string>();
@@ -82,14 +92,24 @@ public class PurchaseAnalyticsAppService : ApplicationService, IPurchaseAnalytic
             foreach (var g in grouped)
             {
                 var row = BuildRow(g.Key.ToString(), supplierNames.GetValueOrDefault(g.Key, g.Key.ToString()[..8]),
-                    g.ToList(), periods, useQty);
+                    g.ToList(), periods, useQty, isBillingDate);
                 rows.Add(row);
             }
         }
         else if (input.GroupBy == AnalyticsGroupBy.Item)
         {
             var itemGroups = invoices
-                .SelectMany(pi => pi.Items.Select(item => new { pi.IssueDate, item.ItemId, item.Quantity, Amount = item.Quantity * item.UnitPrice }))
+                .SelectMany(pi =>
+                {
+                    var invoiceDate = isBillingDate ? (pi.FromDate ?? pi.IssueDate) : pi.IssueDate;
+                    return pi.Items.Select(item => new
+                    {
+                        InvoiceDate = invoiceDate,
+                        item.ItemId,
+                        item.Quantity,
+                        Amount = item.Quantity * item.UnitPrice
+                    });
+                })
                 .GroupBy(x => x.ItemId);
 
             foreach (var g in itemGroups)
@@ -97,7 +117,7 @@ public class PurchaseAnalyticsAppService : ApplicationService, IPurchaseAnalytic
                 var periodValues = new List<decimal>();
                 foreach (var period in periods)
                 {
-                    var periodItems = g.Where(x => x.IssueDate >= period.From && x.IssueDate <= period.To);
+                    var periodItems = g.Where(x => x.InvoiceDate >= period.From && x.InvoiceDate <= period.To);
                     periodValues.Add(useQty ? periodItems.Sum(x => x.Quantity) : periodItems.Sum(x => x.Amount));
                 }
                 rows.Add(new PurchaseAnalyticsRowDto
@@ -124,13 +144,17 @@ public class PurchaseAnalyticsAppService : ApplicationService, IPurchaseAnalytic
             }
 
             var itemGroups = invoices
-                .SelectMany(pi => pi.Items.Select(item => new
+                .SelectMany(pi =>
                 {
-                    pi.IssueDate,
-                    ItemGroup = itemGroupMap.GetValueOrDefault(item.ItemId, "All Item Groups"),
-                    item.Quantity,
-                    Amount = item.Quantity * item.UnitPrice,
-                }))
+                    var invoiceDate = isBillingDate ? (pi.FromDate ?? pi.IssueDate) : pi.IssueDate;
+                    return pi.Items.Select(item => new
+                    {
+                        InvoiceDate = invoiceDate,
+                        ItemGroup = itemGroupMap.GetValueOrDefault(item.ItemId, "All Item Groups"),
+                        item.Quantity,
+                        Amount = item.Quantity * item.UnitPrice,
+                    });
+                })
                 .GroupBy(x => x.ItemGroup);
 
             foreach (var g in itemGroups)
@@ -138,7 +162,7 @@ public class PurchaseAnalyticsAppService : ApplicationService, IPurchaseAnalytic
                 var periodValues = new List<decimal>();
                 foreach (var period in periods)
                 {
-                    var periodItems = g.Where(x => x.IssueDate >= period.From && x.IssueDate <= period.To);
+                    var periodItems = g.Where(x => x.InvoiceDate >= period.From && x.InvoiceDate <= period.To);
                     periodValues.Add(useQty ? periodItems.Sum(x => x.Quantity) : periodItems.Sum(x => x.Amount));
                 }
                 rows.Add(new PurchaseAnalyticsRowDto
@@ -157,7 +181,7 @@ public class PurchaseAnalyticsAppService : ApplicationService, IPurchaseAnalytic
             foreach (var g in grouped)
             {
                 var row = BuildRow(g.Key.ToString(), supplierNames.GetValueOrDefault(g.Key, g.Key.ToString()[..8]),
-                    g.ToList(), periods, useQty);
+                    g.ToList(), periods, useQty, isBillingDate);
                 rows.Add(row);
             }
         }
@@ -185,12 +209,16 @@ public class PurchaseAnalyticsAppService : ApplicationService, IPurchaseAnalytic
     }
 
     private static PurchaseAnalyticsRowDto BuildRow(string entityId, string entityName, List<PurchaseInvoice> invoices,
-        List<PeriodRange> periods, bool useQty)
+        List<PeriodRange> periods, bool useQty, bool isBillingDate)
     {
         var periodValues = new List<decimal>();
         foreach (var period in periods)
         {
-            var periodInvoices = invoices.Where(pi => pi.IssueDate >= period.From && pi.IssueDate <= period.To);
+            var periodInvoices = invoices.Where(pi =>
+            {
+                var dt = isBillingDate ? (pi.FromDate ?? pi.IssueDate) : pi.IssueDate;
+                return dt >= period.From && dt <= period.To;
+            });
             if (useQty)
                 periodValues.Add(periodInvoices.SelectMany(pi => pi.Items).Sum(i => i.Quantity));
             else

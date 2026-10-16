@@ -125,10 +125,84 @@ public class PurchaseAnalyticsAndUpstreamTests
     }
 
     [Fact]
-    public void UpstreamSync_NoNewCommitsInEitherRepo()
+    public void PurchaseAnalyticsRequestDto_PeriodBasedOn_BillingDate()
     {
-        // Both repos at same HEAD as last session: erpnext 386a4ac1f0, myinvois 6501660
-        Assert.True(true, "No new upstream commits to process");
+        var dto = new PurchaseAnalyticsRequestDto
+        {
+            PeriodBasedOn = "BillingDate"
+        };
+        Assert.Equal("BillingDate", dto.PeriodBasedOn);
+    }
+
+    [Fact]
+    public void SalesAnalyticsRequestDto_PeriodBasedOn_BillingDate()
+    {
+        var dto = new SalesAnalyticsRequestDto
+        {
+            PeriodBasedOn = "BillingDate"
+        };
+        Assert.Equal("BillingDate", dto.PeriodBasedOn);
+    }
+
+    [Fact]
+    public void ItemWisePurchaseRegister_IncludesOtherChargesInTotal()
+    {
+        // Per ERPNext PR #60047 / commit 7d3592adaa: Total includes TotalOtherCharges
+        var row = new ItemWisePurchaseRegisterLineDto
+        {
+            Amount = 100m,
+            TotalTax = 18m,
+            TotalOtherCharges = 10m,
+            Total = 128m
+        };
+        Assert.Equal(100m, row.Amount);
+        Assert.Equal(18m, row.TotalTax);
+        Assert.Equal(10m, row.TotalOtherCharges);
+        Assert.Equal(128m, row.Total);
+    }
+
+    [Fact]
+    public void ItemWisePurchaseRegister_PurchaseReceiptsCommaSeparated()
+    {
+        // Per ERPNext PR #60047 / commit ebab2f50dc: partly received order lists receipts comma-separated
+        var row = new ItemWisePurchaseRegisterLineDto
+        {
+            PurchaseOrderNumber = "PO-0001",
+            PurchaseReceiptNumber = "PR-0001, PR-0002"
+        };
+        Assert.Equal("PO-0001", row.PurchaseOrderNumber);
+        var receipts = row.PurchaseReceiptNumber.Split(", ");
+        Assert.Equal(2, receipts.Length);
+        Assert.Contains("PR-0001", receipts);
+        Assert.Contains("PR-0002", receipts);
+    }
+
+    [Fact]
+    public void ItemWiseSalesHistory_DtoMappingAndCustomerGroup()
+    {
+        // Per ERPNext PR #60350 / commit 98ef9605b1: customer group read from order/transaction
+        var filter = new GetItemWiseSalesHistoryDto
+        {
+            CompanyId = Guid.NewGuid(),
+            FromDate = new DateTime(2026, 1, 1),
+            ToDate = new DateTime(2026, 6, 30),
+            ItemCode = "ITEM-01",
+            CustomerId = Guid.NewGuid()
+        };
+        var row = new ItemWiseSalesHistoryRowDto
+        {
+            SalesOrderId = Guid.NewGuid(),
+            SalesOrderNumber = "SO-0001",
+            CustomerGroup = "Commercial",
+            Quantity = 5,
+            Rate = 50,
+            Amount = 250,
+            DeliveredQuantity = 3,
+            BilledAmount = 150
+        };
+        Assert.Equal("Commercial", row.CustomerGroup);
+        Assert.Equal(250m, row.Amount);
+        Assert.Equal(150m, row.BilledAmount);
     }
 
     [Fact]

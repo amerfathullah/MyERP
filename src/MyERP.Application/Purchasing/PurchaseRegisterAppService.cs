@@ -6,6 +6,7 @@ using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
+using MyERP.Inventory.Entities;
 using MyERP.Permissions;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales;
@@ -23,19 +24,31 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
     private readonly IRepository<Supplier, Guid>? _supplierRepository;
     private readonly IRepository<SupplierGroup, Guid>? _supplierGroupRepository;
     private readonly IRepository<JournalEntry, Guid>? _journalRepository;
+    private readonly IRepository<PurchaseOrder, Guid>? _purchaseOrderRepository;
+    private readonly IRepository<PurchaseReceipt, Guid>? _purchaseReceiptRepository;
+    private readonly IRepository<Item, Guid>? _itemRepository;
+    private readonly IRepository<ItemGroup, Guid>? _itemGroupRepository;
 
     public PurchaseRegisterAppService(
         IRepository<PurchaseInvoice, Guid> invoiceRepository,
         IRepository<PaymentEntry, Guid> paymentRepository,
         IRepository<Supplier, Guid>? supplierRepository = null,
         IRepository<SupplierGroup, Guid>? supplierGroupRepository = null,
-        IRepository<JournalEntry, Guid>? journalRepository = null)
+        IRepository<JournalEntry, Guid>? journalRepository = null,
+        IRepository<PurchaseOrder, Guid>? purchaseOrderRepository = null,
+        IRepository<PurchaseReceipt, Guid>? purchaseReceiptRepository = null,
+        IRepository<Item, Guid>? itemRepository = null,
+        IRepository<ItemGroup, Guid>? itemGroupRepository = null)
     {
         _invoiceRepository = invoiceRepository;
         _paymentRepository = paymentRepository;
         _supplierRepository = supplierRepository;
         _supplierGroupRepository = supplierGroupRepository;
         _journalRepository = journalRepository;
+        _purchaseOrderRepository = purchaseOrderRepository;
+        _purchaseReceiptRepository = purchaseReceiptRepository;
+        _itemRepository = itemRepository;
+        _itemGroupRepository = itemGroupRepository;
     }
 
     private async Task<IQueryable<PaymentEntry>> GetPaymentQueryableWithTaxesAsync()
@@ -480,5 +493,248 @@ public class PurchaseRegisterAppService : ApplicationService, IPurchaseRegisterA
             debit += inv.AmountPaid * rate;
         }
         return debit;
+    }
+
+    /// <summary>
+    /// Item-wise Purchase Register report.
+    /// Maps to ERPNext accounts/report/item_wise_purchase_register.
+    /// Per ERPNext PR #60047:
+    /// - Includes other charges in item total (commit 7d3592adaa)
+    /// - Expands child groups in item group filter (commit e8f536cc2e)
+    /// - Links receipts of invoices made from an order via PurchaseOrderItemId (commit ff9fb72baf & ebab2f50dc)
+    /// </summary>
+    public async Task<RegisterReportDto<ItemWisePurchaseRegisterLineDto>> GetItemWiseReportAsync(ItemWiseRegisterFilterDto input)
+    {
+        var from = input.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
+        var to = input.ToDate ?? DateTime.UtcNow.Date;
+
+        var query = await _invoiceRepository.WithDetailsAsync(pi => pi.Items);
+        var invoicesQuery = query
+            .Where(pi => pi.CompanyId == input.CompanyId
+                      && pi.Status == DocumentStatus.Posted
+                      && pi.IssueDate >= from
+                      && pi.IssueDate <= to);
+
+        if (input.SupplierId.HasValue)
+        {
+            invoicesQuery = invoicesQuery.Where(pi => pi.SupplierId == input.SupplierId.Value);
+        }
+
+        if (input.SupplierGroupId.HasValue && _supplierRepository != null)
+        {
+            var targetGroupIds = await GetSupplierGroupWithDescendantIdsAsync(input.SupplierGroupId.Value);
+            var suppQuery = await _supplierRepository.GetQueryableAsync();
+            var matchedSupplierIds = suppQuery
+                .Where(s => s.SupplierGroupId.HasValue && targetGroupIds.Contains(s.SupplierGroupId.Value))
+                .Select(s => s.Id)
+                .ToList();
+            invoicesQuery = invoicesQuery.Where(pi => matchedSupplierIds.Contains(pi.SupplierId));
+        }
+
+        var invoices = invoicesQuery.ToList();
+        if (invoices.Count == 0)
+        {
+            return new RegisterReportDto<ItemWisePurchaseRegisterLineDto>();
+        }
+
+        // 1. Supplier details
+        var supplierIds = invoices.Select(pi => pi.SupplierId).Distinct().ToList();
+        Dictionary<Guid, Supplier> supplierMap = new();
+        Dictionary<Guid, string> supplierGroupMap = new();
+        if (_supplierRepository != null && supplierIds.Count > 0)
+        {
+            var suppQuery = await _supplierRepository.GetQueryableAsync();
+            supplierMap = suppQuery.Where(s => supplierIds.Contains(s.Id)).ToDictionary(s => s.Id);
+            if (_supplierGroupRepository != null)
+            {
+                var allGroups = await _supplierGroupRepository.GetListAsync();
+                supplierGroupMap = allGroups.ToDictionary(g => g.Id, g => g.Name);
+            }
+        }
+
+        // 2. Item details
+        var allItemIds = invoices.SelectMany(pi => pi.Items).Select(i => i.ItemId).Distinct().ToList();
+        var itemRepo = _itemRepository ?? LazyServiceProvider.LazyGetService<IRepository<Item, Guid>>();
+        Dictionary<Guid, Item> itemMap = new();
+        if (itemRepo != null && allItemIds.Count > 0)
+        {
+            var iQuery = await itemRepo.GetQueryableAsync();
+            itemMap = iQuery.Where(i => allItemIds.Contains(i.Id)).ToDictionary(i => i.Id);
+        }
+
+        // 3. Item Group hierarchy filter (PR #60047 commit e8f536cc2e)
+        HashSet<Guid>? validGroupIds = null;
+        if (input.ItemGroupId.HasValue)
+        {
+            validGroupIds = await GetItemGroupWithDescendantIdsAsync(input.ItemGroupId.Value);
+        }
+
+        // 4. Trace Purchase Orders and Receipts (PR #60047 commits ff9fb72baf & ebab2f50dc)
+        var allPoItemIds = invoices.SelectMany(pi => pi.Items)
+            .Where(i => i.PurchaseOrderItemId.HasValue)
+            .Select(i => i.PurchaseOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        var poRepo = _purchaseOrderRepository ?? LazyServiceProvider.LazyGetService<IRepository<PurchaseOrder, Guid>>();
+        Dictionary<Guid, string> poItemOrderNumberMap = new();
+        if (poRepo != null && allPoItemIds.Count > 0)
+        {
+            var poQuery = await poRepo.WithDetailsAsync(po => po.Items);
+            var poList = poQuery.Where(po => po.CompanyId == input.CompanyId && po.Items.Any(i => allPoItemIds.Contains(i.Id))).ToList();
+            foreach (var po in poList)
+            {
+                foreach (var poItem in po.Items.Where(i => allPoItemIds.Contains(i.Id)))
+                {
+                    poItemOrderNumberMap[poItem.Id] = po.OrderNumber;
+                }
+            }
+        }
+
+        var prRepo = _purchaseReceiptRepository ?? LazyServiceProvider.LazyGetService<IRepository<PurchaseReceipt, Guid>>();
+        Dictionary<Guid, string> prItemReceiptNumberMap = new();
+        Dictionary<Guid, List<string>> poItemReceiptNumbersMap = new();
+        if (prRepo != null)
+        {
+            var prQuery = await prRepo.WithDetailsAsync(pr => pr.Items);
+            var prList = prQuery.Where(pr => pr.CompanyId == input.CompanyId).ToList();
+            foreach (var pr in prList)
+            {
+                foreach (var prItem in pr.Items)
+                {
+                    prItemReceiptNumberMap[prItem.Id] = pr.ReceiptNumber;
+                    if (prItem.PurchaseOrderItemId.HasValue)
+                    {
+                        if (!poItemReceiptNumbersMap.TryGetValue(prItem.PurchaseOrderItemId.Value, out var list))
+                        {
+                            list = new List<string>();
+                            poItemReceiptNumbersMap[prItem.PurchaseOrderItemId.Value] = list;
+                        }
+                        if (!list.Contains(pr.ReceiptNumber))
+                        {
+                            list.Add(pr.ReceiptNumber);
+                        }
+                    }
+                }
+            }
+        }
+
+        var rows = new List<ItemWisePurchaseRegisterLineDto>();
+        foreach (var pi in invoices.OrderByDescending(i => i.IssueDate))
+        {
+            supplierMap.TryGetValue(pi.SupplierId, out var supplier);
+            var suppName = supplier?.Name ?? pi.SupplierId.ToString();
+            var suppGroupName = string.Empty;
+            if (supplier != null && supplier.SupplierGroupId.HasValue)
+            {
+                supplierGroupMap.TryGetValue(supplier.SupplierGroupId.Value, out suppGroupName);
+            }
+
+            decimal rateMultiplier = pi.ExchangeRate > 0 ? pi.ExchangeRate : 1m;
+
+            foreach (var item in pi.Items)
+            {
+                if (input.ItemId.HasValue && item.ItemId != input.ItemId.Value) continue;
+                itemMap.TryGetValue(item.ItemId, out var itemMaster);
+                if (!string.IsNullOrWhiteSpace(input.ItemCode) && itemMaster != null && !string.Equals(itemMaster.ItemCode, input.ItemCode, StringComparison.OrdinalIgnoreCase)) continue;
+                if (validGroupIds != null)
+                {
+                    if (itemMaster == null || !itemMaster.ItemGroupId.HasValue || !validGroupIds.Contains(itemMaster.ItemGroupId.Value)) continue;
+                }
+
+                // Resolve Purchase Order number
+                string? poNumber = null;
+                if (item.PurchaseOrderItemId.HasValue)
+                {
+                    poItemOrderNumberMap.TryGetValue(item.PurchaseOrderItemId.Value, out poNumber);
+                }
+
+                // Resolve Purchase Receipt number(s) (PR #60047 commits ff9fb72baf & ebab2f50dc)
+                string? prNumber = null;
+                if (item.PurchaseReceiptItemId.HasValue && prItemReceiptNumberMap.TryGetValue(item.PurchaseReceiptItemId.Value, out var directPr))
+                {
+                    prNumber = directPr;
+                }
+                else if (item.PurchaseOrderItemId.HasValue && poItemReceiptNumbersMap.TryGetValue(item.PurchaseOrderItemId.Value, out var linkedPrs) && linkedPrs.Count > 0)
+                {
+                    prNumber = string.Join(", ", linkedPrs);
+                }
+
+                var itemCode = itemMaster?.ItemCode ?? item.ItemId.ToString();
+                var itemName = itemMaster?.ItemName ?? item.Description;
+                var itemGroup = itemMaster?.ItemGroup ?? string.Empty;
+                var rate = Math.Round(item.UnitPrice * rateMultiplier, 2);
+                var amount = Math.Round(item.LineTotal * rateMultiplier, 2);
+                var totalTax = Math.Round(item.TaxAmount * rateMultiplier, 2);
+                var otherCharges = Math.Round(item.LandedCostVoucherAmount * rateMultiplier, 2);
+                // Per ERPNext PR #60047 (commit 7d3592adaa): total includes other charges
+                var total = amount + totalTax + otherCharges;
+
+                rows.Add(new ItemWisePurchaseRegisterLineDto
+                {
+                    InvoiceId = pi.Id,
+                    InvoiceNumber = pi.InvoiceNumber ?? string.Empty,
+                    PostingDate = pi.IssueDate,
+                    SupplierId = pi.SupplierId,
+                    SupplierName = suppName,
+                    SupplierGroupId = supplier?.SupplierGroupId,
+                    SupplierGroupName = suppGroupName,
+                    ItemId = item.ItemId,
+                    ItemCode = itemCode,
+                    ItemName = itemName,
+                    ItemGroup = itemGroup,
+                    Description = item.Description,
+                    StockQty = item.StockQty,
+                    StockUom = item.StockUom,
+                    Rate = rate,
+                    Amount = amount,
+                    TotalTax = totalTax,
+                    TotalOtherCharges = otherCharges,
+                    Total = total,
+                    PurchaseOrderNumber = poNumber,
+                    PurchaseReceiptNumber = prNumber,
+                    Currency = pi.CurrencyCode,
+                });
+            }
+        }
+
+        return new RegisterReportDto<ItemWisePurchaseRegisterLineDto>
+        {
+            Count = rows.Count,
+            Items = rows,
+            TotalNet = rows.Sum(r => r.Amount),
+            TotalTax = rows.Sum(r => r.TotalTax),
+            TotalGrand = rows.Sum(r => r.Total),
+        };
+    }
+
+    private async Task<HashSet<Guid>> GetItemGroupWithDescendantIdsAsync(Guid rootGroupId)
+    {
+        var result = new HashSet<Guid> { rootGroupId };
+        var groupRepo = _itemGroupRepository ?? LazyServiceProvider.LazyGetService<IRepository<ItemGroup, Guid>>();
+        if (groupRepo == null) return result;
+
+        try
+        {
+            var allGroups = await groupRepo.GetListAsync();
+            if (allGroups != null)
+            {
+                var queue = new Queue<Guid>();
+                queue.Enqueue(rootGroupId);
+                while (queue.Count > 0)
+                {
+                    var current = queue.Dequeue();
+                    var children = allGroups.Where(g => g.ParentId == current).Select(g => g.Id);
+                    foreach (var childId in children)
+                    {
+                        if (result.Add(childId)) queue.Enqueue(childId);
+                    }
+                }
+            }
+        }
+        catch
+        {
+        }
+        return result;
     }
 }

@@ -459,6 +459,7 @@ export interface PurchaseAnalyticsRequestDto {
   periodType?: AnalyticsPeriodType;
   valueField?: string | null;
   entityIds?: string[] | null;
+  periodBasedOn?: string | null;
 }
 
 export interface PurchaseAnalyticsRowDto {
@@ -694,6 +695,42 @@ export interface PurchaseRegisterLineDto {
   debit?: number;
   credit?: number;
   balance?: number;
+}
+
+export interface ItemWiseRegisterFilterDto {
+  companyId?: string;
+  fromDate?: string;
+  toDate?: string;
+  supplierId?: string | null;
+  supplierGroupId?: string | null;
+  itemId?: string | null;
+  itemCode?: string | null;
+  itemGroupId?: string | null;
+}
+
+export interface ItemWisePurchaseRegisterLineDto {
+  invoiceId?: string;
+  invoiceNumber?: string;
+  postingDate?: string;
+  supplierId?: string;
+  supplierName?: string;
+  supplierGroupId?: string | null;
+  supplierGroupName?: string | null;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  itemGroup?: string;
+  description?: string;
+  stockQty?: number;
+  stockUom?: string;
+  rate?: number;
+  amount?: number;
+  totalTax?: number;
+  totalOtherCharges?: number;
+  total?: number;
+  purchaseOrderNumber?: string | null;
+  purchaseReceiptNumber?: string | null;
+  currency?: string;
 }
 
 export interface PutawayAllocationResultDto {
