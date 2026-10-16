@@ -2649,6 +2649,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Customers',
       },
       {
+        path: '/sales/reports/lost-quotations',
+        name: '::Menu:LostQuotations',
+        iconClass: 'fas fa-chart-pie',
+        order: 22.97,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Quotations',
+      },
+      {
         path: '/sales/reports/commission',
         name: '::Menu:SalesCommission',
         iconClass: 'fas fa-coins',

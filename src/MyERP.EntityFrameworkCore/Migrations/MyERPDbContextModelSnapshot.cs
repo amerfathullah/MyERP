@@ -29447,6 +29447,10 @@ namespace MyERP.Migrations
                     b.Property<Guid?>("OpportunityId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("OrderLostReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<Guid?>("PriceListId")
                         .HasColumnType("uuid");
 
@@ -29629,6 +29633,33 @@ namespace MyERP.Migrations
                         .IsUnique();
 
                     b.ToTable("Sls_QuotationLostReasons", (string)null);
+                });
+
+            modelBuilder.Entity("MyERP.Sales.Entities.QuotationLostReasonDetail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("QuotationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("QuotationLostReasonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("QuotationId");
+
+                    b.HasIndex("QuotationLostReasonId");
+
+                    b.HasIndex("TenantId", "QuotationId", "QuotationLostReasonId")
+                        .IsUnique();
+
+                    b.ToTable("Sal_QuotationLostReasonDetails", (string)null);
                 });
 
             modelBuilder.Entity("MyERP.Sales.Entities.SalesInvoice", b =>
@@ -38022,6 +38053,21 @@ namespace MyERP.Migrations
                     b.HasOne("MyERP.Sales.Entities.Quotation", null)
                         .WithMany("Items")
                         .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MyERP.Sales.Entities.QuotationLostReasonDetail", b =>
+                {
+                    b.HasOne("MyERP.Sales.Entities.Quotation", null)
+                        .WithMany()
+                        .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MyERP.Sales.Entities.QuotationLostReason", null)
+                        .WithMany()
+                        .HasForeignKey("QuotationLostReasonId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

@@ -1444,8 +1444,10 @@ export interface QuotationDto extends FullAuditedEntityDto<string> {
   opportunityId?: string | null;
   perOrdered?: number;
   orderStatus?: string;
+  orderLostReason?: string | null;
   items?: QuotationItemDto[];
   competitors?: CompetitorDetailDto[];
+  lostReasons?: QuotationLostReasonDetailDto[];
 }
 
 export interface QuotationItemDto {
@@ -2388,6 +2390,59 @@ export interface CustomerWithoutSalesItemDto {
 export interface CustomersWithoutAnySalesTransactionsReportDto {
   items: CustomerWithoutSalesItemDto[];
   totalCustomers: number;
+}
+
+export interface QuotationLostReasonDetailDto {
+  id?: string;
+  quotationId?: string;
+  quotationLostReasonId?: string;
+  reason?: string | null;
+}
+
+export interface AddQuotationLostReasonDetailDto {
+  quotationId: string;
+  quotationLostReasonId: string;
+}
+
+export interface MarkQuotationLostDto {
+  detailedReason?: string | null;
+  lostReasonIds?: string[];
+  competitorIds?: string[];
+}
+
+export interface GetLostQuotationsReportInput {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  timespan?: string | null;
+  groupBy?: string;
+}
+
+export interface LostQuotationReportRowDto {
+  dimension: string;
+  lostQuotations: number;
+  lostQuotationsPct: number;
+  lostValue: number;
+  lostValuePct: number;
+  currency: string;
+}
+
+export interface LostQuotationsSummaryDto {
+  totalLostQuotations: number;
+  totalLostValue: number;
+  currency: string;
+}
+
+export interface LostQuotationsChartDto {
+  labels: string[];
+  values: number[];
+  counts: number[];
+}
+
+export interface LostQuotationsReportDto {
+  rows: LostQuotationReportRowDto[];
+  summary: LostQuotationsSummaryDto;
+  chart: LostQuotationsChartDto;
 }
 
 

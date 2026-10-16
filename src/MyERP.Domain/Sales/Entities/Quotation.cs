@@ -35,6 +35,7 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
 
     public string? Terms { get; set; }
     public string? Notes { get; set; }
+    public string? OrderLostReason { get; set; }
 
     // Amendment support
     public Guid? AmendedFromId { get; set; }
@@ -163,7 +164,7 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     /// Mark quotation as lost (customer declined / competitor won).
     /// Per gotcha #2142: Blocked if sales order has already been made.
     /// </summary>
-    public void MarkLost()
+    public void MarkLost(string? orderLostReason = null)
     {
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -173,6 +174,10 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
                 .WithData("detail", "Cannot set as Lost as Sales Order is made.");
 
         Status = DocumentStatus.Rejected; // Rejected = Lost in quotation context
+        if (!string.IsNullOrWhiteSpace(orderLostReason))
+        {
+            OrderLostReason = orderLostReason;
+        }
     }
 
     public void Deactivate()

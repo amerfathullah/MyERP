@@ -1313,9 +1313,11 @@ public partial class QuotationMapper : MapperBase<Sales.Entities.Quotation, Sale
 {
     [MapperIgnoreTarget(nameof(Sales.QuotationDto.CustomerName))]
     [MapperIgnoreTarget(nameof(Sales.QuotationDto.Competitors))]
+    [MapperIgnoreTarget(nameof(Sales.QuotationDto.LostReasons))]
     public override partial Sales.QuotationDto Map(Sales.Entities.Quotation source);
     [MapperIgnoreTarget(nameof(Sales.QuotationDto.CustomerName))]
     [MapperIgnoreTarget(nameof(Sales.QuotationDto.Competitors))]
+    [MapperIgnoreTarget(nameof(Sales.QuotationDto.LostReasons))]
     public override partial void Map(Sales.Entities.Quotation source, Sales.QuotationDto destination);
     private partial Sales.QuotationItemDto MapChild(Sales.Entities.QuotationItem source);
 }

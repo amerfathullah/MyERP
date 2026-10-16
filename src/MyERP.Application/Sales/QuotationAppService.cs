@@ -22,6 +22,8 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     private readonly IRepository<Quotation, Guid> _repository;
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IRepository<MyERP.CRM.Entities.CompetitorDetail, Guid> _competitorDetailRepository;
+    private readonly IRepository<QuotationLostReasonDetail, Guid> _lostReasonDetailRepository;
+    private readonly IRepository<QuotationLostReason, Guid> _lostReasonRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly PricingRuleApplicationService _pricingRuleService;
 
@@ -29,12 +31,16 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         IRepository<Quotation, Guid> repository,
         IRepository<Customer, Guid> customerRepository,
         IRepository<MyERP.CRM.Entities.CompetitorDetail, Guid> competitorDetailRepository,
+        IRepository<QuotationLostReasonDetail, Guid> lostReasonDetailRepository,
+        IRepository<QuotationLostReason, Guid> lostReasonRepository,
         IDocumentNumberGenerator numberGenerator,
         PricingRuleApplicationService pricingRuleService)
     {
         _repository = repository;
         _customerRepository = customerRepository;
         _competitorDetailRepository = competitorDetailRepository;
+        _lostReasonDetailRepository = lostReasonDetailRepository;
+        _lostReasonRepository = lostReasonRepository;
         _numberGenerator = numberGenerator;
         _pricingRuleService = pricingRuleService;
     }
@@ -82,6 +88,7 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         var quotation = await _repository.GetAsync(id);
         var dto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
         dto.CustomerName = await ResolveCustomerNameAsync(quotation.CustomerId);
+        dto.OrderLostReason = quotation.OrderLostReason;
         dto.Competitors = (await _competitorDetailRepository.GetListAsync(
                 c => c.ParentType == "Quotation" && c.ParentId == id))
             .Select(c => new MyERP.CRM.CompetitorDetailDto
@@ -91,6 +98,20 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
                 ParentId = c.ParentId,
                 CompetitorId = c.CompetitorId,
             }).ToList();
+
+        var lostDetails = await _lostReasonDetailRepository.GetListAsync(d => d.QuotationId == id);
+        var reasonIds = lostDetails.Select(d => d.QuotationLostReasonId).Distinct().ToList();
+        var reasonDict = (await _lostReasonRepository.GetListAsync(r => reasonIds.Contains(r.Id)))
+            .ToDictionary(r => r.Id, r => r.Reason);
+
+        dto.LostReasons = lostDetails.Select(d => new QuotationLostReasonDetailDto
+        {
+            Id = d.Id,
+            QuotationId = d.QuotationId,
+            QuotationLostReasonId = d.QuotationLostReasonId,
+            Reason = reasonDict.GetValueOrDefault(d.QuotationLostReasonId)
+        }).ToList();
+
         return dto;
     }
 
@@ -121,6 +142,37 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     public async Task DeleteCompetitorAsync(Guid competitorDetailId)
     {
         await _competitorDetailRepository.DeleteAsync(competitorDetailId);
+    }
+
+    // --- Lost Reasons ---
+
+    [Authorize(MyERPPermissions.Quotations.Edit)]
+    public async Task<QuotationLostReasonDetailDto> CreateLostReasonAsync(AddQuotationLostReasonDetailDto input)
+    {
+        var exists = await _lostReasonDetailRepository.AnyAsync(
+            d => d.QuotationId == input.QuotationId && d.QuotationLostReasonId == input.QuotationLostReasonId);
+        if (exists)
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
+                .WithData("entity", "Quotation Lost Reason Detail");
+
+        var detail = new QuotationLostReasonDetail(GuidGenerator.Create(), input.QuotationId, input.QuotationLostReasonId, CurrentTenant.Id);
+        await _lostReasonDetailRepository.InsertAsync(detail);
+
+        var reason = await _lostReasonRepository.FindAsync(detail.QuotationLostReasonId);
+
+        return new QuotationLostReasonDetailDto
+        {
+            Id = detail.Id,
+            QuotationId = detail.QuotationId,
+            QuotationLostReasonId = detail.QuotationLostReasonId,
+            Reason = reason?.Reason
+        };
+    }
+
+    [Authorize(MyERPPermissions.Quotations.Edit)]
+    public async Task DeleteLostReasonAsync(Guid quotationLostReasonDetailId)
+    {
+        await _lostReasonDetailRepository.DeleteAsync(quotationLostReasonDetailId);
     }
 
     public async Task<PagedResultDto<QuotationDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
@@ -494,7 +546,7 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     }
 
     [Authorize(MyERPPermissions.Quotations.Edit)]
-    public async Task<QuotationDto> MarkLostAsync(Guid id)
+    public async Task<QuotationDto> MarkLostAsync(Guid id, MarkQuotationLostDto? input = null)
     {
         var quotation = await _repository.GetAsync(id);
 
@@ -511,13 +563,37 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
                 .WithData("detail", "Cannot set as Lost as a version of this Quotation is ordered.");
         }
 
-        quotation.MarkLost();
+        quotation.MarkLost(input?.DetailedReason);
         await _repository.UpdateAsync(quotation, autoSave: true);
+
+        if (input?.LostReasonIds != null && input.LostReasonIds.Any())
+        {
+            foreach (var reasonId in input.LostReasonIds.Distinct())
+            {
+                var exists = await _lostReasonDetailRepository.AnyAsync(d => d.QuotationId == quotation.Id && d.QuotationLostReasonId == reasonId);
+                if (!exists)
+                {
+                    await _lostReasonDetailRepository.InsertAsync(new QuotationLostReasonDetail(GuidGenerator.Create(), quotation.Id, reasonId, CurrentTenant.Id));
+                }
+            }
+        }
+
+        if (input?.CompetitorIds != null && input.CompetitorIds.Any())
+        {
+            foreach (var compId in input.CompetitorIds.Distinct())
+            {
+                var exists = await _competitorDetailRepository.AnyAsync(c => c.ParentType == "Quotation" && c.ParentId == quotation.Id && c.CompetitorId == compId);
+                if (!exists)
+                {
+                    await _competitorDetailRepository.InsertAsync(new CRM.Entities.CompetitorDetail(GuidGenerator.Create(), "Quotation", quotation.Id, compId, CurrentTenant.Id));
+                }
+            }
+        }
 
         // Also mark other submitted versions in the family as Lost
         foreach (var other in family.Where(q => q.Status == Core.DocumentStatus.Submitted))
         {
-            other.MarkLost();
+            other.MarkLost(input?.DetailedReason);
             await _repository.UpdateAsync(other);
         }
 
@@ -541,9 +617,7 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
             }
         }
 
-        var lostDto = ObjectMapper.Map<Quotation, QuotationDto>(quotation);
-        lostDto.CustomerName = await ResolveCustomerNameAsync(quotation.CustomerId);
-        return lostDto;
+        return await GetAsync(quotation.Id);
     }
 
     /// <summary>

@@ -30,8 +30,10 @@ public class QuotationDto : FullAuditedEntityDto<Guid>
     public Guid? RevisionOfId { get; set; }
     public int RevisionIndex { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? OrderLostReason { get; set; }
     public List<QuotationItemDto> Items { get; set; } = new();
     public List<MyERP.CRM.CompetitorDetailDto> Competitors { get; set; } = new();
+    public List<QuotationLostReasonDetailDto> LostReasons { get; set; } = new();
 }
 
 public class QuotationItemDto
@@ -111,4 +113,28 @@ public class CreateQuotationItemDto
 
     /// <summary>Alternative offer for the preceding row; excluded from document totals.</summary>
     public bool IsAlternative { get; set; }
+}
+
+public class QuotationLostReasonDetailDto
+{
+    public Guid Id { get; set; }
+    public Guid QuotationId { get; set; }
+    public Guid QuotationLostReasonId { get; set; }
+    public string? Reason { get; set; }
+}
+
+public class AddQuotationLostReasonDetailDto
+{
+    [Required]
+    public Guid QuotationId { get; set; }
+
+    [Required]
+    public Guid QuotationLostReasonId { get; set; }
+}
+
+public class MarkQuotationLostDto
+{
+    public string? DetailedReason { get; set; }
+    public List<Guid>? LostReasonIds { get; set; }
+    public List<Guid>? CompetitorIds { get; set; }
 }

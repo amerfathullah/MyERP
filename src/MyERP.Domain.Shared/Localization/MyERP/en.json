@@ -5129,8 +5129,24 @@
     "Menu:ItemWisePurchaseHistory": "Item-wise Purchase History",
     "ItemWisePurchaseHistory": "Item-wise Purchase History",
     "ItemWisePurchaseHistoryDescription": "Track item-level purchase order details, received quantities, billed amounts, and top purchased items.",
-    "NoItemWisePurchasesFound": "No purchase order items found matching the filter criteria.",
-    "ReceivedQuantity": "Received Quantity"
+    "ReceivedQuantity": "Received Quantity",
+    "Menu:LostQuotations": "Lost Quotations",
+    "LostQuotations": "Lost Quotations",
+    "LostQuotationsDescription": "Analyze lost quotations grouped by lost reason or competitor, including lost value and percentages.",
+    "NoLostQuotationsFound": "No lost quotations found matching the filter criteria.",
+    "LostQuotationsCount": "Lost Quotations",
+    "LostQuotationsPct": "% of Lost Quotations",
+    "LostValue": "Lost Value",
+    "LostValuePct": "Lost Value %",
+    "TotalLostQuotations": "Total Lost Quotations",
+    "TotalLostValue": "Total Lost Value",
+    "Timespan": "Timespan",
+    "NotSpecified": "Not Specified",
+    "ThisWeek": "This Week",
+    "LastWeek": "Last Week",
+    "LastQuarter": "Last Quarter",
+    "ThisYear": "This Year",
+    "LastYear": "Last Year"
   }
 }
 

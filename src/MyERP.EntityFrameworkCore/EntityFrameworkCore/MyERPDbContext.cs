@@ -155,6 +155,7 @@ public class MyERPDbContext :
     public DbSet<Quotation> Quotations { get; set; }
     public DbSet<QuotationItem> QuotationItems { get; set; }
     public DbSet<QuotationLostReason> QuotationLostReasons { get; set; }
+    public DbSet<QuotationLostReasonDetail> QuotationLostReasonDetails { get; set; }
     public DbSet<SalesOrder> SalesOrders { get; set; }
     public DbSet<SalesOrderItem> SalesOrderItems { get; set; }
     public DbSet<DeliveryScheduleEntry> DeliveryScheduleEntries { get; set; }
@@ -1140,6 +1141,7 @@ public class MyERPDbContext :
             b.Property(x => x.GrandTotal).HasColumnType("decimal(18,4)");
             b.Property(x => x.Terms).HasMaxLength(QuotationConsts.MaxTermsLength);
             b.Property(x => x.Notes).HasMaxLength(QuotationConsts.MaxNoteLength);
+            b.Property(x => x.OrderLostReason).HasMaxLength(1000);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasOne<Customer>().WithMany().HasForeignKey(x => x.CustomerId).IsRequired();
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.QuotationId).IsRequired();
@@ -1157,6 +1159,15 @@ public class MyERPDbContext :
             b.Property(x => x.Reason).IsRequired().HasMaxLength(QuotationLostReasonConsts.MaxReasonLength);
             b.Property(x => x.Description).HasMaxLength(QuotationLostReasonConsts.MaxDescriptionLength);
             b.HasIndex(x => new { x.TenantId, x.Reason }).IsUnique();
+        });
+
+        builder.Entity<QuotationLostReasonDetail>(b =>
+        {
+            b.ToTable("Sal_QuotationLostReasonDetails", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasOne<Quotation>().WithMany().HasForeignKey(x => x.QuotationId).IsRequired();
+            b.HasOne<QuotationLostReason>().WithMany().HasForeignKey(x => x.QuotationLostReasonId).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.QuotationId, x.QuotationLostReasonId }).IsUnique();
         });
 
         builder.Entity<QuotationItem>(b =>
