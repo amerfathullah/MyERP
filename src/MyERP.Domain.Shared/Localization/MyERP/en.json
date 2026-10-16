@@ -5178,7 +5178,11 @@
     "LowestPrice": "Lowest Price",
     "LowestTotal": "Lowest Total",
     "NotQuoted": "Not Quoted",
-    "NoComparisonData": "No quotation comparison data found for the selected criteria."
+    "NoComparisonData": "No quotation comparison data found for the selected criteria.",
+    "Menu:RequestedItemsToOrderAndReceive": "Requested Items to Order and Receive",
+    "RequestedItemsToOrderAndReceive": "Requested Items to Order and Receive",
+    "RequestedItemsToOrderAndReceiveDescription": "Track items requested in submitted Material Requests, quantities ordered, and quantities received.",
+    "NoRequestedItemsFound": "No requested items found for the selected criteria."
   }
 }
 

@@ -483,6 +483,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseOrders',
       },
       {
+        path: '/purchasing/reports/requested-items-to-order-and-receive',
+        name: '::Menu:RequestedItemsToOrderAndReceive',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-boxes-packing',
+        order: 26,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseOrders',
+      },
+      {
         path: '/accounting',
         name: '::Menu:Accounting',
         iconClass: 'fas fa-calculator',
