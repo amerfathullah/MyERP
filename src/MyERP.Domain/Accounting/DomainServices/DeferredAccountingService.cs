@@ -59,13 +59,16 @@ public class DeferredAccountingService : DomainService
                       && si.Status == Core.DocumentStatus.Posted)
             .ToList();
 
-        // Find existing deferred revenue JEs to avoid double-booking
+        // Find existing deferred revenue JEs to avoid double-booking (scoped by invoice and posting date)
         var jeQuery = await _journalEntryRepository.GetQueryableAsync();
         var existingDeferredJes = jeQuery
             .Where(je => je.CompanyId == companyId
                       && je.ReferenceType == "DeferredRevenue"
+                      && je.ReferenceId.HasValue
                       && je.Status == Core.DocumentStatus.Posted)
-            .Select(je => je.PostingDate)
+            .Select(je => new { InvoiceId = je.ReferenceId!.Value, PostingDate = je.PostingDate.Date })
+            .ToList()
+            .Select(je => (je.InvoiceId, je.PostingDate))
             .ToHashSet();
 
         int jeCount = 0;
@@ -84,8 +87,8 @@ public class DeferredAccountingService : DomainService
                 var schedule = GenerateSchedule(item, asOfDate);
                 foreach (var entry in schedule)
                 {
-                    // Skip periods already booked (check existing JE dates) or future periods
-                    if (existingDeferredJes.Contains(entry.PostingDate)) continue;
+                    // Skip periods already booked for this invoice or future periods
+                    if (existingDeferredJes.Contains((invoice.Id, entry.PostingDate.Date))) continue;
                     if (entry.PostingDate > asOfDate) continue;
 
                     var je = await CreateRecognitionJEAsync(
@@ -94,10 +97,12 @@ public class DeferredAccountingService : DomainService
                         item.DeferredRevenueAccountId!.Value,
                         entry.PostingDate,
                         $"Deferred Revenue: {invoice.InvoiceNumber} - {item.Description}",
-                        tenantId);
+                        tenantId,
+                        invoice.Id,
+                        invoice.InvoiceNumber);
 
                     await _journalEntryRepository.InsertAsync(je);
-                    existingDeferredJes.Add(entry.PostingDate); // Track so we don't double-book
+                    existingDeferredJes.Add((invoice.Id, entry.PostingDate.Date)); // Track so we don't double-book
                     jeCount++;
                 }
             }
@@ -123,8 +128,11 @@ public class DeferredAccountingService : DomainService
         var existingDeferredJes = jeQuery
             .Where(je => je.CompanyId == companyId
                       && je.ReferenceType == "DeferredExpense"
+                      && je.ReferenceId.HasValue
                       && je.Status == Core.DocumentStatus.Posted)
-            .Select(je => je.PostingDate)
+            .Select(je => new { InvoiceId = je.ReferenceId!.Value, PostingDate = je.PostingDate.Date })
+            .ToList()
+            .Select(je => (je.InvoiceId, je.PostingDate))
             .ToHashSet();
 
         int jeCount = 0;
@@ -143,7 +151,7 @@ public class DeferredAccountingService : DomainService
                 var schedule = GenerateExpenseSchedule(item, asOfDate);
                 foreach (var entry in schedule)
                 {
-                    if (existingDeferredJes.Contains(entry.PostingDate)) continue;
+                    if (existingDeferredJes.Contains((invoice.Id, entry.PostingDate.Date))) continue;
                     if (entry.PostingDate > asOfDate) continue;
 
                     var je = await CreateExpenseRecognitionJEAsync(
@@ -152,10 +160,12 @@ public class DeferredAccountingService : DomainService
                         item.DeferredExpenseAccountId!.Value,
                         entry.PostingDate,
                         $"Deferred Expense: {invoice.InvoiceNumber} - {item.Description}",
-                        tenantId);
+                        tenantId,
+                        invoice.Id,
+                        invoice.InvoiceNumber);
 
                     await _journalEntryRepository.InsertAsync(je);
-                    existingDeferredJes.Add(entry.PostingDate);
+                    existingDeferredJes.Add((invoice.Id, entry.PostingDate.Date));
                     jeCount++;
                 }
             }
@@ -204,8 +214,9 @@ public class DeferredAccountingService : DomainService
         for (int i = 0; i < totalMonths; i++)
         {
             var periodDate = start.AddMonths(i);
-            var postingDate = new DateTime(periodDate.Year, periodDate.Month,
+            var monthEnd = new DateTime(periodDate.Year, periodDate.Month,
                 DateTime.DaysInMonth(periodDate.Year, periodDate.Month));
+            var postingDate = (i == totalMonths - 1 && end.Date < monthEnd) ? end.Date : monthEnd;
 
             var amount = (i == totalMonths - 1) ? totalAmount - bookedSoFar : monthlyAmount;
 
@@ -226,7 +237,8 @@ public class DeferredAccountingService : DomainService
 
     private async Task<JournalEntry> CreateExpenseRecognitionJEAsync(
         Guid companyId, decimal amount, Guid deferredExpenseAccountId,
-        DateTime postingDate, string description, Guid? tenantId)
+        DateTime postingDate, string description, Guid? tenantId,
+        Guid? referenceId = null, string? referenceNumber = null)
     {
         var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
         var fy = fyQuery.FirstOrDefault(f =>
@@ -242,6 +254,8 @@ public class DeferredAccountingService : DomainService
 
         var je = new JournalEntry(GuidGenerator.Create(), companyId, fy.Id, postingDate, tenantId);
         je.ReferenceType = "DeferredExpense";
+        je.ReferenceId = referenceId;
+        je.ReferenceNumber = referenceNumber;
 
         // DR: Expense (recognize cost for this period)
         je.AddLine(expenseAccountId, amount, true, description);
@@ -294,8 +308,9 @@ public class DeferredAccountingService : DomainService
         for (int i = 0; i < totalMonths; i++)
         {
             var periodDate = start.AddMonths(i);
-            var postingDate = new DateTime(periodDate.Year, periodDate.Month,
+            var monthEnd = new DateTime(periodDate.Year, periodDate.Month,
                 DateTime.DaysInMonth(periodDate.Year, periodDate.Month)); // Last day of month
+            var postingDate = (i == totalMonths - 1 && end.Date < monthEnd) ? end.Date : monthEnd;
 
             // Final period: use remainder for exact match
             var amount = (i == totalMonths - 1) ? totalAmount - bookedSoFar : monthlyAmount;
@@ -317,7 +332,8 @@ public class DeferredAccountingService : DomainService
 
     private async Task<JournalEntry> CreateRecognitionJEAsync(
         Guid companyId, decimal amount, Guid deferredAccountId,
-        DateTime postingDate, string description, Guid? tenantId)
+        DateTime postingDate, string description, Guid? tenantId,
+        Guid? referenceId = null, string? referenceNumber = null)
     {
         // Resolve fiscal year for the posting date
         var fyQuery = await _fiscalYearRepository.GetQueryableAsync();
@@ -336,6 +352,8 @@ public class DeferredAccountingService : DomainService
 
         var je = new JournalEntry(GuidGenerator.Create(), companyId, fiscalYearId, postingDate, tenantId);
         je.ReferenceType = "DeferredRevenue";
+        je.ReferenceId = referenceId;
+        je.ReferenceNumber = referenceNumber;
 
         // DR: Deferred Revenue (reduce liability — asset being consumed)
         je.AddLine(deferredAccountId, amount, true, description);

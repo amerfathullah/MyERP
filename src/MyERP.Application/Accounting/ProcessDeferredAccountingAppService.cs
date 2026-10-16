@@ -224,8 +224,11 @@ public class ProcessDeferredAccountingAppService : MyERPAppService, IProcessDefe
         var existingDeferredJes = jeQuery
             .Where(je => je.CompanyId == input.CompanyId
                       && je.ReferenceType == refType
+                      && je.ReferenceId.HasValue
                       && je.Status == Core.DocumentStatus.Posted)
-            .Select(je => je.PostingDate)
+            .Select(je => new { InvoiceId = je.ReferenceId!.Value, PostingDate = je.PostingDate.Date })
+            .ToList()
+            .Select(je => (je.InvoiceId, je.PostingDate))
             .ToHashSet();
 
         if (input.Type == DeferredAccountingType.Income)
@@ -252,7 +255,7 @@ public class ProcessDeferredAccountingAppService : MyERPAppService, IProcessDefe
                     var schedule = _deferredAccountingService.GenerateSchedule(item, input.EndDate);
                     foreach (var entry in schedule)
                     {
-                        if (existingDeferredJes.Contains(entry.PostingDate)) continue;
+                        if (existingDeferredJes.Contains((invoice.Id, entry.PostingDate.Date))) continue;
                         if (entry.PostingDate > input.EndDate || entry.PostingDate < input.StartDate) continue;
 
                         result.Items.Add(new DeferredAccountingPreviewItemDto
@@ -301,7 +304,7 @@ public class ProcessDeferredAccountingAppService : MyERPAppService, IProcessDefe
                     var schedule = _deferredAccountingService.GenerateExpenseSchedule(item, input.EndDate);
                     foreach (var entry in schedule)
                     {
-                        if (existingDeferredJes.Contains(entry.PostingDate)) continue;
+                        if (existingDeferredJes.Contains((invoice.Id, entry.PostingDate.Date))) continue;
                         if (entry.PostingDate > input.EndDate || entry.PostingDate < input.StartDate) continue;
 
                         result.Items.Add(new DeferredAccountingPreviewItemDto

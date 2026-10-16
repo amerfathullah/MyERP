@@ -132,4 +132,41 @@ public class DeferredAccountingTests
         schedule[0].Amount.ShouldBe(500m);
         schedule[0].PostingDate.ShouldBe(sameDay);
     }
+
+    [Fact]
+    public void DeferredSchedule_MidMonthServiceEnd_LastPeriodPostingDateIsServiceEndDate()
+    {
+        var service = new DeferredAccountingService(null!, null!, null!, null!, null!);
+        var start = new DateTime(2026, 4, 1);
+        var end = new DateTime(2026, 6, 15); // ends mid-month June 15
+        var item = CreateDeferredItem(start, end, 3000m);
+
+        var schedule = service.GenerateSchedule(item, new DateTime(2026, 7, 1));
+
+        schedule.Count.ShouldBe(3);
+        schedule[0].PostingDate.ShouldBe(new DateTime(2026, 4, 30));
+        schedule[1].PostingDate.ShouldBe(new DateTime(2026, 5, 31));
+        // Per ERPNext deferred_revenue.py: last posting date is clamped to service end date
+        schedule[2].PostingDate.ShouldBe(new DateTime(2026, 6, 15));
+    }
+
+    [Fact]
+    public void DeferredExpenseSchedule_MidMonthServiceEnd_LastPeriodPostingDateIsServiceEndDate()
+    {
+        var service = new DeferredAccountingService(null!, null!, null!, null!, null!);
+        var start = new DateTime(2026, 4, 1);
+        var end = new DateTime(2026, 6, 15);
+        var item = new MyERP.Purchasing.Entities.PurchaseInvoiceItem(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Sub", 1, 3000m, 0m);
+        item.EnableDeferredExpense = true;
+        item.ServiceStartDate = start;
+        item.ServiceEndDate = end;
+
+        var schedule = service.GenerateExpenseSchedule(item, new DateTime(2026, 7, 1));
+
+        schedule.Count.ShouldBe(3);
+        schedule[0].PostingDate.ShouldBe(new DateTime(2026, 4, 30));
+        schedule[1].PostingDate.ShouldBe(new DateTime(2026, 5, 31));
+        schedule[2].PostingDate.ShouldBe(new DateTime(2026, 6, 15));
+    }
 }
