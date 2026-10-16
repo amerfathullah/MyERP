@@ -1375,3 +1375,113 @@ export interface BomDiffResultDto {
   addedRows: BomChildRowDiffDto[];
   removedRows: BomChildRowDiffDto[];
 }
+
+export interface WorkOrderSummaryRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  basedOn?: string;
+  workOrderIds?: string[];
+  productionItemIds?: string[];
+  salesOrderIds?: string[];
+  status?: WorkOrderStatus;
+  age?: number;
+  chartsBasedOn?: string;
+}
+
+export interface WorkOrderSummaryDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  rows: WorkOrderSummaryRowDto[];
+  chart: WorkOrderSummaryChartDto;
+  totalWorkOrders: number;
+  totalProduceQty: number;
+  totalProducedQty: number;
+}
+
+export interface WorkOrderSummaryRowDto {
+  id: string;
+  workOrderNumber: string;
+  status: string;
+  statusCode: WorkOrderStatus;
+  productionItemId: string;
+  productionItemCode: string;
+  productionItemName: string;
+  qty: number;
+  producedQty: number;
+  actualFinishedGoods?: string | null;
+  salesOrderId?: string | null;
+  salesOrderNumber?: string | null;
+  creationTime: string;
+  plannedStartDate?: string | null;
+  plannedEndDate?: string | null;
+  actualStartDate?: string | null;
+  actualEndDate?: string | null;
+  age: number;
+  leadTime?: number | null;
+}
+
+export interface WorkOrderSummaryChartDto {
+  chartType: string;
+  labels: string[];
+  datasets: WorkOrderChartDatasetDto[];
+}
+
+export interface WorkOrderChartDatasetDto {
+  name: string;
+  values: number[];
+}
+
+export interface JobCardSummaryRequestDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  workOrderIds?: string[];
+  productionItemIds?: string[];
+  workstationId?: string | null;
+  operationId?: string | null;
+  status?: JobCardStatus | null;
+}
+
+export interface JobCardSummaryDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  rows: JobCardSummaryRowDto[];
+  chart: JobCardSummaryChartDto;
+  totalJobCards: number;
+  totalCompletedQty: number;
+  totalTimeInMins: number;
+}
+
+export interface JobCardSummaryRowDto {
+  id: string;
+  postingDate: string;
+  status: string;
+  statusCode: JobCardStatus;
+  workOrderId: string;
+  workOrderNumber: string;
+  productionItemId: string;
+  productionItemCode: string;
+  productionItemName: string;
+  workstationId?: string | null;
+  workstationName?: string | null;
+  operationId?: string | null;
+  operationName?: string | null;
+  totalCompletedQty: number;
+  fromTime?: string | null;
+  toTime?: string | null;
+  totalTimeInMins: number;
+}
+
+export interface JobCardSummaryChartDto {
+  labels: string[];
+  datasets: JobCardChartDatasetDto[];
+}
+
+export interface JobCardChartDatasetDto {
+  name: string;
+  values: number[];
+}
+
