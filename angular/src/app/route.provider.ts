@@ -2685,6 +2685,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesOrders',
       },
       {
+        path: '/sales/reports/quotation-trends',
+        name: '::Menu:QuotationTrends',
+        iconClass: 'fas fa-chart-line',
+        order: 22.992,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Quotations',
+      },
+      {
         path: '/sales/reports/commission',
         name: '::Menu:SalesCommission',
         iconClass: 'fas fa-coins',

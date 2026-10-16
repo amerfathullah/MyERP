@@ -58,3 +58,4 @@ export * from './customers-without-any-sales-transactions.service';
 export * from './lost-quotations.service';
 export * from './customer-wise-item-price.service';
 export * from './sales-order-trends.service';
+export * from './quotation-trends.service';

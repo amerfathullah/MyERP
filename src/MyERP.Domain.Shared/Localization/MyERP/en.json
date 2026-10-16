@@ -5162,7 +5162,11 @@
     "SalesOrderTrends": "Sales Order Trends",
     "SalesOrderTrendsDescription": "Periodic sales trends analysis across customers, items, or item groups.",
     "IncludeClosedOrders": "Include Closed Orders",
-    "NoTrendsDataFound": "No sales order trend records found for the selected criteria."
+    "NoTrendsDataFound": "No sales order trend records found for the selected criteria.",
+    "Menu:QuotationTrends": "Quotation Trends",
+    "QuotationTrends": "Quotation Trends",
+    "QuotationTrendsDescription": "Periodic quotation trends analysis across customers, items, or item groups.",
+    "NoQuotationTrendsDataFound": "No quotation trend records found for the selected criteria."
   }
 }
 

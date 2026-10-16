@@ -2519,5 +2519,52 @@ export interface SalesOrderTrendsReportDto {
   chart: SalesOrderTrendsChartDto;
 }
 
+export interface QuotationTrendsRequestDto {
+  companyId: string;
+  fiscalYearId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  period?: string;
+  basedOn?: string;
+  groupBy?: string | null;
+}
+
+export interface QuotationTrendsPeriodColumnDto {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface QuotationTrendsRowDto {
+  entityId: string;
+  entityCode: string;
+  entityName: string;
+  secondaryInfo?: string | null;
+  groupByValue?: string | null;
+  periodQuantities: Record<string, number>;
+  periodAmounts: Record<string, number>;
+  totalQty: number;
+  totalAmount: number;
+}
+
+export interface QuotationTrendsChartDto {
+  labels: string[];
+  datapoints: number[];
+  currency: string;
+}
+
+export interface QuotationTrendsReportDto {
+  companyCurrency: string;
+  period: string;
+  basedOn: string;
+  groupBy?: string | null;
+  periodColumns: QuotationTrendsPeriodColumnDto[];
+  rows: QuotationTrendsRowDto[];
+  totalRow: QuotationTrendsRowDto;
+  chart: QuotationTrendsChartDto;
+}
+
+
 
 
