@@ -5206,7 +5206,15 @@
     "OrderAmount": "Order Amount",
     "AllTerritories": "All Territories",
     "Opportunities": "Opportunities",
-    "ConversionRate": "Conversion Rate"
+    "ConversionRate": "Conversion Rate",
+    "Menu:SalesPersonCommissionSummary": "Sales Person Commission Summary",
+    "SalesPersonCommissionSummary": "Sales Person Commission Summary",
+    "SalesPersonCommissionSummaryDescription": "Transaction-level breakdown of sales team allocations, commission rates, and incentives across sales orders and invoices.",
+    "AllSalesPersons": "All Sales Persons",
+    "TotalNetAmount": "Total Net Amount",
+    "TotalAllocatedAmount": "Total Allocated Amount",
+    "TotalIncentives": "Total Incentives",
+    "Transactions": "Transactions"
   }
 }
 

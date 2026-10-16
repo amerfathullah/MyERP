@@ -2593,3 +2593,41 @@ export interface TerritoryWiseSalesReportDto {
   totalOrderAmount: number;
   totalBillingAmount: number;
 }
+
+export interface GetSalesPersonCommissionSummaryInput {
+  companyId: string;
+  docType?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  salesPersonId?: string | null;
+  customerId?: string | null;
+  territoryId?: string | null;
+}
+
+export interface SalesPersonCommissionSummaryRowDto {
+  transactionId: string;
+  transactionNumber: string;
+  docType: string;
+  postingDate: string;
+  customerId: string;
+  customerName: string;
+  territoryName?: string | null;
+  netAmount: number;
+  salesPersonId: string;
+  salesPersonName: string;
+  allocatedPercentage: number;
+  commissionRate: number;
+  allocatedAmount: number;
+  incentives: number;
+}
+
+export interface SalesPersonCommissionSummaryReportDto {
+  currency: string;
+  docType: string;
+  rows: SalesPersonCommissionSummaryRowDto[];
+  totalNetAmount: number;
+  totalAllocatedAmount: number;
+  totalIncentives: number;
+  transactionCount: number;
+}
+

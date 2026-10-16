@@ -2748,6 +2748,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesOrders',
       },
       {
+        path: '/sales/reports/sales-person-commission-summary',
+        name: '::Menu:SalesPersonCommissionSummary',
+        iconClass: 'fas fa-handshake',
+        order: 23.01,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesOrders',
+      },
+      {
         path: '/sales/reports/pending-delivery',
         name: '::Menu:PendingDelivery',
         iconClass: 'fas fa-truck-clock',
