@@ -292,8 +292,34 @@ public class AgingBucketService : DomainService
         foreach (var item in items)
         {
             var baseDate = isPostingDate ? item.PostingDate : item.DueDate;
-            var ageDays = (int)(asOfDate - baseDate).TotalDays;
-            if (ageDays < 0) ageDays = 0; // Not yet due
+            var ageDays = (int)(asOfDate.Date - baseDate.Date).TotalDays;
+
+            if (ageDays < 0)
+            {
+                // Not yet due (ERPNext PR #60040 / commit 33e4614973: range0 / <0)
+                report.NotYetDueAmount += item.OutstandingAmount;
+                report.TotalOutstanding += item.OutstandingAmount;
+                report.InvoiceCount++;
+
+                report.Details.Add(new AgingDetailEntry
+                {
+                    PartyId = item.PartyId,
+                    PartyName = item.PartyName,
+                    PartyGroupId = item.PartyGroupId,
+                    PartyGroupName = item.PartyGroupName,
+                    DocumentId = item.DocumentId,
+                    DocumentNumber = item.DocumentNumber,
+                    PostingDate = item.PostingDate,
+                    DueDate = item.DueDate,
+                    OutstandingAmount = item.OutstandingAmount,
+                    AgeDays = ageDays,
+                    BucketIndex = -1,
+                    BucketLabel = "<0 (Not Yet Due)",
+                    CostCenterId = item.CostCenterId,
+                    CostCenterName = item.CostCenterName,
+                });
+                continue;
+            }
 
             var bucketIndex = GetBucketIndex(ageDays, bucketDays);
             report.BucketTotals[bucketIndex] += item.OutstandingAmount;
@@ -350,6 +376,8 @@ public class AgingReport
     public string AgeingBasedOn { get; set; } = "Due Date";
     public int[] BucketRanges { get; set; } = Array.Empty<int>();
     public decimal[] BucketTotals { get; set; } = Array.Empty<decimal>();
+    /// <summary>Amount not yet due (due date in future relative to asOfDate). Maps to ERPNext range0.</summary>
+    public decimal NotYetDueAmount { get; set; }
     public decimal TotalOutstanding { get; set; }
     public int InvoiceCount { get; set; }
     public bool IncludeRevaluationJournals { get; set; }

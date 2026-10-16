@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Inventory;
@@ -9,8 +10,10 @@ using MyERP.Manufacturing.Entities;
 using MyERP.Sales;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
+using NSubstitute;
 using Shouldly;
 using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.DomainServices;
@@ -62,6 +65,40 @@ public class AgingBucketServiceTests
         var ageDays = (int)(asOfDate - item.DueDate).TotalDays;
         var clamped = Math.Max(0, ageDays);
         clamped.ShouldBe(0); // Not yet due → bucket 0 (0-30)
+    }
+
+    [Fact]
+    public async Task AgingBucketService_NotYetDue_PopulatesNotYetDueAmount()
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var asOfDate = new DateTime(2026, 6, 15);
+        var futureDueDate = new DateTime(2026, 7, 15);
+
+        var si = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "SINV-001", asOfDate)
+        {
+            DueDate = futureDueDate,
+            GrandTotal = 200m,
+            AmountPaid = 0m,
+        };
+        si.AddItem(Guid.NewGuid(), "Service", 1, 200m, 0m);
+        si.Submit();
+        si.Post();
+
+        var siRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        siRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SalesInvoice> { si }.AsQueryable()));
+
+        var custRepo = Substitute.For<IRepository<Customer, Guid>>();
+        custRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Customer>().AsQueryable()));
+
+        var service = new AgingBucketService(siRepo, null!, custRepo, null!, null!);
+        var report = await service.CalculateReceivablesAgingAsync(companyId, asOfDate);
+
+        report.NotYetDueAmount.ShouldBe(200m);
+        report.BucketTotals.Sum().ShouldBe(0m);
+        report.TotalOutstanding.ShouldBe(200m);
+        report.Details.Count.ShouldBe(1);
+        report.Details[0].BucketIndex.ShouldBe(-1);
     }
 
     [Fact]

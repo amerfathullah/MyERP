@@ -10,6 +10,8 @@ public class AgingReportDto
     public string AgeingBasedOn { get; set; } = "Due Date";
     public string[] BucketLabels { get; set; } = [];
     public decimal[] BucketTotals { get; set; } = [];
+    /// <summary>Amount not yet due (due date in future relative to asOfDate). Maps to ERPNext range0.</summary>
+    public decimal NotYetDueAmount { get; set; }
     public decimal TotalOutstanding { get; set; }
     public int InvoiceCount { get; set; }
     public bool IncludeRevaluationJournals { get; set; }

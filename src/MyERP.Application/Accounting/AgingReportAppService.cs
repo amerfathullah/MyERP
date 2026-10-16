@@ -94,6 +94,7 @@ public class AgingReportAppService : ApplicationService, IAgingReportAppService
             AgeingBasedOn = report.AgeingBasedOn,
             BucketLabels = bucketLabels,
             BucketTotals = report.BucketTotals,
+            NotYetDueAmount = report.NotYetDueAmount,
             TotalOutstanding = report.TotalOutstanding,
             InvoiceCount = report.InvoiceCount,
             IncludeRevaluationJournals = report.IncludeRevaluationJournals,
