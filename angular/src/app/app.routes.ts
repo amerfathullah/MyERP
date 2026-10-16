@@ -712,6 +712,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseOrders' },
   },
   {
+    path: 'purchasing/reports/purchase-order-analysis',
+    loadComponent: () => import('./purchasing/reports/purchase-order-analysis/purchase-order-analysis.component').then(c => c.PurchaseOrderAnalysisComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseOrders' },
+  },
+  {
     path: 'settings',
     loadComponent: () => import('./settings/settings-overview/settings-overview.component').then(c => c.SettingsOverviewComponent),
     canActivate: [authGuard],

@@ -1519,5 +1519,52 @@ export interface ProcurementTrackerReportDto {
   summary?: ProcurementTrackerSummaryDto;
 }
 
+export interface GetPurchaseOrderAnalysisDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  supplierId?: string | null;
+  purchaseOrderId?: string | null;
+  itemId?: string | null;
+  projectId?: string | null;
+  groupByPo?: boolean;
+  groupByItem?: boolean;
+}
 
+export interface PurchaseOrderAnalysisRowDto {
+  purchaseOrderNumber?: string | null;
+  purchaseOrderId?: string | null;
+  date?: string | null;
+  requiredDate?: string | null;
+  projectId?: string | null;
+  status?: string | null;
+  supplierId?: string | null;
+  supplierName?: string | null;
+  itemId?: string | null;
+  itemCode?: string | null;
+  description?: string | null;
+  uom?: string | null;
+  qty: number;
+  receivedQty: number;
+  pendingQty: number;
+  billedQty: number;
+  qtyToBill: number;
+  amount: number;
+  receivedQtyAmount: number;
+  billedAmount: number;
+  pendingAmount: number;
+  delayDays: number;
+  warehouseId?: string | null;
+  warehouseName?: string | null;
+  companyId: string;
+  companyName?: string | null;
+}
 
+export interface PurchaseOrderAnalysisReportDto {
+  rows: PurchaseOrderAnalysisRowDto[];
+  totalAmount: number;
+  totalBilledAmount: number;
+  totalAmountToBill: number;
+  totalQty: number;
+  totalReceivedQty: number;
+}

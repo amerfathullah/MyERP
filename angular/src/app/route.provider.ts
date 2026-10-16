@@ -429,6 +429,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseOrders',
       },
       {
+        path: '/purchasing/reports/purchase-order-analysis',
+        name: '::Menu:PurchaseOrderAnalysis',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-chart-bar',
+        order: 22,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseOrders',
+      },
+      {
         path: '/accounting',
         name: '::Menu:Accounting',
         iconClass: 'fas fa-calculator',

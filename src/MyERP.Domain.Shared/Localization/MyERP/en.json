@@ -5080,7 +5080,15 @@
     "AmountToBill": "Amount to Bill",
     "DeliveredAmount": "Delivered Amount",
     "DelayDays": "Delay (in Days)",
-    "NoSalesOrdersFound": "No sales orders matching criteria found."
+    "NoSalesOrdersFound": "No sales orders matching criteria found.",
+    "Menu:PurchaseOrderAnalysis": "Purchase Order Analysis",
+    "PurchaseOrderAnalysis": "Purchase Order Analysis",
+    "PurchaseOrderAnalysisDescription": "Analyze purchase orders, receipt fulfillment, pending quantities, billed amounts, and delivery delays.",
+    "GroupByPo": "Group by Purchase Order",
+    "QtyToReceive": "Qty to Receive",
+    "ReceivedAmount": "Received Amount",
+    "RequiredDate": "Required Date",
+    "NoPurchaseOrdersFound": "No purchase orders matching criteria found."
   }
 }
 
