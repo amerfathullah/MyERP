@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 
@@ -16,4 +18,7 @@ public interface ISupplierAppService :
         GetSupplierListDto,
         CreateUpdateSupplierDto>
 {
+    Task<SupplierOverviewDto> GetSupplierOverviewAsync(GetSupplierOverviewInputDto input);
+    Task<List<SupplierTransactionDto>> GetSupplierTransactionsAsync(GetSupplierTransactionsInputDto input);
+    Task<List<Guid>> GetSupplierCompanyIdsAsync(Guid supplierId);
 }

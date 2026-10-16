@@ -1,4 +1,12 @@
-import type { CreateUpdateSupplierDto, GetSupplierListDto, SupplierDto } from './models';
+import type {
+  CreateUpdateSupplierDto,
+  GetSupplierListDto,
+  SupplierDto,
+  SupplierOverviewDto,
+  GetSupplierOverviewInputDto,
+  SupplierTransactionDto,
+  GetSupplierTransactionsInputDto
+} from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -50,6 +58,29 @@ export class SupplierService {
       method: 'PUT',
       url: `/api/app/supplier/${id}`,
       body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  getSupplierOverview = (input: GetSupplierOverviewInputDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SupplierOverviewDto>({
+      method: 'GET',
+      url: '/api/app/supplier/supplier-overview',
+      params: { supplierId: input.supplierId, companyId: input.companyId, period: input.period },
+    },
+    { apiName: this.apiName,...config });
+
+  getSupplierTransactions = (input: GetSupplierTransactionsInputDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SupplierTransactionDto[]>({
+      method: 'GET',
+      url: '/api/app/supplier/supplier-transactions',
+      params: { supplierId: input.supplierId, companyId: input.companyId, docType: input.docType, maxResultCount: input.maxResultCount },
+    },
+    { apiName: this.apiName,...config });
+
+  getSupplierCompanyIds = (supplierId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, string[]>({
+      method: 'GET',
+      url: `/api/app/supplier/${supplierId}/supplier-company-ids`,
     },
     { apiName: this.apiName,...config });
 }

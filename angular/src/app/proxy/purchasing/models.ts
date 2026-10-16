@@ -1276,3 +1276,128 @@ export interface SubcontractedRawMaterialsToBeReceivedReportDto {
   totalPendingQty?: number;
 }
 
+export interface GetSupplierOverviewInputDto {
+  supplierId: string;
+  companyId: string;
+  period?: string;
+}
+
+export interface SupplierOverviewDto {
+  supplierId?: string;
+  supplierName?: string;
+  companyId?: string;
+  currency?: string;
+  period?: string;
+  fromDate?: string;
+  toDate?: string;
+  asOfDate?: string;
+  position?: SupplierPositionDto;
+  trend?: SupplierTrendDto;
+  delivery?: SupplierOverviewDeliveryDto;
+  pipeline?: SupplierPipelineDto;
+  ageing?: SupplierAgeingDto;
+  unallocatedAdvances?: number;
+}
+
+export interface SupplierPositionDto {
+  netPurchases?: SupplierMetricDto;
+  outstanding?: SupplierOutstandingMetricDto;
+  overdue?: SupplierMetricDto;
+  advances?: SupplierMetricDto;
+}
+
+export interface SupplierMetricDto {
+  value?: number;
+  count?: number;
+  delta?: number | null;
+  deltaPositiveIsGood?: boolean;
+}
+
+export interface SupplierOutstandingMetricDto {
+  value?: number;
+  unpaidCount?: number;
+  daysToPay?: number | null;
+}
+
+export interface SupplierTrendDto {
+  points?: SupplierTrendPointDto[];
+  totalPurchased?: number;
+  totalPaid?: number;
+}
+
+export interface SupplierTrendPointDto {
+  label?: string;
+  title?: string;
+  purchased?: number;
+  paid?: number;
+}
+
+export interface SupplierOverviewDeliveryDto {
+  onTime?: number;
+  late?: number;
+  overdue?: number;
+  lines?: number;
+  orders?: number;
+  onTimeRate?: number | null;
+  hasScorecard?: boolean;
+}
+
+export interface SupplierPipelineDto {
+  quotations?: SupplierQuotationTileDto;
+  receipt?: SupplierPipelineTileDto;
+  billing?: SupplierPipelineTileDto;
+  late?: SupplierDeliveryTileDto;
+}
+
+export interface SupplierQuotationTileDto {
+  value?: number;
+  count?: number;
+  expiring?: number;
+}
+
+export interface SupplierPipelineTileDto {
+  value?: number;
+  count?: number;
+  nextDue?: string | null;
+  orders?: string[];
+}
+
+export interface SupplierDeliveryTileDto {
+  value?: number;
+  count?: number;
+  daysLate?: number | null;
+  orders?: string[];
+}
+
+export interface SupplierAgeingDto {
+  buckets?: SupplierAgeingBucketDto[];
+  total?: number;
+  overdue?: number;
+  overduePct?: number;
+}
+
+export interface SupplierAgeingBucketDto {
+  key?: string;
+  label?: string;
+  value?: number;
+  isOverdue?: boolean;
+}
+
+export interface GetSupplierTransactionsInputDto {
+  supplierId: string;
+  companyId: string;
+  docType?: string;
+  maxResultCount?: number;
+}
+
+export interface SupplierTransactionDto {
+  id?: string;
+  transactionNumber?: string;
+  docType?: string;
+  typeLabel?: string;
+  date?: string;
+  status?: string;
+  amount?: number;
+  outstandingAmount?: number | null;
+}
+
