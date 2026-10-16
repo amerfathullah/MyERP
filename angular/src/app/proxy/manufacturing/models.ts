@@ -1523,4 +1523,38 @@ export interface BomVarianceReportRowDto {
   varianceQty: number;
 }
 
+export interface CostOfPoorQualityReportRequestDto {
+  companyId: string;
+  workOrderId?: string | null;
+  operationId?: string | null;
+  workstationId?: string | null;
+  productionItemId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
 
+export interface CostOfPoorQualityReportDto {
+  companyId: string;
+  rows: CostOfPoorQualityReportRowDto[];
+  totalJobCards: number;
+  totalTimeInMins: number;
+  totalOperatingCost: number;
+}
+
+export interface CostOfPoorQualityReportRowDto {
+  jobCardId: string;
+  workOrderId: string;
+  workOrderNumber: string;
+  productionItemId: string;
+  productionItemCode: string;
+  productionItemName: string;
+  operationId: string;
+  operationName: string;
+  workstationId?: string | null;
+  workstationName?: string | null;
+  hourRate: number;
+  totalTimeInMins: number;
+  operatingCost: number;
+  startedAt?: string | null;
+  completedAt?: string | null;
+}

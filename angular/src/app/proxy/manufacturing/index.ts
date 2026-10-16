@@ -1,6 +1,7 @@
 export * from './bom-creator.service';
 export * from './bom-stock-analysis.service';
 export * from './bom-variance-report.service';
+export * from './cost-of-poor-quality-report.service';
 export * from './downtime-entry.service';
 export * from './job-card-status.enum';
 export * from './job-card.service';

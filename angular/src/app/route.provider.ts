@@ -1929,6 +1929,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/reports/cost-of-poor-quality',
+        name: '::Menu:CostOfPoorQualityReport',
+        iconClass: 'fas fa-exclamation-triangle',
+        order: 16.7,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
+      },
+      {
         path: '/manufacturing/reports/work-order-summary',
         name: '::Menu:WorkOrderSummary',
         iconClass: 'fas fa-clipboard-list',

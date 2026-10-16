@@ -2169,6 +2169,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
   {
+    path: 'manufacturing/reports/cost-of-poor-quality',
+    loadComponent: () => import('./manufacturing/reports/cost-of-poor-quality-report.component').then(c => c.CostOfPoorQualityReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
     path: 'manufacturing/reports/material-requirements-planning',
     loadComponent: () => import('./manufacturing/reports/material-requirements-planning.component').then(c => c.MaterialRequirementsPlanningComponent),
     canActivate: [authGuard, permissionGuard],
