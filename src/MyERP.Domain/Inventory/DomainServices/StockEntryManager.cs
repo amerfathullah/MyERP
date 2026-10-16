@@ -571,8 +571,23 @@ public class StockEntryManager : DomainService
 
         if (entry.EntryType == StockEntryType.Manufacture)
         {
+            // Per ERPNext PR #60421 / commit 00ca106bf5:
+            // Output rows received into target warehouse must be either finished good or secondary item
+            var hasExplicitFg = entry.Items.Any(i => i.IsFinishedItem);
+            foreach (var item in entry.Items)
+            {
+                if (item.TargetWarehouseId.HasValue && !item.SourceWarehouseId.HasValue)
+                {
+                    if (hasExplicitFg && !item.IsFinishedItem && string.IsNullOrWhiteSpace(item.SecondaryItemType))
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"Item {item.ItemId} is received but is neither the finished good nor a secondary item. Set its Secondary Item Type or remove the row.");
+                    }
+                }
+            }
+
             var distinctFgItemCount = entry.Items
-                .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue)
+                .Where(i => i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue && (i.IsFinishedItem || string.IsNullOrWhiteSpace(i.SecondaryItemType)))
                 .Select(i => i.ItemId)
                 .Distinct()
                 .Count();
