@@ -35,7 +35,8 @@ public class PutawayService : DomainService
     /// </summary>
     public async Task<List<PutawayAllocation>> AllocateAsync(
         Guid companyId, Guid itemId, decimal totalQty,
-        Guid? itemGroupId = null, bool mustBeWholeNumber = false)
+        Guid? itemGroupId = null, bool mustBeWholeNumber = false,
+        Guid? sourceWarehouseId = null)
     {
         return await AllocateBatchAsync(companyId, new[]
         {
@@ -44,7 +45,8 @@ public class PutawayService : DomainService
                 ItemId = itemId,
                 Qty = totalQty,
                 ItemGroupId = itemGroupId,
-                MustBeWholeNumber = mustBeWholeNumber
+                MustBeWholeNumber = mustBeWholeNumber,
+                SourceWarehouseId = sourceWarehouseId
             }
         });
     }
@@ -107,8 +109,15 @@ public class PutawayService : DomainService
                 continue;
             }
 
+            // Filter out source warehouse if specified (ERPNext PR #60426 / commit b174ed38a2)
+            var candidateRules = rawRules;
+            if (item.SourceWarehouseId.HasValue)
+            {
+                candidateRules = candidateRules.Where(r => r.WarehouseId != item.SourceWarehouseId.Value).ToList();
+            }
+
             // Sort candidate rules by priority ASC, then free_space DESC (gotcha #2718)
-            var ruleWithCapacities = rawRules
+            var ruleWithCapacities = candidateRules
                 .Select(r =>
                 {
                     var balanceKey = (item.ItemId, r.WarehouseId);
@@ -210,4 +219,5 @@ public class PutawayBatchItem
     public decimal Qty { get; set; }
     public Guid? ItemGroupId { get; set; }
     public bool MustBeWholeNumber { get; set; }
+    public Guid? SourceWarehouseId { get; set; }
 }

@@ -156,4 +156,91 @@ public abstract class PutawayRuleAppServiceTests<TStartupModule> : MyERPApplicat
             listItem.AvailableCapacity.ShouldBe(70m);
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_RejectsGroupWarehouse()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var appService = GetRequiredService<IPutawayRuleAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Putaway Group Co"), autoSave: true);
+            var item = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "PUT-GRP-01", "Item Grp", ItemType.Goods), autoSave: true);
+            var groupWarehouse = await warehouseRepository.InsertAsync(
+                new Warehouse(Guid.NewGuid(), company.Id, "Group WH") { IsGroup = true }, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() => appService.CreateAsync(new CreateUpdatePutawayRuleDto
+            {
+                CompanyId = company.Id,
+                ItemId = item.Id,
+                WarehouseId = groupWarehouse.Id,
+                StockCapacity = 100m,
+                Priority = 1,
+            }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.PutawayRuleWarehouseInvalid);
+        });
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsInactiveWarehouse()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var appService = GetRequiredService<IPutawayRuleAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Putaway Inactive Co"), autoSave: true);
+            var item = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "PUT-INA-01", "Item Inactive", ItemType.Goods), autoSave: true);
+            var inactiveWarehouse = await warehouseRepository.InsertAsync(
+                new Warehouse(Guid.NewGuid(), company.Id, "Inactive WH") { IsActive = false }, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() => appService.CreateAsync(new CreateUpdatePutawayRuleDto
+            {
+                CompanyId = company.Id,
+                ItemId = item.Id,
+                WarehouseId = inactiveWarehouse.Id,
+                StockCapacity = 100m,
+                Priority = 1,
+            }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.PutawayRuleWarehouseInvalid);
+        });
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsNonStockItem()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepository = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepository = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var appService = GetRequiredService<IPutawayRuleAppService>();
+
+            var company = await companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Putaway NonStock Co"), autoSave: true);
+            var nonStockItem = await itemRepository.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "PUT-SRV-01", "Service Item", ItemType.Service) { MaintainStock = false }, autoSave: true);
+            var warehouse = await warehouseRepository.InsertAsync(
+                new Warehouse(Guid.NewGuid(), company.Id, "Normal WH"), autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() => appService.CreateAsync(new CreateUpdatePutawayRuleDto
+            {
+                CompanyId = company.Id,
+                ItemId = nonStockItem.Id,
+                WarehouseId = warehouse.Id,
+                StockCapacity = 100m,
+                Priority = 1,
+            }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ItemNotStockItem);
+        });
+    }
 }

@@ -641,6 +641,12 @@ public static class MyERPDomainErrorCodes
     // Asset Maintenance Team (ERPNext PR #60036 / commit ba3dfc7989, 95bec1a0ed)
     public const string MaintenanceManagerMustBeMember = "MyERP:15011";
     public const string CannotRemoveTeamMemberWithTasks = "MyERP:15012";
+
+    // Putaway Rule & Stock Entry Guards (ERPNext PR #60426, #60421)
+    public const string PutawayRuleWarehouseInvalid = "MyERP:05099";
+    public const string ItemNotStockItem = "MyERP:05100";
+    public const string ManufactureUnvaluedOutput = "MyERP:10042";
+    public const string WorkOrderExcessReturn = "MyERP:10043";
 }
 
 

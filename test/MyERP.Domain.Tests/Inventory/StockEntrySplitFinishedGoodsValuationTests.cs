@@ -8,6 +8,7 @@ using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using NSubstitute;
 using Shouldly;
+using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Settings;
 using Xunit;
@@ -134,6 +135,46 @@ public class StockEntrySplitFinishedGoodsValuationTests
 
         // (1000 - 250) / 5 = 150
         rate.ShouldBe(150m);
+    }
+
+    [Fact]
+    public void CalculateRepackFgRate_Deducts_Manual_Rate_Items_And_Scrap_Cost()
+    {
+        var manager = CreateManager();
+        var entry = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Repack, DateTime.UtcNow);
+
+        // Outgoing RM: 10 units @ 100 = 1000 total outgoing cost
+        entry.AddItem(_rmItemId, 10m, sourceWarehouseId: _sourceWhId, targetWarehouseId: null, valuationRate: 100m);
+
+        // FG 1: 5 units with manual rate 50 (value 250)
+        entry.AddItem(_fgItemId, 5m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id, isFinishedItem: true, setBasicRateManually: true, valuationRate: 50m);
+
+        // Scrap: 2 units scrap item with valuation rate 25 (value 50)
+        entry.AddItem(Guid.NewGuid(), 2m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id, isFinishedItem: false, secondaryItemType: "Scrap", valuationRate: 25m);
+
+        // FG 2: 5 units with derived rate
+        entry.AddItem(_fgItemId, 5m, sourceWarehouseId: null, targetWarehouseId: _targetWh2Id, isFinishedItem: true);
+
+        var rate = manager.CalculateRepackFgRate(entry.Items);
+
+        // (1000 - 250 - 50) / 5 = 700 / 5 = 140
+        rate.ShouldBe(140m);
+    }
+
+    [Fact]
+    public async Task ValidateWarehousesAsync_Manufacture_ThrowsOnUnvaluedOutput()
+    {
+        var manager = CreateManager();
+        var entry = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Manufacture, DateTime.UtcNow);
+
+        // RM input: SourceWarehouse
+        entry.AddItem(_rmItemId, 10m, sourceWarehouseId: _sourceWhId, targetWarehouseId: null, valuationRate: 100m);
+
+        // Unvalued output: TargetWarehouse but neither IsFinishedItem nor SecondaryItemType
+        entry.AddItem(Guid.NewGuid(), 5m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id, isFinishedItem: false, secondaryItemType: null);
+
+        var ex = await Should.ThrowAsync<BusinessException>(() => manager.ValidateWarehousesAsync(entry));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ManufactureUnvaluedOutput);
     }
 
     [Fact]

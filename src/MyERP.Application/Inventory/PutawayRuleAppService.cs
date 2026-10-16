@@ -116,6 +116,14 @@ public class PutawayRuleAppService : ApplicationService, IPutawayRuleAppService
 
         if (input.ItemId.HasValue)
         {
+            var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+            var item = await itemRepo.GetAsync(input.ItemId.Value);
+            if (!item.MaintainStock)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemNotStockItem)
+                    .WithData("item", item.ItemName);
+            }
+
             var itemValidation = LazyServiceProvider.LazyGetRequiredService<DomainServices.ItemTransactionValidationService>();
             await itemValidation.ValidateItemAsync(input.ItemId.Value);
         }
@@ -127,6 +135,13 @@ public class PutawayRuleAppService : ApplicationService, IPutawayRuleAppService
         if (warehouse.CompanyId != input.CompanyId)
         {
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PutawayRuleWarehouseCompanyMismatch)
+                .WithData("warehouse", warehouse.Name);
+        }
+
+        // Warehouse must be an enabled warehouse that is not a group (ERPNext PR #60426 / commit b174ed38a2).
+        if (warehouse.IsGroup || !warehouse.IsActive)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PutawayRuleWarehouseInvalid)
                 .WithData("warehouse", warehouse.Name);
         }
 

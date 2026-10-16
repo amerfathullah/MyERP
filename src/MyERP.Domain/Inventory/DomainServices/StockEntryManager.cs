@@ -60,10 +60,13 @@ public class StockEntryManager : DomainService
             .Select(i => i.ItemId)
             .Distinct()
             .ToArray();
-        await _companyRestriction.ValidateTransactionCompanyAsync(
-            "StockEntry", entry.CompanyId,
-            itemIds: itemIds,
-            warehouseIds: warehouseIds);
+        if (_companyRestriction != null)
+        {
+            await _companyRestriction.ValidateTransactionCompanyAsync(
+                "StockEntry", entry.CompanyId,
+                itemIds: itemIds,
+                warehouseIds: warehouseIds);
+        }
 
         // Per ERPNext PR #60189 (commit 5b1bade8a2): exclude the company's sample retention warehouse from source warehouses
         var compRepo = _companyRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Company, Guid>>();
@@ -111,17 +114,16 @@ public class StockEntryManager : DomainService
 
             var isReceipt = entry.EntryType is StockEntryType.MaterialReceipt
                 or StockEntryType.ReceiveAtWarehouse
-                or StockEntryType.Manufacture
                 or StockEntryType.Adjustment;
 
             if (isReceipt && !item.TargetWarehouseId.HasValue)
                 throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
                     .WithData("field", "TargetWarehouse");
 
-            // For Manufacture and Repack entries: finished goods require TargetWarehouse; raw materials require SourceWarehouse (ERPNext PR #54849, PR #54866)
+            // For Manufacture and Repack entries: finished goods and secondary items require TargetWarehouse; raw materials require SourceWarehouse (ERPNext PR #54849, PR #54866, PR #60421)
             if (entry.EntryType is StockEntryType.Manufacture)
             {
-                if (item.IsFinishedItem)
+                if (item.IsFinishedItem || !string.IsNullOrWhiteSpace(item.SecondaryItemType))
                 {
                     if (item.SourceWarehouseId.HasValue) item.SourceWarehouseId = null;
                     if (!item.TargetWarehouseId.HasValue)
@@ -130,6 +132,17 @@ public class StockEntryManager : DomainService
                 }
                 else
                 {
+                    // Output row that is neither finished good nor secondary item (ERPNext PR #60421 / commit 00ca106bf5)
+                    if (item.TargetWarehouseId.HasValue && !item.SourceWarehouseId.HasValue)
+                    {
+                        var rowIdx = entry.Items.ToList().IndexOf(item) + 1;
+                        var itemName = _itemRepository != null ? (await _itemRepository.FindAsync(item.ItemId))?.ItemName : null;
+                        itemName ??= item.ItemId.ToString();
+                        throw new BusinessException(MyERPDomainErrorCodes.ManufactureUnvaluedOutput)
+                            .WithData("row", rowIdx)
+                            .WithData("item", itemName);
+                    }
+
                     if (item.TargetWarehouseId.HasValue) item.TargetWarehouseId = null;
                     if (!item.SourceWarehouseId.HasValue)
                         throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
@@ -171,7 +184,7 @@ public class StockEntryManager : DomainService
                     .WithData("field", "SourceWarehouse");
 
             // Group warehouse validation
-            if (item.SourceWarehouseId.HasValue)
+            if (item.SourceWarehouseId.HasValue && _warehouseRepository != null)
             {
                 var source = await _warehouseRepository.FindAsync(item.SourceWarehouseId.Value);
                 if (source?.IsGroup == true)
@@ -179,7 +192,7 @@ public class StockEntryManager : DomainService
                         .WithData("warehouseName", source.Name);
             }
 
-            if (item.TargetWarehouseId.HasValue)
+            if (item.TargetWarehouseId.HasValue && _warehouseRepository != null)
             {
                 var target = await _warehouseRepository.FindAsync(item.TargetWarehouseId.Value);
                 if (target?.IsGroup == true)
@@ -312,24 +325,34 @@ public class StockEntryManager : DomainService
 
     /// <summary>
     /// Validates component return quantities against unconsumed transferred materials in a Work Order.
-    /// Per ERPNext PR #59616 (commit 73cb8718a9).
+    /// Per ERPNext PR #59616 and PR #60421 (commit 00ca106bf5): aggregates returned qty across rows by item
+    /// and ensures it does not exceed unconsumed transferred quantity.
     /// </summary>
     public void ValidateWorkOrderReturnItems(StockEntry entry, WorkOrder? wo)
     {
         if (!entry.IsReturn || !entry.WorkOrderId.HasValue || wo == null)
             return;
 
-        foreach (var seItem in entry.Items)
+        var returnedByItem = entry.Items
+            .Where(i => i.SourceWarehouseId.HasValue)
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m)));
+
+        foreach (var (itemId, returnedQty) in returnedByItem)
         {
-            var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
-            if (existingWoItem != null)
+            var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == itemId);
+            var returnable = existingWoItem != null
+                ? Math.Max(0m, existingWoItem.TransferredQuantity - existingWoItem.ConsumedQuantity)
+                : 0m;
+
+            if (returnedQty > returnable)
             {
-                var returnable = Math.Max(0, existingWoItem.TransferredQuantity - existingWoItem.ConsumedQuantity);
-                if (seItem.Quantity > returnable)
-                {
-                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", $"Return quantity {seItem.Quantity} for item {existingWoItem.ItemName} exceeds unconsumed transferred quantity {returnable}.");
-                }
+                var itemName = existingWoItem?.ItemName ?? itemId.ToString();
+                throw new BusinessException(MyERPDomainErrorCodes.WorkOrderExcessReturn)
+                    .WithData("item", itemName)
+                    .WithData("returned", returnedQty)
+                    .WithData("workOrder", wo.WorkOrderNumber ?? wo.Id.ToString())
+                    .WithData("unconsumed", returnable);
             }
         }
     }
@@ -734,7 +757,7 @@ public class StockEntryManager : DomainService
     public static decimal GetFinishedItemsQty(IEnumerable<StockEntryItem> items)
     {
         return items
-            .Where(d => (d.IsFinishedItem || !d.SourceWarehouseId.HasValue)
+            .Where(d => (d.IsFinishedItem || (!d.SourceWarehouseId.HasValue && string.IsNullOrWhiteSpace(d.SecondaryItemType)))
                 && d.TargetWarehouseId.HasValue
                 && !d.SetBasicRateManually
                 && !d.AllowZeroValuationRate)
@@ -744,6 +767,7 @@ public class StockEntryManager : DomainService
     /// <summary>
     /// Calculates valuation rate for Repack FG items.
     /// Derived rate is split over all eligible finished good rows (PR #59881).
+    /// Takes manual finished good value and scrap out of repack cost (PR #60421 / commit 00ca106bf5).
     /// </summary>
     public decimal CalculateRepackFgRate(IReadOnlyList<StockEntryItem> items, decimal? fgQty = null)
     {
@@ -754,14 +778,21 @@ public class StockEntryManager : DomainService
             .Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem)
             .Sum(i => i.Quantity * (i.ValuationRate ?? 0));
 
-        var costedOutItemsCost = items
+        var manualCost = items
             .Where(d => (d.IsFinishedItem || !d.SourceWarehouseId.HasValue)
                 && d.TargetWarehouseId.HasValue
                 && d.SetBasicRateManually
                 && !d.AllowZeroValuationRate)
             .Sum(d => d.Quantity * (d.ValuationRate ?? 0m));
 
-        var netOutgoingCost = Math.Max(0m, totalOutgoingCost - costedOutItemsCost);
+        var scrapCost = items
+            .Where(d => d.TargetWarehouseId.HasValue
+                && !d.SourceWarehouseId.HasValue
+                && !d.IsFinishedItem
+                && !string.IsNullOrWhiteSpace(d.SecondaryItemType))
+            .Sum(d => d.Quantity * (d.ValuationRate ?? 0m));
+
+        var netOutgoingCost = Math.Max(0m, totalOutgoingCost - scrapCost - manualCost);
         return Math.Round(netOutgoingCost / resolvedFgQty, 4);
     }
 

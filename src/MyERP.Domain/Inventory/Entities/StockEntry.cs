@@ -165,7 +165,7 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     public decimal GetFinishedItemsQty()
     {
         return _items
-            .Where(d => (d.IsFinishedItem || !d.SourceWarehouseId.HasValue)
+            .Where(d => (d.IsFinishedItem || (!d.SourceWarehouseId.HasValue && string.IsNullOrWhiteSpace(d.SecondaryItemType)))
                 && d.TargetWarehouseId.HasValue
                 && !d.SetBasicRateManually
                 && !d.AllowZeroValuationRate)

@@ -131,7 +131,35 @@ public class StockEntryWorkOrderReturnTests
         se.AddItem(rawItemId, 4m, sourceWarehouseId: Guid.NewGuid(), targetWarehouseId: Guid.NewGuid(), valuationRate: 10m);
 
         var ex = Should.Throw<BusinessException>(() => _manager.ValidateWorkOrderReturnItems(se, wo));
-        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
-        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("exceeds unconsumed transferred quantity");
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.WorkOrderExcessReturn);
+        ex.Data["returned"].ShouldBe(4m);
+        ex.Data["unconsumed"].ShouldBe(3m);
+    }
+
+    [Fact]
+    public void ValidateWorkOrderReturnItems_WhenAggregatedQtyAcrossMultipleRowsExceeds_ThrowsWorkOrderExcessReturn()
+    {
+        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-002", Guid.NewGuid(), Guid.NewGuid(), 10m);
+        var rawItemId = Guid.NewGuid();
+        var woItem = new WorkOrderItem(Guid.NewGuid(), wo.Id, rawItemId, "Copper", 10m)
+        {
+            TransferredQuantity = 8m,
+            ConsumedQuantity = 5m // returnable = 3m
+        };
+        wo.RequiredItems.Add(woItem);
+
+        var se = new StockEntry(Guid.NewGuid(), wo.CompanyId, StockEntryType.MaterialTransfer, DateTime.UtcNow)
+        {
+            WorkOrderId = wo.Id,
+            IsReturn = true
+        };
+        // Each individual row (2m) is <= returnable (3m), but together (4m) they exceed returnable (3m)
+        se.AddItem(rawItemId, 2m, sourceWarehouseId: Guid.NewGuid(), targetWarehouseId: Guid.NewGuid(), valuationRate: 10m);
+        se.AddItem(rawItemId, 2m, sourceWarehouseId: Guid.NewGuid(), targetWarehouseId: Guid.NewGuid(), valuationRate: 10m);
+
+        var ex = Should.Throw<BusinessException>(() => _manager.ValidateWorkOrderReturnItems(se, wo));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.WorkOrderExcessReturn);
+        ex.Data["returned"].ShouldBe(4m);
+        ex.Data["unconsumed"].ShouldBe(3m);
     }
 }

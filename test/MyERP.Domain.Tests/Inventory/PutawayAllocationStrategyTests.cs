@@ -221,4 +221,38 @@ public class PutawayAllocationStrategyTests
         // Verify rule repository queryable was only fetched once for the repeated item
         await ruleRepo.Received(1).GetQueryableAsync();
     }
+
+    [Fact]
+    public async Task Putaway_ExcludesSourceWarehouse_WhenSpecified()
+    {
+        var ruleRepo = Substitute.For<IRepository<PutawayRule, Guid>>();
+        var binRepo = Substitute.For<IRepository<Bin, Guid>>();
+
+        var rule1 = new PutawayRule(Guid.NewGuid(), _companyId, _wh1)
+        {
+            ItemId = _itemId,
+            StockCapacity = 100,
+            Priority = 1
+        };
+        var rule2 = new PutawayRule(Guid.NewGuid(), _companyId, _wh2)
+        {
+            ItemId = _itemId,
+            StockCapacity = 100,
+            Priority = 2
+        };
+
+        var rules = new List<PutawayRule> { rule1, rule2 }.AsQueryable();
+        ruleRepo.GetQueryableAsync().Returns(Task.FromResult(rules));
+        binRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Bin>().AsQueryable()));
+
+        var service = new PutawayService(ruleRepo, binRepo);
+
+        // When sourceWarehouseId is _wh1, putaway should not allocate to _wh1 even though it is priority 1
+        var result = await service.AllocateAsync(_companyId, _itemId, 50m, sourceWarehouseId: _wh1);
+
+        Assert.Single(result);
+        Assert.Equal(_wh2, result[0].WarehouseId);
+        Assert.Equal(50m, result[0].Qty);
+        Assert.False(result[0].IsUnallocated);
+    }
 }

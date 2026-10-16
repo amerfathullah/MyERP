@@ -218,7 +218,7 @@ public class UpstreamBatch59600To59679Tests
         entryRepo.GetAsync(entry.Id, includeDetails: true).Returns(entry);
 
         var ex = await Should.ThrowAsync<BusinessException>(() => appService.SubmitAsync(entry.Id));
-        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.WorkOrderExcessReturn);
     }
 
     // =========================================================================
