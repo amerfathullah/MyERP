@@ -61,3 +61,4 @@ export * from './sales-order-trends.service';
 export * from './quotation-trends.service';
 export * from './territory-wise-sales.service';
 export * from './sales-person-commission-summary.service';
+export * from './sales-person-wise-transaction-summary.service';

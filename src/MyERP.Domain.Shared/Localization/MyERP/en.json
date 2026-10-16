@@ -5221,7 +5221,15 @@
     "FilterByItemCode": "Filter by item code or name...",
     "TotalDeliveredQty": "Total Delivered Qty",
     "TotalBilledAmount": "Total Billed Amount",
-    "BilledAmount": "Billed Amount"
+    "BilledAmount": "Billed Amount",
+    "Menu:SalesPersonWiseTransactionSummary": "Sales Person-wise Transaction Summary",
+    "SalesPersonWiseTransactionSummary": "Sales Person-wise Transaction Summary",
+    "SalesPersonWiseTransactionSummaryDescription": "Item-level sales contribution quantity and amount per sales person across invoices, orders, and delivery notes.",
+    "ShowReturnEntries": "Show Return Entries",
+    "TotalContributionQty": "Total Contribution Qty",
+    "TotalContributionAmount": "Total Contribution Amount",
+    "ContributionQty": "Contribution Qty",
+    "ContributionAmount": "Contribution Amount"
   }
 }
 

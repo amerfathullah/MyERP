@@ -2631,3 +2631,50 @@ export interface SalesPersonCommissionSummaryReportDto {
   transactionCount: number;
 }
 
+export interface GetSalesPersonWiseTransactionSummaryInput {
+  companyId: string;
+  docType?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  salesPersonId?: string | null;
+  customerId?: string | null;
+  territoryId?: string | null;
+  itemGroupId?: string | null;
+  itemCode?: string | null;
+  showReturnEntries?: boolean;
+}
+
+export interface SalesPersonWiseTransactionRowDto {
+  transactionId: string;
+  transactionNumber: string;
+  docType: string;
+  postingDate: string;
+  customerId: string;
+  customerName: string;
+  territoryName?: string | null;
+  warehouseName?: string | null;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  itemGroup?: string | null;
+  quantity: number;
+  rate: number;
+  baseNetAmount: number;
+  salesPersonId: string;
+  salesPersonName: string;
+  allocatedPercentage: number;
+  contributionQuantity: number;
+  contributionAmount: number;
+}
+
+export interface SalesPersonWiseTransactionSummaryReportDto {
+  currency: string;
+  docType: string;
+  rows: SalesPersonWiseTransactionRowDto[];
+  totalQuantity: number;
+  totalNetAmount: number;
+  totalContributionQuantity: number;
+  totalContributionAmount: number;
+  transactionCount: number;
+}
+
