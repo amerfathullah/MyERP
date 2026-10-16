@@ -420,6 +420,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseOrders',
       },
       {
+        path: '/purchasing/reports/subcontracted-raw-materials-to-be-transferred',
+        name: '::Menu:SubcontractedRawMaterialsToBeTransferred',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-dolly-flatbed',
+        order: 20.5,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseOrders',
+      },
+      {
         path: '/purchasing/reports/procurement-tracker',
         name: '::Menu:ProcurementTracker',
         parentName: '::Menu:Purchasing',

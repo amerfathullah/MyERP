@@ -5098,7 +5098,12 @@
     "RepeatCustomerRevenue": "Repeat Customer Revenue",
     "ViewByTime": "Monthly Time Series",
     "ViewByTerritory": "By Territory",
-    "NoAcquisitionDataFound": "No customer acquisition records found for the selected period."
+    "NoAcquisitionDataFound": "No customer acquisition records found for the selected period.",
+    "Menu:SubcontractedRawMaterialsToBeTransferred": "Subcontracted Raw Materials to Be Transferred",
+    "SubcontractedRawMaterialsToBeTransferred": "Subcontracted Raw Materials to Be Transferred",
+    "SubcontractedRawMaterialsToBeTransferredDescription": "Track pending raw materials to be transferred to subcontractors against open subcontracting orders.",
+    "RmItemCode": "Raw Material Item Code",
+    "NoSubcontractedRawMaterialsFound": "No raw materials pending transfer found."
   }
 }
 

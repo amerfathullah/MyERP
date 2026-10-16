@@ -1568,3 +1568,43 @@ export interface PurchaseOrderAnalysisReportDto {
   totalQty: number;
   totalReceivedQty: number;
 }
+
+export interface SubcontractedRawMaterialsToBeTransferredFilterDto {
+  companyId: string;
+  supplierId?: string | null;
+  subcontractOrderId?: string | null;
+  rawMaterialItemId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface SubcontractedRawMaterialsToBeTransferredRowDto {
+  subcontractOrderId: string;
+  subcontractOrderNumber: string;
+  orderDate: string;
+  supplierId: string;
+  supplierName: string;
+  rmItemId: string;
+  rmItemCode: string;
+  rmItemName: string;
+  requiredQty: number;
+  transferredQty: number;
+  returnedQty: number;
+  pendingQty: number;
+  reserveWarehouseId?: string | null;
+  reserveWarehouseName?: string | null;
+}
+
+export interface SubcontractedRawMaterialsToBeTransferredSummaryDto {
+  totalRequiredQty: number;
+  totalTransferredQty: number;
+  totalReturnedQty: number;
+  totalPendingQty: number;
+  totalOrders: number;
+}
+
+export interface SubcontractedRawMaterialsToBeTransferredReportDto {
+  rows?: SubcontractedRawMaterialsToBeTransferredRowDto[];
+  summary?: SubcontractedRawMaterialsToBeTransferredSummaryDto;
+}
+
