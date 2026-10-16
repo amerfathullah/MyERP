@@ -20,6 +20,7 @@ export * from './packing-slip.service';
 export * from './party-specific-item-party-type.enum';
 export * from './party-specific-item-restrict-based-on.enum';
 export * from './party-specific-item.service';
+export * from './payment-terms-status-for-sales-order.service';
 export * from './pending-delivery.service';
 export * from './pos-closing.service';
 export * from './pos-opening.service';

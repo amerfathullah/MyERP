@@ -2214,5 +2214,41 @@ export interface AvailableStockForPackingItemDto {
   availablePackableBundles: number;
 }
 
+export interface PaymentTermsStatusForSalesOrderRequestDto {
+  companyId: string;
+  customerId?: string | null;
+  salesOrderId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  status?: string | null;
+  onlyImmediateUpcomingTerm?: boolean | null;
+}
 
+export interface PaymentTermsStatusForSalesOrderReportDto {
+  companyId: string;
+  rows: PaymentTermsStatusForSalesOrderRowDto[];
+  totalSalesOrders: number;
+  totalPaymentTerms: number;
+  totalPaymentAmount: number;
+  totalPaidAmount: number;
+  totalOutstandingAmount: number;
+  completedTermsCount: number;
+  overdueTermsCount: number;
+}
 
+export interface PaymentTermsStatusForSalesOrderRowDto {
+  salesOrderId: string;
+  salesOrderNumber: string;
+  customerId: string;
+  customerName: string;
+  orderDate: string;
+  paymentTermName: string;
+  description?: string | null;
+  dueDate: string;
+  invoicePortion: number;
+  paymentAmount: number;
+  paidAmount: number;
+  invoices: string;
+  status: string;
+  currency: string;
+}

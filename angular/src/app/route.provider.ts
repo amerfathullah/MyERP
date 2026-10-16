@@ -2541,6 +2541,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Customers',
       },
       {
+        path: '/sales/reports/payment-terms-status',
+        name: '::Menu:PaymentTermsStatusForSalesOrder',
+        iconClass: 'fas fa-file-invoice-dollar',
+        order: 22.7,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesOrders',
+      },
+      {
         path: '/sales/reports/commission',
         name: '::Menu:SalesCommission',
         iconClass: 'fas fa-coins',
