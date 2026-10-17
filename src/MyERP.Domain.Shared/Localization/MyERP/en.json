@@ -5358,7 +5358,17 @@
     "ActualQtyAtSource": "Actual Qty (Source)",
     "TotalIssuedLines": "Total Issued Lines",
     "Menu:ProductionPlanSummary": "Production Plan Summary",
-    "ProductionPlanSummaryDescription": "Tracks planned items, sub-assemblies, and fulfillment across generated Work Orders."
+    "ProductionPlanSummaryDescription": "Tracks planned items, sub-assemblies, and fulfillment across generated Work Orders.",
+    "Menu:WarehouseWiseStockBalance": "Warehouse Wise Stock Balance",
+    "WarehouseWiseStockBalance": "Warehouse Wise Stock Balance",
+    "WarehouseWiseStockBalanceDescription": "Hierarchical warehouse tree stock balance and valuation rollup.",
+    "ShowDisabledWarehouses": "Show Disabled Warehouses",
+    "TotalStockBalance": "Total Stock Balance",
+    "DirectStockBalance": "Direct Stock Balance",
+    "DirectQuantity": "Direct Quantity",
+    "TotalWarehouses": "Total Warehouses",
+    "ActiveWarehouses": "Active Warehouses",
+    "NoWarehouseBalanceRecordsFound": "No warehouse stock balance records found."
   }
 }
 

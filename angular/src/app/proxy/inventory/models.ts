@@ -2483,3 +2483,38 @@ export interface ItemwiseRecommendedReorderLevelReportDto {
   totalAvgDailyOutgoing: number;
 }
 
+export interface WarehouseWiseStockBalanceFilterDto {
+  companyId: string;
+  warehouseId?: string | null;
+  showDisabledWarehouses?: boolean;
+  asOfDate?: string | null;
+}
+
+export interface WarehouseStockBalanceItemDto {
+  warehouseId: string;
+  warehouseName: string;
+  warehouseCode?: string | null;
+  parentWarehouseId?: string | null;
+  parentWarehouseName?: string | null;
+  isGroup: boolean;
+  isActive: boolean;
+  indent: number;
+  stockBalance: number;
+  directStockBalance: number;
+  totalQuantity: number;
+  directQuantity: number;
+  itemCount: number;
+}
+
+export interface WarehouseWiseStockBalanceReportDto {
+  companyId: string;
+  companyName: string;
+  asOfDate?: string | null;
+  totalStockBalance: number;
+  totalQuantity: number;
+  totalWarehouseCount: number;
+  activeWarehouseCount: number;
+  items: WarehouseStockBalanceItemDto[];
+}
+
+
