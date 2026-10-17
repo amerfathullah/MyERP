@@ -2633,6 +2633,48 @@ export interface StockAnalyticsReportDto {
   totalClosingValue: number;
 }
 
+export interface DelayedItemFilterDto {
+  companyId?: string | null;
+  basedOn?: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  customerId?: string | null;
+  salesOrderId?: string | null;
+  itemGroupId?: string | null;
+  delayedOnly?: boolean;
+}
+
+export interface DelayedItemRowDto {
+  voucherType: string;
+  voucherId: string;
+  voucherNumber: string;
+  postingDate: string;
+  customerId: string;
+  customerName: string;
+  customerPoNumber?: string | null;
+  salesOrderId?: string | null;
+  salesOrderNumber?: string | null;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  itemGroup?: string | null;
+  quantity: number;
+  uom: string;
+  rate: number;
+  amount: number;
+  expectedDeliveryDate: string;
+  actualDeliveryDate: string;
+  delayedDays: number;
+}
+
+export interface DelayedItemReportDto {
+  rows: DelayedItemRowDto[];
+  totalItems: number;
+  delayedItems: number;
+  averageDelayDays: number;
+  totalDelayedAmount: number;
+}
+
 
 
 

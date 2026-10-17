@@ -5403,7 +5403,13 @@
     "ValueOrQuantity": "Metric",
     "TotalClosingQuantity": "Total Closing Quantity",
     "TotalClosingValue": "Total Closing Value",
-    "NoStockAnalyticsFound": "No stock analytics records found for the selected criteria."
+    "NoStockAnalyticsFound": "No stock analytics records found for the selected criteria.",
+    "Menu:DelayedItemReport": "Delayed Item Report",
+    "DelayedItemReport": "Delayed Item Report",
+    "DelayedItemReportDescription": "Detailed item-level delivery delay report with expected vs actual delivery dates.",
+    "DelayedOnly": "Delayed Only",
+    "DelayedItems": "Delayed Items",
+    "NoDelayedItemsFound": "No delayed items found for the selected criteria."
   }
 }
 

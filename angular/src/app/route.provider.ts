@@ -1163,6 +1163,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/delayed-item-report',
+        name: '::Menu:DelayedItemReport',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-clock',
+        order: 28,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',
