@@ -5418,7 +5418,17 @@
     "WarehouseWiseItemBalanceAgeAndValue": "Warehouse-Wise Item Balance, Age and Value",
     "WarehouseWiseItemBalanceAgeAndValueDescription": "Stock balances across all leaf warehouses with inventory valuation and FIFO stock age.",
     "NoWarehouseWiseRecordsFound": "No warehouse-wise inventory records found for the selected criteria.",
-    "FilterTotalZeroQty": "Filter Zero Qty"
+    "FilterTotalZeroQty": "Filter Zero Qty",
+    "Menu:ItemPriceStock": "Item Price and Stock",
+    "ItemPriceStock": "Item Price and Stock",
+    "ItemPriceStockDescription": "Item inventory levels alongside buying and selling price list rates.",
+    "NoItemPriceStockFound": "No item price and stock records found for the selected criteria.",
+    "BuyingRate": "Buying Rate",
+    "BuyingPriceList": "Buying Price List",
+    "SellingPriceList": "Selling Price List",
+    "InStockOnly": "In Stock Only",
+    "TotalStockAvailable": "Total Stock Available",
+    "TotalSellingValue": "Total Selling Value"
   }
 }
 

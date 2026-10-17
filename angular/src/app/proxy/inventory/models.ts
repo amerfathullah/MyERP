@@ -2745,6 +2745,43 @@ export interface WarehouseWiseItemBalanceAgeAndValueReportDto {
   averageAgeDays: number;
 }
 
+export interface ItemPriceStockFilterDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  itemId?: string | null;
+  itemGroupId?: string | null;
+  sellingPriceListId?: string | null;
+  buyingPriceListId?: string | null;
+  searchTerm?: string | null;
+  inStockOnly?: boolean;
+}
+
+export interface ItemPriceStockRowDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  brand?: string | null;
+  itemGroup?: string | null;
+  stockUom?: string | null;
+  warehouseId?: string | null;
+  warehouseName?: string | null;
+  stockAvailable: number;
+  buyingPriceListName?: string | null;
+  buyingRate: number;
+  sellingPriceListName?: string | null;
+  sellingRate: number;
+  valuationRate: number;
+  stockValue: number;
+}
+
+export interface ItemPriceStockReportDto {
+  rows: ItemPriceStockRowDto[];
+  totalItems: number;
+  totalStockAvailable: number;
+  totalStockValue: number;
+  totalSellingValue: number;
+}
+
 
 
 
