@@ -1136,6 +1136,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockBalance',
       },
       {
+        path: '/inventory/reports/items-to-be-requested',
+        name: '::Menu:ItemsToBeRequested',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-clipboard-list',
+        order: 26,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.MaterialRequests',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

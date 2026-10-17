@@ -2543,5 +2543,47 @@ export interface ProductBundleBalanceReportDto {
   rows: ProductBundleBalanceRowDto[];
 }
 
+export interface ItemsToBeRequestedFilterDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  itemGroupId?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface ItemsToBeRequestedItemDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  itemGroup: string;
+  itemGroupId?: string | null;
+  uom?: string | null;
+  warehouseId: string;
+  warehouseName: string;
+  companyId?: string | null;
+  actualQty: number;
+  indentedQty: number;
+  reservedQty: number;
+  orderedQty: number;
+  plannedQty: number;
+  reservedQtyForProduction: number;
+  projectedQty: number;
+  shortfallQty: number;
+  reorderLevel: number;
+  safetyStock: number;
+  standardBuyingPrice: number;
+  estimatedShortfallCost: number;
+  defaultMaterialRequestType: string;
+}
+
+export interface ItemsToBeRequestedReportDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  totalShortfallQty: number;
+  totalDeficitItems: number;
+  totalEstimatedCost: number;
+  items: ItemsToBeRequestedItemDto[];
+}
+
+
 
 

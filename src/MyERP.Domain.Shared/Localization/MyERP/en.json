@@ -5383,7 +5383,14 @@
     "ProductBundleBalanceDescription": "Calculates available product bundle quantities based on component stock limits.",
     "BundleQty": "Bundle Qty",
     "MinimumQty": "Minimum Qty",
-    "NoProductBundleBalanceRecordsFound": "No product bundle balance records found."
+    "NoProductBundleBalanceRecordsFound": "No product bundle balance records found.",
+    "Menu:ItemsToBeRequested": "Items To Be Requested",
+    "ItemsToBeRequested": "Items To Be Requested",
+    "ItemsToBeRequestedDescription": "Identifies inventory items where projected stock is negative and procurement requisitions are needed.",
+    "ShortfallQty": "Shortfall Qty",
+    "TotalShortfallQty": "Total Shortfall Qty",
+    "DeficitItems": "Deficit Items",
+    "NoItemsToBeRequestedFound": "No items require procurement requests for the selected criteria."
   }
 }
 
