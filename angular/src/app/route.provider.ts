@@ -2082,6 +2082,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/reports/work-order-consumed-materials',
+        name: '::Menu:WorkOrderConsumedMaterials',
+        iconClass: 'fas fa-boxes-packing',
+        order: 20,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
+      },
+      {
         path: '/manufacturing/plant-floors',
         name: '::Menu:PlantFloors',
         iconClass: 'fas fa-building',

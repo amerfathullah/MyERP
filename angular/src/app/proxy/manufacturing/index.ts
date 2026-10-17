@@ -22,6 +22,7 @@ export * from './sales-forecast.service';
 export * from './secondary-item-type.enum';
 export * from './secondary-item-valuation-type.enum';
 export * from './sub-assembly-type.enum';
+export * from './work-order-consumed-materials.service';
 export * from './work-order-status.enum';
 export * from './work-order-summary.service';
 export * from './workstation-type.service';

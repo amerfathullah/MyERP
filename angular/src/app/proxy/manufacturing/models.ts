@@ -1624,3 +1624,49 @@ export interface DowntimeSummaryItemDto {
   hours: number;
   count: number;
 }
+
+export interface WorkOrderConsumedMaterialsRequestDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  workOrderId?: string | null;
+  productionItemId?: string | null;
+  status?: number | null;
+  showExtraConsumedMaterialsOnly?: boolean;
+}
+
+export interface WorkOrderConsumedMaterialsReportDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  rows: WorkOrderConsumedMaterialsRowDto[];
+  totalWorkOrders: number;
+  totalRawMaterialLines: number;
+  totalExtraConsumedItems: number;
+  totalRequiredQty: number;
+  totalConsumedQty: number;
+  totalExtraConsumedQty: number;
+  totalReturnedQty: number;
+}
+
+export interface WorkOrderConsumedMaterialsRowDto {
+  workOrderId: string;
+  workOrderNumber: string;
+  status: string;
+  productionItemId: string;
+  productionItemCode: string;
+  productionItemName: string;
+  qtyToProduce: number;
+  producedQty: number;
+  rawMaterialItemId: string;
+  rawMaterialItemCode: string;
+  rawMaterialName: string;
+  stockUom: string;
+  requiredQty: number;
+  transferredQty: number;
+  consumedQty: number;
+  extraConsumedQty: number;
+  returnedQty: number;
+  isAdditionalItem: boolean;
+}
+

@@ -5267,7 +5267,16 @@
     "TotalProcessLossQty": "Total Process Loss Qty",
     "TotalProcessLossValue": "Total Process Loss Value",
     "TotalFgValue": "Total Finished Goods Value",
-    "TotalRmValue": "Total Raw Material Value"
+    "TotalRmValue": "Total Raw Material Value",
+    "Menu:WorkOrderConsumedMaterials": "Consumed Materials",
+    "WorkOrderConsumedMaterials": "Work Order Consumed Materials",
+    "WorkOrderConsumedMaterialsDescription": "Variance analysis between required, transferred, consumed, and returned materials per work order.",
+    "ExtraConsumedQty": "Extra Consumed Qty",
+    "TotalExtraConsumedItems": "Total Extra Consumed Items",
+    "TotalExtraConsumedQty": "Total Extra Consumed Qty",
+    "TotalReturnedQty": "Total Returned Qty",
+    "QtyToProduce": "Qty to Produce",
+    "ShowExtraConsumedMaterials": "Excess Materials Consumed Only"
   }
 }
 
