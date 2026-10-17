@@ -1100,6 +1100,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/itemwise-recommended-reorder-level',
+        name: '::Menu:ItemwiseRecommendedReorderLevel',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-calculator',
+        order: 23,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Items',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

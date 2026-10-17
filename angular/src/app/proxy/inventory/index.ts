@@ -63,4 +63,5 @@ export * from './batch-item-expiry-status.service';
 export * from './item-wise-consumption.service';
 export * from './cogs-by-item-group.service';
 export * from './requested-items-to-transfer.service';
+export * from './itemwise-recommended-reorder-level.service';
 export * from './warehouse.service';

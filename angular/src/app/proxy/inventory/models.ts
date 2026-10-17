@@ -2447,3 +2447,39 @@ export interface RequestedItemsToTransferReportDto {
   totalQtyToTransfer: number;
 }
 
+export interface ItemwiseRecommendedReorderLevelFilterDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  itemGroupId?: string | null;
+  brand?: string | null;
+  searchText?: string | null;
+}
+
+export interface ItemwiseRecommendedReorderLevelRowDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  itemGroup?: string | null;
+  brand?: string | null;
+  description?: string | null;
+  safetyStock: number;
+  leadTimeDays: number;
+  consumedQty: number;
+  deliveredQty: number;
+  totalOutgoing: number;
+  avgDailyOutgoing: number;
+  currentReorderLevel: number;
+  recommendedReorderLevel: number;
+  variance: number;
+  status: string;
+}
+
+export interface ItemwiseRecommendedReorderLevelReportDto {
+  rows: ItemwiseRecommendedReorderLevelRowDto[];
+  totalItems: number;
+  underConfiguredCount: number;
+  overConfiguredCount: number;
+  totalAvgDailyOutgoing: number;
+}
+

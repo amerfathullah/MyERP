@@ -3750,6 +3750,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/reports/itemwise-recommended-reorder-level',
+    loadComponent: () => import('./inventory/reports/itemwise-recommended-reorder-level/itemwise-recommended-reorder-level.component').then(c => c.ItemwiseRecommendedReorderLevelComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
+  },
+  {
     path: 'inventory/quality-goals',
     loadComponent: () => import('./inventory/quality-goals/quality-goal-list.component').then(c => c.QualityGoalListComponent),
     canActivate: [authGuard],
