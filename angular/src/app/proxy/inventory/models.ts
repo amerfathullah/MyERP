@@ -2584,6 +2584,56 @@ export interface ItemsToBeRequestedReportDto {
   items: ItemsToBeRequestedItemDto[];
 }
 
+export interface StockAnalyticsRequestDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  range?: string | null;
+  valueOrQuantity?: string | null;
+  warehouseId?: string | null;
+  itemGroupId?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface StockAnalyticsPeriodColumnDto {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface StockAnalyticsRowDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  itemGroup: string;
+  brand?: string | null;
+  uom?: string | null;
+  openingBalance: number;
+  periodBalances: Record<string, number>;
+  closingBalance: number;
+}
+
+export interface StockAnalyticsChartDto {
+  labels: string[];
+  datapoints: number[];
+  unit: string;
+}
+
+export interface StockAnalyticsReportDto {
+  companyCurrency: string;
+  range: string;
+  valueOrQuantity: string;
+  periodColumns: StockAnalyticsPeriodColumnDto[];
+  rows: StockAnalyticsRowDto[];
+  totalRow: StockAnalyticsRowDto;
+  chart: StockAnalyticsChartDto;
+  totalItems: number;
+  totalClosingQuantity: number;
+  totalClosingValue: number;
+}
+
+
 
 
 

@@ -5396,7 +5396,14 @@
     "MaterialRequestsWithoutSupplierQuotationsDescription": "Material requests for which supplier quotations have not been received or created.",
     "NoMaterialRequestsWithoutSupplierQuotationsFound": "No unquoted material requests found for the selected criteria.",
     "PendingRequests": "Pending Requests",
-    "TotalPendingQuantity": "Total Pending Quantity"
+    "TotalPendingQuantity": "Total Pending Quantity",
+    "Menu:StockAnalytics": "Stock Analytics",
+    "StockAnalytics": "Stock Analytics",
+    "StockAnalyticsDescription": "Periodic stock balances and valuation analytics across dynamic time intervals.",
+    "ValueOrQuantity": "Metric",
+    "TotalClosingQuantity": "Total Closing Quantity",
+    "TotalClosingValue": "Total Closing Value",
+    "NoStockAnalyticsFound": "No stock analytics records found for the selected criteria."
   }
 }
 
