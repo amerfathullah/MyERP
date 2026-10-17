@@ -2310,3 +2310,38 @@ export interface ItemWhereUsedReportDto {
   totalReferencesCount: number;
 }
 
+export interface BatchItemExpiryStatusRequestDto {
+  fromDate: string;
+  toDate: string;
+  companyId?: string | null;
+  itemId?: string | null;
+  warehouseId?: string | null;
+  searchText?: string | null;
+}
+
+export interface BatchItemExpiryStatusRowDto {
+  batchId: string;
+  batchNo: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  stockUom: string;
+  quantity: number;
+  manufacturingDate?: string | null;
+  expiryDate?: string | null;
+  expiryInDays?: number | null;
+  isExpired: boolean;
+  isExpiringSoon: boolean;
+  warehouseId?: string | null;
+  warehouseName?: string | null;
+}
+
+export interface BatchItemExpiryStatusReportDto {
+  fromDate: string;
+  toDate: string;
+  rows: BatchItemExpiryStatusRowDto[];
+  totalBatches: number;
+  expiredCount: number;
+  expiringSoonCount: number;
+  totalQuantity: number;
+}

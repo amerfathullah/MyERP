@@ -1064,6 +1064,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Items',
       },
       {
+        path: '/inventory/reports/batch-item-expiry-status',
+        name: '::Menu:BatchItemExpiryStatus',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-calendar-xmark',
+        order: 19,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

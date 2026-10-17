@@ -3726,6 +3726,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Items' },
   },
   {
+    path: 'inventory/reports/batch-item-expiry-status',
+    loadComponent: () => import('./inventory/reports/batch-item-expiry-status/batch-item-expiry-status.component').then(c => c.BatchItemExpiryStatusComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/quality-goals',
     loadComponent: () => import('./inventory/quality-goals/quality-goal-list.component').then(c => c.QualityGoalListComponent),
     canActivate: [authGuard],
