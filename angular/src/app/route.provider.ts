@@ -1055,6 +1055,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Items',
       },
       {
+        path: '/inventory/reports/item-where-used',
+        name: '::Menu:ItemWhereUsed',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-diagram-project',
+        order: 18,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Items',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

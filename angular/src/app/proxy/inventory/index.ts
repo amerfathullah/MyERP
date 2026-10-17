@@ -58,4 +58,5 @@ export * from './valuation-method.enum';
 export * from './warehouse-account.service';
 export * from './warehouse-type.enum';
 export * from './item-shortage-report.service';
+export * from './item-where-used.service';
 export * from './warehouse.service';

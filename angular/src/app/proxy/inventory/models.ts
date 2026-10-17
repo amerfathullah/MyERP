@@ -2274,3 +2274,39 @@ export interface ItemShortageReportDto {
   totalPlannedQty: number;
   totalReservedQty: number;
 }
+
+export interface ItemWhereUsedRequestDto {
+  itemId: string;
+  companyId?: string | null;
+  section?: string | null;
+}
+
+export interface ItemWhereUsedRowDto {
+  section: string;
+  referenceType: string;
+  documentType: string;
+  documentName: string;
+  documentId?: string | null;
+  relatedItemId?: string | null;
+  relatedItemCode?: string | null;
+  relatedItemName?: string | null;
+  quantity?: number | null;
+  uom?: string | null;
+  stockQuantity?: number | null;
+  stockUom?: string | null;
+  companyId?: string | null;
+  companyName?: string | null;
+  isDefault?: boolean | null;
+  isActive?: boolean | null;
+  details?: string | null;
+}
+
+export interface ItemWhereUsedReportDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  rows: ItemWhereUsedRowDto[];
+  totalWhereUsedCount: number;
+  totalReferencesCount: number;
+}
+
