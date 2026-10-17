@@ -2001,6 +2001,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/reports/bom-operations-time',
+        name: '::Menu:BomOperationsTime',
+        iconClass: 'fas fa-clock',
+        order: 15.8,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
+      },
+      {
         path: '/manufacturing/reports/bom-stock-analysis',
         name: '::Menu:BomStockAnalysis',
         iconClass: 'fas fa-sitemap',

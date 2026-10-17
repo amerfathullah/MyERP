@@ -1558,3 +1558,32 @@ export interface CostOfPoorQualityReportRowDto {
   startedAt?: string | null;
   completedAt?: string | null;
 }
+
+export interface BomOperationsTimeRequestDto {
+  companyId: string;
+  itemId?: string | null;
+  bomId?: string | null;
+  workstationId?: string | null;
+}
+
+export interface BomOperationsTimeReportDto {
+  rows: BomOperationsTimeRowDto[];
+  totalBoms: number;
+  totalOperations: number;
+  totalTimeInMinutes: number;
+}
+
+export interface BomOperationsTimeRowDto {
+  bomId: string;
+  bomNumber: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  uom: string;
+  operationId: string;
+  operationName: string;
+  workstationId?: string | null;
+  workstationName?: string | null;
+  timeInMins: number;
+  usedAsSubassemblyItems: number;
+}

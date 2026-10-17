@@ -1,4 +1,5 @@
 export * from './bom-creator.service';
+export * from './bom-operations-time.service';
 export * from './bom-stock-analysis.service';
 export * from './bom-variance-report.service';
 export * from './cost-of-poor-quality-report.service';
