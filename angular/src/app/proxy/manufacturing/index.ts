@@ -6,6 +6,7 @@ export * from './bom-variance-report.service';
 export * from './cost-of-poor-quality-report.service';
 export * from './downtime-analysis.service';
 export * from './downtime-entry.service';
+export * from './issued-items-against-work-order.service';
 export * from './job-card-status.enum';
 export * from './job-card.service';
 export * from './job-card-summary.service';

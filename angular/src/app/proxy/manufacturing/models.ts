@@ -1771,3 +1771,47 @@ export interface BomExplorerRowDto {
   hasSufficientStock: boolean;
 }
 
+export interface IssuedItemsAgainstWorkOrderRequestDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  workOrderId?: string | null;
+  itemId?: string | null;
+  sourceWarehouseId?: string | null;
+}
+
+export interface IssuedItemsAgainstWorkOrderReportDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  rows: IssuedItemsAgainstWorkOrderRowDto[];
+  totalWorkOrders: number;
+  totalIssuedLines: number;
+  totalQuantity: number;
+  totalAmount: number;
+}
+
+export interface IssuedItemsAgainstWorkOrderRowDto {
+  workOrderId: string;
+  workOrderNumber: string;
+  issueDate: string;
+  stockEntryId: string;
+  stockEntryNumber: string;
+  finishedGoodItemId: string;
+  finishedGoodCode: string;
+  finishedGoodName: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description?: string | null;
+  quantity: number;
+  uom: string;
+  amount: number;
+  sourceWarehouseId?: string | null;
+  sourceWarehouseName?: string | null;
+  targetWarehouseId?: string | null;
+  targetWarehouseName?: string | null;
+  projectedQtyAtSource: number;
+  actualQtyAtSource: number;
+}
+

@@ -2109,6 +2109,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/reports/issued-items',
+        name: '::Menu:IssuedItemsAgainstWorkOrder',
+        iconClass: 'fas fa-dolly',
+        order: 23,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
+      },
+      {
         path: '/manufacturing/plant-floors',
         name: '::Menu:PlantFloors',
         iconClass: 'fas fa-building',

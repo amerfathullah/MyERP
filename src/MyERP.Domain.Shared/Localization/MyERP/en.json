@@ -5295,7 +5295,13 @@
     "TotalComponents": "Total Components",
     "TotalSubBoms": "Total Sub-BOMs",
     "SubBom": "Sub-BOM",
-    "IsPhantomItem": "Is Phantom"
+    "IsPhantomItem": "Is Phantom",
+    "Menu:IssuedItemsAgainstWorkOrder": "Issued Items",
+    "IssuedItemsAgainstWorkOrder": "Issued Items Against Work Order",
+    "IssuedItemsAgainstWorkOrderDescription": "Raw materials transferred or issued against Work Orders with source projected stock.",
+    "ProjectedQtyAtSource": "Projected Qty (Source)",
+    "ActualQtyAtSource": "Actual Qty (Source)",
+    "TotalIssuedLines": "Total Issued Lines"
   }
 }
 
