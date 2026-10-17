@@ -24,5 +24,6 @@ export * from './secondary-item-valuation-type.enum';
 export * from './sub-assembly-type.enum';
 export * from './work-order-consumed-materials.service';
 export * from './work-order-status.enum';
+export * from './work-order-stock-report.service';
 export * from './work-order-summary.service';
 export * from './workstation-type.service';

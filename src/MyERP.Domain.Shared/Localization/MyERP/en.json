@@ -5276,7 +5276,18 @@
     "TotalExtraConsumedQty": "Total Extra Consumed Qty",
     "TotalReturnedQty": "Total Returned Qty",
     "QtyToProduce": "Qty to Produce",
-    "ShowExtraConsumedMaterials": "Excess Materials Consumed Only"
+    "ShowExtraConsumedMaterials": "Excess Materials Consumed Only",
+    "Menu:WorkOrderStockReport": "Work Order Stock",
+    "WorkOrderStockReport": "Work Order Stock Report",
+    "WorkOrderStockReportDescription": "Raw material availability and buildable quantity for active Work Orders.",
+    "BuildableQty": "Buildable Qty",
+    "ReadyToBuild": "Ready to Build",
+    "ReadyToBuildOnly": "Ready to Build Only",
+    "ReadyToBuildCount": "Ready to Build",
+    "NotReadyCount": "Not Ready",
+    "TotalBuildableQty": "Total Buildable Qty",
+    "InStockItemsCount": "Items In Stock",
+    "RequiredItemsCount": "Required Items"
   }
 }
 

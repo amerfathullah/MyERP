@@ -1670,3 +1670,50 @@ export interface WorkOrderConsumedMaterialsRowDto {
   isAdditionalItem: boolean;
 }
 
+export interface WorkOrderStockReportRequestDto {
+  companyId: string;
+  warehouseId?: string | null;
+  workOrderId?: string | null;
+  itemId?: string | null;
+  readyToBuildOnly?: boolean;
+}
+
+export interface WorkOrderStockReportDto {
+  companyId: string;
+  rows: WorkOrderStockReportRowDto[];
+  totalWorkOrders: number;
+  readyToBuildCount: number;
+  notReadyCount: number;
+  totalBuildableQty: number;
+}
+
+export interface WorkOrderStockReportRowDto {
+  workOrderId: string;
+  workOrderNumber: string;
+  status: string;
+  bomId: string;
+  bomNumber: string;
+  description?: string | null;
+  productionItemId: string;
+  productionItemCode: string;
+  productionItemName: string;
+  sourceWarehouseId?: string | null;
+  sourceWarehouseName?: string | null;
+  qtyToBuild: number;
+  requiredItemsCount: number;
+  inStockItemsCount: number;
+  buildableQty: number;
+  readyToBuild: boolean;
+  componentDetails: WorkOrderStockItemDetailDto[];
+}
+
+export interface WorkOrderStockItemDetailDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  requiredQty: number;
+  availableQty: number;
+  buildableQty: number;
+  isInStock: boolean;
+}
+
