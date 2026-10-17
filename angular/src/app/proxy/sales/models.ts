@@ -2758,3 +2758,51 @@ export interface DelayedOrderReportDto {
   totalDelayedAmount: number;
 }
 
+export interface DeliveryNoteTrendsRequestDto {
+  companyId: string;
+  fiscalYearId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  period?: string;
+  basedOn?: string;
+  groupBy?: string | null;
+  includeReturns?: boolean;
+}
+
+export interface DeliveryNoteTrendsPeriodColumnDto {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface DeliveryNoteTrendsRowDto {
+  entityId: string;
+  entityCode: string;
+  entityName: string;
+  secondaryInfo?: string | null;
+  groupByValue?: string | null;
+  periodQuantities: Record<string, number>;
+  periodAmounts: Record<string, number>;
+  totalQty: number;
+  totalAmount: number;
+}
+
+export interface DeliveryNoteTrendsChartDto {
+  labels: string[];
+  datapoints: number[];
+  currency: string;
+}
+
+export interface DeliveryNoteTrendsReportDto {
+  companyCurrency: string;
+  period: string;
+  basedOn: string;
+  groupBy?: string | null;
+  periodColumns: DeliveryNoteTrendsPeriodColumnDto[];
+  rows: DeliveryNoteTrendsRowDto[];
+  totalRow: DeliveryNoteTrendsRowDto;
+  chart: DeliveryNoteTrendsChartDto;
+}
+
+

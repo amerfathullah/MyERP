@@ -2901,6 +2901,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Quotations',
       },
       {
+        path: '/sales/reports/delivery-note-trends',
+        name: '::Menu:DeliveryNoteTrends',
+        iconClass: 'fas fa-truck-fast',
+        order: 22.9925,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.DeliveryNotes',
+      },
+      {
         path: '/sales/reports/territory-wise-sales',
         name: '::Menu:TerritoryWiseSales',
         iconClass: 'fas fa-map-marked-alt',

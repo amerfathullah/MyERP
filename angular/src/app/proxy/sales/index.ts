@@ -64,3 +64,4 @@ export * from './sales-person-commission-summary.service';
 export * from './sales-person-wise-transaction-summary.service';
 export * from './sales-person-target-variance.service';
 export * from './delayed-order-report.service';
+export * from './delivery-note-trends.service';
