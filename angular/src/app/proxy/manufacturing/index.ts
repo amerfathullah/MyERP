@@ -13,6 +13,7 @@ export * from './master-production-schedule.service';
 export * from './material-requirements-planning.service';
 export * from './models';
 export * from './plant-floor.service';
+export * from './process-loss-report.service';
 export * from './production-analytics.service';
 export * from './production-plan-status.enum';
 export * from './production-plan.service';

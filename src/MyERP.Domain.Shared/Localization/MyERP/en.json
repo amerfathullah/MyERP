@@ -5261,7 +5261,13 @@
     "RejectedCount": "Rejected Count",
     "AcceptanceRate": "Acceptance Rate",
     "JobCardSummaryDescription": "Execution status, completed quantities, and time tracking across work order operations.",
-    "TotalJobCards": "Total Job Cards"
+    "TotalJobCards": "Total Job Cards",
+    "ProcessLossReportDescription": "Tracks process loss quantities, defect rates, and scrap valuation across manufacturing work orders.",
+    "TotalProducedQty": "Total Produced Qty",
+    "TotalProcessLossQty": "Total Process Loss Qty",
+    "TotalProcessLossValue": "Total Process Loss Value",
+    "TotalFgValue": "Total Finished Goods Value",
+    "TotalRmValue": "Total Raw Material Value"
   }
 }
 
