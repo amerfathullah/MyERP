@@ -2118,6 +2118,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/reports/production-plan-summary',
+        name: '::Menu:ProductionPlanSummary',
+        iconClass: 'fas fa-diagram-project',
+        order: 24,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
+      },
+      {
         path: '/manufacturing/plant-floors',
         name: '::Menu:PlantFloors',
         iconClass: 'fas fa-building',

@@ -5301,7 +5301,9 @@
     "IssuedItemsAgainstWorkOrderDescription": "Raw materials transferred or issued against Work Orders with source projected stock.",
     "ProjectedQtyAtSource": "Projected Qty (Source)",
     "ActualQtyAtSource": "Actual Qty (Source)",
-    "TotalIssuedLines": "Total Issued Lines"
+    "TotalIssuedLines": "Total Issued Lines",
+    "Menu:ProductionPlanSummary": "Production Plan Summary",
+    "ProductionPlanSummaryDescription": "Tracks planned items, sub-assemblies, and fulfillment across generated Work Orders."
   }
 }
 
