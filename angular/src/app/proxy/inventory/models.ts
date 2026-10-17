@@ -2345,3 +2345,42 @@ export interface BatchItemExpiryStatusReportDto {
   expiringSoonCount: number;
   totalQuantity: number;
 }
+
+export interface ItemWiseConsumptionRequestDto {
+  fromDate: string;
+  toDate: string;
+  companyId?: string | null;
+  itemId?: string | null;
+  warehouseId?: string | null;
+  supplierId?: string | null;
+  searchText?: string | null;
+}
+
+export interface ItemWiseConsumptionRowDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description?: string | null;
+  stockUom: string;
+  consumedQty: number;
+  consumedAmount: number;
+  deliveredQty: number;
+  deliveredAmount: number;
+  totalQty: number;
+  totalAmount: number;
+  suppliers?: string | null;
+}
+
+export interface ItemWiseConsumptionReportDto {
+  fromDate: string;
+  toDate: string;
+  rows: ItemWiseConsumptionRowDto[];
+  totalItems: number;
+  grandTotalConsumedQty: number;
+  grandTotalConsumedAmount: number;
+  grandTotalDeliveredQty: number;
+  grandTotalDeliveredAmount: number;
+  grandTotalQty: number;
+  grandTotalAmount: number;
+}
+

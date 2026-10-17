@@ -1073,6 +1073,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/item-wise-consumption',
+        name: '::Menu:ItemWiseConsumption',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-chart-pie',
+        order: 20,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

@@ -60,4 +60,5 @@ export * from './warehouse-type.enum';
 export * from './item-shortage-report.service';
 export * from './item-where-used.service';
 export * from './batch-item-expiry-status.service';
+export * from './item-wise-consumption.service';
 export * from './warehouse.service';
