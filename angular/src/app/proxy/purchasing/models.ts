@@ -1797,6 +1797,40 @@ export interface PurchaseReceiptTrendsReportDto {
   chart: PurchaseReceiptTrendsChartDto;
 }
 
+export interface MaterialRequestsWithoutSupplierQuotationsFilterDto {
+  companyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  warehouseId?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface MaterialRequestsWithoutSupplierQuotationsItemDto {
+  materialRequestId: string;
+  requestNumber: string;
+  requestDate: string;
+  requiredByDate?: string | null;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description?: string | null;
+  quantity: number;
+  uom: string;
+  warehouseId?: string | null;
+  warehouseName?: string | null;
+  companyId: string;
+  companyName: string;
+}
+
+export interface MaterialRequestsWithoutSupplierQuotationsReportDto {
+  companyId?: string | null;
+  totalPendingRequests: number;
+  totalPendingItems: number;
+  totalPendingQuantity: number;
+  items: MaterialRequestsWithoutSupplierQuotationsItemDto[];
+}
+
+
 
 
 

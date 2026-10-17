@@ -501,6 +501,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseReceipts',
       },
       {
+        path: '/purchasing/reports/material-requests-without-supplier-quotations',
+        name: '::Menu:MaterialRequestsWithoutSupplierQuotations',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-file-circle-question',
+        order: 28,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.MaterialRequests',
+      },
+      {
         path: '/accounting',
         name: '::Menu:Accounting',
         iconClass: 'fas fa-calculator',

@@ -5390,7 +5390,13 @@
     "ShortfallQty": "Shortfall Qty",
     "TotalShortfallQty": "Total Shortfall Qty",
     "DeficitItems": "Deficit Items",
-    "NoItemsToBeRequestedFound": "No items require procurement requests for the selected criteria."
+    "NoItemsToBeRequestedFound": "No items require procurement requests for the selected criteria.",
+    "Menu:MaterialRequestsWithoutSupplierQuotations": "Material Requests Without Supplier Quotations",
+    "MaterialRequestsWithoutSupplierQuotations": "Material Requests Without Supplier Quotations",
+    "MaterialRequestsWithoutSupplierQuotationsDescription": "Material requests for which supplier quotations have not been received or created.",
+    "NoMaterialRequestsWithoutSupplierQuotationsFound": "No unquoted material requests found for the selected criteria.",
+    "PendingRequests": "Pending Requests",
+    "TotalPendingQuantity": "Total Pending Quantity"
   }
 }
 

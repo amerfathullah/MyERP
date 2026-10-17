@@ -850,6 +850,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseReceipts' },
   },
   {
+    path: 'purchasing/reports/material-requests-without-supplier-quotations',
+    loadComponent: () => import('./purchasing/reports/material-requests-without-supplier-quotations/material-requests-without-supplier-quotations.component').then(c => c.MaterialRequestsWithoutSupplierQuotationsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.MaterialRequests' },
+  },
+  {
     path: 'settings',
     loadComponent: () => import('./settings/settings-overview/settings-overview.component').then(c => c.SettingsOverviewComponent),
     canActivate: [authGuard],
