@@ -742,6 +742,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesOrders' },
   },
   {
+    path: 'sales/reports/delayed-order',
+    loadComponent: () => import('./sales/reports/delayed-order-report/delayed-order-report.component').then(c => c.DelayedOrderReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesOrders' },
+  },
+  {
     path: 'purchasing/reports/register',
     loadComponent: () => import('./purchasing/reports/purchase-register/purchase-register.component').then(c => c.PurchaseRegisterComponent),
     canActivate: [authGuard, permissionGuard],

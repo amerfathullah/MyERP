@@ -2712,3 +2712,49 @@ export interface SalesPersonTargetVarianceReportDto {
   overallAchievementPercentage: number;
 }
 
+export interface DelayedOrderFilterDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  customerId?: string | null;
+  consolidated?: boolean;
+  delayedOnly?: boolean;
+  searchText?: string | null;
+}
+
+export interface DelayedOrderItemDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description?: string | null;
+  quantity: number;
+  uom: string;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export interface DelayedOrderRowDto {
+  deliveryNoteId: string;
+  deliveryNumber: string;
+  salesOrderId: string;
+  orderNumber: string;
+  customerId: string;
+  customerName: string;
+  customerPoNumber?: string | null;
+  shippingAddress?: string | null;
+  expectedDeliveryDate: string;
+  actualDeliveryDate: string;
+  delayedDays: number;
+  grandTotal: number;
+  items: DelayedOrderItemDto[];
+}
+
+export interface DelayedOrderReportDto {
+  rows: DelayedOrderRowDto[];
+  totalDeliveries: number;
+  delayedDeliveries: number;
+  onTimeDeliveryRate: number;
+  averageDelayDays: number;
+  totalDelayedAmount: number;
+}
+

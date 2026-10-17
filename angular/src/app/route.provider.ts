@@ -2946,6 +2946,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesOrders',
       },
       {
+        path: '/sales/reports/delayed-order',
+        name: '::Menu:DelayedOrderReport',
+        iconClass: 'fas fa-clock',
+        order: 23.04,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesOrders',
+      },
+      {
         path: '/purchasing/reports/register',
         name: '::Menu:PurchaseRegister',
         iconClass: 'fas fa-table-list',
