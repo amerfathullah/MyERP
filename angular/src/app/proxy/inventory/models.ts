@@ -2517,4 +2517,31 @@ export interface WarehouseWiseStockBalanceReportDto {
   items: WarehouseStockBalanceItemDto[];
 }
 
+export interface GetProductBundleBalanceRequestDto {
+  companyId?: string | null;
+  parentItemId?: string | null;
+  warehouseId?: string | null;
+}
+
+export interface ProductBundleBalanceRowDto {
+  indent: number;
+  parentItemId?: string | null;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description?: string | null;
+  uom?: string | null;
+  warehouseId: string;
+  warehouseName: string;
+  companyId?: string | null;
+  actualQty: number;
+  minimumQty: number;
+  bundleQty: number;
+}
+
+export interface ProductBundleBalanceReportDto {
+  rows: ProductBundleBalanceRowDto[];
+}
+
+
 

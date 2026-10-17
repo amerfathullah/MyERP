@@ -1127,6 +1127,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Warehouses',
       },
       {
+        path: '/inventory/reports/product-bundle-balance',
+        name: '::Menu:ProductBundleBalance',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-boxes-packing',
+        order: 25,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockBalance',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

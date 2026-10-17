@@ -3780,6 +3780,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Warehouses' },
   },
   {
+    path: 'inventory/reports/product-bundle-balance',
+    loadComponent: () => import('./inventory/reports/product-bundle-balance/product-bundle-balance.component').then(c => c.ProductBundleBalanceComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockBalance' },
+  },
+  {
     path: 'inventory/quality-goals',
     loadComponent: () => import('./inventory/quality-goals/quality-goal-list.component').then(c => c.QualityGoalListComponent),
     canActivate: [authGuard],

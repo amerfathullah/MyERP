@@ -1,4 +1,4 @@
-import type { BatchWiseBalanceReportDto, GetBatchWiseBalanceRequestDto, GetItemsAvailabilityInput, GetStockBalanceRequestDto, ItemAvailabilityDto, StockBalanceDto } from './models';
+import type { BatchWiseBalanceReportDto, GetBatchWiseBalanceRequestDto, GetItemsAvailabilityInput, GetProductBundleBalanceRequestDto, GetStockBalanceRequestDto, ItemAvailabilityDto, ProductBundleBalanceReportDto, StockBalanceDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -51,6 +51,14 @@ export class StockBalanceService {
       method: 'POST',
       url: '/api/app/stock-balance/recalculate-bin-qty',
       params: { itemId, warehouseId },
+    },
+    { apiName: this.apiName,...config });
+
+  getProductBundleBalance = (input: GetProductBundleBalanceRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProductBundleBalanceReportDto>({
+      method: 'GET',
+      url: '/api/app/stock-balance/product-bundle-balance',
+      params: { companyId: input.companyId, parentItemId: input.parentItemId, warehouseId: input.warehouseId },
     },
     { apiName: this.apiName,...config });
 }

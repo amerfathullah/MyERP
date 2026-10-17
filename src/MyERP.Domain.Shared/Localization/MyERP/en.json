@@ -5377,7 +5377,13 @@
     "Menu:PurchaseReceiptTrends": "Purchase Receipt Trends",
     "PurchaseReceiptTrends": "Purchase Receipt Trends",
     "PurchaseReceiptTrendsDescription": "Track goods receipt and procurement intake amounts, quantities, and trends over periodic intervals.",
-    "NoPurchaseReceiptTrendsFound": "No purchase receipt trends data found for the selected criteria."
+    "NoPurchaseReceiptTrendsFound": "No purchase receipt trends data found for the selected criteria.",
+    "Menu:ProductBundleBalance": "Product Bundle Balance",
+    "ProductBundleBalance": "Product Bundle Balance",
+    "ProductBundleBalanceDescription": "Calculates available product bundle quantities based on component stock limits.",
+    "BundleQty": "Bundle Qty",
+    "MinimumQty": "Minimum Qty",
+    "NoProductBundleBalanceRecordsFound": "No product bundle balance records found."
   }
 }
 
