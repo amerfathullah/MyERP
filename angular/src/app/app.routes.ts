@@ -2343,6 +2343,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
   {
+    path: 'manufacturing/reports/downtime-analysis',
+    loadComponent: () => import('./manufacturing/reports/downtime-analysis.component').then(c => c.DowntimeAnalysisComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
     path: 'manufacturing/reports/material-requirements-planning',
     loadComponent: () => import('./manufacturing/reports/material-requirements-planning.component').then(c => c.MaterialRequirementsPlanningComponent),
     canActivate: [authGuard, permissionGuard],

@@ -2037,6 +2037,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/reports/downtime-analysis',
+        name: '::Menu:DowntimeAnalysis',
+        iconClass: 'fas fa-exclamation-circle',
+        order: 16.8,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
+      },
+      {
         path: '/manufacturing/reports/work-order-summary',
         name: '::Menu:WorkOrderSummary',
         iconClass: 'fas fa-clipboard-list',

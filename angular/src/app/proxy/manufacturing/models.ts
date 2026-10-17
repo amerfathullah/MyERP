@@ -1587,3 +1587,40 @@ export interface BomOperationsTimeRowDto {
   timeInMins: number;
   usedAsSubassemblyItems: number;
 }
+
+export interface DowntimeAnalysisRequestDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  workstationId?: string | null;
+  operatorId?: string | null;
+}
+
+export interface DowntimeAnalysisReportDto {
+  rows: DowntimeAnalysisRowDto[];
+  totalEntries: number;
+  totalDowntimeHours: number;
+  totalDowntimeMinutes: number;
+  workstationSummaries: DowntimeSummaryItemDto[];
+  reasonSummaries: DowntimeSummaryItemDto[];
+}
+
+export interface DowntimeAnalysisRowDto {
+  id: string;
+  workstationId: string;
+  workstationName: string;
+  operatorId: string;
+  operatorName: string;
+  fromTime: string;
+  toTime: string;
+  downtimeMinutes: number;
+  downtimeHours: number;
+  stopReason: string;
+  remarks?: string | null;
+}
+
+export interface DowntimeSummaryItemDto {
+  label: string;
+  hours: number;
+  count: number;
+}
