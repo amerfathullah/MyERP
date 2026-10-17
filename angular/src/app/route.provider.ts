@@ -1037,6 +1037,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/quality-inspection-summary',
+        name: '::Menu:QualityInspectionSummary',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-clipboard-check',
+        order: 16,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.QualityInspections',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

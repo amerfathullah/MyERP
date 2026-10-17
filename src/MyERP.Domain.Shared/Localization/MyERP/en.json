@@ -5250,7 +5250,16 @@
     "TotalAchieved": "Total Achieved",
     "OverallAchievement": "Overall Achievement",
     "Achieved": "Achieved",
-    "Achievement": "Achievement"
+    "Achievement": "Achievement",
+    "Menu:QualityInspectionSummary": "Quality Inspection Summary",
+    "QualityInspectionSummary": "Quality Inspection Summary",
+    "QualityInspectionSummaryDescription": "Summary and status analysis of quality inspections across items and documents.",
+    "InspectionNumber": "Inspection #",
+    "InspectedBy": "Inspected By",
+    "TotalInspections": "Total Inspections",
+    "AcceptedCount": "Accepted Count",
+    "RejectedCount": "Rejected Count",
+    "AcceptanceRate": "Acceptance Rate"
   }
 }
 

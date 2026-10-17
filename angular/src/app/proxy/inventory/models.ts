@@ -2179,3 +2179,59 @@ export interface RawMaterialFgMappingItemInput {
   fgBatchNo?: string | null;
 }
 
+export interface QualityInspectionSummaryRequestDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  status?: number | null;
+  itemId?: string | null;
+  inspectionType?: number | null;
+  inspectedById?: string | null;
+}
+
+export interface QualityInspectionSummaryReportDto {
+  rows: QualityInspectionSummaryRowDto[];
+  totalInspections: number;
+  acceptedCount: number;
+  rejectedCount: number;
+  draftCount: number;
+  acceptanceRate: number;
+  statusSummaries: QualityInspectionStatusSummaryDto[];
+  itemSummaries: QualityInspectionItemSummaryDto[];
+}
+
+export interface QualityInspectionSummaryRowDto {
+  id: string;
+  inspectionNumber?: string | null;
+  inspectionDate: string;
+  status: number;
+  statusName: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  sampleSize: number;
+  inspectionType: number;
+  inspectionTypeName: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  inspectedById?: string | null;
+  inspectedByName: string;
+  remarks?: string | null;
+}
+
+export interface QualityInspectionStatusSummaryDto {
+  status: string;
+  count: number;
+  percentage: number;
+}
+
+export interface QualityInspectionItemSummaryDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  totalInspected: number;
+  acceptedCount: number;
+  rejectedCount: number;
+}
+
+

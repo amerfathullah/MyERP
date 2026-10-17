@@ -32,6 +32,7 @@ export * from './quality-action-status.enum';
 export * from './quality-action-type.enum';
 export * from './quality-feedback-document-type.enum';
 export * from './quality-inspection-parameter-group.service';
+export * from './quality-inspection-summary.service';
 export * from './quality-inspection-template.service';
 export * from './quality-inspection.service';
 export * from './quality-management.service';
