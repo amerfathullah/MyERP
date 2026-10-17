@@ -5287,7 +5287,15 @@
     "NotReadyCount": "Not Ready",
     "TotalBuildableQty": "Total Buildable Qty",
     "InStockItemsCount": "Items In Stock",
-    "RequiredItemsCount": "Required Items"
+    "RequiredItemsCount": "Required Items",
+    "Menu:BomExplorer": "BOM Explorer",
+    "BomExplorer": "BOM Explorer",
+    "BomExplorerDescription": "Multi-level hierarchical Bill of Materials explosion with costing and stock availability.",
+    "ExplodedQuantity": "Exploded Quantity",
+    "TotalComponents": "Total Components",
+    "TotalSubBoms": "Total Sub-BOMs",
+    "SubBom": "Sub-BOM",
+    "IsPhantomItem": "Is Phantom"
   }
 }
 

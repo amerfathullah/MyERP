@@ -1717,3 +1717,57 @@ export interface WorkOrderStockItemDetailDto {
   isInStock: boolean;
 }
 
+export interface BomLookupDto {
+  id: string;
+  bomNumber: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  quantity: number;
+  uom?: string | null;
+  isDefault: boolean;
+}
+
+export interface BomExplorerRequestDto {
+  companyId: string;
+  bomId: string;
+  quantity: number;
+  warehouseId?: string | null;
+}
+
+export interface BomExplorerDto {
+  bomId: string;
+  bomNumber: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  baseQuantity: number;
+  explodedQuantity: number;
+  uom?: string | null;
+  rows: BomExplorerRowDto[];
+  totalComponents: number;
+  totalSubBoms: number;
+  totalCost: number;
+}
+
+export interface BomExplorerRowDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  bomLevel: number;
+  indent: number;
+  subBomId?: string | null;
+  subBomNumber?: string | null;
+  qty: number;
+  uom?: string | null;
+  stockQty: number;
+  stockUom?: string | null;
+  rate: number;
+  amount: number;
+  isPhantom: boolean;
+  doNotExplode: boolean;
+  description?: string | null;
+  availableQty: number;
+  hasSufficientStock: boolean;
+}
+
