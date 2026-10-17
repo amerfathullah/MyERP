@@ -2675,6 +2675,36 @@ export interface DelayedItemReportDto {
   totalDelayedAmount: number;
 }
 
+export interface TotalStockSummaryFilterDto {
+  companyId?: string | null;
+  groupBy?: string;
+  warehouseId?: string | null;
+  itemGroupId?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface TotalStockSummaryRowDto {
+  groupName: string;
+  groupId?: string | null;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description?: string | null;
+  itemGroup?: string | null;
+  uom?: string | null;
+  currentQty: number;
+  stockValue: number;
+  valuationRate: number;
+}
+
+export interface TotalStockSummaryReportDto {
+  groupBy: string;
+  rows: TotalStockSummaryRowDto[];
+  totalItems: number;
+  totalQuantity: number;
+  totalStockValue: number;
+}
+
 
 
 

@@ -1172,6 +1172,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/total-stock-summary',
+        name: '::Menu:TotalStockSummary',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-boxes-stacked',
+        order: 29,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

@@ -5409,7 +5409,11 @@
     "DelayedItemReportDescription": "Detailed item-level delivery delay report with expected vs actual delivery dates.",
     "DelayedOnly": "Delayed Only",
     "DelayedItems": "Delayed Items",
-    "NoDelayedItemsFound": "No delayed items found for the selected criteria."
+    "NoDelayedItemsFound": "No delayed items found for the selected criteria.",
+    "Menu:TotalStockSummary": "Total Stock Summary",
+    "TotalStockSummary": "Total Stock Summary",
+    "TotalStockSummaryDescription": "Real-time stock balance summary grouped by warehouse or company.",
+    "NoStockSummaryRecordsFound": "No stock records found for the selected criteria."
   }
 }
 
