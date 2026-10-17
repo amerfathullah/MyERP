@@ -5259,7 +5259,9 @@
     "TotalInspections": "Total Inspections",
     "AcceptedCount": "Accepted Count",
     "RejectedCount": "Rejected Count",
-    "AcceptanceRate": "Acceptance Rate"
+    "AcceptanceRate": "Acceptance Rate",
+    "JobCardSummaryDescription": "Execution status, completed quantities, and time tracking across work order operations.",
+    "TotalJobCards": "Total Job Cards"
   }
 }
 
