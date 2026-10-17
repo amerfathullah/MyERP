@@ -844,6 +844,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseOrders' },
   },
   {
+    path: 'purchasing/reports/purchase-receipt-trends',
+    loadComponent: () => import('./purchasing/reports/purchase-receipt-trends/purchase-receipt-trends.component').then(c => c.PurchaseReceiptTrendsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseReceipts' },
+  },
+  {
     path: 'settings',
     loadComponent: () => import('./settings/settings-overview/settings-overview.component').then(c => c.SettingsOverviewComponent),
     canActivate: [authGuard],

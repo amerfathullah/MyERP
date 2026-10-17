@@ -5373,7 +5373,11 @@
     "DeliveryNoteTrends": "Delivery Note Trends",
     "DeliveryNoteTrendsDescription": "Track goods dispatch and delivery amounts, quantities, and trends over periodic intervals.",
     "IncludeReturns": "Include Returns",
-    "NoDeliveryTrendsFound": "No delivery trends data found for the selected criteria."
+    "NoDeliveryTrendsFound": "No delivery trends data found for the selected criteria.",
+    "Menu:PurchaseReceiptTrends": "Purchase Receipt Trends",
+    "PurchaseReceiptTrends": "Purchase Receipt Trends",
+    "PurchaseReceiptTrendsDescription": "Track goods receipt and procurement intake amounts, quantities, and trends over periodic intervals.",
+    "NoPurchaseReceiptTrendsFound": "No purchase receipt trends data found for the selected criteria."
   }
 }
 

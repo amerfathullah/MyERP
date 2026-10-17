@@ -492,6 +492,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseOrders',
       },
       {
+        path: '/purchasing/reports/purchase-receipt-trends',
+        name: '::Menu:PurchaseReceiptTrends',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-boxes-packing',
+        order: 27,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseReceipts',
+      },
+      {
         path: '/accounting',
         name: '::Menu:Accounting',
         iconClass: 'fas fa-calculator',

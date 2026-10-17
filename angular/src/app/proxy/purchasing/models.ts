@@ -1749,6 +1749,55 @@ export interface PurchaseOrderTrendsReportDto {
   chart: PurchaseOrderTrendsChartDto;
 }
 
+export interface PurchaseReceiptTrendsRequestDto {
+  companyId: string;
+  supplierId?: string | null;
+  fiscalYearId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  period?: string;
+  basedOn?: string;
+  groupBy?: string | null;
+  includeReturns?: boolean;
+}
+
+export interface PurchaseReceiptTrendsPeriodColumnDto {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface PurchaseReceiptTrendsRowDto {
+  entityId: string;
+  entityCode: string;
+  entityName: string;
+  secondaryInfo?: string | null;
+  groupByValue?: string | null;
+  periodQuantities: Record<string, number>;
+  periodAmounts: Record<string, number>;
+  totalQty: number;
+  totalAmount: number;
+}
+
+export interface PurchaseReceiptTrendsChartDto {
+  labels: string[];
+  datapoints: number[];
+  currency: string;
+}
+
+export interface PurchaseReceiptTrendsReportDto {
+  companyCurrency: string;
+  period: string;
+  basedOn: string;
+  groupBy?: string | null;
+  periodColumns: PurchaseReceiptTrendsPeriodColumnDto[];
+  rows: PurchaseReceiptTrendsRowDto[];
+  totalRow: PurchaseReceiptTrendsRowDto;
+  chart: PurchaseReceiptTrendsChartDto;
+}
+
+
 
 
 
