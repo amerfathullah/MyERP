@@ -3816,6 +3816,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/reports/warehouse-wise-item-balance-age-and-value',
+    loadComponent: () => import('./inventory/reports/warehouse-wise-item-balance-age-and-value/warehouse-wise-item-balance-age-and-value.component').then(c => c.WarehouseWiseItemBalanceAgeAndValueComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/quality-goals',
     loadComponent: () => import('./inventory/quality-goals/quality-goal-list.component').then(c => c.QualityGoalListComponent),
     canActivate: [authGuard],

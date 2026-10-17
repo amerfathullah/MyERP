@@ -5413,7 +5413,12 @@
     "Menu:TotalStockSummary": "Total Stock Summary",
     "TotalStockSummary": "Total Stock Summary",
     "TotalStockSummaryDescription": "Real-time stock balance summary grouped by warehouse or company.",
-    "NoStockSummaryRecordsFound": "No stock records found for the selected criteria."
+    "NoStockSummaryRecordsFound": "No stock records found for the selected criteria.",
+    "Menu:WarehouseWiseItemBalanceAgeAndValue": "Warehouse-Wise Balance Age and Value",
+    "WarehouseWiseItemBalanceAgeAndValue": "Warehouse-Wise Item Balance, Age and Value",
+    "WarehouseWiseItemBalanceAgeAndValueDescription": "Stock balances across all leaf warehouses with inventory valuation and FIFO stock age.",
+    "NoWarehouseWiseRecordsFound": "No warehouse-wise inventory records found for the selected criteria.",
+    "FilterTotalZeroQty": "Filter Zero Qty"
   }
 }
 

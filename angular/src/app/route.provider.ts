@@ -1181,6 +1181,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/warehouse-wise-item-balance-age-and-value',
+        name: '::Menu:WarehouseWiseItemBalanceAgeAndValue',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-cubes',
+        order: 30,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

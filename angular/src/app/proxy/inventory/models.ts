@@ -2705,6 +2705,46 @@ export interface TotalStockSummaryReportDto {
   totalStockValue: number;
 }
 
+export interface WarehouseColumnDto {
+  warehouseId: string;
+  warehouseName: string;
+}
+
+export interface WarehouseWiseItemBalanceAgeAndValueFilterDto {
+  companyId: string;
+  warehouseId?: string | null;
+  itemId?: string | null;
+  itemGroupId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  filterTotalZeroQty?: boolean;
+  searchTerm?: string | null;
+}
+
+export interface WarehouseWiseItemBalanceAgeAndValueRowDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  itemGroup?: string | null;
+  brand?: string | null;
+  stockUom?: string | null;
+  totalStockValue: number;
+  averageAgeDays: number;
+  totalQty: number;
+  warehouseBalances: Record<string, number>;
+}
+
+export interface WarehouseWiseItemBalanceAgeAndValueReportDto {
+  companyId: string;
+  asOfDate: string;
+  warehouseColumns: WarehouseColumnDto[];
+  rows: WarehouseWiseItemBalanceAgeAndValueRowDto[];
+  totalItems: number;
+  totalQuantity: number;
+  totalStockValue: number;
+  averageAgeDays: number;
+}
+
 
 
 
