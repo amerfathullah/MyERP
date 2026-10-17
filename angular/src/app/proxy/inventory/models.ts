@@ -2384,3 +2384,27 @@ export interface ItemWiseConsumptionReportDto {
   grandTotalAmount: number;
 }
 
+export interface CogsByItemGroupFilterDto {
+  companyId: string;
+  fromDate: string;
+  toDate: string;
+  warehouseId?: string | null;
+}
+
+export interface CogsByItemGroupRowDto {
+  itemGroupId?: string | null;
+  itemGroupName: string;
+  cogsDebit: number;
+  indent: number;
+  isGroup: boolean;
+  percentageOfTotal: number;
+}
+
+export interface CogsByItemGroupReportDto {
+  rows: CogsByItemGroupRowDto[];
+  totalCogsDebit: number;
+  totalItemGroups: number;
+  topItemGroupName?: string | null;
+  topItemGroupDebit: number;
+}
+
