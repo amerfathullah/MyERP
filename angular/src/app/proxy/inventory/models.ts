@@ -2234,4 +2234,43 @@ export interface QualityInspectionItemSummaryDto {
   rejectedCount: number;
 }
 
+export interface ItemShortageReportRequestDto {
+  companyId: string;
+  warehouseId?: string | null;
+  searchText?: string | null;
+}
 
+export interface ItemShortageReportRowDto {
+  warehouseId: string;
+  warehouseName: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description?: string | null;
+  actualQty: number;
+  orderedQty: number;
+  plannedQty: number;
+  reservedQty: number;
+  reservedQtyForProduction: number;
+  projectedQty: number;
+  companyId: string;
+  companyName: string;
+}
+
+export interface ItemShortageChartItemDto {
+  itemCode: string;
+  projectedQty: number;
+}
+
+export interface ItemShortageReportDto {
+  companyId: string;
+  companyName: string;
+  rows: ItemShortageReportRowDto[];
+  chartData: ItemShortageChartItemDto[];
+  totalShortageItems: number;
+  totalProjectedDeficit: number;
+  totalActualQty: number;
+  totalOrderedQty: number;
+  totalPlannedQty: number;
+  totalReservedQty: number;
+}

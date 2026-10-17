@@ -1046,6 +1046,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.QualityInspections',
       },
       {
+        path: '/inventory/reports/item-shortage',
+        name: '::Menu:ItemShortageReport',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-triangle-exclamation',
+        order: 17,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Items',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

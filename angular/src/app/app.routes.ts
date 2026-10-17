@@ -3714,6 +3714,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.QualityInspections' },
   },
   {
+    path: 'inventory/reports/item-shortage',
+    loadComponent: () => import('./inventory/reports/item-shortage-report/item-shortage-report.component').then(c => c.ItemShortageReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Items' },
+  },
+  {
     path: 'inventory/quality-goals',
     loadComponent: () => import('./inventory/quality-goals/quality-goal-list.component').then(c => c.QualityGoalListComponent),
     canActivate: [authGuard],
