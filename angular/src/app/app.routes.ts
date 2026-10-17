@@ -3744,6 +3744,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/reports/requested-items-to-transfer',
+    loadComponent: () => import('./inventory/reports/requested-items-to-transfer/requested-items-to-transfer.component').then(c => c.RequestedItemsToTransferComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/quality-goals',
     loadComponent: () => import('./inventory/quality-goals/quality-goal-list.component').then(c => c.QualityGoalListComponent),
     canActivate: [authGuard],

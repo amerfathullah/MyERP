@@ -1091,6 +1091,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/requested-items-to-transfer',
+        name: '::Menu:RequestedItemsToTransfer',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-truck-moving',
+        order: 22,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

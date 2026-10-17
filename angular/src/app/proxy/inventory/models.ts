@@ -2408,3 +2408,42 @@ export interface CogsByItemGroupReportDto {
   topItemGroupDebit: number;
 }
 
+export interface RequestedItemsToTransferFilterDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  itemId?: string | null;
+  warehouseId?: string | null;
+  searchText?: string | null;
+}
+
+export interface RequestedItemsToTransferRowDto {
+  materialRequestId: string;
+  requestNumber: string;
+  requestDate: string;
+  requiredByDate?: string | null;
+  requestType: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description?: string | null;
+  uom: string;
+  requestedQty: number;
+  transferredQty: number;
+  qtyToTransfer: number;
+  completionPercent: number;
+  sourceWarehouseId?: string | null;
+  sourceWarehouseName?: string | null;
+  targetWarehouseId?: string | null;
+  targetWarehouseName?: string | null;
+  workOrderId?: string | null;
+  jobCardId?: string | null;
+}
+
+export interface RequestedItemsToTransferReportDto {
+  rows: RequestedItemsToTransferRowDto[];
+  totalRequests: number;
+  totalItems: number;
+  totalQtyToTransfer: number;
+}
+
