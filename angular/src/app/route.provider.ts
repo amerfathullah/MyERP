@@ -1217,6 +1217,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/reserved-stock',
+        name: '::Menu:ReservedStock',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-lock',
+        order: 34,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

@@ -5439,7 +5439,14 @@
     "BatchWiseBalanceDescription": "Historical batch balance with opening, in, out, closing, valuation, and reserved quantities.",
     "InQty": "In Qty",
     "OutQty": "Out Qty",
-    "TotalBalanceValue": "Total Balance Value"
+    "TotalBalanceValue": "Total Balance Value",
+    "Menu:ReservedStock": "Reserved Stock",
+    "ReservedStock": "Reserved Stock",
+    "ReservedStockDescription": "Overview of stock reserved for sales orders, production plans, and work orders.",
+    "NoReservedStockFound": "No stock reservation entries found for the selected criteria.",
+    "VoucherQty": "Voucher Qty",
+    "AvailableQtyToReserve": "Available Qty to Reserve",
+    "TotalTransferredQty": "Total Transferred Qty"
   }
 }
 

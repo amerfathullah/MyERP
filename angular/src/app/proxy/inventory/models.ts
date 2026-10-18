@@ -2819,3 +2819,50 @@ export interface AvailableBatchReportDto {
   expiredBatchesCount: number;
 }
 
+export interface ReservedStockFilterDto {
+  companyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  itemId?: string | null;
+  warehouseId?: string | null;
+  voucherType?: string | null;
+  status?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface ReservedStockRowDto {
+  stockReservationEntryId: string;
+  date: string;
+  warehouseId: string;
+  warehouseName: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  stockUom?: string | null;
+  voucherQty: number;
+  reservedQty: number;
+  deliveredQty: number;
+  transferredQty: number;
+  consumedQty: number;
+  availableQtyToReserve: number;
+  voucherType: string;
+  voucherId: string;
+  fromVoucherType?: string | null;
+  fromVoucherId?: string | null;
+  status: string;
+  batchId?: string | null;
+  batchNo?: string | null;
+}
+
+export interface ReservedStockReportDto {
+  fromDate: string;
+  toDate: string;
+  rows: ReservedStockRowDto[];
+  totalEntries: number;
+  totalReservedQty: number;
+  totalDeliveredQty: number;
+  totalTransferredQty: number;
+  totalConsumedQty: number;
+  totalAvailableQty: number;
+}
+
