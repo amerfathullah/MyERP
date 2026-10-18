@@ -5478,7 +5478,17 @@
     "SerialNoLedgerDescription": "Audit trail and transaction history of serialized stock items.",
     "NoSerialNoLedgerFound": "No serial number ledger entries found for the selected criteria.",
     "InwardCount": "Inward Entries",
-    "OutwardCount": "Outward Entries"
+    "OutwardCount": "Outward Entries",
+    "Menu:StockQtyVsSerialNoCount": "Stock Qty vs Serial No Count",
+    "StockQtyVsSerialNoCount": "Stock Qty vs Serial No Count",
+    "StockQtyVsSerialNoCountDescription": "Compare warehouse stock balance with active serialized units to detect inventory discrepancies.",
+    "NoStockQtyVsSerialNoCountFound": "No stock vs serial discrepancies found for the selected criteria.",
+    "TotalMismatches": "Total Mismatches",
+    "TotalSerialCount": "Total Serial Count",
+    "ShowOnlyDifferences": "Show Only Differences",
+    "SyncSerialNoStatus": "Sync Serial No Status",
+    "SyncSerialNoStatusConfirm": "Are you sure you want to reconcile and update serial number status against stock ledger movements for this warehouse?",
+    "SerialNoStatusSynced": "Serial number status has been successfully synced."
   }
 }
 

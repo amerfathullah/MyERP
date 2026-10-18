@@ -2965,4 +2965,45 @@ export interface SerialNoLedgerReportDto {
   outwardCount: number;
 }
 
+export interface StockQtyVsSerialNoCountFilterDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  itemId?: string | null;
+  showDisabledItems?: boolean;
+  showOnlyDifferences?: boolean;
+  searchTerm?: string | null;
+}
+
+export interface StockQtyVsSerialNoCountRowDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  warehouseId: string;
+  warehouseName: string;
+  serialNoCount: number;
+  stockQty: number;
+  difference: number;
+}
+
+export interface StockQtyVsSerialNoCountReportDto {
+  rows: StockQtyVsSerialNoCountRowDto[];
+  totalItems: number;
+  totalMismatches: number;
+  totalSerialCount: number;
+  totalStockQty: number;
+  totalDifference: number;
+}
+
+export interface SyncSerialNoStatusInputDto {
+  companyId: string;
+  warehouseId: string;
+  itemId?: string | null;
+}
+
+export interface SyncSerialNoStatusResultDto {
+  syncedCount: number;
+  message: string;
+}
+
+
 

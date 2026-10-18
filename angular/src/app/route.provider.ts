@@ -1262,6 +1262,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/stock-qty-vs-serial-no-count',
+        name: '::Menu:StockQtyVsSerialNoCount',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-balance-scale',
+        order: 39,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',
