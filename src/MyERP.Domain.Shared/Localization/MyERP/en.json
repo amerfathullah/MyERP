@@ -5428,7 +5428,14 @@
     "SellingPriceList": "Selling Price List",
     "InStockOnly": "In Stock Only",
     "TotalStockAvailable": "Total Stock Available",
-    "TotalSellingValue": "Total Selling Value"
+    "TotalSellingValue": "Total Selling Value",
+    "Menu:AvailableBatchReport": "Available Batch Report",
+    "AvailableBatchReport": "Available Batch Report",
+    "AvailableBatchReportDescription": "Batches with available balance quantities and expiry status.",
+    "NoAvailableBatchFound": "No available batches found for the selected criteria.",
+    "IncludeExpiredBatches": "Include Expired Batches",
+    "OnThisDate": "On This Date",
+    "TotalBalanceQty": "Total Balance Qty"
   }
 }
 

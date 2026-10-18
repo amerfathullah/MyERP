@@ -1199,6 +1199,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/available-batch',
+        name: '::Menu:AvailableBatchReport',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-boxes-stacked',
+        order: 32,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

@@ -2782,7 +2782,37 @@ export interface ItemPriceStockReportDto {
   totalSellingValue: number;
 }
 
+export interface AvailableBatchFilterDto {
+  companyId?: string | null;
+  toDate?: string | null;
+  itemId?: string | null;
+  warehouseId?: string | null;
+  warehouseType?: WarehouseType | null;
+  batchId?: string | null;
+  includeExpiredBatches?: boolean;
+  searchTerm?: string | null;
+}
 
+export interface AvailableBatchRowDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  stockUom?: string | null;
+  warehouseId: string;
+  warehouseName: string;
+  batchId: string;
+  batchNo: string;
+  expiryDate?: string | null;
+  balanceQty: number;
+  isExpired: boolean;
+  daysToExpiry?: number | null;
+}
 
-
+export interface AvailableBatchReportDto {
+  toDate: string;
+  rows: AvailableBatchRowDto[];
+  totalBatches: number;
+  totalBalanceQty: number;
+  expiredBatchesCount: number;
+}
 
