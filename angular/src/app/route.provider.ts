@@ -3216,6 +3216,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.SalesInvoices',
       },
       {
+        path: '/sales/reports/customer-ledger-summary',
+        name: '::Menu:CustomerLedgerSummary',
+        iconClass: 'fas fa-book-open',
+        order: 22.9928,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesInvoices',
+      },
+      {
         path: '/sales/reports/territory-wise-sales',
         name: '::Menu:TerritoryWiseSales',
         iconClass: 'fas fa-map-marked-alt',

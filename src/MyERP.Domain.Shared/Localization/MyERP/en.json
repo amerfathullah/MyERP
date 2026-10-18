@@ -5605,7 +5605,15 @@
     "Menu:PurchaseInvoiceTrends": "Purchase Invoice Trends",
     "PurchaseInvoiceTrends": "Purchase Invoice Trends",
     "PurchaseInvoiceTrendsDescription": "Track purchase invoice billing amounts, quantities, and spending trends over periodic intervals.",
-    "NoPurchaseInvoiceTrendsFound": "No purchase invoice trends data found for the selected criteria."
+    "NoPurchaseInvoiceTrendsFound": "No purchase invoice trends data found for the selected criteria.",
+    "Menu:CustomerLedgerSummary": "Customer Ledger Summary",
+    "CustomerLedgerSummary": "Customer Ledger Summary",
+    "CustomerLedgerSummaryDescription": "Comprehensive statement of customer balances, invoiced amounts, payments received, credit notes, and adjustments.",
+    "NoCustomerLedgerSummaryFound": "No customer ledger transactions found for the selected period.",
+    "InvoicedAmount": "Invoiced Amount",
+    "ReturnAmount": "Return Amount",
+    "AdjustmentAmount": "Adjustment Amount",
+    "DrCr": "Dr / Cr"
   }
 }
 

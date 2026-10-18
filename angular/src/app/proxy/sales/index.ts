@@ -67,5 +67,4 @@ export * from './delayed-order-report.service';
 export * from './delivery-note-trends.service';
 export * from './delivered-items-to-be-billed.service';
 export * from './sales-invoice-trends.service';
-
-
+export * from './customer-ledger-summary.service';

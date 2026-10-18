@@ -2893,6 +2893,35 @@ export interface SalesInvoiceTrendsReportDto {
   chart: SalesInvoiceTrendsChartDto;
 }
 
+export interface CustomerLedgerSummaryRequestDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  customerId?: string | null;
+  customerGroupId?: string | null;
+  territoryId?: string | null;
+}
 
+export interface CustomerLedgerSummaryRowDto {
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  customerGroupName?: string | null;
+  territoryName?: string | null;
+  openingBalance: number;
+  invoicedAmount: number;
+  paidAmount: number;
+  returnAmount: number;
+  adjustmentAmount: number;
+  closingBalance: number;
+  drOrCr: string;
+  currency: string;
+}
 
-
+export interface CustomerLedgerSummaryReportDto {
+  companyCurrency: string;
+  fromDate: string;
+  toDate: string;
+  rows: CustomerLedgerSummaryRowDto[];
+  totalRow: CustomerLedgerSummaryRowDto;
+}

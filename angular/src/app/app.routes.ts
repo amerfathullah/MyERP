@@ -718,6 +718,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.SalesInvoices' },
   },
   {
+    path: 'sales/reports/customer-ledger-summary',
+    loadComponent: () => import('./sales/reports/customer-ledger-summary/customer-ledger-summary.component').then(c => c.CustomerLedgerSummaryComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.SalesInvoices' },
+  },
+  {
     path: 'sales/reports/territory-wise-sales',
     loadComponent: () => import('./sales/reports/territory-wise-sales/territory-wise-sales.component').then(c => c.TerritoryWiseSalesComponent),
     canActivate: [authGuard, permissionGuard],
