@@ -5495,7 +5495,28 @@
     "TotalReservedQty": "Total Reserved Qty",
     "TotalProjectedQty": "Total Projected Qty",
     "TotalShortageQty": "Total Shortage Qty",
-    "ShowOnlyShortage": "Show Only Shortages"
+    "ShowOnlyShortage": "Show Only Shortages",
+    "Menu:StockLedgerInvariantCheck": "Stock Ledger Invariant Check",
+    "StockLedgerInvariantCheck": "Stock Ledger Invariant Check",
+    "StockLedgerInvariantCheckDescription": "Validates mathematical consistency of stock balances, valuation amounts, and FIFO queues across ledger entries.",
+    "NoStockLedgerInvariantEntriesFound": "No stock ledger entries found for the selected item and warehouse.",
+    "Menu:StockLedgerVariance": "Stock Ledger Variance",
+    "StockLedgerVariance": "Stock Ledger Variance",
+    "StockLedgerVarianceDescription": "Overview of invariant violations and valuation discrepancies across warehouses and items.",
+    "NoStockLedgerVarianceFound": "No stock ledger variance records found.",
+    "ShowIncorrectEntries": "Show Incorrect Entries",
+    "ShowOnlyViolations": "Show Only Violations",
+    "ExpectedBalanceQty": "Expected Balance Qty",
+    "QtyDiscrepancy": "Qty Discrepancy",
+    "ExpectedBalanceValue": "Expected Balance Value",
+    "ValueDiscrepancy": "Value Discrepancy",
+    "FifoQueueQty": "FIFO Queue Qty",
+    "FifoQtyDiscrepancy": "FIFO Qty Discrepancy",
+    "FifoStockValue": "FIFO Stock Value",
+    "FifoValueDiscrepancy": "FIFO Value Discrepancy",
+    "CreateRepostingEntry": "Create Reposting Entry",
+    "CreateRepostingEntryConfirm": "A Reposting Entry will recalculate stock valuation and repost GL entries from this transaction onward. Are you sure you want to proceed?",
+    "RepostingEntryCreated": "Reposting Entry has been created successfully."
   }
 }
 

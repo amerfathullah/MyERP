@@ -1280,6 +1280,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/stock-ledger-invariant-check',
+        name: '::Menu:StockLedgerInvariantCheck',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-stethoscope',
+        order: 41,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

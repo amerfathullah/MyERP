@@ -3049,6 +3049,101 @@ export interface StockProjectedQtyReportDto {
   totalShortageQty: number;
 }
 
+export interface StockLedgerInvariantCheckFilterDto {
+  itemId: string;
+  warehouseId: string;
+  showIncorrectEntries?: boolean;
+}
+
+export interface StockLedgerInvariantRowDto {
+  sleId: string;
+  postingDateTime: string;
+  creationTime: string;
+  voucherType?: string | null;
+  voucherId?: string | null;
+  voucherNo?: string | null;
+  batchId?: string | null;
+  batchNo?: string | null;
+  serialAndBatchBundleId?: string | null;
+  useBatchwiseValuation: boolean;
+  quantityChange: number;
+  incomingRate: number;
+  consumptionRate: number;
+  qtyAfterTransaction: number;
+  expectedQtyAfterTransaction: number;
+  differenceInQty: number;
+  stockQueue?: string | null;
+  fifoQueueQty?: number | null;
+  fifoQtyDiff?: number | null;
+  stockValue: number;
+  fifoStockValue?: number | null;
+  fifoValueDiff?: number | null;
+  stockValueDifference: number;
+  stockValueFromDiff: number;
+  diffValueDiff: number;
+  fifoStockDiff?: number | null;
+  fifoDifferenceDiff?: number | null;
+  valuationRate: number;
+  fifoValuationRate?: number | null;
+  fifoValuationDiff?: number | null;
+  balanceValueByQty?: number | null;
+  valuationDiff?: number | null;
+  isInvariantViolated: boolean;
+}
+
+export interface StockLedgerInvariantCheckReportDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  stockUom?: string | null;
+  valuationMethod: string;
+  warehouseId: string;
+  warehouseName: string;
+  companyId: string;
+  totalEntries: number;
+  violationCount: number;
+  firstViolationIndex?: number | null;
+  rows: StockLedgerInvariantRowDto[];
+}
+
+export interface StockLedgerVarianceFilterDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  itemId?: string | null;
+  showOnlyViolations?: boolean;
+}
+
+export interface StockLedgerVarianceRowDto {
+  sleId: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  warehouseId: string;
+  warehouseName: string;
+  valuationMethod: string;
+  postingDateTime: string;
+  creationTime: string;
+  voucherType?: string | null;
+  voucherId?: string | null;
+  voucherNo?: string | null;
+  quantityChange: number;
+  qtyAfterTransaction: number;
+  expectedQtyAfterTransaction: number;
+  differenceInQty: number;
+  stockValue: number;
+  stockValueFromDiff: number;
+  diffValueDiff: number;
+  valuationRate: number;
+  balanceValueByQty?: number | null;
+  valuationDiff?: number | null;
+  hasViolation: boolean;
+}
+
+export interface StockLedgerVarianceReportDto {
+  totalViolations: number;
+  rows: StockLedgerVarianceRowDto[];
+}
+
 
 
 

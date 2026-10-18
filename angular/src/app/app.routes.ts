@@ -3882,6 +3882,18 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/reports/stock-ledger-invariant-check',
+    loadComponent: () => import('./inventory/reports/stock-ledger-invariant-check/stock-ledger-invariant-check.component').then(c => c.StockLedgerInvariantCheckComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
+    path: 'inventory/reports/stock-ledger-variance',
+    loadComponent: () => import('./inventory/reports/stock-ledger-invariant-check/stock-ledger-invariant-check.component').then(c => c.StockLedgerInvariantCheckComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/quality-goals',
     loadComponent: () => import('./inventory/quality-goals/quality-goal-list.component').then(c => c.QualityGoalListComponent),
     canActivate: [authGuard],
