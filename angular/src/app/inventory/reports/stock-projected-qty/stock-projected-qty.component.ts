@@ -1,205 +1,353 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, signal, OnInit, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
-import { StockBalanceService } from '../../../proxy/inventory/stock-balance.service';
+import { StockProjectedQtyService } from '../../../proxy/inventory/stock-projected-qty.service';
+import type {
+  StockProjectedQtyReportDto,
+  StockProjectedQtyRowDto,
+  WarehouseDto,
+  ItemDto,
+} from '../../../proxy/inventory/models';
+import { ItemService } from '../../../proxy/inventory/item.service';
 import { WarehouseService } from '../../../proxy/inventory/warehouse.service';
-import { PaginationComponent, PageEvent } from '../../../shared/components/pagination/pagination.component';
+import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 
-interface ProjectedQtyRow {
-  itemId: string;
-  itemCode: string;
-  itemName: string;
-  warehouseName: string;
-  actualQty: number;
-  plannedQty: number;
-  orderedQty: number;
-  reservedQty: number;
-  projectedQty: number;
-  reorderLevel: number;
-  reorderQty: number;
-  shortageQty: number;
-}
-
 @Component({
-  selector: 'app-stock-projected-qty',
   standalone: true,
-  imports: [CommonModule, FormsModule, LocalizationPipe, PaginationComponent],
+  imports: [CommonModule, FormsModule, LocalizationPipe],
+  selector: 'app-stock-projected-qty',
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-graph-up-arrow me-2"></i>{{ 'MyERP::ProjectedStockQty' | abpLocalization }}</h5>
-        <div class="btn-group btn-group-sm">
-          <button class="btn" [class.btn-primary]="!showShortageOnly" [class.btn-outline-primary]="showShortageOnly"
-            (click)="showShortageOnly = false; filterData()">{{ 'MyERP::AllItems' | abpLocalization }}</button>
-          <button class="btn" [class.btn-danger]="showShortageOnly" [class.btn-outline-danger]="!showShortageOnly"
-            (click)="showShortageOnly = true; filterData()">
-            <i class="bi bi-exclamation-triangle me-1"></i>{{ 'MyERP::ShortageOnly' | abpLocalization }} ({{ shortageCount }})
-          </button>
+        <div>
+          <h5 class="mb-0">
+            <i class="fa fa-chart-line me-2 text-primary"></i>{{ '::ProjectedStockQty' | abpLocalization }}
+          </h5>
+          <small class="text-muted">{{ '::StockProjectedQtyDescription' | abpLocalization }}</small>
+        </div>
+        <div class="d-flex gap-2">
+          @if (filteredRows().length > 0) {
+            <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
+              <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+            </button>
+          }
         </div>
       </div>
+
       <div class="card-body">
         <!-- Filters -->
-        <div class="row mb-3 g-2">
-          <div class="col-md-3">
-            <select class="form-select form-select-sm" [(ngModel)]="filterWarehouse" (change)="loadData()">
-              <option value="">{{ 'MyERP::AllWarehouses' | abpLocalization }}</option>
+        <div class="row g-2 mb-3 align-items-end">
+          <div class="col-md-3 col-sm-6">
+            <label class="form-label small fw-semibold">{{ '::Warehouse' | abpLocalization }}</label>
+            <select class="form-select form-select-sm" [(ngModel)]="selectedWarehouseId" (change)="loadData()">
+              <option value="">{{ '::AllWarehouses' | abpLocalization }}</option>
               @for (w of warehouses(); track w.id) {
                 <option [value]="w.id">{{ w.name }}</option>
               }
             </select>
           </div>
-          <div class="col-md-3">
-            <input type="text" class="form-control form-control-sm" [(ngModel)]="searchTerm"
-              [placeholder]="'MyERP::Placeholder:SearchItem' | abpLocalization" (keyup.enter)="filterData()" />
+          <div class="col-md-3 col-sm-6">
+            <label class="form-label small fw-semibold">{{ '::Item' | abpLocalization }}</label>
+            <select class="form-select form-select-sm" [(ngModel)]="selectedItemId" (change)="loadData()">
+              <option value="">{{ '::AllItems' | abpLocalization }}</option>
+              @for (item of items(); track item.id) {
+                <option [value]="item.id">{{ item.itemCode }} - {{ item.itemName }}</option>
+              }
+            </select>
           </div>
-          <div class="col-md-2">
-            <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
-              <i class="bi bi-download me-1"></i>Export
+          <div class="col-md-3 col-sm-6">
+            <label class="form-label small fw-semibold">{{ '::Search' | abpLocalization }}</label>
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              [placeholder]="'::Search' | abpLocalization"
+              [(ngModel)]="searchTerm"
+            />
+          </div>
+          <div class="col-md-3 col-sm-6">
+            <button class="btn btn-primary btn-sm w-100" (click)="loadData()" [disabled]="isLoading()">
+              <i class="fa fa-sync me-1" [class.fa-spin]="isLoading()"></i>{{ '::Generate' | abpLocalization }}
             </button>
           </div>
         </div>
 
-        @if (loading()) {
-          <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+        <!-- Filter Checkbox -->
+        <div class="row g-2 mb-4 align-items-center">
+          <div class="col-auto">
+            <div class="form-check form-check-inline">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                id="showOnlyShortage"
+                [(ngModel)]="showOnlyShortage"
+                (change)="loadData()"
+              />
+              <label class="form-check-label small" for="showOnlyShortage">
+                {{ '::ShowOnlyShortage' | abpLocalization }}
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary KPI Cards -->
+        @if (data()) {
+          <div class="row g-3 mb-4">
+            <div class="col-md-3 col-sm-6">
+              <div class="card bg-light border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                  <div class="text-muted small text-uppercase fw-semibold">{{ '::TotalItems' | abpLocalization }}</div>
+                  <div class="h3 mb-0 text-dark mt-1">
+                    {{ data()!.totalItems }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+              <div class="card bg-light border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                  <div class="text-muted small text-uppercase fw-semibold">{{ '::ShortageQty' | abpLocalization }}</div>
+                  <div class="h3 mb-0 mt-1" [ngClass]="data()!.shortageCount > 0 ? 'text-danger' : 'text-success'">
+                    {{ data()!.shortageCount }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+              <div class="card bg-light border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                  <div class="text-muted small text-uppercase fw-semibold">{{ '::TotalActualQty' | abpLocalization }}</div>
+                  <div class="h3 mb-0 text-primary mt-1">
+                    {{ data()!.totalActualQty | number: '1.2-2' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+              <div class="card bg-light border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                  <div class="text-muted small text-uppercase fw-semibold">{{ '::TotalProjectedQty' | abpLocalization }}</div>
+                  <div class="h3 mb-0 text-info mt-1">
+                    {{ data()!.totalProjectedQty | number: '1.2-2' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Table -->
+        @if (isLoading()) {
+          <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">{{ '::Loading' | abpLocalization }}</span>
+            </div>
+          </div>
+        } @else if (filteredRows().length === 0) {
+          <div class="text-center py-5 text-muted">
+            <i class="fa fa-info-circle fa-3x mb-3 text-secondary opacity-50"></i>
+            <p class="mb-0">{{ '::NoStockProjectedQtyFound' | abpLocalization }}</p>
+          </div>
         } @else {
           <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle">
+            <table class="table table-sm table-hover table-striped align-middle border">
               <thead class="table-light">
                 <tr>
-                  <th>{{ 'MyERP::Item' | abpLocalization }}</th>
-                  <th>{{ 'MyERP::Warehouse' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'MyERP::ActualQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'MyERP::PlannedQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'MyERP::OrderedQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'MyERP::ReservedQty' | abpLocalization }}</th>
-                  <th class="text-end fw-bold">{{ 'MyERP::ProjectedQty' | abpLocalization }}</th>
-                  <th class="text-end">{{ 'MyERP::ReorderLevel' | abpLocalization }}</th>
-                  <th class="text-center">{{ 'MyERP::Status' | abpLocalization }}</th>
+                  <th>#</th>
+                  <th>{{ '::ItemCode' | abpLocalization }}</th>
+                  <th>{{ '::ItemName' | abpLocalization }}</th>
+                  <th>{{ '::Warehouse' | abpLocalization }}</th>
+                  <th>{{ '::Uom' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ActualQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::PlannedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::OrderedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::TotalReservedQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ProjectedStockQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ReorderLevel' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ShortageQty' | abpLocalization }}</th>
+                  <th class="text-center">{{ '::Status' | abpLocalization }}</th>
                 </tr>
               </thead>
               <tbody>
-                @for (row of filteredRows(); track row.itemId + row.warehouseName) {
-                  <tr [class.table-danger]="row.shortageQty > 0" [class.table-warning]="row.projectedQty > 0 && row.projectedQty <= row.reorderLevel">
-                    <td>
-                      <div class="fw-medium small">{{ row.itemCode }}</div>
-                      <div class="text-muted" style="font-size: 0.75rem;">{{ row.itemName }}</div>
+                @for (row of filteredRows(); track row.itemId + '-' + row.warehouseId; let idx = $index) {
+                  <tr>
+                    <td class="text-muted small">{{ idx + 1 }}</td>
+                    <td class="fw-medium">{{ row.itemCode }}</td>
+                    <td>{{ row.itemName }}</td>
+                    <td>{{ row.warehouseName }}</td>
+                    <td class="small text-muted">{{ row.uom }}</td>
+                    <td class="text-end">{{ row.actualQty | number: '1.2-2' }}</td>
+                    <td class="text-end text-muted">{{ row.plannedQty | number: '1.2-2' }}</td>
+                    <td class="text-end text-muted">{{ row.orderedQty | number: '1.2-2' }}</td>
+                    <td class="text-end text-muted">{{ row.totalReservedQty | number: '1.2-2' }}</td>
+                    <td class="text-end fw-bold">
+                      <span [ngClass]="row.projectedQty < 0 ? 'text-danger' : 'text-dark'">
+                        {{ row.projectedQty | number: '1.2-2' }}
+                      </span>
                     </td>
-                    <td class="small">{{ row.warehouseName }}</td>
-                    <td class="text-end font-monospace">{{ row.actualQty | number:'1.2-2' }}</td>
-                    <td class="text-end font-monospace text-info">{{ row.plannedQty | number:'1.2-2' }}</td>
-                    <td class="text-end font-monospace text-success">{{ row.orderedQty | number:'1.2-2' }}</td>
-                    <td class="text-end font-monospace text-warning">{{ row.reservedQty | number:'1.2-2' }}</td>
-                    <td class="text-end font-monospace fw-bold" [class.text-danger]="row.projectedQty < 0">
-                      {{ row.projectedQty | number:'1.2-2' }}
-                    </td>
-                    <td class="text-end font-monospace">{{ row.reorderLevel | number:'1.2-2' }}</td>
-                    <td class="text-center">
-                      @if (row.shortageQty > 0) {
-                        <span class="badge bg-danger">{{ 'MyERP::Shortage' | abpLocalization }}</span>
-                      } @else if (row.projectedQty <= row.reorderLevel && row.reorderLevel > 0) {
-                        <span class="badge bg-warning">{{ 'MyERP::Reorder' | abpLocalization }}</span>
+                    <td class="text-end text-muted">{{ row.reorderLevel | number: '1.2-2' }}</td>
+                    <td class="text-end">
+                      @if (row.hasShortage) {
+                        <span class="badge bg-danger text-white">
+                          -{{ row.shortageQty | number: '1.2-2' }}
+                        </span>
                       } @else {
-                        <span class="badge bg-success">{{ 'MyERP::OK' | abpLocalization }}</span>
+                        <span class="text-muted">-</span>
+                      }
+                    </td>
+                    <td class="text-center">
+                      @if (row.hasShortage) {
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                          <i class="fa fa-exclamation-circle me-1"></i>Shortage
+                        </span>
+                      } @else {
+                        <span class="badge bg-success-subtle text-success border border-success-subtle">
+                          <i class="fa fa-check me-1"></i>OK
+                        </span>
                       }
                     </td>
                   </tr>
-                } @empty {
-                  <tr><td colspan="9" class="text-center text-muted py-4">{{ 'MyERP::NoRecordsFound' | abpLocalization }}</td></tr>
                 }
               </tbody>
             </table>
           </div>
-          <app-pagination [totalCount]="filteredRows().length" [pageSize]="pageSize" [currentPage]="currentPage"
-            (pageChange)="onPageChange($event)" />
         }
       </div>
     </div>
   `,
 })
 export class StockProjectedQtyComponent implements OnInit {
-  private stockService = inject(StockBalanceService);
+  private service = inject(StockProjectedQtyService);
+  private itemService = inject(ItemService);
   private warehouseService = inject(WarehouseService);
+  private companyContext = inject(CompanyContextService);
 
-  allRows = signal<ProjectedQtyRow[]>([]);
-  filteredRows = signal<ProjectedQtyRow[]>([]);
-  warehouses = signal<{ id: string; name: string }[]>([]);
-  loading = signal(true);
+  items = signal<ItemDto[]>([]);
+  warehouses = signal<WarehouseDto[]>([]);
+  data = signal<StockProjectedQtyReportDto | null>(null);
+  isLoading = signal(false);
 
-  filterWarehouse = '';
+  selectedWarehouseId = '';
+  selectedItemId = '';
+  showOnlyShortage = false;
   searchTerm = '';
-  showShortageOnly = false;
-  shortageCount = 0;
-  currentPage = 0;
-  pageSize = 50;
 
-  ngOnInit() {
-    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' }).subscribe(
-      res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)
-        .map((w: any) => ({ id: w.id, name: w.warehouseName ?? w.name ?? w.id }))));
+  filteredRows = computed<StockProjectedQtyRowDto[]>(() => {
+    const report = this.data();
+    if (!report || !report.rows) return [];
+    const term = this.searchTerm.trim().toLowerCase();
+    if (!term) return report.rows;
+
+    return report.rows.filter(
+      r =>
+        r.itemCode.toLowerCase().includes(term) ||
+        r.itemName.toLowerCase().includes(term) ||
+        r.warehouseName.toLowerCase().includes(term) ||
+        (r.brand && r.brand.toLowerCase().includes(term)) ||
+        (r.itemGroup && r.itemGroup.toLowerCase().includes(term))
+    );
+  });
+
+  ngOnInit(): void {
+    this.loadWarehouses();
+    this.loadItems();
     this.loadData();
   }
 
-  loadData() {
-    this.loading.set(true);
-    this.stockService.getStockBalance({
-      skipCount: 0, maxResultCount: 2000,
-      warehouseId: this.filterWarehouse || undefined,
-    } as any).subscribe({
-      next: (res) => {
-        const items = (res.items ?? []).map((b: any) => {
-          const actual = b.actualQty ?? b.qty ?? 0;
-          const planned = b.plannedQty ?? 0;
-          const ordered = b.orderedQty ?? 0;
-          const reserved = b.reservedQty ?? 0;
-          const projected = b.projectedQty ?? (actual + ordered + planned - reserved);
-          const reorderLevel = b.reorderLevel ?? 0;
-          const shortage = Math.max(0, reorderLevel - projected);
-
-          return {
-            itemId: b.itemId ?? '',
-            itemCode: b.itemCode ?? '',
-            itemName: b.itemName ?? '',
-            warehouseName: b.warehouseName ?? '',
-            actualQty: actual,
-            plannedQty: planned,
-            orderedQty: ordered,
-            reservedQty: reserved,
-            projectedQty: projected,
-            reorderLevel,
-            reorderQty: b.reorderQty ?? 0,
-            shortageQty: shortage,
-          } as ProjectedQtyRow;
-        });
-
-        this.allRows.set(items);
-        this.shortageCount = items.filter(r => r.shortageQty > 0).length;
-        this.filterData();
-        this.loading.set(false);
+  private loadWarehouses(): void {
+    const companyId = this.companyContext.selectedCompanyId();
+    this.warehouseService.getList({ maxResultCount: 200 }).subscribe({
+      next: res => {
+        const items = res.items || [];
+        this.warehouses.set(
+          companyId ? items.filter(w => w.companyId === companyId) : items
+        );
       },
-      error: () => this.loading.set(false),
+      error: () => this.warehouses.set([]),
     });
   }
 
-  filterData() {
-    let rows = this.allRows();
-    if (this.showShortageOnly) {
-      rows = rows.filter(r => r.shortageQty > 0);
-    }
-    if (this.searchTerm) {
-      const term = this.searchTerm.toLowerCase();
-      rows = rows.filter(r => r.itemCode.toLowerCase().includes(term) || r.itemName.toLowerCase().includes(term));
-    }
-    this.filteredRows.set(rows);
+  private loadItems(): void {
+    const companyId = this.companyContext.selectedCompanyId();
+    this.itemService.getList({ maxResultCount: 500 }).subscribe({
+      next: res => {
+        const items = res.items || [];
+        this.items.set(
+          items.filter(i => (!companyId || i.companyId === companyId) && i.maintainStock)
+        );
+      },
+      error: () => this.items.set([]),
+    });
   }
 
-  onPageChange(event: PageEvent) {
-    this.currentPage = event.pageIndex;
+  loadData(): void {
+    this.isLoading.set(true);
+    const companyId = this.companyContext.selectedCompanyId();
+
+    this.service
+      .getReport({
+        companyId: companyId || undefined,
+        warehouseId: this.selectedWarehouseId || undefined,
+        itemId: this.selectedItemId || undefined,
+        showOnlyShortage: this.showOnlyShortage,
+        searchTerm: this.searchTerm.trim() || undefined,
+      })
+      .subscribe({
+        next: result => {
+          this.data.set(result);
+          this.isLoading.set(false);
+        },
+        error: () => {
+          this.data.set(null);
+          this.isLoading.set(false);
+        },
+      });
   }
 
-  exportCsv() {
-    const columns = ['itemCode', 'itemName', 'warehouseName', 'actualQty', 'plannedQty', 'orderedQty', 'reservedQty', 'projectedQty', 'reorderLevel', 'shortageQty'];
-    exportToCsv('projected-stock-qty', this.filteredRows(), columns);
+  exportCsv(): void {
+    const rows = this.filteredRows();
+    if (rows.length === 0) return;
+
+    const exportRows = rows.map(r => ({
+      ItemCode: r.itemCode,
+      ItemName: r.itemName,
+      ItemGroup: r.itemGroup || '',
+      Brand: r.brand || '',
+      Warehouse: r.warehouseName,
+      Uom: r.uom,
+      ActualQty: r.actualQty,
+      PlannedQty: r.plannedQty,
+      IndentedQty: r.indentedQty,
+      OrderedQty: r.orderedQty,
+      TotalReservedQty: r.totalReservedQty,
+      ProjectedQty: r.projectedQty,
+      ReorderLevel: r.reorderLevel,
+      ReorderQty: r.reorderQty,
+      ShortageQty: r.shortageQty,
+      Status: r.hasShortage ? 'Shortage' : 'OK',
+    }));
+
+    const columns = [
+      'ItemCode',
+      'ItemName',
+      'ItemGroup',
+      'Brand',
+      'Warehouse',
+      'Uom',
+      'ActualQty',
+      'PlannedQty',
+      'IndentedQty',
+      'OrderedQty',
+      'TotalReservedQty',
+      'ProjectedQty',
+      'ReorderLevel',
+      'ReorderQty',
+      'ShortageQty',
+      'Status',
+    ];
+
+    const filename = `Stock_Projected_Qty_${new Date().toISOString().slice(0, 10)}.csv`;
+    exportToCsv(filename, exportRows, columns);
   }
 }

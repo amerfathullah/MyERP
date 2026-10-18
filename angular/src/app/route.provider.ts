@@ -1271,6 +1271,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/stock-projected-qty',
+        name: '::Menu:StockProjectedQty',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-chart-line',
+        order: 40,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

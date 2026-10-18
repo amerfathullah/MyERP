@@ -5488,7 +5488,14 @@
     "ShowOnlyDifferences": "Show Only Differences",
     "SyncSerialNoStatus": "Sync Serial No Status",
     "SyncSerialNoStatusConfirm": "Are you sure you want to reconcile and update serial number status against stock ledger movements for this warehouse?",
-    "SerialNoStatusSynced": "Serial number status has been successfully synced."
+    "SerialNoStatusSynced": "Serial number status has been successfully synced.",
+    "StockProjectedQtyDescription": "Overview of actual, planned, ordered, and reserved stock with reorder shortage analysis.",
+    "NoStockProjectedQtyFound": "No stock projection records found for the selected criteria.",
+    "IndentedQty": "Indented Qty",
+    "TotalReservedQty": "Total Reserved Qty",
+    "TotalProjectedQty": "Total Projected Qty",
+    "TotalShortageQty": "Total Shortage Qty",
+    "ShowOnlyShortage": "Show Only Shortages"
   }
 }
 

@@ -3005,5 +3005,50 @@ export interface SyncSerialNoStatusResultDto {
   message: string;
 }
 
+export interface StockProjectedQtyFilterDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  itemId?: string | null;
+  itemGroupId?: string | null;
+  brand?: string | null;
+  showOnlyShortage?: boolean;
+  searchTerm?: string | null;
+}
+
+export interface StockProjectedQtyRowDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  itemGroup?: string | null;
+  brand?: string | null;
+  uom: string;
+  warehouseId: string;
+  warehouseName: string;
+  actualQty: number;
+  plannedQty: number;
+  indentedQty: number;
+  orderedQty: number;
+  reservedQty: number;
+  reservedQtyForProduction: number;
+  reservedQtyForSubContract: number;
+  reservedQtyForProductionPlan: number;
+  totalReservedQty: number;
+  projectedQty: number;
+  reorderLevel: number;
+  reorderQty: number;
+  shortageQty: number;
+  hasShortage: boolean;
+}
+
+export interface StockProjectedQtyReportDto {
+  rows: StockProjectedQtyRowDto[];
+  totalItems: number;
+  shortageCount: number;
+  totalActualQty: number;
+  totalProjectedQty: number;
+  totalShortageQty: number;
+}
+
+
 
 
