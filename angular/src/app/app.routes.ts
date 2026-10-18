@@ -706,6 +706,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.DeliveryNotes' },
   },
   {
+    path: 'sales/reports/delivered-items-to-be-billed',
+    loadComponent: () => import('./sales/reports/delivered-items-to-be-billed/delivered-items-to-be-billed.component').then(c => c.DeliveredItemsToBeBilledComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.DeliveryNotes' },
+  },
+  {
     path: 'sales/reports/territory-wise-sales',
     loadComponent: () => import('./sales/reports/territory-wise-sales/territory-wise-sales.component').then(c => c.TerritoryWiseSalesComponent),
     canActivate: [authGuard, permissionGuard],

@@ -2805,4 +2805,46 @@ export interface DeliveryNoteTrendsReportDto {
   chart: DeliveryNoteTrendsChartDto;
 }
 
+export interface GetDeliveredItemsToBeBilledInput {
+  companyId: string;
+  postingDate?: string | null;
+  deliveryNoteId?: string | null;
+  customerId?: string | null;
+  itemId?: string | null;
+}
+
+export interface DeliveredItemToBeBilledRowDto {
+  deliveryNoteId: string;
+  deliveryNumber: string;
+  postingDate: string;
+  customerId: string;
+  customerName: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description: string;
+  deliveredQty: number;
+  billedQty: number;
+  returnedQty: number;
+  pendingQty: number;
+  rate: number;
+  amount: number;
+  billedAmount: number;
+  returnedAmount: number;
+  pendingAmount: number;
+  projectId?: string | null;
+  projectName?: string | null;
+  currency: string;
+}
+
+export interface DeliveredItemsToBeBilledReportDto {
+  rows: DeliveredItemToBeBilledRowDto[];
+  totalAmount: number;
+  totalBilledAmount: number;
+  totalReturnedAmount: number;
+  totalPendingAmount: number;
+  currency: string;
+}
+
+
 

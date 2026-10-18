@@ -5587,7 +5587,13 @@
     "NoForecastingDataFound": "No demand records found for the selected criteria and time range.",
     "SmoothingConstant": "Smoothing Constant (α)",
     "HistoricalDemand": "Historical Demand",
-    "ForecastDemand": "Forecast Demand"
+    "ForecastDemand": "Forecast Demand",
+    "Menu:DeliveredItemsToBeBilled": "Delivered Items to be Billed",
+    "DeliveredItemsToBeBilled": "Delivered Items to be Billed",
+    "DeliveredItemsToBeBilledDescription": "Track delivered stock items pending sales invoice creation, with billed and returned amount reconciliation.",
+    "NoDeliveredItemsToBeBilledFound": "No unbilled delivered items found for the selected criteria.",
+    "ReturnedAmount": "Returned Amount",
+    "PendingAmount": "Pending Amount"
   }
 }
 

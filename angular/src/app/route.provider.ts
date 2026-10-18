@@ -3180,6 +3180,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.DeliveryNotes',
       },
       {
+        path: '/sales/reports/delivered-items-to-be-billed',
+        name: '::Menu:DeliveredItemsToBeBilled',
+        iconClass: 'fas fa-file-invoice-dollar',
+        order: 22.9926,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.DeliveryNotes',
+      },
+      {
         path: '/sales/reports/territory-wise-sales',
         name: '::Menu:TerritoryWiseSales',
         iconClass: 'fas fa-map-marked-alt',
