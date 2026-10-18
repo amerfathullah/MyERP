@@ -3936,6 +3936,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.LandedCostVouchers' },
   },
   {
+    path: 'inventory/reports/serial-and-batch-wise-stock-balance',
+    loadComponent: () => import('./inventory/reports/serial-and-batch-wise-stock-balance/serial-and-batch-wise-stock-balance.component').then(c => c.SerialAndBatchWiseStockBalanceComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/quality-goals',
     loadComponent: () => import('./inventory/quality-goals/quality-goal-list.component').then(c => c.QualityGoalListComponent),
     canActivate: [authGuard],

@@ -1343,6 +1343,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.LandedCostVouchers',
       },
       {
+        path: '/inventory/reports/serial-and-batch-wise-stock-balance',
+        name: '::Menu:SerialAndBatchWiseStockBalance',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-boxes-stacked',
+        order: 48,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

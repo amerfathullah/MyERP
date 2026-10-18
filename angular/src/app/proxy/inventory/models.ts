@@ -3426,6 +3426,47 @@ export interface LandedCostReportDto {
   rows: LandedCostReportRowDto[];
 }
 
+export interface SerialAndBatchWiseStockBalanceFilterDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  itemId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  includeZeroStockItems?: boolean;
+  searchTerm?: string | null;
+}
+
+export interface SerialAndBatchWiseStockBalanceRowDto {
+  rowId: string;
+  indent: number;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  warehouseId: string;
+  warehouseName: string;
+  stockUom: string;
+  batchId?: string | null;
+  batchNo?: string | null;
+  serialNos?: string | null;
+  openingQty: number;
+  openingValue: number;
+  inQty: number;
+  inValue: number;
+  outQty: number;
+  outValue: number;
+  balanceQty: number;
+  balanceValue: number;
+  valuationRate: number;
+}
+
+export interface SerialAndBatchWiseStockBalanceReportDto {
+  totalItemsCount: number;
+  totalBatchesCount: number;
+  totalBalanceQty: number;
+  totalBalanceValue: number;
+  rows: SerialAndBatchWiseStockBalanceRowDto[];
+}
+
 
 
 

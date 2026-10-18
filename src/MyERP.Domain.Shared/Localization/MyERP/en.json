@@ -5562,7 +5562,11 @@
     "NoLandedCostRecordsFound": "No landed cost voucher records found for the selected criteria.",
     "AllocatedCharges": "Allocated Charges",
     "ReceiptDocumentType": "Receipt Document Type",
-    "ReceiptDocumentNo": "Receipt Document No"
+    "ReceiptDocumentNo": "Receipt Document No",
+    "Menu:SerialAndBatchWiseStockBalance": "Serial and Batch-Wise Stock Balance",
+    "SerialAndBatchWiseStockBalance": "Serial and Batch-Wise Stock Balance",
+    "SerialAndBatchWiseStockBalanceDescription": "Hierarchical stock balance showing inventory balances, batch breakdowns, and in-stock serial numbers.",
+    "NoSerialBatchStockBalanceRecordsFound": "No stock balance records found for the selected criteria."
   }
 }
 
