@@ -5570,7 +5570,17 @@
     "Menu:BatchWiseBalanceHistory": "Batch-Wise Balance History",
     "BatchWiseBalanceHistory": "Batch-Wise Balance History",
     "BatchWiseBalanceHistoryDescription": "Historical balances, movements, valuation, and current stock reservations for each batch across warehouses.",
-    "NoBatchWiseBalanceRecordsFound": "No batch balance history records found for the selected criteria."
+    "NoBatchWiseBalanceRecordsFound": "No batch balance history records found for the selected criteria.",
+    "Menu:ProductionPlanningReport": "Production Planning Report",
+    "ProductionPlanningReport": "Production Planning Report",
+    "ProductionPlanningReportDescription": "Raw material availability, stock allotment, and purchase order arrival tracking for open manufacturing orders.",
+    "NoProductionPlanningRecordsFound": "No production planning records found for the selected criteria.",
+    "RawMaterialCode": "Raw Material Code",
+    "RawMaterialName": "Raw Material Name",
+    "RawMaterialWarehouse": "Raw Material Warehouse",
+    "AllottedQty": "Allotted Qty",
+    "ExpectedArrivalDate": "Expected Arrival Date",
+    "ExpectedArrivalQty": "Expected Arrival Qty"
   }
 }
 

@@ -1852,4 +1852,42 @@ export interface BomSearchReportDto {
   rows: BomSearchRowDto[];
 }
 
+export interface ProductionPlanningReportFilterDto {
+  companyId?: string | null;
+  basedOn?: string;
+  rawMaterialWarehouseId?: string | null;
+  itemId?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface ProductionPlanningReportRowDto {
+  rowId: string;
+  orderNo: string;
+  orderType: string;
+  productionItemCode: string;
+  productionItemName: string;
+  forWarehouse: string;
+  qtyToManufacture: number;
+  availableProductionQty: number;
+  plannedDate?: string | null;
+  rawMaterialCode: string;
+  rawMaterialName: string;
+  rawMaterialWarehouse: string;
+  requiredQty: number;
+  allottedQty: number;
+  shortageQty: number;
+  expectedArrivalDate?: string | null;
+  expectedArrivalQty: number;
+}
+
+export interface ProductionPlanningReportDto {
+  totalOrdersCount: number;
+  totalRawMaterialsCount: number;
+  totalRequiredQty: number;
+  totalAllottedQty: number;
+  totalShortageQty: number;
+  totalExpectedArrivalQty: number;
+  rows: ProductionPlanningReportRowDto[];
+}
+
 
