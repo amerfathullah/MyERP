@@ -5617,8 +5617,14 @@
     "Menu:SupplierLedgerSummary": "Supplier Ledger Summary",
     "SupplierLedgerSummary": "Supplier Ledger Summary",
     "SupplierLedgerSummaryDescription": "Comprehensive statement of supplier balances, billed amounts, payments made, debit notes, and adjustments.",
-    "NoSupplierLedgerSummaryFound": "No supplier ledger transactions found for the selected period."
+    "NoSupplierLedgerSummaryFound": "No supplier ledger transactions found for the selected period.",
+    "InvoicedQty": "Invoiced Qty",
+    "Menu:BilledItemsToBeReceived": "Billed Items to be Received",
+    "BilledItemsToBeReceived": "Billed Items to be Received",
+    "BilledItemsToBeReceivedDescription": "Track items that have been invoiced by suppliers but not yet received into inventory.",
+    "NoBilledItemsToBeReceivedFound": "No pending items to be received found for the selected criteria."
   }
 }
+
 
 

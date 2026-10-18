@@ -117,6 +117,20 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>When true, rejected quantity is billed on this invoice (PR #59258 / commit 16b1be814c).</summary>
     public bool BillsRejectedQuantity { get; set; }
 
+    /// <summary>Percentage of total qty received (0-100). Equals 100 when UpdateStock=true.</summary>
+    public decimal PerReceived
+    {
+        get
+        {
+            if (UpdateStock) return 100m;
+            if (_items.Count == 0) return 0m;
+            var totalQty = _items.Sum(i => i.Quantity);
+            if (totalQty <= 0) return 0m;
+            var receivedQty = _items.Sum(i => Math.Min(Math.Max(0, i.ReceivedQty), i.Quantity));
+            return Math.Round(receivedQty / totalQty * 100m, 2);
+        }
+    }
+
     /// <summary>Original invoice this return is against.</summary>
     public Guid? ReturnAgainstId { get; set; }
 
@@ -253,18 +267,21 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         {
             Idx = _items.Count,
             WarehouseId = warehouseId,
-            ReceivedQty = receivedQty != 0 ? receivedQty : (quantity + rejectedQty),
+            ReceivedQty = receivedQty != 0 ? receivedQty : (UpdateStock ? (quantity + rejectedQty) : 0m),
             RejectedQty = rejectedQty,
             RejectedWarehouseId = rejectedWarehouseId ?? RejectedWarehouseId,
             BillsRejectedQuantity = BillsRejectedQuantity
         };
-        if (!IsReturn && (quantity < 0 || rejectedQty < 0 || receivedQty < 0))
+        if (UpdateStock)
         {
-            item.ValidateAcceptedRejectedQty(IsReturn);
-        }
-        else if (receivedQty != 0 && Math.Abs(receivedQty - (quantity + rejectedQty)) > 0.0001m)
-        {
-            item.ValidateAcceptedRejectedQty(IsReturn);
+            if (!IsReturn && (quantity < 0 || rejectedQty < 0 || receivedQty < 0))
+            {
+                item.ValidateAcceptedRejectedQty(IsReturn);
+            }
+            else if (receivedQty != 0 && Math.Abs(receivedQty - (quantity + rejectedQty)) > 0.0001m)
+            {
+                item.ValidateAcceptedRejectedQty(IsReturn);
+            }
         }
         _items.Add(item);
 
@@ -305,7 +322,10 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
         // Validate accepted/rejected quantities and warehouse per ERPNext buying_controller (gotchas #488, #3197)
         foreach (var item in _items)
         {
-            item.ValidateAcceptedRejectedQty(IsReturn);
+            if (UpdateStock)
+            {
+                item.ValidateAcceptedRejectedQty(IsReturn);
+            }
             if (UpdateStock && item.RejectedQty != 0 && !item.RejectedWarehouseId.HasValue && !RejectedWarehouseId.HasValue)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)

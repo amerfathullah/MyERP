@@ -1949,5 +1949,39 @@ export interface SupplierLedgerSummaryReportDto {
   totalRow: SupplierLedgerSummaryRowDto;
 }
 
+export interface GetBilledItemsToBeReceivedInput {
+  companyId: string;
+  postingDate?: string | null;
+  purchaseInvoiceId?: string | null;
+  supplierId?: string | null;
+  itemId?: string | null;
+}
 
+export interface BilledItemToBeReceivedRowDto {
+  purchaseInvoiceId: string;
+  invoiceNumber: string;
+  postingDate: string;
+  supplierId: string;
+  supplierName: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description: string;
+  uom: string;
+  invoicedQty: number;
+  receivedQty: number;
+  pendingQty: number;
+  rate: number;
+  amount: number;
+  receivedAmount: number;
+  pendingAmount: number;
+  currency: string;
+}
 
+export interface BilledItemsToBeReceivedReportDto {
+  rows: BilledItemToBeReceivedRowDto[];
+  totalAmount: number;
+  totalReceivedAmount: number;
+  totalPendingAmount: number;
+  currency: string;
+}

@@ -510,6 +510,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseReceipts',
       },
       {
+        path: '/purchasing/reports/billed-items-to-be-received',
+        name: '::Menu:BilledItemsToBeReceived',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-boxes-packing',
+        order: 27.55,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseInvoices',
+      },
+      {
         path: '/purchasing/reports/purchase-invoice-trends',
         name: '::Menu:PurchaseInvoiceTrends',
         parentName: '::Menu:Purchasing',
