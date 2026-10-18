@@ -5538,7 +5538,11 @@
     "FixSelectedEntries": "Cancel Entries & Repost Valuation",
     "FixSelectedEntriesConfirm": "This will mark stock ledger entries for the selected cancelled vouchers as cancelled and queue valuation reposting. Proceed?",
     "FixSelectedEntriesSuccess": "Stock ledger entries repaired and valuation reposting queued successfully.",
-    "UncancelledSerialAndBatchBundle": "Uncancelled Bundle"
+    "UncancelledSerialAndBatchBundle": "Uncancelled Bundle",
+    "Menu:SerialAndBatchSummary": "Serial and Batch Summary",
+    "SerialAndBatchSummary": "Serial and Batch Summary",
+    "SerialAndBatchSummaryDescription": "Comprehensive breakdown of serial numbers and batches allocated across vouchers and bundles.",
+    "NoSerialAndBatchRecordsFound": "No serial and batch records found for the selected criteria."
   }
 }
 

@@ -1316,6 +1316,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/serial-and-batch-summary',
+        name: '::Menu:SerialAndBatchSummary',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-boxes-stacked',
+        order: 45,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

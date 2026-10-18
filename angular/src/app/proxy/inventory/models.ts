@@ -3297,6 +3297,51 @@ export interface FixUncancelledEntriesResultDto {
   messages: string[];
 }
 
+export interface SerialAndBatchSummaryFilterDto {
+  companyId?: string | null;
+  voucherType?: string | null;
+  voucherNo?: string | null;
+  itemId?: string | null;
+  warehouseId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  serialNo?: string | null;
+  batchId?: string | null;
+  searchTerm?: string | null;
+  includeCancelled?: boolean;
+}
+
+export interface SerialAndBatchSummaryRowDto {
+  bundleId: string;
+  voucherType: string;
+  voucherId: string;
+  voucherNo: string;
+  postingDate: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  warehouseId: string;
+  warehouseName: string;
+  typeOfTransaction: string;
+  serialNo?: string | null;
+  batchId?: string | null;
+  batchNo?: string | null;
+  quantity: number;
+  incomingRate: number;
+  stockValueDifference: number;
+  isCancelled: boolean;
+}
+
+export interface SerialAndBatchSummaryReportDto {
+  totalBundles: number;
+  totalEntries: number;
+  totalInwardQty: number;
+  totalOutwardQty: number;
+  totalStockValue: number;
+  rows: SerialAndBatchSummaryRowDto[];
+}
+
+
 
 
 
