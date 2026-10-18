@@ -14,6 +14,8 @@ import type { NonConformanceStatus } from './non-conformance-status.enum';
 import type { QualityActionStatus } from './quality-action-status.enum';
 import type { QualityMeetingStatus } from './quality-meeting-status.enum';
 import type { SecondaryItemValuationType } from '../manufacturing/secondary-item-valuation-type.enum';
+import type { DocumentStatus } from '../core/document-status.enum';
+import type { LandedCostDistributionMethod } from './landed-cost-distribution-method.enum';
 
 export interface AutoPickBatchDto {
   companyId?: string | null;
@@ -3387,6 +3389,43 @@ export interface SerialNoAndBatchTraceabilityReportDto {
   rootNodesCount: number;
   nodes: SerialNoAndBatchTraceabilityNodeDto[];
 }
+
+export interface LandedCostReportFilterDto {
+  companyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  receiptDocumentType?: string | null;
+  receiptDocumentNo?: string | null;
+  status?: DocumentStatus | null;
+  searchTerm?: string | null;
+}
+
+export interface LandedCostReportRowDto {
+  landedCostVoucherId: string;
+  landedCostVoucherNo: string;
+  postingDate: string;
+  status: DocumentStatus;
+  distributionMethod: LandedCostDistributionMethod;
+  totalLandedCost: number;
+  receiptDocumentType: string;
+  receiptDocumentId: string;
+  receiptDocumentNo: string;
+  supplierId?: string | null;
+  supplierName?: string | null;
+  receiptTotalAmount: number;
+  allocatedCharges: number;
+  itemCount: number;
+  chargesSummary: string;
+  itemsSummary: string;
+}
+
+export interface LandedCostReportDto {
+  totalVouchersCount: number;
+  totalLandedCost: number;
+  totalReceiptsAffected: number;
+  rows: LandedCostReportRowDto[];
+}
+
 
 
 

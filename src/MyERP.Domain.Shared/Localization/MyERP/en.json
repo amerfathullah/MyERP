@@ -5555,7 +5555,14 @@
     "BomSearchDescription": "Find Bill of Materials and Product Bundles containing specified components or raw materials, with recursive sub-assembly explosion.",
     "SearchSubAssemblies": "Search Sub-Assemblies",
     "SearchSubAssembliesHelp": "Include sub-assemblies in the search to locate top-level BOMs containing components buried in child sub-assemblies.",
-    "NoMatchingBomsFound": "No BOMs or Product Bundles found containing all selected component items."
+    "NoMatchingBomsFound": "No BOMs or Product Bundles found containing all selected component items.",
+    "Menu:LandedCostReport": "Landed Cost Report",
+    "LandedCostReport": "Landed Cost Report",
+    "LandedCostReportDescription": "Detailed analysis of landed cost vouchers and how additional costs are apportioned across purchase receipts and invoices.",
+    "NoLandedCostRecordsFound": "No landed cost voucher records found for the selected criteria.",
+    "AllocatedCharges": "Allocated Charges",
+    "ReceiptDocumentType": "Receipt Document Type",
+    "ReceiptDocumentNo": "Receipt Document No"
   }
 }
 

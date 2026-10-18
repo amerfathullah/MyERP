@@ -1334,6 +1334,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/landed-cost-report',
+        name: '::Menu:LandedCostReport',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-file-invoice-dollar',
+        order: 47,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.LandedCostVouchers',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

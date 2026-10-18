@@ -3930,6 +3930,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/reports/landed-cost-report',
+    loadComponent: () => import('./inventory/reports/landed-cost-report/landed-cost-report.component').then(c => c.LandedCostReportComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.LandedCostVouchers' },
+  },
+  {
     path: 'inventory/quality-goals',
     loadComponent: () => import('./inventory/quality-goals/quality-goal-list.component').then(c => c.QualityGoalListComponent),
     canActivate: [authGuard],
