@@ -15,7 +15,7 @@ export class StockBalanceService {
     this.restService.request<any, BatchWiseBalanceReportDto>({
       method: 'GET',
       url: '/api/app/stock-balance/batch-wise-balance',
-      params: { itemId: input.itemId, warehouseId: input.warehouseId, fromDate: input.fromDate, toDate: input.toDate, includeZeroBalance: input.includeZeroBalance },
+      params: { companyId: input.companyId, itemId: input.itemId, warehouseId: input.warehouseId, batchId: input.batchId, fromDate: input.fromDate, toDate: input.toDate, includeZeroBalance: input.includeZeroBalance, includeExpiredBatches: input.includeExpiredBatches },
     },
     { apiName: this.apiName,...config });
   

@@ -1,277 +1,320 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, signal, OnInit, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { StockBalanceService } from '../../../proxy/inventory/stock-balance.service';
+import type {
+  BatchWiseBalanceReportDto,
+  BatchWiseBalanceRowDto,
+  WarehouseDto,
+} from '../../../proxy/inventory/models';
 import { WarehouseService } from '../../../proxy/inventory/warehouse.service';
-import { ItemService } from '../../../proxy/inventory/item.service';
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 
-interface BatchBalanceRow {
-  itemId: string;
-  itemName: string;
-  batchId: string;
-  batchNo: string;
-  warehouseId: string;
-  warehouseName: string;
-  balance: number;
-  stockValue: number;
-  valuationRate?: number;
-  serialNos?: string | null;
-  reservedStockQty: number;
-  expiryDate: string | null;
-  isExpired: boolean;
-  isDisabled: boolean;
-}
-
-interface BatchBalanceReport {
-  rows: BatchBalanceRow[];
-  totalBatches: number;
-  totalQuantity: number;
-  totalStockValue: number;
-  totalReservedStock: number;
-  expiredBatchCount: number;
-}
-
 @Component({
   standalone: true,
-  selector: 'app-batch-wise-balance',
   imports: [CommonModule, FormsModule, LocalizationPipe],
+  selector: 'app-batch-wise-balance',
   template: `
-    <div class="container-fluid py-3">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4><i class="fa fa-cubes me-2"></i>{{ '::BatchWiseBalance' | abpLocalization }}</h4>
-        @if (report()) {
-          <button class="btn btn-sm btn-outline-success" (click)="exportCsv()">
-            <i class="fa fa-file-csv me-1"></i>{{ '::ExportCSV' | abpLocalization }}
-          </button>
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <h5 class="mb-0">
+            <i class="fa fa-cubes-stacked me-2 text-info"></i>{{ '::BatchWiseBalance' | abpLocalization }}
+          </h5>
+          <small class="text-muted">{{ '::BatchWiseBalanceDescription' | abpLocalization }}</small>
+        </div>
+        <div class="d-flex gap-2">
+          @if (data() && data()!.rows && data()!.rows!.length > 0) {
+            <button class="btn btn-sm btn-outline-secondary" (click)="exportCsv()">
+              <i class="fa fa-download me-1"></i>{{ '::ExportCSV' | abpLocalization }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="card-body">
+        <!-- Filters -->
+        <div class="row g-2 mb-4 align-items-end">
+          <div class="col-md-2 col-sm-6">
+            <label class="form-label small fw-semibold">{{ '::Warehouse' | abpLocalization }}</label>
+            <select class="form-select form-select-sm" [(ngModel)]="selectedWarehouseId" (change)="loadData()">
+              <option value="">{{ '::AllWarehouses' | abpLocalization }}</option>
+              @for (w of warehouses(); track w.id) {
+                <option [value]="w.id">{{ w.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-2 col-sm-6">
+            <label class="form-label small fw-semibold">{{ '::FromDate' | abpLocalization }}</label>
+            <input
+              type="date"
+              class="form-control form-control-sm"
+              [(ngModel)]="fromDate"
+              (change)="loadData()"
+            />
+          </div>
+          <div class="col-md-2 col-sm-6">
+            <label class="form-label small fw-semibold">{{ '::ToDate' | abpLocalization }}</label>
+            <input
+              type="date"
+              class="form-control form-control-sm"
+              [(ngModel)]="toDate"
+              (change)="loadData()"
+            />
+          </div>
+          <div class="col-md-2 col-sm-6">
+            <label class="form-label small fw-semibold">{{ '::Search' | abpLocalization }}</label>
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              [placeholder]="'::Search' | abpLocalization"
+              [(ngModel)]="searchTerm"
+            />
+          </div>
+          <div class="col-md-2 col-sm-6">
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="includeZeroCheck"
+                [(ngModel)]="includeZeroBalance"
+                (change)="loadData()"
+              />
+              <label class="form-check-label small fw-semibold" for="includeZeroCheck">
+                {{ '::IncludeZeroBalance' | abpLocalization }}
+              </label>
+            </div>
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="includeExpiredCheck"
+                [(ngModel)]="includeExpiredBatches"
+                (change)="loadData()"
+              />
+              <label class="form-check-label small fw-semibold" for="includeExpiredCheck">
+                {{ '::IncludeExpiredBatches' | abpLocalization }}
+              </label>
+            </div>
+          </div>
+          <div class="col-md-2 col-sm-6">
+            <button class="btn btn-primary btn-sm w-100" (click)="loadData()" [disabled]="isLoading()">
+              <i class="fa fa-sync me-1" [class.fa-spin]="isLoading()"></i>{{ '::Generate' | abpLocalization }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Summary KPI Cards -->
+        @if (data()) {
+          <div class="row g-3 mb-4">
+            <div class="col-md-3 col-sm-6">
+              <div class="card bg-light border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                  <div class="text-muted small text-uppercase fw-semibold">{{ '::TotalBatches' | abpLocalization }}</div>
+                  <div class="h3 mb-0 text-primary mt-1">
+                    {{ data()!.totalBatches ?? 0 }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+              <div class="card bg-light border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                  <div class="text-muted small text-uppercase fw-semibold">{{ '::TotalStockAvailable' | abpLocalization }}</div>
+                  <div class="h3 mb-0 text-success mt-1">
+                    {{ (data()!.totalQuantity ?? 0) | number: '1.2-4' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+              <div class="card bg-light border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                  <div class="text-muted small text-uppercase fw-semibold">{{ '::TotalStockValue' | abpLocalization }}</div>
+                  <div class="h3 mb-0 text-dark mt-1">
+                    {{ (data()!.totalStockValue ?? 0) | number: '1.2-2' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+              <div class="card bg-light border-0 shadow-sm h-100">
+                <div class="card-body p-3">
+                  <div class="text-muted small text-uppercase fw-semibold">{{ '::TotalReservedStock' | abpLocalization }}</div>
+                  <div class="h3 mb-0 text-warning mt-1">
+                    {{ (data()!.totalReservedStock ?? 0) | number: '1.2-4' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Table -->
+        @if (isLoading()) {
+          <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        } @else if (filteredRows().length === 0) {
+          <div class="text-center py-5 text-muted">
+            <i class="fa fa-info-circle fa-2x mb-2 d-block"></i>
+            {{ '::NoBatchDataFound' | abpLocalization }}
+          </div>
+        } @else {
+          <div class="table-responsive">
+            <table class="table table-hover align-middle table-sm border">
+              <thead class="table-light">
+                <tr>
+                  <th>{{ '::ItemName' | abpLocalization }}</th>
+                  <th>{{ '::Warehouse' | abpLocalization }}</th>
+                  <th>{{ '::BatchNo' | abpLocalization }}</th>
+                  <th>{{ '::ExpiryDate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::BalanceQty' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::StockValue' | abpLocalization }}</th>
+                  <th class="text-end">{{ '::ReservedStockCurrent' | abpLocalization }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of filteredRows(); track $index) {
+                  <tr>
+                    <td class="fw-semibold text-primary">{{ row.itemName }}</td>
+                    <td>{{ row.warehouseName || '—' }}</td>
+                    <td>
+                      <span class="badge bg-secondary font-monospace">{{ row.batchNo }}</span>
+                    </td>
+                    <td>
+                      @if (row.expiryDate) {
+                        <span>{{ row.expiryDate | date: 'mediumDate' }}</span>
+                        @if (row.isExpired) {
+                          <span class="badge bg-danger ms-2">{{ '::Expired' | abpLocalization }}</span>
+                        }
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                    <td class="text-end fw-bold">
+                      {{ (row.balance ?? 0) | number: '1.2-4' }}
+                    </td>
+                    <td class="text-end">
+                      {{ (row.valuationRate ?? 0) | number: '1.2-4' }}
+                    </td>
+                    <td class="text-end fw-semibold">
+                      {{ (row.stockValue ?? 0) | number: '1.2-2' }}
+                    </td>
+                    <td class="text-end text-warning fw-semibold">
+                      {{ (row.reservedStockQty ?? 0) | number: '1.2-4' }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         }
       </div>
-
-      <!-- Filters -->
-      <div class="card mb-3">
-        <div class="card-body py-2">
-          <div class="row g-2 align-items-end">
-            <div class="col-md-3">
-              <label class="form-label small">{{ '::Warehouse' | abpLocalization }}</label>
-              <select class="form-select form-select-sm" [(ngModel)]="warehouseId" (change)="loadReport()">
-                <option value="">{{ '::All' | abpLocalization }}</option>
-                @for (w of warehouses(); track w.id) {
-                  <option [value]="w.id">{{ w.name }}</option>
-                }
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label small">{{ '::Item' | abpLocalization }}</label>
-              <select class="form-select form-select-sm" [(ngModel)]="itemId" (change)="loadReport()">
-                <option value="">{{ '::All' | abpLocalization }}</option>
-                @for (item of items(); track item.id) {
-                  <option [value]="item.id">{{ item.itemCode }} — {{ item.itemName }}</option>
-                }
-              </select>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small">{{ '::FromDate' | abpLocalization }}</label>
-              <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate" (change)="loadReport()">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small">{{ '::ToDate' | abpLocalization }}</label>
-              <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate" (change)="loadReport()">
-            </div>
-            <div class="col-md-2">
-              <div class="form-check mt-3">
-                <input type="checkbox" class="form-check-input" id="includeZero" [(ngModel)]="includeZeroBalance" (change)="loadReport()">
-                <label class="form-check-label small" for="includeZero">{{ '::IncludeZeroBalance' | abpLocalization }}</label>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- KPI Cards -->
-      @if (report()) {
-        <div class="row g-3 mb-3">
-          <div class="col-md-2">
-            <div class="card border-start border-primary border-3">
-              <div class="card-body py-2">
-                <div class="text-muted small">{{ '::TotalBatches' | abpLocalization }}</div>
-                <div class="h5 mb-0">{{ report()!.totalBatches }}</div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card border-start border-success border-3">
-              <div class="card-body py-2">
-                <div class="text-muted small">{{ '::TotalQuantity' | abpLocalization }}</div>
-                <div class="h5 mb-0">{{ report()!.totalQuantity | number:'1.2-2' }}</div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="card border-start border-warning border-3">
-              <div class="card-body py-2">
-                <div class="text-muted small">{{ '::TotalReservedStock' | abpLocalization }}</div>
-                <div class="h5 mb-0">{{ report()!.totalReservedStock | number:'1.2-2' }}</div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card border-start border-info border-3">
-              <div class="card-body py-2">
-                <div class="text-muted small">{{ '::TotalStockValue' | abpLocalization }}</div>
-                <div class="h5 mb-0">{{ report()!.totalStockValue | number:'1.2-2' }}</div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="card border-start border-danger border-3">
-              <div class="card-body py-2">
-                <div class="text-muted small">{{ '::ExpiredBatches' | abpLocalization }}</div>
-                <div class="h5 mb-0 text-danger">{{ report()!.expiredBatchCount }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Results Table -->
-        <div class="card">
-          <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table table-hover table-sm mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th>{{ '::Item' | abpLocalization }}</th>
-                    <th>{{ '::BatchNo' | abpLocalization }}</th>
-                    <th>{{ '::SerialNos' | abpLocalization }}</th>
-                    <th>{{ '::Warehouse' | abpLocalization }}</th>
-                    <th class="text-end">{{ '::Balance' | abpLocalization }}</th>
-                    <th class="text-end">{{ '::ValuationRate' | abpLocalization }}</th>
-                    <th class="text-end">{{ '::ReservedStockCurrent' | abpLocalization }}</th>
-                    <th class="text-end">{{ '::StockValue' | abpLocalization }}</th>
-                    <th>{{ '::ExpiryDate' | abpLocalization }}</th>
-                    <th>{{ '::Status' | abpLocalization }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (row of report()!.rows; track row.batchId + row.warehouseId) {
-                    <tr [class.table-danger]="row.isExpired" [class.table-warning]="row.isDisabled && !row.isExpired">
-                      <td>{{ row.itemName }}</td>
-                      <td><code>{{ row.batchNo }}</code></td>
-                      <td>
-                        @if (row.serialNos) {
-                          <span class="small font-monospace text-truncate d-inline-block" style="max-width: 200px;" [title]="row.serialNos">{{ row.serialNos }}</span>
-                        } @else {
-                          <span class="text-muted">—</span>
-                        }
-                      </td>
-                      <td>{{ row.warehouseName }}</td>
-                      <td class="text-end fw-bold">{{ row.balance | number:'1.2-2' }}</td>
-                      <td class="text-end text-muted">{{ (row.valuationRate ?? 0) | number:'1.2-2' }}</td>
-                      <td class="text-end text-muted">{{ row.reservedStockQty | number:'1.2-2' }}</td>
-                      <td class="text-end">{{ row.stockValue | number:'1.2-2' }}</td>
-                      <td>
-                        @if (row.expiryDate) {
-                          <span [class.text-danger]="row.isExpired">{{ row.expiryDate | date:'dd/MM/yyyy' }}</span>
-                        } @else {
-                          <span class="text-muted">—</span>
-                        }
-                      </td>
-                      <td>
-                        @if (row.isExpired) {
-                          <span class="badge bg-danger">{{ '::Expired' | abpLocalization }}</span>
-                        } @else if (row.isDisabled) {
-                          <span class="badge bg-warning">{{ '::Disabled' | abpLocalization }}</span>
-                        } @else {
-                          <span class="badge bg-success">{{ '::Active' | abpLocalization }}</span>
-                        }
-                      </td>
-                    </tr>
-                  }
-                  @if (report()!.rows.length === 0) {
-                    <tr><td colspan="10" class="text-center text-muted py-4">{{ '::NoBatchDataFound' | abpLocalization }}</td></tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      }
-
-      @if (loading()) {
-        <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x text-muted"></i></div>
-      }
     </div>
-  `
+  `,
 })
 export class BatchWiseBalanceComponent implements OnInit {
   private stockBalanceService = inject(StockBalanceService);
   private warehouseService = inject(WarehouseService);
-  private itemService = inject(ItemService);
-  private companyContext = inject(CompanyContextService);
+  private companyContextService = inject(CompanyContextService);
 
-  report = signal<BatchBalanceReport | null>(null);
-  loading = signal(false);
-  warehouses = signal<{ id: string; name: string }[]>([]);
-  items = signal<{ id: string; itemCode: string; itemName: string }[]>([]);
+  data = signal<BatchWiseBalanceReportDto | null>(null);
+  warehouses = signal<WarehouseDto[]>([]);
+  isLoading = signal(false);
 
-  warehouseId = '';
-  itemId = '';
-  fromDate = '';
-  toDate = '';
+  selectedWarehouseId = '';
+  fromDate = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+  toDate = new Date().toISOString().split('T')[0];
   includeZeroBalance = false;
+  includeExpiredBatches = true;
+  searchTerm = '';
+
+  filteredRows = computed(() => {
+    const report = this.data();
+    if (!report || !report.rows) return [];
+    const term = this.searchTerm.trim().toLowerCase();
+    if (!term) return report.rows;
+    return report.rows.filter(
+      r =>
+        (r.itemName && r.itemName.toLowerCase().includes(term)) ||
+        (r.batchNo && r.batchNo.toLowerCase().includes(term)) ||
+        (r.warehouseName && r.warehouseName.toLowerCase().includes(term))
+    );
+  });
 
   ngOnInit(): void {
     this.loadWarehouses();
-    this.loadItems();
-    this.loadReport();
+    this.loadData();
   }
 
   loadWarehouses(): void {
-    this.warehouseService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any).subscribe({
-      next: (r) => this.warehouses.set((r.items ?? []).map((w: any) => ({ id: w.id, name: w.name }))),
-      error: () => {}
+    this.warehouseService.getList({ maxResultCount: 100 } as any).subscribe({
+      next: res => {
+        this.warehouses.set(res.items || []);
+      },
     });
   }
 
-  loadItems(): void {
-    this.itemService.getList({ skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
-      next: (r) => this.items.set((r.items ?? []).map((i: any) => ({ id: i.id, itemCode: i.itemCode, itemName: i.itemName }))),
-      error: () => {}
-    });
-  }
+  loadData(): void {
+    const companyId = this.companyContextService.selectedCompanyId();
 
-  loadReport(): void {
-    this.loading.set(true);
-    const params: any = {};
-    if (this.warehouseId) params.warehouseId = this.warehouseId;
-    if (this.itemId) params.itemId = this.itemId;
-    if (this.fromDate) params.fromDate = this.fromDate;
-    if (this.toDate) params.toDate = this.toDate;
-    if (this.includeZeroBalance) params.includeZeroBalance = 'true';
-
-    this.stockBalanceService.getBatchWiseBalance(params as any).subscribe({
-      next: (data: any) => { this.report.set(data); this.loading.set(false); },
-      error: () => { this.loading.set(false); }
-    });
+    this.isLoading.set(true);
+    this.stockBalanceService
+      .getBatchWiseBalance({
+        companyId: companyId || null,
+        warehouseId: this.selectedWarehouseId || null,
+        fromDate: this.fromDate ? `${this.fromDate}T00:00:00Z` : null,
+        toDate: this.toDate ? `${this.toDate}T23:59:59Z` : null,
+        includeZeroBalance: this.includeZeroBalance,
+        includeExpiredBatches: this.includeExpiredBatches,
+      })
+      .subscribe({
+        next: res => {
+          this.data.set(res);
+          this.isLoading.set(false);
+        },
+        error: () => {
+          this.isLoading.set(false);
+        },
+      });
   }
 
   exportCsv(): void {
-    const r = this.report();
-    if (!r) return;
-    const mapped = r.rows.map(row => ({
-      Item: row.itemName,
-      'Batch No': row.batchNo,
-      'Serial Nos': row.serialNos ?? '',
-      Warehouse: row.warehouseName,
-      'Balance Qty': row.balance,
-      'Valuation Rate': row.valuationRate ?? 0,
-      'Reserved Stock': row.reservedStockQty ?? 0,
-      'Stock Value': row.stockValue,
-      'Expiry Date': row.expiryDate ?? '',
-      Expired: row.isExpired ? 'Yes' : 'No',
-      Disabled: row.isDisabled ? 'Yes' : 'No',
+    const rows = this.filteredRows();
+    if (!rows || rows.length === 0) return;
+
+    const exportData = rows.map(r => ({
+      itemName: r.itemName || '',
+      warehouseName: r.warehouseName || '',
+      batchNo: r.batchNo || '',
+      expiryDate: r.expiryDate || '',
+      balance: r.balance ?? 0,
+      valuationRate: r.valuationRate ?? 0,
+      stockValue: r.stockValue ?? 0,
+      reservedStockQty: r.reservedStockQty ?? 0,
+      isExpired: r.isExpired ? 'Yes' : 'No',
     }));
-    exportToCsv('batch-wise-balance.csv', mapped, ['Item', 'Batch No', 'Serial Nos', 'Warehouse', 'Balance Qty', 'Valuation Rate', 'Reserved Stock', 'Stock Value', 'Expiry Date', 'Expired', 'Disabled']);
+
+    exportToCsv(
+      `batch_wise_balance_${this.toDate || new Date().toISOString().split('T')[0]}.csv`,
+      exportData,
+      [
+        'itemName',
+        'warehouseName',
+        'batchNo',
+        'expiryDate',
+        'balance',
+        'valuationRate',
+        'stockValue',
+        'reservedStockQty',
+        'isExpired',
+      ]
+    );
   }
 }

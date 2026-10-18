@@ -182,8 +182,11 @@ export interface BatchWiseBalanceRowDto {
   warehouseName?: string;
   balance?: number;
   stockValue?: number;
+  valuationRate?: number;
+  serialNos?: string | null;
   reservedStockQty?: number;
   expiryDate?: string | null;
+  expiresInDays?: number | null;
   isExpired?: boolean;
   isDisabled?: boolean;
 }

@@ -5435,7 +5435,11 @@
     "NoAvailableBatchFound": "No available batches found for the selected criteria.",
     "IncludeExpiredBatches": "Include Expired Batches",
     "OnThisDate": "On This Date",
-    "TotalBalanceQty": "Total Balance Qty"
+    "TotalBalanceQty": "Total Balance Qty",
+    "BatchWiseBalanceDescription": "Historical batch balance with opening, in, out, closing, valuation, and reserved quantities.",
+    "InQty": "In Qty",
+    "OutQty": "Out Qty",
+    "TotalBalanceValue": "Total Balance Value"
   }
 }
 
