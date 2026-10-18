@@ -3341,6 +3341,54 @@ export interface SerialAndBatchSummaryReportDto {
   rows: SerialAndBatchSummaryRowDto[];
 }
 
+export interface SerialNoAndBatchTraceabilityFilterDto {
+  companyId?: string | null;
+  itemId?: string | null;
+  itemCode?: string | null;
+  batchId?: string | null;
+  batchNo?: string | null;
+  serialNo?: string | null;
+  traceabilityDirection?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface SerialNoAndBatchTraceabilityNodeDto {
+  nodeId: string;
+  direction: string;
+  indent: number;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  serialNo?: string | null;
+  batchId?: string | null;
+  batchNo?: string | null;
+  warehouseId?: string | null;
+  warehouseName?: string | null;
+  quantity: number;
+  referenceDocType: string;
+  referenceDocId: string;
+  referenceDocNo: string;
+  postingDateTime: string;
+  supplierId?: string | null;
+  supplierName?: string | null;
+  customerId?: string | null;
+  customerName?: string | null;
+  workOrderId?: string | null;
+  workOrderNo?: string | null;
+  batchExpiryDate?: string | null;
+  warrantyExpiryDate?: string | null;
+  amcExpiryDate?: string | null;
+}
+
+export interface SerialNoAndBatchTraceabilityReportDto {
+  totalNodes: number;
+  rootNodesCount: number;
+  nodes: SerialNoAndBatchTraceabilityNodeDto[];
+}
+
+
 
 
 

@@ -1325,6 +1325,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/serial-no-and-batch-traceability',
+        name: '::Menu:SerialNoAndBatchTraceability',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-sitemap',
+        order: 46,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

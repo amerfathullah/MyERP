@@ -3918,6 +3918,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.StockEntries' },
   },
   {
+    path: 'inventory/reports/serial-no-and-batch-traceability',
+    loadComponent: () => import('./inventory/reports/serial-no-and-batch-traceability/serial-no-and-batch-traceability.component').then(c => c.SerialNoAndBatchTraceabilityComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/quality-goals',
     loadComponent: () => import('./inventory/quality-goals/quality-goal-list.component').then(c => c.QualityGoalListComponent),
     canActivate: [authGuard],

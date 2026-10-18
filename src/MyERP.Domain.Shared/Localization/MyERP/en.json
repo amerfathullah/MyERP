@@ -5542,7 +5542,14 @@
     "Menu:SerialAndBatchSummary": "Serial and Batch Summary",
     "SerialAndBatchSummary": "Serial and Batch Summary",
     "SerialAndBatchSummaryDescription": "Comprehensive breakdown of serial numbers and batches allocated across vouchers and bundles.",
-    "NoSerialAndBatchRecordsFound": "No serial and batch records found for the selected criteria."
+    "NoSerialAndBatchRecordsFound": "No serial and batch records found for the selected criteria.",
+    "Menu:SerialNoAndBatchTraceability": "Serial No & Batch Traceability",
+    "SerialNoAndBatchTraceability": "Serial No & Batch Traceability",
+    "SerialNoAndBatchTraceabilityDescription": "Trace complete genealogy of serialized equipment and batch lots upstream to suppliers and downstream to customers.",
+    "NoTraceabilityRecordsFound": "No traceability records found for the selected criteria.",
+    "TraceabilityDirection": "Traceability Direction",
+    "Backward": "Backward (Upstream to Supplier)",
+    "Forward": "Forward (Downstream to Customer)"
   }
 }
 
