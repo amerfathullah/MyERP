@@ -5566,7 +5566,11 @@
     "Menu:SerialAndBatchWiseStockBalance": "Serial and Batch-Wise Stock Balance",
     "SerialAndBatchWiseStockBalance": "Serial and Batch-Wise Stock Balance",
     "SerialAndBatchWiseStockBalanceDescription": "Hierarchical stock balance showing inventory balances, batch breakdowns, and in-stock serial numbers.",
-    "NoSerialBatchStockBalanceRecordsFound": "No stock balance records found for the selected criteria."
+    "NoSerialBatchStockBalanceRecordsFound": "No stock balance records found for the selected criteria.",
+    "Menu:BatchWiseBalanceHistory": "Batch-Wise Balance History",
+    "BatchWiseBalanceHistory": "Batch-Wise Balance History",
+    "BatchWiseBalanceHistoryDescription": "Historical balances, movements, valuation, and current stock reservations for each batch across warehouses.",
+    "NoBatchWiseBalanceRecordsFound": "No batch balance history records found for the selected criteria."
   }
 }
 

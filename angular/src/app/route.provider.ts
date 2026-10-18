@@ -1352,6 +1352,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/batch-wise-balance-history',
+        name: '::Menu:BatchWiseBalanceHistory',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-history',
+        order: 49,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

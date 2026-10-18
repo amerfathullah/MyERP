@@ -81,3 +81,4 @@ export * from './serial-and-batch-summary.service';
 export * from './serial-no-and-batch-traceability.service';
 export * from './landed-cost-report.service';
 export * from './serial-and-batch-wise-stock-balance.service';
+export * from './batch-wise-balance-history.service';

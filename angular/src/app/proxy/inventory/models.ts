@@ -3467,6 +3467,48 @@ export interface SerialAndBatchWiseStockBalanceReportDto {
   rows: SerialAndBatchWiseStockBalanceRowDto[];
 }
 
+export interface BatchWiseBalanceHistoryFilterDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  warehouseType?: WarehouseType | null;
+  itemId?: string | null;
+  batchId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  includeZeroStockBatches?: boolean;
+  searchTerm?: string | null;
+}
+
+export interface BatchWiseBalanceHistoryRowDto {
+  rowId: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description?: string | null;
+  warehouseId: string;
+  warehouseName: string;
+  batchId: string;
+  batchNo: string;
+  stockUom: string;
+  openingQty: number;
+  inQty: number;
+  outQty: number;
+  balanceQty: number;
+  valuationRate: number;
+  balanceValue: number;
+  reservedQty: number;
+  availableQty: number;
+}
+
+export interface BatchWiseBalanceHistoryReportDto {
+  totalItemsCount: number;
+  totalBatchesCount: number;
+  totalBalanceQty: number;
+  totalBalanceValue: number;
+  totalReservedQty: number;
+  rows: BatchWiseBalanceHistoryRowDto[];
+}
+
 
 
 
