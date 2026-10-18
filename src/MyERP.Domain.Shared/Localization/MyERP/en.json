@@ -5597,7 +5597,11 @@
     "Menu:ReceivedItemsToBeBilled": "Received Items to be Billed",
     "ReceivedItemsToBeBilled": "Received Items to be Billed",
     "ReceivedItemsToBeBilledDescription": "Track received stock items pending purchase invoice creation, with billed and returned amount reconciliation.",
-    "NoReceivedItemsToBeBilledFound": "No unbilled received items found for the selected criteria."
+    "NoReceivedItemsToBeBilledFound": "No unbilled received items found for the selected criteria.",
+    "Menu:SalesInvoiceTrends": "Sales Invoice Trends",
+    "SalesInvoiceTrends": "Sales Invoice Trends",
+    "SalesInvoiceTrendsDescription": "Track sales invoice billing amounts, quantities, and trends over periodic intervals.",
+    "NoSalesInvoiceTrendsFound": "No sales invoice trends data found for the selected criteria."
   }
 }
 

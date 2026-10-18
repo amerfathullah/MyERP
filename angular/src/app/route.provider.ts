@@ -3198,6 +3198,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.DeliveryNotes',
       },
       {
+        path: '/sales/reports/sales-invoice-trends',
+        name: '::Menu:SalesInvoiceTrends',
+        iconClass: 'fas fa-chart-line',
+        order: 22.9927,
+        parentName: '::Menu:Sales',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.SalesInvoices',
+      },
+      {
         path: '/sales/reports/territory-wise-sales',
         name: '::Menu:TerritoryWiseSales',
         iconClass: 'fas fa-map-marked-alt',
