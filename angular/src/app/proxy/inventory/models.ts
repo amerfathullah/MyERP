@@ -3144,6 +3144,52 @@ export interface StockLedgerVarianceReportDto {
   rows: StockLedgerVarianceRowDto[];
 }
 
+export interface AvailableSerialNoFilterDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  itemId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface AvailableSerialNoRowDto {
+  sleId: string;
+  postingDateTime: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  stockUom?: string | null;
+  warehouseId: string;
+  warehouseName: string;
+  inQty: number;
+  outQty: number;
+  balanceQty: number;
+  serialNosMoved: string[];
+  balanceSerialNos: string[];
+  balanceSerialCount: number;
+  incomingRate: number;
+  valuationRate: number;
+  stockValue: number;
+  stockValueDifference: number;
+  voucherType?: string | null;
+  voucherId?: string | null;
+  voucherNo?: string | null;
+  hasDiscrepancy: boolean;
+}
+
+export interface AvailableSerialNoReportDto {
+  fromDate?: string | null;
+  toDate?: string | null;
+  totalTransactions: number;
+  totalInQty: number;
+  totalOutQty: number;
+  finalBalanceQty: number;
+  finalAvailableSerialCount: number;
+  discrepancyCount: number;
+  rows: AvailableSerialNoRowDto[];
+}
+
 
 
 

@@ -5516,7 +5516,15 @@
     "FifoValueDiscrepancy": "FIFO Value Discrepancy",
     "CreateRepostingEntry": "Create Reposting Entry",
     "CreateRepostingEntryConfirm": "A Reposting Entry will recalculate stock valuation and repost GL entries from this transaction onward. Are you sure you want to proceed?",
-    "RepostingEntryCreated": "Reposting Entry has been created successfully."
+    "RepostingEntryCreated": "Reposting Entry has been created successfully.",
+    "Menu:AvailableSerialNoReport": "Available Serial No",
+    "AvailableSerialNoReport": "Available Serial No",
+    "AvailableSerialNoReportDescription": "Chronological ledger of serialized items with running available serial numbers.",
+    "NoAvailableSerialNoFound": "No available serial number ledger records found for the selected criteria.",
+    "BalanceSerialNo": "Balance Serial Nos",
+    "BalanceSerialCount": "Balance Serial Count",
+    "SerialNosMoved": "Serial Nos (In/Out)",
+    "DiscrepanciesOnly": "Discrepancies Only"
   }
 }
 

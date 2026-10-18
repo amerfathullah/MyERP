@@ -1289,6 +1289,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/available-serial-no',
+        name: '::Menu:AvailableSerialNoReport',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-barcode',
+        order: 42,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',
