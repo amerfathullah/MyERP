@@ -1871,9 +1871,51 @@ export interface ReceivedItemsToBeBilledReportDto {
   currency: string;
 }
 
+export interface PurchaseInvoiceTrendsRequestDto {
+  companyId: string;
+  fiscalYearId?: string;
+  fromDate?: string;
+  toDate?: string;
+  period?: string;
+  basedOn?: string;
+  groupBy?: string;
+  includeReturns?: boolean;
+}
 
+export interface PurchaseInvoiceTrendsPeriodColumnDto {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
 
+export interface PurchaseInvoiceTrendsRowDto {
+  entityId: string;
+  entityCode: string;
+  entityName: string;
+  secondaryInfo?: string;
+  groupByValue?: string;
+  periodQuantities: Record<string, number>;
+  periodAmounts: Record<string, number>;
+  totalQty: number;
+  totalAmount: number;
+}
 
+export interface PurchaseInvoiceTrendsChartDto {
+  labels: string[];
+  datapoints: number[];
+  currency: string;
+}
 
+export interface PurchaseInvoiceTrendsReportDto {
+  companyCurrency: string;
+  period: string;
+  basedOn: string;
+  groupBy?: string;
+  periodColumns: PurchaseInvoiceTrendsPeriodColumnDto[];
+  rows: PurchaseInvoiceTrendsRowDto[];
+  totalRow: PurchaseInvoiceTrendsRowDto;
+  chart: PurchaseInvoiceTrendsChartDto;
+}
 
 

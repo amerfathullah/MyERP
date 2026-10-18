@@ -5601,7 +5601,11 @@
     "Menu:SalesInvoiceTrends": "Sales Invoice Trends",
     "SalesInvoiceTrends": "Sales Invoice Trends",
     "SalesInvoiceTrendsDescription": "Track sales invoice billing amounts, quantities, and trends over periodic intervals.",
-    "NoSalesInvoiceTrendsFound": "No sales invoice trends data found for the selected criteria."
+    "NoSalesInvoiceTrendsFound": "No sales invoice trends data found for the selected criteria.",
+    "Menu:PurchaseInvoiceTrends": "Purchase Invoice Trends",
+    "PurchaseInvoiceTrends": "Purchase Invoice Trends",
+    "PurchaseInvoiceTrendsDescription": "Track purchase invoice billing amounts, quantities, and spending trends over periodic intervals.",
+    "NoPurchaseInvoiceTrendsFound": "No purchase invoice trends data found for the selected criteria."
   }
 }
 

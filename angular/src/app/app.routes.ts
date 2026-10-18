@@ -868,6 +868,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseReceipts' },
   },
   {
+    path: 'purchasing/reports/purchase-invoice-trends',
+    loadComponent: () => import('./purchasing/reports/purchase-invoice-trends/purchase-invoice-trends.component').then(c => c.PurchaseInvoiceTrendsComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseInvoices' },
+  },
+  {
     path: 'purchasing/reports/material-requests-without-supplier-quotations',
     loadComponent: () => import('./purchasing/reports/material-requests-without-supplier-quotations/material-requests-without-supplier-quotations.component').then(c => c.MaterialRequestsWithoutSupplierQuotationsComponent),
     canActivate: [authGuard, permissionGuard],
