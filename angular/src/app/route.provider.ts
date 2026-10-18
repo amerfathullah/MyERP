@@ -1226,6 +1226,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/item-variant-details',
+        name: '::Menu:ItemVariantDetails',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-cubes',
+        order: 35,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Items',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

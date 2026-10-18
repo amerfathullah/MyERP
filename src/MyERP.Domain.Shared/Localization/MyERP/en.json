@@ -5446,7 +5446,16 @@
     "NoReservedStockFound": "No stock reservation entries found for the selected criteria.",
     "VoucherQty": "Voucher Qty",
     "AvailableQtyToReserve": "Available Qty to Reserve",
-    "TotalTransferredQty": "Total Transferred Qty"
+    "TotalTransferredQty": "Total Transferred Qty",
+    "Menu:ItemVariantDetails": "Item Variant Details",
+    "ItemVariantDetails": "Item Variant Details",
+    "ItemVariantDetailsDescription": "Details of item variants including stock, production, open orders, and price list rates.",
+    "NoItemVariantsFound": "No variants found for the selected template item.",
+    "TemplateItem": "Template Item",
+    "AvgBuyingPrice": "Avg. Buying Price",
+    "AvgSellingPrice": "Avg. Selling Price",
+    "InProduction": "In Production",
+    "TotalVariants": "Total Variants"
   }
 }
 

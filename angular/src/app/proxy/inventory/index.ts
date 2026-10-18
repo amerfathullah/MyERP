@@ -66,3 +66,6 @@ export * from './requested-items-to-transfer.service';
 export * from './itemwise-recommended-reorder-level.service';
 export * from './warehouse.service';
 export * from './warehouse-wise-stock-balance.service';
+export * from './available-batch-report.service';
+export * from './reserved-stock-report.service';
+export * from './item-variant-details.service';

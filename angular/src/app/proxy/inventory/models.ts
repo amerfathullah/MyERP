@@ -2866,3 +2866,29 @@ export interface ReservedStockReportDto {
   totalAvailableQty: number;
 }
 
+export interface ItemVariantDetailsFilterDto {
+  templateItemId?: string | null;
+  warehouseId?: string | null;
+}
+
+export interface ItemVariantDetailsRowDto {
+  variantId: string;
+  variantCode: string;
+  variantName: string;
+  attributes: Record<string, string>;
+  avgBuyingPrice: number;
+  avgSellingPrice: number;
+  currentStock: number;
+  inProduction: number;
+  openOrders: number;
+  currency: string;
+}
+
+export interface ItemVariantDetailsReportDto {
+  templateItemId?: string | null;
+  templateItemCode: string;
+  templateItemName: string;
+  attributeNames: string[];
+  rows: ItemVariantDetailsRowDto[];
+}
+
