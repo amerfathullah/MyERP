@@ -5524,7 +5524,13 @@
     "BalanceSerialNo": "Balance Serial Nos",
     "BalanceSerialCount": "Balance Serial Count",
     "SerialNosMoved": "Serial Nos (In/Out)",
-    "DiscrepanciesOnly": "Discrepancies Only"
+    "DiscrepanciesOnly": "Discrepancies Only",
+    "Menu:SerialNoWarrantyExpiry": "Serial No Warranty & AMC Expiry",
+    "SerialNoWarrantyExpiry": "Serial No Warranty & AMC Expiry",
+    "SerialNoWarrantyExpiryDescription": "Track warranty coverage, service contracts (AMC), and expiring serialized equipment.",
+    "NoSerialNoWarrantyRecordsFound": "No serial number warranty records found for the selected criteria.",
+    "DaysToWarrantyExpiry": "Days to Warranty Expiry",
+    "DaysToAmcExpiry": "Days to AMC Expiry"
   }
 }
 

@@ -74,21 +74,20 @@ public class SerialNo : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void UpdateMaintenanceStatus(DateTime? asOfDate = null)
     {
         var now = asOfDate ?? DateTime.UtcNow;
-        if (WarrantyExpiryDate.HasValue && now <= WarrantyExpiryDate.Value)
-            MaintenanceStatus = "Under Warranty";
-        else if (AmcExpiryDate.HasValue && now <= AmcExpiryDate.Value)
-            MaintenanceStatus = "Under AMC";
-        else if (WarrantyExpiryDate.HasValue)
-            MaintenanceStatus = "Out of Warranty";
-        else
-            MaintenanceStatus = "Out of AMC";
-    }
-}
+        string? status = null;
 
-public enum SerialNoStatus
-{
-    Active = 0,
-    Delivered = 1,
-    Consumed = 2,
-    Inactive = 3,
+        if (WarrantyExpiryDate.HasValue && WarrantyExpiryDate.Value < now)
+            status = "Out of Warranty";
+
+        if (AmcExpiryDate.HasValue && AmcExpiryDate.Value < now)
+            status = "Out of AMC";
+
+        if (AmcExpiryDate.HasValue && AmcExpiryDate.Value >= now)
+            status = "Under AMC";
+
+        if (WarrantyExpiryDate.HasValue && WarrantyExpiryDate.Value >= now)
+            status = "Under Warranty";
+
+        MaintenanceStatus = status ?? string.Empty;
+    }
 }

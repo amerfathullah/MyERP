@@ -3190,6 +3190,60 @@ export interface AvailableSerialNoReportDto {
   rows: AvailableSerialNoRowDto[];
 }
 
+export enum SerialNoStatus {
+  Active = 0,
+  Delivered = 1,
+  Consumed = 2,
+  Inactive = 3,
+}
+
+export interface SerialNoWarrantyExpiryFilterDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  itemId?: string | null;
+  customerId?: string | null;
+  expiryType?: string | null;
+  maintenanceStatus?: string | null;
+  daysThreshold?: number | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface SerialNoWarrantyExpiryRowDto {
+  serialNoId: string;
+  serialNumber: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  customerId?: string | null;
+  customerName?: string | null;
+  warehouseId?: string | null;
+  warehouseName?: string | null;
+  warrantyExpiryDate?: string | null;
+  daysToWarrantyExpiry?: number | null;
+  isWarrantyExpired: boolean;
+  amcExpiryDate?: string | null;
+  daysToAmcExpiry?: number | null;
+  isAmcExpired: boolean;
+  maintenanceStatus: string;
+  status: SerialNoStatus;
+  purchaseDocumentType?: string | null;
+  deliveryDocumentType?: string | null;
+}
+
+export interface SerialNoWarrantyExpiryReportDto {
+  asOfDate: string;
+  totalCount: number;
+  underWarrantyCount: number;
+  outOfWarrantyCount: number;
+  underAmcCount: number;
+  outOfAmcCount: number;
+  expiringSoonCount: number;
+  rows: SerialNoWarrantyExpiryRowDto[];
+}
+
+
 
 
 

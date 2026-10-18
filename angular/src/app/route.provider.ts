@@ -1298,6 +1298,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/serial-no-warranty-expiry',
+        name: '::Menu:SerialNoWarrantyExpiry',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-shield-alt',
+        order: 43,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

@@ -141,6 +141,6 @@ public class StockCycleTests
 
         // After both expired
         serial.UpdateMaintenanceStatus(new DateTime(2029, 1, 1));
-        serial.MaintenanceStatus.ShouldBe("Out of Warranty");
+        serial.MaintenanceStatus.ShouldBe("Out of AMC");
     }
 }
