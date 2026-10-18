@@ -5464,7 +5464,15 @@
     "DistinctNegativeBatches": "Distinct Negative Batches",
     "PreviousQty": "Previous Qty",
     "TransactionQty": "Transaction Qty",
-    "QtyAfterTransaction": "Qty After Transaction"
+    "QtyAfterTransaction": "Qty After Transaction",
+    "Menu:BatchSplitTree": "Batch Split Tree",
+    "BatchSplitTree": "Batch Split Tree",
+    "BatchSplitTreeDescription": "Hierarchical view of parent batches and their split child batches.",
+    "NoBatchSplitTreeFound": "No batch split hierarchy found for the selected criteria.",
+    "TotalRootBatches": "Total Root Batches",
+    "TotalChildBatches": "Total Child Batches",
+    "CreatedVia": "Created Via",
+    "ReferenceDocument": "Reference Document"
   }
 }
 

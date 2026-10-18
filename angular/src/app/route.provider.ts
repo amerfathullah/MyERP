@@ -1244,6 +1244,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/batch-split-tree',
+        name: '::Menu:BatchSplitTree',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-code-branch',
+        order: 37,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',
