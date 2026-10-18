@@ -105,7 +105,8 @@ public class PurchaseReceiptAndOrderTests
     [Fact]
     public void PurchaseReceipt_Submit_FuturePostingDate_ThrowsValidationException()
     {
-        var futureDate = DateTime.UtcNow.Date.AddDays(1);
+        var maxAllowedDate = DateTime.Today > DateTime.UtcNow.Date ? DateTime.Today : DateTime.UtcNow.Date;
+        var futureDate = maxAllowedDate.AddDays(1);
         var pr = new PurchaseReceipt(Guid.NewGuid(), _companyId, _supplierId, _warehouseId, "PR-2026-0004", futureDate);
         pr.AddItem(_itemId1, "Widget A", 10m, 50m, 0m);
 
