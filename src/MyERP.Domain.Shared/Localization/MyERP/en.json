@@ -5455,7 +5455,16 @@
     "AvgBuyingPrice": "Avg. Buying Price",
     "AvgSellingPrice": "Avg. Selling Price",
     "InProduction": "In Production",
-    "TotalVariants": "Total Variants"
+    "TotalVariants": "Total Variants",
+    "Menu:NegativeBatchReport": "Negative Batch Report",
+    "NegativeBatchReport": "Negative Batch Report",
+    "NegativeBatchReportDescription": "Audit report of transactions where batch inventory went negative in a warehouse.",
+    "NoNegativeBatchesFound": "No negative batch inventory incidents found for the selected criteria.",
+    "TotalIncidents": "Total Incidents",
+    "DistinctNegativeBatches": "Distinct Negative Batches",
+    "PreviousQty": "Previous Qty",
+    "TransactionQty": "Transaction Qty",
+    "QtyAfterTransaction": "Qty After Transaction"
   }
 }
 

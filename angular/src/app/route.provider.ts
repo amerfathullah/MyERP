@@ -1235,6 +1235,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Items',
       },
       {
+        path: '/inventory/reports/negative-batch',
+        name: '::Menu:NegativeBatchReport',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-exclamation-triangle',
+        order: 36,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

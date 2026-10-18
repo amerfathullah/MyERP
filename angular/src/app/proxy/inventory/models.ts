@@ -2892,3 +2892,38 @@ export interface ItemVariantDetailsReportDto {
   rows: ItemVariantDetailsRowDto[];
 }
 
+export interface NegativeBatchFilterDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  itemId?: string | null;
+  batchId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface NegativeBatchRowDto {
+  postingDateTime: string;
+  batchId: string;
+  batchNo: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  warehouseId: string;
+  warehouseName: string;
+  previousQty: number;
+  transactionQty: number;
+  qtyAfterTransaction: number;
+  voucherType: string;
+  voucherId?: string | null;
+  voucherNo: string;
+}
+
+export interface NegativeBatchReportDto {
+  fromDate?: string | null;
+  toDate?: string | null;
+  rows: NegativeBatchRowDto[];
+  totalIncidents: number;
+  distinctNegativeBatches: number;
+}
+

@@ -3852,6 +3852,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Items' },
   },
   {
+    path: 'inventory/reports/negative-batch',
+    loadComponent: () => import('./inventory/reports/negative-batch/negative-batch.component').then(c => c.NegativeBatchComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.StockEntries' },
+  },
+  {
     path: 'inventory/quality-goals',
     loadComponent: () => import('./inventory/quality-goals/quality-goal-list.component').then(c => c.QualityGoalListComponent),
     canActivate: [authGuard],
