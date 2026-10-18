@@ -242,7 +242,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
                       }
                     </td>
                     <td class="text-end fw-semibold">
-                      @if (row.totalCost != null) {
+                      @if (row.totalCost !== null) {
                         {{ row.totalCost | currency:'USD':'symbol':'1.2-2' }}
                       } @else {
                         <span class="text-muted">-</span>
