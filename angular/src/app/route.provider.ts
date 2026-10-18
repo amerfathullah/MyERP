@@ -519,6 +519,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseInvoices',
       },
       {
+        path: '/purchasing/reports/supplier-ledger-summary',
+        name: '::Menu:SupplierLedgerSummary',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-book-open',
+        order: 27.65,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseInvoices',
+      },
+      {
         path: '/purchasing/reports/material-requests-without-supplier-quotations',
         name: '::Menu:MaterialRequestsWithoutSupplierQuotations',
         parentName: '::Menu:Purchasing',

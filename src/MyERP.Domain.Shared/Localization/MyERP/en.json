@@ -5613,7 +5613,12 @@
     "InvoicedAmount": "Invoiced Amount",
     "ReturnAmount": "Return Amount",
     "AdjustmentAmount": "Adjustment Amount",
-    "DrCr": "Dr / Cr"
+    "DrCr": "Dr / Cr",
+    "Menu:SupplierLedgerSummary": "Supplier Ledger Summary",
+    "SupplierLedgerSummary": "Supplier Ledger Summary",
+    "SupplierLedgerSummaryDescription": "Comprehensive statement of supplier balances, billed amounts, payments made, debit notes, and adjustments.",
+    "NoSupplierLedgerSummaryFound": "No supplier ledger transactions found for the selected period."
   }
 }
+
 

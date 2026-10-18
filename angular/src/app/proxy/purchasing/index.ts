@@ -37,6 +37,5 @@ export * from './purchase-receipt-trends.service';
 export * from './requested-items-to-order-and-receive.service';
 export * from './received-items-to-be-billed.service';
 export * from './purchase-invoice-trends.service';
+export * from './supplier-ledger-summary.service';
 export { Dtos };
-
-

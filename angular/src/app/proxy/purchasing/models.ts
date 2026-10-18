@@ -1918,4 +1918,36 @@ export interface PurchaseInvoiceTrendsReportDto {
   chart: PurchaseInvoiceTrendsChartDto;
 }
 
+export interface SupplierLedgerSummaryRequestDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  supplierId?: string | null;
+  supplierGroupId?: string | null;
+}
+
+export interface SupplierLedgerSummaryRowDto {
+  supplierId: string;
+  supplierCode: string;
+  supplierName: string;
+  supplierGroupName?: string | null;
+  openingBalance: number;
+  invoicedAmount: number;
+  paidAmount: number;
+  returnAmount: number;
+  adjustmentAmount: number;
+  closingBalance: number;
+  drOrCr: string;
+  currency: string;
+}
+
+export interface SupplierLedgerSummaryReportDto {
+  companyCurrency: string;
+  fromDate: string;
+  toDate: string;
+  rows: SupplierLedgerSummaryRowDto[];
+  totalRow: SupplierLedgerSummaryRowDto;
+}
+
+
 
