@@ -501,6 +501,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.PurchaseReceipts',
       },
       {
+        path: '/purchasing/reports/received-items-to-be-billed',
+        name: '::Menu:ReceivedItemsToBeBilled',
+        parentName: '::Menu:Purchasing',
+        iconClass: 'fas fa-receipt',
+        order: 27.5,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.PurchaseReceipts',
+      },
+      {
         path: '/purchasing/reports/material-requests-without-supplier-quotations',
         name: '::Menu:MaterialRequestsWithoutSupplierQuotations',
         parentName: '::Menu:Purchasing',

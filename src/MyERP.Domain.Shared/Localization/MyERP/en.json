@@ -5593,7 +5593,11 @@
     "DeliveredItemsToBeBilledDescription": "Track delivered stock items pending sales invoice creation, with billed and returned amount reconciliation.",
     "NoDeliveredItemsToBeBilledFound": "No unbilled delivered items found for the selected criteria.",
     "ReturnedAmount": "Returned Amount",
-    "PendingAmount": "Pending Amount"
+    "PendingAmount": "Pending Amount",
+    "Menu:ReceivedItemsToBeBilled": "Received Items to be Billed",
+    "ReceivedItemsToBeBilled": "Received Items to be Billed",
+    "ReceivedItemsToBeBilledDescription": "Track received stock items pending purchase invoice creation, with billed and returned amount reconciliation.",
+    "NoReceivedItemsToBeBilledFound": "No unbilled received items found for the selected criteria."
   }
 }
 

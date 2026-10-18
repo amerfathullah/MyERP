@@ -856,6 +856,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.PurchaseReceipts' },
   },
   {
+    path: 'purchasing/reports/received-items-to-be-billed',
+    loadComponent: () => import('./purchasing/reports/received-items-to-be-billed/received-items-to-be-billed.component').then(c => c.ReceivedItemsToBeBilledComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.PurchaseReceipts' },
+  },
+  {
     path: 'purchasing/reports/material-requests-without-supplier-quotations',
     loadComponent: () => import('./purchasing/reports/material-requests-without-supplier-quotations/material-requests-without-supplier-quotations.component').then(c => c.MaterialRequestsWithoutSupplierQuotationsComponent),
     canActivate: [authGuard, permissionGuard],

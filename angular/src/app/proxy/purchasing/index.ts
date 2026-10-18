@@ -35,5 +35,7 @@ export * from './item-wise-purchase-history.service';
 export * from './purchase-order-trends.service';
 export * from './purchase-receipt-trends.service';
 export * from './requested-items-to-order-and-receive.service';
+export * from './received-items-to-be-billed.service';
 export { Dtos };
+
 

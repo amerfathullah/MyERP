@@ -1830,6 +1830,48 @@ export interface MaterialRequestsWithoutSupplierQuotationsReportDto {
   items: MaterialRequestsWithoutSupplierQuotationsItemDto[];
 }
 
+export interface GetReceivedItemsToBeBilledInput {
+  companyId: string;
+  postingDate?: string | null;
+  purchaseReceiptId?: string | null;
+  supplierId?: string | null;
+  itemId?: string | null;
+}
+
+export interface ReceivedItemToBeBilledRowDto {
+  purchaseReceiptId: string;
+  receiptNumber: string;
+  postingDate: string;
+  supplierId: string;
+  supplierName: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  description: string;
+  receivedQty: number;
+  billedQty: number;
+  returnedQty: number;
+  pendingQty: number;
+  rate: number;
+  amount: number;
+  billedAmount: number;
+  returnedAmount: number;
+  pendingAmount: number;
+  projectId?: string | null;
+  projectName?: string | null;
+  currency: string;
+}
+
+export interface ReceivedItemsToBeBilledReportDto {
+  rows: ReceivedItemToBeBilledRowDto[];
+  totalAmount: number;
+  totalBilledAmount: number;
+  totalReturnedAmount: number;
+  totalPendingAmount: number;
+  currency: string;
+}
+
+
 
 
 
