@@ -1307,6 +1307,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/stock-ledger-entries-of-cancelled-vouchers',
+        name: '::Menu:StockLedgerEntriesOfCancelledVouchers',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-exclamation-triangle',
+        order: 44,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

@@ -76,3 +76,4 @@ export * from './stock-projected-qty.service';
 export * from './stock-ledger-invariant-check.service';
 export * from './available-serial-no-report.service';
 export * from './serial-no-warranty-expiry.service';
+export * from './stock-ledger-entries-of-cancelled-vouchers.service';

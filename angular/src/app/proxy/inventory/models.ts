@@ -3243,6 +3243,61 @@ export interface SerialNoWarrantyExpiryReportDto {
   rows: SerialNoWarrantyExpiryRowDto[];
 }
 
+export interface StockLedgerEntriesOfCancelledVouchersFilterDto {
+  companyId?: string | null;
+  voucherType?: string | null;
+  itemId?: string | null;
+  warehouseId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface CancelledVoucherKeyDto {
+  voucherType: string;
+  voucherId: string;
+}
+
+export interface FixUncancelledEntriesInputDto {
+  voucherKeys: CancelledVoucherKeyDto[];
+}
+
+export interface StockLedgerEntryOfCancelledVoucherRowDto {
+  sleId: string;
+  voucherType: string;
+  voucherId: string;
+  voucherNo: string;
+  postingDate: string;
+  postingTime: string;
+  postingDateTime: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  warehouseId: string;
+  warehouseName: string;
+  quantityChange: number;
+  stockValueDifference: number;
+  serialAndBatchBundleId?: string | null;
+  serialAndBatchBundleName?: string | null;
+  isBundleActive: boolean;
+}
+
+export interface StockLedgerEntriesOfCancelledVouchersReportDto {
+  totalUncancelledEntries: number;
+  distinctCancelledVouchersCount: number;
+  totalDiscrepancyQty: number;
+  totalDiscrepancyValue: number;
+  rows: StockLedgerEntryOfCancelledVoucherRowDto[];
+}
+
+export interface FixUncancelledEntriesResultDto {
+  cancelledSleCount: number;
+  cancelledBundleCount: number;
+  repostItemValuationCreatedCount: number;
+  messages: string[];
+}
+
+
 
 
 
