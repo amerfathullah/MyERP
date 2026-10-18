@@ -5580,7 +5580,14 @@
     "RawMaterialWarehouse": "Raw Material Warehouse",
     "AllottedQty": "Allotted Qty",
     "ExpectedArrivalDate": "Expected Arrival Date",
-    "ExpectedArrivalQty": "Expected Arrival Qty"
+    "ExpectedArrivalQty": "Expected Arrival Qty",
+    "Menu:ExponentialSmoothingForecasting": "Exponential Smoothing Forecasting",
+    "ExponentialSmoothingForecasting": "Exponential Smoothing Forecasting",
+    "ExponentialSmoothingForecastingDescription": "Predict future product demand using exponential smoothing across historical sales transactions.",
+    "NoForecastingDataFound": "No demand records found for the selected criteria and time range.",
+    "SmoothingConstant": "Smoothing Constant (α)",
+    "HistoricalDemand": "Historical Demand",
+    "ForecastDemand": "Forecast Demand"
   }
 }
 

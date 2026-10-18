@@ -1890,4 +1890,47 @@ export interface ProductionPlanningReportDto {
   rows: ProductionPlanningReportRowDto[];
 }
 
+export interface ExponentialSmoothingForecastingFilterDto {
+  companyId?: string | null;
+  basedOnDocument?: string;
+  basedOnField?: string;
+  periodicity?: string;
+  fromDate: string;
+  toDate: string;
+  noOfYears?: number;
+  smoothingConstant?: number;
+  itemId?: string | null;
+  warehouseId?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface ForecastingPeriodDto {
+  key: string;
+  label: string;
+  fromDate: string;
+  toDate: string;
+  isForecast: boolean;
+}
+
+export interface ExponentialSmoothingForecastingRowDto {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  warehouseId?: string | null;
+  warehouseName: string;
+  averageHistoricalDemand: number;
+  periodValues: Record<string, number>;
+  totalDemand: number;
+  totalForecast: number;
+}
+
+export interface ExponentialSmoothingForecastingDto {
+  periods: ForecastingPeriodDto[];
+  totalDemandPastData: number;
+  totalForecastPastData: number;
+  totalForecastFutureData: number;
+  rows: ExponentialSmoothingForecastingRowDto[];
+  totalRow?: ExponentialSmoothingForecastingRowDto | null;
+}
+
 

@@ -31,3 +31,4 @@ export * from './work-order-summary.service';
 export * from './workstation-type.service';
 export * from './bom-search.service';
 export * from './production-planning-report.service';
+export * from './exponential-smoothing-forecasting.service';
