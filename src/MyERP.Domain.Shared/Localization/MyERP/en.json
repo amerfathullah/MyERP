@@ -5549,7 +5549,13 @@
     "NoTraceabilityRecordsFound": "No traceability records found for the selected criteria.",
     "TraceabilityDirection": "Traceability Direction",
     "Backward": "Backward (Upstream to Supplier)",
-    "Forward": "Forward (Downstream to Customer)"
+    "Forward": "Forward (Downstream to Customer)",
+    "Menu:BomSearch": "BOM Search",
+    "BomSearch": "BOM Search",
+    "BomSearchDescription": "Find Bill of Materials and Product Bundles containing specified components or raw materials, with recursive sub-assembly explosion.",
+    "SearchSubAssemblies": "Search Sub-Assemblies",
+    "SearchSubAssembliesHelp": "Include sub-assemblies in the search to locate top-level BOMs containing components buried in child sub-assemblies.",
+    "NoMatchingBomsFound": "No BOMs or Product Bundles found containing all selected component items."
   }
 }
 

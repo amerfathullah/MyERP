@@ -29,3 +29,4 @@ export * from './work-order-status.enum';
 export * from './work-order-stock-report.service';
 export * from './work-order-summary.service';
 export * from './workstation-type.service';
+export * from './bom-search.service';

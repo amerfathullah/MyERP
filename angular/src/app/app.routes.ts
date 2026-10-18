@@ -2415,6 +2415,12 @@ export const APP_ROUTES: Routes = [
     data: { requiredPolicy: 'MyERP.Manufacturing' },
   },
   {
+    path: 'manufacturing/reports/bom-search',
+    loadComponent: () => import('./manufacturing/reports/bom-search.component').then(c => c.BomSearchComponent),
+    canActivate: [authGuard, permissionGuard],
+    data: { requiredPolicy: 'MyERP.Manufacturing' },
+  },
+  {
     path: 'manufacturing/reports/issued-items',
     loadComponent: () => import('./manufacturing/reports/issued-items-against-work-order.component').then(c => c.IssuedItemsAgainstWorkOrderComponent),
     canActivate: [authGuard, permissionGuard],

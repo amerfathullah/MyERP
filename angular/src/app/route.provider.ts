@@ -2397,6 +2397,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.Manufacturing',
       },
       {
+        path: '/manufacturing/reports/bom-search',
+        name: '::Menu:BomSearch',
+        iconClass: 'fas fa-search-plus',
+        order: 22.5,
+        parentName: '::Menu:Manufacturing',
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.Manufacturing',
+      },
+      {
         path: '/manufacturing/reports/issued-items',
         name: '::Menu:IssuedItemsAgainstWorkOrder',
         iconClass: 'fas fa-dolly',

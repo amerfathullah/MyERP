@@ -1815,3 +1815,41 @@ export interface IssuedItemsAgainstWorkOrderRowDto {
   actualQtyAtSource: number;
 }
 
+export interface BomSearchFilterDto {
+  companyId?: string | null;
+  item1Id?: string | null;
+  item2Id?: string | null;
+  item3Id?: string | null;
+  item4Id?: string | null;
+  item5Id?: string | null;
+  itemIds?: string[] | null;
+  searchSubAssemblies?: boolean;
+  searchTerm?: string | null;
+}
+
+export interface BomSearchRowDto {
+  parentId: string;
+  parentName: string;
+  docType: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  quantity: number;
+  uom?: string | null;
+  companyId?: string | null;
+  companyName?: string | null;
+  isActive: boolean;
+  isDefault: boolean;
+  totalCost?: number | null;
+  foundInSubAssembly: boolean;
+  componentItemsSummary: string;
+}
+
+export interface BomSearchReportDto {
+  totalMatches: number;
+  bomMatchesCount: number;
+  productBundleMatchesCount: number;
+  rows: BomSearchRowDto[];
+}
+
+
