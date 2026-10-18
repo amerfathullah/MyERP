@@ -70,3 +70,4 @@ export * from './available-batch-report.service';
 export * from './reserved-stock-report.service';
 export * from './item-variant-details.service';
 export * from './negative-batch-report.service';
+export * from './serial-no-ledger.service';

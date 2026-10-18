@@ -2927,3 +2927,42 @@ export interface NegativeBatchReportDto {
   distinctNegativeBatches: number;
 }
 
+export interface SerialNoLedgerFilterDto {
+  companyId?: string | null;
+  warehouseId?: string | null;
+  itemId?: string | null;
+  serialNumber?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  voucherType?: string | null;
+  searchTerm?: string | null;
+}
+
+export interface SerialNoLedgerRowDto {
+  postingDateTime: string;
+  serialNumber: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  warehouseId: string;
+  warehouseName: string;
+  qty: number;
+  valuationRate: number;
+  voucherType: string;
+  voucherId?: string | null;
+  voucherNo: string;
+  status: string;
+  partyType?: string | null;
+  partyName?: string | null;
+}
+
+export interface SerialNoLedgerReportDto {
+  fromDate?: string | null;
+  toDate?: string | null;
+  rows: SerialNoLedgerRowDto[];
+  totalEntries: number;
+  inwardCount: number;
+  outwardCount: number;
+}
+
+

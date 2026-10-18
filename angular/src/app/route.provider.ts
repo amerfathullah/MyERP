@@ -1253,6 +1253,15 @@ function configureRoutes() {
         requiredPolicy: 'MyERP.StockEntries',
       },
       {
+        path: '/inventory/reports/serial-no-ledger',
+        name: '::Menu:SerialNoLedger',
+        parentName: '::Menu:Inventory',
+        iconClass: 'fas fa-barcode',
+        order: 38,
+        layout: eLayoutType.application,
+        requiredPolicy: 'MyERP.StockEntries',
+      },
+      {
         path: '/inventory/item-attributes',
         name: '::Menu:ItemAttributes',
         parentName: '::Menu:Inventory',

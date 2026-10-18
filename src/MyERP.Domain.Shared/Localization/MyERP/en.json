@@ -5472,7 +5472,13 @@
     "TotalRootBatches": "Total Root Batches",
     "TotalChildBatches": "Total Child Batches",
     "CreatedVia": "Created Via",
-    "ReferenceDocument": "Reference Document"
+    "ReferenceDocument": "Reference Document",
+    "Menu:SerialNoLedger": "Serial No Ledger",
+    "SerialNoLedger": "Serial No Ledger",
+    "SerialNoLedgerDescription": "Audit trail and transaction history of serialized stock items.",
+    "NoSerialNoLedgerFound": "No serial number ledger entries found for the selected criteria.",
+    "InwardCount": "Inward Entries",
+    "OutwardCount": "Outward Entries"
   }
 }
 
