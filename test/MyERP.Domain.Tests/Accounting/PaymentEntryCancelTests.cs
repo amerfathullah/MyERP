@@ -89,4 +89,66 @@ public class PaymentEntryCancelTests
         (entry2Paid - rev2).ShouldBe(0m);
         (entry1Paid - rev1).ShouldBe(1000m);
     }
+
+    // ========== ERPNext PR #61273: Payment cancellation and amounts tests ==========
+
+    [Fact]
+    public void PaymentEntry_Cancel_RestoresScheduleOutstandingAndBaseOutstanding()
+    {
+        // Per ERPNext PR #61273: cancelling payment adds back to base_outstanding
+        var schedule = new PaymentScheduleEntry(
+            Guid.NewGuid(), "SalesInvoice", Guid.NewGuid(),
+            DateTime.UtcNow, 100m, 1000m)
+        {
+            BasePaymentAmount = 4500m,
+            PaidAmount = 1000m
+        };
+
+        // Fully paid -> Outstanding is 0, BaseOutstanding is 0
+        schedule.Outstanding.ShouldBe(0m);
+        schedule.BaseOutstanding.ShouldBe(0m);
+
+        // Cancel allocation of 400m
+        schedule.PaidAmount -= 400m;
+
+        // Outstanding restored to 400m, BaseOutstanding restored to 4500 - (600 * 4500 / 1000) = 1800m
+        schedule.Outstanding.ShouldBe(400m);
+        schedule.BaseOutstanding.ShouldBe(1800m);
+    }
+
+    [Fact]
+    public void PaymentEntry_Submit_NegativePaidAmount_Throws()
+    {
+        var pe = new PaymentEntry(
+            Guid.NewGuid(), Guid.NewGuid(), PaymentType.Receive,
+            DateTime.UtcNow, 1000m, Guid.NewGuid(), Guid.NewGuid());
+        pe.PaidAmount = -100m;
+
+        var ex = Should.Throw<BusinessException>(() => pe.Submit());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.AmountMustBePositive);
+    }
+
+    [Fact]
+    public void PaymentEntry_Submit_NegativeReceivedAmount_Throws()
+    {
+        var pe = new PaymentEntry(
+            Guid.NewGuid(), Guid.NewGuid(), PaymentType.Receive,
+            DateTime.UtcNow, 1000m, Guid.NewGuid(), Guid.NewGuid());
+        pe.ReceivedAmount = -50m;
+
+        var ex = Should.Throw<BusinessException>(() => pe.Submit());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.AmountMustBePositive);
+    }
+
+    [Fact]
+    public void PaymentEntry_Submit_NegativeExchangeRate_Throws()
+    {
+        var pe = new PaymentEntry(
+            Guid.NewGuid(), Guid.NewGuid(), PaymentType.Receive,
+            DateTime.UtcNow, 1000m, Guid.NewGuid(), Guid.NewGuid());
+        pe.SourceExchangeRate = -1.5m;
+
+        var ex = Should.Throw<BusinessException>(() => pe.Submit());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.AmountMustBePositive);
+    }
 }

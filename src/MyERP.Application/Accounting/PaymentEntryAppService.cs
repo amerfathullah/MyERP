@@ -167,6 +167,19 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         Check.NotDefaultOrNull<Guid>(input.CompanyId, nameof(input.CompanyId));
         Check.NotDefaultOrNull<Guid>(input.PaidFromAccountId, nameof(input.PaidFromAccountId));
         Check.NotDefaultOrNull<Guid>(input.PaidToAccountId, nameof(input.PaidToAccountId));
+
+        if (input.PaidAmount < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(input.PaidAmount));
+        }
+
+        if (input.ReceivedAmount.HasValue && input.ReceivedAmount.Value < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(input.ReceivedAmount));
+        }
+
         // Per ERPNext PR #47069 / commit a854beeb40: set account type and currency if missing
         await PopulateAccountDetailsAsync(input);
 
@@ -979,27 +992,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         if (pe.AgainstInvoiceId.HasValue)
         {
             await UpdateInvoiceAmountPaidAsync(pe.AgainstInvoiceType!, pe.AgainstInvoiceId.Value, -pe.PaidAmount);
-
-            // Reverse payment schedule allocations
-            var scheduleQuery = await _scheduleRepository.GetQueryableAsync();
-            var scheduleEntries = scheduleQuery
-                .Where(s => s.ParentType == pe.AgainstInvoiceType
-                         && s.ParentId == pe.AgainstInvoiceId.Value)
-                .OrderByDescending(s => s.DueDate) // Reverse: latest-first
-                .ToList();
-
-            if (scheduleEntries.Any())
-            {
-                var remainingReversal = pe.PaidAmount;
-                foreach (var entry in scheduleEntries)
-                {
-                    if (remainingReversal <= 0) break;
-                    var reversable = Math.Min(remainingReversal, entry.PaidAmount);
-                    entry.PaidAmount -= reversable;
-                    remainingReversal -= reversable;
-                    await _scheduleRepository.UpdateAsync(entry);
-                }
-            }
+            await ReversePaymentScheduleAllocationAsync(pe.AgainstInvoiceType!, pe.AgainstInvoiceId.Value, pe.PaidAmount);
         }
 
         // Reverse advance payment on SO/PO
@@ -1031,6 +1024,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 if (refRow.ReferenceType == "SalesInvoice" || refRow.ReferenceType == "PurchaseInvoice")
                 {
                     await UpdateInvoiceAmountPaidAsync(refRow.ReferenceType, refRow.ReferenceId, -refRow.AllocatedAmount);
+                    await ReversePaymentScheduleAllocationAsync(refRow.ReferenceType, refRow.ReferenceId, refRow.AllocatedAmount);
                 }
             }
         }
@@ -1268,6 +1262,33 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
     }
 
     /// <summary>
+    /// Reverses payment schedule entry allocations in LIFO order (latest due date first).
+    /// Restores outstanding and base outstanding balances on invoice payment schedule.
+    /// Per ERPNext PR #61273: payment cancellation restores base outstanding on schedule.
+    /// </summary>
+    private async Task ReversePaymentScheduleAllocationAsync(string invoiceType, Guid invoiceId, decimal amount)
+    {
+        var scheduleQuery = await _scheduleRepository.GetQueryableAsync();
+        var scheduleEntries = scheduleQuery
+            .Where(s => s.ParentType == invoiceType
+                     && s.ParentId == invoiceId)
+            .OrderByDescending(s => s.DueDate) // Reverse: latest-first
+            .ToList();
+
+        if (!scheduleEntries.Any()) return;
+
+        var remainingReversal = amount;
+        foreach (var entry in scheduleEntries)
+        {
+            if (remainingReversal <= 0) break;
+            var reversable = Math.Min(remainingReversal, entry.PaidAmount);
+            entry.PaidAmount -= reversable;
+            remainingReversal -= reversable;
+            await _scheduleRepository.UpdateAsync(entry);
+        }
+    }
+
+    /// <summary>
     /// Updates invoice AmountPaid with optimistic concurrency retry.
     /// ABP's ConcurrencyStamp on SI/PI detects concurrent modifications —
     /// on conflict, re-reads the entity and retries (up to 3 attempts).
@@ -1310,6 +1331,18 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         if (entry.Status != Core.DocumentStatus.Draft)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft payment entries can be edited");
+
+        if (input.PaidAmount < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(input.PaidAmount));
+        }
+
+        if (input.ReceivedAmount.HasValue && input.ReceivedAmount.Value < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(input.ReceivedAmount));
+        }
 
         entry.PaymentType = input.PaymentType;
         entry.PostingDate = input.PostingDate != default ? input.PostingDate : entry.PostingDate;

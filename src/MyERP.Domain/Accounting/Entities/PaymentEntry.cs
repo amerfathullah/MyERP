@@ -261,11 +261,35 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        ValidateMandatoryAmounts();
         ValidateInternalTransferAccounts();
         ValidatePaymentTypeWithOutstanding();
 
         Status = DocumentStatus.Submitted;
         AddLocalEvent(new PaymentEntrySubmittedEvent(this));
+    }
+
+    /// <summary>
+    /// Validates mandatory amounts and exchange rates per ERPNext PR #61273.
+    /// Rejects non-positive paid amount and negative received amount or exchange rates.
+    /// </summary>
+    public void ValidateMandatoryAmounts()
+    {
+        if (PaidAmount <= 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(PaidAmount));
+
+        if (ReceivedAmount < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(ReceivedAmount));
+
+        if (SourceExchangeRate < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(SourceExchangeRate));
+
+        if (TargetExchangeRate < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(TargetExchangeRate));
     }
 
     /// <summary>
