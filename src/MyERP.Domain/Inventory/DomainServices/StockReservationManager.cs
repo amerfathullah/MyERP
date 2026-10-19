@@ -506,7 +506,7 @@ public class StockReservationManager : DomainService
         }
 
         var sre = new StockReservationEntry(
-            GuidGenerator?.Create() ?? Guid.NewGuid(), companyId, itemId, warehouseId,
+            CreateGuid(), companyId, itemId, warehouseId,
             voucherType, voucherId, qty, voucherQty: demandQty, tenantId: tenantId)
         {
             BatchId = batchId,
@@ -560,7 +560,7 @@ public class StockReservationManager : DomainService
             await _sreRepository.UpdateAsync(src);
 
             var newSre = new StockReservationEntry(
-                GuidGenerator?.Create() ?? Guid.NewGuid(),
+                CreateGuid(),
                 src.CompanyId,
                 src.ItemId,
                 src.WarehouseId,
@@ -614,7 +614,7 @@ public class StockReservationManager : DomainService
         await ValidateAvailabilityAsync(itemId, warehouseId, qty, batchId);
 
         var sre = new StockReservationEntry(
-            GuidGenerator?.Create() ?? Guid.NewGuid(), companyId, itemId, warehouseId,
+            CreateGuid(), companyId, itemId, warehouseId,
             voucherType, voucherId, qty, voucherQty: qty, tenantId: tenantId)
         {
             BatchId = batchId,
@@ -684,9 +684,18 @@ public class StockReservationManager : DomainService
     /// <summary>
     /// Updates transferred quantity on active Work Order reservations during Material Transfer.
     /// Per ERPNext PR #59424 / commit dbada3f461: only consumes reservations matching the transferred batch.
+    /// Per ERPNext PR #60647 / commit 260b828b09: creates WIP warehouse reservations linked to the transfer stock entry.
     /// </summary>
     public async Task<ReservationConsumption[]> ApplyWorkOrderTransferAsync(
-        Guid workOrderId, Guid itemId, Guid sourceWarehouseId, decimal transferredQty, Guid? batchId = null, Guid? workOrderItemId = null)
+        Guid workOrderId,
+        Guid itemId,
+        Guid sourceWarehouseId,
+        decimal transferredQty,
+        Guid? batchId = null,
+        Guid? workOrderItemId = null,
+        Guid? targetWarehouseId = null,
+        Guid? stockEntryId = null,
+        Guid? stockEntryItemId = null)
     {
         if (transferredQty <= 0) return Array.Empty<ReservationConsumption>();
 
@@ -717,6 +726,29 @@ public class StockReservationManager : DomainService
             sre.TransferredQty += transfer;
             await _sreRepository.UpdateAsync(sre);
 
+            if (targetWarehouseId.HasValue)
+            {
+                var targetSre = new StockReservationEntry(
+                    CreateGuid(),
+                    sre.CompanyId,
+                    sre.ItemId,
+                    targetWarehouseId.Value,
+                    sre.VoucherType,
+                    sre.VoucherId,
+                    transfer,
+                    voucherQty: transfer,
+                    tenantId: sre.TenantId)
+                {
+                    VoucherDetailId = sre.VoucherDetailId ?? workOrderItemId,
+                    BatchId = sre.BatchId ?? batchId,
+                    FromVoucherType = "StockEntry",
+                    FromVoucherId = stockEntryId ?? sre.Id,
+                    FromVoucherDetailId = stockEntryItemId ?? sre.VoucherDetailId
+                };
+                targetSre.Submit();
+                await _sreRepository.InsertAsync(targetSre);
+            }
+
             consumed.Add(new ReservationConsumption
             {
                 StockReservationEntryId = sre.Id,
@@ -731,13 +763,55 @@ public class StockReservationManager : DomainService
 
     /// <summary>
     /// Reverts transferred quantity on Work Order reservations when a Material Transfer is cancelled.
+    /// Per ERPNext PR #60647: cancels WIP reservations created by the transfer.
     /// </summary>
     public async Task RevertWorkOrderTransferAsync(
-        Guid workOrderId, Guid itemId, Guid sourceWarehouseId, decimal revertedQty, Guid? batchId = null, Guid? workOrderItemId = null)
+        Guid workOrderId,
+        Guid itemId,
+        Guid sourceWarehouseId,
+        decimal revertedQty,
+        Guid? batchId = null,
+        Guid? workOrderItemId = null,
+        Guid? targetWarehouseId = null,
+        Guid? stockEntryId = null)
     {
         if (revertedQty <= 0) return;
 
         var queryable = await _sreRepository.GetQueryableAsync();
+
+        if (targetWarehouseId.HasValue || stockEntryId.HasValue)
+        {
+            var targetSres = queryable
+                .Where(s => (s.VoucherType == "WorkOrder" || s.VoucherType == "Work Order")
+                    && s.VoucherId == workOrderId
+                    && s.ItemId == itemId
+                    && (targetWarehouseId == null || s.WarehouseId == targetWarehouseId.Value)
+                    && s.Status == DocumentStatus.Submitted
+                    && (stockEntryId == null || s.FromVoucherId == stockEntryId.Value))
+                .ToList();
+
+            var remainingTargetRevert = revertedQty;
+            foreach (var tsre in targetSres)
+            {
+                if (remainingTargetRevert <= 0) break;
+                var unconsumed = tsre.ReservedQty - tsre.ConsumedQty;
+                if (unconsumed <= 0) continue;
+
+                var cancelQty = Math.Min(remainingTargetRevert, unconsumed);
+                if (cancelQty >= tsre.ReservedQty)
+                {
+                    tsre.Cancel();
+                    await _sreRepository.UpdateAsync(tsre);
+                }
+                else
+                {
+                    tsre.ReservedQty -= cancelQty;
+                    await _sreRepository.UpdateAsync(tsre);
+                }
+                remainingTargetRevert -= cancelQty;
+            }
+        }
+
         var activeSres = queryable
             .Where(s => (s.VoucherType == "WorkOrder" || s.VoucherType == "Work Order")
                 && s.VoucherId == workOrderId
@@ -944,6 +1018,18 @@ public class StockReservationManager : DomainService
         }
 
         return result;
+    }
+
+    private Guid CreateGuid()
+    {
+        try
+        {
+            return (LazyServiceProvider?.LazyGetService<Volo.Abp.Guids.IGuidGenerator>()?.Create()) ?? Guid.NewGuid();
+        }
+        catch
+        {
+            return Guid.NewGuid();
+        }
     }
 }
 

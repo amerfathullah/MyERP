@@ -155,8 +155,12 @@ public class BankAutoMatchService : ApplicationService
         // Per ERPNext PR #61140 / commit 057fa019a9: hide linked payments the user cannot read
         var canReadPe = await AuthorizationService.IsGrantedAsync(MyERPPermissions.PaymentEntries.Default);
         var canReadJe = await AuthorizationService.IsGrantedAsync(MyERPPermissions.JournalEntries.Default);
-        var includePe = (!filterByDocType || docTypesList.Contains("PaymentEntry", StringComparer.OrdinalIgnoreCase)) && canReadPe;
-        var includeJe = (!filterByDocType || docTypesList.Contains("JournalEntry", StringComparer.OrdinalIgnoreCase)) && canReadJe;
+        bool MatchesDocType(string target) =>
+            docTypesList.Any(d =>
+                string.Equals(d.Replace(" ", "").Replace("_", ""), target.Replace(" ", "").Replace("_", ""), StringComparison.OrdinalIgnoreCase));
+
+        var includePe = (!filterByDocType || MatchesDocType("PaymentEntry")) && canReadPe;
+        var includeJe = (!filterByDocType || MatchesDocType("JournalEntry")) && canReadJe;
 
         var tx = await _transactionRepository.GetAsync(bankTransactionId);
         var results = new List<MatchCandidate>();

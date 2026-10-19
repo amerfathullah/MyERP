@@ -496,7 +496,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         {
                             var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
                             await sreManager.RevertWorkOrderTransferAsync(
-                                wo.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.Quantity, seItem.BatchId);
+                                wo.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.Quantity, seItem.BatchId,
+                                targetWarehouseId: seItem.TargetWarehouseId, stockEntryId: entry.Id);
                         }
                     }
                     var dateWoManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
@@ -549,7 +550,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         {
                             var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
                             await sreManager.ApplyWorkOrderTransferAsync(
-                                wo.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.Quantity, seItem.BatchId);
+                                wo.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.Quantity, seItem.BatchId,
+                                targetWarehouseId: seItem.TargetWarehouseId, stockEntryId: entry.Id, stockEntryItemId: seItem.Id);
                         }
                     }
 
@@ -1038,7 +1040,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                             {
                                 var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
                                 await sreManager.RevertWorkOrderTransferAsync(
-                                    woForTransfer.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.Quantity, seItem.BatchId);
+                                    woForTransfer.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.Quantity, seItem.BatchId,
+                                    targetWarehouseId: seItem.TargetWarehouseId, stockEntryId: entry.Id);
                             }
                         }
                     }

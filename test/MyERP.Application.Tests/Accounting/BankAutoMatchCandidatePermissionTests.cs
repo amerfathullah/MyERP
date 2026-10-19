@@ -154,4 +154,30 @@ public class BankAutoMatchCandidatePermissionTests
 
         candidates.ShouldBeEmpty();
     }
+
+    [Fact]
+    public async Task GetMatchCandidatesAsync_SupportsSnakeCaseAndSpacedDocumentTypes()
+    {
+        var (tx, pe, je) = CreateTestData();
+        var service = CreateService(canReadPe: true, canReadJe: true);
+
+        // Test snake_case and spaced doctype formats per ERPNext PR #61140
+        var peMatches = await service.GetMatchCandidatesAsync(tx.Id, _companyId, new[] { "payment_entry" });
+        peMatches.Count.ShouldBe(1);
+        peMatches[0].VoucherType.ShouldBe("PaymentEntry");
+
+        var jeMatches = await service.GetMatchCandidatesAsync(tx.Id, _companyId, new[] { "Journal Entry" });
+        jeMatches.Count.ShouldBe(1);
+        jeMatches[0].VoucherType.ShouldBe("JournalEntry");
+    }
+
+    [Fact]
+    public async Task GetMatchCandidatesAsync_UnknownDocumentType_ReturnsEmpty()
+    {
+        var (tx, pe, je) = CreateTestData();
+        var service = CreateService(canReadPe: true, canReadJe: true);
+
+        var candidates = await service.GetMatchCandidatesAsync(tx.Id, _companyId, new[] { "Sales Invoice", "unknown_type" });
+        candidates.ShouldBeEmpty();
+    }
 }

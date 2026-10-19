@@ -1777,6 +1777,41 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
 
         wo.Submit();
+
+        if (wo.ReserveStock)
+        {
+            var sreManager = LazyServiceProvider.LazyGetService<Inventory.DomainServices.StockReservationManager>();
+            if (sreManager != null)
+            {
+                foreach (var reqItem in wo.RequiredItems)
+                {
+                    if (reqItem.SourceWarehouseId.HasValue && reqItem.RequiredQuantity > 0)
+                    {
+                        try
+                        {
+                            await sreManager.ReserveStockAsync(
+                                reqItem.ItemId,
+                                reqItem.SourceWarehouseId.Value,
+                                wo.CompanyId,
+                                reqItem.RequiredQuantity,
+                                "WorkOrder",
+                                wo.Id,
+                                batchId: null,
+                                tenantId: wo.TenantId,
+                                voucherDemandQty: reqItem.RequiredQuantity,
+                                voucherDetailId: reqItem.Id);
+                            reqItem.SetStockReservedQty(reqItem.RequiredQuantity);
+                        }
+                        catch
+                        {
+                            // Partial or no reservation if stock is insufficient
+                        }
+                    }
+                }
+                wo.UpdateReservationStatus();
+            }
+        }
+
         await _workOrderRepository.UpdateAsync(wo);
 
         if (wo.SalesOrderId.HasValue)

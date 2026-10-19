@@ -121,7 +121,6 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         return ObjectMapper.Map<BankTransaction, BankTransactionDto>(tx);
     }
 
-    [Authorize(MyERPPermissions.PaymentEntries.Default)]
     public async Task<BankTransactionDto> UnreconcileAsync(Guid id)
     {
         var tx = await _repository.GetAsync(id);

@@ -314,4 +314,143 @@ public class WorkOrderBatchReservationAndPlanOffsetTests
         var reservedAfterWo = await service.GetReservedQtyForProductionPlanAsync(subAssemblyItemId, _warehouseA);
         reservedAfterWo.ShouldBe(0m);
     }
+
+    // =========================================================================
+    // ERPNext PR #60647 / commit 260b828b09:
+    // Work order reservation consumption split across multiple rows and WIP transfer
+    // =========================================================================
+
+    [Fact]
+    public async Task ApplyWorkOrderTransferAsync_CreatesWipReservation_AndConsumptionReachesIt()
+    {
+        var workOrderId = Guid.NewGuid();
+        var stockEntryId = Guid.NewGuid();
+        var stockEntryItemId = Guid.NewGuid();
+
+        var sourceSre = new StockReservationEntry(
+            Guid.NewGuid(), _companyId, _itemId, _warehouseA,
+            "WorkOrder", workOrderId, 8m);
+        sourceSre.Submit();
+
+        var sres = new List<StockReservationEntry> { sourceSre };
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        sreRepo.GetQueryableAsync().Returns(_ => Task.FromResult(sres.AsQueryable()));
+        sreRepo.InsertAsync(Arg.Do<StockReservationEntry>(s => sres.Add(s)))
+            .Returns(call => Task.FromResult(call.Arg<StockReservationEntry>()));
+
+        var manager = new StockReservationManager(sreRepo, null!, null!);
+
+        // 1. Transfer 4 units from Warehouse A (source) to Warehouse B (WIP)
+        var consumed = await manager.ApplyWorkOrderTransferAsync(
+            workOrderId, _itemId, _warehouseA, 4m,
+            targetWarehouseId: _warehouseB,
+            stockEntryId: stockEntryId,
+            stockEntryItemId: stockEntryItemId);
+
+        consumed.Length.ShouldBe(1);
+        consumed[0].ConsumedQty.ShouldBe(4m);
+        sourceSre.TransferredQty.ShouldBe(4m);
+
+        // WIP reservation created at warehouse B
+        var wipSres = sres.Where(s => s.WarehouseId == _warehouseB && s.VoucherId == workOrderId).ToList();
+        wipSres.Count.ShouldBe(1);
+        wipSres[0].ReservedQty.ShouldBe(4m);
+        wipSres[0].FromVoucherId.ShouldBe(stockEntryId);
+
+        // 2. Consume 2 units from Warehouse B (WIP)
+        var consumption = await manager.ApplyWorkOrderConsumptionAsync(
+            workOrderId, _itemId, _warehouseB, 2m);
+
+        consumption.Length.ShouldBe(1);
+        consumption[0].ConsumedQty.ShouldBe(2m);
+        wipSres[0].ConsumedQty.ShouldBe(2m);
+        wipSres[0].AvailableQty.ShouldBe(2m);
+    }
+
+    [Fact]
+    public async Task ApplyWorkOrderConsumptionAsync_SplitsConsumptionAcrossTwoReservationsOfSameItem()
+    {
+        // Mirrors ERPNext test_consumption_is_shared_over_row_reservations_of_one_material (PR #60647)
+        var workOrderId = Guid.NewGuid();
+        var row1Id = Guid.NewGuid();
+        var row2Id = Guid.NewGuid();
+
+        var sreRow1 = new StockReservationEntry(
+            Guid.NewGuid(), _companyId, _itemId, _warehouseA,
+            "WorkOrder", workOrderId, 4m)
+        {
+            VoucherDetailId = row1Id
+        };
+        sreRow1.Submit();
+
+        var sreRow2 = new StockReservationEntry(
+            Guid.NewGuid(), _companyId, _itemId, _warehouseA,
+            "WorkOrder", workOrderId, 4m)
+        {
+            VoucherDetailId = row2Id
+        };
+        sreRow2.Submit();
+
+        var sres = new List<StockReservationEntry> { sreRow1, sreRow2 };
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        sreRepo.GetQueryableAsync().Returns(_ => Task.FromResult(sres.AsQueryable()));
+
+        var manager = new StockReservationManager(sreRepo, null!, null!);
+
+        // Consume 4 units total
+        var consumption1 = await manager.ApplyWorkOrderConsumptionAsync(
+            workOrderId, _itemId, _warehouseA, 4m);
+
+        // Row 1 fully consumed (4), Row 2 untouched (0)
+        sreRow1.ConsumedQty.ShouldBe(4m);
+        sreRow2.ConsumedQty.ShouldBe(0m);
+        (sres.Sum(s => s.ReservedQty)).ShouldBe(8m);
+        (sres.Sum(s => s.ConsumedQty)).ShouldBe(4m);
+
+        // Consume another 2 units: takes from Row 2
+        var consumption2 = await manager.ApplyWorkOrderConsumptionAsync(
+            workOrderId, _itemId, _warehouseA, 2m);
+
+        sreRow1.ConsumedQty.ShouldBe(4m);
+        sreRow2.ConsumedQty.ShouldBe(2m);
+        (sres.Sum(s => s.ConsumedQty)).ShouldBe(6m);
+    }
+
+    [Fact]
+    public async Task RevertWorkOrderTransferAsync_CancelsTargetWipReservation()
+    {
+        var workOrderId = Guid.NewGuid();
+        var stockEntryId = Guid.NewGuid();
+
+        var sourceSre = new StockReservationEntry(
+            Guid.NewGuid(), _companyId, _itemId, _warehouseA,
+            "WorkOrder", workOrderId, 8m);
+        sourceSre.Submit();
+
+        var sres = new List<StockReservationEntry> { sourceSre };
+        var sreRepo = Substitute.For<IRepository<StockReservationEntry, Guid>>();
+        sreRepo.GetQueryableAsync().Returns(_ => Task.FromResult(sres.AsQueryable()));
+        sreRepo.InsertAsync(Arg.Do<StockReservationEntry>(s => sres.Add(s)))
+            .Returns(call => Task.FromResult(call.Arg<StockReservationEntry>()));
+
+        var manager = new StockReservationManager(sreRepo, null!, null!);
+
+        await manager.ApplyWorkOrderTransferAsync(
+            workOrderId, _itemId, _warehouseA, 4m,
+            targetWarehouseId: _warehouseB,
+            stockEntryId: stockEntryId);
+
+        sourceSre.TransferredQty.ShouldBe(4m);
+        var wipSre = sres.First(s => s.WarehouseId == _warehouseB);
+        wipSre.Status.ShouldBe(DocumentStatus.Submitted);
+
+        // Revert transfer
+        await manager.RevertWorkOrderTransferAsync(
+            workOrderId, _itemId, _warehouseA, 4m,
+            targetWarehouseId: _warehouseB,
+            stockEntryId: stockEntryId);
+
+        sourceSre.TransferredQty.ShouldBe(0m);
+        wipSre.Status.ShouldBe(DocumentStatus.Cancelled);
+    }
 }
