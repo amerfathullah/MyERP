@@ -221,9 +221,11 @@ public class StockAnalyticsAppService : ApplicationService, IStockAnalyticsAppSe
             switch (range.ToLowerInvariant())
             {
                 case "weekly":
-                    periodEnd = current.AddDays(6);
-                    if (periodEnd > toDate) periodEnd = toDate;
-                    label = $"W{System.Globalization.ISOWeek.GetWeekOfYear(current)} {current.Year}";
+                    var weekEnd = current.AddDays(6);
+                    periodEnd = weekEnd > toDate ? toDate : weekEnd;
+                    var isoWeek = System.Globalization.ISOWeek.GetWeekOfYear(weekEnd);
+                    var isoYear = System.Globalization.ISOWeek.GetYear(weekEnd);
+                    label = $"W{isoWeek} {isoYear}";
                     current = periodEnd.AddDays(1);
                     break;
 

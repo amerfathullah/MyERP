@@ -209,4 +209,52 @@ public class StockAnalyticsAppServiceTests
         result.Rows.Count.ShouldBe(1);
         result.Rows[0].ClosingBalance.ShouldBe(100m);
     }
+
+    [Fact]
+    public async Task GetReportAsync_WeeklyRangeAcrossYearBoundary_UsesEndOfWeekIsoYearAndWeek()
+    {
+        // Arrange: PR #60967 parity
+        var company = new Company(_companyId, "Apex") { CurrencyCode = "MYR" };
+        _companyRepo.FindAsync(_companyId).Returns(company);
+
+        var whId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var item = new Item(itemId, _companyId, "ITEM-ISO-WEEK", "ISO Week Item", ItemType.Goods)
+        {
+            MaintainStock = true,
+            IsActive = true
+        };
+        _itemRepo.GetQueryableAsync().Returns(new List<Item> { item }.AsQueryable());
+        _itemGroupRepo.GetQueryableAsync().Returns(new List<ItemGroup>().AsQueryable());
+
+        // Dec 25, 2022 to Jan 1, 2023. End of 7-day period is Jan 1, 2023.
+        // Jan 1, 2023 is Sunday. In ISO calendar, Jan 1, 2023 belongs to W52 2022!
+        var fromDate = new DateTime(2022, 12, 25);
+        var toDate = new DateTime(2023, 1, 1);
+
+        var sle = new StockLedgerEntry(Guid.NewGuid(), _companyId, itemId, whId, new DateTime(2023, 1, 1), 3m, 10m, 3m, 30m)
+        {
+            StockValueDifference = 30m
+        };
+        _sleRepo.GetQueryableAsync().Returns(new List<StockLedgerEntry> { sle }.AsQueryable());
+
+        // Act
+        var result = await _appService.GetReportAsync(new StockAnalyticsRequestDto
+        {
+            CompanyId = _companyId,
+            FromDate = fromDate,
+            ToDate = toDate,
+            Range = "Weekly",
+            ValueOrQuantity = "Quantity"
+        });
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.PeriodColumns.Count.ShouldBeGreaterThanOrEqualTo(1);
+        var firstCol = result.PeriodColumns[0];
+        // Week end is Dec 31 / Jan 1 -> W52 2022
+        firstCol.Label.ShouldBe("W52 2022");
+        result.Rows.Count.ShouldBe(1);
+        result.Rows[0].ClosingBalance.ShouldBe(3m);
+    }
 }
