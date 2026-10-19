@@ -261,6 +261,11 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        if (ReceivedAmount == 0)
+        {
+            SetAmounts();
+        }
+
         ValidateMandatoryAmounts();
         ValidateInternalTransferAccounts();
         ValidatePaymentTypeWithOutstanding();
@@ -271,7 +276,7 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
 
     /// <summary>
     /// Validates mandatory amounts and exchange rates per ERPNext PR #61273.
-    /// Rejects non-positive paid amount and negative received amount or exchange rates.
+    /// Rejects non-positive paid amount, received amount, and exchange rates.
     /// </summary>
     public void ValidateMandatoryAmounts()
     {
@@ -279,15 +284,15 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", nameof(PaidAmount));
 
-        if (ReceivedAmount < 0)
+        if (ReceivedAmount <= 0)
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", nameof(ReceivedAmount));
 
-        if (SourceExchangeRate < 0)
+        if (SourceExchangeRate <= 0)
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", nameof(SourceExchangeRate));
 
-        if (TargetExchangeRate < 0)
+        if (TargetExchangeRate <= 0)
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", nameof(TargetExchangeRate));
     }
@@ -378,6 +383,13 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     {
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        if (ReceivedAmount == 0)
+        {
+            SetAmounts();
+        }
+
+        ValidateMandatoryAmounts();
 
         // Per DO-NOT: "Allow duplicate (doctype, name, payment_term, payment_request) in Payment Entry references"
         if (References.Count > 1)

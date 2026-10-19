@@ -237,6 +237,15 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         if (input.PaidAmount <= 0)
             throw new Volo.Abp.BusinessException("MyERP:01008")
                 .WithData("field", "PaidAmount");
+
+        if (input.ReceivedAmount.HasValue && input.ReceivedAmount.Value <= 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(input.ReceivedAmount));
+
+        if (input.ExchangeRate <= 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(input.ExchangeRate));
+
         if (input.PostingDate == default)
             input.PostingDate = DateTime.UtcNow.Date;
 
@@ -1335,16 +1344,22 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft payment entries can be edited");
 
-        if (input.PaidAmount < 0)
+        if (input.PaidAmount <= 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", nameof(input.PaidAmount));
         }
 
-        if (input.ReceivedAmount.HasValue && input.ReceivedAmount.Value < 0)
+        if (input.ReceivedAmount.HasValue && input.ReceivedAmount.Value <= 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", nameof(input.ReceivedAmount));
+        }
+
+        if (input.ExchangeRate <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(input.ExchangeRate));
         }
 
         entry.PaymentType = input.PaymentType;

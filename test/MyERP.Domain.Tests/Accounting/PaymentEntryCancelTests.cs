@@ -129,6 +129,18 @@ public class PaymentEntryCancelTests
     }
 
     [Fact]
+    public void PaymentEntry_Submit_ZeroPaidAmount_Throws()
+    {
+        var pe = new PaymentEntry(
+            Guid.NewGuid(), Guid.NewGuid(), PaymentType.Receive,
+            DateTime.UtcNow, 1000m, Guid.NewGuid(), Guid.NewGuid());
+        pe.PaidAmount = 0m;
+
+        var ex = Should.Throw<BusinessException>(() => pe.Submit());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.AmountMustBePositive);
+    }
+
+    [Fact]
     public void PaymentEntry_Submit_NegativeReceivedAmount_Throws()
     {
         var pe = new PaymentEntry(
@@ -141,14 +153,27 @@ public class PaymentEntryCancelTests
     }
 
     [Fact]
-    public void PaymentEntry_Submit_NegativeExchangeRate_Throws()
+    public void PaymentEntry_Submit_NegativeTargetExchangeRate_Throws()
     {
         var pe = new PaymentEntry(
             Guid.NewGuid(), Guid.NewGuid(), PaymentType.Receive,
             DateTime.UtcNow, 1000m, Guid.NewGuid(), Guid.NewGuid());
-        pe.SourceExchangeRate = -1.5m;
+        pe.TargetExchangeRate = -1.5m;
 
         var ex = Should.Throw<BusinessException>(() => pe.Submit());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.AmountMustBePositive);
+    }
+
+    [Fact]
+    public void PaymentEntry_Post_NonPositiveAmounts_Throws()
+    {
+        var pe = new PaymentEntry(
+            Guid.NewGuid(), Guid.NewGuid(), PaymentType.Receive,
+            DateTime.UtcNow, 1000m, Guid.NewGuid(), Guid.NewGuid());
+        pe.Submit();
+
+        pe.PaidAmount = -500m;
+        var ex = Should.Throw<BusinessException>(() => pe.Post());
         ex.Code.ShouldBe(MyERPDomainErrorCodes.AmountMustBePositive);
     }
 }
