@@ -321,4 +321,45 @@ public abstract class PurchaseConversionAppServiceTests<TStartupModule> : MyERPA
             piDto.Items[0].Quantity.ShouldBe(10m);
         });
     }
+
+    [Fact]
+    public async Task ConvertPurchaseOrderToInvoice_OrderNeutralDebitNote_DoesNotReopenBilledQty()
+    {
+        // Per ERPNext PR #61336 (commits ca38172e49, 4192f7a567):
+        // Order-neutral debit note is left out of billed qty calculation, so it is not offered again when making PI
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var poRepo = GetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var conversionService = GetRequiredService<IPurchaseConversionAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Order Neutral Corp 2") { CurrencyCode = "MYR" }, autoSave: true);
+            var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "Neutral Supplier 2", company.TenantId), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "ITEM-NEUTRAL-2", "Neutral Item 2", ItemType.Goods)
+            {
+                MaintainStock = true,
+                Uom = "Unit"
+            }, autoSave: true);
+
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PIS2", "PurchaseInvoice", "PI-"), autoSave: true);
+
+            var po = new PurchaseOrder(Guid.NewGuid(), company.Id, supplier.Id, "PO-NEUT-002", DateTime.UtcNow.Date, company.TenantId);
+            po.AddItem(item.Id, "Neutral Item 2", 10m, 100m, 0m, "Unit");
+            po.Submit();
+            // PO item billed 6m originally.
+            // When an order-neutral debit note (-2m) was posted without touching the order,
+            // poItem.BilledQty remains 6m, and PendingBillingQty is 4m.
+            po.Items.First().BilledQty = 6m;
+            await poRepo.InsertAsync(po, autoSave: true);
+
+            // Converting PO to PI offers exactly 4m (10 - 6), NOT 6m
+            var piDto = await conversionService.ConvertPurchaseOrderToInvoiceAsync(po.Id);
+            piDto.ShouldNotBeNull();
+            piDto.Items.Count.ShouldBe(1);
+            piDto.Items[0].Quantity.ShouldBe(4m);
+        });
+    }
 }

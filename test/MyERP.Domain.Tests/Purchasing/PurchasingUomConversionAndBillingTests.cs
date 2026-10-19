@@ -134,4 +134,50 @@ public class PurchasingUomConversionAndBillingTests
         prItem.BilledQty.ShouldBe(8m);
         prItem.AmountDifferenceWithPurchaseInvoice.ShouldBe(80m);
     }
+
+    [Fact]
+    public async Task UpdateLinkedPurchaseReceiptBillingAsync_WhenMultipleRowsInDifferentUoms_SumsStockQtyBeforePrUomConversion()
+    {
+        // Per ERPNext PR #61336 (commits 61fad15f65, b97eb00c19, 1b35280c46)
+        // PR received: 10 Boxes (each Box = 12 Units, ConversionFactor = 12) -> 120 Units
+        var pr = new PurchaseReceipt(Guid.NewGuid(), CompanyId, SupplierId, WarehouseId, "PR-001", DateTime.UtcNow.Date);
+        pr.AddItem(ItemId, "Widget", 10, 120m, 0m, uom: "Box");
+        var prItem = pr.Items.First();
+        prItem.ConversionFactor = 12m;
+        prItem.BilledQty = 0;
+
+        var prRepo = Substitute.For<IRepository<PurchaseReceipt, Guid>>();
+        prRepo.GetQueryableAsync().Returns(new List<PurchaseReceipt> { pr }.AsQueryable());
+
+        var sp = Substitute.For<IServiceProvider>();
+        sp.GetService(typeof(IRepository<PurchaseReceipt, Guid>)).Returns(prRepo);
+
+        var piManager = new PurchaseInvoiceManager(null!, null!, null!)
+        {
+            LazyServiceProvider = new AbpLazyServiceProvider(sp)
+        };
+
+        // Invoice has 2 rows for the same PR item:
+        // Row 1: 6 Units (ConversionFactor = 1) -> 6 Units stock qty
+        // Row 2: 18 Units (ConversionFactor = 1) -> 18 Units stock qty
+        // Total stock qty = 24 Units. In PR UOM: 24 / 12 = 2 Boxes.
+        var pi = new PurchaseInvoice(Guid.NewGuid(), CompanyId, SupplierId, "PINV-002", DateTime.UtcNow.Date);
+        pi.AddItem(ItemId, "Widget Row 1", 6, 10m, 0m, uom: "Unit");
+        var piItem1 = pi.Items[0];
+        piItem1.ConversionFactor = 1m;
+        piItem1.PurchaseReceiptItemId = prItem.Id;
+
+        pi.AddItem(ItemId, "Widget Row 2", 18, 10m, 0m, uom: "Unit");
+        var piItem2 = pi.Items[1];
+        piItem2.ConversionFactor = 1m;
+        piItem2.PurchaseReceiptItemId = prItem.Id;
+
+        await piManager.UpdateLinkedPurchaseReceiptBillingAsync(pi, reverse: false);
+
+        prItem.BilledQty.ShouldBe(2m);
+
+        // Cancel reverses 2 Boxes
+        await piManager.UpdateLinkedPurchaseReceiptBillingAsync(pi, reverse: true);
+        prItem.BilledQty.ShouldBe(0m);
+    }
 }

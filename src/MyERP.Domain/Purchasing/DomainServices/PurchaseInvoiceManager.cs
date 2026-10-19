@@ -474,20 +474,24 @@ public class PurchaseInvoiceManager : DomainService
         var isCreditOrDebit = invoice.IsReturn || invoice.IsDebitNote;
         foreach (var pr in affectedPrs)
         {
-            foreach (var piItem in invoice.Items.Where(i => i.PurchaseReceiptItemId.HasValue))
+            var prItemGroups = invoice.Items
+                .Where(i => i.PurchaseReceiptItemId.HasValue)
+                .GroupBy(i => i.PurchaseReceiptItemId!.Value);
+
+            foreach (var group in prItemGroups)
             {
-                var prItem = pr.Items.FirstOrDefault(i => i.Id == piItem.PurchaseReceiptItemId!.Value);
+                var prItem = pr.Items.FirstOrDefault(i => i.Id == group.Key);
                 if (prItem != null)
                 {
-                    var piFactor = piItem.ConversionFactor > 0 ? piItem.ConversionFactor : 1m;
                     var prFactor = prItem.ConversionFactor > 0 ? prItem.ConversionFactor : 1m;
-                    var qtyInPrUom = (Math.Abs(piItem.Quantity) * piFactor) / prFactor;
+                    var totalStockQty = group.Sum(i => Math.Abs(i.Quantity) * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+                    var qtyInPrUom = Math.Round(totalStockQty / prFactor, 4);
 
                     // Per ERPNext billing_status.py: amount_difference_with_purchase_invoice =
                     // (pi_billed_rate - pr_rate) × billed_qty — tracks how much this PI's rate
                     // diverged from what was recorded at receipt time, accumulated across every
                     // PI that bills against this row.
-                    var variance = (piItem.UnitPrice - prItem.UnitPrice) * Math.Abs(piItem.Quantity);
+                    var variance = group.Sum(i => (i.UnitPrice - prItem.UnitPrice) * Math.Abs(i.Quantity));
 
                     if (isCreditOrDebit)
                     {

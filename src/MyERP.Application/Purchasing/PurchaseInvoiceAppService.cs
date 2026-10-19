@@ -1667,21 +1667,26 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
             foreach (var pr in affectedPrs)
             {
-                foreach (var piItem in invoice.Items.Where(i => i.PurchaseReceiptItemId.HasValue))
+                var prItemGroups = invoice.Items
+                    .Where(i => i.PurchaseReceiptItemId.HasValue)
+                    .GroupBy(i => i.PurchaseReceiptItemId!.Value);
+
+                foreach (var group in prItemGroups)
                 {
-                    var prItem = pr.Items.FirstOrDefault(i => i.Id == piItem.PurchaseReceiptItemId!.Value);
+                    var prItem = pr.Items.FirstOrDefault(i => i.Id == group.Key);
                     if (prItem == null) continue;
 
-                    var piFactor = piItem.ConversionFactor > 0 ? piItem.ConversionFactor : 1m;
                     var prFactor = prItem.ConversionFactor > 0 ? prItem.ConversionFactor : 1m;
-                    var attemptedInPrUom = (piItem.Quantity * piFactor) / prFactor;
+                    // Sum stock qty across all rows for this PR item before dividing by PR conversion factor (ERPNext PR #61336 / commit b97eb00c19)
+                    var totalAttemptedStockQty = group.Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+                    var attemptedInPrUom = Math.Round(totalAttemptedStockQty / prFactor, 4);
 
                     var baseQty = billForRejectedQty ? prItem.Quantity + prItem.RejectedQty : prItem.Quantity;
                     var maxAllowedTotal = baseQty * (1m + billingAllowancePct / 100m);
                     if (prItem.BilledQty + attemptedInPrUom > maxAllowedTotal)
                     {
                         throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverBilling)
-                            .WithData("item", piItem.Description ?? piItem.ItemId.ToString())
+                            .WithData("item", prItem.Description ?? prItem.ItemId.ToString())
                             .WithData("ordered", baseQty)
                             .WithData("billed", prItem.BilledQty)
                             .WithData("attempted", attemptedInPrUom);
@@ -1689,14 +1694,14 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
                     // Per ERPNext commit f4ffc57b51: PR/PI amount overbilling validation
                     var baseAmount = baseQty * prItem.UnitPrice;
-                    var attemptedAmount = (prItem.BilledQty * prItem.UnitPrice) + prItem.AmountDifferenceWithPurchaseInvoice + (piItem.Quantity * piItem.UnitPrice);
+                    var attemptedAmount = (prItem.BilledQty * prItem.UnitPrice) + prItem.AmountDifferenceWithPurchaseInvoice + group.Sum(i => i.Quantity * i.UnitPrice);
                     if (baseAmount > 0 && attemptedAmount > baseAmount)
                     {
                         var pctOverBilled = ((attemptedAmount / baseAmount) * 100m) - 100m;
                         if (pctOverBilled > billingAllowancePct)
                         {
                             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverBilling)
-                                .WithData("item", piItem.Description ?? piItem.ItemId.ToString())
+                                .WithData("item", prItem.Description ?? prItem.ItemId.ToString())
                                 .WithData("orderedAmount", baseAmount)
                                 .WithData("attemptedAmount", attemptedAmount)
                                 .WithData("overBillingPct", Math.Round(pctOverBilled - billingAllowancePct, 2));

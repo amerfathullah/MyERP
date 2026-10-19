@@ -164,32 +164,38 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         invoice.ExchangeRate = piExchangeRate;
         invoice.UseTransactionDateExchangeRate = piUseTxRate;
 
-        // Deduct quantities already mapped in draft Purchase Invoices (per ERPNext PR #58617, PR #61336)
-        var piQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
+        // Deduct quantities already mapped in draft Purchase Invoices (per ERPNext PR #58617, PR #61336 / commit a92445f67e, b0f8368c93)
         var poItemIds = po.Items.Select(i => i.Id).ToList();
-        var draftInvoices = piQuery
-            .Where(pi => pi.Status == Core.DocumentStatus.Draft && !pi.IsReturn)
-            .SelectMany(pi => pi.Items)
-            .Where(i => i.PurchaseOrderItemId.HasValue && poItemIds.Contains(i.PurchaseOrderItemId.Value))
-            .ToList();
-        var draftInvoiceQtyByItem = draftInvoices
-            .GroupBy(i => i.PurchaseOrderItemId!.Value)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Sum(i =>
-                {
-                    var poItem = po.Items.FirstOrDefault(poi => poi.Id == g.Key);
-                    var factor = poItem != null && poItem.ConversionFactor > 0 ? poItem.ConversionFactor : 1m;
-                    return (i.Quantity * i.ConversionFactor) / factor;
-                })
-            );
+        var draftInvoiceQtyByItem = new Dictionary<Guid, decimal>();
+
+        if (poItemIds.Count > 0)
+        {
+            var piQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
+            var draftInvoices = piQuery
+                .Where(pi => pi.Status == Core.DocumentStatus.Draft && !pi.IsReturn && !pi.IsDebitNote)
+                .SelectMany(pi => pi.Items)
+                .Where(i => i.PurchaseOrderItemId.HasValue && poItemIds.Contains(i.PurchaseOrderItemId.Value))
+                .ToList();
+
+            draftInvoiceQtyByItem = draftInvoices
+                .GroupBy(i => i.PurchaseOrderItemId!.Value)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Sum(i =>
+                    {
+                        var poItem = po.Items.FirstOrDefault(poi => poi.Id == g.Key);
+                        var factor = poItem != null && poItem.ConversionFactor > 0 ? poItem.ConversionFactor : 1m;
+                        return (i.Quantity * i.ConversionFactor) / factor;
+                    })
+                );
+        }
 
         foreach (var item in po.Items)
         {
-            // Only bill pending qty minus draft mapped qty
+            // Only bill pending qty minus draft mapped qty (rounded to precision per PR #61336 / commit b0f8368c93)
             var draftQty = draftInvoiceQtyByItem.GetValueOrDefault(item.Id, 0m);
-            var pendingQty = Math.Max(0, item.PendingBillingQty - draftQty);
-            if (pendingQty > 0)
+            var pendingQty = Math.Max(0, Math.Round(item.PendingBillingQty - draftQty, 4));
+            if (pendingQty > 0.0001m)
             {
                 var itemTax = item.Quantity > 0 ? Math.Round(item.TaxAmount * (pendingQty / item.Quantity), 2) : 0m;
                 invoice.AddItem(item.ItemId, item.Description, pendingQty, item.UnitPrice, itemTax, item.Uom);
