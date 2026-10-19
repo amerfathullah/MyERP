@@ -753,6 +753,57 @@ public class WorkOrderManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Distributes consumed quantity across Work Order required item rows matching the item and source warehouse.
+    /// Matches rows with the same SourceWarehouseId first, then distributes proportionally by RequiredQuantity.
+    /// If no rows match the warehouse, falls back to all rows of that item.
+    /// Per ERPNext PR #60647 (commits 8c663d9608, 4d809d375a, 260b828b09 / _consumed_qty_by_item and distribute_over_rows).
+    /// </summary>
+    public static void DistributeConsumedQuantity(
+        WorkOrder wo,
+        Guid itemId,
+        Guid? sourceWarehouseId,
+        decimal quantity,
+        bool isDeduction = false)
+    {
+        var itemRows = wo.RequiredItems.Where(r => r.ItemId == itemId).ToList();
+        if (!itemRows.Any()) return;
+
+        var matchingRows = (sourceWarehouseId.HasValue
+            ? itemRows.Where(r => r.SourceWarehouseId == sourceWarehouseId.Value).ToList()
+            : new List<WorkOrderItem>());
+
+        var targetRows = matchingRows.Count > 0 ? matchingRows : itemRows;
+        var totalRequired = targetRows.Sum(r => r.RequiredQuantity);
+
+        var remaining = quantity;
+        for (int i = 0; i < targetRows.Count; i++)
+        {
+            var row = targetRows[i];
+            decimal share;
+            if (i == targetRows.Count - 1)
+            {
+                share = remaining;
+            }
+            else
+            {
+                share = totalRequired > 0
+                    ? Math.Round(quantity * (row.RequiredQuantity / totalRequired), 4)
+                    : 0m;
+                remaining -= share;
+            }
+
+            if (isDeduction)
+            {
+                row.ConsumedQuantity = Math.Max(0m, row.ConsumedQuantity - share);
+            }
+            else
+            {
+                row.ConsumedQuantity += share;
+            }
+        }
+    }
 }
 
 /// <summary>

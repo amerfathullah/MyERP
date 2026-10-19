@@ -611,13 +611,10 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             // Track raw materials consumed against Work Order
             foreach (var seItem in entry.Items.Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem && !i.TargetWarehouseId.HasValue))
             {
-                var reqItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
-                if (reqItem != null)
-                {
-                    reqItem.ConsumedQuantity += seItem.Quantity;
-                }
+                Manufacturing.DomainServices.WorkOrderManager.DistributeConsumedQuantity(
+                    wo, seItem.ItemId, seItem.SourceWarehouseId, seItem.Quantity, isDeduction: false);
 
-                // Per ERPNext PR #59424 / commit dbada3f461: apply consumption on work order reservations with batch matching
+                // Per ERPNext PR #59424 & PR #60647: apply consumption on work order reservations with batch matching
                 var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
                 await sreManager.ApplyWorkOrderConsumptionAsync(
                     wo.Id, seItem.ItemId, seItem.SourceWarehouseId!.Value, seItem.Quantity, seItem.BatchId);
@@ -879,13 +876,10 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 // Roll back raw materials consumed against Work Order
                 foreach (var seItem in entry.Items.Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem && !i.TargetWarehouseId.HasValue))
                 {
-                    var reqItem = producingWorkOrder.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
-                    if (reqItem != null)
-                    {
-                        reqItem.ConsumedQuantity = Math.Max(0, reqItem.ConsumedQuantity - seItem.Quantity);
-                    }
+                    Manufacturing.DomainServices.WorkOrderManager.DistributeConsumedQuantity(
+                        producingWorkOrder, seItem.ItemId, seItem.SourceWarehouseId, seItem.Quantity, isDeduction: true);
 
-                    // Per ERPNext PR #59424 / commit dbada3f461: revert consumption on work order reservations with batch matching
+                    // Per ERPNext PR #59424 & PR #60647: revert consumption on work order reservations with batch matching
                     var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
                     await sreManager.RevertWorkOrderConsumptionAsync(
                         producingWorkOrder.Id, seItem.ItemId, seItem.SourceWarehouseId!.Value, seItem.Quantity, seItem.BatchId);

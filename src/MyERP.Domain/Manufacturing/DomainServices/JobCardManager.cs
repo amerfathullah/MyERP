@@ -41,11 +41,12 @@ public class JobCardManager : DomainService
         {
             var batchSize = op.BatchSize > 0 ? op.BatchSize : wo.Quantity;
             var remaining = wo.Quantity;
+            sequence++;
+            var opSequence = op.SequenceId > 0 ? op.SequenceId : sequence;
 
             while (remaining > 0)
             {
                 var qty = Math.Min(batchSize, remaining);
-                sequence++;
 
                 var jc = new JobCard(
                     LazyServiceProvider != null ? GuidGenerator.Create() : Guid.NewGuid(),
@@ -53,7 +54,7 @@ public class JobCardManager : DomainService
                     wo.Id,
                     op.OperationId,
                     qty,
-                    sequence,
+                    opSequence,
                     tenantId
                 )
                 {
@@ -94,11 +95,12 @@ public class JobCardManager : DomainService
         {
             var batchSize = op.BatchSize > 0 ? op.BatchSize : wo.Quantity;
             var remaining = wo.Quantity;
+            sequence++;
+            var opSequence = op.SequenceId > 0 ? op.SequenceId : sequence;
 
             while (remaining > 0)
             {
                 var qty = Math.Min(batchSize, remaining);
-                sequence++;
 
                 var jc = new JobCard(
                     LazyServiceProvider != null ? GuidGenerator.Create() : Guid.NewGuid(),
@@ -106,7 +108,7 @@ public class JobCardManager : DomainService
                     wo.Id,
                     op.OperationId,
                     qty,
-                    sequence,
+                    opSequence,
                     tenantId
                 )
                 {
