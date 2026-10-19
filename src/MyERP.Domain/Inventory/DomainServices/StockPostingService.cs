@@ -190,7 +190,79 @@ public class StockPostingService : DomainService
         }
 
         // Pass 2: Target warehouse additions (stock-in)
-        // Per ERPNext PR #60214 / commit ef827e263b & f8ac29ea0f: recalculate target leg incoming rates from consumed costs
+        // Per ERPNext PR #60214, PR #59881 & PR #60393 (commits 34d5dae561, 77a6486599, edcb4cd99b):
+        // Outputs carry exactly the consumed value plus additional costs. Each output row is rounded
+        // on its own, so the largest finished good takes what rounding left over.
+        var isProducedEntry = (stockEntry.EntryType == StockEntryType.Repack ||
+                              (stockEntry.EntryType == StockEntryType.Manufacture && (!stockEntry.WorkOrderId.HasValue || totalRawMaterialOutwardValue > 0)))
+                              && totalRawMaterialOutwardValue > 0;
+
+        StockEntryItem? producedAbsorber = null;
+        decimal absorberTotalValue = 0m;
+        List<StockEntryItem>? producedOutputs = null;
+
+        if (isProducedEntry)
+        {
+            producedOutputs = stockEntry.Items
+                .Where(d => d.TargetWarehouseId.HasValue && !d.SourceWarehouseId.HasValue && d.Quantity > 0)
+                .ToList();
+
+            if (producedOutputs.Count > 0 && (!stockEntry.WorkOrderId.HasValue || stockEntry.EntryType == StockEntryType.Repack))
+            {
+                var finishedItemsQty = stockEntry.GetFinishedItemsQty();
+                var costedOutItemsCost = producedOutputs
+                    .Where(d => d.SetBasicRateManually && !d.AllowZeroValuationRate)
+                    .Sum(d => d.Quantity * (d.ValuationRate ?? 0m));
+
+                var netOutgoingCost = Math.Max(0m, totalRawMaterialOutwardValue - costedOutItemsCost);
+                var basicRate = finishedItemsQty > 0 ? (netOutgoingCost / finishedItemsQty) : 0m;
+
+                foreach (var output in producedOutputs)
+                {
+                    if (output.SetBasicRateManually)
+                    {
+                        // Keep manual rate
+                    }
+                    else if (output.AllowZeroValuationRate)
+                    {
+                        output.ValuationRate = 0m;
+                    }
+                    else
+                    {
+                        var additionalCostPerUnit = output.Quantity > 0 ? (output.AdditionalCost / output.Quantity) : 0m;
+                        output.ValuationRate = Math.Round(basicRate + additionalCostPerUnit, 2);
+                    }
+                }
+
+                // Absorber is the largest finished good row taking what rounding left over (order by Amount desc, Id asc)
+                // Per PR #60393: only entries without manually rated outputs absorb rounding remainder
+                var anyManualRate = producedOutputs.Any(d => d.SetBasicRateManually);
+                if (!anyManualRate)
+                {
+                    producedAbsorber = producedOutputs
+                        .Where(d => (d.IsFinishedItem || (!d.SourceWarehouseId.HasValue && string.IsNullOrWhiteSpace(d.SecondaryItemType)))
+                                    && !d.AllowZeroValuationRate)
+                        .OrderByDescending(d => d.Amount > 0 ? d.Amount : (d.Quantity * (d.ValuationRate ?? 0m)))
+                        .ThenBy(d => d.Id)
+                        .FirstOrDefault();
+
+                    if (producedAbsorber != null)
+                    {
+                        var totalAdditionalCost = stockEntry.TotalAdditionalCosts > 0
+                            ? stockEntry.TotalAdditionalCosts
+                            : stockEntry.Items.Sum(d => d.AdditionalCost);
+                        var otherOutputsAmount = producedOutputs
+                            .Where(d => d.Id != producedAbsorber.Id)
+                            .Sum(d => Math.Round(d.Quantity * (d.ValuationRate ?? 0m), 2));
+                        absorberTotalValue = Math.Max(0m, totalRawMaterialOutwardValue + totalAdditionalCost - otherOutputsAmount);
+                        producedAbsorber.ValuationRate = producedAbsorber.Quantity > 0 ? Math.Round(absorberTotalValue / producedAbsorber.Quantity, 2) : 0m;
+                    }
+                }
+
+            }
+        }
+
+
         foreach (var item in stockEntry.Items)
         {
             if (item.Quantity <= 0)
@@ -211,6 +283,10 @@ public class StockPostingService : DomainService
                     var outwardStockValue = outwardStockValueByItem.GetValueOrDefault(item.Id, 0m);
                     var totalInwardValue = outwardStockValue + item.AdditionalCost;
                     rate = item.Quantity > 0 ? totalInwardValue / item.Quantity : rate;
+                }
+                else if (producedOutputs != null && producedOutputs.Any(o => o.Id == item.Id))
+                {
+                    rate = item.ValuationRate ?? 0m;
                 }
                 else if (stockEntry.EntryType == StockEntryType.Repack &&
                          (item.IsFinishedItem || !item.SourceWarehouseId.HasValue) &&
@@ -268,6 +344,7 @@ public class StockPostingService : DomainService
                     }
                     item.ValuationRate = rate;
                 }
+
 
                 SerialAndBatchBundle? outwardBundle = null;
                 SerialAndBatchBundle? inwardBundle = null;
@@ -372,19 +449,30 @@ public class StockPostingService : DomainService
                 }
                 else
                 {
+                    var isAbsorberRow = producedAbsorber != null && item.Id == producedAbsorber.Id;
+                    var incomingRateForSle = (isAbsorberRow && producedAbsorber!.Quantity > 0)
+                        ? (absorberTotalValue / producedAbsorber.Quantity)
+                        : rate;
+
                     var sle = await _valuationService.CreateLedgerEntryAsync(
                         stockEntry.CompanyId, item.ItemId, item.TargetWarehouseId.Value,
-                        stockEntry.PostingDate, item.Quantity, rate,
+                        stockEntry.PostingDate, item.Quantity, incomingRateForSle,
                         voucherType: "StockEntry", voucherId: stockEntry.Id,
                         tenantId: stockEntry.TenantId, batchId: item.BatchId);
                     sle.VoucherDetailNo = item.Id;
                     sle.IncomingRate = rate;
+                    if (isAbsorberRow)
+                    {
+                        sle.StockValue = absorberTotalValue;
+                        sle.StockValueDifference = absorberTotalValue;
+                    }
                     await _sleRepository.UpdateAsync(sle);
 
                     await _binService.ApplyStockMovementAsync(
                         item.ItemId, item.TargetWarehouseId.Value,
-                        item.Quantity, sle.StockValue, stockEntry.TenantId);
+                        item.Quantity, isAbsorberRow ? absorberTotalValue : sle.StockValue, stockEntry.TenantId);
                 }
+
             }
         }
     }

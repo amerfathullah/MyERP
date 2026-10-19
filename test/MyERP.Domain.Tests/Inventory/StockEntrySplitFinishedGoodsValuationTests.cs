@@ -370,4 +370,62 @@ public class StockEntrySplitFinishedGoodsValuationTests
         se.TotalOutgoingValue.ShouldBe(1000m);
         se.TotalValueDifference.ShouldBe(0m);
     }
+
+    [Fact]
+    public async Task StockPostingService_PostStockEntry_Manufacture_Outputs_Carry_Exact_Consumed_Value_With_Absorber_Remainder()
+    {
+        var sleRepo = Substitute.For<IRepository<StockLedgerEntry, Guid>>();
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+        var company = new Company(_companyId, "Test Company");
+        companyRepo.GetAsync(_companyId).Returns(company);
+        companyRepo.FindAsync(_companyId).Returns(company);
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var whRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var binRepo = Substitute.For<IRepository<Bin, Guid>>();
+        var settingProvider = Substitute.For<ISettingProvider>();
+
+        var rmItem = new Item(_rmItemId, _companyId, "RM-01", "Raw Material 1", ItemType.Goods) { MaintainStock = true, AllowNegativeStock = true };
+        var fgItem = new Item(_fgItemId, _companyId, "FG-01", "Finished Good 1", ItemType.Goods) { MaintainStock = true, AllowNegativeStock = true };
+        itemRepo.FindAsync(_rmItemId).Returns(rmItem);
+        itemRepo.FindAsync(_fgItemId).Returns(fgItem);
+        itemRepo.GetAsync(_rmItemId).Returns(rmItem);
+        itemRepo.GetAsync(_fgItemId).Returns(fgItem);
+
+        var binService = new BinService(binRepo);
+        var valService = new StockValuationService(sleRepo, itemRepo, settingProvider);
+        var valSp = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        valSp.LazyGetService<Volo.Abp.Guids.IGuidGenerator>().Returns(Volo.Abp.Guids.SimpleGuidGenerator.Instance);
+        typeof(Volo.Abp.Domain.Services.DomainService)
+            .GetProperty("LazyServiceProvider", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)?
+            .SetValue(valService, valSp);
+
+        var postingService = new StockPostingService(
+            sleRepo, companyRepo, itemRepo, whRepo, binService, valService);
+
+        var se = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.Manufacture, DateTime.UtcNow);
+        // RM: 1 @ 100 = 100 total cost
+        se.AddItem(_rmItemId, 1m, sourceWarehouseId: _sourceWhId, targetWarehouseId: null, valuationRate: 100m);
+
+        // 3 FG rows: 1 unit each. 100 / 3 = 33.3333.
+        // fg2 and fg3 = 33.33 each (sum 66.66).
+        // Largest absorber fg1 takes 100 - 66.66 = 33.34!
+        var fg1 = se.AddItem(_fgItemId, 1m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id, isFinishedItem: true);
+        var fg2 = se.AddItem(_fgItemId, 1m, sourceWarehouseId: null, targetWarehouseId: _targetWh2Id, isFinishedItem: true);
+        var fg3 = se.AddItem(_fgItemId, 1m, sourceWarehouseId: null, targetWarehouseId: _targetWh1Id, isFinishedItem: true);
+
+        await postingService.PostStockEntryAsync(se);
+
+        var rates = new[] { fg1.ValuationRate, fg2.ValuationRate, fg3.ValuationRate }.OrderBy(r => r).ToList();
+        rates[0].ShouldBe(33.33m);
+        rates[1].ShouldBe(33.33m);
+        rates[2].ShouldBe(33.34m);
+
+        // Total incoming == Total outgoing (100 == 100) exactly without 0.01 gap
+        se.TotalIncomingValue.ShouldBe(100.00m);
+        se.TotalOutgoingValue.ShouldBe(100.00m);
+        se.TotalValueDifference.ShouldBe(0m);
+
+
+    }
 }
+
