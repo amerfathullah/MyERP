@@ -141,6 +141,18 @@ public class PosAppService : ApplicationService, IPosAppService
         await partyValidation.ValidatePartyForTransactionAsync("Customer", isDisabled: !customer.IsActive, isFrozen: customer.IsFrozen, customer.Name, input.CompanyId);
         partyValidation.ValidateCustomerNotBlocked(customer.OnHold, customer.ReleaseDate, customer.Name, DateTime.UtcNow);
 
+        if (!string.IsNullOrWhiteSpace(input.PaymentMethod))
+        {
+            var mopRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.ModeOfPayment, Guid>>();
+            var mopQuery = await mopRepo.GetQueryableAsync();
+            var mop = mopQuery.FirstOrDefault(m => m.Name == input.PaymentMethod);
+            if (mop != null && !mop.IsActive)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("message", $"Mode of Payment '{mop.Name}' is disabled.");
+            }
+        }
+
         var invoiceNumber = await _numberGenerator.GenerateAsync("POS", input.CompanyId);
 
         var invoice = new SalesInvoice(

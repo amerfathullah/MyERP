@@ -62,6 +62,8 @@ public class ModeOfPaymentAppService : ApplicationService, IModeOfPaymentAppServ
     [Authorize(MyERPPermissions.Accounts.Create)]
     public async Task<ModeOfPaymentDto> CreateAsync(CreateUpdateModeOfPaymentDto input)
     {
+        await ValidateDefaultAccountAsync(input.DefaultAccountId, input.CompanyId, input.Name);
+
         var entity = new ModeOfPayment(GuidGenerator.Create(), input.Name, input.Type, CurrentTenant.Id)
         {
             IsActive = input.IsActive,
@@ -76,6 +78,8 @@ public class ModeOfPaymentAppService : ApplicationService, IModeOfPaymentAppServ
     public async Task<ModeOfPaymentDto> UpdateAsync(Guid id, CreateUpdateModeOfPaymentDto input)
     {
         var entity = await _repository.GetAsync(id);
+
+        await ValidateDefaultAccountAsync(input.DefaultAccountId, input.CompanyId ?? entity.CompanyId, input.Name);
 
         // Gotcha #1520: Cannot disable Mode of Payment if configured in active POS Profile
         if (entity.IsActive && !input.IsActive)
@@ -101,6 +105,42 @@ public class ModeOfPaymentAppService : ApplicationService, IModeOfPaymentAppServ
 
         await _repository.UpdateAsync(entity, autoSave: true);
         return ObjectMapper.Map<ModeOfPayment, ModeOfPaymentDto>(entity);
+    }
+
+    private async Task ValidateDefaultAccountAsync(Guid? defaultAccountId, Guid? companyId, string mopName)
+    {
+        if (!defaultAccountId.HasValue)
+        {
+            return;
+        }
+
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var account = await accountRepo.FindAsync(defaultAccountId.Value);
+        if (account == null)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("message", $"Account '{defaultAccountId.Value}' not found.");
+        }
+
+        if (companyId.HasValue && account.CompanyId != companyId.Value)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("message", $"Account '{account.AccountName}' does not match with Company in Mode of Payment: '{mopName}'.");
+        }
+
+        if (account.IsGroup || (account.AccountSubType != AccountSubType.BankAccount &&
+                                account.AccountSubType != AccountSubType.CashAccount &&
+                                account.AccountSubType != AccountSubType.AccountsReceivable))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("message", $"Account '{account.AccountName}' must be a ledger account of type Bank, Cash or Receivable.");
+        }
+
+        if (!account.IsActive)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("message", $"Account '{account.AccountName}' is disabled.");
+        }
     }
 
     [Authorize(MyERPPermissions.Accounts.Delete)]

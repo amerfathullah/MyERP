@@ -283,6 +283,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
         pe.PaymentNumber = paymentNumber;
         pe.ModeOfPayment = input.ModeOfPayment;
+        await ValidateEnabledModeOfPaymentAsync(pe.ModeOfPaymentId, pe.ModeOfPayment);
         pe.PartyType = input.PartyType;
         pe.PartyId = input.PartyId;
         pe.CostCenterId = input.CostCenterId;
@@ -389,6 +390,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
     public async Task<PaymentEntryDto> SubmitAsync(Guid id)
     {
         var pe = await _repository.GetAsync(id);
+        await ValidateEnabledModeOfPaymentAsync(pe.ModeOfPaymentId, pe.ModeOfPayment);
         pe.Submit();
         await _repository.UpdateAsync(pe, autoSave: true);
         return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
@@ -398,6 +400,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
     public async Task<PaymentEntryDto> PostAsync(Guid id)
     {
         var pe = await _repository.GetAsync(id);
+        await ValidateEnabledModeOfPaymentAsync(pe.ModeOfPaymentId, pe.ModeOfPayment);
 
         // Supplier hold enforcement: HoldType.All or HoldType.Payments blocks PE
         if (pe.PartyType == "Supplier" && pe.PartyId.HasValue)
@@ -1346,6 +1349,8 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
         entry.PaymentType = input.PaymentType;
         entry.PostingDate = input.PostingDate != default ? input.PostingDate : entry.PostingDate;
+        entry.ModeOfPayment = input.ModeOfPayment;
+        await ValidateEnabledModeOfPaymentAsync(entry.ModeOfPaymentId, entry.ModeOfPayment);
         entry.PaidAmount = input.PaidAmount;
         entry.PaidFromAccountId = input.PaidFromAccountId != Guid.Empty ? input.PaidFromAccountId : entry.PaidFromAccountId;
         entry.PaidToAccountId = input.PaidToAccountId != Guid.Empty ? input.PaidToAccountId : entry.PaidToAccountId;
@@ -1882,5 +1887,32 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
         await LazyServiceProvider.LazyGetRequiredService<PartyValidationService>()
             .ValidatePartyForTransactionAsync(partyType!, isDisabled, isFrozen, name!, companyId);
+    }
+
+    private async Task ValidateEnabledModeOfPaymentAsync(Guid? modeOfPaymentId, string? modeOfPaymentName)
+    {
+        if (!modeOfPaymentId.HasValue && string.IsNullOrWhiteSpace(modeOfPaymentName))
+        {
+            return;
+        }
+
+        var mopRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ModeOfPayment, Guid>>();
+        ModeOfPayment? mop = null;
+
+        if (modeOfPaymentId.HasValue)
+        {
+            mop = await mopRepo.FindAsync(modeOfPaymentId.Value);
+        }
+        else if (!string.IsNullOrWhiteSpace(modeOfPaymentName))
+        {
+            var query = await mopRepo.GetQueryableAsync();
+            mop = query.FirstOrDefault(m => m.Name == modeOfPaymentName);
+        }
+
+        if (mop != null && !mop.IsActive)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("message", $"Mode of Payment '{mop.Name}' is disabled.");
+        }
     }
 }

@@ -144,8 +144,16 @@ public class PosProfileAppService : CrudAppService<
                     .WithData("detail", "Duplicate Mode of Payment added in Payment Methods table.");
             }
 
+            var mopRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.ModeOfPayment, Guid>>();
             foreach (var pm in input.PaymentMethods)
             {
+                var mop = await mopRepo.FindAsync(pm.ModeOfPaymentId);
+                if (mop != null && !mop.IsActive)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("message", $"Mode of Payment '{mop.Name}' is disabled.");
+                }
+
                 var method = new PosProfilePaymentMethod(
                     GuidGenerator.Create(),
                     entity.Id,
@@ -258,8 +266,16 @@ public class PosProfileAppService : CrudAppService<
                     .WithData("detail", "Duplicate Mode of Payment added in Payment Methods table.");
             }
 
+            var mopRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.ModeOfPayment, Guid>>();
             foreach (var pm in input.PaymentMethods)
             {
+                var mop = await mopRepo.FindAsync(pm.ModeOfPaymentId);
+                if (mop != null && !mop.IsActive)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("message", $"Mode of Payment '{mop.Name}' is disabled.");
+                }
+
                 var method = new PosProfilePaymentMethod(
                     GuidGenerator.Create(),
                     entity.Id,
