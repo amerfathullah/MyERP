@@ -31,6 +31,14 @@
               [class.is-invalid]="form.get('quantity')?.invalid && form.get('quantity')?.touched" />
           </div>
           <div class="col-12 col-md-4 mb-3">
+            <label class="form-label">{{ '::BatchSize' | abpLocalization }}</label>
+            <input type="number" class="form-control" formControlName="batchSize" min="0"
+              [class.is-invalid]="form.get('batchSize')?.invalid && form.get('batchSize')?.touched" />
+            @if (form.get('batchSize')?.invalid && form.get('batchSize')?.touched) {
+              <div class="invalid-feedback d-block">{{ '::BatchSizeCannotBeNegative' | abpLocalization }}</div>
+            }
+          </div>
+          <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::PlannedStartDate' | abpLocalization }}</label>
             <input type="date" class="form-control" formControlName="plannedStartDate" />
           </div>

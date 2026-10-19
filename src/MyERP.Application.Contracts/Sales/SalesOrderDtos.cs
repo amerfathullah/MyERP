@@ -87,6 +87,8 @@ public class SalesOrderItemDto
     public decimal LineTotal { get; set; }
     public decimal DeliveredQty { get; set; }
     public decimal BilledQty { get; set; }
+    public decimal WorkOrderQty { get; set; }
+    public decimal ProducedQty { get; set; }
     public Guid? WarehouseId { get; set; }
 
     /// <summary>Drop-ship: the supplier ships this line straight to the customer (no warehouse involvement).</summary>

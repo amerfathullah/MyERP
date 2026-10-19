@@ -16,6 +16,7 @@ describe('WorkOrderFormComponent', () => {
       itemId: ['', Validators.required],
       bomId: ['', Validators.required],
       quantity: [1, [Validators.required, Validators.min(1)]],
+      batchSize: [0, [Validators.min(0)]],
       salesOrderId: [''],
       sourceWarehouseId: [''],
       wipWarehouseId: [''],
@@ -250,6 +251,23 @@ describe('WorkOrderFormComponent', () => {
       });
       expect(form.get('wipWarehouseId')?.value).toBe('custom-wip');
       expect(form.get('fgWarehouseId')?.value).toBe('wh-fg-1');
+    });
+  });
+
+  describe('Batch Size Validation (PR #60647 / commit 3d70a00f40)', () => {
+    it('defaults batchSize to 0', () => {
+      expect(form.get('batchSize')?.value).toBe(0);
+      expect(form.get('batchSize')?.valid).toBe(true);
+    });
+
+    it('rejects negative batchSize', () => {
+      form.patchValue({ batchSize: -1 });
+      expect(form.get('batchSize')?.hasError('min')).toBe(true);
+    });
+
+    it('accepts positive batchSize', () => {
+      form.patchValue({ batchSize: 50 });
+      expect(form.get('batchSize')?.valid).toBe(true);
     });
   });
 });

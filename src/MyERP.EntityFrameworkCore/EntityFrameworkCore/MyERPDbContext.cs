@@ -1216,6 +1216,8 @@ public class MyERPDbContext :
             b.Property(x => x.TaxAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.DeliveredQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.BilledQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.WorkOrderQty).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
+            b.Property(x => x.ProducedQty).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
         });
 
         builder.Entity<DeliveryScheduleEntry>(b =>
@@ -3233,6 +3235,7 @@ public class MyERPDbContext :
             b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.ProducedQuantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.MaterialTransferred).HasColumnType("decimal(18,4)");
+            b.Property(x => x.BatchSize).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
             b.Property(x => x.LeadTime).HasColumnType("decimal(18,2)");
             b.Property(x => x.ReserveStock);
             b.HasMany(x => x.RequiredItems).WithOne().HasForeignKey(x => x.WorkOrderId).IsRequired();

@@ -308,6 +308,33 @@ public class StockEntryManager : DomainService
     }
 
     /// <summary>
+    /// Validates Work Order status for stock entries.
+    /// Refuses new MaterialTransferForManufacture and Manufacture stock entries against a Closed Work Order.
+    /// Per ERPNext PR #60647 / commit f9d019aa90.
+    /// Also refuses transactions against Stopped Work Orders.
+    /// </summary>
+    public void ValidateWorkOrderStatus(StockEntry entry, WorkOrder? wo)
+    {
+        if (!entry.WorkOrderId.HasValue || wo == null)
+            return;
+
+        if (wo.Status == WorkOrderStatus.Stopped)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", $"Transaction not allowed against stopped Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}");
+        }
+
+        if (wo.Status == WorkOrderStatus.Closed &&
+            !entry.IsReturn &&
+            (entry.EntryType == StockEntryType.MaterialTransferForManufacture || entry.EntryType == StockEntryType.Manufacture))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.StockEntryAgainstClosedWorkOrder)
+                .WithData("workOrder", wo.WorkOrderNumber ?? wo.Id.ToString())
+                .WithData("detail", $"Transaction not allowed against closed Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}");
+        }
+    }
+
+    /// <summary>
     /// Validates that component returns against a Work Order are allowed only after the Work Order is Completed or Closed.
     /// Per ERPNext PR #59617 (commit b4d6595f94).
     /// </summary>

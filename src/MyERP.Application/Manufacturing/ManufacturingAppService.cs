@@ -1102,8 +1102,10 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             SkipTransfer = input.SkipTransfer,
             FromWipWarehouse = input.FromWipWarehouse,
             ReserveStock = input.ReserveStock,
+            BatchSize = input.BatchSize,
             Notes = input.Notes,
         };
+        wo.ValidateBatchSize();
         wo.SetPlannedDates(plannedStartDate, plannedEndDate);
 
         // Populate required items from BOM (with recursive phantom explosion per PR #59445)
@@ -1232,7 +1234,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.SkipTransfer = input.SkipTransfer;
         wo.FromWipWarehouse = input.FromWipWarehouse;
         wo.ReserveStock = input.ReserveStock;
+        wo.BatchSize = input.BatchSize;
         wo.Notes = input.Notes;
+        wo.ValidateBatchSize();
         wo.SetPlannedDates(plannedStartDate, plannedEndDate);
 
         // Repopulate required items (with recursive phantom explosion per PR #59445)
@@ -1387,12 +1391,24 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         var bundleDecompositionService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
 
+        var woQuery = await _workOrderRepository.GetQueryableAsync();
+        var existingWos = woQuery
+            .Where(w => w.SalesOrderId == salesOrderId
+                && w.Status != WorkOrderStatus.Draft
+                && w.Status != WorkOrderStatus.Cancelled)
+            .ToList();
+
         var created = new List<CreatedWorkOrderInfo>();
         var skipped = 0;
 
         foreach (var item in so.Items)
         {
-            var pendingQty = item.Quantity - item.DeliveredQty;
+            var stockQty = item.StockQty > 0 ? item.StockQty : item.Quantity;
+            var totalWorkOrderQty = existingWos
+                .Where(w => (w.SalesOrderItemId.HasValue && w.SalesOrderItemId.Value == item.Id)
+                         || (!w.SalesOrderItemId.HasValue && w.ItemId == item.ItemId))
+                .Sum(w => Manufacturing.DomainServices.WorkOrderManager.GetWorkOrderQtyAgainstSalesOrder(w, forOpenWorkOrderQty: true));
+            var pendingQty = stockQty - totalWorkOrderQty;
             if (pendingQty <= 0) { skipped++; continue; }
 
             // Per ERPNext PR #58568 (commit db56080285): handle Product Bundle items by decomposing to components
@@ -1604,8 +1620,23 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             await woManager.ValidateProductionPlanQuantityAsync(wo, planRepo, _workOrderRepository, overproductionPct);
         }
 
+        if (wo.SalesOrderId.HasValue)
+        {
+            var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+            var settings = await settingsRepo.FindAsync(s => s.CompanyId == wo.CompanyId);
+            var soOverproductionPct = settings?.OverproductionPercentageForSalesOrder ?? 0m;
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            await woManager.ValidateWorkOrderAgainstSalesOrderAsync(wo, soRepo, _workOrderRepository, soOverproductionPct);
+        }
+
         wo.Submit();
         await _workOrderRepository.UpdateAsync(wo);
+
+        if (wo.SalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            await woManager.UpdateSalesOrderWorkOrderQtyAsync(wo.SalesOrderId.Value, soRepo, _workOrderRepository);
+        }
 
         // Per ERPNext PR #59419 / commit d687024b88: refresh planned qty after status update
         if (wo.FgWarehouseId.HasValue)
@@ -2134,6 +2165,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             }
         }
 
+        if (wo.SalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+            await woManager.UpdateSalesOrderWorkOrderQtyAsync(wo.SalesOrderId.Value, soRepo, _workOrderRepository);
+        }
+
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }
 
@@ -2207,6 +2245,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             "Closed", wo.CompanyId,
             wo.WorkOrderNumber, wo.Status.ToString(), "Closed", CurrentUser.Id,
             $"Work Order {wo.WorkOrderNumber} closed", CurrentTenant.Id));
+
+        if (wo.SalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+            await woManager.UpdateSalesOrderWorkOrderQtyAsync(wo.SalesOrderId.Value, soRepo, _workOrderRepository);
+        }
 
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
 
@@ -2295,6 +2340,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             "Cancelled", wo.CompanyId,
             wo.WorkOrderNumber, wo.Status.ToString(), "Cancelled", CurrentUser.Id,
             $"Work Order {wo.WorkOrderNumber} cancelled", CurrentTenant.Id));
+
+        if (wo.SalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
+            await woManager.UpdateSalesOrderWorkOrderQtyAsync(wo.SalesOrderId.Value, soRepo, _workOrderRepository);
+        }
 
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
     }

@@ -1659,6 +1659,8 @@ export interface SalesOrderItemDto {
   lineTotal?: number;
   deliveredQty?: number;
   billedQty?: number;
+  workOrderQty?: number;
+  producedQty?: number;
   maxDeliverableQty?: number;
   warehouseId?: string | null;
   blanketOrderId?: string | null;

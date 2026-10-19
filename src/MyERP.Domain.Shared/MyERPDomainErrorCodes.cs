@@ -665,6 +665,11 @@ public static class MyERPDomainErrorCodes
 
     // BOM Comparison (ERPNext PR #60755 / commit 5461b27589 / 1795a37bef)
     public const string BomDiffSameBom = "MyERP:10047";
+
+    // Work Order & Stock Entry Bugfixes (ERPNext PR #60647)
+    public const string BatchSizeCannotBeNegative = "MyERP:10048";
+    public const string StockEntryAgainstClosedWorkOrder = "MyERP:05102";
+    public const string WorkOrderStatusTransitionRestricted = "MyERP:10049";
 }
 
 

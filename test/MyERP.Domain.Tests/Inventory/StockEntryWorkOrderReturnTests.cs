@@ -162,4 +162,61 @@ public class StockEntryWorkOrderReturnTests
         ex.Data["returned"].ShouldBe(4m);
         ex.Data["unconsumed"].ShouldBe(3m);
     }
+
+    [Theory]
+    [InlineData(StockEntryType.MaterialTransferForManufacture)]
+    [InlineData(StockEntryType.Manufacture)]
+    public void ValidateWorkOrderStatus_WhenClosedWorkOrder_RefusesNewTransferAndManufacture(StockEntryType entryType)
+    {
+        // Per ERPNext PR #60647 / commit f9d019aa90: refuse new transfer and manufacture entries against a closed Work Order
+        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-CLOSED-01", Guid.NewGuid(), Guid.NewGuid(), 10m);
+        wo.Submit();
+        wo.Close();
+        wo.Status.ShouldBe(WorkOrderStatus.Closed);
+
+        var se = new StockEntry(Guid.NewGuid(), wo.CompanyId, entryType, DateTime.UtcNow)
+        {
+            WorkOrderId = wo.Id,
+            IsReturn = false
+        };
+
+        var ex = Should.Throw<BusinessException>(() => _manager.ValidateWorkOrderStatus(se, wo));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.StockEntryAgainstClosedWorkOrder);
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Transaction not allowed against closed Work Order");
+    }
+
+    [Fact]
+    public void ValidateWorkOrderStatus_WhenClosedWorkOrder_AllowsReturn()
+    {
+        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-CLOSED-02", Guid.NewGuid(), Guid.NewGuid(), 10m);
+        wo.Submit();
+        wo.Close();
+
+        var se = new StockEntry(Guid.NewGuid(), wo.CompanyId, StockEntryType.MaterialTransferForManufacture, DateTime.UtcNow)
+        {
+            WorkOrderId = wo.Id,
+            IsReturn = true
+        };
+
+        Should.NotThrow(() => _manager.ValidateWorkOrderStatus(se, wo));
+    }
+
+    [Fact]
+    public void ValidateWorkOrderStatus_WhenStoppedWorkOrder_ThrowsInvalidStatusTransition()
+    {
+        var wo = new WorkOrder(Guid.NewGuid(), Guid.NewGuid(), "WO-STOP-01", Guid.NewGuid(), Guid.NewGuid(), 10m);
+        wo.Submit();
+        wo.Stop();
+        wo.Status.ShouldBe(WorkOrderStatus.Stopped);
+
+        var se = new StockEntry(Guid.NewGuid(), wo.CompanyId, StockEntryType.MaterialTransferForManufacture, DateTime.UtcNow)
+        {
+            WorkOrderId = wo.Id,
+            IsReturn = false
+        };
+
+        var ex = Should.Throw<BusinessException>(() => _manager.ValidateWorkOrderStatus(se, wo));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Transaction not allowed against stopped Work Order");
+    }
 }

@@ -837,6 +837,7 @@ export interface CreateWorkOrderDto {
   fgWarehouseId?: string | null;
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
+  batchSize?: number;
   skipTransfer?: boolean;
   fromWipWarehouse?: boolean;
   notes?: string | null;
@@ -1072,6 +1073,7 @@ export interface WorkOrderDto extends AuditedEntityDto<string> {
   actualStartDate?: string | null;
   actualEndDate?: string | null;
   leadTime?: number | null;
+  batchSize?: number;
   notes?: string | null;
   skipTransfer?: boolean;
   fromWipWarehouse?: boolean;

@@ -83,6 +83,12 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public bool AllowAlternativeItem { get; set; }
 
+    /// <summary>
+    /// Batch size for manufacturing.
+    /// Maps to ERPNext manufacturing/doctype/work_order/work_order.json (batch_size).
+    /// </summary>
+    public decimal BatchSize { get; set; } = 0m;
+
     public List<WorkOrderItem> RequiredItems { get; private set; } = new();
 
     protected WorkOrder() { }
@@ -130,6 +136,19 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
     }
 
+    /// <summary>
+    /// Validates batch size cannot be negative.
+    /// Per ERPNext PR #60647 / commit 3d70a00f40.
+    /// </summary>
+    public void ValidateBatchSize()
+    {
+        if (BatchSize < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.BatchSizeCannotBeNegative)
+                .WithData("batchSize", BatchSize);
+        }
+    }
+
     public void ValidateDates()
     {
         if (PlannedStartDate.HasValue && PlannedEndDate.HasValue && PlannedEndDate.Value < PlannedStartDate.Value)
@@ -142,6 +161,7 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != WorkOrderStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        ValidateBatchSize();
         ValidateDates();
         Status = WorkOrderStatus.Submitted;
         if (ReserveStock)
@@ -331,22 +351,49 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void Stop()
     {
-        if (Status != WorkOrderStatus.InProcess)
-            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        if (Status is WorkOrderStatus.Draft or WorkOrderStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted)
+                .WithData("status", Status)
+                .WithData("detail", "Only a submitted Work Order can be closed, stopped or resumed");
+
+        if (Status == WorkOrderStatus.Closed)
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted)
+                .WithData("detail", "Closed Work Order can not be stopped or Re-opened");
+
         Status = WorkOrderStatus.Stopped;
     }
 
     public void Unstop()
     {
+        if (Status is WorkOrderStatus.Draft or WorkOrderStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted)
+                .WithData("status", Status)
+                .WithData("detail", "Only a submitted Work Order can be closed, stopped or resumed");
+
+        if (Status == WorkOrderStatus.Closed)
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted)
+                .WithData("detail", "Closed Work Order can not be stopped or Re-opened");
+
         if (Status != WorkOrderStatus.Stopped)
-            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted)
+                .WithData("status", Status)
+                .WithData("detail", "Work Order is not stopped");
+
         Status = WorkOrderStatus.InProcess;
     }
 
     public void Close()
     {
         if (Status is WorkOrderStatus.Draft or WorkOrderStatus.Cancelled)
-            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted)
+                .WithData("status", Status)
+                .WithData("detail", "Only a submitted Work Order can be closed, stopped or resumed");
+
+        if (Status == WorkOrderStatus.Closed)
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted)
+                .WithData("workOrder", WorkOrderNumber ?? Id.ToString())
+                .WithData("detail", $"Work Order {WorkOrderNumber ?? Id.ToString()} is already Closed");
+
         Status = WorkOrderStatus.Closed;
     }
 

@@ -231,11 +231,15 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
         await seManager.ValidateOperationsCompletedAsync(entry, woRepo, jcRepo, overproductionPct);
 
-        if (entry.WorkOrderId.HasValue && entry.IsReturn)
+        if (entry.WorkOrderId.HasValue)
         {
             var wo = await woRepo.FindAsync(entry.WorkOrderId.Value);
-            seManager.ValidateWorkOrderStatusForReturn(entry, wo);
-            seManager.ValidateWorkOrderReturnItems(entry, wo);
+            seManager.ValidateWorkOrderStatus(entry, wo);
+            if (entry.IsReturn)
+            {
+                seManager.ValidateWorkOrderStatusForReturn(entry, wo);
+                seManager.ValidateWorkOrderReturnItems(entry, wo);
+            }
         }
 
         await _repository.InsertAsync(entry, autoSave: true);
@@ -323,11 +327,15 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         await seManager.SetAllowAlternativeItemAsync(entry, woRepo);
 
-        if (entry.WorkOrderId.HasValue && entry.IsReturn)
+        if (entry.WorkOrderId.HasValue)
         {
             var wo = await woRepo.FindAsync(entry.WorkOrderId.Value);
-            seManager.ValidateWorkOrderStatusForReturn(entry, wo);
-            seManager.ValidateWorkOrderReturnItems(entry, wo);
+            seManager.ValidateWorkOrderStatus(entry, wo);
+            if (entry.IsReturn)
+            {
+                seManager.ValidateWorkOrderStatusForReturn(entry, wo);
+                seManager.ValidateWorkOrderReturnItems(entry, wo);
+            }
         }
 
         // Material Request over-fulfillment guard + fulfillment tracking (Transfer/Issue MR types).
@@ -624,6 +632,12 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 await dateWoManager.UpdateActualDatesAsync(wo, _repository, dateJcRepo, currentStockEntry: entry);
                 await woRepo.UpdateAsync(wo, autoSave: true);
 
+                if (wo.SalesOrderId.HasValue)
+                {
+                    var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+                    await dateWoManager.UpdateSalesOrderWorkOrderQtyAsync(wo.SalesOrderId.Value, soRepo, woRepo);
+                }
+
                 var planItemRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.ProductionPlanItem, Guid>>();
                 if (planItemRepo != null)
                 {
@@ -873,6 +887,12 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                 await dateWoManager.UpdateActualDatesAsync(producingWorkOrder, _repository, dateJcRepo, currentStockEntry: entry);
                 await workOrderRepoForProduction.UpdateAsync(producingWorkOrder);
 
+                if (producingWorkOrder.SalesOrderId.HasValue)
+                {
+                    var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+                    await dateWoManager.UpdateSalesOrderWorkOrderQtyAsync(producingWorkOrder.SalesOrderId.Value, soRepo, workOrderRepoForProduction);
+                }
+
                 var planItemRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.ProductionPlanItem, Guid>>();
                 if (planItemRepo != null)
                 {
@@ -1106,6 +1126,17 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
 
         var wo = await woRepo.GetAsync(workOrderId, includeDetails: true);
+        if (wo.Status == Manufacturing.WorkOrderStatus.Closed)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.StockEntryAgainstClosedWorkOrder)
+                .WithData("workOrder", wo.WorkOrderNumber ?? wo.Id.ToString())
+                .WithData("detail", $"Transaction not allowed against closed Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}");
+        }
+        if (wo.Status == Manufacturing.WorkOrderStatus.Stopped)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", $"Transaction not allowed against stopped Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}");
+        }
         if (wo.BomId == Guid.Empty)
             throw new Volo.Abp.BusinessException("MyERP:10003")
                 .WithData("reason", "Work Order has no linked BOM");
@@ -1168,6 +1199,17 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         var wo = await woRepo.GetAsync(workOrderId, includeDetails: true);
 
+        if (wo.Status == Manufacturing.WorkOrderStatus.Closed)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.StockEntryAgainstClosedWorkOrder)
+                .WithData("workOrder", wo.WorkOrderNumber ?? wo.Id.ToString())
+                .WithData("detail", $"Transaction not allowed against closed Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}");
+        }
+        if (wo.Status == Manufacturing.WorkOrderStatus.Stopped)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", $"Transaction not allowed against stopped Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}");
+        }
         if (wo.Status == Manufacturing.WorkOrderStatus.Draft || wo.Status == Manufacturing.WorkOrderStatus.Cancelled)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Work Order must be Submitted or In Process to transfer materials");
@@ -1322,11 +1364,15 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         await seManager.SetAllowAlternativeItemAsync(entry, woRepo);
 
-        if (entry.WorkOrderId.HasValue && entry.IsReturn)
+        if (entry.WorkOrderId.HasValue)
         {
             var wo = await woRepo.FindAsync(entry.WorkOrderId.Value);
-            seManager.ValidateWorkOrderStatusForReturn(entry, wo);
-            seManager.ValidateWorkOrderReturnItems(entry, wo);
+            seManager.ValidateWorkOrderStatus(entry, wo);
+            if (entry.IsReturn)
+            {
+                seManager.ValidateWorkOrderStatusForReturn(entry, wo);
+                seManager.ValidateWorkOrderReturnItems(entry, wo);
+            }
         }
 
         await _repository.UpdateAsync(entry, autoSave: true);

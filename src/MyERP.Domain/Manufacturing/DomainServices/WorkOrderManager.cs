@@ -599,6 +599,103 @@ public class WorkOrderManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Calculates effective Work Order quantity counting against a Sales Order.
+    /// Per ERPNext PR #60647 / commit 5b66df2033:
+    /// Closed Work Orders count only their ProducedQuantity against the Sales Order.
+    /// </summary>
+    public static decimal GetWorkOrderQtyAgainstSalesOrder(WorkOrder wo, bool forOpenWorkOrderQty = false)
+    {
+        if (wo.Status == WorkOrderStatus.Closed)
+        {
+            return wo.ProducedQuantity;
+        }
+        return forOpenWorkOrderQty ? (wo.Quantity - wo.ProcessLossQty) : wo.Quantity;
+    }
+
+    /// <summary>
+    /// Validates that total Work Order quantities against a Sales Order do not exceed the Sales Order quantity + allowance.
+    /// Per ERPNext PR #60647 (services/status.py: validate_work_order_against_so).
+    /// </summary>
+    public async Task ValidateWorkOrderAgainstSalesOrderAsync(
+        WorkOrder wo,
+        IRepository<Sales.Entities.SalesOrder, Guid> salesOrderRepository,
+        IRepository<WorkOrder, Guid> workOrderRepository,
+        decimal overproductionPercentageForSalesOrder = 0m)
+    {
+        if (!wo.SalesOrderId.HasValue) return;
+
+        var so = await salesOrderRepository.FindAsync(wo.SalesOrderId.Value, includeDetails: true);
+        if (so == null) return;
+
+        var woQuery = await workOrderRepository.GetQueryableAsync();
+        var otherWos = woQuery
+            .Where(w => w.SalesOrderId == wo.SalesOrderId.Value
+                && w.ItemId == wo.ItemId
+                && w.Id != wo.Id
+                && w.Status != WorkOrderStatus.Draft
+                && w.Status != WorkOrderStatus.Cancelled)
+            .ToList();
+
+        var orderedQtyAgainstSo = otherWos.Sum(w => GetWorkOrderQtyAgainstSalesOrder(w, forOpenWorkOrderQty: true));
+        var totalQty = orderedQtyAgainstSo + (wo.Quantity - wo.ProcessLossQty);
+
+        decimal soItemQty = 0m;
+        if (wo.SalesOrderItemId.HasValue)
+        {
+            var row = so.Items.FirstOrDefault(i => i.Id == wo.SalesOrderItemId.Value);
+            if (row != null) soItemQty = row.StockQty > 0 ? row.StockQty : row.Quantity;
+        }
+        else
+        {
+            soItemQty = so.Items.Where(i => i.ItemId == wo.ItemId).Sum(i => i.StockQty > 0 ? i.StockQty : i.Quantity);
+        }
+
+        var maxAllowed = soItemQty * (1m + overproductionPercentageForSalesOrder / 100m);
+        if (totalQty > maxAllowed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.WorkOrderOverproduction)
+                .WithData("totalQty", totalQty)
+                .WithData("maxAllowed", maxAllowed)
+                .WithData("salesOrderQty", soItemQty)
+                .WithData("orderedQtyAgainstSo", orderedQtyAgainstSo)
+                .WithData("detail", $"Cannot produce more than Sales Order quantity {soItemQty}.");
+        }
+    }
+
+    /// <summary>
+    /// Updates WorkOrderQty and ProducedQty on SalesOrderItem rows linked to this Sales Order.
+    /// Per ERPNext PR #60647 (commits 5b66df2033 & 025e87f906).
+    /// </summary>
+    public async Task UpdateSalesOrderWorkOrderQtyAsync(
+        Guid salesOrderId,
+        IRepository<Sales.Entities.SalesOrder, Guid> salesOrderRepository,
+        IRepository<WorkOrder, Guid> workOrderRepository)
+    {
+        var so = await salesOrderRepository.FindAsync(salesOrderId, includeDetails: true);
+        if (so == null) return;
+
+        var woQuery = await workOrderRepository.GetQueryableAsync();
+        var submittedWos = woQuery
+            .Where(w => w.SalesOrderId == salesOrderId
+                && w.Status != WorkOrderStatus.Draft
+                && w.Status != WorkOrderStatus.Cancelled)
+            .ToList();
+
+        foreach (var item in so.Items)
+        {
+            var matchingWos = submittedWos
+                .Where(w => (w.SalesOrderItemId.HasValue && w.SalesOrderItemId.Value == item.Id)
+                         || (!w.SalesOrderItemId.HasValue && w.ItemId == item.ItemId))
+                .ToList();
+
+            item.WorkOrderQty = matchingWos.Sum(w => GetWorkOrderQtyAgainstSalesOrder(w, forOpenWorkOrderQty: false));
+            item.ProducedQty = matchingWos.Sum(w => w.ProducedQuantity);
+        }
+
+        await salesOrderRepository.UpdateAsync(so);
+    }
 }
 
 /// <summary>

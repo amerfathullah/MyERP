@@ -43,6 +43,7 @@ export class WorkOrderFormComponent implements OnInit {
     itemId: ['', Validators.required],
     bomId: ['', Validators.required],
     quantity: [1, [Validators.required, Validators.min(1)]],
+    batchSize: [0, [Validators.min(0)]],
     salesOrderId: [''],
     sourceWarehouseId: [''],
     wipWarehouseId: [''],

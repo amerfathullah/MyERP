@@ -417,6 +417,12 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Quantity ordered via Purchase Orders created from this Sales Order line (e.g. drop-ship).</summary>
     public decimal OrderedQty { get; set; }
 
+    /// <summary>Quantity already included in submitted Work Orders (ERPNext selling/doctype/sales_order_item: work_order_qty).</summary>
+    public decimal WorkOrderQty { get; set; }
+
+    /// <summary>Quantity produced via submitted Work Orders (ERPNext selling/doctype/sales_order_item: produced_qty).</summary>
+    public decimal ProducedQty { get; set; }
+
     /// <summary>
     /// Billable quantity accounting for deliveries, returns, and re-deliveries.
     /// Per ERPNext PR #114ba42850:

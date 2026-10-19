@@ -22354,6 +22354,11 @@ namespace MyERP.Migrations
                     b.Property<bool>("AllowAlternativeItem")
                         .HasColumnType("boolean");
 
+                    b.Property<decimal>("BatchSize")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,4)")
+                        .HasDefaultValue(0m);
+
                     b.Property<Guid>("BomId")
                         .HasColumnType("uuid");
 
@@ -30264,6 +30269,11 @@ namespace MyERP.Migrations
                     b.Property<decimal>("OrderedQty")
                         .HasColumnType("numeric");
 
+                    b.Property<decimal>("ProducedQty")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,4)")
+                        .HasDefaultValue(0m);
+
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,4)");
 
@@ -30306,6 +30316,11 @@ namespace MyERP.Migrations
 
                     b.Property<Guid?>("WarehouseId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal>("WorkOrderQty")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,4)")
+                        .HasDefaultValue(0m);
 
                     b.HasKey("Id");
 

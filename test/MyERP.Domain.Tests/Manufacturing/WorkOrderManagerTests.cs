@@ -1,10 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MyERP.Manufacturing.DomainServices;
 using MyERP.Manufacturing.Entities;
+using MyERP.Sales.Entities;
 using NSubstitute;
 using Shouldly;
 using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Manufacturing;
@@ -538,6 +542,185 @@ public class WorkOrderManagerTests
 
         woItem.AvailableQtyAtSourceWarehouse.ShouldBe(100m);
         woItem.AvailableQtyAtWipWarehouse.ShouldBe(25m);
+    }
+
+    // ========== Batch Size Validation (ERPNext PR #60647) ==========
+
+    [Fact]
+    public void WorkOrder_BatchSize_Negative_ThrowsException()
+    {
+        var wo = CreateWorkOrder(100);
+        wo.BatchSize = -1m;
+
+        var ex = Should.Throw<BusinessException>(() => wo.Submit());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.BatchSizeCannotBeNegative);
+    }
+
+    [Fact]
+    public void WorkOrder_BatchSize_ZeroOrPositive_Allowed()
+    {
+        var wo1 = CreateWorkOrder(100);
+        wo1.BatchSize = 0m;
+        wo1.Submit();
+        wo1.BatchSize.ShouldBe(0m);
+
+        var wo2 = CreateWorkOrder(100);
+        wo2.BatchSize = 25m;
+        wo2.Submit();
+        wo2.BatchSize.ShouldBe(25m);
+    }
+
+    // ========== Status Transitions (ERPNext PR #60647 / commit f36cc254a7) ==========
+
+    [Fact]
+    public void WorkOrder_StatusTransitions_EnforceSubmittedRequirement()
+    {
+        var wo = CreateWorkOrder(100);
+        // Draft order cannot be stopped, unstopped, or closed
+        Should.Throw<BusinessException>(() => wo.Stop())
+            .Code.ShouldBe(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted);
+        Should.Throw<BusinessException>(() => wo.Unstop())
+            .Code.ShouldBe(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted);
+        Should.Throw<BusinessException>(() => wo.Close())
+            .Code.ShouldBe(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted);
+
+        wo.Submit();
+        wo.Status.ShouldBe(WorkOrderStatus.Submitted);
+
+        // Can stop from submitted
+        wo.Stop();
+        wo.Status.ShouldBe(WorkOrderStatus.Stopped);
+
+        // Can unstop from stopped
+        wo.Unstop();
+        wo.Status.ShouldBe(WorkOrderStatus.InProcess);
+
+        // Can close from InProcess
+        wo.Close();
+        wo.Status.ShouldBe(WorkOrderStatus.Closed);
+
+        // Closed order cannot be stopped, unstopped, or re-closed
+        Should.Throw<BusinessException>(() => wo.Stop())
+            .Code.ShouldBe(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted);
+        Should.Throw<BusinessException>(() => wo.Unstop())
+            .Code.ShouldBe(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted);
+        Should.Throw<BusinessException>(() => wo.Close())
+            .Code.ShouldBe(MyERPDomainErrorCodes.WorkOrderStatusTransitionRestricted);
+    }
+
+    // ========== Sales Order Work Order Qty Tracking (ERPNext PR #60647 / commits 5b66df2033 & 025e87f906) ==========
+
+    [Fact]
+    public void GetWorkOrderQtyAgainstSalesOrder_ClosedWorkOrder_ReturnsProducedQty()
+    {
+        var woClosed = CreateWorkOrder(100);
+        woClosed.Submit();
+        woClosed.Start();
+        woClosed.RecordProduction(60m, 0m);
+        woClosed.Close();
+        woClosed.Status.ShouldBe(WorkOrderStatus.Closed);
+
+        // Closed work order should only count ProducedQuantity against Sales Order
+        WorkOrderManager.GetWorkOrderQtyAgainstSalesOrder(woClosed, forOpenWorkOrderQty: false).ShouldBe(60m);
+        WorkOrderManager.GetWorkOrderQtyAgainstSalesOrder(woClosed, forOpenWorkOrderQty: true).ShouldBe(60m);
+
+        var woOpen = CreateWorkOrder(100);
+        woOpen.Submit();
+        woOpen.Start();
+        woOpen.RecordProduction(40m, 0m, processLoss: 10m);
+
+        // Open work order counts Quantity (100) or Quantity - ProcessLossQty (90)
+        WorkOrderManager.GetWorkOrderQtyAgainstSalesOrder(woOpen, forOpenWorkOrderQty: false).ShouldBe(100m);
+        WorkOrderManager.GetWorkOrderQtyAgainstSalesOrder(woOpen, forOpenWorkOrderQty: true).ShouldBe(90m);
+    }
+
+    [Fact]
+    public async Task ValidateWorkOrderAgainstSalesOrderAsync_Exceeds_ThrowsException()
+    {
+        var itemRepo = Substitute.For<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = Substitute.For<IRepository<ManufacturingSettings, Guid>>();
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        var salesOrderRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var workOrderRepo = Substitute.For<IRepository<WorkOrder, Guid>>();
+
+        var salesOrderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var so = new SalesOrder(salesOrderId, CompanyId, customerId, "SO-001", DateTime.UtcNow);
+        so.AddItem(ItemId, "FG Item", 100m, 50m, 0m);
+        var soItem = so.Items.First();
+
+        var existingWo = CreateWorkOrder(70m);
+        existingWo.SalesOrderId = salesOrderId;
+        existingWo.SalesOrderItemId = soItem.Id;
+        existingWo.Submit();
+
+        salesOrderRepo.FindAsync(salesOrderId, includeDetails: true).Returns(Task.FromResult<SalesOrder?>(so));
+        workOrderRepo.GetQueryableAsync().Returns(Task.FromResult(new List<WorkOrder> { existingWo }.AsQueryable()));
+
+        var newWo = CreateWorkOrder(40m);
+        newWo.SalesOrderId = salesOrderId;
+        newWo.SalesOrderItemId = soItem.Id;
+
+        // 70 + 40 = 110 > 100 max allowed
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            manager.ValidateWorkOrderAgainstSalesOrderAsync(newWo, salesOrderRepo, workOrderRepo, 0m));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.WorkOrderOverproduction);
+
+        // 70 + 30 = 100 <= 100 should succeed
+        var validWo = CreateWorkOrder(30m);
+        validWo.SalesOrderId = salesOrderId;
+        validWo.SalesOrderItemId = soItem.Id;
+
+        await manager.ValidateWorkOrderAgainstSalesOrderAsync(validWo, salesOrderRepo, workOrderRepo, 0m);
+    }
+
+    [Fact]
+    public async Task UpdateSalesOrderWorkOrderQtyAsync_UpdatesSalesOrderItemQuantities()
+    {
+        var itemRepo = Substitute.For<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = Substitute.For<IRepository<ManufacturingSettings, Guid>>();
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        var salesOrderRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var workOrderRepo = Substitute.For<IRepository<WorkOrder, Guid>>();
+
+        var salesOrderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var so = new SalesOrder(salesOrderId, CompanyId, customerId, "SO-001", DateTime.UtcNow);
+        so.AddItem(ItemId, "FG Item", 100m, 50m, 0m);
+        var soItem = so.Items.First();
+
+        // WO1: 50 ordered, 50 produced (completed)
+        var wo1 = CreateWorkOrder(50m);
+        wo1.SalesOrderId = salesOrderId;
+        wo1.SalesOrderItemId = soItem.Id;
+        wo1.Submit();
+        wo1.Start();
+        wo1.RecordProduction(50m, 0m);
+
+        // WO2: 50 ordered, 20 produced (closed prematurely)
+        var wo2 = CreateWorkOrder(50m);
+        wo2.SalesOrderId = salesOrderId;
+        wo2.SalesOrderItemId = soItem.Id;
+        wo2.Submit();
+        wo2.Start();
+        wo2.RecordProduction(20m, 0m);
+        wo2.Close();
+
+        salesOrderRepo.FindAsync(salesOrderId, includeDetails: true).Returns(Task.FromResult<SalesOrder?>(so));
+        workOrderRepo.GetQueryableAsync().Returns(Task.FromResult(new List<WorkOrder> { wo1, wo2 }.AsQueryable()));
+
+        await manager.UpdateSalesOrderWorkOrderQtyAsync(salesOrderId, salesOrderRepo, workOrderRepo);
+
+        // Closed wo2 counts only 20 produced, wo1 counts 50 -> total 70
+        soItem.WorkOrderQty.ShouldBe(70m);
+        soItem.ProducedQty.ShouldBe(70m);
+
+        await salesOrderRepo.Received(1).UpdateAsync(so);
     }
 
     // ========== Helper ==========
