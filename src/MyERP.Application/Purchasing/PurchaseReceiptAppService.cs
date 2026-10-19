@@ -564,15 +564,21 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 var company = await _companyRepository.GetAsync(receipt.CompanyId);
                 var allowancePct = company.OverDeliveryReceiptAllowance;
 
-                foreach (var prItem in receipt.Items.Where(i => i.PurchaseOrderItemId.HasValue))
+                var prItemGroups = receipt.Items
+                    .Where(i => i.PurchaseOrderItemId.HasValue)
+                    .GroupBy(i => i.PurchaseOrderItemId!.Value);
+
+                foreach (var group in prItemGroups)
                 {
-                    var poItem = po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId!.Value);
+                    var poItem = po.Items.FirstOrDefault(i => i.Id == group.Key);
                     if (poItem == null) continue;
 
                     // Convert PR item qty to PO item UOM if conversion factors differ (PR #61336 / commit 4f99ce9544)
+                    // Sum stock qty across rows before dividing by PO conversion factor (commit b97eb00c19)
+                    var totalStockQty = group.Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
                     var prQtyInPoUom = poItem.ConversionFactor > 0
-                        ? (prItem.Quantity * prItem.ConversionFactor / poItem.ConversionFactor)
-                        : prItem.Quantity;
+                        ? Math.Round(totalStockQty / poItem.ConversionFactor, 4)
+                        : totalStockQty;
 
                     var maxAllowedTotal = poItem.Quantity * (1m + allowancePct / 100m);
                     var remainingAllowed = maxAllowedTotal - poItem.ReceivedQty;
@@ -580,7 +586,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     if (prQtyInPoUom > remainingAllowed)
                     {
                         throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverReceipt)
-                            .WithData("item", prItem.Description)
+                            .WithData("item", poItem.Description ?? poItem.ItemId.ToString())
                             .WithData("ordered", poItem.Quantity)
                             .WithData("received", poItem.ReceivedQty)
                             .WithData("attempted", prQtyInPoUom);
@@ -1246,23 +1252,27 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             try
             {
                 var po = await _purchaseOrderRepository.GetAsync(purchaseOrderId);
-                foreach (var prItem in prItems)
+                var prItemGroups = prItems
+                    .Where(i => i.PurchaseOrderItemId.HasValue)
+                    .GroupBy(i => i.PurchaseOrderItemId!.Value);
+
+                foreach (var group in prItemGroups)
                 {
-                    if (!prItem.PurchaseOrderItemId.HasValue) continue;
-                    var poItem = po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId.Value);
+                    var poItem = po.Items.FirstOrDefault(i => i.Id == group.Key);
                     if (poItem == null) continue;
 
+                    var totalStockQty = group.Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
                     var prQtyInPoUom = poItem.ConversionFactor > 0
-                        ? (prItem.Quantity * prItem.ConversionFactor / poItem.ConversionFactor)
-                        : prItem.Quantity;
+                        ? Math.Round(totalStockQty / poItem.ConversionFactor, 4)
+                        : totalStockQty;
 
                     if (isReversal)
                     {
-                        poItem.ReceivedQty = Math.Max(0, poItem.ReceivedQty - Math.Abs(prQtyInPoUom));
+                        poItem.ReceivedQty = Math.Max(0, Math.Round(poItem.ReceivedQty - Math.Abs(prQtyInPoUom), 4));
                     }
                     else
                     {
-                        poItem.ReceivedQty += prQtyInPoUom;
+                        poItem.ReceivedQty = Math.Round(poItem.ReceivedQty + prQtyInPoUom, 4);
                         // Track receipt dates for delivery performance analysis
                         var receiptDate = DateTime.UtcNow.Date;
                         poItem.FirstReceiptDate ??= receiptDate;

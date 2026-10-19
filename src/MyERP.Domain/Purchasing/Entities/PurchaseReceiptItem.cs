@@ -115,7 +115,7 @@ public class PurchaseReceiptItem : CreationAuditedEntity<Guid>
     }
 
     /// <summary>Pending billing quantity = BillableQty - BilledQty. 0 if closed.</summary>
-    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, BillableQty - Math.Abs(BilledQty));
+    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, Math.Round(BillableQty - Math.Abs(BilledQty), 4));
 
     /// <summary>
     /// Cumulative variance between what Purchase Invoices billed this item at and this PR item's

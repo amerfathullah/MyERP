@@ -208,7 +208,7 @@ public class PurchaseOrderManager : DomainService
         if (poItem == null) return;
 
         var effectiveBillingQty = (poItem.ConversionFactor > 0 && conversionFactor > 0)
-            ? (billingQty * conversionFactor / poItem.ConversionFactor)
+            ? Math.Round(billingQty * conversionFactor / poItem.ConversionFactor, 4)
             : billingQty;
 
         var maxAllowedTotal = poItem.Quantity * (1m + overBillingAllowancePct / 100m);
@@ -219,6 +219,39 @@ public class PurchaseOrderManager : DomainService
                 .WithData("orderedQty", poItem.Quantity)
                 .WithData("billedQty", poItem.BilledQty)
                 .WithData("attemptedQty", effectiveBillingQty);
+        }
+    }
+
+    /// <summary>
+    /// Validates multiple billing lines against Purchase Order rows, summing stock qty per PO item before converting.
+    /// Per ERPNext PR #61336 (commits 1b35280c46 & b97eb00c19):
+    /// sum converted qty across split rows before checking overbilling tolerance.
+    /// </summary>
+    public void ValidateBillingQty(
+        PurchaseOrder order,
+        IEnumerable<(Guid PurchaseOrderItemId, decimal Quantity, decimal ConversionFactor)> billingLines,
+        decimal overBillingAllowancePct = 0m)
+    {
+        var grouped = billingLines.GroupBy(l => l.PurchaseOrderItemId);
+        foreach (var group in grouped)
+        {
+            var poItem = order.Items.FirstOrDefault(i => i.Id == group.Key);
+            if (poItem == null) continue;
+
+            var totalAttemptedStockQty = group.Sum(l => l.Quantity * (l.ConversionFactor > 0 ? l.ConversionFactor : 1m));
+            var attemptedInPoUom = poItem.ConversionFactor > 0
+                ? Math.Round(totalAttemptedStockQty / poItem.ConversionFactor, 4)
+                : totalAttemptedStockQty;
+
+            var maxAllowedTotal = poItem.Quantity * (1m + overBillingAllowancePct / 100m);
+            if (poItem.BilledQty + attemptedInPoUom > maxAllowedTotal)
+            {
+                throw new BusinessException("MyERP:08007")
+                    .WithData("itemName", poItem.Description)
+                    .WithData("orderedQty", poItem.Quantity)
+                    .WithData("billedQty", poItem.BilledQty)
+                    .WithData("attemptedQty", attemptedInPoUom);
+            }
         }
     }
 

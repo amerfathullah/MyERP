@@ -1557,24 +1557,29 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
                     foreach (var po in affectedOrders)
                     {
-                        foreach (var piItem in invoice.Items.Where(i => i.PurchaseOrderItemId.HasValue))
+                        var poItemGroups = invoice.Items
+                            .Where(i => i.PurchaseOrderItemId.HasValue)
+                            .GroupBy(i => i.PurchaseOrderItemId!.Value);
+
+                        foreach (var group in poItemGroups)
                         {
-                            var poItem = po.Items.FirstOrDefault(i => i.Id == piItem.PurchaseOrderItemId!.Value);
+                            var poItem = po.Items.FirstOrDefault(i => i.Id == group.Key);
                             if (poItem == null) continue;
 
-                            // Convert PI item qty to PO item UOM if conversion factors differ (PR #61336)
-                            var piQtyInPoUom = poItem.ConversionFactor > 0
-                                ? (piItem.Quantity * piItem.ConversionFactor / poItem.ConversionFactor)
-                                : piItem.Quantity;
+                            // Sum stock qty across all rows for this PO item before dividing by PO conversion factor (ERPNext PR #61336 / commit b97eb00c19)
+                            var totalAttemptedStockQty = group.Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+                            var attemptedInPoUom = poItem.ConversionFactor > 0
+                                ? Math.Round(totalAttemptedStockQty / poItem.ConversionFactor, 4)
+                                : totalAttemptedStockQty;
 
                             var maxAllowedTotal = poItem.Quantity * (1m + billingAllowancePct / 100m);
-                            if (poItem.BilledQty + piQtyInPoUom > maxAllowedTotal)
+                            if (poItem.BilledQty + attemptedInPoUom > maxAllowedTotal)
                             {
                                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverBilling)
-                                    .WithData("item", piItem.Description ?? piItem.ItemId.ToString())
+                                    .WithData("item", poItem.Description ?? poItem.ItemId.ToString())
                                     .WithData("ordered", poItem.Quantity)
                                     .WithData("billed", poItem.BilledQty)
-                                    .WithData("attempted", piQtyInPoUom);
+                                    .WithData("attempted", attemptedInPoUom);
                             }
                         }
                     }
@@ -1583,23 +1588,28 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 // Update BilledQty
                 foreach (var po in affectedOrders)
                 {
-                    foreach (var piItem in invoice.Items.Where(i => i.PurchaseOrderItemId.HasValue))
+                    var poItemGroups = invoice.Items
+                        .Where(i => i.PurchaseOrderItemId.HasValue)
+                        .GroupBy(i => i.PurchaseOrderItemId!.Value);
+
+                    foreach (var group in poItemGroups)
                     {
-                        var poItem = po.Items.FirstOrDefault(i => i.Id == piItem.PurchaseOrderItemId!.Value);
+                        var poItem = po.Items.FirstOrDefault(i => i.Id == group.Key);
                         if (poItem != null)
                         {
-                            var piQtyInPoUom = poItem.ConversionFactor > 0
-                                ? (piItem.Quantity * piItem.ConversionFactor / poItem.ConversionFactor)
-                                : piItem.Quantity;
+                            var totalStockQty = group.Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+                            var qtyInPoUom = poItem.ConversionFactor > 0
+                                ? Math.Round(totalStockQty / poItem.ConversionFactor, 4)
+                                : totalStockQty;
 
                             if (invoice.IsReturn)
                             {
                                 // Order-touching return/debit note reduces billed qty
-                                poItem.BilledQty = Math.Max(0, poItem.BilledQty - Math.Abs(piQtyInPoUom));
+                                poItem.BilledQty = Math.Max(0, Math.Round(poItem.BilledQty - Math.Abs(qtyInPoUom), 4));
                             }
                             else
                             {
-                                poItem.BilledQty += piQtyInPoUom;
+                                poItem.BilledQty = Math.Round(poItem.BilledQty + qtyInPoUom, 4);
                             }
                         }
                     }
@@ -1944,23 +1954,28 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
                 foreach (var po in affectedOrders)
                 {
-                    foreach (var piItem in invoice.Items.Where(i => i.PurchaseOrderItemId.HasValue))
+                    var poItemGroups = invoice.Items
+                        .Where(i => i.PurchaseOrderItemId.HasValue)
+                        .GroupBy(i => i.PurchaseOrderItemId!.Value);
+
+                    foreach (var group in poItemGroups)
                     {
-                        var poItem = po.Items.FirstOrDefault(i => i.Id == piItem.PurchaseOrderItemId!.Value);
+                        var poItem = po.Items.FirstOrDefault(i => i.Id == group.Key);
                         if (poItem != null)
                         {
-                            var piQtyInPoUom = poItem.ConversionFactor > 0
-                                ? (piItem.Quantity * piItem.ConversionFactor / poItem.ConversionFactor)
-                                : piItem.Quantity;
+                            var totalStockQty = group.Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+                            var qtyInPoUom = poItem.ConversionFactor > 0
+                                ? Math.Round(totalStockQty / poItem.ConversionFactor, 4)
+                                : totalStockQty;
 
                             if (invoice.IsReturn)
                             {
                                 // Reversal of return restores billed quantity
-                                poItem.BilledQty += Math.Abs(piQtyInPoUom);
+                                poItem.BilledQty = Math.Round(poItem.BilledQty + Math.Abs(qtyInPoUom), 4);
                             }
                             else
                             {
-                                poItem.BilledQty = Math.Max(0, poItem.BilledQty - piQtyInPoUom);
+                                poItem.BilledQty = Math.Max(0, Math.Round(poItem.BilledQty - qtyInPoUom, 4));
                             }
                         }
                     }
@@ -2409,19 +2424,27 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         {
             foreach (var po in affectedOrders)
             {
-                foreach (var piItem in invoice.Items.Where(i => i.PurchaseOrderItemId.HasValue))
+                var poItemGroups = invoice.Items
+                    .Where(i => i.PurchaseOrderItemId.HasValue)
+                    .GroupBy(i => i.PurchaseOrderItemId!.Value);
+
+                foreach (var group in poItemGroups)
                 {
-                    var poItem = po.Items.FirstOrDefault(i => i.Id == piItem.PurchaseOrderItemId!.Value);
+                    var poItem = po.Items.FirstOrDefault(i => i.Id == group.Key);
                     if (poItem == null) continue;
 
-                    var qty = Math.Abs(piItem.Quantity);
+                    var totalStockQty = group.Sum(i => Math.Abs(i.Quantity) * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+                    var qtyInPoUom = poItem.ConversionFactor > 0
+                        ? Math.Round(totalStockQty / poItem.ConversionFactor, 4)
+                        : totalStockQty;
+
                     if (isReversal)
                     {
-                        poItem.ReceivedQty = Math.Max(0, poItem.ReceivedQty - qty);
+                        poItem.ReceivedQty = Math.Max(0, Math.Round(poItem.ReceivedQty - qtyInPoUom, 4));
                     }
                     else
                     {
-                        poItem.ReceivedQty += qty;
+                        poItem.ReceivedQty = Math.Round(poItem.ReceivedQty + qtyInPoUom, 4);
                         var receiptDate = DateTime.UtcNow.Date;
                         poItem.FirstReceiptDate ??= receiptDate;
                         poItem.LastReceiptDate = receiptDate;

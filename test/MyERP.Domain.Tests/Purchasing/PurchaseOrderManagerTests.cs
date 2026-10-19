@@ -375,4 +375,76 @@ public class PurchaseOrderManagerTests
 
         manager.ValidateDuplicateItems(po, allowMultipleItems: false);
     }
+
+    // ========== ERPNext PR #61336: Billed Qty and Conversion Factor Tests ==========
+
+    [Fact]
+    public void PO_PendingBillingQty_RecurringConversionFactor_RoundsToZero()
+    {
+        var po = CreatePO();
+        var itemId = Guid.NewGuid();
+        // 15 boxes where conversion factor = 0.333333333 (1/3)
+        po.AddItem(itemId, "Flour", 15m, 100m, 0m);
+        var poItem = po.Items.First();
+        poItem.ConversionFactor = 0.333333333m;
+
+        // Bill exactly 15 boxes: 15 * 0.333333333 / 0.333333333 = 15
+        poItem.BilledQty = 14.999999999m;
+        // Without rounding, 15 - 14.999999999 = 0.000000001
+        // With Math.Round(..., 4), pending billing is exactly 0
+        poItem.PendingBillingQty.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void PO_ValidateBillingQty_SplitAcrossRows_SummedBeforeConversion()
+    {
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, null!);
+        var po = CreatePO();
+        var itemId = Guid.NewGuid();
+        po.AddItem(itemId, "Bulk Item", 1m, 60m, 0m);
+        var poItem = po.Items.First();
+        poItem.ConversionFactor = 6m; // 1 Box = 6 units
+
+        // 6 split invoice items, each 1 unit (conversion factor 1m)
+        var billingLines = new List<(Guid PurchaseOrderItemId, decimal Quantity, decimal ConversionFactor)>
+        {
+            (poItem.Id, 1m, 1m),
+            (poItem.Id, 1m, 1m),
+            (poItem.Id, 1m, 1m),
+            (poItem.Id, 1m, 1m),
+            (poItem.Id, 1m, 1m),
+            (poItem.Id, 1m, 1m)
+        };
+
+        // 6 units * 1 / 6 = 1.0 Box. Exactly covers PO quantity of 1 Box.
+        manager.ValidateBillingQty(po, billingLines, 0m);
+    }
+
+    [Fact]
+    public void PO_ValidateBillingQty_SplitAcrossRows_Exceeds_Throws()
+    {
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, null!);
+        var po = CreatePO();
+        var itemId = Guid.NewGuid();
+        po.AddItem(itemId, "Bulk Item", 1m, 60m, 0m);
+        var poItem = po.Items.First();
+        poItem.ConversionFactor = 6m; // 1 Box = 6 units
+
+        // 7 split invoice items, each 1 unit (conversion factor 1m)
+        var billingLines = new List<(Guid PurchaseOrderItemId, decimal Quantity, decimal ConversionFactor)>
+        {
+            (poItem.Id, 1m, 1m),
+            (poItem.Id, 1m, 1m),
+            (poItem.Id, 1m, 1m),
+            (poItem.Id, 1m, 1m),
+            (poItem.Id, 1m, 1m),
+            (poItem.Id, 1m, 1m),
+            (poItem.Id, 1m, 1m)
+        };
+
+        // 7 units * 1 / 6 = 1.1667 Box > 1.0 Box.
+        var ex = Should.Throw<BusinessException>(() =>
+            manager.ValidateBillingQty(po, billingLines, 0m));
+        ex.Code.ShouldBe("MyERP:08007");
+    }
 }

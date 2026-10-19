@@ -421,10 +421,10 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     public decimal BilledQty { get; set; }
 
     /// <summary>Remaining qty to receive.</summary>
-    public decimal PendingReceiptQty => IsClosed ? 0 : Math.Max(0, Quantity - ReceivedQty);
+    public decimal PendingReceiptQty => IsClosed ? 0 : Math.Max(0, Math.Round(Quantity - ReceivedQty, 4));
 
     /// <summary>Remaining qty to bill.</summary>
-    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, Quantity - BilledQty);
+    public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, Math.Round(Quantity - BilledQty, 4));
 
     /// <summary>Target warehouse for receipt.</summary>
     public Guid? WarehouseId { get; set; }
