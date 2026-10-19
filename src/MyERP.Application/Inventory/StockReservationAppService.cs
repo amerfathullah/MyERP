@@ -152,6 +152,11 @@ public class StockReservationAppService : ApplicationService, IStockReservationA
     public async Task<StockReservationEntryDto> CancelAsync(Guid id)
     {
         var sre = await _repository.GetAsync(id);
+
+        var reservationManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
+        var woRepo = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.WorkOrder, Guid>>();
+        await reservationManager.ValidateCanCancelAsync(sre, woRepo);
+
         var remainingReserved = sre.AvailableQty;
         sre.Cancel();
         await _repository.UpdateAsync(sre);

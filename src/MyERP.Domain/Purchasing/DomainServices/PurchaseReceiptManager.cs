@@ -18,13 +18,23 @@ public class PurchaseReceiptManager : DomainService
 {
     private readonly IRepository<PurchaseOrder, Guid> _poRepository;
     private readonly IRepository<PurchaseReceipt, Guid> _prRepository;
+    private readonly IRepository<Tax.Entities.TransactionTaxRow, Guid>? _taxRowRepository;
 
     public PurchaseReceiptManager(
         IRepository<PurchaseOrder, Guid> poRepository,
         IRepository<PurchaseReceipt, Guid> prRepository)
+        : this(poRepository, prRepository, null)
+    {
+    }
+
+    public PurchaseReceiptManager(
+        IRepository<PurchaseOrder, Guid> poRepository,
+        IRepository<PurchaseReceipt, Guid> prRepository,
+        IRepository<Tax.Entities.TransactionTaxRow, Guid>? taxRowRepository)
     {
         _poRepository = poRepository;
         _prRepository = prRepository;
+        _taxRowRepository = taxRowRepository;
     }
 
     /// <summary>
@@ -81,6 +91,12 @@ public class PurchaseReceiptManager : DomainService
         foreach (var pid in poIds)
         {
             poList.Add(await _poRepository.GetAsync(pid));
+        }
+
+        // Validate combinability across multiple Purchase Orders (PR #60510 / commit 77e0c43997)
+        if (poList.Count > 1)
+        {
+            await ValidateCombinablePurchaseOrdersAsync(receipt, poList);
         }
 
         foreach (var po in poList)
@@ -360,6 +376,81 @@ public class PurchaseReceiptManager : DomainService
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Same item cannot be entered multiple times.");
+        }
+    }
+
+    /// <summary>
+    /// Validates whether multiple Purchase Orders can be combined into a single Purchase Receipt.
+    /// Per ERPNext PR #60510 (commit 77e0c43997 / 7fda3d0b4f):
+    /// "One Purchase Receipt carries one currency, one set of rate-based taxes and one header discount."
+    /// A percentage discount can be shared by orders; an amount discount belongs to its order alone.
+    /// Rate-based taxes (plus actual charges if referenced by previous rows) must match across orders.
+    /// </summary>
+    public async Task ValidateCombinablePurchaseOrdersAsync(PurchaseReceipt receipt, IReadOnlyList<PurchaseOrder> orders)
+    {
+        if (orders.Count < 2) return;
+
+        // 1. Currency validation: orders must all share the receipt's currency
+        var currencies = orders.Select(o => o.CurrencyCode).Distinct().ToList();
+        if (currencies.Count > 1 || (receipt != null && orders.Any(o => !string.Equals(o.CurrencyCode, receipt.CurrencyCode, StringComparison.OrdinalIgnoreCase))))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotCombinePurchaseOrders)
+                .WithData("orders", string.Join(", ", orders.Select(o => o.OrderNumber)))
+                .WithData("reason", "Currencies do not match.");
+        }
+
+        // 2. Discount terms validation
+        // Per ERPNext: an amount discount belongs to its order alone; a percentage discount can be shared.
+        var hasAmountDiscount = orders.Any(o => o.DiscountAmount > 0);
+        if (hasAmountDiscount)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotCombinePurchaseOrders)
+                .WithData("orders", string.Join(", ", orders.Select(o => o.OrderNumber)))
+                .WithData("reason", "Orders with header discount amounts cannot be combined.");
+        }
+
+        var discountTerms = orders.Select(o => o.AdditionalDiscountPercentage > 0
+            ? (o.ApplyDiscountOn ?? "Net Total", o.AdditionalDiscountPercentage)
+            : ("None", 0m)).Distinct().ToList();
+
+        if (discountTerms.Count > 1)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CannotCombinePurchaseOrders)
+                .WithData("orders", string.Join(", ", orders.Select(o => o.OrderNumber)))
+                .WithData("reason", "Orders have different discount percentages or discount basis.");
+        }
+
+        // 3. Tax terms validation
+        if (_taxRowRepository != null)
+        {
+            var taxQueryable = await _taxRowRepository.GetQueryableAsync();
+            var orderIds = orders.Select(o => o.Id).ToList();
+            var allTaxes = taxQueryable
+                .Where(t => t.ParentType == "PurchaseOrder" && orderIds.Contains(t.ParentId))
+                .ToList();
+
+            var taxesByOrder = allTaxes.GroupBy(t => t.ParentId).ToDictionary(g => g.Key, g => g.OrderBy(t => t.RowIndex).ToList());
+
+            var orderTaxSignatures = new List<string>();
+            foreach (var order in orders)
+            {
+                var taxes = taxesByOrder.GetValueOrDefault(order.Id, new List<Tax.Entities.TransactionTaxRow>());
+                var hasRowBasedTax = taxes.Any(t => t.ChargeType is "On Previous Row Amount" or "On Previous Row Total");
+                var rateBasedTaxes = taxes
+                    .Where(t => hasRowBasedTax || t.ChargeType != "Actual")
+                    .OrderBy(t => t.RowIndex)
+                    .Select(t => $"{t.ChargeType}|{t.Rate}|{t.AccountId}|{t.CostCenterId}|{t.IncludedInPrintRate}|{t.AddDeductTax}|{t.TaxCategory}")
+                    .ToList();
+
+                orderTaxSignatures.Add(string.Join(";", rateBasedTaxes));
+            }
+
+            if (orderTaxSignatures.Distinct().Count() > 1)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CannotCombinePurchaseOrders)
+                    .WithData("orders", string.Join(", ", orders.Select(o => o.OrderNumber)))
+                    .WithData("reason", "Orders have different rate-based taxes or tax charge terms.");
+            }
         }
     }
 }

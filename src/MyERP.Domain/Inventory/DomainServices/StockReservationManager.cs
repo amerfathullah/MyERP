@@ -284,8 +284,11 @@ public class StockReservationManager : DomainService
     }
 
     /// <summary>
-    /// Cancels all active reservations for a voucher (used on SO/WO cancel/close).
-    /// Per ERPNext PR #50773 / commit 9b5d215a7a.
+    /// Cancels or releases all active reservations for a voucher (used on SO/WO/SCO cancel/close).
+    /// Per ERPNext PR #50773 / commit 9b5d215a7a, and PR #60510 / commit eecf91e143:
+    /// When closing a voucher, if a reservation has already transferred, consumed, or delivered stock,
+    /// its reserved qty is trimmed to the used qty and the unused balance is released from Bin.
+    /// If none was used, the reservation is cancelled completely and its reserved qty released from Bin.
     /// </summary>
     public async Task CancelReservationsForVoucherAsync(Guid voucherId)
     {
@@ -297,8 +300,70 @@ public class StockReservationManager : DomainService
 
         foreach (var sre in activeSres)
         {
-            sre.Cancel();
-            await _sreRepository.UpdateAsync(sre);
+            var usedQty = sre.DeliveredQty + sre.TransferredQty + sre.ConsumedQty;
+            var unusedQty = Math.Max(0m, sre.ReservedQty - usedQty);
+
+            if (usedQty > 0)
+            {
+                sre.ReservedQty = usedQty;
+                await _sreRepository.UpdateAsync(sre);
+
+                if (unusedQty > 0 && _binRepository != null)
+                {
+                    var binQueryable = await _binRepository.GetQueryableAsync();
+                    var bin = binQueryable.FirstOrDefault(b => b.ItemId == sre.ItemId && b.WarehouseId == sre.WarehouseId);
+                    if (bin != null)
+                    {
+                        bin.ReservedQty = Math.Max(0m, bin.ReservedQty - unusedQty);
+                        await _binRepository.UpdateAsync(bin);
+                    }
+                }
+            }
+            else
+            {
+                sre.Cancel();
+                await _sreRepository.UpdateAsync(sre);
+
+                if (sre.ReservedQty > 0 && _binRepository != null)
+                {
+                    var binQueryable = await _binRepository.GetQueryableAsync();
+                    var bin = binQueryable.FirstOrDefault(b => b.ItemId == sre.ItemId && b.WarehouseId == sre.WarehouseId);
+                    if (bin != null)
+                    {
+                        bin.ReservedQty = Math.Max(0m, bin.ReservedQty - sre.ReservedQty);
+                        await _binRepository.UpdateAsync(bin);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates whether a Stock Reservation Entry can be cancelled directly.
+    /// Per ERPNext PR #60510 (commit b7e3383f5c / 2bee21840a):
+    /// Refuse to cancel a Work Order reservation if it has already transferred or consumed stock.
+    /// The stock is released by closing the Work Order, not by cancelling the reservation.
+    /// </summary>
+    public async Task ValidateCanCancelAsync(StockReservationEntry sre, IRepository<Manufacturing.Entities.WorkOrder, Guid>? woRepository = null)
+    {
+        if ((sre.VoucherType is "Work Order" or "WorkOrder") && (sre.TransferredQty > 0 || sre.ConsumedQty > 0))
+        {
+            if (woRepository != null)
+            {
+                var wo = await woRepository.FindAsync(sre.VoucherId);
+                if (wo != null && wo.Status != Manufacturing.WorkOrderStatus.Closed && wo.Status != Manufacturing.WorkOrderStatus.Cancelled)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.UsedWorkOrderReservationCannotBeCancelled)
+                        .WithData("reservationId", sre.Id)
+                        .WithData("voucherNo", wo.WorkOrderNumber);
+                }
+            }
+            else
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.UsedWorkOrderReservationCannotBeCancelled)
+                    .WithData("reservationId", sre.Id)
+                    .WithData("voucherNo", sre.VoucherId);
+            }
         }
     }
 
@@ -631,7 +696,7 @@ public class StockReservationManager : DomainService
                 && s.VoucherId == workOrderId
                 && s.ItemId == itemId
                 && s.WarehouseId == sourceWarehouseId
-                && s.Status == DocumentStatus.Submitted
+                && (s.Status == DocumentStatus.Submitted || s.TransferredQty > 0)
                 && (workOrderItemId == null || s.VoucherDetailId == workOrderItemId)
                 && (s.ReservedQty - s.TransferredQty - s.ConsumedQty) > 0
                 && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
@@ -678,7 +743,7 @@ public class StockReservationManager : DomainService
                 && s.VoucherId == workOrderId
                 && s.ItemId == itemId
                 && s.WarehouseId == sourceWarehouseId
-                && s.Status == DocumentStatus.Submitted
+                && (s.Status == DocumentStatus.Submitted || s.TransferredQty > 0)
                 && (workOrderItemId == null || s.VoucherDetailId == workOrderItemId)
                 && s.TransferredQty > 0
                 && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
@@ -699,6 +764,7 @@ public class StockReservationManager : DomainService
     /// <summary>
     /// Updates consumed quantity on active Work Order reservations during Manufacture / Material Consumption.
     /// Per ERPNext PR #59424 / commit dbada3f461: only consumes reservations matching the consumed batch.
+    /// Per ERPNext PR #60510 / commit 99ea89af89: split consumption over reservations a closed Work Order still holds.
     /// </summary>
     public async Task<ReservationConsumption[]> ApplyWorkOrderConsumptionAsync(
         Guid workOrderId, Guid itemId, Guid warehouseId, decimal consumedQty, Guid? batchId = null, Guid? workOrderItemId = null)
@@ -711,9 +777,9 @@ public class StockReservationManager : DomainService
                 && s.VoucherId == workOrderId
                 && s.ItemId == itemId
                 && s.WarehouseId == warehouseId
-                && s.Status == DocumentStatus.Submitted
+                && (s.Status == DocumentStatus.Submitted || s.ConsumedQty > 0 || s.TransferredQty > 0)
                 && (workOrderItemId == null || s.VoucherDetailId == workOrderItemId)
-                && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0
+                && ((s.TransferredQty > 0 ? s.TransferredQty : s.ReservedQty) - s.ConsumedQty) > 0
                 && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))
             .OrderByDescending(s => s.BatchId == batchId && batchId != null)
             .ThenBy(s => s.CreationTime)
@@ -725,7 +791,7 @@ public class StockReservationManager : DomainService
         foreach (var sre in activeSres)
         {
             if (remaining <= 0) break;
-            var available = sre.AvailableQty;
+            var available = (sre.TransferredQty > 0 ? sre.TransferredQty : sre.ReservedQty) - sre.ConsumedQty;
             if (available <= 0) continue;
 
             var consume = Math.Min(remaining, available);
@@ -746,6 +812,7 @@ public class StockReservationManager : DomainService
 
     /// <summary>
     /// Reverts consumed quantity on Work Order reservations when a Manufacture / Material Consumption entry is cancelled.
+    /// Per ERPNext PR #60510 / commit 99ea89af89: match holding reservations on closed Work Orders.
     /// </summary>
     public async Task RevertWorkOrderConsumptionAsync(
         Guid workOrderId, Guid itemId, Guid warehouseId, decimal revertedQty, Guid? batchId = null, Guid? workOrderItemId = null)
@@ -758,7 +825,7 @@ public class StockReservationManager : DomainService
                 && s.VoucherId == workOrderId
                 && s.ItemId == itemId
                 && s.WarehouseId == warehouseId
-                && s.Status == DocumentStatus.Submitted
+                && (s.Status == DocumentStatus.Submitted || s.ConsumedQty > 0)
                 && (workOrderItemId == null || s.VoucherDetailId == workOrderItemId)
                 && s.ConsumedQty > 0
                 && (s.BatchId == null || (batchId != null && s.BatchId == batchId)))

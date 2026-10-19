@@ -36,6 +36,15 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
 
+    /// <summary>Additional discount percentage on total (mirrors PurchaseInvoice / SalesOrder).</summary>
+    public decimal AdditionalDiscountPercentage { get; set; }
+
+    /// <summary>Fixed discount amount on total.</summary>
+    public decimal DiscountAmount { get; set; }
+
+    /// <summary>Target for additional discount: "Net Total" or "Grand Total".</summary>
+    public string? ApplyDiscountOn { get; set; }
+
     /// <summary>Primary billing address (auto-resolved from Supplier on create).</summary>
     public Guid? BillingAddressId { get; set; }
 

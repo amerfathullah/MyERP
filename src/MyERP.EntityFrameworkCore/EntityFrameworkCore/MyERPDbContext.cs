@@ -1341,6 +1341,9 @@ public class MyERPDbContext :
             b.Property(x => x.Notes).HasMaxLength(PurchaseOrderConsts.MaxNoteLength);
             b.Property(x => x.Remarks).HasMaxLength(1000);
             b.Property(x => x.AdvancePaymentStatus).HasMaxLength(50);
+            b.Ignore(x => x.AdditionalDiscountPercentage);
+            b.Ignore(x => x.DiscountAmount);
+            b.Ignore(x => x.ApplyDiscountOn);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasOne<Supplier>().WithMany().HasForeignKey(x => x.SupplierId).IsRequired();
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.PurchaseOrderId).IsRequired();

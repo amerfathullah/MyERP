@@ -203,9 +203,11 @@ public static class MyERPDomainErrorCodes
     public const string SupplierQuotationHasNoItems = "MyERP:04037"; // was hardcoded "MyERP:04017" (collided with DropShipQtyReductionExceeded)
     public const string PurchaseInvoiceOnHold = "MyERP:04038";
     public const string ReleaseDateMustBeFuture = "MyERP:04039";
+    public const string CannotCombinePurchaseOrders = "MyERP:04043";
     public const string DeliveryWarehouseNotReserved = "MyERP:05058";
     public const string CaseNumberRangeOverlap = "MyERP:05059";
     public const string DeliveryNoteNotFullyPacked = "MyERP:05060";
+    public const string UsedWorkOrderReservationCannotBeCancelled = "MyERP:05103";
     public const string CannotCancelWithDraftDependents = "MyERP:01019";
     public const string DuplicateCustomerPoNumber = "MyERP:01020";
     public const string PartyCannotRepresentOwnCompany = "MyERP:03005";
