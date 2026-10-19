@@ -471,6 +471,7 @@ public class PurchaseInvoiceManager : DomainService
             .Where(pr => pr.Items.Any(i => prItemIds.Contains(i.Id)))
             .ToList();
 
+        var isCreditOrDebit = invoice.IsReturn || invoice.IsDebitNote;
         foreach (var pr in affectedPrs)
         {
             foreach (var piItem in invoice.Items.Where(i => i.PurchaseReceiptItemId.HasValue))
@@ -478,21 +479,43 @@ public class PurchaseInvoiceManager : DomainService
                 var prItem = pr.Items.FirstOrDefault(i => i.Id == piItem.PurchaseReceiptItemId!.Value);
                 if (prItem != null)
                 {
+                    var piFactor = piItem.ConversionFactor > 0 ? piItem.ConversionFactor : 1m;
+                    var prFactor = prItem.ConversionFactor > 0 ? prItem.ConversionFactor : 1m;
+                    var qtyInPrUom = (Math.Abs(piItem.Quantity) * piFactor) / prFactor;
+
                     // Per ERPNext billing_status.py: amount_difference_with_purchase_invoice =
                     // (pi_billed_rate - pr_rate) × billed_qty — tracks how much this PI's rate
                     // diverged from what was recorded at receipt time, accumulated across every
                     // PI that bills against this row.
                     var variance = (piItem.UnitPrice - prItem.UnitPrice) * Math.Abs(piItem.Quantity);
 
-                    if (reverse)
+                    if (isCreditOrDebit)
                     {
-                        prItem.BilledQty = Math.Max(0, prItem.BilledQty - Math.Abs(piItem.Quantity));
-                        prItem.AmountDifferenceWithPurchaseInvoice -= variance;
+                        if (reverse)
+                        {
+                            // Reversing a debit note / return restores the billed quantity and variance
+                            prItem.BilledQty = Math.Round(prItem.BilledQty + qtyInPrUom, 4);
+                            prItem.AmountDifferenceWithPurchaseInvoice += variance;
+                        }
+                        else
+                        {
+                            // A debit note / return reduces the billed quantity and backs out its variance
+                            prItem.BilledQty = Math.Max(0, Math.Round(prItem.BilledQty - qtyInPrUom, 4));
+                            prItem.AmountDifferenceWithPurchaseInvoice -= variance;
+                        }
                     }
                     else
                     {
-                        prItem.BilledQty += Math.Abs(piItem.Quantity);
-                        prItem.AmountDifferenceWithPurchaseInvoice += variance;
+                        if (reverse)
+                        {
+                            prItem.BilledQty = Math.Max(0, Math.Round(prItem.BilledQty - qtyInPrUom, 4));
+                            prItem.AmountDifferenceWithPurchaseInvoice -= variance;
+                        }
+                        else
+                        {
+                            prItem.BilledQty = Math.Round(prItem.BilledQty + qtyInPrUom, 4);
+                            prItem.AmountDifferenceWithPurchaseInvoice += variance;
+                        }
                     }
                 }
             }

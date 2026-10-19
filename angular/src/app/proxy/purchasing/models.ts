@@ -87,6 +87,7 @@ export interface CreatePurchaseInvoiceItemDto {
   unitPrice: number;
   taxAmount?: number;
   uom?: string;
+  conversionFactor?: number | null;
   enableDeferredExpense?: boolean;
   deferredExpenseAccountId?: string | null;
   serviceStartDate?: string | null;
@@ -159,6 +160,7 @@ export interface CreatePurchaseReceiptItemDto {
   unitPrice: number;
   taxAmount?: number;
   uom?: string;
+  conversionFactor?: number | null;
   purchaseOrderItemId?: string | null;
   materialRequestItemId?: string | null;
   warehouseId?: string | null;

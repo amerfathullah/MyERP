@@ -260,9 +260,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             }
         }
 
+        PurchaseReceipt? returnAgainstPr = null;
         if (input.IsReturn && input.ReturnAgainstId.HasValue)
         {
-            var returnAgainstPr = await _repository.FindAsync(input.ReturnAgainstId.Value);
+            returnAgainstPr = await _repository.FindAsync(input.ReturnAgainstId.Value);
             if (returnAgainstPr != null && returnAgainstPr.CompanyId != input.CompanyId)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
@@ -295,6 +296,18 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
         foreach (var item in input.Items)
         {
+            var poItemId = item.PurchaseOrderItemId;
+            var mrItemId = item.MaterialRequestItemId;
+            if (returnAgainstPr != null)
+            {
+                var origItem = returnAgainstPr.Items.FirstOrDefault(oi => oi.ItemId == item.ItemId);
+                if (origItem != null)
+                {
+                    poItemId ??= origItem.PurchaseOrderItemId;
+                    mrItemId ??= origItem.MaterialRequestItemId;
+                }
+            }
+
             receipt.AddItem(
                 item.ItemId,
                 item.Description,
@@ -302,14 +315,19 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 item.UnitPrice,
                 item.TaxAmount,
                 item.Uom,
-                item.PurchaseOrderItemId,
+                poItemId,
                 item.WarehouseId,
                 item.RejectedQty,
                 item.RejectedWarehouseId,
                 item.ReceivedQty,
                 item.FromWarehouseId,
-                item.MaterialRequestItemId,
+                mrItemId,
                 item.ReturnQtyFromRejectedWarehouse);
+
+            if (item.ConversionFactor.HasValue && item.ConversionFactor.Value > 0)
+            {
+                receipt.Items.Last().ConversionFactor = item.ConversionFactor.Value;
+            }
         }
 
         // Resolve UOM conversion factors
@@ -321,7 +339,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             if (itemEntity != null)
             {
                 prItem.StockUom = itemEntity.Uom;
-                if (!string.Equals(prItem.Uom, itemEntity.Uom, StringComparison.OrdinalIgnoreCase))
+                if (prItem.ConversionFactor <= 1m && !string.Equals(prItem.Uom, itemEntity.Uom, StringComparison.OrdinalIgnoreCase))
                     prItem.ConversionFactor = await uomService.GetConversionFactorAsync(
                         prItem.ItemId, prItem.Uom, itemEntity.Uom);
             }
@@ -1261,14 +1279,14 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     var poItem = po.Items.FirstOrDefault(i => i.Id == group.Key);
                     if (poItem == null) continue;
 
-                    var totalStockQty = group.Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+                    var totalStockQty = group.Sum(i => Math.Abs(i.Quantity) * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
                     var prQtyInPoUom = poItem.ConversionFactor > 0
                         ? Math.Round(totalStockQty / poItem.ConversionFactor, 4)
                         : totalStockQty;
 
                     if (isReversal)
                     {
-                        poItem.ReceivedQty = Math.Max(0, Math.Round(poItem.ReceivedQty - Math.Abs(prQtyInPoUom), 4));
+                        poItem.ReceivedQty = Math.Max(0, Math.Round(poItem.ReceivedQty - prQtyInPoUom, 4));
                     }
                     else
                     {

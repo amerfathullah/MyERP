@@ -229,6 +229,7 @@ public class CreatePurchaseInvoiceItemDto
     [Required][Range(0, double.MaxValue)] public decimal UnitPrice { get; set; }
     [Range(0, double.MaxValue)] public decimal TaxAmount { get; set; }
     [StringLength(50)] public string Uom { get; set; } = "Unit";
+    public decimal? ConversionFactor { get; set; }
     public bool EnableDeferredExpense { get; set; }
     public Guid? DeferredExpenseAccountId { get; set; }
     public DateTime? ServiceStartDate { get; set; }

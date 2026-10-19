@@ -118,13 +118,17 @@ public class PurchaseReceiptManager : DomainService
                         throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                             .WithData("detail", $"Item {prItem.Description} is closed in Purchase Order {po.OrderNumber} and cannot be processed further.");
                     }
-                    if (prItem.Quantity > poItem.PendingReceiptQty)
+                    var prFactor = prItem.ConversionFactor > 0 ? prItem.ConversionFactor : 1m;
+                    var poFactor = poItem.ConversionFactor > 0 ? poItem.ConversionFactor : 1m;
+                    var attemptedInPoUom = (prItem.Quantity * prFactor) / poFactor;
+
+                    if (attemptedInPoUom > poItem.PendingReceiptQty)
                     {
                         throw new BusinessException("MyERP:08006")
                             .WithData("itemName", prItem.Description)
                             .WithData("orderedQty", poItem.Quantity)
                             .WithData("receivedQty", poItem.ReceivedQty)
-                            .WithData("attemptedQty", prItem.Quantity);
+                            .WithData("attemptedQty", attemptedInPoUom);
                     }
                 }
             }

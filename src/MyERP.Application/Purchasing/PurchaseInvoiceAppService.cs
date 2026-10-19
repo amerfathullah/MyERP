@@ -781,6 +781,12 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        PurchaseInvoice? returnAgainstPi = null;
+        if ((invoice.IsReturn || invoice.IsDebitNote) && invoice.ReturnAgainstId.HasValue)
+        {
+            returnAgainstPi = await _repository.FindAsync(invoice.ReturnAgainstId.Value);
+        }
+
         foreach (var item in input.Items)
         {
             invoice.AddItem(
@@ -792,6 +798,26 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             added.PurchaseReceiptItemId = item.PurchaseReceiptItemId;
             added.MaterialRequestItemId = item.MaterialRequestItemId;
             added.DeliveredBySupplier = item.DeliveredBySupplier;
+            if (item.ConversionFactor.HasValue && item.ConversionFactor.Value > 0)
+            {
+                added.ConversionFactor = item.ConversionFactor.Value;
+            }
+
+            if (returnAgainstPi != null)
+            {
+                var origItem = returnAgainstPi.Items.FirstOrDefault(oi => oi.ItemId == item.ItemId);
+                if (origItem != null)
+                {
+                    if (!added.PurchaseOrderItemId.HasValue)
+                        added.PurchaseOrderItemId = origItem.PurchaseOrderItemId;
+                    if (!added.PurchaseReceiptItemId.HasValue)
+                        added.PurchaseReceiptItemId = origItem.PurchaseReceiptItemId;
+                    if (!added.MaterialRequestItemId.HasValue)
+                        added.MaterialRequestItemId = origItem.MaterialRequestItemId;
+                    if (!item.ConversionFactor.HasValue && origItem.ConversionFactor > 0)
+                        added.ConversionFactor = origItem.ConversionFactor;
+                }
+            }
 
             if (item.EnableDeferredExpense)
             {
@@ -1533,8 +1559,9 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         // Update linked Purchase Order BilledQty + fulfillment status
         // Per ERPNext PR #61336 / purchase_invoice.py:
-        // non-returns update PO BilledQty; returns update PO BilledQty only if UpdateBilledAmountInPurchaseOrder is true.
-        if (!invoice.IsReturn || invoice.UpdateBilledAmountInPurchaseOrder)
+        // non-returns update PO BilledQty; returns/debit notes update PO BilledQty only if UpdateBilledAmountInPurchaseOrder is true.
+        var isCreditOrDebitNote = invoice.IsReturn || invoice.IsDebitNote;
+        if (!isCreditOrDebitNote || invoice.UpdateBilledAmountInPurchaseOrder)
         {
             var poItemIds = invoice.Items
                 .Where(i => i.PurchaseOrderItemId.HasValue)
@@ -1549,8 +1576,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     .Where(po => po.Items.Any(poi => poItemIds.Contains(poi.Id)))
                     .ToList();
 
-                // Over-billing tolerance: only check for normal (non-return) invoices
-                if (!invoice.IsReturn)
+                // Over-billing tolerance: only check for normal (non-return/non-debit note) invoices
+                if (!isCreditOrDebitNote)
                 {
                     var billingCompany = await _companyRepository.GetAsync(invoice.CompanyId);
                     var billingAllowancePct = billingCompany.OverBillingAllowance;
@@ -1602,7 +1629,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                                 ? Math.Round(totalStockQty / poItem.ConversionFactor, 4)
                                 : totalStockQty;
 
-                            if (invoice.IsReturn)
+                            if (isCreditOrDebitNote)
                             {
                                 // Order-touching return/debit note reduces billed qty
                                 poItem.BilledQty = Math.Max(0, Math.Round(poItem.BilledQty - Math.Abs(qtyInPoUom), 4));
@@ -1627,7 +1654,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             .Distinct()
             .ToList();
 
-        if (prItemIds.Any())
+        if (!isCreditOrDebitNote && prItemIds.Any())
         {
             var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PurchaseReceipt, Guid>>();
             var prQuery = await prRepo.GetQueryableAsync();
@@ -1645,15 +1672,19 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     var prItem = pr.Items.FirstOrDefault(i => i.Id == piItem.PurchaseReceiptItemId!.Value);
                     if (prItem == null) continue;
 
+                    var piFactor = piItem.ConversionFactor > 0 ? piItem.ConversionFactor : 1m;
+                    var prFactor = prItem.ConversionFactor > 0 ? prItem.ConversionFactor : 1m;
+                    var attemptedInPrUom = (piItem.Quantity * piFactor) / prFactor;
+
                     var baseQty = billForRejectedQty ? prItem.Quantity + prItem.RejectedQty : prItem.Quantity;
                     var maxAllowedTotal = baseQty * (1m + billingAllowancePct / 100m);
-                    if (prItem.BilledQty + piItem.Quantity > maxAllowedTotal)
+                    if (prItem.BilledQty + attemptedInPrUom > maxAllowedTotal)
                     {
                         throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverBilling)
                             .WithData("item", piItem.Description ?? piItem.ItemId.ToString())
                             .WithData("ordered", baseQty)
                             .WithData("billed", prItem.BilledQty)
-                            .WithData("attempted", piItem.Quantity);
+                            .WithData("attempted", attemptedInPrUom);
                     }
 
                     // Per ERPNext commit f4ffc57b51: PR/PI amount overbilling validation
@@ -1937,7 +1968,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         }
 
         // Reverse linked Purchase Order BilledQty
-        if (!invoice.IsReturn || invoice.UpdateBilledAmountInPurchaseOrder)
+        var isCreditOrDebitNote = invoice.IsReturn || invoice.IsDebitNote;
+        if (!isCreditOrDebitNote || invoice.UpdateBilledAmountInPurchaseOrder)
         {
             var poItemIds = invoice.Items
                 .Where(i => i.PurchaseOrderItemId.HasValue)
@@ -1968,9 +2000,9 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                                 ? Math.Round(totalStockQty / poItem.ConversionFactor, 4)
                                 : totalStockQty;
 
-                            if (invoice.IsReturn)
+                            if (isCreditOrDebitNote)
                             {
-                                // Reversal of return restores billed quantity
+                                // Reversal of return/debit note restores billed quantity
                                 poItem.BilledQty = Math.Round(poItem.BilledQty + Math.Abs(qtyInPoUom), 4);
                             }
                             else
@@ -2168,6 +2200,12 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         foreach (var item in original.Items)
         {
             debitNote.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            var added = debitNote.Items.Last();
+            added.PurchaseOrderItemId = item.PurchaseOrderItemId;
+            added.PurchaseReceiptItemId = item.PurchaseReceiptItemId;
+            added.MaterialRequestItemId = item.MaterialRequestItemId;
+            added.StockUom = item.StockUom;
+            added.ConversionFactor = item.ConversionFactor;
         }
 
         await _repository.InsertAsync(debitNote, autoSave: true);
