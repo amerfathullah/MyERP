@@ -93,4 +93,38 @@ public class WorkOrderPlannedQtySyncTests
 
         bin.PlannedQty.ShouldBe(0m);
     }
+
+    [Fact]
+    public async Task RefreshPlannedQtyAsync_LeavesProcessLossOutOfPlannedQty()
+    {
+        // Setup:
+        // WO: 50 qty, 10 produced, 5 process loss, InProcess -> remaining 50 - 10 - 5 = 35
+        var wo = new WorkOrder(Guid.NewGuid(), _companyId, "WO-001", _itemId, Guid.NewGuid(), 50m)
+        {
+            FgWarehouseId = _fgWarehouseId
+        };
+        wo.Submit();
+        wo.Start();
+        wo.RecordProduction(10m, overproductionPercentage: 0m);
+        wo.SetProcessLossQty(5m);
+
+        var workOrders = new List<WorkOrder> { wo };
+        var woRepo = Substitute.For<IRepository<WorkOrder, Guid>>();
+        woRepo.GetQueryableAsync().Returns(Task.FromResult(workOrders.AsQueryable()));
+
+        var bin = new Bin(Guid.NewGuid(), _itemId, _fgWarehouseId) { PlannedQty = 0m };
+        var binRepo = Substitute.For<IRepository<Bin, Guid>>();
+        binRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Bin> { bin }.AsQueryable()));
+
+        var binService = new BinService(binRepo);
+        var woManager = new WorkOrderManager(
+            Substitute.For<IRepository<Item, Guid>>(),
+            Substitute.For<IRepository<BillOfMaterials, Guid>>(),
+            Substitute.For<IRepository<ManufacturingSettings, Guid>>());
+
+        await woManager.RefreshPlannedQtyAsync(woRepo, binService, _itemId, _fgWarehouseId);
+
+        // Expected: 50 - 10 - 5 = 35
+        bin.PlannedQty.ShouldBe(35m);
+    }
 }

@@ -277,10 +277,16 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
 
         foreach (var so in soQuery.ToList())
         {
+            if (so.Status == DocumentStatus.Closed || so.Status == DocumentStatus.Completed)
+                continue;
+
             foreach (var line in so.Items)
             {
+                var pendingQty = line.PendingDeliveryQty * line.ConversionFactor;
+                if (pendingQty <= 0) continue;
+
                 var deliveryDate = (line.DeliveryDate ?? so.DeliveryDate ?? so.OrderDate).Date;
-                Accumulate(demand, line.ItemId, deliveryDate, line.StockQty, line.WarehouseId ?? schedule.ParentWarehouseId);
+                Accumulate(demand, line.ItemId, deliveryDate, pendingQty, line.WarehouseId ?? schedule.ParentWarehouseId);
             }
         }
 
@@ -292,9 +298,17 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
 
         foreach (var mr in mrQuery.ToList())
         {
+            if (mr.Status == DocumentStatus.Closed || mr.Status == DocumentStatus.Completed || mr.Status == DocumentStatus.Cancelled)
+                continue;
+
             var deliveryDate = (mr.RequiredByDate ?? mr.RequestDate).Date;
             foreach (var line in mr.Items)
-                Accumulate(demand, line.ItemId, deliveryDate, line.Quantity, line.WarehouseId ?? schedule.ParentWarehouseId);
+            {
+                var pendingQty = line.StockQty > 0 ? (line.StockQty - line.OrderedQuantity) : (line.Quantity - line.OrderedQuantity);
+                if (pendingQty <= 0) continue;
+
+                Accumulate(demand, line.ItemId, deliveryDate, pendingQty, line.WarehouseId ?? schedule.ParentWarehouseId);
+            }
         }
 
         var itemNames = await ResolveItemNamesAsync(demand.Keys.Select(k => k.ItemId).Distinct());

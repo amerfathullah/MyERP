@@ -1252,27 +1252,44 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             ? mfgSettingsForTransfer.TransferExtraMaterialsPercentage
             : (mfgSettingsForTransfer?.OverproductionPercentage ?? 0m);
 
+        // Per ERPNext PR #60647 / commit a036285538: keep transfer rows of the same material apart per source warehouse
+        // and aggregate required & transferred quantities for identical item + warehouse pairs.
+        var groupedRequiredItems = wo.RequiredItems
+            .GroupBy(woItem => new
+            {
+                woItem.ItemId,
+                SourceWarehouseId = woItem.SourceWarehouseId ?? sourceWarehouseId.Value
+            })
+            .Select(g => new
+            {
+                g.Key.ItemId,
+                g.Key.SourceWarehouseId,
+                RequiredQuantity = g.Sum(x => x.RequiredQuantity),
+                TransferredQuantity = g.Sum(x => x.TransferredQuantity),
+                FirstRowId = g.First().Id
+            })
+            .ToList();
+
         var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
-        foreach (var woItem in wo.RequiredItems)
+        foreach (var group in groupedRequiredItems)
         {
-            var maxAllowedTransfer = woItem.RequiredQuantity * (1m + transferExtraPct / 100m);
-            var pendingQty = maxAllowedTransfer - woItem.TransferredQuantity;
+            var maxAllowedTransfer = group.RequiredQuantity * (1m + transferExtraPct / 100m);
+            var pendingQty = maxAllowedTransfer - group.TransferredQuantity;
             if (pendingQty <= 0) continue;
 
             // Find BOM item for valuation rate
-            var bomItem = bom.Items.FirstOrDefault(b => b.ItemId == woItem.ItemId);
+            var bomItem = bom.Items.FirstOrDefault(b => b.ItemId == group.ItemId);
             var rate = bomItem?.Rate ?? 0m;
 
-            // Per ERPNext: source from WO item-specific warehouse → BOM item → WO default → BOM default
-            var itemSourceWarehouse = woItem.SourceWarehouseId ?? sourceWarehouseId.Value;
+            var itemSourceWarehouse = group.SourceWarehouseId;
 
             var allocations = await sreManager.AllocateReservedMaterialsForTransferAsync(
-                "WorkOrder", wo.Id, woItem.ItemId, itemSourceWarehouse, pendingQty, woItem.Id);
+                "WorkOrder", wo.Id, group.ItemId, itemSourceWarehouse, pendingQty, group.FirstRowId);
 
             foreach (var alloc in allocations)
             {
                 var seItem = entry.AddItem(
-                    itemId: woItem.ItemId,
+                    itemId: group.ItemId,
                     quantity: alloc.Quantity,
                     sourceWarehouseId: itemSourceWarehouse,
                     targetWarehouseId: wipWarehouseId.Value,

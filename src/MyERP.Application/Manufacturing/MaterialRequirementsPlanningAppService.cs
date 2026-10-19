@@ -245,7 +245,7 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
 
         foreach (var wo in workOrders.Where(w => itemIds.Contains(w.ItemId)))
         {
-            var openQty = wo.Quantity - wo.ProducedQuantity;
+            var openQty = wo.Quantity - wo.ProducedQuantity - wo.ProcessLossQty;
             if (openQty > 0)
             {
                 var receiptDate = (wo.PlannedEndDate ?? wo.PlannedStartDate ?? DateTime.UtcNow).Date;

@@ -508,10 +508,10 @@ public class WorkOrderManager : DomainService
             .Where(w => w.ItemId == itemId
                 && w.FgWarehouseId == warehouseId
                 && (w.Status == WorkOrderStatus.Submitted || w.Status == WorkOrderStatus.NotStarted || w.Status == WorkOrderStatus.InProcess)
-                && w.Quantity > w.ProducedQuantity)
+                && (w.Quantity > w.ProducedQuantity + w.ProcessLossQty))
             .ToList();
 
-        var plannedQty = activeOrders.Sum(w => w.Quantity - w.ProducedQuantity);
+        var plannedQty = activeOrders.Sum(w => w.Quantity - w.ProducedQuantity - w.ProcessLossQty);
         await binService.SetPlannedQtyAsync(itemId, warehouseId, Math.Max(0m, plannedQty), tenantId);
     }
 

@@ -58,13 +58,18 @@ public class MasterProductionScheduleService : DomainService
             return leadTime;
 
         var bomBaseQty = bom.Quantity > 0 ? bom.Quantity : 1m;
+        var maxComponentTime = 0;
         foreach (var bomItem in bom.Items)
         {
             var componentQty = (bomItem.Quantity / bomBaseQty) * (qty > 0 ? qty : 1m);
-            leadTime += await GetCumulativeLeadTimeRecursiveAsync(bomItem.ItemId, bomItem.SubBomId, componentQty, visitedBoms);
+            var componentTime = await GetCumulativeLeadTimeRecursiveAsync(bomItem.ItemId, bomItem.SubBomId, componentQty, visitedBoms);
+            if (componentTime > maxComponentTime)
+            {
+                maxComponentTime = componentTime;
+            }
         }
 
-        return leadTime;
+        return leadTime + maxComponentTime;
     }
 
     private async Task<int> ResolveItemLeadTimeAsync(Guid itemId, bool isManufacture, decimal qty, int fallbackDays)
