@@ -569,16 +569,21 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     var poItem = po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId!.Value);
                     if (poItem == null) continue;
 
+                    // Convert PR item qty to PO item UOM if conversion factors differ (PR #61336 / commit 4f99ce9544)
+                    var prQtyInPoUom = poItem.ConversionFactor > 0
+                        ? (prItem.Quantity * prItem.ConversionFactor / poItem.ConversionFactor)
+                        : prItem.Quantity;
+
                     var maxAllowedTotal = poItem.Quantity * (1m + allowancePct / 100m);
                     var remainingAllowed = maxAllowedTotal - poItem.ReceivedQty;
 
-                    if (prItem.Quantity > remainingAllowed)
+                    if (prQtyInPoUom > remainingAllowed)
                     {
                         throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverReceipt)
                             .WithData("item", prItem.Description)
                             .WithData("ordered", poItem.Quantity)
                             .WithData("received", poItem.ReceivedQty)
-                            .WithData("attempted", prItem.Quantity);
+                            .WithData("attempted", prQtyInPoUom);
                     }
                 }
 
@@ -1247,13 +1252,17 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     var poItem = po.Items.FirstOrDefault(i => i.Id == prItem.PurchaseOrderItemId.Value);
                     if (poItem == null) continue;
 
+                    var prQtyInPoUom = poItem.ConversionFactor > 0
+                        ? (prItem.Quantity * prItem.ConversionFactor / poItem.ConversionFactor)
+                        : prItem.Quantity;
+
                     if (isReversal)
                     {
-                        poItem.ReceivedQty = Math.Max(0, poItem.ReceivedQty - Math.Abs(prItem.Quantity));
+                        poItem.ReceivedQty = Math.Max(0, poItem.ReceivedQty - Math.Abs(prQtyInPoUom));
                     }
                     else
                     {
-                        poItem.ReceivedQty += prItem.Quantity;
+                        poItem.ReceivedQty += prQtyInPoUom;
                         // Track receipt dates for delivery performance analysis
                         var receiptDate = DateTime.UtcNow.Date;
                         poItem.FirstReceiptDate ??= receiptDate;

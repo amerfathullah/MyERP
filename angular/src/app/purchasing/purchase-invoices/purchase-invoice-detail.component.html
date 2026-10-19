@@ -155,6 +155,18 @@
             </span>
           </div>
         }
+        @if (invoice.isReturn) {
+          <div class="mt-2">
+            <span class="badge bg-secondary-subtle text-secondary-emphasis me-2">
+              <i class="fa fa-rotate-left me-1"></i>{{ '::Return' | abpLocalization }}
+            </span>
+            @if (invoice.updateBilledAmountInPurchaseOrder) {
+              <span class="badge bg-success-subtle text-success-emphasis">
+                <i class="fa fa-check me-1"></i>{{ '::UpdateBilledAmountInPurchaseOrder' | abpLocalization }}
+              </span>
+            }
+          </div>
+        }
       </div>
     </div>
 

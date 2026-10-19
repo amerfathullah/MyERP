@@ -75,6 +75,8 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public Guid? WarehouseId { get; set; }
     public Guid? RejectedWarehouseId { get; set; }
     public bool BillsRejectedQuantity { get; set; }
+    /// <summary>When true, return/debit note updates (reduces) billed quantity on linked Purchase Orders.</summary>
+    public bool UpdateBilledAmountInPurchaseOrder { get; set; } = true;
 
     public List<PurchaseInvoiceItemDto> Items { get; set; } = new();
 }
@@ -208,6 +210,9 @@ public class CreatePurchaseInvoiceDto
 
     /// <summary>Default warehouse for rejected goods when UpdateStock=true.</summary>
     public Guid? RejectedWarehouseId { get; set; }
+
+    /// <summary>When true, return/debit note updates (reduces) billed quantity on linked Purchase Orders.</summary>
+    public bool UpdateBilledAmountInPurchaseOrder { get; set; } = true;
 
     [Required][MinLength(1)] public List<CreatePurchaseInvoiceItemDto> Items { get; set; } = new();
 }

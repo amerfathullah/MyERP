@@ -164,6 +164,22 @@ public class PurchaseInvoiceTests
         invoice.ToDate.ShouldBe(new DateTime(2026, 2, 28));
     }
 
+    [Fact]
+    public void UpdateBilledAmountInPurchaseOrder_DefaultsToTrue()
+    {
+        var invoice = CreateInvoice();
+        invoice.UpdateBilledAmountInPurchaseOrder.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void UpdateBilledAmountInPurchaseOrder_CanBeDisabledForOrderNeutralDebitNote()
+    {
+        var invoice = CreateInvoice();
+        invoice.IsReturn = true;
+        invoice.UpdateBilledAmountInPurchaseOrder = false;
+        invoice.UpdateBilledAmountInPurchaseOrder.ShouldBeFalse();
+    }
+
     private static PurchaseInvoice CreateInvoice()
     {
         return new PurchaseInvoice(

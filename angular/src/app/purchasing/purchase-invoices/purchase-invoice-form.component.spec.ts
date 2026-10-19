@@ -16,6 +16,7 @@ describe('PurchaseInvoice form DTO mapping', () => {
       notes: [''],
       isReturn: [false],
       returnAgainstId: [null as string | null],
+      updateBilledAmountInPurchaseOrder: [true],
       updateStock: [false],
       warehouseId: [''],
       items: fb.array([]),
@@ -154,6 +155,13 @@ describe('PurchaseInvoice form DTO mapping', () => {
       const dto = mapDtoFromForm(form);
       expect(dto.isReturn).toBe(true);
       expect(dto.returnAgainstId).toBe('pi-orig-001');
+    });
+
+    it('should preserve updateBilledAmountInPurchaseOrder for returns', () => {
+      const form = createPIForm();
+      form.patchValue({ isReturn: true, returnAgainstId: 'pi-orig-001', updateBilledAmountInPurchaseOrder: false });
+      const dto = mapDtoFromForm(form);
+      expect(dto.updateBilledAmountInPurchaseOrder).toBe(false);
     });
 
     it('should default uom to Unit when missing', () => {

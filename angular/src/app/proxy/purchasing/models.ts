@@ -69,6 +69,7 @@ export interface CreatePurchaseInvoiceDto {
   isReturnRefund?: boolean;
   isSubcontracted?: boolean;
   returnAgainstId?: string | null;
+  updateBilledAmountInPurchaseOrder?: boolean;
   eInvoiceDocType?: EInvoiceDocumentType | null;
   updateStock?: boolean;
   warehouseId?: string | null;
@@ -521,6 +522,7 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   warehouseId?: string | null;
   rejectedWarehouseId?: string | null;
   billsRejectedQuantity?: boolean;
+  updateBilledAmountInPurchaseOrder?: boolean;
   items?: PurchaseInvoiceItemDto[];
 }
 

@@ -83,6 +83,14 @@
               </select>
               <small class="form-text text-muted">{{ '::PaymentTermsHelp' | abpLocalization }}</small>
             </div>
+          } @else {
+            <div class="col-12 col-md-4 mb-3">
+              <div class="form-check mt-4">
+                <input type="checkbox" class="form-check-input" formControlName="updateBilledAmountInPurchaseOrder" id="updateBilledAmountInPurchaseOrder" />
+                <label class="form-check-label" for="updateBilledAmountInPurchaseOrder">{{ '::UpdateBilledAmountInPurchaseOrder' | abpLocalization }}</label>
+                <small class="form-text text-muted d-block">{{ '::UpdateBilledAmountInPurchaseOrderHelp' | abpLocalization }}</small>
+              </div>
+            </div>
           }
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ 'PriceList' | abpLocalization }}</label>

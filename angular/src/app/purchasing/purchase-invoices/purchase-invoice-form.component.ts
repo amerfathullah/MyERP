@@ -100,6 +100,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     notes: [''],
     isReturn: [false],
     returnAgainstId: [null as string | null],
+    updateBilledAmountInPurchaseOrder: [true],
     updateStock: [false],
     warehouseId: [''],
     items: this.fb.array([]),
@@ -207,6 +208,9 @@ export class PurchaseInvoiceFormComponent implements OnInit {
           currencyCode: invoice.currencyCode ?? 'MYR',
           exchangeRate: invoice.exchangeRate ?? 1,
           useTransactionDateExchangeRate: invoice.useTransactionDateExchangeRate ?? false,
+          isReturn: invoice.isReturn ?? false,
+          returnAgainstId: invoice.returnAgainstId ?? null,
+          updateBilledAmountInPurchaseOrder: invoice.updateBilledAmountInPurchaseOrder ?? true,
         });
         if (invoice.currencyCode && invoice.currencyCode !== 'MYR') {
           this.isMultiCurrency.set(true);
@@ -226,6 +230,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
             notes: `Debit Note against ${source.invoiceNumber}`,
             isReturn: true,
             returnAgainstId: returnAgainst,
+            updateBilledAmountInPurchaseOrder: true,
             priceListId: source.priceListId ?? '',
           });
           (source.items ?? []).forEach((item: any) => {
@@ -440,6 +445,7 @@ export class PurchaseInvoiceFormComponent implements OnInit {
       dueDate: raw.dueDate || undefined,
       warehouseId: raw.warehouseId || undefined,
       returnAgainstId: raw.returnAgainstId || undefined,
+      updateBilledAmountInPurchaseOrder: raw.updateBilledAmountInPurchaseOrder ?? true,
       discountAmount: this.discountAmount() > 0 ? this.discountAmount() : undefined,
       applyDiscountOn: this.discountAmount() > 0 ? this.discountOn : undefined,
       items: (raw.items ?? []).map((item: any) => ({

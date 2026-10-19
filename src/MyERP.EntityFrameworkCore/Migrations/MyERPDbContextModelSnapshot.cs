@@ -24399,6 +24399,11 @@ namespace MyERP.Migrations
                     b.Property<decimal>("TotalAdvance")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<bool>("UpdateBilledAmountInPurchaseOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("UpdateStock")
                         .HasColumnType("boolean");
 

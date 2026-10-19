@@ -136,6 +136,25 @@ public class PurchaseOrderManagerTests
     }
 
     [Fact]
+    public void PO_BillingQtyValidation_WithConversionFactor_ConvertsToPoUom()
+    {
+        var po = CreatePO();
+        var itemId = Guid.NewGuid();
+        po.AddItem(itemId, "Widget", 10, 100, 0); // 10 Box
+        po.Items[0].ConversionFactor = 10m; // 1 Box = 10 Nos
+        po.Items[0].BilledQty = 4; // 4 Box already billed
+
+        var manager = new DomainServices.PurchaseOrderManager(null!, null!, null!);
+        // Bill 50 Nos with conversionFactor 1 -> 50 * 1 / 10 = 5 Box. 4 + 5 = 9 <= 10.
+        manager.ValidateBillingQty(po, itemId, 50, overBillingAllowancePct: 0, conversionFactor: 1m);
+
+        // Bill 70 Nos with conversionFactor 1 -> 70 * 1 / 10 = 7 Box. 4 + 7 = 11 > 10.
+        var ex = Should.Throw<BusinessException>(() =>
+            manager.ValidateBillingQty(po, itemId, 70, overBillingAllowancePct: 0, conversionFactor: 1m));
+        ex.Code.ShouldBe("MyERP:08007");
+    }
+
+    [Fact]
     public void PO_PendingReceiptQty_CalculatesCorrectly()
     {
         var po = CreatePO();

@@ -1390,6 +1390,7 @@ public class MyERPDbContext :
             b.Property(x => x.BaseRoundingAdjustment).HasColumnType("decimal(18,4)");
             b.Property(x => x.Notes).HasMaxLength(PurchaseInvoiceConsts.MaxNoteLength);
             b.Property(x => x.LhdnUuid).HasMaxLength(50);
+            b.Property(x => x.UpdateBilledAmountInPurchaseOrder).HasDefaultValue(true);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasOne<Supplier>().WithMany().HasForeignKey(x => x.SupplierId).IsRequired();
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.PurchaseInvoiceId).IsRequired();

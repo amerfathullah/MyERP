@@ -164,16 +164,25 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         invoice.ExchangeRate = piExchangeRate;
         invoice.UseTransactionDateExchangeRate = piUseTxRate;
 
-        // Deduct quantities already mapped in draft Purchase Invoices (per ERPNext PR #58617)
+        // Deduct quantities already mapped in draft Purchase Invoices (per ERPNext PR #58617, PR #61336)
         var piQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
+        var poItemIds = po.Items.Select(i => i.Id).ToList();
         var draftInvoices = piQuery
             .Where(pi => pi.Status == Core.DocumentStatus.Draft)
             .SelectMany(pi => pi.Items)
-            .Where(i => i.PurchaseOrderItemId.HasValue)
-            .GroupBy(i => i.PurchaseOrderItemId!.Value)
-            .Select(g => new { PoItemId = g.Key, Qty = g.Sum(i => i.Quantity) })
+            .Where(i => i.PurchaseOrderItemId.HasValue && poItemIds.Contains(i.PurchaseOrderItemId.Value))
             .ToList();
-        var draftInvoiceQtyByItem = draftInvoices.ToDictionary(x => x.PoItemId, x => x.Qty);
+        var draftInvoiceQtyByItem = draftInvoices
+            .GroupBy(i => i.PurchaseOrderItemId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(i =>
+                {
+                    var poItem = po.Items.FirstOrDefault(poi => poi.Id == g.Key);
+                    var factor = poItem != null && poItem.ConversionFactor > 0 ? poItem.ConversionFactor : 1m;
+                    return (i.Quantity * i.ConversionFactor) / factor;
+                })
+            );
 
         foreach (var item in po.Items)
         {

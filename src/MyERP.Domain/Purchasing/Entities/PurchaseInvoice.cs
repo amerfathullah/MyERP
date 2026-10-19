@@ -117,6 +117,12 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>When true, rejected quantity is billed on this invoice (PR #59258 / commit 16b1be814c).</summary>
     public bool BillsRejectedQuantity { get; set; }
 
+    /// <summary>
+    /// When true, return/debit note updates (reduces) billed quantity on linked Purchase Orders.
+    /// Per ERPNext PR #61336 / PR #59947 / purchase_invoice.py.
+    /// </summary>
+    public bool UpdateBilledAmountInPurchaseOrder { get; set; } = true;
+
     /// <summary>Percentage of total qty received (0-100). Equals 100 when UpdateStock=true.</summary>
     public decimal PerReceived
     {

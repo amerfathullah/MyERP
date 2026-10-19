@@ -2077,6 +2077,8 @@
     "MyERP:04006": "Supplier '{supplierName}' is blocked from receiving Purchase Orders due to supplier scorecard standing.",
     "MyERP:04007": "Supplier '{supplierName}' is blocked from receiving RFQs/Supplier Quotations due to supplier scorecard standing.",
     "ScorecardBlocked": "Scorecard Blocked",
+    "UpdateBilledAmountInPurchaseOrder": "Update Billed Amount in Purchase Order",
+    "UpdateBilledAmountInPurchaseOrderHelp": "When checked, this debit note reduces the billed quantity in the linked Purchase Order.",
     "AmendedFrom": "Amended From",
     "Amendment": "Amendment",
     "MyERP:10008": "Insufficient raw material for production: item {itemId} requires {required} units but only {available} available in warehouse.",

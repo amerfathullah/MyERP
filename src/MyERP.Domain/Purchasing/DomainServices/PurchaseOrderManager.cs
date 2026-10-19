@@ -199,22 +199,26 @@ public class PurchaseOrderManager : DomainService
 
     /// <summary>
     /// Validates a Purchase Invoice item does not exceed the PO's pending billing qty,
-    /// including the company's over-billing tolerance percentage.
-    /// Per ERPNext: max_allowed = ordered_qty × (1 + allowance_pct / 100).
+    /// including the company's over-billing tolerance percentage and UOM conversion.
+    /// Per ERPNext PR #61336 / PR #58966: max_allowed = ordered_qty × (1 + allowance_pct / 100).
     /// </summary>
-    public void ValidateBillingQty(PurchaseOrder order, Guid itemId, decimal billingQty, decimal overBillingAllowancePct = 0m)
+    public void ValidateBillingQty(PurchaseOrder order, Guid itemId, decimal billingQty, decimal overBillingAllowancePct = 0m, decimal conversionFactor = 1m)
     {
         var poItem = order.Items.FirstOrDefault(i => i.ItemId == itemId);
         if (poItem == null) return;
 
+        var effectiveBillingQty = (poItem.ConversionFactor > 0 && conversionFactor > 0)
+            ? (billingQty * conversionFactor / poItem.ConversionFactor)
+            : billingQty;
+
         var maxAllowedTotal = poItem.Quantity * (1m + overBillingAllowancePct / 100m);
-        if (poItem.BilledQty + billingQty > maxAllowedTotal)
+        if (poItem.BilledQty + effectiveBillingQty > maxAllowedTotal)
         {
             throw new BusinessException("MyERP:08007")
                 .WithData("itemName", poItem.Description)
                 .WithData("orderedQty", poItem.Quantity)
                 .WithData("billedQty", poItem.BilledQty)
-                .WithData("attemptedQty", billingQty);
+                .WithData("attemptedQty", effectiveBillingQty);
         }
     }
 

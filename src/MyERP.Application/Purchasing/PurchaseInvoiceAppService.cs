@@ -613,6 +613,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.IsReturnRefund = input.IsReturnRefund;
         invoice.IsSubcontracted = input.IsSubcontracted;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
+        invoice.UpdateBilledAmountInPurchaseOrder = input.UpdateBilledAmountInPurchaseOrder;
         if (invoice.IsReturn)
         {
             // Per ERPNext PR #59612 / commit 8260d62362: Keep original invoice's advances out of the return.
@@ -927,6 +928,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         invoice.IsReturn = input.IsReturn;
         invoice.IsDebitNote = input.IsDebitNote;
         invoice.IsReturnRefund = input.IsReturnRefund;
+        invoice.UpdateBilledAmountInPurchaseOrder = input.UpdateBilledAmountInPurchaseOrder;
 
         Guid? updateReturnAgainstPriceListId = null;
         if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
@@ -1530,7 +1532,9 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         }
 
         // Update linked Purchase Order BilledQty + fulfillment status
-        if (!invoice.IsReturn)
+        // Per ERPNext PR #61336 / purchase_invoice.py:
+        // non-returns update PO BilledQty; returns update PO BilledQty only if UpdateBilledAmountInPurchaseOrder is true.
+        if (!invoice.IsReturn || invoice.UpdateBilledAmountInPurchaseOrder)
         {
             var poItemIds = invoice.Items
                 .Where(i => i.PurchaseOrderItemId.HasValue)
@@ -1545,26 +1549,33 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     .Where(po => po.Items.Any(poi => poItemIds.Contains(poi.Id)))
                     .ToList();
 
-                // Over-billing tolerance: max allowed = ordered × (1 + allowance% / 100).
-                // Per ERPNext StatusUpdater; allowance comes from Company.OverBillingAllowance.
-                var billingCompany = await _companyRepository.GetAsync(invoice.CompanyId);
-                var billingAllowancePct = billingCompany.OverBillingAllowance;
-
-                foreach (var po in affectedOrders)
+                // Over-billing tolerance: only check for normal (non-return) invoices
+                if (!invoice.IsReturn)
                 {
-                    foreach (var piItem in invoice.Items.Where(i => i.PurchaseOrderItemId.HasValue))
-                    {
-                        var poItem = po.Items.FirstOrDefault(i => i.Id == piItem.PurchaseOrderItemId!.Value);
-                        if (poItem == null) continue;
+                    var billingCompany = await _companyRepository.GetAsync(invoice.CompanyId);
+                    var billingAllowancePct = billingCompany.OverBillingAllowance;
 
-                        var maxAllowedTotal = poItem.Quantity * (1m + billingAllowancePct / 100m);
-                        if (poItem.BilledQty + piItem.Quantity > maxAllowedTotal)
+                    foreach (var po in affectedOrders)
+                    {
+                        foreach (var piItem in invoice.Items.Where(i => i.PurchaseOrderItemId.HasValue))
                         {
-                            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverBilling)
-                                .WithData("item", piItem.Description ?? piItem.ItemId.ToString())
-                                .WithData("ordered", poItem.Quantity)
-                                .WithData("billed", poItem.BilledQty)
-                                .WithData("attempted", piItem.Quantity);
+                            var poItem = po.Items.FirstOrDefault(i => i.Id == piItem.PurchaseOrderItemId!.Value);
+                            if (poItem == null) continue;
+
+                            // Convert PI item qty to PO item UOM if conversion factors differ (PR #61336)
+                            var piQtyInPoUom = poItem.ConversionFactor > 0
+                                ? (piItem.Quantity * piItem.ConversionFactor / poItem.ConversionFactor)
+                                : piItem.Quantity;
+
+                            var maxAllowedTotal = poItem.Quantity * (1m + billingAllowancePct / 100m);
+                            if (poItem.BilledQty + piQtyInPoUom > maxAllowedTotal)
+                            {
+                                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.OverBilling)
+                                    .WithData("item", piItem.Description ?? piItem.ItemId.ToString())
+                                    .WithData("ordered", poItem.Quantity)
+                                    .WithData("billed", poItem.BilledQty)
+                                    .WithData("attempted", piQtyInPoUom);
+                            }
                         }
                     }
                 }
@@ -1577,7 +1588,19 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                         var poItem = po.Items.FirstOrDefault(i => i.Id == piItem.PurchaseOrderItemId!.Value);
                         if (poItem != null)
                         {
-                            poItem.BilledQty += piItem.Quantity;
+                            var piQtyInPoUom = poItem.ConversionFactor > 0
+                                ? (piItem.Quantity * piItem.ConversionFactor / poItem.ConversionFactor)
+                                : piItem.Quantity;
+
+                            if (invoice.IsReturn)
+                            {
+                                // Order-touching return/debit note reduces billed qty
+                                poItem.BilledQty = Math.Max(0, poItem.BilledQty - Math.Abs(piQtyInPoUom));
+                            }
+                            else
+                            {
+                                poItem.BilledQty += piQtyInPoUom;
+                            }
                         }
                     }
                     po.UpdateFulfillmentStatus();
@@ -1904,31 +1927,46 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         }
 
         // Reverse linked Purchase Order BilledQty
-        var poItemIds = invoice.Items
-            .Where(i => i.PurchaseOrderItemId.HasValue)
-            .Select(i => i.PurchaseOrderItemId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (poItemIds.Any())
+        if (!invoice.IsReturn || invoice.UpdateBilledAmountInPurchaseOrder)
         {
-            var orderQuery = await _purchaseOrderRepository.GetQueryableAsync();
-            var affectedOrders = orderQuery
-                .Where(po => po.Items.Any(poi => poItemIds.Contains(poi.Id)))
+            var poItemIds = invoice.Items
+                .Where(i => i.PurchaseOrderItemId.HasValue)
+                .Select(i => i.PurchaseOrderItemId!.Value)
+                .Distinct()
                 .ToList();
 
-            foreach (var po in affectedOrders)
+            if (poItemIds.Any())
             {
-                foreach (var piItem in invoice.Items.Where(i => i.PurchaseOrderItemId.HasValue))
+                var orderQuery = await _purchaseOrderRepository.GetQueryableAsync();
+                var affectedOrders = orderQuery
+                    .Where(po => po.Items.Any(poi => poItemIds.Contains(poi.Id)))
+                    .ToList();
+
+                foreach (var po in affectedOrders)
                 {
-                    var poItem = po.Items.FirstOrDefault(i => i.Id == piItem.PurchaseOrderItemId!.Value);
-                    if (poItem != null)
+                    foreach (var piItem in invoice.Items.Where(i => i.PurchaseOrderItemId.HasValue))
                     {
-                        poItem.BilledQty = Math.Max(0, poItem.BilledQty - piItem.Quantity);
+                        var poItem = po.Items.FirstOrDefault(i => i.Id == piItem.PurchaseOrderItemId!.Value);
+                        if (poItem != null)
+                        {
+                            var piQtyInPoUom = poItem.ConversionFactor > 0
+                                ? (piItem.Quantity * piItem.ConversionFactor / poItem.ConversionFactor)
+                                : piItem.Quantity;
+
+                            if (invoice.IsReturn)
+                            {
+                                // Reversal of return restores billed quantity
+                                poItem.BilledQty += Math.Abs(piQtyInPoUom);
+                            }
+                            else
+                            {
+                                poItem.BilledQty = Math.Max(0, poItem.BilledQty - piQtyInPoUom);
+                            }
+                        }
                     }
+                    po.UpdateFulfillmentStatus();
+                    await _purchaseOrderRepository.UpdateAsync(po, autoSave: true);
                 }
-                po.UpdateFulfillmentStatus();
-                await _purchaseOrderRepository.UpdateAsync(po, autoSave: true);
             }
         }
 
@@ -2068,6 +2106,10 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         amended.SupplierInvoiceNumber = original.SupplierInvoiceNumber;
         amended.PaymentTermsTemplateId = original.PaymentTermsTemplateId;
         amended.Notes = original.Notes;
+        amended.IsReturn = original.IsReturn;
+        amended.IsDebitNote = original.IsDebitNote;
+        amended.ReturnAgainstId = original.ReturnAgainstId;
+        amended.UpdateBilledAmountInPurchaseOrder = original.UpdateBilledAmountInPurchaseOrder;
 
         foreach (var item in original.Items)
         {
@@ -2105,6 +2147,7 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         debitNote.CostCenterId = original.CostCenterId;
         debitNote.ProjectId = original.ProjectId;
         debitNote.UpdateStock = false;
+        debitNote.UpdateBilledAmountInPurchaseOrder = true;
         debitNote.EInvoiceDocType = EInvoiceDocumentType.SelfBilledDebitNote;
 
         foreach (var item in original.Items)
