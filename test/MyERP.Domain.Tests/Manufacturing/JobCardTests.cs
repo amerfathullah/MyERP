@@ -461,5 +461,76 @@ public class JobCardTests
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
     }
+
+    [Fact]
+    public void AddTimeLog_MultipleOperatorsSimultaneous_MergesWorkstationMinutesOnce()
+    {
+        // Per ERPNext PR #60650 (commit f5ae5b18fa / test_two_operators_on_one_job_charge_the_workstation_once)
+        var jc = CreateJobCard();
+        var op1From = new DateTime(2026, 5, 1, 10, 0, 0);
+        var op1To = new DateTime(2026, 5, 1, 11, 0, 0); // 60 mins
+        var op2From = new DateTime(2026, 5, 1, 10, 0, 0);
+        var op2To = new DateTime(2026, 5, 1, 11, 0, 0); // 60 mins
+
+        jc.AddTimeLog(op1From, op1To, 10m);
+        jc.AddTimeLog(op2From, op2To, 10m);
+
+        jc.TotalTimeInMins.ShouldBe(60m); // Merged into 60 mins workstation time, not 120
+        jc.CompletedQty.ShouldBe(20m);
+    }
+
+    [Fact]
+    public void SetPendingQty_ExceedingRemainingQty_Throws()
+    {
+        // Per ERPNext PR #60650 (commit f5fae15b45 / test_pending_qty_cannot_exceed_what_is_left)
+        var jc = CreateJobCard(); // ForQuantity = 100m
+        jc.Start();
+        jc.AddTimeLog(new DateTime(2026, 5, 1, 8, 0, 0), new DateTime(2026, 5, 1, 9, 0, 0), 80m); // completed = 80m, remaining = 20m
+
+        var ex = Should.Throw<BusinessException>(() => jc.SetPendingQty(25m));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+
+        Should.NotThrow(() => jc.SetPendingQty(20m));
+        jc.PendingQty.ShouldBe(20m);
+    }
+
+    [Fact]
+    public void SetPendingQty_OnCompletedCard_Throws()
+    {
+        // Per ERPNext PR #60650 (commit 3548e53611 / test_submitted_job_card_time_logs_and_pending_qty_are_locked)
+        var jc = CreateJobCard();
+        jc.Start();
+        jc.AddTimeLog(new DateTime(2026, 5, 1, 8, 0, 0), new DateTime(2026, 5, 1, 9, 0, 0), 100m);
+        jc.Complete();
+
+        Should.Throw<BusinessException>(() => jc.SetPendingQty(10m))
+            .Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
+    }
+
+    [Fact]
+    public async Task ValidateLaterOperationsAsync_LaterOperationHasHigherCompleted_Throws()
+    {
+        // Per ERPNext PR #60650 (commit e98a4a6aec / test_earlier_operation_cannot_be_undone_after_the_next_one)
+        var woId = Guid.NewGuid();
+        var jc1 = new JobCard(Guid.NewGuid(), Guid.NewGuid(), woId, Guid.NewGuid(), 10m, sequenceId: 1);
+        jc1.Start();
+        jc1.AddTimeLog(new DateTime(2026, 5, 1, 8, 0, 0), new DateTime(2026, 5, 1, 9, 0, 0), 10m);
+
+        var jc2 = new JobCard(Guid.NewGuid(), Guid.NewGuid(), woId, Guid.NewGuid(), 10m, sequenceId: 2);
+        jc2.Start();
+        jc2.AddTimeLog(new DateTime(2026, 5, 1, 9, 0, 0), new DateTime(2026, 5, 1, 10, 0, 0), 10m);
+
+        var jcRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        var wsRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        jcRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JobCard> { jc1, jc2 }.AsQueryable()));
+
+        var manager = new DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        // Cancelling sequence 1 would make its completed qty 0, but sequence 2 has completed 10
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            manager.ValidateLaterOperationsAsync(jc1, targetCompletedQty: 0m));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
 }
 

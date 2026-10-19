@@ -81,6 +81,7 @@ export interface CreateJobCardDto {
   forQuantity?: number;
   sequenceId?: number;
   plannedTimeInMins?: number;
+  isCorrective?: boolean;
   secondaryItems?: CreateJobCardSecondaryItemDto[];
 }
 

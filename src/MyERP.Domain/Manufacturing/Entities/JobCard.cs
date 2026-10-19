@@ -120,7 +120,7 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         var timeInMins = (decimal)(toTime - fromTime).TotalMinutes;
         _timeLogs.Add(new JobCardTimeLog(Guid.NewGuid(), Id, fromTime, toTime, timeInMins, completedQty));
-        TotalTimeInMins = _timeLogs.Sum(t => t.TimeInMins);
+        TotalTimeInMins = GetWorkstationMinutes(_timeLogs);
         CompletedQty = _timeLogs.Sum(t => t.CompletedQty);
 
         if (Status is JobCardStatus.Open or JobCardStatus.PartiallyTransferred or JobCardStatus.MaterialTransferred)
@@ -174,15 +174,85 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
             _timeLogs.Add(new JobCardTimeLog(Guid.NewGuid(), Id, fromTime, toTime, timeInMins, completedQty));
         }
 
-        TotalTimeInMins = _timeLogs.Sum(t => t.TimeInMins);
+        TotalTimeInMins = GetWorkstationMinutes(_timeLogs);
         CompletedQty = _timeLogs.Sum(t => t.CompletedQty);
+    }
+
+    /// <summary>
+    /// Computes total workstation minutes by merging overlapping intervals.
+    /// Per ERPNext PR #60650 (commit f5ae5b18fa):
+    /// When multiple operators work simultaneously on the same Job Card, the workstation
+    /// time is counted once across the overlapping intervals rather than sum(time_logs).
+    /// </summary>
+    public static decimal GetWorkstationMinutes(IEnumerable<JobCardTimeLog> timeLogs)
+    {
+        var intervals = new List<(DateTime start, DateTime end)>();
+        decimal extraMinutes = 0m;
+
+        foreach (var row in timeLogs)
+        {
+            if (row.FromTime != default && row.ToTime != default && row.ToTime > row.FromTime)
+            {
+                intervals.Add((row.FromTime, row.ToTime));
+            }
+            else if (row.TimeInMins > 0)
+            {
+                extraMinutes += row.TimeInMins;
+            }
+        }
+
+        if (intervals.Count == 0) return extraMinutes;
+
+        intervals.Sort((a, b) => a.start.CompareTo(b.start));
+
+        decimal mergedMinutes = 0m;
+        DateTime? currentStart = null;
+        DateTime? currentEnd = null;
+
+        foreach (var (start, end) in intervals)
+        {
+            if (currentEnd.HasValue && start <= currentEnd.Value)
+            {
+                if (end > currentEnd.Value)
+                {
+                    currentEnd = end;
+                }
+                continue;
+            }
+
+            if (currentEnd.HasValue && currentStart.HasValue)
+            {
+                mergedMinutes += (decimal)(currentEnd.Value - currentStart.Value).TotalMinutes;
+            }
+
+            currentStart = start;
+            currentEnd = end;
+        }
+
+        if (currentEnd.HasValue && currentStart.HasValue)
+        {
+            mergedMinutes += (decimal)(currentEnd.Value - currentStart.Value).TotalMinutes;
+        }
+
+        return Math.Round(mergedMinutes + extraMinutes, 2);
     }
 
     public void SetPendingQty(decimal pendingQty)
     {
+        if (Status is JobCardStatus.Completed or JobCardStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
         if (pendingQty < 0)
             throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
                 .WithData("field", nameof(pendingQty));
+
+        var remainingQty = Math.Max(0m, ForQuantity - CompletedQty);
+        if (pendingQty > 0 && pendingQty > remainingQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Pending Qty {pendingQty} cannot be more than the {remainingQty} left after the Total Completed Qty.");
+        }
+
         PendingQty = pendingQty;
     }
 

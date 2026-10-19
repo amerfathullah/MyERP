@@ -124,13 +124,17 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             }
         }
 
-        await ValidateJobCardQtyAsync(wo.Id, input.OperationId, input.ForQuantity, wo.Quantity, wo.CompanyId);
+        if (!input.IsCorrective)
+        {
+            await ValidateJobCardQtyAsync(wo.Id, input.OperationId, input.ForQuantity, wo.Quantity, wo.CompanyId);
+        }
 
         var jc = new JobCard(GuidGenerator.Create(), input.CompanyId, input.WorkOrderId,
             input.OperationId, input.ForQuantity, input.SequenceId, CurrentTenant.Id)
         {
             WorkstationId = input.WorkstationId,
             PlannedTimeInMins = input.PlannedTimeInMins,
+            IsCorrective = input.IsCorrective,
             BatchSplit = input.BatchSplit,
             WeightPerPiece = input.WeightPerPiece,
         };
@@ -269,7 +273,7 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
 
         var jcQuery = await _repository.GetQueryableAsync();
         var existingQty = jcQuery
-            .Where(j => j.WorkOrderId == workOrderId && j.OperationId == operationId && j.Status != JobCardStatus.Cancelled)
+            .Where(j => j.WorkOrderId == workOrderId && j.OperationId == operationId && j.Status != JobCardStatus.Cancelled && !j.IsCorrective)
             .Where(j => !excludeJobCardId.HasValue || j.Id != excludeJobCardId.Value)
             .Sum(j => (decimal?)(j.ForQuantity - j.PendingQty)) ?? 0m;
 
@@ -550,6 +554,9 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
     public async Task<JobCardDto> CancelAsync(Guid id)
     {
         var jc = await _repository.GetAsync(id);
+        var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
+        await jobCardManager.ValidateLaterOperationsAsync(jc, targetCompletedQty: 0m);
+
         jc.Cancel();
         await _repository.UpdateAsync(jc);
 
@@ -725,10 +732,17 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             Notes = $"Material Transfer for Job Card {jc.Id} (WO {wo.WorkOrderNumber ?? wo.Id.ToString()})"
         };
 
+        var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+        var mfgSettingsQ = await mfgSettingsRepo.GetQueryableAsync();
+        var mfgSettings = mfgSettingsQ.FirstOrDefault(s => s.CompanyId == wo.CompanyId);
+        var allowExcessTransfer = mfgSettings?.JobCardExcessTransfer ?? false;
+
         foreach (var reqItem in matchingItems)
         {
             var pendingQty = reqItem.RequiredQuantity - reqItem.TransferredQuantity;
-            if (pendingQty <= 0) continue;
+            if (pendingQty <= 0 && !allowExcessTransfer) continue;
+
+            var transferQty = pendingQty > 0 ? pendingQty : reqItem.RequiredQuantity;
 
             var sourceWhId = reqItem.SourceWarehouseId ?? wo.SourceWarehouseId ?? bom?.SourceWarehouseId;
             if (!sourceWhId.HasValue)
@@ -742,7 +756,7 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
 
             entry.AddItem(
                 itemId: reqItem.ItemId,
-                quantity: pendingQty,
+                quantity: transferQty,
                 sourceWarehouseId: sourceWhId.Value,
                 targetWarehouseId: wipWarehouseId.Value,
                 valuationRate: rate);
@@ -844,11 +858,10 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
     public async Task<Inventory.StockEntryDto> CreateStockEntryForSemiFgItemAsync(Guid id)
     {
         var jc = (await _repository.WithDetailsAsync()).First(j => j.Id == id);
-        if (jc.Status is JobCardStatus.Cancelled)
+        if (jc.Status != JobCardStatus.Completed)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("documentType", "JobCard")
-                .WithData("status", jc.Status.ToString());
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Submit Job Card {jc.Id} before making its Manufacture entry.");
         }
 
         var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();

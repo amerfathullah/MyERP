@@ -63,6 +63,7 @@ public class CreateJobCardDto
     public decimal ForQuantity { get; set; }
     public int SequenceId { get; set; }
     public decimal PlannedTimeInMins { get; set; }
+    public bool IsCorrective { get; set; }
     public List<CreateJobCardSecondaryItemDto> SecondaryItems { get; set; } = new();
 }
 

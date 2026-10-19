@@ -2215,6 +2215,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             await woManager.RefreshPlannedQtyAsync(_workOrderRepository, _binService, wo.ItemId, wo.FgWarehouseId.Value, wo.TenantId);
         }
 
+        // Discard draft job cards of cancelled or closed work order (per ERPNext PR #60650 / commit 04d1d32f6e)
+        await DiscardDraftJobCardsAsync(wo.Id);
+
         // Cancel any active stock reservations for this Work Order (per ERPNext PR #50773 / commit 9b5d215a7a)
         var sreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
         await sreManager.CancelReservationsForVoucherAsync(wo.Id);
@@ -2316,6 +2319,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.Cancel();
         await _workOrderRepository.UpdateAsync(wo);
 
+        // Discard draft job cards of cancelled or closed work order (per ERPNext PR #60650 / commit 04d1d32f6e)
+        await DiscardDraftJobCardsAsync(wo.Id);
+
         // Per ERPNext PR #59419 / commit d687024b88: refresh planned qty after status update
         if (wo.FgWarehouseId.HasValue)
         {
@@ -2349,6 +2355,25 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
 
         return ObjectMapper.Map<WorkOrder, WorkOrderDto>(wo);
+    }
+
+    /// <summary>
+    /// Discards draft job cards when a Work Order is cancelled or closed.
+    /// Per ERPNext PR #60650 (commit 04d1d32f6e) / work_order.py discard_draft_job_cards.
+    /// </summary>
+    private async Task DiscardDraftJobCardsAsync(Guid workOrderId)
+    {
+        var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
+        var jcQuery = await jcRepo.GetQueryableAsync();
+        var draftJobCards = jcQuery
+            .Where(jc => jc.WorkOrderId == workOrderId && jc.Status == JobCardStatus.Open)
+            .ToList();
+
+        foreach (var draftJc in draftJobCards)
+        {
+            draftJc.Cancel();
+            await jcRepo.UpdateAsync(draftJc, autoSave: true);
+        }
     }
 
     /// <summary>

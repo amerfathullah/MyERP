@@ -460,6 +460,48 @@ public class JobCardManager : DomainService
     }
 
     /// <summary>
+    /// Validates that later operations in the routing have not completed more quantity
+    /// than this operation would have completed.
+    /// Per ERPNext PR #60650 (commit e98a4a6aec):
+    /// Prevents cancelling or reducing a Job Card if a successor operation already has higher completed qty.
+    /// </summary>
+    public async Task ValidateLaterOperationsAsync(JobCard jobCard, decimal? targetCompletedQty = null)
+    {
+        if (jobCard.IsCorrective || jobCard.SequenceId <= 0) return;
+
+        var queryable = await _jobCardRepository.GetQueryableAsync();
+
+        var currentOpJobCards = queryable
+            .Where(jc => jc.WorkOrderId == jobCard.WorkOrderId
+                && jc.SequenceId == jobCard.SequenceId
+                && jc.Status != JobCardStatus.Cancelled
+                && !jc.IsCorrective)
+            .ToList();
+
+        var currentOpQty = currentOpJobCards
+            .Where(jc => jc.Id != jobCard.Id)
+            .Sum(jc => jc.CompletedQty) + (targetCompletedQty ?? jobCard.CompletedQty);
+
+        var laterOperations = queryable
+            .Where(jc => jc.WorkOrderId == jobCard.WorkOrderId
+                && jc.SequenceId > jobCard.SequenceId
+                && jc.Status != JobCardStatus.Cancelled
+                && !jc.IsCorrective)
+            .GroupBy(jc => jc.SequenceId)
+            .Select(g => new { SequenceId = g.Key, CompletedQty = g.Sum(jc => jc.CompletedQty) })
+            .ToList();
+
+        foreach (var later in laterOperations)
+        {
+            if (later.CompletedQty > currentOpQty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Operation sequence {later.SequenceId} has already completed {later.CompletedQty}, more than the {currentOpQty} that operation sequence {jobCard.SequenceId} would have. Cancel the Job Cards of later operations first.");
+            }
+        }
+    }
+
+    /// <summary>
     /// Validates that a completion split adds up correctly.
     /// Per ERPNext PR #57687 / PR #59104: total of split quantities must equal the job card's for_quantity.
     /// Completed qty can be 0 when process loss or pending qty is present.
@@ -519,16 +561,27 @@ public class JobCardManager : DomainService
         if (jobCard.IsCorrective) return;
 
         var wo = await woRepository.FindAsync(jobCard.WorkOrderId);
-        if (wo == null || !wo.RequiredItems.Any() || wo.SkipTransfer) return;
+        if (wo == null || !wo.RequiredItems.Any() || wo.SkipTransfer || wo.Quantity <= 0) return;
 
         var matchingItems = jobCard.BomOperationId.HasValue
             ? wo.RequiredItems.Where(i => i.BomOperationId == jobCard.BomOperationId.Value).ToList()
-            : wo.RequiredItems;
+            : wo.RequiredItems.ToList();
 
         if (!matchingItems.Any()) return;
 
-        var pendingItems = matchingItems.Where(i => i.TransferredQuantity < i.RequiredQuantity).ToList();
-        if (pendingItems.Any())
+        // Per ERPNext PR #60650 (commit b2f37a6579): check expected qty per item for this job card
+        var hasShortMaterial = false;
+        foreach (var row in matchingItems)
+        {
+            var expected = (row.RequiredQuantity / wo.Quantity) * jobCard.ForQuantity;
+            if (row.TransferredQuantity < expected)
+            {
+                hasShortMaterial = true;
+                break;
+            }
+        }
+
+        if (hasShortMaterial || (jobCard.TransferredQty > 0 && jobCard.TransferredQty < jobCard.ForQuantity))
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Materials need to be transferred to the work in progress warehouse before starting or completing Job Card (sequence {jobCard.SequenceId}).");

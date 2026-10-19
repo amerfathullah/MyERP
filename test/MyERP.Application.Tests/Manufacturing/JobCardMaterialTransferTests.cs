@@ -175,6 +175,106 @@ public abstract class JobCardMaterialTransferTests<TStartupModule> : MyERPApplic
         cancelledJc.Status.ShouldBe(JobCardStatus.Open);
     }
 
+    [Fact]
+    public async Task CreateStockEntryForSemiFgItemAsync_ThrowsWhenJobCardNotCompleted()
+    {
+        // Per ERPNext PR #60650 (commit e8b5e394f4 / test_manufacture_entry_needs_a_submitted_job_card)
+        var (company, fgItem, rmItem, wo, jc, sourceWh, wipWh) = await SeedAsync("SFG", forQty: 10m, requiredQty: 20m);
+        var jobCardAppService = GetRequiredService<IJobCardAppService>();
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            jobCardAppService.CreateStockEntryForSemiFgItemAsync(jc.Id));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString()!.ShouldContain("Submit Job Card");
+    }
+
+    [Fact]
+    public async Task SubmitAsync_ManufactureEntry_ThrowsWhenLinkedJobCardNotCompleted()
+    {
+        // Per ERPNext PR #60650 (commit e8b5e394f4 / test_manufacture_entry_needs_a_submitted_job_card)
+        var (company, fgItem, rmItem, wo, jc, sourceWh, wipWh) = await SeedAsync("MFG", forQty: 10m, requiredQty: 20m);
+        var jcRepo = GetRequiredService<IRepository<JobCard, Guid>>();
+        var stockEntryAppService = GetRequiredService<IStockEntryAppService>();
+
+        // Start job card and log completed time (remains in WIP status, not Completed)
+        jc.Start();
+        jc.AddTimeLog(DateTime.Today.AddHours(8), DateTime.Today.AddHours(9), 10m);
+        await jcRepo.UpdateAsync(jc, autoSave: true);
+
+        var entry = await stockEntryAppService.CreateAsync(new CreateStockEntryDto
+        {
+            CompanyId = company.Id,
+            EntryType = StockEntryType.Manufacture,
+            PostingDate = DateTime.Today,
+            WorkOrderId = wo.Id,
+            JobCardId = jc.Id,
+            FgCompletedQty = 10m,
+            Items =
+            {
+                new CreateStockEntryItemDto
+                {
+                    ItemId = rmItem.Id,
+                    Quantity = 20m,
+                    SourceWarehouseId = sourceWh,
+                },
+                new CreateStockEntryItemDto
+                {
+                    ItemId = fgItem.Id,
+                    Quantity = 10m,
+                    TargetWarehouseId = wipWh,
+                    IsFinishedItem = true,
+                }
+            }
+        });
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            stockEntryAppService.SubmitAsync(entry.Id));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString()!.ShouldContain("Submit Job Card");
+    }
+
+    [Fact]
+    public async Task CreateMaterialTransferAsync_WhenExcessTransferEnabled_TransfersEvenWhenNoPending()
+    {
+        // Per ERPNext PR #60650 (commit d363deb3a5 / test_job_card_excess_material_transfer_with_no_reference)
+        var (company, fgItem, rmItem, wo, jc, sourceWh, wipWh) = await SeedAsync("EXC", forQty: 10m, requiredQty: 20m);
+        var woItemRepo = GetRequiredService<IRepository<WorkOrderItem, Guid>>();
+        var settingsRepo = GetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+        var jobCardAppService = GetRequiredService<IJobCardAppService>();
+
+        // Enable JobCardExcessTransfer
+        var settings = await settingsRepo.InsertAsync(new ManufacturingSettings(Guid.NewGuid(), company.Id)
+        {
+            JobCardExcessTransfer = true
+        }, autoSave: true);
+
+        // Mark all materials already transferred on Work Order
+        var woItem = await woItemRepo.GetAsync(wo.RequiredItems[0].Id);
+        woItem.TransferredQuantity = 20m;
+        await woItemRepo.UpdateAsync(woItem, autoSave: true);
+
+        var seDto = await jobCardAppService.CreateMaterialTransferAsync(jc.Id);
+        seDto.ShouldNotBeNull();
+        seDto.Items.Count.ShouldBe(1);
+        seDto.Items[0].Quantity.ShouldBe(20m);
+    }
+
+    [Fact]
+    public async Task CloseWorkOrderAsync_DiscardsDraftJobCards()
+    {
+        // Per ERPNext PR #60650 (commit 04d1d32f6e / test_cancelled_or_closed_work_order_discards_its_draft_job_cards)
+        var (company, fgItem, rmItem, wo, jc, sourceWh, wipWh) = await SeedAsync("CLS", forQty: 10m, requiredQty: 20m);
+        var mfgAppService = GetRequiredService<IManufacturingAppService>();
+        var jcRepo = GetRequiredService<IRepository<JobCard, Guid>>();
+
+        jc.Status.ShouldBe(JobCardStatus.Open);
+
+        await mfgAppService.CloseWorkOrderAsync(wo.Id);
+
+        var reloadedJc = await jcRepo.GetAsync(jc.Id);
+        reloadedJc.Status.ShouldBe(JobCardStatus.Cancelled);
+    }
+
     private async Task<(Company Company, Item FgItem, Item RmItem, WorkOrder Wo, JobCard Jc, Guid SourceWh, Guid WipWh)> SeedAsync(string suffix, decimal forQty, decimal requiredQty)
     {
         var companyRepository = GetRequiredService<IRepository<Company, Guid>>();
@@ -217,6 +317,7 @@ public abstract class JobCardMaterialTransferTests<TStartupModule> : MyERPApplic
             autoSave: true);
 
         await seriesRepository.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, $"SE Series {suffix}", "StockEntry", $"SE{suffix}-"), autoSave: true);
+        await seriesRepository.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, $"SE Short {suffix}", "SE", $"SE{suffix}-"), autoSave: true);
         await seriesRepository.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, $"MR Series {suffix}", "MR", $"MR{suffix}-"), autoSave: true);
 
         var bom = await bomRepository.InsertAsync(

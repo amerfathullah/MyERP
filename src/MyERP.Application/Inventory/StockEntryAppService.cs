@@ -338,6 +338,18 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
 
+        // Validate Job Card submitted before manufacture entry (ERPNext PR #60650 / commit e8b5e394f4)
+        if (entry.EntryType == StockEntryType.Manufacture && entry.JobCardId.HasValue)
+        {
+            var jobCardRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
+            var jc = await jobCardRepo.FindAsync(entry.JobCardId.Value);
+            if (jc != null && !jc.IsCorrective && jc.Status != MyERP.Manufacturing.JobCardStatus.Completed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Submit Job Card {jc.Id} before making its Manufacture entry.");
+            }
+        }
+
         // Material Request over-fulfillment guard + fulfillment tracking (Transfer/Issue MR types).
         // Per DO-NOT: "Allow Material Request over-fulfillment beyond mr_qty_allowance percentage" —
         // this was the one MR-consuming document with zero cap; PO/RFQ already enforce pending qty
