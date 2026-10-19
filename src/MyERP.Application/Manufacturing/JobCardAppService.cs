@@ -343,6 +343,8 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         await jobCardManager.ValidateMaterialTransferAsync(jc, woRepo);
         // Per ERPNext PR #60275 / PR #58256: validate completed quantity against previous operation
         await jobCardManager.ValidatePreviousOperationManufacturedAsync(jc, jc.CompletedQty > 0 ? jc.CompletedQty : jc.ForQuantity);
+        // Per ERPNext PR #60650 (commit e98a4a6aec): validate completed quantity against later operations
+        await jobCardManager.ValidateLaterOperationsAsync(jc, targetCompletedQty: jc.CompletedQty > 0 ? jc.CompletedQty : jc.ForQuantity);
 
         var settingsRepoForTimeLogs = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
         var mfgSettings = await settingsRepoForTimeLogs.FindAsync(s => s.CompanyId == jc.CompanyId);
@@ -860,8 +862,8 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         var jc = (await _repository.WithDetailsAsync()).First(j => j.Id == id);
         if (jc.Status != JobCardStatus.Completed)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", $"Submit Job Card {jc.Id} before making its Manufacture entry.");
+            throw new BusinessException(MyERPDomainErrorCodes.SubmitJobCardBeforeManufacture)
+                .WithData("jobCardNumber", jc.Id.ToString());
         }
 
         var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();

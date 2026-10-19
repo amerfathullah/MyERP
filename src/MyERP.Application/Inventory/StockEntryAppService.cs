@@ -345,8 +345,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             var jc = await jobCardRepo.FindAsync(entry.JobCardId.Value);
             if (jc != null && !jc.IsCorrective && jc.Status != MyERP.Manufacturing.JobCardStatus.Completed)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Submit Job Card {jc.Id} before making its Manufacture entry.");
+                throw new BusinessException(MyERPDomainErrorCodes.SubmitJobCardBeforeManufacture)
+                    .WithData("jobCardNumber", jc.Id.ToString());
             }
         }
 
@@ -561,24 +561,49 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
 
-        // Update Job Card transferred qty and transfer status (ERPNext material_transfer.py / PR #60246)
+        // Update Job Card transferred qty and transfer status (ERPNext PR #60650 / commit beaca59338)
         if (entry.JobCardId.HasValue && entry.EntryType == StockEntryType.MaterialTransferForManufacture)
         {
             var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
             var jc = await jcRepo.FindAsync(entry.JobCardId.Value);
-            if (jc != null)
+            if (jc != null && entry.WorkOrderId.HasValue)
             {
-                var transferredQty = entry.FgCompletedQty > 0 ? entry.FgCompletedQty : entry.Items.Sum(i => i.Quantity);
-                if (entry.IsReturn)
+                var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+                var jcManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.JobCardManager>();
+                var matchingItems = await jcManager.GetRawMaterialsAsync(jc, woRepo);
+                var wo = await woRepo.FindAsync(entry.WorkOrderId.Value);
+                if (wo != null && matchingItems.Any() && wo.Quantity > 0)
                 {
-                    jc.TransferredQty = Math.Max(0, jc.TransferredQty - transferredQty);
+                    decimal minFraction = decimal.MaxValue;
+                    bool anyTransferred = false;
+                    bool allTransferred = true;
+
+                    foreach (var rm in matchingItems)
+                    {
+                        var expected = (rm.RequiredQuantity / wo.Quantity) * jc.ForQuantity;
+                        if (expected > 0)
+                        {
+                            var fraction = rm.TransferredQuantity / expected;
+                            if (fraction < minFraction)
+                            {
+                                minFraction = fraction;
+                            }
+                            if (rm.TransferredQuantity > 0)
+                            {
+                                anyTransferred = true;
+                            }
+                            if (rm.TransferredQuantity < expected - 0.0001m)
+                            {
+                                allTransferred = false;
+                            }
+                        }
+                    }
+
+                    if (minFraction == decimal.MaxValue) minFraction = 0m;
+                    jc.TransferredQty = Math.Min(jc.ForQuantity, Math.Max(0m, Math.Round(minFraction * jc.ForQuantity, 4)));
+                    jc.UpdateTransferStatus(allTransferred, anyTransferred);
+                    await jcRepo.UpdateAsync(jc, autoSave: true);
                 }
-                else
-                {
-                    jc.TransferredQty += transferredQty;
-                }
-                jc.UpdateTransferStatus(jc.TransferredQty >= jc.ForQuantity, jc.TransferredQty > 0);
-                await jcRepo.UpdateAsync(jc, autoSave: true);
             }
         }
 
@@ -1026,24 +1051,49 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             }
         }
 
-        // Reverse Job Card transferred qty and transfer status (ERPNext material_transfer.py / PR #60246)
+        // Reverse Job Card transferred qty and transfer status (ERPNext PR #60650 / commit beaca59338)
         if (entry.JobCardId.HasValue && entry.EntryType == StockEntryType.MaterialTransferForManufacture)
         {
             var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
             var jc = await jcRepo.FindAsync(entry.JobCardId.Value);
-            if (jc != null)
+            if (jc != null && entry.WorkOrderId.HasValue)
             {
-                var transferredQty = entry.FgCompletedQty > 0 ? entry.FgCompletedQty : entry.Items.Sum(i => i.Quantity);
-                if (entry.IsReturn)
+                var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
+                var jcManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.JobCardManager>();
+                var matchingItems = await jcManager.GetRawMaterialsAsync(jc, woRepo);
+                var wo = await woRepo.FindAsync(entry.WorkOrderId.Value);
+                if (wo != null && matchingItems.Any() && wo.Quantity > 0)
                 {
-                    jc.TransferredQty += transferredQty;
+                    decimal minFraction = decimal.MaxValue;
+                    bool anyTransferred = false;
+                    bool allTransferred = true;
+
+                    foreach (var rm in matchingItems)
+                    {
+                        var expected = (rm.RequiredQuantity / wo.Quantity) * jc.ForQuantity;
+                        if (expected > 0)
+                        {
+                            var fraction = rm.TransferredQuantity / expected;
+                            if (fraction < minFraction)
+                            {
+                                minFraction = fraction;
+                            }
+                            if (rm.TransferredQuantity > 0)
+                            {
+                                anyTransferred = true;
+                            }
+                            if (rm.TransferredQuantity < expected - 0.0001m)
+                            {
+                                allTransferred = false;
+                            }
+                        }
+                    }
+
+                    if (minFraction == decimal.MaxValue) minFraction = 0m;
+                    jc.TransferredQty = Math.Min(jc.ForQuantity, Math.Max(0m, Math.Round(minFraction * jc.ForQuantity, 4)));
+                    jc.UpdateTransferStatus(allTransferred, anyTransferred);
+                    await jcRepo.UpdateAsync(jc, autoSave: true);
                 }
-                else
-                {
-                    jc.TransferredQty = Math.Max(0, jc.TransferredQty - transferredQty);
-                }
-                jc.UpdateTransferStatus(jc.TransferredQty >= jc.ForQuantity, jc.TransferredQty > 0);
-                await jcRepo.UpdateAsync(jc, autoSave: true);
             }
         }
 

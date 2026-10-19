@@ -19,10 +19,12 @@ public class JobCardDto : EntityDto<Guid>
     public decimal ForQuantity { get; set; }
     public decimal CompletedQty { get; set; }
     public decimal TransferredQty { get; set; }
+    public decimal RequestedQty { get; set; }
     public decimal PendingQty { get; set; }
     public decimal ProcessLossQty { get; set; }
     public decimal TotalTimeInMins { get; set; }
     public decimal PlannedTimeInMins { get; set; }
+    public decimal HourRate { get; set; }
     public decimal? MaxCompletableQty { get; set; }
     public int SequenceId { get; set; }
     public int Status { get; set; }

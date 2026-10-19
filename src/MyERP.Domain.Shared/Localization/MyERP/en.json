@@ -5126,6 +5126,7 @@
     "MyERP:10048": "Batch Size cannot be negative.",
     "MyERP:05102": "Transaction not allowed against closed Work Order {0}.",
     "MyERP:10049": "Only a submitted Work Order can be closed, stopped or resumed.",
+    "MyERP:10050": "Submit Job Card {jobCardNumber} before making its Manufacture entry.",
     "WorkOrderQty": "Work Order Qty",
     "WorkOrderClosed": "Work Order is closed.",
     "BatchSizeHelp": "Batch size for manufacturing. Must be 0 or greater.",

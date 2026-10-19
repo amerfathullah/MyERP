@@ -272,6 +272,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         await _repository.UpdateAsync(entity);
         await ApplyIndentedQtyAsync(entity, sign: 1);
         await ApplySalesOrderRequestedQtyAsync(entity, sign: 1);
+        await ApplyJobCardRequestedQtyAsync(entity);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
         await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
@@ -290,6 +291,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         await _repository.UpdateAsync(entity);
         await ApplyIndentedQtyAsync(entity, sign: -1);
         await ApplySalesOrderRequestedQtyAsync(entity, sign: -1);
+        await ApplyJobCardRequestedQtyAsync(entity);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
         await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
@@ -308,6 +310,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         await _repository.UpdateAsync(entity);
         await ApplyIndentedQtyAsync(entity, sign: -1);
         await ApplySalesOrderRequestedQtyAsync(entity, sign: -1);
+        await ApplyJobCardRequestedQtyAsync(entity);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
         await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
@@ -326,6 +329,7 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         await _repository.UpdateAsync(entity);
         await ApplyIndentedQtyAsync(entity, sign: 1);
         await ApplySalesOrderRequestedQtyAsync(entity, sign: 1);
+        await ApplyJobCardRequestedQtyAsync(entity);
 
         var activityRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
         await activityRepo.InsertAsync(new MyERP.Core.Entities.DocumentActivityLog(
@@ -360,6 +364,24 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
                 }
             }
             await soRepo.UpdateAsync(so);
+        }
+    }
+
+    /// <summary>
+    /// Updates JobCard.RequestedQty from linked Material Requests per ERPNext PR #60650 (commit 15c19b0931).
+    /// </summary>
+    private async Task ApplyJobCardRequestedQtyAsync(MaterialRequest entity)
+    {
+        if (!entity.JobCardId.HasValue) return;
+
+        var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.JobCard, Guid>>();
+        var jc = await jcRepo.FindAsync(entity.JobCardId.Value);
+        if (jc != null)
+        {
+            var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Manufacturing.Entities.WorkOrder, Guid>>();
+            var jcManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.JobCardManager>();
+            await jcManager.UpdateRequestedQtyAsync(jc, woRepo, _repository);
+            await jcRepo.UpdateAsync(jc, autoSave: true);
         }
     }
 

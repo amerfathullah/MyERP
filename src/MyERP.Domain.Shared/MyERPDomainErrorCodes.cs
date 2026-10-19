@@ -672,6 +672,9 @@ public static class MyERPDomainErrorCodes
     public const string BatchSizeCannotBeNegative = "MyERP:10048";
     public const string StockEntryAgainstClosedWorkOrder = "MyERP:05102";
     public const string WorkOrderStatusTransitionRestricted = "MyERP:10049";
+
+    // Job Card Review Guards (ERPNext PR #60650)
+    public const string SubmitJobCardBeforeManufacture = "MyERP:10050";
 }
 
 

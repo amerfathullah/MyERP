@@ -184,8 +184,7 @@ public abstract class JobCardMaterialTransferTests<TStartupModule> : MyERPApplic
 
         var ex = await Should.ThrowAsync<BusinessException>(() =>
             jobCardAppService.CreateStockEntryForSemiFgItemAsync(jc.Id));
-        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
-        ex.Data["detail"]!.ToString()!.ShouldContain("Submit Job Card");
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.SubmitJobCardBeforeManufacture);
     }
 
     [Fact]
@@ -229,8 +228,7 @@ public abstract class JobCardMaterialTransferTests<TStartupModule> : MyERPApplic
 
         var ex = await Should.ThrowAsync<BusinessException>(() =>
             stockEntryAppService.SubmitAsync(entry.Id));
-        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
-        ex.Data["detail"]!.ToString()!.ShouldContain("Submit Job Card");
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.SubmitJobCardBeforeManufacture);
     }
 
     [Fact]

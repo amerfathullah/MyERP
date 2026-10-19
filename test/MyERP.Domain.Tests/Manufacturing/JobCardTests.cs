@@ -532,5 +532,106 @@ public class JobCardTests
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
     }
+
+    [Fact]
+    public async Task GetTotalJobCardQtyAsync_ExcludesCorrectiveJobCards()
+    {
+        // Per ERPNext PR #60650 (commit f5211cf618 / test_corrective_job_card_does_not_consume_operation_allowance)
+        var woId = Guid.NewGuid();
+        var opId = Guid.NewGuid();
+        var jc1 = new JobCard(Guid.NewGuid(), Guid.NewGuid(), woId, opId, 10m, sequenceId: 1);
+        var jcCorrective = new JobCard(Guid.NewGuid(), Guid.NewGuid(), woId, opId, 5m, sequenceId: 1)
+        {
+            IsCorrective = true
+        };
+
+        var jcRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        var wsRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        jcRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JobCard> { jc1, jcCorrective }.AsQueryable()));
+
+        var manager = new DomainServices.JobCardManager(jcRepo, wsRepo);
+        var total = await manager.GetTotalJobCardQtyAsync(woId, opId);
+
+        total.ShouldBe(10m);
+    }
+
+    [Fact]
+    public async Task GetRawMaterialsAsync_IsolatesRepeatedOperationMaterials()
+    {
+        // Per ERPNext PR #60650 (commit 0031452e8e / test_raw_materials_isolated_for_repeated_operations)
+        var woId = Guid.NewGuid();
+        var bomOpId1 = Guid.NewGuid();
+        var bomOpId2 = Guid.NewGuid();
+
+        var wo = new WorkOrder(woId, Guid.NewGuid(), "WO-001", Guid.NewGuid(), Guid.NewGuid(), quantity: 10m);
+        var item1 = new WorkOrderItem(Guid.NewGuid(), woId, Guid.NewGuid(), "RM 1", 20m) { BomOperationId = bomOpId1 };
+        var item2 = new WorkOrderItem(Guid.NewGuid(), woId, Guid.NewGuid(), "RM 2", 15m) { BomOperationId = bomOpId2 };
+        wo.RequiredItems.Add(item1);
+        wo.RequiredItems.Add(item2);
+
+        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), woId, Guid.NewGuid(), 10m, sequenceId: 1)
+        {
+            BomOperationId = bomOpId1
+        };
+
+        var woRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<WorkOrder, Guid>>();
+        woRepo.FindAsync(woId).Returns(Task.FromResult<WorkOrder?>(wo));
+
+        var jcRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        var wsRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        var manager = new DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        var materials = await manager.GetRawMaterialsAsync(jc, woRepo);
+
+        materials.Count.ShouldBe(1);
+        materials[0].Id.ShouldBe(item1.Id);
+    }
+
+    [Fact]
+    public async Task UpdateRequestedQtyAsync_CalculatesMinFractionAcrossMaterials()
+    {
+        // Per ERPNext PR #60650 (commit 15c19b0931 / test_requested_qty_scales_by_bottleneck_fraction)
+        var woId = Guid.NewGuid();
+        var jcId = Guid.NewGuid();
+        var bomOpId = Guid.NewGuid();
+        var rmId1 = Guid.NewGuid();
+        var rmId2 = Guid.NewGuid();
+
+        var wo = new WorkOrder(woId, Guid.NewGuid(), "WO-001", Guid.NewGuid(), Guid.NewGuid(), quantity: 10m);
+        var item1 = new WorkOrderItem(Guid.NewGuid(), woId, rmId1, "RM 1", 20m) { BomOperationId = bomOpId };
+        var item2 = new WorkOrderItem(Guid.NewGuid(), woId, rmId2, "RM 2", 10m) { BomOperationId = bomOpId };
+        wo.RequiredItems.Add(item1);
+        wo.RequiredItems.Add(item2);
+
+        var jc = new JobCard(jcId, Guid.NewGuid(), woId, Guid.NewGuid(), forQuantity: 10m, sequenceId: 1)
+        {
+            BomOperationId = bomOpId
+        };
+
+        // MR requests: 10 of item1 (10 / 20 = 0.5 fraction) and 10 of item2 (10 / 10 = 1.0 fraction)
+        // Min fraction is 0.5 -> jc.RequestedQty = 0.5 * 10 = 5m
+        var mr = new Purchasing.Entities.MaterialRequest(Guid.NewGuid(), Guid.NewGuid(), "MR-001", Purchasing.MaterialRequestType.MaterialTransfer, DateTime.UtcNow)
+        {
+            JobCardId = jcId,
+            WorkOrderId = woId
+        };
+        mr.AddItem(rmId1, "RM 1", 10m, "Unit");
+        mr.AddItem(rmId2, "RM 2", 10m, "Unit");
+        mr.Submit();
+
+        var woRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<WorkOrder, Guid>>();
+        woRepo.FindAsync(woId).Returns(Task.FromResult<WorkOrder?>(wo));
+
+        var mrRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+        mrRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Purchasing.Entities.MaterialRequest> { mr }.AsQueryable()));
+
+        var jcRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<JobCard, Guid>>();
+        var wsRepo = Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Workstation, Guid>>();
+        var manager = new DomainServices.JobCardManager(jcRepo, wsRepo);
+
+        await manager.UpdateRequestedQtyAsync(jc, woRepo, mrRepo);
+
+        jc.RequestedQty.ShouldBe(5m);
+    }
 }
 

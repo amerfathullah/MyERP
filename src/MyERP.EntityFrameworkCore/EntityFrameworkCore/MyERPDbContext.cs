@@ -3685,6 +3685,8 @@ public class MyERPDbContext :
             b.Property(x => x.ProcessLossQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.TotalTimeInMins).HasColumnType("decimal(18,2)");
             b.Property(x => x.PlannedTimeInMins).HasColumnType("decimal(18,2)");
+            b.Ignore(x => x.RequestedQty);
+            b.Ignore(x => x.HourRate);
             b.HasOne<WorkOrder>().WithMany().HasForeignKey(x => x.WorkOrderId).IsRequired();
             b.HasOne<Operation>().WithMany().HasForeignKey(x => x.OperationId).IsRequired();
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();

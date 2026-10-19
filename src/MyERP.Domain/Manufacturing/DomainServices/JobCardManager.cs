@@ -546,7 +546,8 @@ public class JobCardManager : DomainService
         var total = queryable
             .Where(jc => jc.WorkOrderId == workOrderId
                 && jc.OperationId == operationId
-                && jc.Status != JobCardStatus.Cancelled)
+                && jc.Status != JobCardStatus.Cancelled
+                && !jc.IsCorrective)
             .Sum(jc => (decimal?)(jc.ForQuantity - jc.PendingQty)) ?? 0m;
 
         return total;
@@ -567,7 +568,9 @@ public class JobCardManager : DomainService
 
         var matchingItems = jobCard.BomOperationId.HasValue
             ? wo.RequiredItems.Where(i => i.BomOperationId == jobCard.BomOperationId.Value).ToList()
-            : wo.RequiredItems.ToList();
+            : (wo.RequiredItems.Any(i => i.BomOperationId.HasValue)
+                ? wo.RequiredItems.Where(i => !i.BomOperationId.HasValue).ToList()
+                : wo.RequiredItems.ToList());
 
         if (!matchingItems.Any()) return;
 
@@ -620,7 +623,9 @@ public class JobCardManager : DomainService
 
         var matchingItems = jobCard.BomOperationId.HasValue
             ? wo.RequiredItems.Where(i => i.BomOperationId == jobCard.BomOperationId.Value).ToList()
-            : wo.RequiredItems.ToList();
+            : (wo.RequiredItems.Any(i => i.BomOperationId.HasValue)
+                ? wo.RequiredItems.Where(i => !i.BomOperationId.HasValue).ToList()
+                : wo.RequiredItems.ToList());
 
         if (!matchingItems.Any())
         {
@@ -629,6 +634,63 @@ public class JobCardManager : DomainService
         }
 
         return matchingItems;
+    }
+
+    /// <summary>
+    /// Updates Job Card requested quantity from linked Material Requests.
+    /// Per ERPNext PR #60650 (commit 15c19b0931):
+    /// Calculates the minimum fulfillment fraction across required materials,
+    /// and scales by ForQuantity.
+    /// </summary>
+    public async Task UpdateRequestedQtyAsync(
+        JobCard jobCard,
+        IRepository<WorkOrder, Guid> woRepository,
+        IRepository<Purchasing.Entities.MaterialRequest, Guid> mrRepository)
+    {
+        var mrQuery = await mrRepository.GetQueryableAsync();
+        var submittedMrs = mrQuery
+            .Where(mr => mr.JobCardId == jobCard.Id
+                && mr.Status != Core.DocumentStatus.Draft
+                && mr.Status != Core.DocumentStatus.Cancelled
+                && mr.Status != Core.DocumentStatus.Closed)
+            .ToList();
+
+        var matchingItems = await GetRawMaterialsAsync(jobCard, woRepository);
+        if (!matchingItems.Any())
+        {
+            jobCard.RequestedQty = 0m;
+            return;
+        }
+
+        var requestedByItem = submittedMrs
+            .SelectMany(mr => mr.Items)
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.StockQty));
+
+        var wo = await woRepository.FindAsync(jobCard.WorkOrderId);
+        var woQty = wo?.Quantity > 0 ? wo.Quantity : 1m;
+
+        decimal minFraction = 1m;
+        bool hasItems = false;
+
+        foreach (var rm in matchingItems)
+        {
+            var expectedQty = (rm.RequiredQuantity / woQty) * jobCard.ForQuantity;
+            if (expectedQty > 0)
+            {
+                hasItems = true;
+                var requestedQty = requestedByItem.GetValueOrDefault(rm.ItemId, 0m);
+                var fraction = requestedQty / expectedQty;
+                if (fraction < minFraction)
+                {
+                    minFraction = fraction;
+                }
+            }
+        }
+
+        jobCard.RequestedQty = hasItems
+            ? Math.Min(jobCard.ForQuantity, Math.Round(minFraction * jobCard.ForQuantity, 4))
+            : 0m;
     }
 }
 
