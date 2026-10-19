@@ -545,7 +545,9 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
             .ToList();
 
         var lines = (await jeLineRepo.GetQueryableAsync())
-            .Where(l => postedJeIds.Contains(l.JournalEntryId) && l.AccountId == input.BankAccountId)
+            .Where(l => postedJeIds.Contains(l.JournalEntryId)
+                && l.AccountId == input.BankAccountId
+                && (l.FinanceBook == null || l.FinanceBook == ""))
             .ToList();
 
         var totalDebit = lines.Where(l => l.IsDebit)
@@ -617,7 +619,9 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         {
             var unclearedJeIds = unclearedJEs.Select(je => je.Id).ToHashSet();
             var jeLinesOnAccount = (await jeLineRepo.GetQueryableAsync())
-                .Where(l => l.AccountId == input.BankAccountId && unclearedJeIds.Contains(l.JournalEntryId))
+                .Where(l => l.AccountId == input.BankAccountId
+                    && unclearedJeIds.Contains(l.JournalEntryId)
+                    && (l.FinanceBook == null || l.FinanceBook == ""))
                 .ToList();
 
             foreach (var group in jeLinesOnAccount.GroupBy(l => l.JournalEntryId))
@@ -690,7 +694,9 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
         {
             var notReflectedJeIds = notReflectedJEs.Select(je => je.Id).ToHashSet();
             var notReflectedLines = (await jeLineRepo.GetQueryableAsync())
-                .Where(l => l.AccountId == input.BankAccountId && notReflectedJeIds.Contains(l.JournalEntryId))
+                .Where(l => l.AccountId == input.BankAccountId
+                    && notReflectedJeIds.Contains(l.JournalEntryId)
+                    && (l.FinanceBook == null || l.FinanceBook == ""))
                 .ToList();
 
             foreach (var l in notReflectedLines)

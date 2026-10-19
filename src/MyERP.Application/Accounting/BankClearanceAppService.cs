@@ -123,7 +123,9 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
             var jeIds = jeCandidates.Select(je => je.Id).ToHashSet();
             var lineQuery = await _journalEntryLineRepository.GetQueryableAsync();
             var lines = lineQuery
-                .Where(l => l.AccountId == input.BankAccountId && jeIds.Contains(l.JournalEntryId))
+                .Where(l => l.AccountId == input.BankAccountId
+                    && jeIds.Contains(l.JournalEntryId)
+                    && (l.FinanceBook == null || l.FinanceBook == ""))
                 .ToList();
 
             var linesByJe = lines.GroupBy(l => l.JournalEntryId);

@@ -56,10 +56,13 @@ public class AccountBalanceService : DomainService
         Guid accountId,
         DateTime asOfDate,
         Guid? costCenterId = null,
-        string? financeBook = null)
+        string? financeBook = null,
+        bool includeDefaultFinanceBook = false)
     {
+        var allowedFinanceBooks = await ResolveAllowedFinanceBooksAsync(companyId, financeBook, includeDefaultFinanceBook);
+
         // Strategy: find latest closing balance ≤ asOfDate, then add delta
-        var closingBalance = await FindLatestClosingBalanceAsync(companyId, accountId, asOfDate, costCenterId);
+        var closingBalance = await FindLatestClosingBalanceAsync(companyId, accountId, asOfDate, costCenterId, allowedFinanceBooks);
 
         decimal openingDebit = 0m;
         decimal openingCredit = 0m;
@@ -78,7 +81,7 @@ public class AccountBalanceService : DomainService
 
         // Get GL entries from scanFromDate to asOfDate
         var (deltaDebit, deltaCredit) = await GetGlTotalsAsync(
-            companyId, accountId, scanFromDate, asOfDate, costCenterId, financeBook);
+            companyId, accountId, scanFromDate, asOfDate, costCenterId, allowedFinanceBooks);
 
         var totalDebit = openingDebit + deltaDebit;
         var totalCredit = openingCredit + deltaCredit;
@@ -94,8 +97,11 @@ public class AccountBalanceService : DomainService
         Guid companyId,
         DateTime asOfDate,
         Guid? costCenterId = null,
-        string? financeBook = null)
+        string? financeBook = null,
+        bool includeDefaultFinanceBook = false)
     {
+        var allowedFinanceBooks = await ResolveAllowedFinanceBooksAsync(companyId, financeBook, includeDefaultFinanceBook);
+
         // Get all posted JEs up to date
         var journals = await _journalRepository.GetListAsync(je =>
             je.CompanyId == companyId &&
@@ -112,8 +118,9 @@ public class AccountBalanceService : DomainService
         var filteredLines = allLines.AsEnumerable();
         if (costCenterId.HasValue)
             filteredLines = filteredLines.Where(l => l.CostCenterId == costCenterId);
-        if (!string.IsNullOrWhiteSpace(financeBook))
-            filteredLines = filteredLines.Where(l => l.FinanceBook == financeBook || l.FinanceBook == null);
+
+        // Per ERPNext PR #61266: keep balances within requested finance books + bookless entries
+        filteredLines = filteredLines.Where(l => allowedFinanceBooks.Contains(l.FinanceBook ?? string.Empty));
 
         // Aggregate by account
         return filteredLines
@@ -137,10 +144,12 @@ public class AccountBalanceService : DomainService
         DateTime toDate,
         Guid? costCenterId = null,
         string? financeBook = null,
-        bool excludePeriodClosing = false)
+        bool excludePeriodClosing = false,
+        bool includeDefaultFinanceBook = false)
     {
+        var allowedFinanceBooks = await ResolveAllowedFinanceBooksAsync(companyId, financeBook, includeDefaultFinanceBook);
         var (debit, credit) = await GetGlTotalsAsync(
-            companyId, accountId, fromDate, toDate, costCenterId, financeBook, excludePeriodClosing);
+            companyId, accountId, fromDate, toDate, costCenterId, allowedFinanceBooks, excludePeriodClosing);
 
         return new AccountBalanceResult(debit, credit);
     }
@@ -208,21 +217,55 @@ public class AccountBalanceService : DomainService
 
     #region Private Helpers
 
+    public async Task<HashSet<string>> ResolveAllowedFinanceBooksAsync(
+        Guid companyId,
+        string? financeBook,
+        bool includeDefaultFinanceBook)
+    {
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { string.Empty };
+
+        if (!string.IsNullOrWhiteSpace(financeBook))
+        {
+            allowed.Add(financeBook.Trim());
+        }
+
+        if (includeDefaultFinanceBook)
+        {
+            var defaultBook = await GetDefaultFinanceBookNameAsync(companyId);
+            if (!string.IsNullOrWhiteSpace(defaultBook))
+            {
+                allowed.Add(defaultBook.Trim());
+            }
+        }
+
+        return allowed;
+    }
+
+    private async Task<string?> GetDefaultFinanceBookNameAsync(Guid companyId)
+    {
+        var repo = LazyServiceProvider.LazyGetService<IRepository<FinanceBook, Guid>>();
+        if (repo == null) return null;
+
+        var list = await repo.GetListAsync(fb => fb.CompanyId == companyId && fb.IsDefault);
+        return list.FirstOrDefault()?.Name;
+    }
+
     private async Task<AccountClosingBalance?> FindLatestClosingBalanceAsync(
-        Guid companyId, Guid accountId, DateTime beforeDate, Guid? costCenterId)
+        Guid companyId, Guid accountId, DateTime beforeDate, Guid? costCenterId, HashSet<string> allowedFinanceBooks)
     {
         var balances = await _closingBalanceRepository.GetListAsync(cb =>
             cb.CompanyId == companyId &&
             cb.AccountId == accountId &&
             cb.CostCenterId == costCenterId &&
-            cb.ClosingDate <= beforeDate);
+            cb.ClosingDate <= beforeDate &&
+            allowedFinanceBooks.Contains(cb.FinanceBook ?? string.Empty));
 
         return balances.OrderByDescending(cb => cb.ClosingDate).FirstOrDefault();
     }
 
     private async Task<(decimal Debit, decimal Credit)> GetGlTotalsAsync(
         Guid companyId, Guid accountId, DateTime fromDate, DateTime toDate,
-        Guid? costCenterId = null, string? financeBook = null, bool excludePeriodClosing = false)
+        Guid? costCenterId, HashSet<string> allowedFinanceBooks, bool excludePeriodClosing = false)
     {
         var journals = await _journalRepository.GetListAsync(je =>
             je.CompanyId == companyId &&
@@ -242,15 +285,8 @@ public class AccountBalanceService : DomainService
         if (costCenterId.HasValue)
             filteredLines = filteredLines.Where(l => l.CostCenterId == costCenterId);
 
-        // Per ERPNext PR #60001 / commit a9d6834682: count actuals from default finance book only when not specified
-        if (!string.IsNullOrWhiteSpace(financeBook))
-        {
-            filteredLines = filteredLines.Where(l => string.IsNullOrWhiteSpace(l.FinanceBook) || l.FinanceBook == financeBook);
-        }
-        else
-        {
-            filteredLines = filteredLines.Where(l => string.IsNullOrWhiteSpace(l.FinanceBook));
-        }
+        // Per ERPNext PR #61266 / PR #60001: keep balances strictly within allowed finance books
+        filteredLines = filteredLines.Where(l => allowedFinanceBooks.Contains(l.FinanceBook ?? string.Empty));
 
         var debit = filteredLines.Where(l => l.IsDebit).Sum(l => l.Amount);
         var credit = filteredLines.Where(l => !l.IsDebit).Sum(l => l.Amount);

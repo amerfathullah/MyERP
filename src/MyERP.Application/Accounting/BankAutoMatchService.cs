@@ -233,7 +233,9 @@ public class BankAutoMatchService : ApplicationService
         var jeIds = candidateEntries.Select(je => je.Id).ToHashSet();
         var lineQuery = await _journalLineRepository.GetQueryableAsync();
         var bankLines = lineQuery
-            .Where(l => l.AccountId == bankAccount.AccountId && jeIds.Contains(l.JournalEntryId))
+            .Where(l => l.AccountId == bankAccount.AccountId
+                && jeIds.Contains(l.JournalEntryId)
+                && (l.FinanceBook == null || l.FinanceBook == ""))
             .ToList();
 
         return bankLines
