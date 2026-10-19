@@ -168,7 +168,7 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         var piQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
         var poItemIds = po.Items.Select(i => i.Id).ToList();
         var draftInvoices = piQuery
-            .Where(pi => pi.Status == Core.DocumentStatus.Draft)
+            .Where(pi => pi.Status == Core.DocumentStatus.Draft && !pi.IsReturn)
             .SelectMany(pi => pi.Items)
             .Where(i => i.PurchaseOrderItemId.HasValue && poItemIds.Contains(i.PurchaseOrderItemId.Value))
             .ToList();

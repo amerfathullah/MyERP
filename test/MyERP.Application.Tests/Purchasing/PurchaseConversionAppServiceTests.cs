@@ -276,4 +276,49 @@ public abstract class PurchaseConversionAppServiceTests<TStartupModule> : MyERPA
             }
         });
     }
+
+    [Fact]
+    public async Task ConvertPurchaseOrderToInvoice_Leaves_Draft_Returns_Out_Of_Draft_Billed_Qty()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var poRepo = GetRequiredService<IRepository<PurchaseOrder, Guid>>();
+            var piRepo = GetRequiredService<IRepository<PurchaseInvoice, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var conversionService = GetRequiredService<IPurchaseConversionAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Order Neutral Corp") { CurrencyCode = "MYR" }, autoSave: true);
+            var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "Neutral Supplier", company.TenantId), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "ITEM-NEUTRAL", "Neutral Item", ItemType.Goods)
+            {
+                MaintainStock = true,
+                Uom = "Unit"
+            }, autoSave: true);
+
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PIS", "PurchaseInvoice", "PI-"), autoSave: true);
+
+            var po = new PurchaseOrder(Guid.NewGuid(), company.Id, supplier.Id, "PO-NEUT-001", DateTime.UtcNow.Date, company.TenantId);
+            po.AddItem(item.Id, "Neutral Item", 10m, 100m, 0m, "Unit");
+            po.Submit();
+            await poRepo.InsertAsync(po, autoSave: true);
+
+            // Draft debit note against the PO (is_return = 1)
+            var draftDebitNote = new PurchaseInvoice(Guid.NewGuid(), company.Id, supplier.Id, "PI-RET-001", DateTime.UtcNow.Date, company.TenantId)
+            {
+                IsReturn = true
+            };
+            draftDebitNote.AddItem(item.Id, "Neutral Item", -4m, 100m, 0m, "Unit");
+            draftDebitNote.Items.First().PurchaseOrderItemId = po.Items.First().Id;
+            await piRepo.InsertAsync(draftDebitNote, autoSave: true);
+
+            // Convert PO to PI: should bill full 10 units (draft debit note must not deduct from pending qty)
+            var piDto = await conversionService.ConvertPurchaseOrderToInvoiceAsync(po.Id);
+            piDto.ShouldNotBeNull();
+            piDto.Items.Count.ShouldBe(1);
+            piDto.Items[0].Quantity.ShouldBe(10m);
+        });
+    }
 }
