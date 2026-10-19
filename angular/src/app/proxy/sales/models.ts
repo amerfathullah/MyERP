@@ -151,6 +151,7 @@ export interface CreateDeliveryNoteItemDto {
   uom?: string;
   salesOrderItemId?: string | null;
   pickListItemId?: string | null;
+  conversionFactor?: number | null;
 }
 
 export interface CreateDeliveryNoteResultDto {
@@ -422,6 +423,7 @@ export interface CreateSalesInvoiceItemDto {
   serviceStopDate?: string | null;
   isFixedAsset?: boolean;
   assetId?: string | null;
+  conversionFactor?: number | null;
 }
 
 export interface CreateSalesOrderDto {

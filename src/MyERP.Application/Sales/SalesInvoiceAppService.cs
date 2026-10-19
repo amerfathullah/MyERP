@@ -601,9 +601,10 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         }
 
         Guid? returnAgainstPriceListId = null;
+        SalesInvoice? originalInvoice = null;
         if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
         {
-            var originalInvoice = await _repository.FindAsync(invoice.ReturnAgainstId.Value);
+            originalInvoice = await _repository.FindAsync(invoice.ReturnAgainstId.Value);
             // Per ERPNext PR #59860 / commit bdab118b3a: require returned voucher's party to match before allowing its price list
             if (originalInvoice != null && originalInvoice.CustomerId == invoice.CustomerId)
             {
@@ -726,7 +727,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         var companyForAcct = await _companyRepository.GetAsync(input.CompanyId);
         if ((input.IsReturn || input.IsDebitNote) && input.ReturnAgainstId.HasValue)
         {
-            var originalInvoice = await _repository.GetAsync(input.ReturnAgainstId.Value);
+            originalInvoice ??= await _repository.GetAsync(input.ReturnAgainstId.Value);
 
             // Validate customer and company match original document (ERPNext PR #48588 / commit e073075834)
             if (originalInvoice.CustomerId != input.CustomerId || originalInvoice.CompanyId != input.CompanyId)
@@ -798,6 +799,20 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             var added = invoice.Items.Last();
             added.SalesOrderItemId = item.SalesOrderItemId;
             added.DeliveryNoteItemId = item.DeliveryNoteItemId;
+
+            if (originalInvoice != null)
+            {
+                var origItem = originalInvoice.Items.FirstOrDefault(oi =>
+                    (item.SalesOrderItemId.HasValue && oi.SalesOrderItemId == item.SalesOrderItemId) ||
+                    (item.DeliveryNoteItemId.HasValue && oi.DeliveryNoteItemId == item.DeliveryNoteItemId) ||
+                    (!item.SalesOrderItemId.HasValue && !item.DeliveryNoteItemId.HasValue && oi.ItemId == item.ItemId));
+                if (origItem != null)
+                {
+                    added.SalesOrderItemId ??= origItem.SalesOrderItemId;
+                    added.DeliveryNoteItemId ??= origItem.DeliveryNoteItemId;
+                }
+            }
+
             added.IsFixedAsset = item.IsFixedAsset;
             added.AssetId = item.AssetId;
             if (item.EnableDeferredRevenue)
@@ -819,7 +834,12 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             if (itemEntity != null)
             {
                 siItem.StockUom = itemEntity.Uom ?? "Unit";
-                if (!string.IsNullOrEmpty(siItem.Uom) && siItem.Uom != siItem.StockUom)
+                var inputItem = input.Items.FirstOrDefault(i => i.ItemId == siItem.ItemId);
+                if (inputItem?.ConversionFactor.HasValue == true && inputItem.ConversionFactor.Value > 0)
+                {
+                    siItem.ConversionFactor = inputItem.ConversionFactor.Value;
+                }
+                else if (!string.IsNullOrEmpty(siItem.Uom) && !string.Equals(siItem.Uom, siItem.StockUom, StringComparison.OrdinalIgnoreCase))
                 {
                     siItem.ConversionFactor = await uomSvc.GetConversionFactorAsync(
                         siItem.ItemId, siItem.Uom, siItem.StockUom);
@@ -1430,8 +1450,11 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             await _invoiceManager.ValidateLinkedDeliveryNotesAsync(invoice);
         }
 
-        // Per ERPNext PR #56410: update linked Sales Order BilledQty on both SI and Credit Note submit
+        // Per ERPNext PR #56410 & PR #60569: update linked Sales Order BilledQty on both SI and Credit Note submit
         await _invoiceManager.UpdateLinkedOrderBillingAsync(invoice);
+
+        // Per ERPNext PR #60569: update linked Sales Order DeliveredQty & ReturnedQty when UpdateStock=true
+        await _invoiceManager.UpdateLinkedOrderStockDeliveryAsync(invoice);
 
         // DN BilledQty update: track which DN items have been billed
         // Per ERPNext: update_billed_amount_based_on_dn FIFO billing status
@@ -1701,6 +1724,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         // Reverse linked Sales Order BilledQty (domain service)
         await _invoiceManager.UpdateLinkedOrderBillingAsync(invoice, reverse: true);
+
+        // Reverse linked Sales Order DeliveredQty & ReturnedQty when UpdateStock=true (PR #60569)
+        await _invoiceManager.UpdateLinkedOrderStockDeliveryAsync(invoice, reverse: true);
 
         // Reverse DN BilledQty (domain service)
         await _invoiceManager.UpdateLinkedDeliveryNoteBillingAsync(invoice, reverse: true);

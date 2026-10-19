@@ -283,19 +283,42 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         // Add items + resolve UOM conversion
         var uomService = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.UomConversionService>();
         var itemRepoForUom = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+
+        DeliveryNote? originalDnForReturn = null;
+        if (dn.IsReturn && dn.ReturnAgainstId.HasValue)
+        {
+            originalDnForReturn = await _repository.FindAsync(dn.ReturnAgainstId.Value);
+        }
+
         foreach (var item in input.Items)
         {
+            var soItemId = item.SalesOrderItemId;
+            if (!soItemId.HasValue && originalDnForReturn != null)
+            {
+                var origItem = originalDnForReturn.Items.FirstOrDefault(oi => oi.ItemId == item.ItemId);
+                if (origItem?.SalesOrderItemId.HasValue == true)
+                {
+                    soItemId = origItem.SalesOrderItemId;
+                }
+            }
+
             var qty = dn.IsReturn ? -Math.Abs(item.Quantity) : item.Quantity;
             dn.AddItem(item.ItemId, item.Description, qty, item.UnitPrice,
-                item.TaxAmount, item.Uom, item.SalesOrderItemId, item.PickListItemId);
+                item.TaxAmount, item.Uom, soItemId, item.PickListItemId);
             var lastItem = dn.Items[^1];
             var itemEntity = await itemRepoForUom.FindAsync(item.ItemId);
             if (itemEntity != null)
             {
                 lastItem.StockUom = itemEntity.Uom;
-                if (!string.Equals(lastItem.Uom, itemEntity.Uom, StringComparison.OrdinalIgnoreCase))
+                if (item.ConversionFactor.HasValue && item.ConversionFactor.Value > 0)
+                {
+                    lastItem.ConversionFactor = item.ConversionFactor.Value;
+                }
+                else if (!string.Equals(lastItem.Uom, itemEntity.Uom, StringComparison.OrdinalIgnoreCase))
+                {
                     lastItem.ConversionFactor = await uomService.GetConversionFactorAsync(
                         item.ItemId, lastItem.Uom, itemEntity.Uom);
+                }
             }
         }
 
@@ -544,7 +567,11 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                             (!returnItem.SalesOrderItemId.HasValue && i.ItemId == returnItem.ItemId));
                         if (origItem != null)
                         {
-                            origItem.ReturnedQty += Math.Abs(returnItem.Quantity);
+                            var returnFactor = returnItem.ConversionFactor > 0 ? returnItem.ConversionFactor : 1m;
+                            var origFactor = origItem.ConversionFactor > 0 ? origItem.ConversionFactor : 1m;
+                            var returnedInOrigUom = (Math.Abs(returnItem.Quantity) * returnFactor) / origFactor;
+
+                            origItem.ReturnedQty += returnedInOrigUom;
                         }
                     }
                     originalDn.UpdateBillingStatus();
@@ -1098,7 +1125,11 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                         (!returnItem.SalesOrderItemId.HasValue && i.ItemId == returnItem.ItemId));
                     if (origItem != null)
                     {
-                        origItem.ReturnedQty = Math.Max(0, origItem.ReturnedQty - Math.Abs(returnItem.Quantity));
+                        var returnFactor = returnItem.ConversionFactor > 0 ? returnItem.ConversionFactor : 1m;
+                        var origFactor = origItem.ConversionFactor > 0 ? origItem.ConversionFactor : 1m;
+                        var returnedInOrigUom = (Math.Abs(returnItem.Quantity) * returnFactor) / origFactor;
+
+                        origItem.ReturnedQty = Math.Max(0, origItem.ReturnedQty - returnedInOrigUom);
                     }
                 }
                 originalDn.UpdateBillingStatus();
@@ -1208,7 +1239,10 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     var soItem = so.Items.FirstOrDefault(i => i.Id == dnItem.SalesOrderItemId.Value);
                     if (soItem == null) continue;
 
-                    var qty = Math.Abs(dnItem.Quantity);
+                    var dnFactor = dnItem.ConversionFactor > 0 ? dnItem.ConversionFactor : 1m;
+                    var soFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                    var qty = (Math.Abs(dnItem.Quantity) * dnFactor) / soFactor;
+
                     if (isReturn)
                     {
                         if (isReversal) // cancelling a return DN

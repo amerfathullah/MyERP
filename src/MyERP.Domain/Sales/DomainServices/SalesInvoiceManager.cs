@@ -230,14 +230,18 @@ public class SalesInvoiceManager : DomainService
                         .WithData("detail", $"Item {siItem.Description} is closed in Sales Order {so.OrderNumber} and cannot be processed further.");
                 }
 
+                var siFactor = siItem.ConversionFactor > 0 ? siItem.ConversionFactor : 1m;
+                var soFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                var siQtyInSoUom = (siItem.Quantity * siFactor) / soFactor;
+
                 var maxAllowedTotal = soItem.Quantity * (1m + overBillingAllowancePct / 100m);
-                if (soItem.BilledQty + siItem.Quantity > maxAllowedTotal)
+                if (soItem.BilledQty + siQtyInSoUom > maxAllowedTotal)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.OverBilling)
                         .WithData("itemName", siItem.Description)
                         .WithData("orderedQty", soItem.Quantity)
                         .WithData("billedQty", soItem.BilledQty)
-                        .WithData("attemptedQty", siItem.Quantity);
+                        .WithData("attemptedQty", siQtyInSoUom);
                 }
             }
         }
@@ -245,6 +249,7 @@ public class SalesInvoiceManager : DomainService
 
     /// <summary>
     /// Updates linked Sales Order BilledQty and fulfillment status after SI submit.
+    /// Per ERPNext PR #60569: converts invoice quantity to Sales Order item UOM.
     /// </summary>
     public async Task UpdateLinkedOrderBillingAsync(SalesInvoice invoice, bool reverse = false)
     {
@@ -273,10 +278,14 @@ public class SalesInvoiceManager : DomainService
                 var soItem = so.Items.FirstOrDefault(i => i.Id == siItem.SalesOrderItemId!.Value);
                 if (soItem != null)
                 {
+                    var siFactor = siItem.ConversionFactor > 0 ? siItem.ConversionFactor : 1m;
+                    var soFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                    var deltaInSoUom = (siItem.Quantity * siFactor) / soFactor;
+
                     if (reverse)
-                        soItem.BilledQty = Math.Max(0, soItem.BilledQty - siItem.Quantity);
+                        soItem.BilledQty = Math.Max(0, soItem.BilledQty - deltaInSoUom);
                     else
-                        soItem.BilledQty += siItem.Quantity;
+                        soItem.BilledQty = Math.Max(0, soItem.BilledQty + deltaInSoUom);
                 }
             }
             so.UpdateFulfillmentStatus();
@@ -449,9 +458,74 @@ public class SalesInvoiceManager : DomainService
     }
 
     /// <summary>
+    /// Updates linked Sales Order DeliveredQty and ReturnedQty when Sales Invoice has UpdateStock=true.
+    /// Per ERPNext PR #60569 (commit aaf0a339a3 / 7fbbbfff20):
+    /// Sums quantity in stock UOM and divides by Sales Order item conversion factor.
+    /// </summary>
+    public async Task UpdateLinkedOrderStockDeliveryAsync(SalesInvoice invoice, bool reverse = false)
+    {
+        if (!invoice.UpdateStock) return;
+
+        var soItemIds = invoice.Items
+            .Where(i => i.SalesOrderItemId.HasValue)
+            .Select(i => i.SalesOrderItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!soItemIds.Any()) return;
+
+        var orderQuery = await _orderRepository.GetQueryableAsync();
+        var affectedOrders = orderQuery
+            .Where(so => so.Items.Any(soi => soItemIds.Contains(soi.Id)))
+            .ToList();
+
+        foreach (var so in affectedOrders)
+        {
+            foreach (var siItem in invoice.Items.Where(i => i.SalesOrderItemId.HasValue))
+            {
+                var soItem = so.Items.FirstOrDefault(i => i.Id == siItem.SalesOrderItemId!.Value);
+                if (soItem == null) continue;
+
+                var siFactor = siItem.ConversionFactor > 0 ? siItem.ConversionFactor : 1m;
+                var soFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                var qtyInSoUom = (Math.Abs(siItem.Quantity) * siFactor) / soFactor;
+
+                if (invoice.IsReturn)
+                {
+                    if (reverse) // cancelling credit note with update_stock
+                    {
+                        soItem.ReturnedQty = Math.Max(0, soItem.ReturnedQty - qtyInSoUom);
+                        soItem.DeliveredQty += qtyInSoUom;
+                    }
+                    else // submitting credit note with update_stock
+                    {
+                        soItem.ReturnedQty += qtyInSoUom;
+                        soItem.DeliveredQty = Math.Max(0, soItem.DeliveredQty - qtyInSoUom);
+                    }
+                }
+                else
+                {
+                    if (reverse) // cancelling invoice with update_stock
+                    {
+                        soItem.DeliveredQty = Math.Max(0, soItem.DeliveredQty - qtyInSoUom);
+                    }
+                    else // submitting invoice with update_stock
+                    {
+                        soItem.DeliveredQty += qtyInSoUom;
+                    }
+                }
+            }
+            so.UpdateFulfillmentStatus();
+            await _orderRepository.UpdateAsync(so, autoSave: true);
+        }
+    }
+
+    /// <summary>
     /// Updates linked Delivery Note BilledQty after Sales Invoice submit/cancel.
-    /// Per ERPNext: update_billed_amount_in_dn updates DN Item billed_amt using FIFO.
-    /// When reverse=true (cancel), decrements BilledQty.
+    /// Per ERPNext PR #60570:
+    /// Invoiced quantity mapped from Sales Invoice Items to Delivery Note Items sums in stock UOM
+    /// and divides by the Delivery Note item's conversion factor: (Sum(sii.qty * sii.conversion_factor) / dni.conversion_factor).
+    /// When reverse=true (cancel), reverses the change.
     /// </summary>
     public async Task UpdateLinkedDeliveryNoteBillingAsync(SalesInvoice invoice, bool reverse = false)
     {
@@ -480,12 +554,17 @@ public class SalesInvoiceManager : DomainService
                 var dnItem = dn.Items.FirstOrDefault(i => i.Id == siItem.DeliveryNoteItemId!.Value);
                 if (dnItem != null)
                 {
+                    var siFactor = siItem.ConversionFactor > 0 ? siItem.ConversionFactor : 1m;
+                    var dnFactor = dnItem.ConversionFactor > 0 ? dnItem.ConversionFactor : 1m;
+                    var billedDelta = (siItem.Quantity * siFactor) / dnFactor;
+
                     if (reverse)
-                        dnItem.BilledQty = Math.Max(0, dnItem.BilledQty - Math.Abs(siItem.Quantity));
+                        dnItem.BilledQty = Math.Max(0, dnItem.BilledQty - billedDelta);
                     else
-                        dnItem.BilledQty += Math.Abs(siItem.Quantity);
+                        dnItem.BilledQty = Math.Max(0, dnItem.BilledQty + billedDelta);
                 }
             }
+            dn.UpdateBillingStatus();
             await dnRepo.UpdateAsync(dn, autoSave: true);
         }
     }

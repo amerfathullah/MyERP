@@ -283,6 +283,7 @@ public class CreateSalesInvoiceItemDto
     public DateTime? ServiceStopDate { get; set; }
     public bool IsFixedAsset { get; set; }
     public Guid? AssetId { get; set; }
+    public decimal? ConversionFactor { get; set; }
 }
 
 /// <summary>

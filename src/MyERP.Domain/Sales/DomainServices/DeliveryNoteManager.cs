@@ -63,7 +63,7 @@ public class DeliveryNoteManager : DomainService
         var company = await _companyRepository.GetAsync(dn.CompanyId);
         var allowancePct = company.OverDeliveryReceiptAllowance;
 
-        var uomRepo = _uomRepository ?? LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
+        var uomRepo = _uomRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Uom, Guid>>();
         Dictionary<string, bool> wholeNumberUoms = new(StringComparer.OrdinalIgnoreCase);
         if (uomRepo != null)
         {
@@ -92,13 +92,17 @@ public class DeliveryNoteManager : DomainService
             var maxAllowedTotal = soItem.GetMaxDeliverableQty(allowancePct, isWhole);
             var remainingAllowed = maxAllowedTotal - soItem.DeliveredQty;
 
-            if (dnItem.Quantity > remainingAllowed)
+            var dnFactor = dnItem.ConversionFactor > 0 ? dnItem.ConversionFactor : 1m;
+            var soFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+            var dnQtyInSoUom = (dnItem.Quantity * dnFactor) / soFactor;
+
+            if (dnQtyInSoUom > remainingAllowed)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.OverDelivery)
                     .WithData("itemName", dnItem.Description)
                     .WithData("orderedQty", soItem.Quantity)
                     .WithData("deliveredQty", soItem.DeliveredQty)
-                    .WithData("attemptedQty", dnItem.Quantity);
+                    .WithData("attemptedQty", dnQtyInSoUom);
             }
         }
     }
