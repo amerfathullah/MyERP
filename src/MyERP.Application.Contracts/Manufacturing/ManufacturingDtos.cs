@@ -429,6 +429,7 @@ public interface IManufacturingAppService : IApplicationService
     Task<ReplaceBomResultDto> ReplaceBomAsync(ReplaceBomDto input);
     Task<BomDiffResultDto> GetBomDiffAsync(BomDiffRequestDto input);
     Task<SubcontractingBomItemsDto> GetBomItemsForSubcontractingAsync(Guid itemId, Guid companyId, decimal fgQty = 1);
+    Task<BomDto> CreateBomFromWorkOrderAsync(Guid workOrderId);
 
     // Work Order
     Task<WorkOrderDto> GetWorkOrderAsync(Guid id);

@@ -104,6 +104,9 @@ public class ManufacturingController : MyERPController
     [HttpPost("bom/diff")]
     public Task<BomDiffResultDto> GetBomDiffAsync([FromBody] BomDiffRequestDto input) => _service.GetBomDiffAsync(input);
 
+    [HttpPost("work-order/{id}/create-bom")]
+    public Task<BomDto> CreateBomFromWorkOrderAsync(Guid id) => _service.CreateBomFromWorkOrderAsync(id);
+
     // Work Order
     [HttpGet("work-order/{id}")]
     public Task<WorkOrderDto> GetWorkOrderAsync(Guid id) => _service.GetWorkOrderAsync(id);

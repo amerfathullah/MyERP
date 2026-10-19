@@ -638,6 +638,12 @@ public class WorkOrderManager : DomainService
                 && w.Status != WorkOrderStatus.Cancelled)
             .ToList();
 
+        // Per ERPNext PR #60647 (commit 025e87f906): filter other work orders by SalesOrderItemId when present
+        if (wo.SalesOrderItemId.HasValue)
+        {
+            otherWos = otherWos.Where(w => w.SalesOrderItemId == wo.SalesOrderItemId.Value).ToList();
+        }
+
         var orderedQtyAgainstSo = otherWos.Sum(w => GetWorkOrderQtyAgainstSalesOrder(w, forOpenWorkOrderQty: true));
         var totalQty = orderedQtyAgainstSo + (wo.Quantity - wo.ProcessLossQty);
 
@@ -695,6 +701,57 @@ public class WorkOrderManager : DomainService
         }
 
         await salesOrderRepository.UpdateAsync(so);
+    }
+
+    /// <summary>
+    /// Distributes transferred quantity across Work Order required item rows matching the item and source warehouse.
+    /// Matches rows with the same SourceWarehouseId first, then distributes proportionally by RequiredQuantity.
+    /// If no rows match the warehouse, falls back to all rows of that item.
+    /// Per ERPNext PR #60647 (commits 90bc4f1f68, a5ad71eb25, a036285538 / distribute_transfers_over_rows).
+    /// </summary>
+    public static void DistributeTransferredQuantity(
+        WorkOrder wo,
+        Guid itemId,
+        Guid? sourceWarehouseId,
+        decimal quantity,
+        bool isDeduction = false)
+    {
+        var itemRows = wo.RequiredItems.Where(r => r.ItemId == itemId).ToList();
+        if (!itemRows.Any()) return;
+
+        var matchingRows = (sourceWarehouseId.HasValue
+            ? itemRows.Where(r => r.SourceWarehouseId == sourceWarehouseId.Value).ToList()
+            : new List<WorkOrderItem>());
+
+        var targetRows = matchingRows.Count > 0 ? matchingRows : itemRows;
+        var totalRequired = targetRows.Sum(r => r.RequiredQuantity);
+
+        var remaining = quantity;
+        for (int i = 0; i < targetRows.Count; i++)
+        {
+            var row = targetRows[i];
+            decimal share;
+            if (i == targetRows.Count - 1)
+            {
+                share = remaining;
+            }
+            else
+            {
+                share = totalRequired > 0
+                    ? Math.Round(quantity * (row.RequiredQuantity / totalRequired), 4)
+                    : 0m;
+                remaining -= share;
+            }
+
+            if (isDeduction)
+            {
+                row.TransferredQuantity = Math.Max(0m, row.TransferredQuantity - share);
+            }
+            else
+            {
+                row.TransferredQuantity += share;
+            }
+        }
     }
 }
 

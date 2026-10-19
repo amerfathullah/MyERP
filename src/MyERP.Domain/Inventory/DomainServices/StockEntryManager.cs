@@ -367,10 +367,9 @@ public class StockEntryManager : DomainService
 
         foreach (var (itemId, returnedQty) in returnedByItem)
         {
-            var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == itemId);
-            var returnable = existingWoItem != null
-                ? Math.Max(0m, existingWoItem.TransferredQuantity - existingWoItem.ConsumedQuantity)
-                : 0m;
+            var matchingItems = wo.RequiredItems.Where(ri => ri.ItemId == itemId).ToList();
+            var returnable = matchingItems.Sum(ri => Math.Max(0m, ri.TransferredQuantity - ri.ConsumedQuantity));
+            var existingWoItem = matchingItems.FirstOrDefault();
 
             if (returnedQty > returnable)
             {

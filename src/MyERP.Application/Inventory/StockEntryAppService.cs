@@ -489,11 +489,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                     wo.MaterialTransferred = Math.Max(0, wo.MaterialTransferred - totalTransferredQty);
                     foreach (var seItem in entry.Items)
                     {
-                        var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
-                        if (existingWoItem != null)
-                        {
-                            existingWoItem.TransferredQuantity = Math.Max(0, existingWoItem.TransferredQuantity - seItem.Quantity);
-                        }
+                        Manufacturing.DomainServices.WorkOrderManager.DistributeTransferredQuantity(
+                            wo, seItem.ItemId, seItem.SourceWarehouseId, seItem.Quantity, isDeduction: true);
 
                         if (seItem.SourceWarehouseId.HasValue)
                         {
@@ -521,10 +518,11 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
                     foreach (var seItem in entry.Items)
                     {
-                        var existingWoItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
-                        if (existingWoItem != null)
+                        var hasExisting = wo.RequiredItems.Any(ri => ri.ItemId == seItem.ItemId);
+                        if (hasExisting)
                         {
-                            existingWoItem.TransferredQuantity += seItem.Quantity;
+                            Manufacturing.DomainServices.WorkOrderManager.DistributeTransferredQuantity(
+                                wo, seItem.ItemId, seItem.SourceWarehouseId, seItem.Quantity, isDeduction: false);
                         }
                         else if (!disallowAdditionalItems)
                         {
@@ -996,11 +994,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                     woForTransfer.RecordMaterialTransfer(totalTransferredQty);
                     foreach (var seItem in entry.Items)
                     {
-                        var reqItem = woForTransfer.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
-                        if (reqItem != null)
-                        {
-                            reqItem.TransferredQuantity += seItem.Quantity;
-                        }
+                        Manufacturing.DomainServices.WorkOrderManager.DistributeTransferredQuantity(
+                            woForTransfer, seItem.ItemId, seItem.SourceWarehouseId, seItem.Quantity, isDeduction: false);
                     }
                 }
                 else
@@ -1016,11 +1011,8 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         }
                         else
                         {
-                            var reqItem = woForTransfer.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
-                            if (reqItem != null)
-                            {
-                                reqItem.TransferredQuantity = Math.Max(0, reqItem.TransferredQuantity - seItem.Quantity);
-                            }
+                            Manufacturing.DomainServices.WorkOrderManager.DistributeTransferredQuantity(
+                                woForTransfer, seItem.ItemId, seItem.SourceWarehouseId, seItem.Quantity, isDeduction: true);
 
                             // Per ERPNext PR #59424 / commit dbada3f461: revert transfer on work order reservations with batch matching
                             if (seItem.SourceWarehouseId.HasValue)
@@ -1250,11 +1242,21 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         entry.EntryNumber = await numberGenerator.GenerateAsync("SE", wo.CompanyId);
         entry.Notes = $"Material Transfer for Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}";
 
-        // Add raw materials (only pending qty not yet transferred)
+        // Add raw materials (only pending qty not yet transferred, considering transfer extra allowance)
+        // Per ERPNext PR #60647 / commit 9122afdd1d: check transfer_extra_materials_percentage before overproduction_percentage
+        var mfgSettingsRepoForTransfer = LazyServiceProvider.LazyGetService<IRepository<Manufacturing.Entities.ManufacturingSettings, Guid>>();
+        var mfgSettingsForTransfer = mfgSettingsRepoForTransfer != null
+            ? (await mfgSettingsRepoForTransfer.GetQueryableAsync()).FirstOrDefault(s => s.CompanyId == wo.CompanyId)
+            : null;
+        var transferExtraPct = mfgSettingsForTransfer?.TransferExtraMaterialsPercentage > 0
+            ? mfgSettingsForTransfer.TransferExtraMaterialsPercentage
+            : (mfgSettingsForTransfer?.OverproductionPercentage ?? 0m);
+
         var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
         foreach (var woItem in wo.RequiredItems)
         {
-            var pendingQty = woItem.RequiredQuantity - woItem.TransferredQuantity;
+            var maxAllowedTransfer = woItem.RequiredQuantity * (1m + transferExtraPct / 100m);
+            var pendingQty = maxAllowedTransfer - woItem.TransferredQuantity;
             if (pendingQty <= 0) continue;
 
             // Find BOM item for valuation rate

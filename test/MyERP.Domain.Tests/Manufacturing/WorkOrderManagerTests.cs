@@ -591,8 +591,12 @@ public class WorkOrderManagerTests
         wo.Stop();
         wo.Status.ShouldBe(WorkOrderStatus.Stopped);
 
-        // Can unstop from stopped
+        // Can unstop from stopped (resumes to NotStarted when no material transferred yet)
         wo.Unstop();
+        wo.Status.ShouldBe(WorkOrderStatus.NotStarted);
+
+        // Can start to InProcess
+        wo.Start();
         wo.Status.ShouldBe(WorkOrderStatus.InProcess);
 
         // Can close from InProcess
@@ -721,6 +725,140 @@ public class WorkOrderManagerTests
         soItem.ProducedQty.ShouldBe(70m);
 
         await salesOrderRepo.Received(1).UpdateAsync(so);
+    }
+
+    [Fact]
+    public async Task ValidateWorkOrderAgainstSalesOrderAsync_FiltersBySalesOrderItemId()
+    {
+        var itemRepo = Substitute.For<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = Substitute.For<IRepository<ManufacturingSettings, Guid>>();
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        var salesOrderRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var workOrderRepo = Substitute.For<IRepository<WorkOrder, Guid>>();
+
+        var salesOrderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var so = new SalesOrder(salesOrderId, CompanyId, customerId, "SO-002", DateTime.UtcNow);
+        // Two lines of the same ItemId: row1 has qty 5, row2 has qty 3
+        so.AddItem(ItemId, "FG Item Row 1", 5m, 100m, 0m);
+        so.AddItem(ItemId, "FG Item Row 2", 3m, 100m, 0m);
+        var row1 = so.Items[0];
+        var row2 = so.Items[1];
+
+        // WO 1 is for row 1 with qty 5 (submitted)
+        var wo1 = CreateWorkOrder(5m);
+        wo1.SalesOrderId = salesOrderId;
+        wo1.SalesOrderItemId = row1.Id;
+        wo1.Submit();
+
+        // WO 2 is for row 2 with qty 3 (draft to validate)
+        var wo2 = CreateWorkOrder(3m);
+        wo2.SalesOrderId = salesOrderId;
+        wo2.SalesOrderItemId = row2.Id;
+
+        salesOrderRepo.FindAsync(salesOrderId, includeDetails: true).Returns(Task.FromResult<SalesOrder?>(so));
+        workOrderRepo.GetQueryableAsync().Returns(Task.FromResult(new List<WorkOrder> { wo1 }.AsQueryable()));
+
+        // Should not throw because otherWos for row2 is empty, allowing qty 3 against row2 limit 3
+        await manager.ValidateWorkOrderAgainstSalesOrderAsync(wo2, salesOrderRepo, workOrderRepo, overproductionPercentageForSalesOrder: 0m);
+
+        // However, attempting qty 4 on row 2 should throw overproduction
+        wo2.Quantity = 4m;
+        await Should.ThrowAsync<BusinessException>(async () =>
+            await manager.ValidateWorkOrderAgainstSalesOrderAsync(wo2, salesOrderRepo, workOrderRepo, overproductionPercentageForSalesOrder: 0m));
+    }
+
+    [Fact]
+    public void DistributeTransferredQuantity_MatchesSourceWarehouseFirst()
+    {
+        var wo = CreateWorkOrder(10m);
+        var wh1 = Guid.NewGuid();
+        var wh2 = Guid.NewGuid();
+
+        var item1 = new WorkOrderItem(Guid.NewGuid(), wo.Id, ItemId, "Raw Material 1", 4m)
+        {
+            SourceWarehouseId = wh1
+        };
+        var item2 = new WorkOrderItem(Guid.NewGuid(), wo.Id, ItemId, "Raw Material 2", 4m)
+        {
+            SourceWarehouseId = wh2
+        };
+        wo.RequiredItems.Add(item1);
+        wo.RequiredItems.Add(item2);
+
+        // Transfer 4 units from wh1 -> should all go to item1
+        WorkOrderManager.DistributeTransferredQuantity(wo, ItemId, wh1, 4m, isDeduction: false);
+        item1.TransferredQuantity.ShouldBe(4m);
+        item2.TransferredQuantity.ShouldBe(0m);
+
+        // Deduct 2 units from wh1 -> should reduce item1
+        WorkOrderManager.DistributeTransferredQuantity(wo, ItemId, wh1, 2m, isDeduction: true);
+        item1.TransferredQuantity.ShouldBe(2m);
+        item2.TransferredQuantity.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void DistributeTransferredQuantity_FallsBackToAllRowsProportionally()
+    {
+        var wo = CreateWorkOrder(10m);
+        var whOther = Guid.NewGuid();
+
+        var item1 = new WorkOrderItem(Guid.NewGuid(), wo.Id, ItemId, "Raw Material 1", 6m)
+        {
+            SourceWarehouseId = Guid.NewGuid()
+        };
+        var item2 = new WorkOrderItem(Guid.NewGuid(), wo.Id, ItemId, "Raw Material 2", 4m)
+        {
+            SourceWarehouseId = Guid.NewGuid()
+        };
+        wo.RequiredItems.Add(item1);
+        wo.RequiredItems.Add(item2);
+
+        // Transfer 10 units from whOther (doesn't match either warehouse) -> split 60% and 40%
+        WorkOrderManager.DistributeTransferredQuantity(wo, ItemId, whOther, 10m, isDeduction: false);
+        item1.TransferredQuantity.ShouldBe(6m);
+        item2.TransferredQuantity.ShouldBe(4m);
+    }
+
+    [Fact]
+    public void SetProcessLossQty_PreservesClosedAndStoppedStatus()
+    {
+        var wo1 = CreateWorkOrder(10m);
+        wo1.Submit();
+        wo1.Start();
+        wo1.RecordProduction(5m);
+        wo1.Close();
+        wo1.Status.ShouldBe(WorkOrderStatus.Closed);
+
+        wo1.SetProcessLossQty(5m); // 5 produced + 5 loss = 10 (would be completed if open)
+        wo1.Status.ShouldBe(WorkOrderStatus.Closed);
+
+        var wo2 = CreateWorkOrder(10m);
+        wo2.Submit();
+        wo2.Stop();
+        wo2.Status.ShouldBe(WorkOrderStatus.Stopped);
+
+        wo2.SetProcessLossQty(10m);
+        wo2.Status.ShouldBe(WorkOrderStatus.Stopped);
+    }
+
+    [Fact]
+    public void Unstop_ResumesToInProcessIfTransferred_ElseNotStarted()
+    {
+        var wo1 = CreateWorkOrder(10m);
+        wo1.Submit();
+        wo1.Stop();
+        wo1.Unstop();
+        wo1.Status.ShouldBe(WorkOrderStatus.NotStarted);
+
+        var wo2 = CreateWorkOrder(10m);
+        wo2.Submit();
+        wo2.RecordMaterialTransfer(5m);
+        wo2.Stop();
+        wo2.Unstop();
+        wo2.Status.ShouldBe(WorkOrderStatus.InProcess);
     }
 
     // ========== Helper ==========

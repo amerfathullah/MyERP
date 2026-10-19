@@ -315,7 +315,11 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
 
         ProcessLossQty = totalProcessLoss;
-        if (ProducedQuantity + ProcessLossQty >= Quantity && Status != WorkOrderStatus.Cancelled && Status != WorkOrderStatus.Draft)
+        if (ProducedQuantity + ProcessLossQty >= Quantity
+            && Status != WorkOrderStatus.Cancelled
+            && Status != WorkOrderStatus.Draft
+            && Status != WorkOrderStatus.Closed
+            && Status != WorkOrderStatus.Stopped)
         {
             Status = WorkOrderStatus.Completed;
             ActualEndDate ??= DateTime.UtcNow;
@@ -379,7 +383,10 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("status", Status)
                 .WithData("detail", "Work Order is not stopped");
 
-        Status = WorkOrderStatus.InProcess;
+        // Per ERPNext PR #60647 / services/status.py: resume to InProcess if started, material transferred or items produced, else NotStarted
+        Status = (ActualStartDate.HasValue || MaterialTransferred > 0 || ProducedQuantity > 0)
+            ? WorkOrderStatus.InProcess
+            : WorkOrderStatus.NotStarted;
     }
 
     public void Close()

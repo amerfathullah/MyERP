@@ -437,6 +437,153 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         };
     }
 
+    /// <summary>
+    /// Creates a new BOM based on a completed/in-process Work Order.
+    /// Sets BOM output quantity to produced quantity (or planned quantity).
+    /// Gathers consumed raw material quantities from submitted Manufacture stock entries (or fallback to RequiredItems).
+    /// Scales operation times proportionally while preserving fixed and batch-based operation times.
+    /// Maps to ERPNext WorkOrder.make_bom (PR #60647 / commits 97c559cc40 & e8e732aca5).
+    /// </summary>
+    [Authorize(MyERPPermissions.Manufacturing.Create)]
+    public async Task<BomDto> CreateBomFromWorkOrderAsync(Guid workOrderId)
+    {
+        var wo = await _workOrderRepository.GetAsync(workOrderId, includeDetails: true);
+        var sourceBom = await _bomRepository.FindAsync(wo.BomId, includeDetails: true);
+
+        var bomQty = wo.ProducedQuantity > 0 ? wo.ProducedQuantity : wo.Quantity;
+        if (bomQty <= 0) bomQty = 1m;
+
+        // Query consumed materials from submitted Manufacture Stock Entries
+        var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
+        var seQuery = await seRepo.GetQueryableAsync();
+        var submittedManufactureEntries = seQuery
+            .Where(se => se.WorkOrderId == wo.Id
+                && se.EntryType == StockEntryType.Manufacture
+                && se.Status == Core.DocumentStatus.Posted
+                && !se.IsReturn)
+            .ToList();
+
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var fgItem = await itemRepo.GetAsync(wo.ItemId);
+
+        var bomItems = new List<CreateBomItemDto>();
+
+        if (submittedManufactureEntries.Any())
+        {
+            var consumedLines = submittedManufactureEntries
+                .SelectMany(se => se.Items)
+                .Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem)
+                .GroupBy(i => new { i.ItemId, i.SourceWarehouseId })
+                .Select(g => new
+                {
+                    g.Key.ItemId,
+                    g.Key.SourceWarehouseId,
+                    TotalQty = g.Sum(x => x.Quantity),
+                    AvgRate = g.Sum(x => x.Quantity) > 0 ? g.Sum(x => x.Quantity * (x.ValuationRate ?? 0m)) / g.Sum(x => x.Quantity) : 0m
+                })
+                .ToList();
+
+            var consumedItemIds = consumedLines.Select(c => c.ItemId).Distinct().ToList();
+            var consumedItemMap = (await itemRepo.GetListAsync(i => consumedItemIds.Contains(i.Id)))
+                .ToDictionary(i => i.Id);
+
+            foreach (var line in consumedLines)
+            {
+                consumedItemMap.TryGetValue(line.ItemId, out var cItem);
+                bomItems.Add(new CreateBomItemDto
+                {
+                    ItemId = line.ItemId,
+                    ItemName = cItem?.ItemName ?? "Item",
+                    Quantity = line.TotalQty,
+                    Rate = line.AvgRate,
+                    Uom = cItem?.Uom ?? "Unit"
+                });
+            }
+        }
+        else
+        {
+            var reqItemIds = wo.RequiredItems.Select(r => r.ItemId).Distinct().ToList();
+            var reqItemMap = (await itemRepo.GetListAsync(i => reqItemIds.Contains(i.Id)))
+                .ToDictionary(i => i.Id);
+
+            var ratio = wo.Quantity > 0 ? bomQty / wo.Quantity : 1m;
+            foreach (var req in wo.RequiredItems)
+            {
+                reqItemMap.TryGetValue(req.ItemId, out var rItem);
+                var rate = sourceBom?.Items.FirstOrDefault(b => b.ItemId == req.ItemId)?.Rate ?? 0m;
+                bomItems.Add(new CreateBomItemDto
+                {
+                    ItemId = req.ItemId,
+                    ItemName = req.ItemName,
+                    Quantity = Math.Round(req.RequiredQuantity * ratio, 4),
+                    Rate = rate,
+                    Uom = req.StockUom
+                });
+            }
+        }
+
+        if (!bomItems.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems)
+                .WithData("detail", "Cannot create BOM from Work Order without consumed materials.");
+        }
+
+        // Build operations with proportional or fixed times
+        var bomOps = new List<CreateBomOperationDto>();
+        if (sourceBom != null && sourceBom.Operations.Any())
+        {
+            foreach (var op in sourceBom.Operations)
+            {
+                decimal timeInMins;
+                int batchSize = op.BatchSize;
+
+                if (op.FixedTime > 0 || op.BatchSize > 0)
+                {
+                    timeInMins = op.TimeInMins;
+                }
+                else
+                {
+                    var sourceBomQty = sourceBom.Quantity > 0 ? sourceBom.Quantity : 1m;
+                    var timePerUnit = op.TimeInMins / sourceBomQty;
+                    timeInMins = Math.Round(timePerUnit * bomQty, 2);
+                }
+
+                bomOps.Add(new CreateBomOperationDto
+                {
+                    OperationId = op.OperationId,
+                    WorkstationId = op.WorkstationId,
+                    TimeInMins = timeInMins,
+                    FixedTime = op.FixedTime,
+                    BatchSize = batchSize,
+                    SequenceId = op.SequenceId,
+                    WorkstationTypeId = op.WorkstationTypeId,
+                    Description = op.Description,
+                    IsSubcontracted = op.IsSubcontracted,
+                    QualityInspectionRequired = op.QualityInspectionRequired,
+                    BatchSplit = op.BatchSplit,
+                    WeightPerPiece = op.WeightPerPiece,
+                    FinishedGoodItemId = op.FinishedGoodItemId
+                });
+            }
+        }
+
+        var createBomDto = new CreateBomDto
+        {
+            CompanyId = wo.CompanyId,
+            ItemId = wo.ItemId,
+            Quantity = bomQty,
+            Uom = fgItem.Uom ?? "Unit",
+            Items = bomItems,
+            Operations = bomOps,
+            SourceWarehouseId = wo.SourceWarehouseId,
+            TargetWarehouseId = wo.FgWarehouseId,
+            ScrapWarehouseId = wo.ScrapWarehouseId,
+            ProcessLossPercentage = wo.ProcessLossPercentage
+        };
+
+        return await CreateBomAsync(createBomDto);
+    }
+
     public async Task<BomDto> UpdateBomCostAsync(Guid bomId)
     {
         var bom = await _bomRepository.GetAsync(bomId, includeDetails: true);
