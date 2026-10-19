@@ -164,7 +164,7 @@ public class JobCardManager : DomainService
 
     /// <summary>
     /// Validates workstation capacity before starting a Job Card.
-    /// Per ERPNext: if num_slots >= workstation.ProductionCapacity → overlap error.
+    /// Per ERPNext PR #60650: multi-slot capacity check using slot allocation.
     /// </summary>
     public async Task ValidateCapacityAsync(JobCard jobCard)
     {
@@ -173,20 +173,154 @@ public class JobCardManager : DomainService
         var workstation = await _workstationRepository.GetAsync(jobCard.WorkstationId.Value);
         if (workstation.ProductionCapacity <= 0) return;
 
-        // Count overlapping time logs from other active job cards on the same workstation
+        var candidateFrom = DateTime.UtcNow;
+        var candidateTo = candidateFrom.AddMinutes((double)(jobCard.PlannedTimeInMins > 0 ? jobCard.PlannedTimeInMins : 30m));
+
         var queryable = await _jobCardRepository.GetQueryableAsync();
-        var overlappingCount = queryable
+        var activeJcs = queryable
             .Where(jc => jc.WorkstationId == jobCard.WorkstationId
                 && jc.Id != jobCard.Id
                 && jc.Status == JobCardStatus.WorkInProgress)
-            .Count();
+            .ToList();
 
-        if (overlappingCount >= workstation.ProductionCapacity)
+        var logs = new List<JobCardTimeLogRange>();
+        foreach (var other in activeJcs)
         {
+            if (other.TimeLogs.Any())
+            {
+                logs.AddRange(other.TimeLogs
+                    .Where(tl => tl.FromTime < candidateTo && tl.ToTime > candidateFrom)
+                    .Select(tl => new JobCardTimeLogRange(tl.FromTime, tl.ToTime, other.Id)));
+            }
+            else if (other.StartedAt.HasValue)
+            {
+                var sFrom = other.StartedAt.Value;
+                var sTo = sFrom.AddMinutes((double)(other.PlannedTimeInMins > 0 ? other.PlannedTimeInMins : 30m));
+                if (sFrom < candidateTo && sTo > candidateFrom)
+                {
+                    logs.Add(new JobCardTimeLogRange(sFrom, sTo, other.Id));
+                }
+            }
+        }
+
+        if (HasCapacityOverlap(workstation.ProductionCapacity, logs))
+        {
+            var slotsUsed = GetAllotedCapacity(MergeTimeLogsPerJobCard(logs)).Count;
             throw new BusinessException("MyERP:10012")
                 .WithData("workstation", workstation.Name)
                 .WithData("capacity", workstation.ProductionCapacity)
-                .WithData("current", overlappingCount);
+                .WithData("current", slotsUsed);
+        }
+    }
+
+    /// <summary>
+    /// Merges time logs for the same Job Card when they are consecutive or overlapping.
+    /// Per ERPNext PR #60650 (commit 934d62446e):
+    /// Plain time logs (without JobCardId) are preserved directly in the merged collection.
+    /// </summary>
+    public static List<JobCardTimeLogRange> MergeTimeLogsPerJobCard(IEnumerable<JobCardTimeLogRange> timeLogs)
+    {
+        var logs = timeLogs.ToList();
+        var merged = logs.Where(l => !l.JobCardId.HasValue || l.JobCardId == Guid.Empty).ToList();
+
+        var namedGroups = logs
+            .Where(l => l.JobCardId.HasValue && l.JobCardId != Guid.Empty)
+            .GroupBy(l => l.JobCardId!.Value);
+
+        foreach (var group in namedGroups)
+        {
+            var sorted = group.OrderBy(l => l.FromTime).ToList();
+            foreach (var log in sorted)
+            {
+                if (merged.Count > 0 && merged[^1].JobCardId == log.JobCardId && log.FromTime < merged[^1].ToTime)
+                {
+                    var prev = merged[^1];
+                    var maxToTime = log.ToTime > prev.ToTime ? log.ToTime : prev.ToTime;
+                    merged[^1] = new JobCardTimeLogRange(prev.FromTime, maxToTime, prev.JobCardId);
+                }
+                else
+                {
+                    merged.Add(log);
+                }
+            }
+        }
+
+        return merged;
+    }
+
+    /// <summary>
+    /// Allocates time logs into capacity slots.
+    /// Each slot tracks the latest ToTime of sequential job cards.
+    /// When a log's FromTime >= slot's last ToTime, it reuses the slot (sequential).
+    /// Otherwise, a new capacity slot is opened.
+    /// </summary>
+    public static List<DateTime> GetAllotedCapacity(IEnumerable<JobCardTimeLogRange> timeLogs)
+    {
+        var sorted = timeLogs.OrderBy(l => l.FromTime).ToList();
+        if (sorted.Count == 0) return new List<DateTime>();
+
+        var allotedCapacity = new List<DateTime> { sorted[0].ToTime };
+        for (int i = 1; i < sorted.Count; i++)
+        {
+            var log = sorted[i];
+            bool sequentialFound = false;
+            for (int s = 0; s < allotedCapacity.Count; s++)
+            {
+                if (allotedCapacity[s] <= log.FromTime)
+                {
+                    allotedCapacity[s] = log.ToTime;
+                    sequentialFound = true;
+                    break;
+                }
+            }
+
+            if (!sequentialFound)
+            {
+                allotedCapacity.Add(log.ToTime);
+            }
+        }
+
+        return allotedCapacity;
+    }
+
+    /// <summary>
+    /// Determines whether the time logs exceed the workstation's production capacity.
+    /// Per ERPNext PR #60650:
+    /// - Capacity 1: overlaps if any logs exist (len >= 1).
+    /// - Capacity N: merges logs per job card, computes slots, and overlaps if slots >= capacity.
+    /// </summary>
+    public static bool HasCapacityOverlap(int productionCapacity, IEnumerable<JobCardTimeLogRange> timeLogs)
+    {
+        if (productionCapacity <= 0) return false;
+        var logs = timeLogs.ToList();
+        if (logs.Count == 0) return false;
+        if (productionCapacity == 1 && logs.Count >= 1) return true;
+
+        var merged = MergeTimeLogsPerJobCard(logs);
+        var alloted = GetAllotedCapacity(merged);
+        return alloted.Count >= productionCapacity;
+    }
+
+    /// <summary>
+    /// Validates employee overlap across time logs by TIME only.
+    /// Per ERPNext PR #60650 (commit b9ae627673):
+    /// Only actual datetime overlap (fromTimeA < toTimeB && toTimeA > fromTimeB) throws.
+    /// An employee having another open/draft job card on a different workstation
+    /// is NOT blocked unless time windows actually clash.
+    /// </summary>
+    public static void ValidateEmployeeTimeOverlap(
+        DateTime fromTime,
+        DateTime toTime,
+        IEnumerable<JobCardTimeLogRange> otherEmployeeLogs,
+        string? employeeName = null)
+    {
+        foreach (var other in otherEmployeeLogs)
+        {
+            if (other.FromTime < toTime && other.ToTime > fromTime)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Employee {(employeeName ?? "assigned")} is already working from {other.FromTime:yyyy-MM-dd HH:mm:ss} to {other.ToTime:yyyy-MM-dd HH:mm:ss} on another Job Card.");
+            }
         }
     }
 
@@ -442,3 +576,7 @@ public class JobCardManager : DomainService
         return matchingItems;
     }
 }
+
+/// <summary>Represents a time range for capacity and overlap validation (ERPNext PR #60650).</summary>
+public record JobCardTimeLogRange(DateTime FromTime, DateTime ToTime, Guid? JobCardId = null);
+

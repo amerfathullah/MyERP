@@ -317,6 +317,12 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
         await jobCardManager.ValidateWorkOrderNotClosedAsync(jc, woRepo);
 
+        if (jc.WorkstationId.HasValue)
+        {
+            var schedulingService = LazyServiceProvider.LazyGetRequiredService<WorkstationSchedulingService>();
+            await schedulingService.ValidateNoOverlapAsync(jc.WorkstationId.Value, input.FromTime, input.ToTime, jc.Id);
+        }
+
         jc.AddTimeLog(input.FromTime, input.ToTime, input.CompletedQty);
         await _repository.UpdateAsync(jc);
         return ObjectMapper.Map<JobCard, JobCardDto>(jc);

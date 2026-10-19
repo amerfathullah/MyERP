@@ -371,5 +371,95 @@ public class JobCardTests
         completedQty.ShouldBe(0m);
         pendingQty.ShouldBe(10m);
     }
+
+    // ========== ERPNext PR #60650: Capacity overlap, plain time logs, employee overlap tests ==========
+
+    [Fact]
+    public void CapacityOverlapDetection_SequentialAndOverlappingSlots()
+    {
+        // Mirrors ERPNext test_capacity_overlap_detection in test_job_card.py
+        var sequential = new List<DomainServices.JobCardTimeLogRange>
+        {
+            new(new DateTime(2026, 1, 1, 10, 0, 0), new DateTime(2026, 1, 1, 11, 0, 0)),
+            new(new DateTime(2026, 1, 1, 11, 0, 0), new DateTime(2026, 1, 1, 12, 0, 0)),
+        };
+
+        var overlapping = new List<DomainServices.JobCardTimeLogRange>
+        {
+            new(new DateTime(2026, 1, 1, 10, 0, 0), new DateTime(2026, 1, 1, 11, 0, 0)),
+            new(new DateTime(2026, 1, 1, 10, 30, 0), new DateTime(2026, 1, 1, 11, 30, 0)),
+        };
+
+        // Sequential logs share one capacity slot; overlapping logs need two
+        DomainServices.JobCardManager.GetAllotedCapacity(sequential).Count.ShouldBe(1);
+        DomainServices.JobCardManager.GetAllotedCapacity(overlapping).Count.ShouldBe(2);
+
+        // Capacity 1 overlaps with any log; capacity 2 only when both slots are taken
+        DomainServices.JobCardManager.HasCapacityOverlap(1, sequential).ShouldBeTrue();
+        DomainServices.JobCardManager.HasCapacityOverlap(2, sequential).ShouldBeFalse();
+        DomainServices.JobCardManager.HasCapacityOverlap(2, overlapping).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void MergeTimeLogsPerJobCard_AcceptsPlainTimeLogs()
+    {
+        // Per ERPNext PR #60650 (commit 934d62446e): accept plain time logs in capacity check
+        var plainLog1 = new DomainServices.JobCardTimeLogRange(new DateTime(2026, 1, 1, 10, 0, 0), new DateTime(2026, 1, 1, 11, 0, 0));
+        var plainLog2 = new DomainServices.JobCardTimeLogRange(new DateTime(2026, 1, 1, 11, 0, 0), new DateTime(2026, 1, 1, 12, 0, 0));
+
+        var merged = DomainServices.JobCardManager.MergeTimeLogsPerJobCard(new[] { plainLog1, plainLog2 });
+        merged.Count.ShouldBe(2);
+        merged[0].FromTime.ShouldBe(plainLog1.FromTime);
+        merged[1].FromTime.ShouldBe(plainLog2.FromTime);
+    }
+
+    [Fact]
+    public void MergeTimeLogsPerJobCard_MergesOverlappingLogsForSameCard()
+    {
+        var cardId = Guid.NewGuid();
+        var log1 = new DomainServices.JobCardTimeLogRange(new DateTime(2026, 1, 1, 10, 0, 0), new DateTime(2026, 1, 1, 11, 0, 0), cardId);
+        var log2 = new DomainServices.JobCardTimeLogRange(new DateTime(2026, 1, 1, 10, 30, 0), new DateTime(2026, 1, 1, 12, 0, 0), cardId);
+
+        var merged = DomainServices.JobCardManager.MergeTimeLogsPerJobCard(new[] { log1, log2 });
+        merged.Count.ShouldBe(1);
+        merged[0].FromTime.ShouldBe(new DateTime(2026, 1, 1, 10, 0, 0));
+        merged[0].ToTime.ShouldBe(new DateTime(2026, 1, 1, 12, 0, 0));
+    }
+
+    [Fact]
+    public void ValidateEmployeeTimeOverlap_NonOverlapping_DoesNotThrow()
+    {
+        // Per ERPNext PR #60650 (commit b9ae627673): check employee overlap by time only
+        // Employee with an earlier log (08:00 - 09:00) can log at 10:30 without error
+        var otherLogs = new List<DomainServices.JobCardTimeLogRange>
+        {
+            new(new DateTime(2026, 4, 1, 8, 0, 0), new DateTime(2026, 4, 1, 9, 0, 0), Guid.NewGuid())
+        };
+
+        Should.NotThrow(() =>
+            DomainServices.JobCardManager.ValidateEmployeeTimeOverlap(
+                new DateTime(2026, 4, 1, 10, 30, 0),
+                new DateTime(2026, 4, 1, 11, 30, 0),
+                otherLogs,
+                "EMP-001"));
+    }
+
+    [Fact]
+    public void ValidateEmployeeTimeOverlap_Overlapping_Throws()
+    {
+        var otherLogs = new List<DomainServices.JobCardTimeLogRange>
+        {
+            new(new DateTime(2026, 4, 1, 10, 0, 0), new DateTime(2026, 4, 1, 11, 0, 0), Guid.NewGuid())
+        };
+
+        var ex = Should.Throw<BusinessException>(() =>
+            DomainServices.JobCardManager.ValidateEmployeeTimeOverlap(
+                new DateTime(2026, 4, 1, 10, 30, 0),
+                new DateTime(2026, 4, 1, 11, 30, 0),
+                otherLogs,
+                "EMP-001"));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
 }
 

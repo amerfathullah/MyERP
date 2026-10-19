@@ -194,10 +194,34 @@ public class WorkstationSchedulingService : DomainService
         Guid workstationId, DateTime from, DateTime to, Guid? excludeId = null)
     {
         var q = await _jobCardRepository.GetQueryableAsync();
-        return q.Count(jc =>
+        var activeJcs = q.Where(jc =>
             jc.WorkstationId == workstationId
             && jc.Id != (excludeId ?? Guid.Empty)
-            && jc.Status == JobCardStatus.WorkInProgress);
+            && jc.Status == JobCardStatus.WorkInProgress)
+            .ToList();
+
+        var logs = new List<JobCardTimeLogRange>();
+        foreach (var jc in activeJcs)
+        {
+            if (jc.TimeLogs.Any())
+            {
+                logs.AddRange(jc.TimeLogs
+                    .Where(tl => tl.FromTime < to && tl.ToTime > from)
+                    .Select(tl => new JobCardTimeLogRange(tl.FromTime, tl.ToTime, jc.Id)));
+            }
+            else if (jc.StartedAt.HasValue)
+            {
+                var sFrom = jc.StartedAt.Value;
+                var sTo = sFrom.AddMinutes((double)(jc.PlannedTimeInMins > 0 ? jc.PlannedTimeInMins : 30m));
+                if (sFrom < to && sTo > from)
+                {
+                    logs.Add(new JobCardTimeLogRange(sFrom, sTo, jc.Id));
+                }
+            }
+        }
+
+        var merged = JobCardManager.MergeTimeLogsPerJobCard(logs);
+        return JobCardManager.GetAllotedCapacity(merged).Count;
     }
 
     private static List<WorkstationWorkingHour> GetDefaultWorkingHours(Guid workstationId)
