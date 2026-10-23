@@ -323,6 +323,11 @@ public class AssetAppService : ApplicationService, IAssetAppService
     [Authorize(MyERPPermissions.Assets.Delete)]
     public async Task DeleteAsync(Guid id)
     {
+        var asset = await _assetRepository.FindAsync(id);
+        if (asset != null && asset.Status == AssetStatus.Draft)
+        {
+            await _activityRepository.DeleteAsync(a => a.AssetId == id);
+        }
         await _assetRepository.DeleteAsync(id);
     }
 

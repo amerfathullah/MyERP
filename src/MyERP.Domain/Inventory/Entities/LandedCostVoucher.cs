@@ -108,10 +108,77 @@ public class LandedCostVoucher : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 return;
         }
 
-        // Error diffusion: ensure distributed total matches charges exactly
-        var diff = totalChargeAmount - _items.Sum(i => i.ApplicableCharges);
+        // Error diffusion: absorb rounding remainder only across rows whose basis has the same sign
+        // as the basis total (ERPNext PR #61434 / commit 0dbddd4c10)
+        var diff = Math.Round(totalChargeAmount - _items.Sum(i => i.ApplicableCharges), 2);
         if (diff != 0 && _items.Any())
-            _items.Last().ApplicableCharges += diff;
+        {
+            decimal basisSign = DistributionMethod == LandedCostDistributionMethod.BasedOnQuantity
+                ? (_items.Sum(i => i.Quantity) < 0 ? -1m : 1m)
+                : (_items.Sum(i => i.Amount) < 0 ? -1m : 1m);
+
+            var rowsToAdjust = _items
+                .Where(i => (DistributionMethod == LandedCostDistributionMethod.BasedOnQuantity ? i.Quantity : i.Amount) * basisSign > 0)
+                .ToList();
+
+            if (rowsToAdjust.Count > 0)
+            {
+                var step = 0.01m * (diff < 0 ? -1m : 1m);
+                var steps = (int)Math.Round(Math.Abs(diff) * 100m);
+                for (var i = 0; i < steps; i++)
+                {
+                    var row = rowsToAdjust[(rowsToAdjust.Count - 1) - (i % rowsToAdjust.Count)];
+                    row.ApplicableCharges = Math.Round(row.ApplicableCharges + step, 2);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates that each item's ApplicableCharges sign matches the expected sign from the total charges
+    /// and row basis (ERPNext PR #61434 / commit 0dbddd4c10).
+    /// </summary>
+    public void ValidateChargesFollowTotalSign()
+    {
+        if (!_items.Any() || !_charges.Any()) return;
+
+        var totalSign = TotalCharges < 0 ? -1m : 1m;
+        var basisTotal = DistributionMethod == LandedCostDistributionMethod.BasedOnQuantity
+            ? _items.Sum(i => i.Quantity)
+            : _items.Sum(i => i.Amount);
+        var basisSign = basisTotal < 0 ? -1m : 1m;
+
+        for (var idx = 0; idx < _items.Count; idx++)
+        {
+            var item = _items[idx];
+            if (item.ApplicableCharges == 0m) continue;
+
+            decimal expectedSign;
+            if (DistributionMethod == LandedCostDistributionMethod.Manual)
+            {
+                expectedSign = totalSign;
+            }
+            else
+            {
+                var rowBasis = DistributionMethod == LandedCostDistributionMethod.BasedOnQuantity
+                    ? item.Quantity
+                    : item.Amount;
+                if (rowBasis == 0m)
+                {
+                    var basisLabel = DistributionMethod == LandedCostDistributionMethod.BasedOnQuantity ? "Quantity" : "Amount";
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Row #{idx + 1}: Cannot allocate landed cost when {basisLabel} is zero.");
+                }
+                expectedSign = (rowBasis * basisSign > 0) ? totalSign : -totalSign;
+            }
+
+            if (item.ApplicableCharges * expectedSign < 0)
+            {
+                var signLabel = expectedSign < 0 ? "negative" : "positive";
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx + 1}: Applicable Charges must be {signLabel} ({item.ApplicableCharges:N2}).");
+            }
+        }
     }
 
     public void Submit()
@@ -124,6 +191,7 @@ public class LandedCostVoucher : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.LandedCostHasNoCharges);
 
         DistributeCharges();
+        ValidateChargesFollowTotalSign();
 
         // Validate total distributed matches total charges (within tolerance)
         var tolerance = 2.0m / (decimal)Math.Pow(10, 2); // currency precision = 2

@@ -132,6 +132,7 @@ public class SerialNoAndBatchTraceabilityAppService : ApplicationService, ISeria
         // --- BACKWARD TRACEABILITY ---
         if (doBackward)
         {
+            var backwardTracePath = new HashSet<Guid>();
             foreach (var serial in targetSerials)
             {
                 await TraceBackwardAsync(
@@ -140,7 +141,7 @@ public class SerialNoAndBatchTraceabilityAppService : ApplicationService, ISeria
                     indent: 0,
                     allBundles: allBundles,
                     resultNodes: resultNodes,
-                    visited: visited,
+                    backwardTracePath: backwardTracePath,
                     itemMap, whMap, batchMap, serialMap, seMap, prMap, dnMap, siMap, woMap, supMap, custMap);
             }
 
@@ -152,7 +153,7 @@ public class SerialNoAndBatchTraceabilityAppService : ApplicationService, ISeria
                     indent: 0,
                     allBundles: allBundles,
                     resultNodes: resultNodes,
-                    visited: visited,
+                    backwardTracePath: backwardTracePath,
                     itemMap, whMap, batchMap, serialMap, seMap, prMap, dnMap, siMap, woMap, supMap, custMap);
             }
         }
@@ -215,7 +216,7 @@ public class SerialNoAndBatchTraceabilityAppService : ApplicationService, ISeria
         int indent,
         List<SerialAndBatchBundle> allBundles,
         List<SerialNoAndBatchTraceabilityNodeDto> resultNodes,
-        HashSet<string> visited,
+        HashSet<Guid> backwardTracePath,
         Dictionary<Guid, Item> itemMap,
         Dictionary<Guid, Warehouse> whMap,
         Dictionary<Guid, Batch> batchMap,
@@ -226,7 +227,8 @@ public class SerialNoAndBatchTraceabilityAppService : ApplicationService, ISeria
         Dictionary<Guid, SalesInvoice> siMap,
         Dictionary<Guid, WorkOrder> woMap,
         Dictionary<Guid, Supplier> supMap,
-        Dictionary<Guid, Customer> custMap)
+        Dictionary<Guid, Customer> custMap,
+        decimal? tracedConsumedQty = null)
     {
         var inwardBundles = allBundles
             .Where(b => b.TypeOfTransaction == BundleTransactionType.Inward &&
@@ -235,16 +237,20 @@ public class SerialNoAndBatchTraceabilityAppService : ApplicationService, ISeria
             .OrderBy(b => b.PostingDate)
             .ToList();
 
+        var totalInwardQty = inwardBundles.Sum(b => b.Entries
+            .Where(e => (serialNo != null && string.Equals(e.SerialNo, serialNo, StringComparison.OrdinalIgnoreCase)) ||
+                        (batchId.HasValue && e.BatchId == batchId.Value))
+            .Sum(e => e.Qty));
+
         foreach (var bundle in inwardBundles)
         {
+            if (backwardTracePath.Contains(bundle.VoucherId)) continue;
+
             var matchingEntry = bundle.Entries.FirstOrDefault(e =>
                 (serialNo != null && string.Equals(e.SerialNo, serialNo, StringComparison.OrdinalIgnoreCase)) ||
                 (batchId.HasValue && e.BatchId == batchId.Value));
 
             if (matchingEntry == null) continue;
-
-            var visitKey = $"BACK_{bundle.VoucherType}_{bundle.VoucherId}_{serialNo}_{batchId}";
-            if (!visited.Add(visitKey)) continue;
 
             var node = CreateNode(
                 direction: "Backward",
@@ -255,38 +261,58 @@ public class SerialNoAndBatchTraceabilityAppService : ApplicationService, ISeria
                 batchId: batchId,
                 itemMap, whMap, batchMap, serialMap, seMap, prMap, dnMap, siMap, woMap, supMap, custMap);
 
+            // Per ERPNext PR #61428 (commit bfa9be5a30): when a consumed component batch was produced/received
+            // across multiple inward transactions, prorate the traced quantity across each inward source
+            if (tracedConsumedQty.HasValue && inwardBundles.Count > 1 && totalInwardQty > 0)
+            {
+                node.Quantity = Math.Round(tracedConsumedQty.Value * (matchingEntry.Qty / totalInwardQty), 4);
+            }
+
             resultNodes.Add(node);
 
             // If created via Manufacture/Repack Stock Entry, recursively trace consumed raw materials!
             if (bundle.VoucherType == "StockEntry" && seMap.TryGetValue(bundle.VoucherId, out var se))
             {
-                var consumedBundles = allBundles
-                    .Where(b => b.VoucherType == "StockEntry" && b.VoucherId == se.Id && b.TypeOfTransaction == BundleTransactionType.Outward)
-                    .ToList();
-
-                foreach (var cBundle in consumedBundles)
+                backwardTracePath.Add(se.Id);
+                try
                 {
-                    foreach (var cEntry in cBundle.Entries)
+                    var consumedBundles = allBundles
+                        .Where(b => b.VoucherType == "StockEntry" && b.VoucherId == se.Id && b.TypeOfTransaction == BundleTransactionType.Outward)
+                        .ToList();
+
+                    var shareFactor = (tracedConsumedQty.HasValue && matchingEntry.Qty > 0)
+                        ? (node.Quantity / matchingEntry.Qty)
+                        : 1m;
+
+                    foreach (var cBundle in consumedBundles)
                     {
-                        // Check if specific FG was mapped
-                        bool fgMatches = (serialNo != null && string.Equals(cEntry.FgSerialNo, serialNo, StringComparison.OrdinalIgnoreCase)) ||
-                                         (batchId.HasValue && batchMap.TryGetValue(batchId.Value, out var bObj) && string.Equals(cEntry.FgBatchNo, bObj.BatchNo, StringComparison.OrdinalIgnoreCase));
-
-                        // If no specific FG mapping exists in the entry, relate all consumed rows for this StockEntry
-                        bool include = fgMatches || (string.IsNullOrEmpty(cEntry.FgSerialNo) && string.IsNullOrEmpty(cEntry.FgBatchNo));
-
-                        if (include && (cEntry.SerialNo != null || cEntry.BatchId.HasValue))
+                        foreach (var cEntry in cBundle.Entries)
                         {
-                            TraceBackwardAsync(
-                                cEntry.SerialNo,
-                                cEntry.BatchId,
-                                indent + 1,
-                                allBundles,
-                                resultNodes,
-                                visited,
-                                itemMap, whMap, batchMap, serialMap, seMap, prMap, dnMap, siMap, woMap, supMap, custMap);
+                            // Check if specific FG was mapped
+                            bool fgMatches = (serialNo != null && string.Equals(cEntry.FgSerialNo, serialNo, StringComparison.OrdinalIgnoreCase)) ||
+                                             (batchId.HasValue && batchMap.TryGetValue(batchId.Value, out var bObj) && string.Equals(cEntry.FgBatchNo, bObj.BatchNo, StringComparison.OrdinalIgnoreCase));
+
+                            // If no specific FG mapping exists in the entry, relate all consumed rows for this StockEntry
+                            bool include = fgMatches || (string.IsNullOrEmpty(cEntry.FgSerialNo) && string.IsNullOrEmpty(cEntry.FgBatchNo));
+
+                            if (include && (cEntry.SerialNo != null || cEntry.BatchId.HasValue))
+                            {
+                                TraceBackwardAsync(
+                                    cEntry.SerialNo,
+                                    cEntry.BatchId,
+                                    indent + 1,
+                                    allBundles,
+                                    resultNodes,
+                                    backwardTracePath,
+                                    itemMap, whMap, batchMap, serialMap, seMap, prMap, dnMap, siMap, woMap, supMap, custMap,
+                                    tracedConsumedQty: cEntry.Qty * shareFactor);
+                            }
                         }
                     }
+                }
+                finally
+                {
+                    backwardTracePath.Remove(se.Id);
                 }
             }
         }

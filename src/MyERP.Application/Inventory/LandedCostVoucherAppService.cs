@@ -736,6 +736,17 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
 
         if (input.DistributionMethod == LandedCostDistributionMethod.Manual)
         {
+            var totalSign = totalCharges < 0 ? -1m : 1m;
+            for (var idx = 0; idx < items.Count; idx++)
+            {
+                if (items[idx].ApplicableCharges != 0m && items[idx].ApplicableCharges * totalSign < 0)
+                {
+                    var signLabel = totalSign < 0 ? "negative" : "positive";
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Row #{idx + 1}: Applicable Charges must be {signLabel} ({items[idx].ApplicableCharges:N2}).");
+                }
+            }
+
             var sumManual = items.Sum(i => i.ApplicableCharges);
             return Task.FromResult(new LandedCostDistributionResultDto
             {
@@ -754,20 +765,22 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                     .WithData("detail", "Total Quantity of all items is zero. Set 'Distribute Charges Based On' to Amount.");
             }
 
-            decimal allocatedSoFar = 0m;
-            for (var i = 0; i < items.Count; i++)
+            foreach (var item in items)
             {
-                var item = items[i];
-                if (i == items.Count - 1)
+                item.ApplicableCharges = Math.Round((item.Quantity / totalQty) * totalCharges, 2);
+            }
+
+            var diff = Math.Round(totalCharges - items.Sum(i => i.ApplicableCharges), 2);
+            var basisSign = totalQty < 0 ? -1m : 1m;
+            var rowsToAdjust = items.Where(i => i.Quantity * basisSign > 0).ToList();
+            if (diff != 0m && rowsToAdjust.Count > 0)
+            {
+                var step = 0.01m * (diff < 0 ? -1m : 1m);
+                var steps = (int)Math.Round(Math.Abs(diff) * 100m);
+                for (var i = 0; i < steps; i++)
                 {
-                    // Last item absorbs rounding remainder
-                    item.ApplicableCharges = Math.Round(totalCharges - allocatedSoFar, 2);
-                }
-                else
-                {
-                    var share = Math.Round((item.Quantity / totalQty) * totalCharges, 2);
-                    item.ApplicableCharges = share;
-                    allocatedSoFar += share;
+                    var row = rowsToAdjust[(rowsToAdjust.Count - 1) - (i % rowsToAdjust.Count)];
+                    row.ApplicableCharges = Math.Round(row.ApplicableCharges + step, 2);
                 }
             }
         }
@@ -780,20 +793,22 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                     .WithData("detail", "Total Amount of all items is zero. Set 'Distribute Charges Based On' to Qty.");
             }
 
-            decimal allocatedSoFar = 0m;
-            for (var i = 0; i < items.Count; i++)
+            foreach (var item in items)
             {
-                var item = items[i];
-                if (i == items.Count - 1)
+                item.ApplicableCharges = Math.Round((item.Amount / totalAmount) * totalCharges, 2);
+            }
+
+            var diff = Math.Round(totalCharges - items.Sum(i => i.ApplicableCharges), 2);
+            var basisSign = totalAmount < 0 ? -1m : 1m;
+            var rowsToAdjust = items.Where(i => i.Amount * basisSign > 0).ToList();
+            if (diff != 0m && rowsToAdjust.Count > 0)
+            {
+                var step = 0.01m * (diff < 0 ? -1m : 1m);
+                var steps = (int)Math.Round(Math.Abs(diff) * 100m);
+                for (var i = 0; i < steps; i++)
                 {
-                    // Last item absorbs rounding remainder
-                    item.ApplicableCharges = Math.Round(totalCharges - allocatedSoFar, 2);
-                }
-                else
-                {
-                    var share = Math.Round((item.Amount / totalAmount) * totalCharges, 2);
-                    item.ApplicableCharges = share;
-                    allocatedSoFar += share;
+                    var row = rowsToAdjust[(rowsToAdjust.Count - 1) - (i % rowsToAdjust.Count)];
+                    row.ApplicableCharges = Math.Round(row.ApplicableCharges + step, 2);
                 }
             }
         }

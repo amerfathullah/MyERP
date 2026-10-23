@@ -232,4 +232,40 @@ public class SalesPersonCommissionSummaryAppServiceTests
         result.Rows[0].AllocatedAmount.ShouldBe(10000m);
         result.Rows[0].Incentives.ShouldBe(1000m);
     }
+
+    [Fact]
+    public async Task GetReportAsync_FilterByParentGroupSalesPerson_IncludesDescendantSalesPersons()
+    {
+        // Per ERPNext PR #61178 (commit 64af5a49d4): filtering by a group/parent Sales Person
+        // includes all child/descendant sales persons in the hierarchy.
+        var managerId = Guid.NewGuid();
+        var manager = new SalesPerson(managerId, "Regional Manager") { IsGroup = true };
+        var childRep = new SalesPerson(_aliceId, "Alice Tan", parentId: managerId) { CommissionRate = 5m };
+        _salesPersonRepo.GetQueryableAsync().Returns(Task.FromResult(
+            new List<SalesPerson> { manager, childRep, _bob }.AsQueryable()));
+
+        var invoiceId = Guid.NewGuid();
+        var invoice = new SalesInvoice(invoiceId, _companyId, _customerId, "INV-2026-003", new DateTime(2026, 4, 5));
+        invoice.AddItem(Guid.NewGuid(), "Widget", 2, 1000m, 0);
+        invoice.Submit();
+        _salesInvoiceRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SalesInvoice> { invoice }.AsQueryable()));
+
+        var entryAlice = new SalesTeamEntry(Guid.NewGuid(), _aliceId, "SalesInvoice", invoiceId, 100m, 2000m, 5m);
+        _teamEntryRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SalesTeamEntry> { entryAlice }.AsQueryable()));
+
+        var service = new SalesPersonCommissionSummaryAppService(
+            _teamEntryRepo, _salesInvoiceRepo, _salesOrderRepo, _salesPersonRepo,
+            _customerRepo, _territoryRepo, _companyRepo);
+
+        var result = await service.GetReportAsync(new GetSalesPersonCommissionSummaryInput
+        {
+            CompanyId = _companyId,
+            DocType = "Sales Invoice",
+            SalesPersonId = managerId,
+        });
+
+        result.Rows.Count.ShouldBe(1);
+        result.Rows[0].SalesPersonId.ShouldBe(_aliceId);
+        result.TotalAllocatedAmount.ShouldBe(2000m);
+    }
 }

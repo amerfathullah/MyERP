@@ -62,6 +62,9 @@ public class SalesPersonCommissionSummaryAppService : ApplicationService, ISales
         var spQuery = await _salesPersonRepo.GetQueryableAsync();
         var salesPersons = spQuery.ToList();
         var spMap = salesPersons.ToDictionary(sp => sp.Id, sp => sp.Name);
+        var filterSalesPersonIds = input.SalesPersonId.HasValue
+            ? GetSalesPersonAndDescendantIds(input.SalesPersonId.Value, salesPersons)
+            : null;
 
         var rows = new List<SalesPersonCommissionSummaryRowDto>();
 
@@ -88,8 +91,8 @@ public class SalesPersonCommissionSummaryAppService : ApplicationService, ISales
                     e.ParentType == parentTypeName &&
                     orderIds.Contains(e.ParentId)).ToList();
 
-                if (input.SalesPersonId.HasValue)
-                    entries = entries.Where(e => e.SalesPersonId == input.SalesPersonId.Value).ToList();
+                if (filterSalesPersonIds != null)
+                    entries = entries.Where(e => filterSalesPersonIds.Contains(e.SalesPersonId)).ToList();
 
                 var orderMap = orders.ToDictionary(so => so.Id, so => so);
 
@@ -153,8 +156,8 @@ public class SalesPersonCommissionSummaryAppService : ApplicationService, ISales
                     e.ParentType == parentTypeName &&
                     invoiceIds.Contains(e.ParentId)).ToList();
 
-                if (input.SalesPersonId.HasValue)
-                    entries = entries.Where(e => e.SalesPersonId == input.SalesPersonId.Value).ToList();
+                if (filterSalesPersonIds != null)
+                    entries = entries.Where(e => filterSalesPersonIds.Contains(e.SalesPersonId)).ToList();
 
                 var invoiceMap = invoices.ToDictionary(si => si.Id, si => si);
 
@@ -217,5 +220,31 @@ public class SalesPersonCommissionSummaryAppService : ApplicationService, ISales
             TotalIncentives = sortedRows.Sum(r => r.Incentives),
             TransactionCount = distinctTx.Count,
         };
+    }
+
+    private static HashSet<Guid> GetSalesPersonAndDescendantIds(Guid rootId, List<SalesPerson> allSalesPersons)
+    {
+        var result = new HashSet<Guid> { rootId };
+        var queue = new Queue<Guid>();
+        queue.Enqueue(rootId);
+        var byParent = allSalesPersons
+            .Where(sp => sp.ParentSalesPersonId.HasValue)
+            .GroupBy(sp => sp.ParentSalesPersonId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(sp => sp.Id).ToList());
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (byParent.TryGetValue(current, out var children))
+            {
+                foreach (var childId in children)
+                {
+                    if (result.Add(childId))
+                        queue.Enqueue(childId);
+                }
+            }
+        }
+
+        return result;
     }
 }

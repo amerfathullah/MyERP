@@ -199,4 +199,40 @@ public class LandedCostVoucherTests
         var ex = Should.Throw<BusinessException>(() => lcv.DistributeCharges());
         (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Total Quantity of all items is zero. Set 'Distribute Charges Based On' to Amount.");
     }
+
+    [Fact]
+    public void DistributeCharges_SkipsZeroAndOppositeSignRowsWhenAbsorbingRoundingDiff()
+    {
+        // Per ERPNext PR #61434 (commit 0dbddd4c10): rounding difference must only be absorbed
+        // across rows whose basis has the same sign as the basis total.
+        var lcv = CreateLCV();
+        lcv.DistributionMethod = LandedCostDistributionMethod.BasedOnAmount;
+        lcv.AddItem(Guid.NewGuid(), "PurchaseReceipt", Guid.NewGuid(), 1, 100m);
+        lcv.AddItem(Guid.NewGuid(), "PurchaseReceipt", Guid.NewGuid(), 1, 100m);
+        lcv.AddItem(Guid.NewGuid(), "PurchaseReceipt", Guid.NewGuid(), 1, 100m);
+        lcv.AddItem(Guid.NewGuid(), "PurchaseReceipt", Guid.NewGuid(), 1, 0m); // Free item (zero basis)
+        lcv.AddCharge("Insurance", Guid.NewGuid(), 100m);
+
+        lcv.DistributeCharges();
+
+        lcv.Items[3].ApplicableCharges.ShouldBe(0m);
+        lcv.TotalDistributedAmount.ShouldBe(100m);
+    }
+
+    [Fact]
+    public void Submit_ManualDistribution_RejectsOppositeSignRowCharge()
+    {
+        // Per ERPNext PR #61434 (commit 0dbddd4c10): manual distribution cannot assign negative
+        // applicable charges when total charges are positive.
+        var lcv = CreateLCV();
+        lcv.DistributionMethod = LandedCostDistributionMethod.Manual;
+        lcv.AddItem(Guid.NewGuid(), "PurchaseReceipt", Guid.NewGuid(), 1, 100m);
+        lcv.AddItem(Guid.NewGuid(), "PurchaseReceipt", Guid.NewGuid(), 1, 100m);
+        lcv.Items[0].ApplicableCharges = 120m;
+        lcv.Items[1].ApplicableCharges = -20m;
+        lcv.AddCharge("Freight", Guid.NewGuid(), 100m);
+
+        var ex = Should.Throw<BusinessException>(() => lcv.Submit());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+    }
 }

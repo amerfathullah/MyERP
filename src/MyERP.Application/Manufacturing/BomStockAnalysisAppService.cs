@@ -78,7 +78,7 @@ public class BomStockAnalysisAppService : ApplicationService, IBomStockAnalysisA
             .Select(g => new
             {
                 ItemId = g.Key,
-                TotalQuantity = g.Sum(i => i.Quantity)
+                TotalQuantity = g.Sum(i => i.StockQty)
             })
             .ToList();
 
@@ -87,7 +87,8 @@ public class BomStockAnalysisAppService : ApplicationService, IBomStockAnalysisA
             var requiredForBatch = bomItem.TotalQuantity * (requiredQty / (bom.Quantity > 0 ? bom.Quantity : 1));
             var available = stockMap.GetValueOrDefault(bomItem.ItemId, 0);
             var shortage = Math.Max(0, requiredForBatch - available);
-            var canMake = requiredForBatch > 0 ? available / requiredForBatch : decimal.MaxValue;
+            var qtyPerUnit = bomItem.TotalQuantity / (bom.Quantity > 0 ? bom.Quantity : 1);
+            var canMake = qtyPerUnit > 0 ? Math.Round(available / qtyPerUnit, 9) : decimal.MaxValue;
             var itemDetails = itemMap.GetValueOrDefault(bomItem.ItemId);
 
             materialLines.Add(new BomMaterialAvailabilityDto
@@ -96,7 +97,7 @@ public class BomStockAnalysisAppService : ApplicationService, IBomStockAnalysisA
                 ItemCode = itemDetails?.ItemCode ?? bomItem.ItemId.ToString().Substring(0, 8),
                 ItemName = itemDetails?.ItemName ?? "Unknown Item",
                 Description = itemDetails?.Description,
-                RequiredQtyPerUnit = bomItem.TotalQuantity / (bom.Quantity > 0 ? bom.Quantity : 1),
+                RequiredQtyPerUnit = qtyPerUnit,
                 RequiredQtyForBatch = Math.Round(requiredForBatch, 4),
                 AvailableQty = Math.Round(available, 4),
                 Shortage = Math.Round(shortage, 4),
@@ -106,7 +107,7 @@ public class BomStockAnalysisAppService : ApplicationService, IBomStockAnalysisA
             if (canMake < minManufacturable) minManufacturable = canMake;
         }
 
-        var canManufacture = minManufacturable == decimal.MaxValue ? 0 : Math.Floor(minManufacturable * (bom.Quantity > 0 ? bom.Quantity : 1));
+        var canManufacture = minManufacturable == decimal.MaxValue ? 0 : Math.Floor(minManufacturable);
 
         return new BomStockAnalysisDto
         {

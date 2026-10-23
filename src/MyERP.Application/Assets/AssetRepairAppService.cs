@@ -289,6 +289,19 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
         repair.SetDowntime();
 
         await _repository.InsertAsync(repair);
+
+        var activity = new AssetActivity(
+            GuidGenerator.Create(),
+            asset.Id,
+            AssetActivityType.Repaired,
+            $"Asset out of order due to Asset Repair {repair.RepairNumber}",
+            repair.FailureDate ?? DateTime.UtcNow,
+            repair.RepairDescription,
+            "AssetRepair",
+            repair.Id.ToString(),
+            CurrentTenant.Id);
+        await _activityRepository.InsertAsync(activity);
+
         return _mapper.Map(repair);
     }
 
@@ -429,6 +442,18 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
         if (repair.Status != AssetRepairStatus.Pending)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        var activity = new AssetActivity(
+            GuidGenerator.Create(),
+            repair.AssetId,
+            AssetActivityType.Repaired,
+            $"Asset Repair {repair.RepairNumber} deleted",
+            DateTime.UtcNow,
+            repair.RepairDescription,
+            "AssetRepair",
+            repair.Id.ToString(),
+            CurrentTenant.Id);
+        await _activityRepository.InsertAsync(activity);
+
         await _repository.DeleteAsync(id);
     }
 
@@ -463,20 +488,22 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
             var asset = await _assetRepository.GetAsync(repair.AssetId);
             asset.ApplyRepairCapitalization(capitalizedCost, repair.CapitalizeRepairCost ? repair.IncreaseInAssetLife : 0);
             await _assetRepository.UpdateAsync(asset);
-
-            var activity = new AssetActivity(
-                GuidGenerator.Create(),
-                asset.Id,
-                AssetActivityType.Repaired,
-                $"Asset repair #{repair.RepairNumber} capitalized",
-                repair.CompletionDate ?? DateTime.UtcNow,
-                $"Capitalized amount: {capitalizedCost:N2}, Life extension: {(repair.CapitalizeRepairCost ? repair.IncreaseInAssetLife : 0)} months",
-                "AssetRepair",
-                repair.Id.ToString(),
-                CurrentTenant.Id);
-
-            await _activityRepository.InsertAsync(activity);
         }
+
+        // Per ERPNext PR #60020 (commit 862a5e921c): always log AssetActivity when repair is completed
+        var completeActivity = new AssetActivity(
+            GuidGenerator.Create(),
+            repair.AssetId,
+            AssetActivityType.Repaired,
+            $"Asset Repair {repair.RepairNumber} marked as Completed",
+            repair.CompletionDate ?? DateTime.UtcNow,
+            capitalizedCost > 0
+                ? $"Capitalized amount: {capitalizedCost:N2}, Life extension: {(repair.CapitalizeRepairCost ? repair.IncreaseInAssetLife : 0)} months"
+                : repair.ActionsPerformed,
+            "AssetRepair",
+            repair.Id.ToString(),
+            CurrentTenant.Id);
+        await _activityRepository.InsertAsync(completeActivity);
 
         await _repository.UpdateAsync(repair);
         return _mapper.Map(repair);
@@ -499,20 +526,20 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
             var asset = await _assetRepository.GetAsync(repair.AssetId);
             asset.ApplyRepairCapitalization(-1 * capitalizedCost, repair.CapitalizeRepairCost ? -1 * repair.IncreaseInAssetLife : 0);
             await _assetRepository.UpdateAsync(asset);
-
-            var activity = new AssetActivity(
-                GuidGenerator.Create(),
-                asset.Id,
-                AssetActivityType.Repaired,
-                $"Asset repair #{repair.RepairNumber} cancelled",
-                DateTime.UtcNow,
-                $"Reverted capitalized repair cost of {capitalizedCost:N2}",
-                "AssetRepair",
-                repair.Id.ToString(),
-                CurrentTenant.Id);
-
-            await _activityRepository.InsertAsync(activity);
         }
+
+        // Per ERPNext PR #60020 (commit 862a5e921c): always log AssetActivity when repair is cancelled
+        var cancelActivity = new AssetActivity(
+            GuidGenerator.Create(),
+            repair.AssetId,
+            AssetActivityType.Repaired,
+            $"Asset Repair {repair.RepairNumber} marked as Cancelled",
+            DateTime.UtcNow,
+            capitalizedCost > 0 ? $"Reverted capitalized repair cost of {capitalizedCost:N2}" : null,
+            "AssetRepair",
+            repair.Id.ToString(),
+            CurrentTenant.Id);
+        await _activityRepository.InsertAsync(cancelActivity);
 
         await _repository.UpdateAsync(repair);
         return _mapper.Map(repair);

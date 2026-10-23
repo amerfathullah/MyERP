@@ -80,6 +80,9 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
         var spQuery = await _salesPersonRepo.GetQueryableAsync();
         var salesPersons = spQuery.ToList();
         var spMap = salesPersons.ToDictionary(sp => sp.Id, sp => sp.Name);
+        var filterSalesPersonIds = input.SalesPersonId.HasValue
+            ? GetSalesPersonAndDescendantIds(input.SalesPersonId.Value, salesPersons)
+            : null;
 
         var itemQuery = await _itemRepo.GetQueryableAsync();
         var items = itemQuery.Where(i => i.CompanyId == input.CompanyId).ToList();
@@ -110,8 +113,8 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
                     e.ParentType == parentTypeName &&
                     orderIds.Contains(e.ParentId)).ToList();
 
-                if (input.SalesPersonId.HasValue)
-                    entries = entries.Where(e => e.SalesPersonId == input.SalesPersonId.Value).ToList();
+                if (filterSalesPersonIds != null)
+                    entries = entries.Where(e => filterSalesPersonIds.Contains(e.SalesPersonId)).ToList();
 
                 var teamByOrder = entries.GroupBy(e => e.ParentId).ToDictionary(g => g.Key, g => g.ToList());
 
@@ -130,7 +133,10 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
 
                     foreach (var item in order.Items)
                     {
-                        if (item.Quantity <= 0 && !input.ShowReturnEntries)
+                        // Per ERPNext PR #61280 (commit d07288a757): Closed Sales Orders use delivered_qty
+                        // instead of full ordered qty for both quantity and net amount
+                        var effectiveQty = order.Status == DocumentStatus.Closed ? item.DeliveredQty : item.Quantity;
+                        if (effectiveQty <= 0 && !input.ShowReturnEntries)
                             continue;
 
                         itemMap.TryGetValue(item.ItemId, out var itm);
@@ -139,7 +145,8 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
                             !itm.ItemCode.Contains(input.ItemCode, StringComparison.OrdinalIgnoreCase))
                             continue;
 
-                        var netAmount = Math.Round(item.Quantity * item.UnitPrice, 2);
+                        var netAmount = Math.Round(effectiveQty * item.UnitPrice, 2);
+                        var isFirstRowForLine = true;
 
                         foreach (var entry in orderEntries)
                         {
@@ -159,15 +166,16 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
                                 ItemCode = itm?.ItemCode ?? string.Empty,
                                 ItemName = itm?.ItemName ?? item.Description,
                                 ItemGroup = itm?.ItemGroup,
-                                Quantity = item.Quantity,
+                                Quantity = isFirstRowForLine ? effectiveQty : 0m,
                                 Rate = item.UnitPrice,
-                                BaseNetAmount = netAmount,
+                                BaseNetAmount = isFirstRowForLine ? netAmount : 0m,
                                 SalesPersonId = entry.SalesPersonId,
                                 SalesPersonName = spName ?? entry.SalesPersonId.ToString()[..8],
                                 AllocatedPercentage = entry.AllocatedPercentage,
-                                ContributionQuantity = Math.Round(item.Quantity * entry.AllocatedPercentage / 100m, 2),
+                                ContributionQuantity = Math.Round(effectiveQty * entry.AllocatedPercentage / 100m, 2),
                                 ContributionAmount = Math.Round(netAmount * entry.AllocatedPercentage / 100m, 2),
                             });
+                            isFirstRowForLine = false;
                         }
                     }
                 }
@@ -196,8 +204,8 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
                     e.ParentType == parentTypeName &&
                     dnIds.Contains(e.ParentId)).ToList();
 
-                if (input.SalesPersonId.HasValue)
-                    entries = entries.Where(e => e.SalesPersonId == input.SalesPersonId.Value).ToList();
+                if (filterSalesPersonIds != null)
+                    entries = entries.Where(e => filterSalesPersonIds.Contains(e.SalesPersonId)).ToList();
 
                 var teamByDn = entries.GroupBy(e => e.ParentId).ToDictionary(g => g.Key, g => g.ToList());
 
@@ -228,6 +236,7 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
                             continue;
 
                         var netAmount = Math.Round(item.Quantity * item.UnitPrice, 2);
+                        var isFirstRowForLine = true;
 
                         foreach (var entry in dnEntries)
                         {
@@ -247,15 +256,16 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
                                 ItemCode = itm?.ItemCode ?? string.Empty,
                                 ItemName = itm?.ItemName ?? item.Description,
                                 ItemGroup = itm?.ItemGroup,
-                                Quantity = item.Quantity,
+                                Quantity = isFirstRowForLine ? item.Quantity : 0m,
                                 Rate = item.UnitPrice,
-                                BaseNetAmount = netAmount,
+                                BaseNetAmount = isFirstRowForLine ? netAmount : 0m,
                                 SalesPersonId = entry.SalesPersonId,
                                 SalesPersonName = spName ?? entry.SalesPersonId.ToString()[..8],
                                 AllocatedPercentage = entry.AllocatedPercentage,
                                 ContributionQuantity = Math.Round(item.Quantity * entry.AllocatedPercentage / 100m, 2),
                                 ContributionAmount = Math.Round(netAmount * entry.AllocatedPercentage / 100m, 2),
                             });
+                            isFirstRowForLine = false;
                         }
                     }
                 }
@@ -284,8 +294,8 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
                     e.ParentType == parentTypeName &&
                     invoiceIds.Contains(e.ParentId)).ToList();
 
-                if (input.SalesPersonId.HasValue)
-                    entries = entries.Where(e => e.SalesPersonId == input.SalesPersonId.Value).ToList();
+                if (filterSalesPersonIds != null)
+                    entries = entries.Where(e => filterSalesPersonIds.Contains(e.SalesPersonId)).ToList();
 
                 var teamByInvoice = entries.GroupBy(e => e.ParentId).ToDictionary(g => g.Key, g => g.ToList());
 
@@ -314,6 +324,7 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
                             continue;
 
                         var netAmount = Math.Round(item.Quantity * item.UnitPrice, 2);
+                        var isFirstRowForLine = true;
 
                         foreach (var entry in invEntries)
                         {
@@ -333,15 +344,16 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
                                 ItemCode = itm?.ItemCode ?? string.Empty,
                                 ItemName = itm?.ItemName ?? item.Description,
                                 ItemGroup = itm?.ItemGroup,
-                                Quantity = item.Quantity,
+                                Quantity = isFirstRowForLine ? item.Quantity : 0m,
                                 Rate = item.UnitPrice,
-                                BaseNetAmount = netAmount,
+                                BaseNetAmount = isFirstRowForLine ? netAmount : 0m,
                                 SalesPersonId = entry.SalesPersonId,
                                 SalesPersonName = spName ?? entry.SalesPersonId.ToString()[..8],
                                 AllocatedPercentage = entry.AllocatedPercentage,
                                 ContributionQuantity = Math.Round(item.Quantity * entry.AllocatedPercentage / 100m, 2),
                                 ContributionAmount = Math.Round(netAmount * entry.AllocatedPercentage / 100m, 2),
                             });
+                            isFirstRowForLine = false;
                         }
                     }
                 }
@@ -366,5 +378,31 @@ public class SalesPersonWiseTransactionSummaryAppService : ApplicationService, I
             TotalContributionAmount = sortedRows.Sum(r => r.ContributionAmount),
             TransactionCount = sortedRows.Select(r => r.TransactionId).Distinct().Count(),
         };
+    }
+
+    private static HashSet<Guid> GetSalesPersonAndDescendantIds(Guid rootId, List<SalesPerson> allSalesPersons)
+    {
+        var result = new HashSet<Guid> { rootId };
+        var queue = new Queue<Guid>();
+        queue.Enqueue(rootId);
+        var byParent = allSalesPersons
+            .Where(sp => sp.ParentSalesPersonId.HasValue)
+            .GroupBy(sp => sp.ParentSalesPersonId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(sp => sp.Id).ToList());
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (byParent.TryGetValue(current, out var children))
+            {
+                foreach (var childId in children)
+                {
+                    if (result.Add(childId))
+                        queue.Enqueue(childId);
+                }
+            }
+        }
+
+        return result;
     }
 }

@@ -53,6 +53,13 @@ public class ItemTransactionValidationService : DomainService
                     .WithData("itemCode", item.ItemCode)
                     .WithData("itemName", item.ItemName);
             }
+
+            if (item.HasVariants)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ItemHasVariants)
+                    .WithData("itemCode", item.ItemCode)
+                    .WithData("itemName", item.ItemName);
+            }
         }
     }
 
@@ -106,6 +113,13 @@ public class ItemTransactionValidationService : DomainService
         if (!item.IsActive)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ItemInactive)
+                .WithData("itemCode", item.ItemCode)
+                .WithData("itemName", item.ItemName);
+        }
+
+        if (item.HasVariants)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ItemHasVariants)
                 .WithData("itemCode", item.ItemCode)
                 .WithData("itemName", item.ItemName);
         }

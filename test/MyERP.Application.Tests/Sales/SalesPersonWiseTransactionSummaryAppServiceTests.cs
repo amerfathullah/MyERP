@@ -258,4 +258,47 @@ public class SalesPersonWiseTransactionSummaryAppServiceTests
         result.Rows[0].ContributionQuantity.ShouldBe(20m);
         result.Rows[0].ContributionAmount.ShouldBe(3000m);
     }
+
+    [Fact]
+    public async Task GetReportAsync_ClosedSalesOrder_UsesDeliveredQtyAndAvoidsLineDoubleCounting()
+    {
+        // Per ERPNext PR #61280 (commit d07288a757):
+        // 1. Closed Sales Orders use DeliveredQty for item qty and net amount.
+        // 2. When multiple sales persons share an item row, Quantity and BaseNetAmount appear once on the first row.
+        var sp2Id = Guid.NewGuid();
+        var sp2 = new SalesPerson(sp2Id, "Evelyn Lim") { CommissionRate = 5m };
+        _salesPersonRepo.GetQueryableAsync().Returns(Task.FromResult(
+            new List<SalesPerson> { _salesPerson, sp2 }.AsQueryable()));
+
+        var orderId = Guid.NewGuid();
+        var order = new SalesOrder(orderId, _companyId, _customerId, "SO-CLOSED-001", new DateTime(2026, 4, 15));
+        order.AddItem(_itemId, "Precision Sensor", 10, 200m, 0); // Ordered 10, but only 4 delivered before Close
+        order.Items.First().DeliveredQty = 4m;
+        order.Submit();
+        order.Close();
+
+        _salesOrderRepo.WithDetailsAsync(Arg.Any<Expression<Func<SalesOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<SalesOrder> { order }.AsQueryable()));
+
+        var entry1 = new SalesTeamEntry(Guid.NewGuid(), _salesPersonId, "SalesOrder", orderId, 50m, 800m, 8m);
+        var entry2 = new SalesTeamEntry(Guid.NewGuid(), sp2Id, "SalesOrder", orderId, 50m, 800m, 5m);
+        _teamEntryRepo.GetQueryableAsync()
+            .Returns(Task.FromResult(new List<SalesTeamEntry> { entry1, entry2 }.AsQueryable()));
+
+        var service = new SalesPersonWiseTransactionSummaryAppService(
+            _teamEntryRepo, _salesInvoiceRepo, _salesOrderRepo, _deliveryNoteRepo,
+            _itemRepo, _customerRepo, _territoryRepo, _warehouseRepo, _salesPersonRepo, _companyRepo);
+
+        var result = await service.GetReportAsync(new GetSalesPersonWiseTransactionSummaryInput
+        {
+            CompanyId = _companyId,
+            DocType = "Sales Order",
+        });
+
+        result.Rows.Count.ShouldBe(2);
+        result.Rows.Sum(r => r.Quantity).ShouldBe(4m); // Shown once (4 + 0), not double-counted (4 + 4)
+        result.Rows.Sum(r => r.BaseNetAmount).ShouldBe(800m); // 4 * 200 = 800 shown once
+        result.TotalContributionQuantity.ShouldBe(4m); // 2 + 2
+        result.TotalContributionAmount.ShouldBe(800m); // 400 + 400
+    }
 }

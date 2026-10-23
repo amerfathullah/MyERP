@@ -253,4 +253,101 @@ public class ProductionPlanningReportAppServiceTests
         result.TotalAllottedQty.ShouldBe(6m); // Bin has 10, all 6 allotted
         result.TotalShortageQty.ShouldBe(0m);
     }
+
+    [Fact]
+    public async Task GetReportAsync_WorkOrder_DeductsTransferredAndConsumedFromRequiredQty()
+    {
+        var fgItemId = Guid.NewGuid();
+        var fgItem = new Item(fgItemId, _companyId, "FG-TABLE", "Dining Table", ItemType.Goods);
+        var rmItemId = Guid.NewGuid();
+        var rmItem = new Item(rmItemId, _companyId, "RM-OAK", "Oak Plank", ItemType.Goods);
+        var whId = Guid.NewGuid();
+        var warehouse = new Warehouse(whId, _companyId, "RM Store");
+
+        var wo = new WorkOrder(Guid.NewGuid(), _companyId, "WO-2026-002", fgItemId, Guid.NewGuid(), 5m)
+        {
+            FgWarehouseId = whId,
+            SourceWarehouseId = whId,
+            PlannedStartDate = DateTime.UtcNow.Date
+        };
+        wo.Submit();
+
+        var woItem = new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItemId, "Oak Plank", 20m)
+        {
+            SourceWarehouseId = whId,
+            TransferredQuantity = 12m,
+            ConsumedQuantity = 8m
+        };
+        wo.RequiredItems.Add(woItem);
+
+        var bin = new Bin(Guid.NewGuid(), rmItemId, whId) { ActualQty = 10m };
+
+        _itemRepo.GetListAsync().Returns(Task.FromResult(new List<Item> { fgItem, rmItem }));
+        _warehouseRepo.GetListAsync().Returns(Task.FromResult(new List<Warehouse> { warehouse }));
+        _binRepo.GetListAsync().Returns(Task.FromResult(new List<Bin> { bin }));
+        _woRepo.WithDetailsAsync(Arg.Any<Expression<Func<WorkOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<WorkOrder> { wo }.AsQueryable()));
+        _poRepo.WithDetailsAsync(Arg.Any<Expression<Func<PurchaseOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<PurchaseOrder>().AsQueryable()));
+
+        var result = await _appService.GetReportAsync(new ProductionPlanningReportFilterDto
+        {
+            CompanyId = _companyId,
+            BasedOn = "WorkOrder"
+        });
+
+        result.Rows.Count.ShouldBe(1);
+        result.Rows[0].RequiredQty.ShouldBe(8m); // 20 - max(12, 8) = 8
+        result.Rows[0].AllottedQty.ShouldBe(8m);
+        result.Rows[0].ShortageQty.ShouldBe(0m);
+    }
+
+    [Fact]
+    public async Task BomStockAnalysis_UsesStockQtyAndRoundsDivisionBeforeFloor()
+    {
+        var bomId = Guid.NewGuid();
+        var fgItemId = Guid.NewGuid();
+        var rmItemId = Guid.NewGuid();
+        var whId = Guid.NewGuid();
+
+        var bom = new BillOfMaterials(bomId, _companyId, "BOM-DEC", fgItemId) { Quantity = 1m, IsActive = true };
+        // 0.3 Box * 1m ConversionFactor = 0.3 StockQty per unit; 3.0 available -> 3.0 / 0.3 = 10 units
+        bom.Items.Add(new BomItem(Guid.NewGuid(), bomId, rmItemId, "Sheet", 0.15m, 10m, "Box", conversionFactor: 2m, stockUom: "Kg"));
+
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        bomRepo.GetAsync(bomId).Returns(Task.FromResult(bom));
+
+        var bin = new Bin(Guid.NewGuid(), rmItemId, whId) { ActualQty = 3m };
+        var binRepo = Substitute.For<IRepository<Bin, Guid>>();
+        binRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Bin> { bin }.AsQueryable()));
+
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var rmItem = new Item(rmItemId, _companyId, "RM-SHT", "Sheet", ItemType.Goods);
+        itemRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { rmItem }.AsQueryable()));
+
+        var svc = new BomStockAnalysisAppService(bomRepo, binRepo, itemRepo);
+        var res = await svc.GetAnalysisAsync(bomId, requiredQty: 5m, warehouseId: whId);
+
+        res.Materials[0].RequiredQtyPerUnit.ShouldBe(0.3m); // 0.15 * 2 = 0.3 StockQty
+        res.CanManufactureQty.ShouldBe(10m); // 3.0 / 0.3 = 10
+    }
+
+    [Fact]
+    public async Task ItemTransactionValidationService_RejectsTemplateItems()
+    {
+        var templateId = Guid.NewGuid();
+        var templateItem = new Item(templateId, _companyId, "TPL-SHIRT", "T-Shirt Template", ItemType.Goods)
+        {
+            HasVariants = true
+        };
+
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.GetListAsync(Arg.Any<Expression<Func<Item, bool>>>())
+            .Returns(Task.FromResult(new List<Item> { templateItem }));
+
+        var validator = new MyERP.Inventory.DomainServices.ItemTransactionValidationService(itemRepo);
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            validator.ValidateItemsForTransactionAsync(new[] { templateId }));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ItemHasVariants);
+    }
 }

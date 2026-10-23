@@ -200,7 +200,9 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
                 var rawCode = rawItem?.ItemCode ?? string.Empty;
                 var rawName = rawItem?.ItemName ?? rm.ItemName;
 
-                var allotted = AllotStock(rm.ItemId, rmWhId, rm.RequiredQuantity, binTracker);
+                var issuedQty = Math.Max(rm.TransferredQuantity, rm.ConsumedQuantity);
+                var netRequiredQty = Math.Max(rm.RequiredQuantity - issuedQty, 0m);
+                var allotted = AllotStock(rm.ItemId, rmWhId, netRequiredQty, binTracker);
                 var (arrivalDate, arrivalQty) = GetPoArrival(openPOs, rm.ItemId, rmWhId);
 
                 rows.Add(new ProductionPlanningReportRowDto
@@ -217,7 +219,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
                     RawMaterialCode = rawCode,
                     RawMaterialName = rawName,
                     RawMaterialWarehouse = rmWhName,
-                    RequiredQty = rm.RequiredQuantity,
+                    RequiredQty = netRequiredQty,
                     AllottedQty = allotted,
                     ExpectedArrivalDate = arrivalDate,
                     ExpectedArrivalQty = arrivalQty

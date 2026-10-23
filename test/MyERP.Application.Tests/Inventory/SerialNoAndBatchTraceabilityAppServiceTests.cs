@@ -248,4 +248,79 @@ public class SerialNoAndBatchTraceabilityAppServiceTests
         child.ReferenceDocNo.ShouldBe("DN-2026-001");
         child.CustomerName.ShouldBe("Global Logistics Corp");
     }
+
+    [Fact]
+    public async Task GetReportAsync_BackwardTraceability_ProratesMultiReceiptBatchAndTracesSharedComponentAcrossBranches()
+    {
+        // Per ERPNext PR #61428 (commit bfa9be5a30):
+        // When a component batch is received across multiple inward bundles (e.g. 60 + 40 = 100),
+        // backward traceability prorates the consumed quantity (50 -> 30 and 20) across both receipts.
+        var fgBatchId = Guid.NewGuid();
+        var rmBatchId = Guid.NewGuid();
+
+        var fgItem = new Item(_fgItemId, _companyId, "ITEM-FG", "Finished Good", ItemType.Goods) { HasBatchNo = true };
+        var rmItem = new Item(_rmItemId, _companyId, "ITEM-RM", "Raw Material", ItemType.Goods) { HasBatchNo = true };
+        _itemRepo.GetListAsync().Returns(Task.FromResult(new List<Item> { fgItem, rmItem }));
+
+        var wh = new Warehouse(_warehouseId, _companyId, "Plant WH");
+        _warehouseRepo.GetListAsync().Returns(Task.FromResult(new List<Warehouse> { wh }));
+
+        var fgBatch = new Batch(fgBatchId, _fgItemId, "FG-B-100");
+        var rmBatch = new Batch(rmBatchId, _rmItemId, "RM-B-100");
+        _batchRepo.GetListAsync().Returns(Task.FromResult(new List<Batch> { fgBatch, rmBatch }));
+        _serialNoRepo.GetListAsync().Returns(Task.FromResult(new List<SerialNo>()));
+
+        var supplierId = Guid.NewGuid();
+        var supplier = new Supplier(supplierId, _companyId, "Supplier A");
+        _supplierRepo.GetListAsync().Returns(Task.FromResult(new List<Supplier> { supplier }));
+
+        var pr1Id = Guid.NewGuid();
+        var pr2Id = Guid.NewGuid();
+        var pr1 = new PurchaseReceipt(pr1Id, _companyId, supplierId, _warehouseId, "PR-001", DateTime.UtcNow.AddDays(-5));
+        var pr2 = new PurchaseReceipt(pr2Id, _companyId, supplierId, _warehouseId, "PR-002", DateTime.UtcNow.AddDays(-4));
+        _purchaseReceiptRepo.GetListAsync().Returns(Task.FromResult(new List<PurchaseReceipt> { pr1, pr2 }));
+
+        var seId = Guid.NewGuid();
+        var se = new StockEntry(seId, _companyId, StockEntryType.Manufacture, DateTime.UtcNow.AddDays(-1)) { EntryNumber = "STE-100" };
+        _stockEntryRepo.GetListAsync().Returns(Task.FromResult(new List<StockEntry> { se }));
+
+        var pr1Bundle = new SerialAndBatchBundle(Guid.NewGuid(), _companyId, _rmItemId, _warehouseId,
+            BundleTransactionType.Inward, "PurchaseReceipt", pr1Id, DateTime.UtcNow.AddDays(-5));
+        pr1Bundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), pr1Bundle.Id, 60m, 10m, batchId: rmBatchId));
+
+        var pr2Bundle = new SerialAndBatchBundle(Guid.NewGuid(), _companyId, _rmItemId, _warehouseId,
+            BundleTransactionType.Inward, "PurchaseReceipt", pr2Id, DateTime.UtcNow.AddDays(-4));
+        pr2Bundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), pr2Bundle.Id, 40m, 10m, batchId: rmBatchId));
+
+        var seOutBundle = new SerialAndBatchBundle(Guid.NewGuid(), _companyId, _rmItemId, _warehouseId,
+            BundleTransactionType.Outward, "StockEntry", seId, DateTime.UtcNow.AddDays(-1));
+        seOutBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), seOutBundle.Id, 50m, 10m, batchId: rmBatchId));
+
+        var seInBundle = new SerialAndBatchBundle(Guid.NewGuid(), _companyId, _fgItemId, _warehouseId,
+            BundleTransactionType.Inward, "StockEntry", seId, DateTime.UtcNow.AddDays(-1));
+        seInBundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), seInBundle.Id, 10m, 50m, batchId: fgBatchId));
+
+        var allBundles = new List<SerialAndBatchBundle> { pr1Bundle, pr2Bundle, seOutBundle, seInBundle };
+        _bundleRepo.WithDetailsAsync(Arg.Any<Expression<Func<SerialAndBatchBundle, object>>[]>())
+            .Returns(Task.FromResult(allBundles.AsQueryable()));
+
+        _customerRepo.GetListAsync().Returns(Task.FromResult(new List<Customer>()));
+        _deliveryNoteRepo.GetListAsync().Returns(Task.FromResult(new List<DeliveryNote>()));
+        _salesInvoiceRepo.GetListAsync().Returns(Task.FromResult(new List<SalesInvoice>()));
+        _workOrderRepo.GetListAsync().Returns(Task.FromResult(new List<WorkOrder>()));
+
+        var result = await _appService.GetReportAsync(new SerialNoAndBatchTraceabilityFilterDto
+        {
+            CompanyId = _companyId,
+            BatchId = fgBatchId,
+            TraceabilityDirection = "Backward"
+        });
+
+        var rmNodes = result.Nodes.Where(n => n.Indent == 1).OrderBy(n => n.ReferenceDocNo).ToList();
+        rmNodes.Count.ShouldBe(2);
+        rmNodes[0].ReferenceDocNo.ShouldBe("PR-001");
+        rmNodes[0].Quantity.ShouldBe(30m); // 50 * (60 / 100)
+        rmNodes[1].ReferenceDocNo.ShouldBe("PR-002");
+        rmNodes[1].Quantity.ShouldBe(20m); // 50 * (40 / 100)
+    }
 }

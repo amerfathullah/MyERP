@@ -361,6 +361,15 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
     {
         var plan = await _planRepository.GetAsync(id, includeDetails: true);
 
+        if (plan.PlannedItems.Any())
+        {
+            var itemValidation = LazyServiceProvider.LazyGetService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
+            if (itemValidation != null)
+            {
+                await itemValidation.ValidateItemsForTransactionAsync(plan.PlannedItems.Select(i => i.ItemId).ToArray());
+            }
+        }
+
         // Validate planned quantities against Sales Orders (ERPNext PR #60271 / commit f3ba7ca638)
         await ValidateSalesOrderPlannedQtyAsync(plan);
 
@@ -1398,7 +1407,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                          || (!w.ProductionPlanItemId.HasValue && plannedItem.WorkOrderId == w.Id))
                 .ToList();
 
-            var fgProducedQty = fgWorkOrders.Sum(w => w.ProducedQuantity);
+            var (fgProducedQty, fgPendingQty) = GetProducedAndPendingQty(plannedItem.PlannedQty, fgWorkOrders);
             var itemCode = itemMap.TryGetValue(plannedItem.ItemId, out var fgItem) ? fgItem.ItemCode : plannedItem.ItemName;
             var soNumber = plannedItem.SalesOrderId.HasValue && soMap.TryGetValue(plannedItem.SalesOrderId.Value, out var sNum)
                 ? sNum
@@ -1414,7 +1423,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 BomLevel = 0,
                 Qty = plannedItem.PlannedQty,
                 ProducedQty = fgProducedQty,
-                PendingQty = Math.Max(0, plannedItem.PlannedQty - fgProducedQty),
+                PendingQty = fgPendingQty,
                 DocumentType = null,
                 DocumentName = null,
                 Status = null
@@ -1442,7 +1451,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                     BomLevel = 0,
                     Qty = wo.Quantity,
                     ProducedQty = wo.ProducedQuantity,
-                    PendingQty = Math.Max(0, wo.Quantity - wo.ProducedQuantity)
+                    PendingQty = Math.Max(0, wo.Quantity - wo.ProducedQuantity - wo.ProcessLossQty)
                 });
             }
 
@@ -1492,8 +1501,8 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             .Where(w => w.ProductionPlanSubAssemblyItemId == subItem.Id)
             .ToList();
 
-        var producedQty = linkedWos.Sum(w => w.ProducedQuantity);
         var subQty = subItem.PlannedQty > 0 ? subItem.PlannedQty : subItem.RequiredQty;
+        var (producedQty, pendingQty) = GetProducedAndPendingQty(subQty, linkedWos);
         var subItemCode = itemMap.TryGetValue(subItem.ItemId, out var sItem) ? sItem.ItemCode : subItem.ItemName;
 
         // Sub-assembly summary row
@@ -1506,7 +1515,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             BomLevel = 1,
             Qty = subQty,
             ProducedQty = producedQty,
-            PendingQty = Math.Max(0, subQty - producedQty),
+            PendingQty = pendingQty,
             DocumentType = null,
             DocumentName = null,
             Status = null
@@ -1530,9 +1539,26 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 BomLevel = 1,
                 Qty = wo.Quantity,
                 ProducedQty = wo.ProducedQuantity,
-                PendingQty = Math.Max(0, wo.Quantity - wo.ProducedQuantity)
+                PendingQty = Math.Max(0, wo.Quantity - wo.ProducedQuantity - wo.ProcessLossQty)
             });
         }
+    }
+
+    /// <summary>
+    /// Per ERPNext PR #61430 (commit 05c3850699): accounts for process loss and replacement Work Orders
+    /// ordered beyond the planned quantity so unreplaced process loss reduces pending quantity while
+    /// replacement Work Orders restore pending quantity until produced.
+    /// </summary>
+    private static (decimal ProducedQty, decimal PendingQty) GetProducedAndPendingQty(
+        decimal plannedQty,
+        IReadOnlyCollection<WorkOrder> workOrders)
+    {
+        var producedQty = workOrders.Sum(w => w.ProducedQuantity);
+        var orderedBeyondPlan = Math.Max(workOrders.Sum(w => w.Quantity) - plannedQty, 0m);
+        var processLossQty = workOrders.Sum(w => w.ProcessLossQty);
+        var unreplacedLossQty = Math.Max(processLossQty - orderedBeyondPlan, 0m);
+        var pendingQty = Math.Max(0m, plannedQty - producedQty - unreplacedLossQty);
+        return (producedQty, pendingQty);
     }
 
     /// <summary>
