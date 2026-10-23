@@ -1043,6 +1043,24 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
         await _repository.UpdateAsync(pe, autoSave: true);
 
+        // Reopen any Payment Request that was settled by this Payment Entry (ERPNext commit 389206f2dc)
+        var prRepo = LazyServiceProvider?.LazyGetService<IRepository<PaymentRequest, Guid>>();
+        if (prRepo != null)
+        {
+            var prQuery = await prRepo.GetQueryableAsync();
+            if (prQuery != null)
+            {
+                var paidRequests = prQuery
+                    .Where(p => p.PaymentEntryId == pe.Id && p.Status == PaymentRequestStatus.Paid)
+                    .ToList();
+                foreach (var pr in paidRequests)
+                {
+                    pr.ReopenOnPaymentCancelled();
+                    await prRepo.UpdateAsync(pr);
+                }
+            }
+        }
+
         // Audit trail
         await _activityLogRepository.InsertAsync(new DocumentActivityLog(
             GuidGenerator.Create(), "PaymentEntry", pe.Id, "Cancelled",

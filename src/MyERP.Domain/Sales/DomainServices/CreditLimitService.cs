@@ -157,7 +157,8 @@ public class CreditLimitService : DomainService
     }
 
     /// <summary>
-    /// Gets total outstanding amount for a customer (posted invoices with outstanding > 0).
+    /// Gets total outstanding amount for a customer (posted invoices with outstanding > 0,
+    /// plus unbilled standalone submitted Delivery Note rows per ERPNext commit b462209445).
     /// Optionally scoped to a specific company.
     /// </summary>
     public virtual async Task<decimal> GetCustomerOutstandingAsync(Guid customerId, Guid? companyId = null)
@@ -172,6 +173,39 @@ public class CreditLimitService : DomainService
             query = query.Where(i => i.CompanyId == companyId.Value);
 
         var outstanding = query.Sum(i => i.GrandTotal - i.AmountPaid);
+
+        // Include unbilled standalone submitted Delivery Note rows (ERPNext commit b462209445)
+        var dnRepo = LazyServiceProvider?.LazyGetService<IRepository<DeliveryNote, Guid>>();
+        if (dnRepo != null)
+        {
+            var dnQuery = await dnRepo.GetQueryableAsync();
+            if (dnQuery != null)
+            {
+                var standaloneDns = dnQuery
+                    .Where(dn => dn.CustomerId == customerId
+                        && (!companyId.HasValue || dn.CompanyId == companyId.Value)
+                        && !dn.IsReturn
+                        && dn.Status == Core.DocumentStatus.Submitted
+                        && dn.NetTotal > 0
+                        && !dn.SalesOrderId.HasValue)
+                    .ToList();
+
+                foreach (var dn in standaloneDns)
+                {
+                    var exchangeRate = dn.ExchangeRate > 0 ? dn.ExchangeRate : 1m;
+                    foreach (var item in dn.Items)
+                    {
+                        if (!item.IsClosed && !item.SalesOrderItemId.HasValue && item.Quantity > 0 && item.Quantity > item.BilledQty)
+                        {
+                            var unbilledFraction = (item.Quantity - item.BilledQty) / item.Quantity;
+                            var dnExposure = (item.LineTotal * unbilledFraction / dn.NetTotal) * dn.GrandTotal * exchangeRate;
+                            outstanding += dnExposure;
+                        }
+                    }
+                }
+            }
+        }
+
         return outstanding;
     }
 

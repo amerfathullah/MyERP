@@ -56,13 +56,14 @@ public class ItemDefaultsResolutionService : DomainService
         if (item.DefaultIncomeAccountId.HasValue)
             return item.DefaultIncomeAccountId;
 
-        // Traverse item group hierarchy upward
-        return await TraverseGroupHierarchyAsync(item.ItemGroupId, g => g.DefaultIncomeAccountId);
+        // Traverse item group hierarchy upward, then fall back to Brand default (ERPNext PR #60801)
+        return await TraverseGroupHierarchyAsync(item.ItemGroupId, g => g.DefaultIncomeAccountId)
+            ?? await ResolveBrandDefaultAsync(item.Brand, b => b.DefaultIncomeAccountId);
     }
 
     /// <summary>
     /// Resolves the expense/COGS account for an item (for purchasing/COGS GL posting).
-    /// Chain: ItemDefault (for company) → Item.DefaultExpenseAccountId → ItemGroup hierarchy (traverse parents up) → Company.ServiceExpenseAccountId (for non-stock/service items) → null.
+    /// Chain: ItemDefault (for company) → Item.DefaultExpenseAccountId → ItemGroup hierarchy (traverse parents up) → Brand default → Company.ServiceExpenseAccountId (for non-stock/service items) → null.
     /// </summary>
     public async Task<Guid?> ResolveExpenseAccountAsync(Guid itemId, Guid? companyId = null)
     {
@@ -85,7 +86,8 @@ public class ItemDefaultsResolutionService : DomainService
         if (item.DefaultExpenseAccountId.HasValue)
             return item.DefaultExpenseAccountId;
 
-        var groupAccount = await TraverseGroupHierarchyAsync(item.ItemGroupId, g => g.DefaultExpenseAccountId);
+        var groupAccount = await TraverseGroupHierarchyAsync(item.ItemGroupId, g => g.DefaultExpenseAccountId)
+            ?? await ResolveBrandDefaultAsync(item.Brand, b => b.DefaultExpenseAccountId);
         if (groupAccount.HasValue)
             return groupAccount;
 
@@ -102,8 +104,8 @@ public class ItemDefaultsResolutionService : DomainService
 
     /// <summary>
     /// Resolves the default warehouse for an item.
-    /// Chain: ItemDefault (for company) → Item.DefaultWarehouseId → ItemGroup hierarchy (traverse parents up) → null.
-    /// Per ERPNext PR #58663 / get_item_defaults chain.
+    /// Chain: ItemDefault (for company) → Item.DefaultWarehouseId → ItemGroup hierarchy (traverse parents up) → Brand default → null.
+    /// Per ERPNext PR #58663 &amp; PR #60801 / get_item_defaults chain.
     /// </summary>
     public async Task<Guid?> ResolveWarehouseAsync(Guid itemId, Guid? companyId = null)
     {
@@ -126,7 +128,8 @@ public class ItemDefaultsResolutionService : DomainService
         if (item.DefaultWarehouseId.HasValue)
             return item.DefaultWarehouseId;
 
-        return await TraverseGroupHierarchyAsync(item.ItemGroupId, g => g.DefaultWarehouseId);
+        return await TraverseGroupHierarchyAsync(item.ItemGroupId, g => g.DefaultWarehouseId)
+            ?? await ResolveBrandDefaultAsync(item.Brand, b => b.DefaultWarehouseId);
     }
 
     /// <summary>
@@ -183,5 +186,22 @@ public class ItemDefaultsResolutionService : DomainService
         }
 
         return null;
+    }
+
+    private async Task<Guid?> ResolveBrandDefaultAsync(string? brandName, Func<Brand, Guid?> selector)
+    {
+        if (string.IsNullOrWhiteSpace(brandName))
+            return null;
+
+        var brandRepo = LazyServiceProvider?.LazyGetService<IRepository<Brand, Guid>>();
+        if (brandRepo == null)
+            return null;
+
+        var brandQuery = await brandRepo.GetQueryableAsync();
+        if (brandQuery == null)
+            return null;
+
+        var brand = brandQuery.FirstOrDefault(b => b.IsActive && b.Name == brandName);
+        return brand != null ? selector(brand) : null;
     }
 }

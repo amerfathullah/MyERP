@@ -461,4 +461,27 @@ public class ChildItemUpdateServiceTests
         Should.Throw<BusinessException>(() => creator.Validate())
             .Code.ShouldBe(MyERPDomainErrorCodes.BomCycleDetected);
     }
+
+    [Fact]
+    public void PaymentRequest_ReopenOnPaymentCancelled_RestoresStatusAndOutstanding()
+    {
+        var pr = new MyERP.Accounting.Entities.PaymentRequest(
+            Guid.NewGuid(), Guid.NewGuid(), "SalesInvoice", Guid.NewGuid(), Guid.NewGuid(), "Customer", 250m);
+        pr.Submit();
+        pr.Status.ShouldBe(MyERP.Accounting.Entities.PaymentRequestStatus.Initiated);
+
+        var peId = Guid.NewGuid();
+        pr.OutstandingAmount = 0m;
+        pr.MarkPaid(peId);
+        pr.Status.ShouldBe(MyERP.Accounting.Entities.PaymentRequestStatus.Paid);
+
+        pr.ReopenOnPaymentCancelled(195.50m);
+        pr.Status.ShouldBe(MyERP.Accounting.Entities.PaymentRequestStatus.Initiated);
+        pr.PaymentEntryId.ShouldBeNull();
+        pr.OutstandingAmount.ShouldBe(195.50m);
+
+        pr.Cancel();
+        pr.Status.ShouldBe(MyERP.Accounting.Entities.PaymentRequestStatus.Cancelled);
+        pr.OutstandingAmount.ShouldBe(0m);
+    }
 }

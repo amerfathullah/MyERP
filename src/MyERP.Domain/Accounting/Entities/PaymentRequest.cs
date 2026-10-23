@@ -92,7 +92,22 @@ public class PaymentRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status == PaymentRequestStatus.Paid)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Cannot cancel paid payment request");
+        OutstandingAmount = 0m;
         Status = PaymentRequestStatus.Cancelled;
+    }
+
+    /// <summary>
+    /// Reopens a Paid Payment Request when its settling Payment Entry is cancelled.
+    /// Per ERPNext commit 389206f2dc: restores OutstandingAmount and sets status back to Initiated.
+    /// </summary>
+    public void ReopenOnPaymentCancelled(decimal restoredAmount = 0m)
+    {
+        if (Status == PaymentRequestStatus.Paid)
+        {
+            PaymentEntryId = null;
+            OutstandingAmount = restoredAmount > 0 ? restoredAmount : GrandTotal;
+            Status = PaymentRequestStatus.Initiated;
+        }
     }
 }
 

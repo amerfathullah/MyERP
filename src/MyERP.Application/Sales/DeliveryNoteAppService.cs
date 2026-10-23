@@ -504,12 +504,16 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             }
         }
 
+        // Credit limit enforcement at DN submit (ERPNext commit b462209445: applies to standalone and SO-linked non-return DNs)
+        if (!dn.IsReturn)
+        {
+            var dnUserRoles = (CurrentUser.Roles ?? Array.Empty<string>()).ToArray();
+            await _creditLimitService.ValidateCreditLimitAsync(dn.CustomerId, dn.GrandTotal, dn.CompanyId, dnUserRoles);
+        }
+
         // Over-delivery validation + SO status guard (domain service)
         if (!dn.IsReturn && dn.SalesOrderId.HasValue)
         {
-            // Credit limit enforcement at DN submit
-            await _creditLimitService.ValidateCreditLimitAsync(dn.CustomerId, dn.GrandTotal, dn.CompanyId);
-
             // Selling price validation at DN submit (Warn mode)
             var valuationSvc = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockValuationService>();
             var dnItemData = dn.Items

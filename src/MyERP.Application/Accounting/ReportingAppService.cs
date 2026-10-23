@@ -700,7 +700,50 @@ public class ReportingAppService : ApplicationService, IReportingAppService
     private async Task<Dictionary<string, decimal?>> CalculateFinancialRatiosForPeriodAsync(
         Guid companyId, DateTime fromDate, DateTime toDate)
     {
-        var accounts = await _accountRepository.GetListAsync(a => a.CompanyId == companyId && !a.IsGroup);
+        var allCompanyAccounts = await _accountRepository.GetListAsync(a => a.CompanyId == companyId);
+        var accounts = allCompanyAccounts.Where(a => !a.IsGroup).ToList();
+        var accountById = allCompanyAccounts.ToDictionary(a => a.Id);
+
+        var categoryNamesById = new Dictionary<Guid, string>();
+        if (allCompanyAccounts.Any(a => a.AccountCategoryId.HasValue))
+        {
+            var catRepo = LazyServiceProvider?.LazyGetService<IRepository<AccountCategory, Guid>>();
+            if (catRepo != null)
+            {
+                var categories = await catRepo.GetListAsync();
+                categoryNamesById = categories.ToDictionary(c => c.Id, c => c.Name);
+            }
+        }
+
+        // Inherit AccountCategory and AccountSubType from nearest parent group (ERPNext PR #61490 / commit 0ee7a7b67f)
+        string? GetEffectiveCategoryName(Account a)
+        {
+            var cur = a;
+            var visited = new HashSet<Guid>();
+            while (cur != null && visited.Add(cur.Id))
+            {
+                if (cur.AccountCategoryId.HasValue && categoryNamesById.TryGetValue(cur.AccountCategoryId.Value, out var catName) && !string.IsNullOrWhiteSpace(catName))
+                    return catName;
+                if (!cur.ParentAccountId.HasValue || !accountById.TryGetValue(cur.ParentAccountId.Value, out cur))
+                    break;
+            }
+            return null;
+        }
+
+        AccountSubType? GetEffectiveSubType(Account a)
+        {
+            var cur = a;
+            var visited = new HashSet<Guid>();
+            while (cur != null && visited.Add(cur.Id))
+            {
+                if (cur.AccountSubType.HasValue)
+                    return cur.AccountSubType.Value;
+                if (!cur.ParentAccountId.HasValue || !accountById.TryGetValue(cur.ParentAccountId.Value, out cur))
+                    break;
+            }
+            return null;
+        }
+
         var journalEntries = await _journalEntryRepository.GetListAsync(
             je => je.CompanyId == companyId
                 && je.Status == DocumentStatus.Posted
@@ -752,47 +795,93 @@ public class ReportingAppService : ApplicationService, IReportingAppService
             return a.AccountType == AccountType.Revenue ? credit - debit : debit - credit;
         }
 
-        // Account classification
-        var currentAssetAccounts = accounts.Where(a => a.AccountType == AccountType.Asset &&
-            (a.AccountSubType == AccountSubType.CurrentAsset ||
-             a.AccountSubType == AccountSubType.BankAccount ||
-             a.AccountSubType == AccountSubType.CashAccount ||
-             a.AccountSubType == AccountSubType.AccountsReceivable ||
-             a.AccountSubType == AccountSubType.Stock)).ToList();
+        // Account classification — per ERPNext PR #61490 (commit 0ee7a7b67f), AccountCategory wins over AccountSubType when present
+        var currentAssetCategories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Cash and Cash Equivalents", "Trade Receivables", "Other Receivables",
+            "Stock Assets", "Short-term Investments", "Other Current Assets"
+        };
+        var fixedAssetCategories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Tangible Assets", "Intangible Assets"
+        };
+        var currentLiabilityCategories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Trade Payables", "Other Payables", "Short-term Borrowings",
+            "Current Tax Liabilities", "Short-term Provisions", "Other Current Liabilities"
+        };
+        var directExpenseCategories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Cost of Goods Sold", "Other Direct Costs"
+        };
 
-        var quickAssetAccounts = accounts.Where(a => a.AccountType == AccountType.Asset &&
-            (a.AccountSubType == AccountSubType.BankAccount ||
-             a.AccountSubType == AccountSubType.CashAccount ||
-             a.AccountSubType == AccountSubType.AccountsReceivable)).ToList();
+        var currentAssetAccounts = accounts.Where(a =>
+        {
+            if (a.AccountType != AccountType.Asset) return false;
+            var cat = GetEffectiveCategoryName(a);
+            if (cat != null) return currentAssetCategories.Contains(cat);
+            var sub = GetEffectiveSubType(a);
+            return sub is AccountSubType.CurrentAsset or AccountSubType.BankAccount or AccountSubType.CashAccount
+                or AccountSubType.AccountsReceivable or AccountSubType.Stock;
+        }).ToList();
 
-        var fixedAssetAccounts = accounts.Where(a => a.AccountType == AccountType.Asset &&
-            (a.AccountSubType == AccountSubType.FixedAsset ||
-             a.AccountSubType == AccountSubType.AccumulatedDepreciation ||
-             a.AccountSubType == AccountSubType.CapitalWorkInProgress)).ToList();
+        var quickAssetAccounts = accounts.Where(a =>
+        {
+            if (a.AccountType != AccountType.Asset) return false;
+            var cat = GetEffectiveCategoryName(a);
+            if (cat != null)
+            {
+                return string.Equals(cat, "Cash and Cash Equivalents", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(cat, "Trade Receivables", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(cat, "Other Receivables", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(cat, "Short-term Investments", StringComparison.OrdinalIgnoreCase);
+            }
+            var sub = GetEffectiveSubType(a);
+            return sub is AccountSubType.BankAccount or AccountSubType.CashAccount or AccountSubType.AccountsReceivable;
+        }).ToList();
+
+        var fixedAssetAccounts = accounts.Where(a =>
+        {
+            if (a.AccountType != AccountType.Asset) return false;
+            var cat = GetEffectiveCategoryName(a);
+            if (cat != null) return fixedAssetCategories.Contains(cat);
+            var sub = GetEffectiveSubType(a);
+            return sub is AccountSubType.FixedAsset or AccountSubType.AccumulatedDepreciation or AccountSubType.CapitalWorkInProgress;
+        }).ToList();
 
         var allAssetAccounts = accounts.Where(a => a.AccountType == AccountType.Asset).ToList();
 
-        var currentLiabilityAccounts = accounts.Where(a => a.AccountType == AccountType.Liability &&
-            (a.AccountSubType == AccountSubType.CurrentLiability ||
-             a.AccountSubType == AccountSubType.AccountsPayable ||
-             a.AccountSubType == AccountSubType.TaxPayable)).ToList();
+        var currentLiabilityAccounts = accounts.Where(a =>
+        {
+            if (a.AccountType != AccountType.Liability) return false;
+            var cat = GetEffectiveCategoryName(a);
+            if (cat != null) return currentLiabilityCategories.Contains(cat);
+            var sub = GetEffectiveSubType(a);
+            return sub is AccountSubType.CurrentLiability or AccountSubType.AccountsPayable or AccountSubType.TaxPayable;
+        }).ToList();
 
         var allLiabilityAccounts = accounts.Where(a => a.AccountType == AccountType.Liability).ToList();
 
         var receivableAccounts = accounts.Where(a => a.AccountType == AccountType.Asset &&
-            a.AccountSubType == AccountSubType.AccountsReceivable).ToList();
+            GetEffectiveSubType(a) == AccountSubType.AccountsReceivable).ToList();
 
         var payableAccounts = accounts.Where(a => a.AccountType == AccountType.Liability &&
-            a.AccountSubType == AccountSubType.AccountsPayable).ToList();
+            GetEffectiveSubType(a) == AccountSubType.AccountsPayable).ToList();
 
         var stockAccounts = accounts.Where(a => a.AccountType == AccountType.Asset &&
-            a.AccountSubType == AccountSubType.Stock).ToList();
+            GetEffectiveSubType(a) == AccountSubType.Stock).ToList();
 
         var revenueAccounts = accounts.Where(a => a.AccountType == AccountType.Revenue).ToList();
         var expenseAccounts = accounts.Where(a => a.AccountType == AccountType.Expense).ToList();
-        var cogsAccounts = expenseAccounts.Where(a => a.AccountSubType == AccountSubType.CostOfGoodsSold ||
-            a.AccountName.Contains("Cost of Goods", StringComparison.OrdinalIgnoreCase) ||
-            a.AccountName.Contains("COGS", StringComparison.OrdinalIgnoreCase)).ToList();
+        var cogsAccounts = expenseAccounts.Where(a =>
+        {
+            var cat = GetEffectiveCategoryName(a);
+            if (cat != null) return directExpenseCategories.Contains(cat);
+            var sub = GetEffectiveSubType(a);
+            return sub == AccountSubType.CostOfGoodsSold ||
+                a.AccountName.Contains("Cost of Goods", StringComparison.OrdinalIgnoreCase) ||
+                a.AccountName.Contains("COGS", StringComparison.OrdinalIgnoreCase);
+        }).ToList();
 
         // 1. Balance Sheet totals
         var currentAssets = currentAssetAccounts.Sum(GetClosingBalance);

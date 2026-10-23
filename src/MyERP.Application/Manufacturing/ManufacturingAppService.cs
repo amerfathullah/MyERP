@@ -1208,9 +1208,23 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
         var company = await companyRepo.FindAsync(input.CompanyId);
 
+        // Per ERPNext PR #61652 (commits 4e89ec0fdf, e860dfecc5, 3da9324526):
+        // Default target warehouse priority: BOM target warehouse (if same company) -> Company default FG warehouse -> Production Item default warehouse
+        Guid? validBomTargetWarehouseId = null;
+        if (bom.TargetWarehouseId.HasValue)
+        {
+            var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var bomTargetWh = await whRepo.FindAsync(bom.TargetWarehouseId.Value);
+            if (bomTargetWh != null && bomTargetWh.CompanyId == input.CompanyId)
+            {
+                validBomTargetWarehouseId = bom.TargetWarehouseId.Value;
+            }
+        }
+
         var fgWarehouseId = input.FgWarehouseId
+            ?? validBomTargetWarehouseId
             ?? company?.DefaultFgWarehouseId
-            ?? await itemDefaultsService.ResolveWarehouseAsync(input.ItemId);
+            ?? await itemDefaultsService.ResolveWarehouseAsync(input.ItemId, input.CompanyId);
 
         var wipWarehouseId = input.WipWarehouseId
             ?? company?.DefaultWipWarehouseId;
