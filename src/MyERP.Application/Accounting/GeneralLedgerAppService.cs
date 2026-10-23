@@ -49,7 +49,42 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
         var accountQuery = await _accountRepository.GetQueryableAsync();
         var accounts = accountQuery
             .Where(a => a.CompanyId == input.CompanyId)
-            .ToDictionary(a => a.Id, a => new { a.AccountCode, a.AccountName });
+            .ToDictionary(a => a.Id, a => new { a.AccountCode, a.AccountName, a.AccountType });
+
+        // Per ERPNext PR #60251: compute opening balance before fromDate; exclude previous fiscal years for P&L accounts
+        DateTime? fiscalYearStart = null;
+        var fyRepo = LazyServiceProvider.LazyGetService<IRepository<FiscalYear, Guid>>();
+        if (fyRepo != null)
+        {
+            var fyQuery = await fyRepo.GetQueryableAsync();
+            var fy = fyQuery.FirstOrDefault(f => f.CompanyId == input.CompanyId && f.StartDate <= from && f.EndDate >= from);
+            fiscalYearStart = fy?.StartDate;
+        }
+
+        var priorJournals = jeQuery
+            .Where(je => je.CompanyId == input.CompanyId
+                      && je.PostingDate < from
+                      && je.Status == Core.DocumentStatus.Posted)
+            .ToList();
+
+        decimal openingBalance = 0m;
+        foreach (var je in priorJournals)
+        {
+            foreach (var line in je.Lines)
+            {
+                if (input.AccountId.HasValue && line.AccountId != input.AccountId.Value)
+                    continue;
+                if (input.CostCenterId.HasValue && line.CostCenterId != input.CostCenterId.Value)
+                    continue;
+
+                accounts.TryGetValue(line.AccountId, out var acctInfo);
+                var isPlAccount = acctInfo != null && (acctInfo.AccountType == AccountType.Revenue || acctInfo.AccountType == AccountType.Expense);
+                if (isPlAccount && fiscalYearStart.HasValue && je.PostingDate < fiscalYearStart.Value)
+                    continue;
+
+                openingBalance += line.IsDebit ? line.Amount : -line.Amount;
+            }
+        }
 
         // Build cost center lookup
         var costCenters = new Dictionary<Guid, string>();
@@ -63,7 +98,7 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
         }
 
         var entries = new List<GeneralLedgerLineDto>();
-        decimal runningBalance = 0;
+        decimal runningBalance = openingBalance;
 
         foreach (var je in journals)
         {
@@ -109,9 +144,10 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
         return new GeneralLedgerReportDto
         {
             Entries = entries,
+            OpeningBalance = openingBalance,
             TotalDebit = entries.Sum(e => e.DebitAmount),
             TotalCredit = entries.Sum(e => e.CreditAmount),
-            Balance = entries.LastOrDefault()?.Balance ?? 0,
+            Balance = entries.LastOrDefault()?.Balance ?? openingBalance,
             Count = entries.Count,
         };
     }

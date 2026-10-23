@@ -177,12 +177,15 @@ public class WorkOrderManager : DomainService
 
     /// <summary>
     /// Resolves default Target/FG warehouse for a Work Order item using hierarchy:
-    /// Company DefaultFgWarehouseId -> Item DefaultWarehouseId -> ItemGroup DefaultWarehouseId.
-    /// Per ERPNext PR #58231.
+    /// BOM TargetWarehouseId -> Company DefaultFgWarehouseId -> Item DefaultWarehouseId -> ItemGroup DefaultWarehouseId.
+    /// Per ERPNext PR #58231 &amp; PR #61652.
     /// </summary>
     public async Task<Guid?> ResolveDefaultFgWarehouseAsync(
-        Guid itemId, Guid? companyDefaultFgWarehouseId, IRepository<ItemGroup, Guid>? itemGroupRepository = null)
+        Guid itemId, Guid? companyDefaultFgWarehouseId, IRepository<ItemGroup, Guid>? itemGroupRepository = null, Guid? bomTargetWarehouseId = null)
     {
+        if (bomTargetWarehouseId.HasValue)
+            return bomTargetWarehouseId;
+
         if (companyDefaultFgWarehouseId.HasValue)
             return companyDefaultFgWarehouseId;
 

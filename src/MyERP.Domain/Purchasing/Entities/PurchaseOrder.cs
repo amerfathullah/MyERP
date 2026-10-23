@@ -432,6 +432,17 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Remaining qty to receive.</summary>
     public decimal PendingReceiptQty => IsClosed ? 0 : Math.Max(0, Math.Round(Quantity - ReceivedQty, 4));
 
+    /// <summary>
+    /// Computes maximum receivable quantity including over-receipt allowance percentage.
+    /// Per ERPNext PR #61640 / commit d220e14b15: when the UOM must be a whole number,
+    /// the allowed over-receipt ceiling is floored to a whole number.
+    /// </summary>
+    public decimal GetMaxReceivableQty(decimal allowancePct = 0m, bool mustBeWholeNumber = false)
+    {
+        var maxAllowed = Math.Round(Quantity * (1m + allowancePct / 100m), 4);
+        return mustBeWholeNumber ? Math.Floor(maxAllowed) : maxAllowed;
+    }
+
     /// <summary>Remaining qty to bill.</summary>
     public decimal PendingBillingQty => IsClosed ? 0 : Math.Max(0, Math.Round(Quantity - BilledQty, 4));
 

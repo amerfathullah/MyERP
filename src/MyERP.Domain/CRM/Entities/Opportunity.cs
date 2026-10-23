@@ -38,6 +38,7 @@ public class Opportunity : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     // Loss tracking
     public string? LostReason { get; set; }
+    public DateTime? LostOn { get; set; }
 
     public string? Notes { get; set; }
 
@@ -125,6 +126,7 @@ public class Opportunity : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = OpportunityStatus.Lost;
         LostReason = reason;
+        LostOn = DateTime.UtcNow.Date;
     }
 
     public void Close()
@@ -140,6 +142,7 @@ public class Opportunity : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = OpportunityStatus.Open;
         LostReason = null;
+        LostOn = null;
     }
 
     public void ValidateItems()

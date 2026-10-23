@@ -257,4 +257,61 @@ public class ChildItemUpdateServiceTests
         Should.NotThrow(() =>
             _service.ValidateUomUnchangedAfterFulfilment("Steel Rod", 5m, "Box", null, 10m, null));
     }
+
+    // =========================================================================
+    // ERPNext PR #61634 / #61640 / #61581 / #61472 / #61495
+    // =========================================================================
+
+    [Fact]
+    public void ValidateSalesOrderItem_ReservedStock_BlocksDeleteUomChangeAndUnderReduction()
+    {
+        var item = new SalesOrderItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Widget", 10, 50, 0, "Box")
+        {
+            ConversionFactor = 2,
+            DeliveredQty = 2 // 4 stock units delivered
+        };
+
+        var delEx = Should.Throw<BusinessException>(() => _service.ValidateSalesOrderItemDeletion(item, hasKeptStockReservation: true));
+        delEx.Data["detail"]!.ToString()!.ShouldContain("Unreserve stock before deleting");
+
+        var uomEx = Should.Throw<BusinessException>(() =>
+            _service.ValidateUomUnchangedAfterFulfilment("Widget", 0m, "Box", "Pack", 2m, 2m, hasKeptStockReservation: true));
+        uomEx.Data["detail"]!.ToString()!.ShouldContain("while stock is reserved");
+
+        // 4 stock units delivered + 6 stock units reserved = 10 stock units minimum (5 Boxes)
+        Should.NotThrow(() => _service.ValidateSalesOrderItemStockQty(item, 5m, 2m, stockReservedQty: 6m));
+        var qtyEx = Should.Throw<BusinessException>(() => _service.ValidateSalesOrderItemStockQty(item, 4m, 2m, stockReservedQty: 6m));
+        qtyEx.Data["detail"]!.ToString()!.ShouldContain("delivered and reserved quantity");
+    }
+
+    [Fact]
+    public void PurchaseOrderItem_GetMaxReceivableQty_FloorsWholeNumberUom()
+    {
+        var poItem = new PurchaseOrderItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Bolt", 3m, 10m, 0m, "Nos");
+        poItem.GetMaxReceivableQty(50m, mustBeWholeNumber: false).ShouldBe(4.5m);
+        poItem.GetMaxReceivableQty(50m, mustBeWholeNumber: true).ShouldBe(4m);
+    }
+
+    [Fact]
+    public void Opportunity_DeclareLostAndReopen_TracksLostOnDate()
+    {
+        var opp = new MyERP.CRM.Entities.Opportunity(Guid.NewGuid(), Guid.NewGuid(), "OPP-001", "Deal");
+        opp.DeclareLost("Price too high");
+        opp.LostOn.ShouldBe(DateTime.UtcNow.Date);
+        opp.Reopen();
+        opp.LostOn.ShouldBeNull();
+    }
+
+    [Fact]
+    public void ServiceLevelAgreement_GetWorkingHoursBetween_CountsOnlyServiceWindowHours()
+    {
+        var slaId = Guid.NewGuid();
+        var sla = new MyERP.Support.Entities.ServiceLevelAgreement(slaId, Guid.NewGuid(), "SLA-Std", 8, 4);
+        // Monday 09:00 - 17:00
+        sla.AddServiceDay(new MyERP.Support.Entities.ServiceDay(Guid.NewGuid(), slaId, DayOfWeek.Monday, TimeSpan.FromHours(9), TimeSpan.FromHours(17)));
+
+        var monday8am = new DateTime(2026, 10, 19, 8, 0, 0, DateTimeKind.Utc); // Monday
+        var monday12pm = new DateTime(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc);
+        sla.GetWorkingHoursBetween(monday8am, monday12pm).ShouldBe(3m);
+    }
 }

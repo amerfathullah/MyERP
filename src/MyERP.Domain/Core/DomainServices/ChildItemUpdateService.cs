@@ -19,12 +19,18 @@ public class ChildItemUpdateService : DomainService
     /// Validates whether a Sales Order child row can be deleted or removed.
     /// Throws BusinessException if the item has already been partially delivered or billed.
     /// </summary>
-    public void ValidateSalesOrderItemDeletion(SalesOrderItem item)
+    public void ValidateSalesOrderItemDeletion(SalesOrderItem item, bool hasKeptStockReservation = false)
     {
         if (item.IsClosed)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Cannot delete Sales Order item '{item.Description}' because it is closed. Reopen the row first.");
+        }
+
+        if (hasKeptStockReservation)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot delete Sales Order item '{item.Description}' because stock is reserved. Unreserve stock before deleting the item.");
         }
 
         if (item.DeliveredQty > 0)
@@ -92,9 +98,9 @@ public class ChildItemUpdateService : DomainService
     }
 
     /// <summary>
-    /// Validates requested quantity and conversion factor against already delivered quantity in stock UOM (per ERPNext PR #58603).
+    /// Validates requested quantity and conversion factor against already delivered and reserved quantity in stock UOM (per ERPNext PR #58603 &amp; PR #61634).
     /// </summary>
-    public void ValidateSalesOrderItemStockQty(SalesOrderItem item, decimal newQty, decimal? newConversionFactor = null)
+    public void ValidateSalesOrderItemStockQty(SalesOrderItem item, decimal newQty, decimal? newConversionFactor = null, decimal stockReservedQty = 0m)
     {
         var factor = newConversionFactor.HasValue && newConversionFactor.Value > 0 ? newConversionFactor.Value : item.ConversionFactor;
         var requestedStockQty = newQty * factor;
@@ -104,6 +110,12 @@ public class ChildItemUpdateService : DomainService
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Cannot set quantity less than delivered quantity ({deliveredStockQty} in stock UOM).");
+        }
+
+        if (stockReservedQty > 0 && requestedStockQty < deliveredStockQty + stockReservedQty)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot set quantity less than delivered and reserved quantity ({deliveredStockQty + stockReservedQty} in stock UOM). Unreserve stock before reducing the quantity.");
         }
     }
 
@@ -246,17 +258,25 @@ public class ChildItemUpdateService : DomainService
         string currentUom,
         string? newUom,
         decimal currentConversionFactor,
-        decimal? newConversionFactor)
+        decimal? newConversionFactor,
+        bool hasKeptStockReservation = false)
     {
-        if (fulfilledQty <= 0)
-            return;
-
         var uomChanged = !string.IsNullOrWhiteSpace(newUom)
             && !string.Equals(currentUom, newUom, StringComparison.OrdinalIgnoreCase);
 
         var factorChanged = newConversionFactor.HasValue
             && newConversionFactor.Value > 0
             && newConversionFactor.Value != currentConversionFactor;
+
+        if ((uomChanged || factorChanged) && hasKeptStockReservation)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("item", itemDescription)
+                .WithData("detail", $"Cannot change the UOM or conversion factor of Item '{itemDescription}' while stock is reserved. Unreserve stock first.");
+        }
+
+        if (fulfilledQty <= 0)
+            return;
 
         if (uomChanged || factorChanged)
         {

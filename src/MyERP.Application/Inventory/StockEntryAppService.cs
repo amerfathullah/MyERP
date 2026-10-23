@@ -479,7 +479,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
             {
                 var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
                 var wo = await woRepo.GetAsync(entry.WorkOrderId.Value, includeDetails: true);
-                var totalTransferredQty = entry.Items.Sum(i => i.Quantity);
+                var totalTransferredQty = entry.Items.Sum(i => i.StockQty);
                 if (entry.IsReturn)
                 {
                     var seManager = LazyServiceProvider.LazyGetRequiredService<StockEntryManager>();
@@ -490,13 +490,13 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                     foreach (var seItem in entry.Items)
                     {
                         Manufacturing.DomainServices.WorkOrderManager.DistributeTransferredQuantity(
-                            wo, seItem.ItemId, seItem.SourceWarehouseId, seItem.Quantity, isDeduction: true);
+                            wo, seItem.ItemId, seItem.SourceWarehouseId, seItem.StockQty, isDeduction: true);
 
                         if (seItem.SourceWarehouseId.HasValue)
                         {
                             var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
                             await sreManager.RevertWorkOrderTransferAsync(
-                                wo.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.Quantity, seItem.BatchId,
+                                wo.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.StockQty, seItem.BatchId,
                                 targetWarehouseId: seItem.TargetWarehouseId, stockEntryId: entry.Id);
                         }
                     }
@@ -523,7 +523,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         if (hasExisting)
                         {
                             Manufacturing.DomainServices.WorkOrderManager.DistributeTransferredQuantity(
-                                wo, seItem.ItemId, seItem.SourceWarehouseId, seItem.Quantity, isDeduction: false);
+                                wo, seItem.ItemId, seItem.SourceWarehouseId, seItem.StockQty, isDeduction: false);
                         }
                         else if (!disallowAdditionalItems)
                         {
@@ -534,9 +534,9 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
                             var addlItem = new WorkOrderItem(
                                 GuidGenerator.Create(), wo.Id, seItem.ItemId,
-                                itemName, seItem.Quantity)
+                                itemName, seItem.StockQty)
                             {
-                                TransferredQuantity = seItem.Quantity,
+                                TransferredQuantity = seItem.StockQty,
                                 SourceWarehouseId = seItem.SourceWarehouseId,
                                 StockUom = stockUom,
                                 IsAdditionalItem = true,
@@ -550,7 +550,7 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
                         {
                             var sreManager = LazyServiceProvider.LazyGetRequiredService<StockReservationManager>();
                             await sreManager.ApplyWorkOrderTransferAsync(
-                                wo.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.Quantity, seItem.BatchId,
+                                wo.Id, seItem.ItemId, seItem.SourceWarehouseId.Value, seItem.StockQty, seItem.BatchId,
                                 targetWarehouseId: seItem.TargetWarehouseId, stockEntryId: entry.Id, stockEntryItemId: seItem.Id);
                         }
                     }

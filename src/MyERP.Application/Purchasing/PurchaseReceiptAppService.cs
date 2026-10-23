@@ -598,7 +598,15 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                         ? Math.Round(totalStockQty / poItem.ConversionFactor, 4)
                         : totalStockQty;
 
-                    var maxAllowedTotal = poItem.Quantity * (1m + allowancePct / 100m);
+                    var uomRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.Uom, Guid>>();
+                    var mustBeWholeNumber = false;
+                    if (uomRepo != null && !string.IsNullOrWhiteSpace(poItem.Uom))
+                    {
+                        var uomObj = (await uomRepo.GetQueryableAsync()).FirstOrDefault(u => u.Name == poItem.Uom);
+                        mustBeWholeNumber = uomObj?.MustBeWholeNumber ?? false;
+                    }
+
+                    var maxAllowedTotal = poItem.GetMaxReceivableQty(allowancePct, mustBeWholeNumber);
                     var remainingAllowed = maxAllowedTotal - poItem.ReceivedQty;
 
                     if (prQtyInPoUom > remainingAllowed)

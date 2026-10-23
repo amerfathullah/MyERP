@@ -1602,6 +1602,19 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             }
         }
 
+        // Per ERPNext PR #61634: check active Stock Reservation Entries for this order
+        var sreRepoForUpdate = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.StockReservationEntry, Guid>>();
+        var reservedByDetailId = new Dictionary<Guid, decimal>();
+        if (sreRepoForUpdate != null)
+        {
+            var sreList = (await sreRepoForUpdate.GetQueryableAsync())
+                .Where(r => r.VoucherId == so.Id && r.Status == Core.DocumentStatus.Submitted && r.VoucherDetailId.HasValue)
+                .ToList();
+            reservedByDetailId = sreList
+                .GroupBy(r => r.VoucherDetailId!.Value)
+                .ToDictionary(g => g.Key, g => g.Sum(r => r.AvailableQty));
+        }
+
         foreach (var removeId in input.RemovedItemIds ?? Enumerable.Empty<Guid>())
         {
             var soItemToRemove = so.Items.FirstOrDefault(i => i.Id == removeId);
@@ -1611,12 +1624,26 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                 continue;
             }
 
-            _childItemUpdateService.ValidateSalesOrderItemDeletion(soItemToRemove);
+            var hasReservedStock = reservedByDetailId.GetValueOrDefault(soItemToRemove.Id) > 0;
+            _childItemUpdateService.ValidateSalesOrderItemDeletion(soItemToRemove, hasReservedStock);
 
             if (soItemToRemove.WarehouseId.HasValue && !soItemToRemove.DeliveredBySupplier)
             {
                 await _binService.UpdateReservedQtyAsync(
                     soItemToRemove.ItemId, soItemToRemove.WarehouseId.Value, -soItemToRemove.StockQty, so.TenantId);
+            }
+
+            // Per ERPNext PR #61618: release Blanket Order allocation when an open row is deleted via Update Items
+            if (soItemToRemove.BlanketOrderId.HasValue && !soItemToRemove.IsClosed)
+            {
+                var boRepoForRemove = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+                var bo = await boRepoForRemove.FindAsync(soItemToRemove.BlanketOrderId.Value);
+                var boItem = bo?.Items.FirstOrDefault(i => i.ItemId == soItemToRemove.ItemId);
+                if (boItem != null)
+                {
+                    boItem.UnrecordOrder(soItemToRemove.StockQty);
+                    await boRepoForRemove.UpdateAsync(bo!);
+                }
             }
 
             so.RemoveItem(removeId);
@@ -1633,20 +1660,23 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
             _childItemUpdateService.ValidateSalesOrderItemUpdate(soItem, update.Quantity, update.UnitPrice);
 
-            // Per ERPNext PR #59832: cannot change UOM or conversion factor once item is partially/fully delivered
+            var reservedStockQty = reservedByDetailId.GetValueOrDefault(soItem.Id);
+
+            // Per ERPNext PR #59832 & PR #61634: cannot change UOM or conversion factor once item is partially/fully delivered or has reserved stock
             _childItemUpdateService.ValidateUomUnchangedAfterFulfilment(
                 soItem.Description,
                 soItem.DeliveredQty,
                 soItem.Uom,
                 update.Uom,
                 soItem.ConversionFactor,
-                update.ConversionFactor);
+                update.ConversionFactor,
+                reservedStockQty > 0);
 
             var newConversionFactor = update.ConversionFactor.HasValue && update.ConversionFactor.Value > 0
                 ? update.ConversionFactor.Value
                 : soItem.ConversionFactor;
 
-            // Guard: cannot reduce qty below already delivered in stock UOM (per ERPNext PR #58603)
+            // Guard: cannot reduce qty below already delivered (or delivered + reserved) in stock UOM (per ERPNext PR #58603 & PR #61634)
             var newStockQty = update.Quantity * newConversionFactor;
             var deliveredStockQty = soItem.DeliveredQty * soItem.ConversionFactor;
             if (newStockQty < deliveredStockQty)
@@ -1655,6 +1685,8 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                     .WithData("deliveredQty", soItem.DeliveredQty)
                     .WithData("requestedQty", update.Quantity)
                     .WithData("detail", "Cannot set quantity less than delivered quantity");
+
+            _childItemUpdateService.ValidateSalesOrderItemStockQty(soItem, update.Quantity, newConversionFactor, reservedStockQty);
 
             // Guard: cannot reduce rate below billed amount per unit
             if (soItem.BilledQty > 0 && update.UnitPrice < soItem.UnitPrice)
@@ -1685,6 +1717,28 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             {
                 await _binService.UpdateReservedQtyAsync(
                     soItem.ItemId, soItem.WarehouseId.Value, qtyDelta, so.TenantId);
+            }
+
+            // Per ERPNext PR #61618: adjust linked Blanket Order allocation on Update Items
+            if (qtyDelta != 0 && soItem.BlanketOrderId.HasValue && !soItem.IsClosed)
+            {
+                var boRepoForUpdate = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+                var bo = await boRepoForUpdate.FindAsync(soItem.BlanketOrderId.Value);
+                var boItem = bo?.Items.FirstOrDefault(i => i.ItemId == soItem.ItemId);
+                if (boItem != null)
+                {
+                    if (qtyDelta > 0)
+                    {
+                        var updateAllowancePct = await SettingProvider.GetAsync(
+                            MyERP.Settings.MyERPSettings.Selling.BlanketOrderAllowance, 0m);
+                        boItem.RecordOrder(qtyDelta, updateAllowancePct);
+                    }
+                    else
+                    {
+                        boItem.UnrecordOrder(-qtyDelta);
+                    }
+                    await boRepoForUpdate.UpdateAsync(bo!);
+                }
             }
 
             updatedCount++;

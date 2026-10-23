@@ -271,32 +271,34 @@ public class WorkOrderProductionService : DomainService
 
         foreach (var item in transferredItems.Where(i => i.ItemId == itemId && !i.IsFinishedItem))
         {
+            var itemStockQty = Math.Abs(item.StockQty > 0 ? item.StockQty : item.Quantity);
             if (item.BatchId.HasValue)
             {
                 var bId = item.BatchId.Value;
-                transferredBatches[bId] = transferredBatches.GetValueOrDefault(bId) + Math.Abs(item.Quantity);
+                transferredBatches[bId] = transferredBatches.GetValueOrDefault(bId) + itemStockQty;
             }
             else
             {
-                nonBatchedTransferred += Math.Abs(item.Quantity);
+                nonBatchedTransferred += itemStockQty;
             }
         }
 
-        // Deduct already consumed batch quantities using abs(qty) (commit c9ece88a12)
+        // Deduct already consumed batch quantities using abs(stock_qty) (commit c9ece88a12 & PR #61581)
         // Per ERPNext PR #61500: require SourceWarehouseId && !TargetWarehouseId so semi-finished output rows are never counted as consumed
         foreach (var item in priorConsumedItems.Where(i => i.ItemId == itemId && !i.IsFinishedItem && i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue))
         {
+            var itemStockQty = Math.Abs(item.StockQty > 0 ? item.StockQty : item.Quantity);
             if (item.BatchId.HasValue)
             {
                 var bId = item.BatchId.Value;
                 if (transferredBatches.ContainsKey(bId))
                 {
-                    transferredBatches[bId] = Math.Max(0m, transferredBatches[bId] - Math.Abs(item.Quantity));
+                    transferredBatches[bId] = Math.Max(0m, transferredBatches[bId] - itemStockQty);
                 }
             }
             else
             {
-                nonBatchedTransferred = Math.Max(0m, nonBatchedTransferred - Math.Abs(item.Quantity));
+                nonBatchedTransferred = Math.Max(0m, nonBatchedTransferred - itemStockQty);
             }
         }
 
@@ -384,11 +386,11 @@ public class WorkOrderProductionService : DomainService
         {
             var transferred = matchingTransfers
                 .Where(t => t.ItemId == cItemId)
-                .Sum(t => Math.Abs(t.Quantity));
+                .Sum(t => Math.Abs(t.StockQty > 0 ? t.StockQty : t.Quantity));
 
             var consumed = priorConsumedItems
                 .Where(c => !c.IsFinishedItem && c.SourceWarehouseId.HasValue && !c.TargetWarehouseId.HasValue && c.ItemId == cItemId && ((c.OriginalItemId.HasValue && c.OriginalItemId.Value == originalItemId) || (!c.OriginalItemId.HasValue && c.ItemId == originalItemId)))
-                .Sum(c => Math.Abs(c.Quantity));
+                .Sum(c => Math.Abs(c.StockQty > 0 ? c.StockQty : c.Quantity));
 
             var available = Math.Max(0m, transferred - consumed);
             candidates.Add((cItemId, transferred, available));

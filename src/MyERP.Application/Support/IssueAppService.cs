@@ -128,7 +128,10 @@ public class IssueAppService : ApplicationService, IIssueAppService
     public async Task<IssueDto> ResolveAsync(Guid id, ResolveIssueDto input)
     {
         var issue = await _issueRepository.GetAsync(id);
-        issue.Resolve(input.Resolution);
+        var sla = issue.ServiceLevelAgreementId.HasValue
+            ? await _slaRepository.FindAsync(issue.ServiceLevelAgreementId.Value)
+            : null;
+        issue.Resolve(input.Resolution, sla);
         await _issueRepository.UpdateAsync(issue);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
@@ -145,7 +148,10 @@ public class IssueAppService : ApplicationService, IIssueAppService
     public async Task<IssueDto> ReopenAsync(Guid id)
     {
         var issue = await _issueRepository.GetAsync(id);
-        issue.Reopen();
+        var sla = issue.ServiceLevelAgreementId.HasValue
+            ? await _slaRepository.FindAsync(issue.ServiceLevelAgreementId.Value)
+            : null;
+        issue.Reopen(sla);
         await _issueRepository.UpdateAsync(issue);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();

@@ -343,14 +343,17 @@ public class SalesPipelineAppService : ApplicationService, ISalesPipelineAppServ
         var oppQuery = await _opportunityRepository.GetQueryableAsync();
         oppQuery = oppQuery.Where(o => o.Status == OpportunityStatus.Lost);
         if (input.CompanyId.HasValue) oppQuery = oppQuery.Where(o => o.CompanyId == input.CompanyId.Value);
-        if (input.FromDate.HasValue) oppQuery = oppQuery.Where(o => o.CreationTime.Date >= input.FromDate.Value.Date);
-        if (input.ToDate.HasValue) oppQuery = oppQuery.Where(o => o.CreationTime.Date <= input.ToDate.Value.Date);
         if (!string.IsNullOrWhiteSpace(input.Territory)) oppQuery = oppQuery.Where(o => o.Territory == input.Territory);
         if (input.PartyId.HasValue) oppQuery = oppQuery.Where(o => o.LeadId == input.PartyId.Value || o.CustomerId == input.PartyId.Value);
         if (string.Equals(input.OpportunityFrom, "Lead", StringComparison.OrdinalIgnoreCase)) oppQuery = oppQuery.Where(o => o.LeadId != null);
         else if (string.Equals(input.OpportunityFrom, "Customer", StringComparison.OrdinalIgnoreCase)) oppQuery = oppQuery.Where(o => o.CustomerId != null);
 
         var opps = oppQuery.ToList();
+        // Per ERPNext PR #61472: match Lost Opportunity period on the date it was lost (LostOn ?? LastModificationTime ?? CreationTime)
+        if (input.FromDate.HasValue)
+            opps = opps.Where(o => (o.LostOn ?? o.LastModificationTime ?? o.CreationTime).Date >= input.FromDate.Value.Date).ToList();
+        if (input.ToDate.HasValue)
+            opps = opps.Where(o => (o.LostOn ?? o.LastModificationTime ?? o.CreationTime).Date <= input.ToDate.Value.Date).ToList();
         if (!string.IsNullOrWhiteSpace(input.LostReason))
         {
             opps = opps.Where(o => o.LostReason != null && o.LostReason.Contains(input.LostReason, StringComparison.OrdinalIgnoreCase)).ToList();

@@ -150,6 +150,44 @@ public class ServiceLevelAgreement : FullAuditedAggregateRoot<Guid>, IMultiTenan
 
         return cursor;
     }
+
+    /// <summary>
+    /// Computes total working hours between <paramref name="from"/> and <paramref name="to"/>
+    /// according to the SLA's configured service day windows (or elapsed hours if 24x7).
+    /// Per ERPNext PR #61495: SLA hold duration only counts working hours within service windows.
+    /// </summary>
+    public decimal GetWorkingHoursBetween(DateTime from, DateTime to)
+    {
+        if (to <= from)
+            return 0m;
+
+        if (_serviceDays.Count == 0)
+            return (decimal)(to - from).TotalHours;
+
+        var totalHours = 0m;
+        var cursor = from.Date;
+        var endDate = to.Date;
+
+        while (cursor <= endDate)
+        {
+            var window = _serviceDays.FirstOrDefault(d => d.DayOfWeek == cursor.DayOfWeek);
+            if (window != null)
+            {
+                var windowStart = cursor.Add(window.StartTime);
+                var windowEnd = cursor.Add(window.EndTime);
+                var overlapStart = from > windowStart ? from : windowStart;
+                var overlapEnd = to < windowEnd ? to : windowEnd;
+
+                if (overlapEnd > overlapStart)
+                {
+                    totalHours += (decimal)(overlapEnd - overlapStart).TotalHours;
+                }
+            }
+            cursor = cursor.AddDays(1);
+        }
+
+        return totalHours;
+    }
 }
 
 /// <summary>Per-priority response/resolution targets within a Service Level Agreement.</summary>

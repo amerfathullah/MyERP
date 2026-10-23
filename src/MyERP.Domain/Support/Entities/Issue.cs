@@ -188,22 +188,38 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
         AgreementStatus = AgreementStatus.Paused;
     }
 
-    public void Reopen()
+    public void Reopen(ServiceLevelAgreement? sla = null)
     {
         if (Status is not (IssueStatus.Closed or IssueStatus.Replied or IssueStatus.OnHold))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
-        // Accumulate hold time if we're coming off a hold
+        var now = DateTime.UtcNow;
+
+        // Accumulate hold time if we're coming off a hold (per ERPNext PR #61495: working hours when SLA provided)
         if (Status == IssueStatus.OnHold && HoldStartedOn.HasValue)
         {
-            TotalHoldTime += (decimal)(DateTime.UtcNow - HoldStartedOn.Value).TotalHours;
+            var holdHours = sla != null
+                ? sla.GetWorkingHoursBetween(HoldStartedOn.Value, now)
+                : Math.Max(0m, (decimal)(now - HoldStartedOn.Value).TotalHours);
+            TotalHoldTime += holdHours;
             HoldStartedOn = null;
+
+            if (sla != null && holdHours > 0)
+            {
+                if (!FirstRespondedOn.HasValue && ResponseByDate.HasValue)
+                    ResponseByDate = sla.ComputeDeadline(ResponseByDate.Value, holdHours);
+                if (ResolutionByDate.HasValue)
+                    ResolutionByDate = sla.ComputeDeadline(ResolutionByDate.Value, holdHours);
+            }
         }
         else if (Status == IssueStatus.Closed && ResolutionDate.HasValue)
         {
             // Per ERPNext PR #61466: accumulate closed duration into TotalHoldTime on reopen
             // so future resolution time excludes the time the issue was closed, regardless of SLA.
-            TotalHoldTime += Math.Max(0m, (decimal)(DateTime.UtcNow - ResolutionDate.Value).TotalHours);
+            var closedHours = sla != null
+                ? sla.GetWorkingHoursBetween(ResolutionDate.Value, now)
+                : Math.Max(0m, (decimal)(now - ResolutionDate.Value).TotalHours);
+            TotalHoldTime += closedHours;
         }
 
         Status = IssueStatus.Open;
@@ -213,25 +229,43 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
         UpdateAgreementStatus();
     }
 
-    public void Resolve(string? resolution = null)
+    public void Resolve(string? resolution = null, ServiceLevelAgreement? sla = null)
     {
         if (Status is IssueStatus.Closed or IssueStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
-        // If resolved while on hold, close the hold period first
+        var now = DateTime.UtcNow;
+
+        // If resolved while on hold, close the hold period first (per ERPNext PR #61495: working hours when SLA provided)
         if (Status == IssueStatus.OnHold && HoldStartedOn.HasValue)
         {
-            TotalHoldTime += (decimal)(DateTime.UtcNow - HoldStartedOn.Value).TotalHours;
+            var holdHours = sla != null
+                ? sla.GetWorkingHoursBetween(HoldStartedOn.Value, now)
+                : Math.Max(0m, (decimal)(now - HoldStartedOn.Value).TotalHours);
+            TotalHoldTime += holdHours;
             HoldStartedOn = null;
+
+            if (sla != null && holdHours > 0)
+            {
+                if (!FirstRespondedOn.HasValue && ResponseByDate.HasValue)
+                    ResponseByDate = sla.ComputeDeadline(ResponseByDate.Value, holdHours);
+                if (ResolutionByDate.HasValue)
+                    ResolutionByDate = sla.ComputeDeadline(ResolutionByDate.Value, holdHours);
+            }
         }
 
         Status = IssueStatus.Closed;
-        ResolutionDate = DateTime.UtcNow;
+        ResolutionDate = now;
         Resolution = resolution;
 
-        // Check SLA breach: actual resolution time > target
-        if (ResolutionTime.HasValue && ActualResolutionTimeHours > ResolutionTime.Value)
+        // Check SLA breach: actual response or resolution time > target or past deadline (PR #61495)
+        if ((ResolutionTime.HasValue && ActualResolutionTimeHours > ResolutionTime.Value)
+            || (ResolutionByDate.HasValue && ResolutionDate.Value > ResolutionByDate.Value)
+            || (FirstResponseTime.HasValue && ActualFirstResponseTimeHours > FirstResponseTime.Value)
+            || (FirstRespondedOn.HasValue && ResponseByDate.HasValue && FirstRespondedOn.Value > ResponseByDate.Value))
+        {
             IsSlaBreach = true;
+        }
 
         AgreementStatus = IsSlaBreach ? AgreementStatus.Failed : AgreementStatus.Fulfilled;
     }
@@ -244,7 +278,7 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>Recomputes AgreementStatus from the current response/resolution state (called on non-terminal transitions).</summary>
-    private void UpdateAgreementStatus()
+    public void UpdateAgreementStatus(DateTime? asOfUtc = null)
     {
         if (Status is IssueStatus.Closed or IssueStatus.Cancelled)
             return;
@@ -252,6 +286,17 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status == IssueStatus.OnHold)
         {
             AgreementStatus = AgreementStatus.Paused;
+            return;
+        }
+
+        var now = asOfUtc ?? DateTime.UtcNow;
+        if ((FirstRespondedOn.HasValue && ResponseByDate.HasValue && FirstRespondedOn.Value > ResponseByDate.Value)
+            || (FirstResponseTime.HasValue && ActualFirstResponseTimeHours > FirstResponseTime.Value)
+            || (!FirstRespondedOn.HasValue && ResponseByDate.HasValue && now > ResponseByDate.Value)
+            || (!ResolutionDate.HasValue && ResolutionByDate.HasValue && now > ResolutionByDate.Value))
+        {
+            IsSlaBreach = true;
+            AgreementStatus = AgreementStatus.Failed;
             return;
         }
 

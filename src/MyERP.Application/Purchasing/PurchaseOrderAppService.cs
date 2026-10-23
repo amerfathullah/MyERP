@@ -972,6 +972,19 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                     poItemToRemove.ItemId, poItemToRemove.WarehouseId.Value, -poItemToRemove.StockQty, po.TenantId);
             }
 
+            // Per ERPNext PR #61618: release Blanket Order allocation when an open row is deleted via Update Items
+            if (poItemToRemove.BlanketOrderId.HasValue && !poItemToRemove.IsClosed)
+            {
+                var boRepoForRemove = LazyServiceProvider.LazyGetRequiredService<IRepository<BlanketOrder, Guid>>();
+                var bo = await boRepoForRemove.FindAsync(poItemToRemove.BlanketOrderId.Value);
+                var boItem = bo?.Items.FirstOrDefault(i => i.ItemId == poItemToRemove.ItemId);
+                if (boItem != null)
+                {
+                    boItem.UnrecordOrder(poItemToRemove.StockQty);
+                    await boRepoForRemove.UpdateAsync(bo!);
+                }
+            }
+
             po.RemoveItem(removeId);
         }
 
@@ -1262,6 +1275,11 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             if (poItem == null)
                 throw new BusinessException(MyERPDomainErrorCodes.PurchaseOrderItemNotFoundForDelivery)
                     .WithData("itemId", deliveryItem.PurchaseOrderItemId);
+
+            // Per ERPNext PR #61595: prevent drop-ship deliveries against closed Purchase Order items
+            if (poItem.IsClosed)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Item '{poItem.Description}' is closed. Reopen the row before updating its delivered quantity.");
 
             // Validate: negative qty change cannot exceed current received_qty
             if (deliveryItem.QtyChange < 0 && Math.Abs(deliveryItem.QtyChange) > poItem.ReceivedQty)
