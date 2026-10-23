@@ -1107,7 +1107,24 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             var soRequired = !(customerEntity?.SoRequired ?? false) && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.SoRequired);
             var dnRequired = !(customerEntity?.DnRequired ?? false) && await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Selling.DnRequired);
             SalesInvoiceManager.ValidateSoRequired(invoice, soRequired);
-            SalesInvoiceManager.ValidateDnRequired(invoice, dnRequired);
+
+            ISet<Guid>? skipDeliverySoItemIds = null;
+            var linkedSoItemIds = invoice.Items
+                .Where(i => i.SalesOrderItemId.HasValue)
+                .Select(i => i.SalesOrderItemId!.Value)
+                .Distinct()
+                .ToList();
+            if (dnRequired && linkedSoItemIds.Count > 0)
+            {
+                var linkedOrders = (await _salesOrderRepository.GetQueryableAsync())
+                    .Where(so => so.Items.Any(soi => linkedSoItemIds.Contains(soi.Id)))
+                    .ToList();
+                skipDeliverySoItemIds = linkedOrders
+                    .SelectMany(so => so.Items.Where(i => i.DeliveredBySupplier || i.SkipDelivery || so.SkipDeliveryNote))
+                    .Select(i => i.Id)
+                    .ToHashSet();
+            }
+            SalesInvoiceManager.ValidateDnRequired(invoice, dnRequired, skipDeliverySoItemIds);
 
             // Project must belong to the invoice's customer (prevents billing/costing
             // against a different customer's project) — same rule as Sales Order.

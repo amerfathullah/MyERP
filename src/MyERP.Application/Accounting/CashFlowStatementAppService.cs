@@ -126,6 +126,29 @@ public class CashFlowStatementAppService : ApplicationService, ICashFlowStatemen
         if (taxPayableChange != 0)
             operatingItems.Add(new CashFlowLineItem("Change in Tax Payables", taxPayableChange));
 
+        // Per ERPNext PR #61885 / commit 07c4b25586: include net change in other uncategorized Balance Sheet
+        // accounts (e.g. Stock Received But Not Billed, Temporary Opening, Payroll Payable, Prepaid Expenses)
+        // so Net Change in Cash matches actual cash movement across the period.
+        var categorizedBsIds = cashAccounts
+            .Concat(fixedAssetAccounts)
+            .Concat(equityAccounts)
+            .Concat(receivableAccounts)
+            .Concat(inventoryAccounts)
+            .Concat(payableAccounts)
+            .Concat(taxPayableAccounts)
+            .Concat(accounts.Where(a => a.AccountSubType == AccountSubType.LongTermLiability))
+            .Select(a => a.Id)
+            .ToHashSet();
+
+        var otherBsAccounts = accounts.Where(a =>
+            (a.AccountType == AccountType.Asset || a.AccountType == AccountType.Liability) &&
+            !categorizedBsIds.Contains(a.Id));
+        var otherBsChange = otherBsAccounts.Sum(a =>
+            periodBalances.GetValueOrDefault(a.Id, (0, 0)).Credit -
+            periodBalances.GetValueOrDefault(a.Id, (0, 0)).Debit);
+        if (otherBsChange != 0)
+            operatingItems.Add(new CashFlowLineItem("Net Change in Other Balance Sheet Accounts", otherBsChange));
+
         var operatingTotal = operatingItems.Sum(i => i.Amount);
 
         // === Investing Activities ===

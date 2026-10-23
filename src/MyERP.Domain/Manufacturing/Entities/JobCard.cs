@@ -130,12 +130,18 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
-    /// Starts a time log at the workstation (ERPNext PR #60595 / commit da8343617a).
+    /// Starts a time log at the workstation (ERPNext PR #60595 / commit da8343617a, PR #59723 / commit 7b2ddd1007).
     /// </summary>
     public JobCardTimeLog StartTimeLog(DateTime fromTime)
     {
         if (Status is JobCardStatus.Completed or JobCardStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        if (_timeLogs.Any(tl => tl.FromTime != default && tl.ToTime == default))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Job Card {Id} already has an open time log.");
+        }
 
         if (Status is JobCardStatus.Open or JobCardStatus.PartiallyTransferred or JobCardStatus.MaterialTransferred)
         {

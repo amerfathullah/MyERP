@@ -83,6 +83,19 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
             throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch);
         }
 
+        // Per ERPNext PR #61806 / commit 6128ae894d: validate DN status, return flag, and customer match
+        if (deliveryNote.Status == DocumentStatus.Cancelled || deliveryNote.IsReturn)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Installation Note cannot be created against a cancelled or return Delivery Note.");
+        }
+
+        if (deliveryNote.CustomerId != input.CustomerId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Installation Note customer must match Delivery Note customer.");
+        }
+
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<CompanyRestrictionValidationService>();
         await companyRestriction.ValidateTransactionCompanyAsync(
             "InstallationNote", input.CompanyId, itemIds: itemIds, customerIds: new[] { input.CustomerId });
@@ -103,7 +116,15 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
         foreach (var item in input.Items)
         {
             var dnItemId = item.DeliveryNoteItemId;
-            if (!dnItemId.HasValue)
+            if (dnItemId.HasValue)
+            {
+                if (!deliveryNote.Items.Any(d => d.Id == dnItemId.Value && d.ItemId == item.ItemId))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Delivery Note Item {dnItemId.Value} does not belong to Delivery Note {deliveryNote.DeliveryNumber}.");
+                }
+            }
+            else
             {
                 dnItemId = deliveryNote.Items.FirstOrDefault(d => d.ItemId == item.ItemId)?.Id;
             }
@@ -132,7 +153,10 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
             .GroupBy(i => i.ItemId)
             .ToDictionary(g => g.Key, g => g.Sum(i => i.Qty));
 
-        var dnQtyByItem = deliveryNote.Items.GroupBy(i => i.ItemId).ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+        // Per ERPNext PR #61806: deduct returned qty from DN item qty when validating installable qty
+        var dnQtyByItem = deliveryNote.Items
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Max(0m, i.Quantity - Math.Abs(i.ReturnedQty))));
 
         foreach (var item in note.Items)
         {

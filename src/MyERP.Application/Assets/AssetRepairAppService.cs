@@ -126,9 +126,10 @@ public class AssetRepairAppService : ApplicationService, IAssetRepairAppService
                 .Where(i => i.PurchaseInvoiceId == claim.PurchaseInvoiceId && i.ExpenseAccountId == claim.ExpenseAccountId)
                 .Sum(i => i.RepairCost);
 
-            var unallocated = glTotal - allocatedByOthers;
+            var unallocated = Math.Round(glTotal - allocatedByOthers, 2);
+            var claimedCost = Math.Round(claim.RepairCost, 2);
 
-            if (claim.RepairCost > unallocated)
+            if (claimedCost > unallocated)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail",

@@ -70,6 +70,38 @@ public class PaymentOrderAppService : ApplicationService, IPaymentOrderAppServic
     [Authorize(MyERPPermissions.PaymentOrders.Create)]
     public async Task<PaymentOrderDto> CreateAsync(CreatePaymentOrderDto input)
     {
+        // Per ERPNext PR #61602 & #61664: validate company bank account and reference company match
+        var bankAccount = await _bankAccountRepository.FindAsync(input.CompanyBankAccountId);
+        if (bankAccount != null && (bankAccount.IsDisabled || !bankAccount.IsCompanyAccount || bankAccount.CompanyId != input.CompanyId))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Bank Account must be an active company account belonging to the Payment Order's company.");
+        }
+
+        foreach (var r in input.References)
+        {
+            if (string.Equals(r.ReferenceType, "PaymentRequest", StringComparison.OrdinalIgnoreCase))
+            {
+                var pr = await _paymentRequestRepository.FindAsync(r.ReferenceId);
+                if (pr != null && pr.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("referenceType", r.ReferenceType)
+                        .WithData("referenceId", r.ReferenceId);
+                }
+            }
+            else if (string.Equals(r.ReferenceType, "PaymentEntry", StringComparison.OrdinalIgnoreCase))
+            {
+                var pe = await _paymentEntryRepository.FindAsync(r.ReferenceId);
+                if (pe != null && pe.CompanyId != input.CompanyId)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                        .WithData("referenceType", r.ReferenceType)
+                        .WithData("referenceId", r.ReferenceId);
+                }
+            }
+        }
+
         var orderNumber = await _numberGenerator.GenerateAsync("PaymentOrder", input.CompanyId, input.PostingDate);
 
         var entity = new PaymentOrder(GuidGenerator.Create(), input.CompanyId, input.PaymentOrderType,

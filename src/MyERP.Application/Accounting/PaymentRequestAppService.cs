@@ -459,9 +459,22 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
             var po = await poRepo.FindAsync(pr.ReferenceId);
             if (po != null)
             {
-                if (explicitStatus != null)
+                // Per ERPNext PR #61480 / commit 83f9a1785e: consider actual AdvancePaid on the order
+                // so orders with direct advance payments do not revert to Not Initiated or prematurely show Fully Paid.
+                if (po.AdvancePaid >= po.GrandTotal && po.GrandTotal > 0)
                 {
-                    po.SetAdvancePaymentStatus(explicitStatus);
+                    po.SetAdvancePaymentStatus("Fully Paid");
+                }
+                else if (explicitStatus != null)
+                {
+                    po.SetAdvancePaymentStatus(
+                        explicitStatus == "Fully Paid" && po.GrandTotal > 0 && Math.Max(po.AdvancePaid, pr.GrandTotal) < po.GrandTotal
+                            ? "Partially Paid"
+                            : explicitStatus);
+                }
+                else if (po.AdvancePaid > 0)
+                {
+                    po.SetAdvancePaymentStatus("Partially Paid");
                 }
                 else if (isCancel)
                 {

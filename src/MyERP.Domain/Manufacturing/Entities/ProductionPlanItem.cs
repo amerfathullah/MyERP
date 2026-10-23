@@ -18,9 +18,14 @@ public class ProductionPlanItem : Entity<Guid>
     /// <summary>Total quantity ordered into Work Orders against this planned item (PR #58799 & #58847).</summary>
     public decimal OrderedQty { get; set; }
     public decimal ProducedQty { get; set; }
+    /// <summary>Total process loss quantity recorded across Work Orders for this planned item (PR #61773).</summary>
+    public decimal ProcessLossQty { get; set; }
 
     /// <summary>Remaining quantity to order into Work Orders.</summary>
     public decimal PendingQty => Math.Max(0, Math.Round(PlannedQty - OrderedQty, 4));
+
+    /// <summary>Remaining quantity to produce, deducting both ProducedQty and ProcessLossQty (PR #61773).</summary>
+    public decimal PendingProductionQty => Math.Max(0, Math.Round(PlannedQty - ProducedQty - ProcessLossQty, 4));
 
     public Guid? WarehouseId { get; set; }
     public DateTime? PlannedStartDate { get; set; }

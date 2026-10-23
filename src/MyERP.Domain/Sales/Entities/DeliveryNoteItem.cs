@@ -86,8 +86,8 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
     /// </summary>
     public decimal InstalledQty { get; set; }
 
-    /// <summary>Pending installation quantity = Quantity - InstalledQty. 0 if closed.</summary>
-    public decimal PendingInstallationQty => IsClosed ? 0 : Math.Max(0, Math.Abs(Quantity) - Math.Abs(InstalledQty));
+    /// <summary>Pending installation quantity = BillableQty - InstalledQty. 0 if closed (PR #61806).</summary>
+    public decimal PendingInstallationQty => IsClosed ? 0 : Math.Max(0, BillableQty - Math.Abs(InstalledQty));
 
     /// <summary>
     /// Link to Pick List Item when created from or fulfilled via Pick List.

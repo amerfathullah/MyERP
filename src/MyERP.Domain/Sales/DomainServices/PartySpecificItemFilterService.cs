@@ -90,15 +90,15 @@ public class PartySpecificItemFilterService : DomainService
         var itemQueryable = await _itemRepository.GetQueryableAsync();
         var referencedItems = itemQueryable
             .Where(i => itemIds.Contains(i.Id))
-            .Select(i => new { i.Id, i.ItemCode, i.ItemGroupId, i.Brand })
+            .Select(i => new { i.Id, i.ItemCode, i.ItemGroupId, i.Brand, i.VariantOfId })
             .ToList();
 
         foreach (var item in referencedItems)
         {
-            bool matchesOther = MatchesRuleSet(item.Id, item.ItemGroupId, item.Brand, otherItemIds, otherGroupIds, otherBrandNames);
+            bool matchesOther = MatchesRuleSet(item.Id, item.VariantOfId, item.ItemGroupId, item.Brand, otherItemIds, otherGroupIds, otherBrandNames);
             if (matchesOther)
             {
-                bool matchesOwn = MatchesRuleSet(item.Id, item.ItemGroupId, item.Brand, ownItemIds, ownGroupIds, ownBrandNames);
+                bool matchesOwn = MatchesRuleSet(item.Id, item.VariantOfId, item.ItemGroupId, item.Brand, ownItemIds, ownGroupIds, ownBrandNames);
                 if (!matchesOwn)
                 {
                     throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ItemRestrictedForParty)
@@ -159,16 +159,17 @@ public class PartySpecificItemFilterService : DomainService
             var itemQueryable = await _itemRepository.GetQueryableAsync();
             var allCandidateItems = itemQueryable
                 .Where(i => otherItemIds.Contains(i.Id)
+                    || (i.VariantOfId.HasValue && otherItemIds.Contains(i.VariantOfId.Value))
                     || (i.ItemGroupId.HasValue && otherGroupIds.Contains(i.ItemGroupId.Value))
                     || (!string.IsNullOrEmpty(i.Brand) && otherBrandNames.Contains(i.Brand)))
-                .Select(i => new { i.Id, i.ItemGroupId, i.Brand })
+                .Select(i => new { i.Id, i.VariantOfId, i.ItemGroupId, i.Brand })
                 .ToList();
 
             var excludedItemIds = new HashSet<Guid>();
             foreach (var item in allCandidateItems)
             {
-                bool matchesOther = MatchesRuleSet(item.Id, item.ItemGroupId, item.Brand, otherItemIds, otherGroupIds, otherBrandNames);
-                if (matchesOther && !MatchesRuleSet(item.Id, item.ItemGroupId, item.Brand, ownItemIds, ownGroupIds, ownBrandNames))
+                bool matchesOther = MatchesRuleSet(item.Id, item.VariantOfId, item.ItemGroupId, item.Brand, otherItemIds, otherGroupIds, otherBrandNames);
+                if (matchesOther && !MatchesRuleSet(item.Id, item.VariantOfId, item.ItemGroupId, item.Brand, ownItemIds, ownGroupIds, ownBrandNames))
                 {
                     excludedItemIds.Add(item.Id);
                 }
@@ -236,13 +237,14 @@ public class PartySpecificItemFilterService : DomainService
 
     private static bool MatchesRuleSet(
         Guid itemId,
+        Guid? variantOfId,
         Guid? itemGroupId,
         string? brand,
         HashSet<Guid> ruleItemIds,
         HashSet<Guid> ruleGroupIds,
         HashSet<string> ruleBrandNames)
     {
-        if (ruleItemIds.Contains(itemId))
+        if (ruleItemIds.Contains(itemId) || (variantOfId.HasValue && ruleItemIds.Contains(variantOfId.Value)))
             return true;
 
         if (itemGroupId.HasValue && ruleGroupIds.Contains(itemGroupId.Value))

@@ -1078,6 +1078,16 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             updatedCount++;
         }
 
+        // Per ERPNext PR #61904 / commit 67ebd725eb: validate Party Specific Item rules after updating items
+        var companyRestrictionForUpdate = LazyServiceProvider.LazyGetService<Core.DomainServices.CompanyRestrictionValidationService>();
+        if (companyRestrictionForUpdate != null && po.Items.Count > 0)
+        {
+            await companyRestrictionForUpdate.ValidateTransactionCompanyAsync(
+                "PurchaseOrder", po.CompanyId,
+                itemIds: po.Items.Select(i => i.ItemId).Distinct().ToList(),
+                supplierIds: new[] { po.SupplierId });
+        }
+
         await _repository.UpdateAsync(po, autoSave: true);
 
         // Audit trail

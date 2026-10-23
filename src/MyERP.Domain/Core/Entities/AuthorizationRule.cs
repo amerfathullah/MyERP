@@ -100,13 +100,29 @@ public class AuthorizationRule : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("role", SystemRole);
         }
 
-        // Average discount cannot exceed 100%
-        if ((BasedOn == AuthorizationBasedOn.AverageDiscount
-            || BasedOn == AuthorizationBasedOn.CustomerwiseDiscount)
-            && ThresholdValue > 100)
+        var isDiscountRule = BasedOn is AuthorizationBasedOn.AverageDiscount
+            or AuthorizationBasedOn.CustomerwiseDiscount
+            or AuthorizationBasedOn.ItemwiseDiscount
+            or AuthorizationBasedOn.ItemGroupWiseDiscount;
+
+        // Per ERPNext PR #60784 / commit 06d380041c: discount threshold must be between 0 and 100%,
+        // and discount-based rules are not allowed on purchase transactions.
+        if (isDiscountRule && (ThresholdValue < 0 || ThresholdValue > 100))
         {
             throw new BusinessException("MyERP:01015")
                 .WithData("value", ThresholdValue);
+        }
+
+        if (isDiscountRule && (
+            string.Equals(TransactionType, "PurchaseOrder", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(TransactionType, "PurchaseReceipt", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(TransactionType, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(TransactionType, "Purchase Order", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(TransactionType, "Purchase Receipt", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(TransactionType, "Purchase Invoice", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot set authorization on basis of Discount for {TransactionType}.");
         }
 
         // Customerwise discount requires customer

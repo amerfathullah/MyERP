@@ -1746,6 +1746,17 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         so.RecalculateTotals();
         so.UpdateFulfillmentStatus();
+
+        // Per ERPNext PR #61904 / commit 67ebd725eb: validate Party Specific Item rules after updating items
+        var companyRestrictionForUpdate = LazyServiceProvider.LazyGetService<Core.DomainServices.CompanyRestrictionValidationService>();
+        if (companyRestrictionForUpdate != null && so.Items.Count > 0)
+        {
+            await companyRestrictionForUpdate.ValidateTransactionCompanyAsync(
+                "SalesOrder", so.CompanyId,
+                itemIds: so.Items.Select(i => i.ItemId).Distinct().ToList(),
+                customerIds: new[] { so.CustomerId });
+        }
+
         await _repository.UpdateAsync(so, autoSave: true);
 
         var activityLogRepo = LazyServiceProvider

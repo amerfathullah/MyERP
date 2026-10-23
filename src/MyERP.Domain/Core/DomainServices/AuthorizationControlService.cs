@@ -75,10 +75,11 @@ public class AuthorizationControlService : DomainService
         {
             foreach (var item in itemDiscounts)
             {
-                EvaluateRules(allRules, AuthorizationBasedOn.ItemwiseDiscount, item.DiscountPercentage,
+                var effectiveDiscount = item.EffectiveDiscountPercentage;
+                EvaluateRules(allRules, AuthorizationBasedOn.ItemwiseDiscount, effectiveDiscount,
                     currentUserId, currentUserRoles, customerId);
 
-                EvaluateRules(allRules, AuthorizationBasedOn.ItemGroupWiseDiscount, item.DiscountPercentage,
+                EvaluateRules(allRules, AuthorizationBasedOn.ItemGroupWiseDiscount, effectiveDiscount,
                     currentUserId, currentUserRoles, customerId);
             }
         }
@@ -164,4 +165,15 @@ public class ItemDiscountInfo
     public Guid ItemId { get; set; }
     public string? ItemGroup { get; set; }
     public decimal DiscountPercentage { get; set; }
+    public decimal PriceListRate { get; set; }
+    public decimal Rate { get; set; }
+
+    /// <summary>
+    /// Per ERPNext PR #60187 / commit 5f8ed811d4: derive effective discount from PriceListRate vs Rate
+    /// when PriceListRate > 0 so manual rate reductions below price list rate cannot bypass discount authorization.
+    /// </summary>
+    public decimal EffectiveDiscountPercentage =>
+        PriceListRate > 0m
+            ? Math.Max(DiscountPercentage, Math.Round(100m * (1m - Rate / PriceListRate), 2))
+            : DiscountPercentage;
 }

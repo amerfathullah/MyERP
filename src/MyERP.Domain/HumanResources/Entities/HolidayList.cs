@@ -42,6 +42,12 @@ public class HolidayList : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void AddHoliday(Holiday holiday)
     {
+        if (_holidays.Any(h => h.HolidayDate.Date == holiday.HolidayDate.Date))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Holiday Date {holiday.HolidayDate:yyyy-MM-dd} added multiple times.");
+        }
+
         _holidays.Add(holiday);
     }
 

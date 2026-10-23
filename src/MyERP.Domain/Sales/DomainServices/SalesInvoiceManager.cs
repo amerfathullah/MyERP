@@ -52,14 +52,17 @@ public class SalesInvoiceManager : DomainService
 
     /// <summary>
     /// Mandatory DN linkage: every SI item must reference a Delivery Note.
-    /// Per ERPNext accounts/doctype/sales_invoice/sales_invoice.py → so_dn_required().
-    /// Skipped for returns and invoices that update stock directly (no separate DN in that flow).
+    /// Per ERPNext accounts/doctype/sales_invoice/sales_invoice.py → so_dn_required() and PR #61970:
+    /// Skipped for returns, invoices that update stock directly, and items linked to a Sales Order row
+    /// that is drop-shipped (DeliveredBySupplier) or skips delivery.
     /// </summary>
-    public static void ValidateDnRequired(SalesInvoice invoice, bool dnRequired)
+    public static void ValidateDnRequired(SalesInvoice invoice, bool dnRequired, ISet<Guid>? skipDeliverySoItemIds = null)
     {
         if (!dnRequired || invoice.IsReturn || invoice.UpdateStock || invoice.IsDebitNote) return;
 
-        var unlinkedItem = invoice.Items.FirstOrDefault(i => !i.DeliveryNoteItemId.HasValue);
+        var unlinkedItem = invoice.Items.FirstOrDefault(i =>
+            !i.DeliveryNoteItemId.HasValue &&
+            !(i.SalesOrderItemId.HasValue && skipDeliverySoItemIds != null && skipDeliverySoItemIds.Contains(i.SalesOrderItemId.Value)));
         if (unlinkedItem != null)
         {
             throw new BusinessException(MyERPDomainErrorCodes.DeliveryNoteLinkRequired)
