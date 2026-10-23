@@ -23,6 +23,8 @@ public class IssueDto : AuditedEntityDto<Guid>
     public string? Resolution { get; set; }
     public DateTime? FirstRespondedOn { get; set; }
     public double? TotalHoldTimeSeconds { get; set; }
+    public decimal ActualResolutionTimeHours { get; set; }
+    public decimal ActualFirstResponseTimeHours { get; set; }
     public bool IsSlaBreach { get; set; }
     public Guid? ServiceLevelAgreementId { get; set; }
     public decimal? FirstResponseTime { get; set; }

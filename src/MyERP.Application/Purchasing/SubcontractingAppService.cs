@@ -676,6 +676,40 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             MyERPSettings.Buying.BackflushSubcontractBasedOn) ?? "BOM";
         var rmConsumptions = scManager.CalculateRmConsumption(sco, totalReceivedFgQty, backflushSetting, scr.IsReturn);
 
+        // Per ERPNext PR #61505: validate batches on Subcontracting Receipt items and supplied items.
+        // Supplied items only check for disabled/cancelled batches (expiry is not checked for raw material return/consumption).
+        var batchRepo = LazyServiceProvider.LazyGetService<IRepository<Batch, Guid>>();
+        if (batchRepo != null)
+        {
+            foreach (var item in scr.Items.Where(i => i.BatchId.HasValue))
+            {
+                var batch = await batchRepo.FindAsync(item.BatchId!.Value);
+                if (batch != null)
+                {
+                    if (batch.IsDisabled || batch.IsCancelled)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"Batch {batch.BatchNo} is disabled and cannot be used.");
+                    }
+                    if (!scr.IsReturn && batch.IsExpired(scr.PostingDate))
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.BatchExpired)
+                            .WithData("batchNo", batch.BatchNo);
+                    }
+                }
+            }
+
+            foreach (var rm in rmConsumptions.Where(r => r.BatchId.HasValue && r.ConsumedQty != 0))
+            {
+                var batch = await batchRepo.FindAsync(rm.BatchId!.Value);
+                if (batch != null && (batch.IsDisabled || batch.IsCancelled))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Batch {batch.BatchNo} for supplied item is disabled and cannot be used.");
+                }
+            }
+        }
+
         foreach (var rm in rmConsumptions)
         {
             if (rm.ConsumedQty == 0 || !rm.WarehouseId.HasValue) continue;

@@ -48,6 +48,10 @@ public class AssetValueAdjustment : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Guid? tenantId = null)
         : base(id)
     {
+        if (newAssetValue < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("detail", "New Asset Value cannot be negative.");
+
         AdjustmentNumber = adjustmentNumber;
         CompanyId = companyId;
         AssetId = assetId;
@@ -66,6 +70,10 @@ public class AssetValueAdjustment : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        if (newAssetValue < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("detail", "New Asset Value cannot be negative.");
+
         CurrentAssetValue = currentAssetValue;
         NewAssetValue = newAssetValue;
         DifferenceAmount = newAssetValue - currentAssetValue;
@@ -76,7 +84,15 @@ public class AssetValueAdjustment : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        if (NewAssetValue < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("detail", "New Asset Value cannot be negative.");
+
         DifferenceAmount = NewAssetValue - CurrentAssetValue;
+        if (DifferenceAmount == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "New Asset Value is the same as the current asset value.");
+
         Status = DocumentStatus.Submitted;
     }
 

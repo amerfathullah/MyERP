@@ -33,6 +33,18 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public decimal AdditionalCost { get; set; }
     public decimal TotalAssetCost => PurchaseAmount + AdditionalCost;
 
+    /// <summary>Cumulative revaluation/impairment adjustment amount (PR #61459 / #61462).</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public decimal ValueAdjustmentAmount { get; set; }
+
+    /// <summary>Gross asset value including revaluation/impairment adjustments (PR #61462).</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public decimal GrossAssetValue => TotalAssetCost + ValueAdjustmentAmount;
+
+    /// <summary>Whether the WDV rate of depreciation was entered manually rather than derived from salvage value (PR #61473).</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool IsRateOfDepreciationEntered { get; set; }
+
     /// <summary>Asset quantity (default: 1). Multiple quantity assets can be split.</summary>
     public int AssetQuantity { get; set; } = 1;
 
@@ -449,15 +461,52 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (SplitFromAssetId.HasValue) return;
 
-        ValueAfterDepreciation = TotalAssetCost - OpeningAccumulatedDepreciation;
+        IsRateOfDepreciationEntered = IsEnteredDepreciationRate();
+        ValueAfterDepreciation = TotalAssetCost + ValueAdjustmentAmount - OpeningAccumulatedDepreciation;
         if (UsefulLifeMonths > 0 && FrequencyMonths > 0)
         {
             var periods = UsefulLifeMonths / FrequencyMonths;
             if (periods > 0 && DepreciationRate == 0)
             {
-                DepreciationRate = Math.Round(100m / periods, 4);
+                DepreciationRate = DepreciationMethod == DepreciationMethod.WrittenDownValue && ExpectedValueAfterUsefulLife > 0
+                    ? CalculateWrittenDownValueRate(ValueAfterDepreciation, ExpectedValueAfterUsefulLife, UsefulLifeMonths)
+                    : Math.Round(100m / periods, 4);
             }
         }
+    }
+
+    /// <summary>
+    /// Calculates the annual Written Down Value depreciation rate from book value, salvage value, and useful life in months.
+    /// Per ERPNext PR #61473: rate = (1 - (salvage / book_value) ^ (1 / (useful_life_months / 12))) * 100.
+    /// </summary>
+    public static decimal CalculateWrittenDownValueRate(decimal bookValue, decimal salvageValue, int usefulLifeMonths)
+    {
+        if (bookValue <= 0 || salvageValue <= 0 || salvageValue >= bookValue || usefulLifeMonths <= 0)
+            return 0m;
+
+        var years = usefulLifeMonths / 12.0;
+        if (years <= 0) return 0m;
+
+        var ratio = (double)(salvageValue / bookValue);
+        var rate = (1.0 - Math.Pow(ratio, 1.0 / years)) * 100.0;
+        return Math.Round((decimal)rate, 4);
+    }
+
+    /// <summary>
+    /// Determines whether the Written Down Value depreciation rate was entered manually rather than derived from salvage value.
+    /// Per ERPNext PR #61473: preserved across asset splits and value adjustments so rescheduling does not overwrite an entered rate.
+    /// </summary>
+    public bool IsEnteredDepreciationRate()
+    {
+        if (DepreciationMethod != DepreciationMethod.WrittenDownValue || DepreciationRate <= 0)
+            return false;
+
+        if (IsRateOfDepreciationEntered || ExpectedValueAfterUsefulLife <= 0)
+            return true;
+
+        var initialBookValue = TotalAssetCost - OpeningAccumulatedDepreciation;
+        var derivedInitialRate = CalculateWrittenDownValueRate(initialBookValue, ExpectedValueAfterUsefulLife, UsefulLifeMonths);
+        return Math.Round(DepreciationRate, 4) != derivedInitialRate;
     }
 
     /// <summary>
@@ -477,7 +526,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         DepreciationSchedule.RemoveAll(e => !e.IsBooked);
 
         var startDate = AvailableForUseDate ?? PurchaseDate;
-        var depreciableAmount = TotalAssetCost - ExpectedValueAfterUsefulLife - OpeningAccumulatedDepreciation;
+        var depreciableAmount = GrossAssetValue - ExpectedValueAfterUsefulLife - OpeningAccumulatedDepreciation;
         var totalPeriods = FrequencyMonths > 0 ? UsefulLifeMonths / FrequencyMonths : 0;
         if (totalPeriods <= 0 || depreciableAmount <= 0) return;
 
@@ -489,7 +538,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (periodsToDepreciate <= 0) return;
 
         var accumulated = bookedEntries.Count > 0 ? bookedEntries[^1].AccumulatedDepreciation : OpeningAccumulatedDepreciation;
-        var bookValue = TotalAssetCost - accumulated;
+        var bookValue = GrossAssetValue - accumulated;
 
         var useLastDay = (DepreciationStartDate.HasValue && DepreciationStartDate.Value.Day == DateTime.DaysInMonth(DepreciationStartDate.Value.Year, DepreciationStartDate.Value.Month))
             || (startDate.Day == DateTime.DaysInMonth(startDate.Year, startDate.Month));
@@ -562,10 +611,10 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         var startDate = AvailableForUseDate ?? PurchaseDate;
         if (asOfDate <= startDate)
-            return TotalAssetCost - OpeningAccumulatedDepreciation;
+            return GrossAssetValue - OpeningAccumulatedDepreciation;
 
         var bookedEntries = DepreciationSchedule.Where(e => e.IsBooked).OrderBy(e => e.ScheduleDate).ToList();
-        var depreciableAmount = TotalAssetCost - ExpectedValueAfterUsefulLife - OpeningAccumulatedDepreciation;
+        var depreciableAmount = GrossAssetValue - ExpectedValueAfterUsefulLife - OpeningAccumulatedDepreciation;
         var totalPeriods = FrequencyMonths > 0 ? UsefulLifeMonths / FrequencyMonths : 0;
         if (totalPeriods <= 0 || depreciableAmount <= 0) return ValueAfterDepreciation;
 
@@ -577,7 +626,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (periodsToDepreciate <= 0) return ValueAfterDepreciation;
 
         var accumulated = bookedEntries.Count > 0 ? bookedEntries[^1].AccumulatedDepreciation : OpeningAccumulatedDepreciation;
-        var bookValue = TotalAssetCost - accumulated;
+        var bookValue = GrossAssetValue - accumulated;
 
         var useLastDay = (DepreciationStartDate.HasValue && DepreciationStartDate.Value.Day == DateTime.DaysInMonth(DepreciationStartDate.Value.Year, DepreciationStartDate.Value.Month))
             || (startDate.Day == DateTime.DaysInMonth(startDate.Year, startDate.Month));
@@ -651,6 +700,9 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void ApplyRepairCapitalization(decimal additionalCost, int increaseInUsefulLifeMonths)
     {
+        var wasEnteredRate = IsEnteredDepreciationRate();
+        IsRateOfDepreciationEntered = wasEnteredRate;
+
         AdditionalCost += additionalCost;
         ValueAfterDepreciation += additionalCost;
         if (increaseInUsefulLifeMonths != 0)
@@ -671,15 +723,69 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
             }
         }
 
+        RecalculateWdvRateOnReschedule(wasEnteredRate);
         GenerateDepreciationSchedule();
         RecalculateStatus();
     }
 
-    public void ApplyValueAdjustment(decimal newValue)
+    public void ApplyValueAdjustment(decimal newValue, Guid? financeBookId = null, decimal? differenceAmount = null)
     {
-        ValueAfterDepreciation = newValue;
+        var wasEnteredRate = IsEnteredDepreciationRate();
+        IsRateOfDepreciationEntered = wasEnteredRate;
+
+        if (financeBookId.HasValue && DepreciationDetails.Count > 0)
+        {
+            var detail = DepreciationDetails.FirstOrDefault(d => d.FinanceBookId == financeBookId.Value);
+            if (detail != null)
+            {
+                var diff = differenceAmount ?? (newValue - detail.ValueAfterDepreciation);
+                detail.ValueAdjustmentAmount += diff;
+                detail.ValueAfterDepreciation = newValue;
+            }
+
+            var defaultDetail = DepreciationDetails.FirstOrDefault(d => d.FinanceBookId == null) ?? DepreciationDetails[0];
+            if (detail != null && ReferenceEquals(detail, defaultDetail))
+            {
+                var diff = differenceAmount ?? (newValue - ValueAfterDepreciation);
+                ValueAdjustmentAmount += diff;
+                ValueAfterDepreciation = newValue;
+            }
+        }
+        else
+        {
+            var diff = differenceAmount ?? (newValue - ValueAfterDepreciation);
+            ValueAdjustmentAmount += diff;
+            ValueAfterDepreciation = newValue;
+
+            var defaultDetail = DepreciationDetails.FirstOrDefault(d => d.FinanceBookId == null);
+            if (defaultDetail != null)
+            {
+                defaultDetail.ValueAdjustmentAmount += diff;
+                defaultDetail.ValueAfterDepreciation = newValue;
+            }
+        }
+
+        RecalculateWdvRateOnReschedule(wasEnteredRate);
         GenerateDepreciationSchedule();
         RecalculateStatus();
+    }
+
+    private void RecalculateWdvRateOnReschedule(bool wasEnteredRate)
+    {
+        if (DepreciationMethod == DepreciationMethod.WrittenDownValue
+            && !wasEnteredRate
+            && ExpectedValueAfterUsefulLife > 0
+            && ValueAfterDepreciation > ExpectedValueAfterUsefulLife
+            && FrequencyMonths > 0)
+        {
+            var bookedCount = DepreciationSchedule.Count(e => e.IsBooked) + OpeningNumberOfBookedDepreciations;
+            var remainingMonths = Math.Max(FrequencyMonths, UsefulLifeMonths - bookedCount * FrequencyMonths);
+            var recomputed = CalculateWrittenDownValueRate(ValueAfterDepreciation, ExpectedValueAfterUsefulLife, remainingMonths);
+            if (recomputed > 0)
+            {
+                DepreciationRate = recomputed;
+            }
+        }
     }
 
     /// <summary>
@@ -718,6 +824,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         AssetQuantity = newQuantity;
         PurchaseAmount = Math.Round(PurchaseAmount * scalingFactor, 2);
         AdditionalCost = Math.Round(AdditionalCost * scalingFactor, 2);
+        ValueAdjustmentAmount = Math.Round(ValueAdjustmentAmount * scalingFactor, 2);
         OpeningAccumulatedDepreciation = Math.Round(OpeningAccumulatedDepreciation * scalingFactor, 2);
         ExpectedValueAfterUsefulLife = Math.Round(ExpectedValueAfterUsefulLife * scalingFactor, 2);
         ValueAfterDepreciation = Math.Round(ValueAfterDepreciation * scalingFactor, 2);
@@ -725,6 +832,7 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
         foreach (var detail in DepreciationDetails)
         {
             detail.NetPurchaseAmount = Math.Round(detail.NetPurchaseAmount * scalingFactor, 2);
+            detail.ValueAdjustmentAmount = Math.Round(detail.ValueAdjustmentAmount * scalingFactor, 2);
             detail.OpeningAccumulatedDepreciation = Math.Round(detail.OpeningAccumulatedDepreciation * scalingFactor, 2);
             detail.ValueAfterDepreciation = Math.Round(detail.ValueAfterDepreciation * scalingFactor, 2);
             detail.ExpectedValueAfterUsefulLife = Math.Round(detail.ExpectedValueAfterUsefulLife * scalingFactor, 2);

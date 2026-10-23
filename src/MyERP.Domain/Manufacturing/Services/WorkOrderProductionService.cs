@@ -283,7 +283,8 @@ public class WorkOrderProductionService : DomainService
         }
 
         // Deduct already consumed batch quantities using abs(qty) (commit c9ece88a12)
-        foreach (var item in priorConsumedItems.Where(i => i.ItemId == itemId && !i.IsFinishedItem))
+        // Per ERPNext PR #61500: require SourceWarehouseId && !TargetWarehouseId so semi-finished output rows are never counted as consumed
+        foreach (var item in priorConsumedItems.Where(i => i.ItemId == itemId && !i.IsFinishedItem && i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue))
         {
             if (item.BatchId.HasValue)
             {
@@ -386,7 +387,7 @@ public class WorkOrderProductionService : DomainService
                 .Sum(t => Math.Abs(t.Quantity));
 
             var consumed = priorConsumedItems
-                .Where(c => !c.IsFinishedItem && c.ItemId == cItemId && ((c.OriginalItemId.HasValue && c.OriginalItemId.Value == originalItemId) || (!c.OriginalItemId.HasValue && c.ItemId == originalItemId)))
+                .Where(c => !c.IsFinishedItem && c.SourceWarehouseId.HasValue && !c.TargetWarehouseId.HasValue && c.ItemId == cItemId && ((c.OriginalItemId.HasValue && c.OriginalItemId.Value == originalItemId) || (!c.OriginalItemId.HasValue && c.ItemId == originalItemId)))
                 .Sum(c => Math.Abs(c.Quantity));
 
             var available = Math.Max(0m, transferred - consumed);

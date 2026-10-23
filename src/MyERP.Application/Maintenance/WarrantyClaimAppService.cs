@@ -87,7 +87,12 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
         if (customer != null) customerNames[customer.Id] = customer.Name;
         if (item != null) itemNames[item.Id] = item.ItemName;
 
-        return MapToDto(entity, customerNames, itemNames);
+        var dto = MapToDto(entity, customerNames, itemNames);
+        if (entity.SerialNoId.HasValue)
+        {
+            dto.SerialNoOwnershipWarning = await EvaluateSerialNoAsync(entity.SerialNoId.Value, entity.ItemId, entity.CustomerId, customer?.Name, validateItemMatch: false);
+        }
+        return dto;
     }
 
     [Authorize(MyERPPermissions.WarrantyClaims.Create)]
@@ -99,6 +104,13 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
         await companyRestriction.ValidateTransactionCompanyAsync(
             "WarrantyClaim", input.CompanyId, itemIds: new[] { input.ItemId }, customerIds: new[] { input.CustomerId });
+
+        string? serialWarning = null;
+        if (input.SerialNoId.HasValue)
+        {
+            var customer = await _customerRepository.FindAsync(input.CustomerId);
+            serialWarning = await EvaluateSerialNoAsync(input.SerialNoId.Value, input.ItemId, input.CustomerId, customer?.Name, validateItemMatch: true);
+        }
 
         var entity = new WarrantyClaim(
             GuidGenerator.Create(),
@@ -136,9 +148,58 @@ public class WarrantyClaimAppService : ApplicationService, IWarrantyClaimAppServ
             entity.ClaimNumber, "Draft", "Open", CurrentUser.Id,
             $"Warranty Claim {entity.ClaimNumber} created", CurrentTenant.Id));
 
-        return MapToDto(entity,
+        var createdDto = MapToDto(entity,
             new System.Collections.Generic.Dictionary<Guid, string>(),
             new System.Collections.Generic.Dictionary<Guid, string>());
+        createdDto.SerialNoOwnershipWarning = serialWarning;
+        return createdDto;
+    }
+
+    private async Task<string?> EvaluateSerialNoAsync(
+        Guid serialNoId,
+        Guid itemId,
+        Guid claimCustomerId,
+        string? claimCustomerName,
+        bool validateItemMatch)
+    {
+        var serialRepo = LazyServiceProvider?.LazyGetService<IRepository<SerialNo, Guid>>();
+        if (serialRepo == null) return null;
+
+        var serial = await serialRepo.FindAsync(serialNoId);
+        if (serial == null) return null;
+
+        if (validateItemMatch && serial.ItemId != itemId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Serial No {serial.SerialNumber} does not belong to the selected Item.");
+        }
+
+        string? serialCustomerName = null;
+        if (serial.CustomerId.HasValue && serial.CustomerId.Value != claimCustomerId)
+        {
+            var sc = await _customerRepository.FindAsync(serial.CustomerId.Value);
+            serialCustomerName = sc?.Name;
+        }
+
+        string? serialWarehouseName = null;
+        if (!serial.CustomerId.HasValue && serial.WarehouseId.HasValue)
+        {
+            var whRepo = LazyServiceProvider?.LazyGetService<IRepository<Warehouse, Guid>>();
+            if (whRepo != null)
+            {
+                var wh = await whRepo.FindAsync(serial.WarehouseId.Value);
+                serialWarehouseName = wh?.Name;
+            }
+        }
+
+        return WarrantyClaim.GetSerialNoOwnershipWarning(
+            serial.SerialNumber,
+            claimCustomerId,
+            claimCustomerName,
+            serial.CustomerId,
+            serialCustomerName,
+            serial.WarehouseId,
+            serialWarehouseName);
     }
 
     [Authorize(MyERPPermissions.WarrantyClaims.Edit)]

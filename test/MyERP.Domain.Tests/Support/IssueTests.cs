@@ -103,6 +103,27 @@ public class IssueTests
         Should.Throw<BusinessException>(() => issue.Cancel());
     }
 
+    [Fact]
+    public void Reopen_FromClosedWithoutSla_AccumulatesClosedTimeIntoHoldTime_PR61466()
+    {
+        var issue = CreateIssue("Intermittent network drop");
+        issue.OpeningDate = DateTime.UtcNow.AddHours(-5);
+        issue.Resolve("Initial fix");
+        // Simulate issue having been closed 2 hours ago
+        issue.ResolutionDate = DateTime.UtcNow.AddHours(-2);
+
+        issue.Reopen();
+
+        issue.Status.ShouldBe(IssueStatus.Open);
+        issue.ResolutionDate.ShouldBeNull();
+        issue.Resolution.ShouldBeNull();
+        issue.TotalHoldTime.ShouldBeGreaterThanOrEqualTo(1.99m);
+
+        // Resolve again now -> ActualResolutionTimeHours should be ~3h (5h elapsed - 2h closed hold time)
+        issue.Resolve("Permanent fix");
+        issue.ActualResolutionTimeHours.ShouldBeInRange(2.9m, 3.1m);
+    }
+
     private static Issue CreateIssue(string subject) =>
         new(Guid.NewGuid(), Guid.NewGuid(), subject);
 }

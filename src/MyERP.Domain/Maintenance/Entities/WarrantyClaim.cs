@@ -130,4 +130,34 @@ public class WarrantyClaim : FullAuditedAggregateRoot<Guid>, IMultiTenant
             return true;
         return false;
     }
+
+    /// <summary>
+    /// Evaluates whether the Serial No on this claim is associated with a different customer or still held in a warehouse.
+    /// Per ERPNext PR #61465 (commit d729190b51): warn (do not block) when the serial no is not delivered to the claim customer.
+    /// </summary>
+    public static string? GetSerialNoOwnershipWarning(
+        string serialNumber,
+        Guid claimCustomerId,
+        string? claimCustomerName,
+        Guid? serialCustomerId,
+        string? serialCustomerName,
+        Guid? serialWarehouseId,
+        string? serialWarehouseName = null)
+    {
+        if (serialCustomerId.HasValue && serialCustomerId.Value != claimCustomerId)
+        {
+            var serialCustDisplay = !string.IsNullOrWhiteSpace(serialCustomerName) ? serialCustomerName : serialCustomerId.Value.ToString();
+            var claimCustDisplay = !string.IsNullOrWhiteSpace(claimCustomerName) ? claimCustomerName : claimCustomerId.ToString();
+            return $"Serial No {serialNumber} is associated with Customer {serialCustDisplay}, not {claimCustDisplay}.";
+        }
+
+        if (!serialCustomerId.HasValue && serialWarehouseId.HasValue)
+        {
+            var whDisplay = !string.IsNullOrWhiteSpace(serialWarehouseName) ? serialWarehouseName : serialWarehouseId.Value.ToString();
+            var claimCustDisplay = !string.IsNullOrWhiteSpace(claimCustomerName) ? claimCustomerName : claimCustomerId.ToString();
+            return $"Serial No {serialNumber} is in Warehouse {whDisplay} and has not been delivered to Customer {claimCustDisplay}.";
+        }
+
+        return null;
+    }
 }

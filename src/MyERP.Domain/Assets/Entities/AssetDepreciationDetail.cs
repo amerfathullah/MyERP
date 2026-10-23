@@ -58,6 +58,14 @@ public class AssetDepreciationDetail : FullAuditedEntity<Guid>
     /// <summary>Current value after depreciation for this book.</summary>
     public decimal ValueAfterDepreciation { get; set; }
 
+    /// <summary>Cumulative revaluation/impairment adjustment amount for this book (PR #61459 / #61462).</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public decimal ValueAdjustmentAmount { get; set; }
+
+    /// <summary>Whether the WDV rate of depreciation was entered manually rather than derived from salvage value (PR #61473).</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool IsRateOfDepreciationEntered { get; set; }
+
     protected AssetDepreciationDetail() { }
 
     public AssetDepreciationDetail(Guid id, Guid assetId, DepreciationMethod method,

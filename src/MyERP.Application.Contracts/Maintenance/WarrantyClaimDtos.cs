@@ -22,6 +22,7 @@ public class WarrantyClaimDto : EntityDto<Guid>
     public DateTime? ResolutionDate { get; set; }
     public int Status { get; set; }
     public bool IsUnderWarranty { get; set; }
+    public string? SerialNoOwnershipWarning { get; set; }
 }
 
 public class CreateWarrantyClaimDto

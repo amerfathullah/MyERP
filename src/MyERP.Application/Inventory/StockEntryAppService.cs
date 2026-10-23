@@ -777,17 +777,16 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
         }
 
         // Update Work Order consumed qty for material consumption entries
+        // Per ERPNext PR #61500: only count rows with SourceWarehouseId and !IsFinishedItem && !TargetWarehouseId,
+        // and distribute proportionally across matching WorkOrder RequiredItems rows.
         if (entry.EntryType == StockEntryType.MaterialConsumptionForManufacture && entry.WorkOrderId.HasValue)
         {
             var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
             var wo = await woRepo.GetAsync(entry.WorkOrderId.Value, includeDetails: true);
-            foreach (var seItem in entry.Items)
+            foreach (var seItem in entry.Items.Where(i => i.SourceWarehouseId.HasValue && !i.IsFinishedItem && !i.TargetWarehouseId.HasValue))
             {
-                var reqItem = wo.RequiredItems.FirstOrDefault(ri => ri.ItemId == seItem.ItemId);
-                if (reqItem != null)
-                {
-                    reqItem.ConsumedQuantity += seItem.Quantity;
-                }
+                MyERP.Manufacturing.DomainServices.WorkOrderManager.DistributeConsumedQuantity(
+                    wo, seItem.ItemId, seItem.SourceWarehouseId, seItem.Quantity);
             }
             await woRepo.UpdateAsync(wo, autoSave: true);
         }

@@ -60,8 +60,12 @@ public class AssetValueAdjustmentAppService : ApplicationService, IAssetValueAdj
     [Authorize(MyERPPermissions.AssetValueAdjustments.Create)]
     public async Task<AssetValueAdjustmentDto> CreateAsync(CreateUpdateAssetValueAdjustmentDto input)
     {
-        var asset = await _assetRepository.GetAsync(input.AssetId);
-        var currentVal = input.CurrentAssetValue > 0 ? input.CurrentAssetValue : asset.ValueAfterDepreciation;
+        var asset = await GetAssetWithDepreciationDetailsAsync(input.AssetId);
+        ValidateFinanceBook(asset, input.FinanceBookId);
+
+        var currentVal = input.CurrentAssetValue > 0
+            ? input.CurrentAssetValue
+            : GetCurrentAssetValue(asset, input.FinanceBookId);
 
         var adjNumber = $"AS-ADJ-{DateTime.UtcNow:yyyyMMdd}-{GuidGenerator.Create().ToString()[..6].ToUpper()}";
         var adj = new AssetValueAdjustment(
@@ -91,6 +95,9 @@ public class AssetValueAdjustmentAppService : ApplicationService, IAssetValueAdj
         if (adj.Status != Core.DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        var asset = await GetAssetWithDepreciationDetailsAsync(input.AssetId);
+        ValidateFinanceBook(asset, input.FinanceBookId);
+
         adj.Date = input.Date;
         adj.UpdateValues(input.CurrentAssetValue, input.NewAssetValue);
         adj.DifferenceAccountId = input.DifferenceAccountId;
@@ -116,9 +123,10 @@ public class AssetValueAdjustmentAppService : ApplicationService, IAssetValueAdj
     public async Task<AssetValueAdjustmentDto> SubmitAsync(Guid id)
     {
         var adj = await _repository.GetAsync(id);
-        adj.Submit();
+        var asset = await GetAssetWithDepreciationDetailsAsync(adj.AssetId);
+        ValidateFinanceBook(asset, adj.FinanceBookId);
 
-        var asset = await _assetRepository.GetAsync(adj.AssetId);
+        adj.Submit();
 
         var journalEntryId = await _lifecycleManager.PostValueAdjustmentJournalEntryAsync(adj, asset);
         if (journalEntryId.HasValue)
@@ -126,7 +134,7 @@ public class AssetValueAdjustmentAppService : ApplicationService, IAssetValueAdj
             adj.JournalEntryId = journalEntryId;
         }
 
-        asset.ApplyValueAdjustment(adj.NewAssetValue);
+        asset.ApplyValueAdjustment(adj.NewAssetValue, adj.FinanceBookId, adj.DifferenceAmount);
         await _assetRepository.UpdateAsync(asset);
 
         var activity = new AssetActivity(
@@ -149,6 +157,23 @@ public class AssetValueAdjustmentAppService : ApplicationService, IAssetValueAdj
     public async Task<AssetValueAdjustmentDto> CancelAsync(Guid id)
     {
         var adj = await _repository.GetAsync(id);
+        var asset = await GetAssetWithDepreciationDetailsAsync(adj.AssetId);
+
+        // Per ERPNext PR #61459: block cancellation if asset has been disposed or split after this adjustment
+        if (asset.Status is AssetStatus.Sold or AssetStatus.Scrapped or AssetStatus.Capitalized)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot cancel Asset Value Adjustment because Asset {asset.AssetNumber} is {asset.Status}.");
+        }
+
+        var adjTimestamp = adj.LastModificationTime ?? adj.CreationTime;
+        var assetQuery = await _assetRepository.GetQueryableAsync();
+        if (assetQuery.Any(a => a.SplitFromAssetId == asset.Id && a.CreationTime >= adjTimestamp))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot cancel Asset Value Adjustment because Asset {asset.AssetNumber} was split after this adjustment.");
+        }
+
         adj.Cancel();
 
         if (adj.JournalEntryId.HasValue)
@@ -156,8 +181,7 @@ public class AssetValueAdjustmentAppService : ApplicationService, IAssetValueAdj
             await _postingOrchestrator.ReverseGlForJournalEntryAsync(adj.JournalEntryId.Value);
         }
 
-        var asset = await _assetRepository.GetAsync(adj.AssetId);
-        asset.ApplyValueAdjustment(adj.CurrentAssetValue);
+        asset.ApplyValueAdjustment(adj.CurrentAssetValue, adj.FinanceBookId, -adj.DifferenceAmount);
         await _assetRepository.UpdateAsync(asset);
 
         var activity = new AssetActivity(
@@ -174,5 +198,42 @@ public class AssetValueAdjustmentAppService : ApplicationService, IAssetValueAdj
         await _activityRepository.InsertAsync(activity);
         await _repository.UpdateAsync(adj);
         return _mapper.Map(adj);
+    }
+
+    private async Task<Asset> GetAssetWithDepreciationDetailsAsync(Guid assetId)
+    {
+        var withDetails = await _assetRepository.WithDetailsAsync(a => a.DepreciationDetails);
+        return withDetails?.FirstOrDefault(a => a.Id == assetId)
+            ?? await _assetRepository.GetAsync(assetId);
+    }
+
+    private static decimal GetCurrentAssetValue(Asset asset, Guid? financeBookId)
+    {
+        if (financeBookId.HasValue)
+        {
+            var detail = asset.DepreciationDetails.FirstOrDefault(d => d.FinanceBookId == financeBookId.Value);
+            if (detail != null) return detail.ValueAfterDepreciation;
+        }
+        return asset.ValueAfterDepreciation;
+    }
+
+    private static void ValidateFinanceBook(Asset asset, Guid? financeBookId)
+    {
+        if (!asset.CalculateDepreciation || asset.DepreciationDetails.Count == 0)
+            return;
+
+        if (financeBookId.HasValue)
+        {
+            if (!asset.DepreciationDetails.Any(d => d.FinanceBookId == financeBookId.Value))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Selected Finance Book does not exist on the Asset.");
+            }
+        }
+        else if (asset.DepreciationDetails.All(d => d.FinanceBookId.HasValue))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Please select a Finance Book, as the Asset only has named finance books.");
+        }
     }
 }

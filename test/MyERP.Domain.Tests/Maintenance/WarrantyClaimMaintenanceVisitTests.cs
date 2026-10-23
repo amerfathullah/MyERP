@@ -211,4 +211,31 @@ public class WarrantyClaimMaintenanceVisitTests
         Assert.Equal(WarrantyClaimStatus.Open, claim.Status);
         Assert.Null(claim.ResolutionDate);
     }
+
+    [Fact]
+    public void GetSerialNoOwnershipWarning_ReturnsWarningWhenDeliveredToDifferentCustomerOrInWarehouse_PR61465()
+    {
+        var claimCustomer = Guid.NewGuid();
+        var otherCustomer = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+
+        // Delivered to another customer -> warns with both customer names
+        var diffCustWarning = WarrantyClaim.GetSerialNoOwnershipWarning(
+            "SN-001", claimCustomer, "Acme Corp", otherCustomer, "Beta Ltd", null, null);
+        Assert.NotNull(diffCustWarning);
+        Assert.Contains("Beta Ltd", diffCustWarning);
+        Assert.Contains("Acme Corp", diffCustWarning);
+
+        // Still in warehouse (undelivered) -> warns with warehouse and claim customer
+        var whWarning = WarrantyClaim.GetSerialNoOwnershipWarning(
+            "SN-002", claimCustomer, "Acme Corp", null, null, warehouseId, "Main Stores");
+        Assert.NotNull(whWarning);
+        Assert.Contains("Main Stores", whWarning);
+        Assert.Contains("Acme Corp", whWarning);
+
+        // Delivered to claim customer -> no warning
+        var noWarning = WarrantyClaim.GetSerialNoOwnershipWarning(
+            "SN-003", claimCustomer, "Acme Corp", claimCustomer, "Acme Corp", null, null);
+        Assert.Null(noWarning);
+    }
 }

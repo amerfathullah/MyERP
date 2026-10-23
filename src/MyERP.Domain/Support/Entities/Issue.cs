@@ -199,9 +199,17 @@ public class Issue : FullAuditedAggregateRoot<Guid>, IMultiTenant
             TotalHoldTime += (decimal)(DateTime.UtcNow - HoldStartedOn.Value).TotalHours;
             HoldStartedOn = null;
         }
+        else if (Status == IssueStatus.Closed && ResolutionDate.HasValue)
+        {
+            // Per ERPNext PR #61466: accumulate closed duration into TotalHoldTime on reopen
+            // so future resolution time excludes the time the issue was closed, regardless of SLA.
+            TotalHoldTime += Math.Max(0m, (decimal)(DateTime.UtcNow - ResolutionDate.Value).TotalHours);
+        }
 
         Status = IssueStatus.Open;
         ResolutionDate = null;
+        Resolution = null;
+        IsSlaBreach = false;
         UpdateAgreementStatus();
     }
 

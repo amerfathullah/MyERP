@@ -46,4 +46,42 @@ public class WorkOrderSemiFinishedProcessLossTests
         wo.ProcessLossQty.ShouldBe(1m);
         wo.Status.ShouldBe(WorkOrderStatus.InProcess);
     }
+
+    [Fact]
+    public void CalculateTransferredBatchConsumption_IgnoresSemiFinishedOutputRows_PR61500()
+    {
+        var service = new Services.WorkOrderProductionService(NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<WorkOrder, Guid>>());
+        var itemId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        var wipWh = Guid.NewGuid();
+        var fgWh = Guid.NewGuid();
+
+        var transferred = new[]
+        {
+            new Inventory.Entities.StockEntryItem(Guid.NewGuid(), Guid.NewGuid(), itemId, 10m, sourceWarehouseId: Guid.NewGuid(), targetWarehouseId: wipWh)
+            {
+                BatchId = batchId
+            }
+        };
+
+        // Semi-finished output row has TargetWarehouseId set and IsFinishedItem == false (e.g. intermediate output)
+        // Only the genuine consumption row (SourceWarehouseId set, TargetWarehouseId null) should be deducted.
+        var priorConsumed = new[]
+        {
+            new Inventory.Entities.StockEntryItem(Guid.NewGuid(), Guid.NewGuid(), itemId, 4m, sourceWarehouseId: wipWh, targetWarehouseId: null)
+            {
+                BatchId = batchId
+            },
+            new Inventory.Entities.StockEntryItem(Guid.NewGuid(), Guid.NewGuid(), itemId, 6m, sourceWarehouseId: null, targetWarehouseId: fgWh)
+            {
+                BatchId = batchId,
+                IsFinishedItem = false
+            }
+        };
+
+        var picks = service.CalculateTransferredBatchConsumption(itemId, 6m, transferred, priorConsumed);
+        picks.ShouldHaveSingleItem();
+        picks[0].BatchId.ShouldBe(batchId);
+        picks[0].Quantity.ShouldBe(6m);
+    }
 }

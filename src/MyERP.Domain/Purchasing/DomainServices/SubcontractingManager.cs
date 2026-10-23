@@ -191,7 +191,8 @@ public class SubcontractingManager : DomainService
                     ItemId = si.ItemId,
                     RequiredQty = si.RequiredQty,
                     ConsumedQty = Math.Round(baseQty * ratio, 4),
-                    WarehouseId = si.ReserveWarehouseId
+                    WarehouseId = si.ReserveWarehouseId,
+                    BatchId = si.BatchId
                 };
             })
             .ToArray();
@@ -204,4 +205,5 @@ public class SubcontractingRmConsumption
     public decimal RequiredQty { get; set; }
     public decimal ConsumedQty { get; set; }
     public Guid? WarehouseId { get; set; }
+    public Guid? BatchId { get; set; }
 }

@@ -89,7 +89,8 @@ public class AssetLifecycleManager : DomainService
             throw new BusinessException(MyERPDomainErrorCodes.AssetDisposalAccountMissing)
                 .WithData("assetName", asset.AssetName)
                 .WithData("accountField", "AssetCategoryAccount");
-        var accumulatedDepreciation = asset.PurchaseAmount - preDisposalValueAfterDepreciation;
+        var grossAssetValue = asset.GrossAssetValue;
+        var accumulatedDepreciation = grossAssetValue - preDisposalValueAfterDepreciation;
         // Per ERPNext PR #47427 / commit 51ea33e743:
         // Do not mandate depreciation account for assets without depreciation.
         if (accumulatedDepreciation != 0 && !accounts.AccumulatedDepreciationAccountId.HasValue)
@@ -121,7 +122,7 @@ public class AssetLifecycleManager : DomainService
             Narration = $"Asset disposal ({asset.AssetNumber})",
         };
 
-        je.AddLine(accounts.FixedAssetAccountId, asset.PurchaseAmount, isDebit: false,
+        je.AddLine(accounts.FixedAssetAccountId, grossAssetValue, isDebit: false,
             description: "Asset disposal — remove original cost");
         if (accumulatedDepreciation != 0 && accounts.AccumulatedDepreciationAccountId.HasValue)
             je.AddLine(accounts.AccumulatedDepreciationAccountId.Value, accumulatedDepreciation, isDebit: true,
@@ -345,6 +346,9 @@ public class AssetLifecycleManager : DomainService
         var newAssetNumber = await _numberGenerator.GenerateAsync("Asset", existingAsset.CompanyId);
 
         // Create split asset
+        var enteredRate = existingAsset.IsEnteredDepreciationRate();
+        existingAsset.IsRateOfDepreciationEntered = enteredRate;
+
         var newAsset = new Asset(
             Guid.NewGuid(),
             existingAsset.CompanyId,
@@ -359,6 +363,11 @@ public class AssetLifecycleManager : DomainService
             Location = existingAsset.Location,
             LocationId = existingAsset.LocationId,
             CustodianEmployeeId = existingAsset.CustodianEmployeeId,
+            AdditionalCost = existingAsset.AdditionalCost,
+            OpeningAccumulatedDepreciation = existingAsset.OpeningAccumulatedDepreciation,
+            ValueAfterDepreciation = existingAsset.ValueAfterDepreciation,
+            ValueAdjustmentAmount = existingAsset.ValueAdjustmentAmount,
+            IsRateOfDepreciationEntered = enteredRate,
             CalculateDepreciation = existingAsset.CalculateDepreciation,
             DepreciationMethod = existingAsset.DepreciationMethod,
             UsefulLifeMonths = existingAsset.UsefulLifeMonths,
@@ -385,6 +394,8 @@ public class AssetLifecycleManager : DomainService
                 Rate = d.Rate,
                 OpeningAccumulatedDepreciation = d.OpeningAccumulatedDepreciation,
                 ValueAfterDepreciation = d.ValueAfterDepreciation,
+                ValueAdjustmentAmount = d.ValueAdjustmentAmount,
+                IsRateOfDepreciationEntered = d.IsRateOfDepreciationEntered || enteredRate,
                 ExpectedValueAfterUsefulLife = d.ExpectedValueAfterUsefulLife,
                 DepreciationStartDate = d.DepreciationStartDate
             };

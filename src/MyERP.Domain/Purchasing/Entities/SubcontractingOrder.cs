@@ -173,6 +173,10 @@ public class SubcontractingOrderSuppliedItem : Entity<Guid>
     public Guid? ExpenseAccountId { get; set; }
     public Guid? CostCenterId { get; set; }
 
+    /// <summary>Batch ID for batch-tracked supplied raw material (PR #61505).</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public Guid? BatchId { get; set; }
+
     protected SubcontractingOrderSuppliedItem() { }
     public SubcontractingOrderSuppliedItem(Guid id, Guid scoId, Guid itemId, string itemName, decimal requiredQty)
         : base(id)

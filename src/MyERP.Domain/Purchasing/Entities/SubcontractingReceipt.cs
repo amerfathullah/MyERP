@@ -111,6 +111,10 @@ public class SubcontractingReceiptItem : Entity<Guid>
     /// <summary>BOM Secondary Item reference when created from a BOM secondary item (PR #59021).</summary>
     public Guid? BomSecondaryItemId { get; set; }
 
+    /// <summary>Batch ID for batch-tracked finished/secondary item (PR #61505).</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public Guid? BatchId { get; set; }
+
     protected SubcontractingReceiptItem() { }
     public SubcontractingReceiptItem(Guid id, Guid scrId, Guid itemId, string itemName, decimal qty, decimal rate, Guid? projectId = null)
         : base(id)

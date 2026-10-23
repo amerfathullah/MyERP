@@ -112,4 +112,71 @@ public class AssetSplitTests
 
         await Assert.ThrowsAsync<BusinessException>(() => _lifecycleManager.SplitAssetAsync(_assetId, 2));
     }
+
+    [Fact]
+    public void AssetValueAdjustment_RejectsNegativeNewValueAndZeroDifference_PR61459()
+    {
+        // Negative new asset value rejected on construct
+        Assert.Throws<BusinessException>(() =>
+            new AssetValueAdjustment(Guid.NewGuid(), "ADJ-001", _companyId, _assetId, DateTime.UtcNow, 1000m, -1m, Guid.NewGuid()));
+
+        // Zero difference rejected on submit
+        var sameValueAdj = new AssetValueAdjustment(Guid.NewGuid(), "ADJ-002", _companyId, _assetId, DateTime.UtcNow, 1000m, 1000m, Guid.NewGuid());
+        Assert.Throws<BusinessException>(() => sameValueAdj.Submit());
+
+        // Zero new value (100% impairment) allowed when current > 0
+        var fullImpairment = new AssetValueAdjustment(Guid.NewGuid(), "ADJ-003", _companyId, _assetId, DateTime.UtcNow, 1000m, 0m, Guid.NewGuid());
+        fullImpairment.Submit();
+        Assert.Equal(-1000m, fullImpairment.DifferenceAmount);
+    }
+
+    [Fact]
+    public async Task SplitAssetAsync_ScalesRevaluationAndPreservesEnteredWdvRate_PR61462_PR61473()
+    {
+        var existingAsset = new Asset(_assetId, _companyId, "AST-WDV-01", "Server Rack", new DateTime(2026, 1, 1), 10000m)
+        {
+            AssetQuantity = 5,
+            CalculateDepreciation = true,
+            DepreciationMethod = DepreciationMethod.WrittenDownValue,
+            UsefulLifeMonths = 36,
+            FrequencyMonths = 12,
+            DepreciationRate = 25m, // Manually entered WDV rate (differs from salvage-derived rate)
+            ExpectedValueAfterUsefulLife = 1000m,
+            AvailableForUseDate = new DateTime(2026, 1, 1)
+        };
+        existingAsset.SetDepreciationRateAndValueAfterDepreciation();
+        Assert.True(existingAsset.IsRateOfDepreciationEntered);
+
+        existingAsset.Submit();
+        // Revalue upward from 10,000 to 12,500 (+2,500)
+        existingAsset.ApplyValueAdjustment(12500m, differenceAmount: 2500m);
+        Assert.Equal(2500m, existingAsset.ValueAdjustmentAmount);
+        Assert.Equal(12500m, existingAsset.GrossAssetValue);
+        Assert.Equal(25m, existingAsset.DepreciationRate); // Entered WDV rate preserved!
+
+        _assetRepository.WithDetailsAsync(a => a.DepreciationDetails).ReturnsForAnyArgs(new[] { existingAsset }.AsQueryable());
+
+        Asset? splitAsset = null;
+        await _assetRepository.InsertAsync(Arg.Do<Asset>(a => splitAsset = a));
+
+        await _lifecycleManager.SplitAssetAsync(_assetId, 2);
+
+        Assert.NotNull(splitAsset);
+        // 2/5 of 10,000 = 4,000 purchase; 2/5 of 2,500 = 1,000 value adjustment => GrossAssetValue = 5,000
+        Assert.Equal(4000m, splitAsset.PurchaseAmount);
+        Assert.Equal(1000m, splitAsset.ValueAdjustmentAmount);
+        Assert.Equal(5000m, splitAsset.GrossAssetValue);
+        Assert.True(splitAsset.IsRateOfDepreciationEntered);
+        Assert.Equal(25m, splitAsset.DepreciationRate);
+
+        // Further value adjustment on split asset keeps the entered 25% WDV rate
+        splitAsset.ApplyValueAdjustment(6000m, differenceAmount: 1000m);
+        Assert.Equal(25m, splitAsset.DepreciationRate);
+        Assert.Equal(6000m, splitAsset.GrossAssetValue);
+
+        // Remaining asset: 3/5 of 2,500 = 1,500 value adjustment => GrossAssetValue = 7,500
+        Assert.Equal(6000m, existingAsset.PurchaseAmount);
+        Assert.Equal(1500m, existingAsset.ValueAdjustmentAmount);
+        Assert.Equal(7500m, existingAsset.GrossAssetValue);
+    }
 }
