@@ -61,15 +61,48 @@ public class BomCreator : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(MyERPDomainErrorCodes.BomCreatorAlreadyProcessed);
 
         // Check for duplicate items under the same parent (per ERPNext PR #58614)
+        // and prevent cycle / self-referencing hierarchy (per ERPNext PR #60625 / commit dbfab05d86)
         var seen = new HashSet<(Guid ItemId, Guid FgItemId)>();
+        var parentByItem = _items
+            .Where(i => i.IsExpandable)
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.First().FgItemId);
+
         foreach (var item in _items)
         {
+            if (item.ItemId == item.FgItemId || item.ItemId == FinishedGoodItemId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.BomCycleDetected)
+                    .WithData("itemId", item.ItemId)
+                    .WithData("fgItemId", item.FgItemId)
+                    .WithData("detail", $"Item '{item.ItemName}' cannot be used as a raw material of itself or the root finished good.");
+            }
+
             if (!seen.Add((item.ItemId, item.FgItemId)))
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("itemId", item.ItemId)
                     .WithData("fgItemId", item.FgItemId)
                     .WithData("detail", $"Item '{item.ItemName}' added multiple times under the same parent.");
+            }
+
+            // Walk ancestor chain to detect multi-level cycle
+            var visitedAncestors = new HashSet<Guid> { item.ItemId };
+            var currentParent = item.FgItemId;
+            while (currentParent != Guid.Empty && currentParent != FinishedGoodItemId)
+            {
+                if (!visitedAncestors.Add(currentParent))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.BomCycleDetected)
+                        .WithData("itemId", item.ItemId)
+                        .WithData("fgItemId", item.FgItemId)
+                        .WithData("detail", $"Cycle detected in BOM Creator hierarchy involving item '{item.ItemName}'.");
+                }
+
+                if (!parentByItem.TryGetValue(currentParent, out var nextParent))
+                    break;
+
+                currentParent = nextParent;
             }
         }
     }

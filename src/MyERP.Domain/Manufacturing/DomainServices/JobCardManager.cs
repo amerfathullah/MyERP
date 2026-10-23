@@ -98,6 +98,13 @@ public class JobCardManager : DomainService
             sequence++;
             var opSequence = op.SequenceId > 0 ? op.SequenceId : sequence;
 
+            Guid? resolvedWorkstationId = op.WorkstationId;
+            if (!resolvedWorkstationId.HasValue && op.WorkstationTypeId.HasValue)
+            {
+                var activeWorkstations = await GetWorkstationsByTypeAsync(op.WorkstationTypeId.Value, wo.CompanyId);
+                resolvedWorkstationId = activeWorkstations.FirstOrDefault()?.Id;
+            }
+
             while (remaining > 0)
             {
                 var qty = Math.Min(batchSize, remaining);
@@ -113,7 +120,7 @@ public class JobCardManager : DomainService
                 )
                 {
                     BomOperationId = op.Id,
-                    WorkstationId = op.WorkstationId,
+                    WorkstationId = resolvedWorkstationId,
                     WipWarehouseId = wo.WipWarehouseId,
                     PlannedTimeInMins = op.TimeInMins * (qty / batchSize),
                     FinishedGoodItemId = op.FinishedGoodItemId,
@@ -134,6 +141,23 @@ public class JobCardManager : DomainService
         }
 
         return jobCards.ToArray();
+    }
+
+    /// <summary>
+    /// Gets active workstations matching a Workstation Type, ordered by production capacity descending.
+    /// Per ERPNext PR #60517 (commit 78323c94aa): excludes disabled workstations (IsActive == false).
+    /// </summary>
+    public async Task<List<Workstation>> GetWorkstationsByTypeAsync(Guid workstationTypeId, Guid? companyId = null)
+    {
+        var wsQueryable = await _workstationRepository.GetQueryableAsync();
+        if (wsQueryable == null) return new List<Workstation>();
+
+        return wsQueryable
+            .Where(w => w.IsActive
+                && w.WorkstationTypeId == workstationTypeId
+                && (!companyId.HasValue || w.CompanyId == companyId.Value))
+            .OrderByDescending(w => w.ProductionCapacity)
+            .ToList();
     }
 
     /// <summary>

@@ -44,7 +44,7 @@ public class BomCostPropagationService : DomainService
             {
                 if (item.SetRateOfSubAssemblyItemBasedOnBom || item.IsPhantom)
                 {
-                    var unitCost = bom.Quantity > 0 ? bom.TotalCost / bom.Quantity : bom.TotalCost;
+                    var unitCost = bom.UnitCost;
                     item.Rate = unitCost * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
                     item.Recalculate();
                 }
@@ -100,7 +100,7 @@ public class BomCostPropagationService : DomainService
                 .WithData("detail", $"BOM {currentBom.BomNumber} is used in {parentNames}, which track semi-finished goods. Amend those BOMs to use the new BOM so their operation materials are fetched again.");
         }
 
-        var newUnitCost = newBom.Quantity > 0 ? newBom.TotalCost / newBom.Quantity : newBom.TotalCost;
+        var newUnitCost = newBom.UnitCost;
         var updatedItemCount = 0;
         foreach (var parentBom in parentBoms)
         {
@@ -183,7 +183,7 @@ public class BomCostPropagationService : DomainService
                         var childBom = allBoms.FirstOrDefault(b => b.Id == item.SubBomId!.Value);
                         if (childBom != null)
                         {
-                            var unitCost = childBom.Quantity > 0 ? childBom.TotalCost / childBom.Quantity : childBom.TotalCost;
+                            var unitCost = childBom.UnitCost;
                             item.Rate = unitCost * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
                             item.Recalculate();
                         }

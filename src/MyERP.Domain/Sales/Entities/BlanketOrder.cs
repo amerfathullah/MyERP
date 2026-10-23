@@ -155,10 +155,10 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
-    /// Validates that an order can be placed against this Blanket Order per ERPNext PR #59341 &amp; #59346.
-    /// Must be submitted (not closed or cancelled) and not expired.
+    /// Validates that an order can be placed against this Blanket Order per ERPNext PR #59341, #59346 &amp; #60557.
+    /// Must be submitted (not closed or cancelled), within [FromDate, ToDate], and match type/party/currency when specified.
     /// </summary>
-    public void ValidateCanBeOrdered(DateTime orderDate)
+    public void ValidateCanBeOrdered(DateTime orderDate, string? expectedOrderType = null, Guid? partyId = null, string? currency = null)
     {
         if (Status == DocumentStatus.Closed)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
@@ -166,9 +166,21 @@ public class BlanketOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", $"Blanket Order {OrderNumber} is not submitted.");
+        if (orderDate.Date < FromDate.Date)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Blanket Order {OrderNumber} is valid from {FromDate:yyyy-MM-dd}.");
         if (orderDate.Date > ToDate.Date)
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Blanket Order {OrderNumber} expired on {ToDate:yyyy-MM-dd}.");
+        if (!string.IsNullOrWhiteSpace(expectedOrderType) && !string.Equals(OrderType, expectedOrderType, StringComparison.OrdinalIgnoreCase))
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Blanket Order {OrderNumber} is of type {OrderType}, expected {expectedOrderType}.");
+        if (partyId.HasValue && PartyId != partyId.Value)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Party does not match Blanket Order {OrderNumber}.");
+        if (!string.IsNullOrWhiteSpace(currency) && !string.Equals(Currency, currency, StringComparison.OrdinalIgnoreCase))
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Currency {currency} does not match Blanket Order {OrderNumber} currency ({Currency}).");
     }
 }
 

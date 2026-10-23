@@ -24,9 +24,9 @@ public class DowntimeEntryAppService : ApplicationService, IDowntimeEntryAppServ
         if (input.CompanyId.HasValue)
             query = query.Where(d => d.CompanyId == input.CompanyId.Value);
         if (input.FromDate.HasValue)
-            query = query.Where(d => d.FromTime >= input.FromDate.Value);
+            query = query.Where(d => d.ToTime > input.FromDate.Value);
         if (input.ToDate.HasValue)
-            query = query.Where(d => d.ToTime <= input.ToDate.Value);
+            query = query.Where(d => d.FromTime < input.ToDate.Value);
 
         var totalCount = query.Count();
         var items = query.OrderByDescending(d => d.FromTime)
@@ -48,6 +48,8 @@ public class DowntimeEntryAppService : ApplicationService, IDowntimeEntryAppServ
         {
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DowntimeEntryToTimeBeforeFromTime);
         }
+
+        await ValidateNoWorkstationOverlapAsync(input.WorkstationId, input.FromTime, input.ToTime);
 
         var entry = new DowntimeEntry(GuidGenerator.Create(), input.CompanyId, input.WorkstationId,
             input.OperatorId, input.FromTime, input.ToTime, input.StopReason, CurrentTenant.Id)
@@ -74,6 +76,8 @@ public class DowntimeEntryAppService : ApplicationService, IDowntimeEntryAppServ
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.DowntimeEntryToTimeBeforeFromTime);
         }
 
+        await ValidateNoWorkstationOverlapAsync(input.WorkstationId, input.FromTime, input.ToTime, id);
+
         var entry = await _repository.GetAsync(id);
         entry.WorkstationId = input.WorkstationId;
         entry.OperatorId = input.OperatorId;
@@ -94,4 +98,28 @@ public class DowntimeEntryAppService : ApplicationService, IDowntimeEntryAppServ
 
     [Authorize(MyERPPermissions.Manufacturing.Delete)]
     public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
+
+    /// <summary>
+    /// Validates that no existing Downtime Entry for the same workstation overlaps [fromTime, toTime].
+    /// Per ERPNext PR #60521 (commit ac17534232).
+    /// </summary>
+    private async Task ValidateNoWorkstationOverlapAsync(Guid workstationId, DateTime fromTime, DateTime toTime, Guid? excludeId = null)
+    {
+        var query = await _repository.GetQueryableAsync();
+        if (query == null) return;
+
+        var overlapping = query.FirstOrDefault(d =>
+            d.WorkstationId == workstationId
+            && (!excludeId.HasValue || d.Id != excludeId.Value)
+            && d.FromTime < toTime
+            && d.ToTime > fromTime);
+
+        if (overlapping != null)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("workstationId", workstationId)
+                .WithData("overlappingEntryId", overlapping.Id)
+                .WithData("detail", "Downtime Entry overlaps with an existing downtime entry for this workstation.");
+        }
+    }
 }

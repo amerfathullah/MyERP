@@ -76,6 +76,17 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Process loss quantity derived from BOM-level percentage.</summary>
     public decimal ProcessLossQty => Quantity * (ProcessLossPercentage / 100m);
 
+    /// <summary>
+    /// Effective good output quantity after deducting BOM-level process loss (ERPNext PR #60561 / commit 9167d69a84).
+    /// Falls back to Quantity (or 1) if process loss is 100% or Quantity is 0.
+    /// </summary>
+    public decimal GoodQuantity => (Quantity - ProcessLossQty) > 0 ? (Quantity - ProcessLossQty) : (Quantity > 0 ? Quantity : 1m);
+
+    /// <summary>
+    /// Cost per good output unit = TotalCost / (Quantity - ProcessLossQty) per ERPNext PR #60561.
+    /// </summary>
+    public decimal UnitCost => GoodQuantity > 0 ? TotalCost / GoodQuantity : TotalCost;
+
     /// <summary>Scrap/secondary items target warehouse.</summary>
     public Guid? ScrapWarehouseId { get; set; }
 

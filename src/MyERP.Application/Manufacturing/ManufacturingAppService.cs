@@ -123,7 +123,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 var subBom = await _bomRepository.FindAsync(item.SubBomId.Value);
                 if (subBom != null)
                 {
-                    rate = subBom.Quantity > 0 ? subBom.TotalCost / subBom.Quantity : subBom.TotalCost;
+                    rate = subBom.UnitCost;
                 }
             }
 
@@ -251,7 +251,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 var subBom = await _bomRepository.FindAsync(item.SubBomId.Value);
                 if (subBom != null)
                 {
-                    rate = subBom.Quantity > 0 ? subBom.TotalCost / subBom.Quantity : subBom.TotalCost;
+                    rate = subBom.UnitCost;
                 }
             }
 

@@ -35,19 +35,28 @@ public class DowntimeAnalysisAppService : ApplicationService, IDowntimeAnalysisA
 
     public async Task<DowntimeAnalysisReportDto> GetReportAsync(DowntimeAnalysisRequestDto input)
     {
+        if (input.FromDate.HasValue && input.ToDate.HasValue && input.FromDate.Value.Date > input.ToDate.Value.Date)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "From Date cannot be after To Date.");
+        }
+
         var queryable = await _downtimeRepository.GetQueryableAsync();
         var query = queryable.Where(d => d.CompanyId == input.CompanyId);
 
-        if (input.FromDate.HasValue)
+        DateTime? windowStart = input.FromDate.HasValue ? input.FromDate.Value.Date : null;
+        DateTime? windowEnd = input.ToDate.HasValue ? input.ToDate.Value.Date.AddDays(1) : null;
+
+        if (windowStart.HasValue)
         {
-            var from = input.FromDate.Value.Date;
-            query = query.Where(d => d.FromTime >= from);
+            var from = windowStart.Value;
+            query = query.Where(d => d.ToTime > from);
         }
 
-        if (input.ToDate.HasValue)
+        if (windowEnd.HasValue)
         {
-            var to = input.ToDate.Value.Date.AddDays(1).AddTicks(-1);
-            query = query.Where(d => d.ToTime <= to);
+            var to = windowEnd.Value;
+            query = query.Where(d => d.FromTime < to);
         }
 
         if (input.WorkstationId.HasValue)
@@ -84,7 +93,11 @@ public class DowntimeAnalysisAppService : ApplicationService, IDowntimeAnalysisA
             wsMap.TryGetValue(entry.WorkstationId, out var wsName);
             empMap.TryGetValue(entry.OperatorId, out var opName);
 
-            var hours = Math.Round(entry.DowntimeMinutes / 60m, 2);
+            // Per ERPNext PR #60521 (commit ac17534232): clip downtime interval to report date window
+            var effectiveFrom = windowStart.HasValue && entry.FromTime < windowStart.Value ? windowStart.Value : entry.FromTime;
+            var effectiveTo = windowEnd.HasValue && entry.ToTime > windowEnd.Value ? windowEnd.Value : entry.ToTime;
+            var clippedMinutes = Math.Max(0m, (decimal)(effectiveTo - effectiveFrom).TotalMinutes);
+            var hours = Math.Round(clippedMinutes / 60m, 2);
 
             rows.Add(new DowntimeAnalysisRowDto
             {
@@ -93,9 +106,9 @@ public class DowntimeAnalysisAppService : ApplicationService, IDowntimeAnalysisA
                 WorkstationName = wsName ?? "Unknown",
                 OperatorId = entry.OperatorId,
                 OperatorName = opName ?? "Unknown",
-                FromTime = entry.FromTime,
-                ToTime = entry.ToTime,
-                DowntimeMinutes = entry.DowntimeMinutes,
+                FromTime = effectiveFrom,
+                ToTime = effectiveTo,
+                DowntimeMinutes = clippedMinutes,
                 DowntimeHours = hours,
                 StopReason = entry.StopReason,
                 Remarks = entry.Remarks

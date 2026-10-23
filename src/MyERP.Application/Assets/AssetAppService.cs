@@ -229,7 +229,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
                 {
                     var purchasedQty = pr.Items
                         .Where(i => i.ItemId == asset.ItemId.Value)
-                        .Sum(i => i.Quantity);
+                        .Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
 
                     var assetQuery = await _assetRepository.GetQueryableAsync();
                     var existingAssetQty = assetQuery
@@ -261,7 +261,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
                 {
                     var purchasedQty = pi.Items
                         .Where(i => i.ItemId == asset.ItemId.Value)
-                        .Sum(i => i.Quantity);
+                        .Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
 
                     var assetQuery = await _assetRepository.GetQueryableAsync();
                     var existingAssetQty = assetQuery
@@ -575,9 +575,10 @@ public class AssetAppService : ApplicationService, IAssetAppService
             if (item == null)
                 throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
 
-            // Per PR #57618 (commit 46e01c2d92): purchase amount sourced from receipt value including landed costs
-            var amount = item.LineTotal + item.LandedCostVoucherAmount;
-            var qty = (int)Math.Max(1, Math.Round(item.Quantity));
+            // Per PR #57618 & PR #60415 (commit b102d0561e): purchase amount sourced from receipt valuation (including landed costs) and stock qty
+            var amount = (item.LineTotal * (pr.ExchangeRate > 0 ? pr.ExchangeRate : 1m)) + item.LandedCostVoucherAmount;
+            var stockQty = item.Quantity * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
+            var qty = (int)Math.Max(1, Math.Round(stockQty));
 
             return new AssetPurchaseDocValuesDto
             {
@@ -602,8 +603,10 @@ public class AssetAppService : ApplicationService, IAssetAppService
             if (item == null)
                 throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
 
-            var amount = item.LineTotal;
-            var qty = (int)Math.Max(1, Math.Round(item.Quantity));
+            // Per PR #60415 (commit b102d0561e): include base valuation and landed cost voucher amount, and use stock qty
+            var amount = (item.LineTotal * (pi.ExchangeRate > 0 ? pi.ExchangeRate : 1m)) + item.LandedCostVoucherAmount;
+            var stockQty = item.Quantity * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
+            var qty = (int)Math.Max(1, Math.Round(stockQty));
 
             return new AssetPurchaseDocValuesDto
             {

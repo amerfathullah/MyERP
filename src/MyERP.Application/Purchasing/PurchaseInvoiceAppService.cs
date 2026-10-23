@@ -538,6 +538,19 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                     .WithData("purchaseReceiptCompany", crossCompanyPr.CompanyId)
                     .WithData("invoiceCompany", input.CompanyId);
             }
+
+            if (!input.IsReturn)
+            {
+                var closedPr = prQuery
+                    .Where(pr => pr.Items.Any(i => linkedPrItemIds.Contains(i.Id)) && pr.Status == Core.DocumentStatus.Closed)
+                    .FirstOrDefault();
+                if (closedPr != null)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("purchaseReceiptNumber", closedPr.ReceiptNumber)
+                        .WithData("detail", $"Purchase Receipt {closedPr.ReceiptNumber} is closed and cannot be invoiced.");
+                }
+            }
         }
 
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.CompanyRestrictionValidationService>();

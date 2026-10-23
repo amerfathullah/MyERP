@@ -401,4 +401,64 @@ public class ChildItemUpdateServiceTests
         };
         dnItem.PendingInstallationQty.ShouldBe(3m);
     }
+
+    [Fact]
+    public void BlanketOrder_ValidateCanBeOrdered_EnforcesFromDateTypePartyAndCurrency()
+    {
+        var partyId = Guid.NewGuid();
+        var bo = new MyERP.Sales.Entities.BlanketOrder(
+            Guid.NewGuid(), Guid.NewGuid(), "BO-001", "Selling", partyId,
+            new DateTime(2026, 2, 1), new DateTime(2026, 12, 31))
+        {
+            Currency = "MYR"
+        };
+        bo.AddItem(Guid.NewGuid(), 10m, 50m, "Item A");
+        bo.Submit();
+
+        Should.Throw<BusinessException>(() =>
+            bo.ValidateCanBeOrdered(new DateTime(2026, 1, 15)))
+            .Data["detail"]!.ToString()!.ShouldContain("valid from 2026-02-01");
+
+        Should.Throw<BusinessException>(() =>
+            bo.ValidateCanBeOrdered(new DateTime(2026, 3, 1), expectedOrderType: "Buying"))
+            .Data["detail"]!.ToString()!.ShouldContain("expected Buying");
+
+        Should.Throw<BusinessException>(() =>
+            bo.ValidateCanBeOrdered(new DateTime(2026, 3, 1), expectedOrderType: "Selling", partyId: Guid.NewGuid()))
+            .Data["detail"]!.ToString()!.ShouldContain("Party does not match");
+
+        Should.Throw<BusinessException>(() =>
+            bo.ValidateCanBeOrdered(new DateTime(2026, 3, 1), expectedOrderType: "Selling", partyId: partyId, currency: "USD"))
+            .Data["detail"]!.ToString()!.ShouldContain("Currency USD does not match");
+
+        Should.NotThrow(() =>
+            bo.ValidateCanBeOrdered(new DateTime(2026, 3, 1), expectedOrderType: "Selling", partyId: partyId, currency: "MYR"));
+    }
+
+    [Fact]
+    public void Bom_UnitCost_AccountsForProcessLoss_And_BomCreator_DetectsCycles()
+    {
+        var bom = new MyERP.Manufacturing.Entities.BillOfMaterials(Guid.NewGuid(), Guid.NewGuid(), "BOM-001", Guid.NewGuid())
+        {
+            Quantity = 10m,
+            ProcessLossPercentage = 20m // ProcessLossQty = 2, GoodQuantity = 8
+        };
+        bom.AddItem(new MyERP.Manufacturing.Entities.BomItem(Guid.NewGuid(), bom.Id, Guid.NewGuid(), "Raw A", 10m, 80m));
+        bom.RecalculateCost();
+
+        bom.TotalCost.ShouldBe(800m);
+        bom.GoodQuantity.ShouldBe(8m);
+        bom.UnitCost.ShouldBe(100m);
+
+        var fgId = Guid.NewGuid();
+        var subA = Guid.NewGuid();
+        var subB = Guid.NewGuid();
+        var creator = new MyERP.Manufacturing.Entities.BomCreator(Guid.NewGuid(), Guid.NewGuid(), fgId, 1m);
+        creator.AddItem(subA, "Sub A", fgId, 1m, 10m, isExpandable: true);
+        creator.AddItem(subB, "Sub B", subA, 1m, 10m, isExpandable: true);
+        creator.AddItem(subA, "Sub A", subB, 1m, 10m, isExpandable: true);
+
+        Should.Throw<BusinessException>(() => creator.Validate())
+            .Code.ShouldBe(MyERPDomainErrorCodes.BomCycleDetected);
+    }
 }

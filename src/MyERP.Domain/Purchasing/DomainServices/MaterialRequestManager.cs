@@ -33,6 +33,27 @@ public class MaterialRequestManager : DomainService
     }
 
     /// <summary>
+    /// Validates that a Material Request is submitted and not stopped/closed before creating downstream documents.
+    /// Per ERPNext PR #60432 (commit 1dc5b8d3be): stopped Material Requests cannot create downstream documents.
+    /// </summary>
+    public void ValidateCanCreateDownstream(MaterialRequest mr)
+    {
+        if (mr.Status == Core.DocumentStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("requestNumber", mr.RequestNumber)
+                .WithData("detail", $"Material Request {mr.RequestNumber} is stopped/closed and cannot be processed further.");
+        }
+
+        if (mr.Status != Core.DocumentStatus.Submitted)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("requestNumber", mr.RequestNumber)
+                .WithData("detail", $"Material Request {mr.RequestNumber} must be submitted before creating downstream documents.");
+        }
+    }
+
+    /// <summary>
     /// Updates ordered/transferred/received quantities on MR items when downstream documents (e.g.
     /// Stock Entries pulled from a Transfer/Issue-type MR) are submitted or cancelled.
     /// Batches by affected MR the same way PurchaseOrderManager.UpdateMaterialRequestOrderedQtyAsync

@@ -422,6 +422,8 @@ public class PurchaseInvoiceManager : DomainService
     /// </summary>
     public async Task ValidateLinkedPurchaseReceiptsAsync(PurchaseInvoice invoice)
     {
+        if (invoice.IsReturn) return;
+
         var prItemIds = invoice.Items
             .Where(i => i.PurchaseReceiptItemId.HasValue)
             .Select(i => i.PurchaseReceiptItemId!.Value)
@@ -438,6 +440,13 @@ public class PurchaseInvoiceManager : DomainService
 
         foreach (var pr in affectedPrs)
         {
+            if (pr.Status == Core.DocumentStatus.Closed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("purchaseReceiptNumber", pr.ReceiptNumber)
+                    .WithData("detail", $"Purchase Receipt {pr.ReceiptNumber} is closed and cannot be invoiced.");
+            }
+
             foreach (var piItem in invoice.Items.Where(i => i.PurchaseReceiptItemId.HasValue))
             {
                 var prItem = pr.Items.FirstOrDefault(i => i.Id == piItem.PurchaseReceiptItemId!.Value);
