@@ -117,6 +117,42 @@ public class PurchaseOrderManager : DomainService
     }
 
     /// <summary>
+    /// Updates Sales Order items' OrderedQty (stock UOM) when a PO created from a Sales Order is
+    /// submitted or cancelled. Per ERPNext Purchase Order Item → Sales Order Item status updater
+    /// (source stock_qty → target ordered_qty). Reverse never drops below zero.
+    /// </summary>
+    public async Task UpdateSalesOrderOrderedQtyAsync(
+        PurchaseOrder order,
+        IRepository<MyERP.Sales.Entities.SalesOrder, Guid> soRepository,
+        bool reverse = false)
+    {
+        var soItemIds = order.Items
+            .Where(i => i.SalesOrderItemId.HasValue)
+            .Select(i => i.SalesOrderItemId!.Value)
+            .ToList();
+
+        if (!soItemIds.Any()) return;
+
+        var soQuery = await soRepository.GetQueryableAsync();
+        var affectedSOs = soQuery
+            .Where(so => so.Items.Any(i => soItemIds.Contains(i.Id)))
+            .ToList();
+
+        foreach (var so in affectedSOs)
+        {
+            foreach (var poItem in order.Items.Where(i => i.SalesOrderItemId.HasValue))
+            {
+                var soItem = so.Items.FirstOrDefault(i => i.Id == poItem.SalesOrderItemId!.Value);
+                if (soItem == null) continue;
+
+                var delta = reverse ? -poItem.StockQty : poItem.StockQty;
+                soItem.OrderedQty = Math.Max(0m, soItem.OrderedQty + delta);
+            }
+            await soRepository.UpdateAsync(so);
+        }
+    }
+
+    /// <summary>
     /// Updates Supplier Quotation items' OrderedQty and status when PO is submitted or cancelled.
     /// Per ERPNext PR #58572: tracks supplier quotation fulfillment and transitions status.
     /// </summary>

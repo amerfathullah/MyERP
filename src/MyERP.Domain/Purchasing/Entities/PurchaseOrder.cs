@@ -458,6 +458,12 @@ public class PurchaseOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Link to Supplier Quotation item (for SQ fulfillment tracking).</summary>
     public Guid? SupplierQuotationItemId { get; set; }
 
+    /// <summary>Source Sales Order (ERPNext Purchase Order Item.sales_order) — set when created from an SO.</summary>
+    public Guid? SalesOrderId { get; set; }
+
+    /// <summary>Source Sales Order row (ERPNext sales_order_item) — drives SO Item.OrderedQty on submit/cancel.</summary>
+    public Guid? SalesOrderItemId { get; set; }
+
     /// <summary>Blanket Order (Buying) this line draws from — qty deducted from the blanket allocation on submit.</summary>
     public Guid? BlanketOrderId { get; set; }
 

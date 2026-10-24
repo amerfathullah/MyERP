@@ -1367,6 +1367,7 @@ public class MyERPDbContext :
             b.Property(x => x.ReceivedQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.BilledQty).HasColumnType("decimal(18,4)");
             b.HasIndex(x => x.ProjectId);
+            b.HasIndex(x => x.SalesOrderItemId);
         });
 
         // Purchase Invoices

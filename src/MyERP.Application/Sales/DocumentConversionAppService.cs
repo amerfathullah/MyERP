@@ -654,6 +654,96 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
     }
 
     /// <summary>
+    /// Creates one draft Purchase Order per supplier from the selected rows of a submitted Sales Order.
+    /// Per ERPNext sales_order/mapper.py make_purchase_order: rows are matched by row id, only
+    /// open, not-fully-ordered rows are mapped (qty = qty - ordered_qty / conversion_factor), rate and
+    /// tax are NOT carried over (re-priced on the buying side), currency/price list come from the
+    /// Supplier, and drop-ship rows keep the customer shipping address while stock rows drop the customer.
+    /// </summary>
+    [Authorize(MyERPPermissions.PurchaseOrders.Create)]
+    public async Task<List<Guid>> ConvertSalesOrderToPurchaseOrdersAsync(
+        Guid salesOrderId, List<SalesOrderPurchaseItemSelectionDto> selectedItems)
+    {
+        if (selectedItems == null || selectedItems.Count == 0)
+        {
+            return new List<Guid>();
+        }
+
+        var salesOrder = await _salesOrderRepository.GetAsync(salesOrderId);
+        if (salesOrder.Status == Core.DocumentStatus.Draft || salesOrder.Status == Core.DocumentStatus.Cancelled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion)
+                .WithData("documentType", "SalesOrder");
+        }
+
+        var lines = DomainServices.DropShipService.ResolvePurchaseLines(
+            salesOrder, selectedItems.Select(s => (s.SalesOrderItemId, s.SupplierId)));
+        if (lines.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "SalesOrder")
+                .WithData("documentNumber", salesOrder.OrderNumber)
+                .WithData("reason", "All selected items in this Sales Order are closed or have already been fully ordered.");
+        }
+
+        var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseOrder, Guid>>();
+        var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        var exchangeService = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.CurrencyExchangeService>();
+        var company = await companyRepo.GetAsync(salesOrder.CompanyId);
+
+        var createdIds = new List<Guid>();
+        foreach (var supplierGroup in lines.GroupBy(l => l.SupplierId))
+        {
+            var supplier = await supplierRepo.GetAsync(supplierGroup.Key);
+            var poNumber = await _numberGenerator.GenerateAsync("PurchaseOrder", salesOrder.CompanyId);
+            var orderDate = DateTime.UtcNow.Date;
+
+            var po = new Purchasing.Entities.PurchaseOrder(
+                GuidGenerator.Create(), salesOrder.CompanyId, supplier.Id, poNumber, orderDate, salesOrder.TenantId)
+            {
+                ProjectId = salesOrder.ProjectId,
+                CurrencyCode = supplier.DefaultCurrency ?? company.CurrencyCode,
+                PriceListId = supplier.DefaultPriceListId,
+            };
+            po.ExchangeRate = await exchangeService.GetExchangeRateAsync(po.CurrencyCode, company.CurrencyCode, orderDate);
+
+            foreach (var line in supplierGroup)
+            {
+                var soItem = line.Item;
+                var poItem = po.AddItem(
+                    soItem.ItemId,
+                    soItem.Description ?? string.Empty,
+                    line.Quantity,
+                    unitPrice: 0m,
+                    taxAmount: 0m,
+                    soItem.Uom ?? "Unit",
+                    soItem.WarehouseId,
+                    projectId: salesOrder.ProjectId,
+                    deliveredBySupplier: soItem.DeliveredBySupplier);
+                poItem.StockUom = soItem.StockUom;
+                poItem.ConversionFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                poItem.ExpectedDeliveryDate = soItem.DeliveryDate ?? salesOrder.DeliveryDate;
+                poItem.SalesOrderId = salesOrder.Id;
+                poItem.SalesOrderItemId = soItem.Id;
+            }
+
+            if (po.Items.Any(i => i.DeliveredBySupplier))
+            {
+                po.CustomerId = salesOrder.CustomerId;
+                po.ShippingAddressId = salesOrder.ShippingAddressId;
+            }
+
+            await poRepo.InsertAsync(po, autoSave: true);
+            createdIds.Add(po.Id);
+
+            await _activityLog.LogConvertedAsync("SalesOrder", salesOrder.Id, salesOrder.CompanyId,
+                "PurchaseOrder", po.Id, salesOrder.OrderNumber, salesOrder.TenantId);
+        }
+
+        return createdIds;
+    }
+    /// <summary>
     /// Creates a Quotation from an Opportunity (CRM → Sales pipeline).
     /// Per ERPNext: Opportunity "Make Quotation" copies customer, items (if any),
     /// and opportunity amount. Marks opportunity status as "Quotation".

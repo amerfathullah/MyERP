@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
+using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
 using Volo.Abp.Guids;
@@ -83,7 +84,7 @@ public class DropShipService : DomainService
 
             foreach (var soItem in supplierGroup)
             {
-                po.AddItem(
+                var poItem = po.AddItem(
                     soItem.ItemId,
                     soItem.Description,
                     soItem.Quantity,
@@ -91,6 +92,10 @@ public class DropShipService : DomainService
                     soItem.TaxAmount,
                     soItem.Uom,
                     deliveredBySupplier: true);
+                // Link back to the SO row so PO submit/cancel keeps SO Item.OrderedQty in sync.
+                poItem.SalesOrderId = salesOrder.Id;
+                poItem.SalesOrderItemId = soItem.Id;
+                poItem.ConversionFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
             }
 
             await _poRepository.InsertAsync(po, autoSave: true);
@@ -98,6 +103,45 @@ public class DropShipService : DomainService
         }
 
         return createdPoIds;
+    }
+
+    /// <summary>
+    /// Resolves the Sales Order rows (and quantities) to order from each supplier for the manual
+    /// "Purchase Order" action. Per ERPNext sales_order/mapper.py make_purchase_order
+    /// (commit 92a4ccffab): each selection must identify exactly one SO row (by row id, so repeated
+    /// item codes are not conflated); a row is included only when it is not closed and not yet fully
+    /// ordered; qty = qty - ordered_qty / conversion_factor. When a row is selected twice, the last
+    /// supplier wins (dictionary semantics).
+    /// </summary>
+    public static IReadOnlyList<SalesOrderPurchaseLine> ResolvePurchaseLines(
+        SalesOrder salesOrder,
+        IEnumerable<(Guid SalesOrderItemId, Guid SupplierId)> selections)
+    {
+        var supplierByRow = new Dictionary<Guid, Guid>();
+        foreach (var (rowId, supplierId) in selections)
+        {
+            if (salesOrder.Items.Count(i => i.Id == rowId) != 1)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Select a valid Sales Order row for Item {rowId}.");
+            }
+            supplierByRow[rowId] = supplierId;
+        }
+
+        var lines = new List<SalesOrderPurchaseLine>();
+        foreach (var item in salesOrder.Items)
+        {
+            if (!supplierByRow.TryGetValue(item.Id, out var supplierId)) continue;
+            if (item.IsClosed || item.OrderedQty >= item.StockQty) continue;
+
+            var conversionFactor = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+            var qty = item.Quantity - item.OrderedQty / conversionFactor;
+            if (qty <= 0) continue;
+
+            lines.Add(new SalesOrderPurchaseLine(supplierId, item, Math.Round(qty, 4)));
+        }
+
+        return lines;
     }
 
     /// <summary>
@@ -120,3 +164,6 @@ public class DropShipService : DomainService
             .ToHashSet();
     }
 }
+
+/// <summary>One Sales Order row to order from a supplier, with the still-unordered quantity.</summary>
+public record SalesOrderPurchaseLine(Guid SupplierId, SalesOrderItem Item, decimal Quantity);

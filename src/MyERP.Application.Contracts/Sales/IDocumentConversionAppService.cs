@@ -33,6 +33,27 @@ public interface IDocumentConversionAppService : IApplicationService
 
     /// <summary>Convert a submitted Sales Order's pending items into a Material Request.</summary>
     Task<Guid> ConvertSalesOrderToMaterialRequestAsync(Guid salesOrderId);
+
+    /// <summary>
+    /// Create a draft Purchase Order per supplier from the selected rows of a submitted Sales Order
+    /// (ERPNext Sales Order → Make → Purchase Order). Returns the new Purchase Order ids; an empty
+    /// selection returns an empty list.
+    /// </summary>
+    Task<List<Guid>> ConvertSalesOrderToPurchaseOrdersAsync(Guid salesOrderId, List<SalesOrderPurchaseItemSelectionDto> selectedItems);
+
+}
+
+/// <summary>
+/// One Sales Order row picked for purchasing, with the supplier to order it from.
+/// Rows are identified by id (not item code) so repeated item codes stay distinct.
+/// </summary>
+public class SalesOrderPurchaseItemSelectionDto
+{
+    /// <summary>Sales Order Item ID to order.</summary>
+    public Guid SalesOrderItemId { get; set; }
+
+    /// <summary>Supplier to create the Purchase Order for.</summary>
+    public Guid SupplierId { get; set; }
 }
 
 /// <summary>

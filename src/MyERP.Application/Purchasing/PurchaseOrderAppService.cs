@@ -323,6 +323,11 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                 po.Items[^1].MaterialRequestItemId = item.MaterialRequestItemId;
             if (item.SupplierQuotationItemId.HasValue)
                 po.Items[^1].SupplierQuotationItemId = item.SupplierQuotationItemId;
+            if (item.SalesOrderItemId.HasValue)
+            {
+                po.Items[^1].SalesOrderItemId = item.SalesOrderItemId;
+                po.Items[^1].SalesOrderId = item.SalesOrderId;
+            }
         }
 
         // Resolve UOM conversion factors for stock qty calculation
@@ -466,6 +471,10 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         var sqRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SupplierQuotation, Guid>>();
         await _purchaseOrderManager.UpdateSupplierQuotationOrderedQtyAsync(po, sqRepo, reverse: false);
 
+        // Update linked Sales Order item OrderedQty (PO created from a Sales Order)
+        var soRepoForOrdered = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+        await _purchaseOrderManager.UpdateSalesOrderOrderedQtyAsync(po, soRepoForOrdered, reverse: false);
+
         // Deduct ordered qty from any linked Blanket Order allocations
         await ConsumeBlanketOrdersAsync(po);
 
@@ -597,6 +606,10 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         // Reverse linked Supplier Quotation OrderedQty (ERPNext PR #58572)
         var sqRepoCancel = LazyServiceProvider.LazyGetRequiredService<IRepository<SupplierQuotation, Guid>>();
         await _purchaseOrderManager.UpdateSupplierQuotationOrderedQtyAsync(po, sqRepoCancel, reverse: true);
+
+        // Reverse linked Sales Order item OrderedQty
+        var soRepoCancelOrdered = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+        await _purchaseOrderManager.UpdateSalesOrderOrderedQtyAsync(po, soRepoCancelOrdered, reverse: true);
 
         // Release consumed Blanket Order allocations (reverse of submit)
         await ReleaseBlanketOrdersAsync(po);
@@ -919,6 +932,11 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                 order.Items[^1].MaterialRequestItemId = item.MaterialRequestItemId;
             if (item.SupplierQuotationItemId.HasValue)
                 order.Items[^1].SupplierQuotationItemId = item.SupplierQuotationItemId;
+            if (item.SalesOrderItemId.HasValue)
+            {
+                order.Items[^1].SalesOrderItemId = item.SalesOrderItemId;
+                order.Items[^1].SalesOrderId = item.SalesOrderId;
+            }
         }
 
         var allowMultipleUpdate = await SettingProvider.IsTrueAsync(MyERP.Settings.MyERPSettings.Buying.AllowMultipleItems);

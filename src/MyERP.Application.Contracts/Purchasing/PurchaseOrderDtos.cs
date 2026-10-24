@@ -61,6 +61,8 @@ public class PurchaseOrderItemDto
     public string? StockUom { get; set; }
     public Guid? MaterialRequestItemId { get; set; }
     public Guid? SupplierQuotationItemId { get; set; }
+    public Guid? SalesOrderId { get; set; }
+    public Guid? SalesOrderItemId { get; set; }
 
     /// <summary>Blanket Order this line draws from (null if not linked to one).</summary>
     public Guid? BlanketOrderId { get; set; }
@@ -105,6 +107,10 @@ public class CreatePurchaseOrderItemDto
 
     /// <summary>Link to Supplier Quotation item (for SQ fulfillment tracking).</summary>
     public Guid? SupplierQuotationItemId { get; set; }
+
+    /// <summary>Source Sales Order / row when the PO is created from a Sales Order (drives SO ordered qty).</summary>
+    public Guid? SalesOrderId { get; set; }
+    public Guid? SalesOrderItemId { get; set; }
     public Guid? ProjectId { get; set; }
 }
 

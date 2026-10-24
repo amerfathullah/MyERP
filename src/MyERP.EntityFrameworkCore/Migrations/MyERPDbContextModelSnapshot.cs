@@ -9100,6 +9100,9 @@ namespace MyERP.Migrations
                     b.Property<Guid?>("LeadId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("LostOn")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<string>("LostReason")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -21849,6 +21852,9 @@ namespace MyERP.Migrations
                     b.Property<DateTime?>("PlannedStartDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<decimal>("ProcessLossQty")
+                        .HasColumnType("numeric");
+
                     b.Property<decimal>("ProducedQty")
                         .HasColumnType("decimal(18,4)");
 
@@ -24787,6 +24793,12 @@ namespace MyERP.Migrations
                     b.Property<decimal>("ReceivedQty")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<Guid?>("SalesOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SalesOrderItemId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("StockUom")
                         .IsRequired()
                         .HasColumnType("text");
@@ -24820,6 +24832,8 @@ namespace MyERP.Migrations
                     b.HasIndex("ProjectId");
 
                     b.HasIndex("PurchaseOrderId");
+
+                    b.HasIndex("SalesOrderItemId");
 
                     b.ToTable("Pur_PurchaseOrderItems", (string)null);
                 });
