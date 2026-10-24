@@ -633,5 +633,44 @@ public class JobCardTests
 
         jc.RequestedQty.ShouldBe(5m);
     }
-}
 
+    // ERPNext commit 3d254343f2: release a paused job card once all quantity is made.
+    [Fact]
+    public void Hold_ThenCompleteRemainingQty_ReleasesHold()
+    {
+        var jc = CreateJobCard();
+        var t0 = new DateTime(2026, 7, 12, 8, 0, 0);
+        jc.AddTimeLog(t0, t0.AddHours(1), 40m);
+        jc.Hold();
+        jc.Status.ShouldBe(JobCardStatus.OnHold);
+
+        jc.AddTimeLog(t0.AddHours(2), t0.AddHours(3), 40m);
+        jc.Status.ShouldBe(JobCardStatus.OnHold);
+
+        jc.AddTimeLog(t0.AddHours(4), t0.AddHours(5), 20m);
+        jc.Status.ShouldBe(JobCardStatus.WorkInProgress);
+    }
+
+    [Fact]
+    public void ReleaseHoldIfNoQtyLeft_CountsProcessLoss()
+    {
+        var jc = CreateJobCard();
+        var t0 = new DateTime(2026, 7, 12, 8, 0, 0);
+        jc.AddTimeLog(t0, t0.AddHours(1), 90m);
+        jc.Hold();
+        jc.HasQtyLeftToMake().ShouldBeTrue();
+
+        jc.SetProcessLossQty(10m);
+        jc.HasQtyLeftToMake().ShouldBeFalse();
+        jc.ReleaseHoldIfNoQtyLeft();
+        jc.Status.ShouldBe(JobCardStatus.WorkInProgress);
+    }
+
+    [Fact]
+    public void ReleaseHoldIfNoQtyLeft_NotOnHold_NoChange()
+    {
+        var jc = CreateJobCard();
+        jc.ReleaseHoldIfNoQtyLeft();
+        jc.Status.ShouldBe(JobCardStatus.Open);
+    }
+}

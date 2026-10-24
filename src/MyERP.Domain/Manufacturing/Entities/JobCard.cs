@@ -127,6 +127,31 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         if (Status is JobCardStatus.Open or JobCardStatus.PartiallyTransferred or JobCardStatus.MaterialTransferred)
             Status = JobCardStatus.WorkInProgress;
+
+        ReleaseHoldIfNoQtyLeft();
+    }
+
+    /// <summary>
+    /// True while completed + process loss quantity is still below the quantity to manufacture.
+    /// Per ERPNext job_card.py has_qty_left_to_make (commit 3d254343f2).
+    /// </summary>
+    public bool HasQtyLeftToMake() =>
+        Math.Round(CompletedQty + ProcessLossQty, 4) < Math.Round(ForQuantity, 4);
+
+    /// <summary>
+    /// Releases a paused (On Hold) card once it has no time logs or all quantity is made,
+    /// so a finished card is never stranded On Hold. Per ERPNext job_card.py validate_on_hold
+    /// (commit 3d254343f2). Status falls back to In Progress when time was logged, else Open.
+    /// </summary>
+    public void ReleaseHoldIfNoQtyLeft()
+    {
+        if (Status != JobCardStatus.OnHold)
+            return;
+
+        if (_timeLogs.Count > 0 && HasQtyLeftToMake())
+            return;
+
+        Status = _timeLogs.Count > 0 ? JobCardStatus.WorkInProgress : JobCardStatus.Open;
     }
 
     /// <summary>
@@ -184,6 +209,8 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         TotalTimeInMins = GetWorkstationMinutes(_timeLogs);
         CompletedQty = _timeLogs.Sum(t => t.CompletedQty);
+
+        ReleaseHoldIfNoQtyLeft();
     }
 
     /// <summary>

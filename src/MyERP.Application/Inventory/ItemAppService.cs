@@ -183,7 +183,8 @@ public class ItemAppService :
         // Check for existing Stock Ledger Entries
         var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
         var sleQuery = await sleRepo.GetQueryableAsync();
-        var hasSle = sleQuery.Any(s => s.ItemId == itemId);
+        // Cancelled ledger entries are ignored (ERPNext commit c2238b0218 / PR #62160)
+        var hasSle = sleQuery.Any(s => s.ItemId == itemId && !s.IsCancelled);
         if (hasSle)
         {
             throw new BusinessException(MyERPDomainErrorCodes.CannotChangeStockUom)
