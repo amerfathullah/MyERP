@@ -465,6 +465,18 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                 entry.TotalAdditionalCosts += opCost;
             }
 
+            // Additional operating cost from Work Order (ERPNext PR #62257 / commit 454fbb3182)
+            // Book additional operating cost only on the work order finished good item entry
+            if (wo.AdditionalOperatingCost > 0 && wo.Quantity > 0 &&
+                (!jc.FinishedGoodItemId.HasValue || jc.FinishedGoodItemId.Value == wo.ItemId))
+            {
+                var addlCost = Math.Round((wo.AdditionalOperatingCost / wo.Quantity) * delta, 4);
+                if (addlCost > 0)
+                {
+                    entry.TotalAdditionalCosts += addlCost;
+                }
+            }
+
             // Receive finished goods at absorbed cost
             if (wo.FgWarehouseId.HasValue && delta > 0)
             {
@@ -920,6 +932,23 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
                     valuationRate: 0m,
                     secondaryItemType: sec.SecondaryItemType.ToString());
             }
+        }
+
+        // Additional operating cost from Work Order (ERPNext PR #62257 / commit 454fbb3182)
+        // Semi-FG stock entry only gets additional operating cost if producing the main WO item
+        if (wo.AdditionalOperatingCost > 0 && wo.Quantity > 0 &&
+            (!jc.FinishedGoodItemId.HasValue || jc.FinishedGoodItemId.Value == wo.ItemId))
+        {
+            var addlCost = Math.Round((wo.AdditionalOperatingCost / wo.Quantity) * produceQty, 4);
+            if (addlCost > 0)
+            {
+                entry.TotalAdditionalCosts += addlCost;
+            }
+        }
+
+        if (entry.TotalAdditionalCosts > 0)
+        {
+            Inventory.DomainServices.StockEntryManager.DistributeAdditionalCosts(entry);
         }
 
         var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();

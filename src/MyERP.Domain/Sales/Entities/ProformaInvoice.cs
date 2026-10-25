@@ -93,7 +93,8 @@ public class ProformaInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant
         decimal quantity,
         decimal rate,
         string? uom = null,
-        string? description = null)
+        string? description = null,
+        decimal? amount = null)
     {
         if (Status != ProformaInvoiceStatus.Draft)
             throw new BusinessException("MyERP:01001")
@@ -112,10 +113,23 @@ public class ProformaInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant
             quantity,
             rate,
             uom,
-            description);
+            description,
+            amount);
 
         Items.Add(item);
         RecalculateTotals();
+    }
+
+    /// <summary>
+    /// Explicitly sets GrandTotal (e.g. including prorated taxes/charges from Sales Order).
+    /// Per ERPNext PR #62207 / commits 0b7a2079a9, f374d83521.
+    /// </summary>
+    public void SetGrandTotal(decimal grandTotal)
+    {
+        if (grandTotal < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "The grand total of a Proforma Invoice cannot be negative.");
+        GrandTotal = grandTotal;
     }
 
     /// <summary>Submits the proforma invoice (Draft → Issued).</summary>

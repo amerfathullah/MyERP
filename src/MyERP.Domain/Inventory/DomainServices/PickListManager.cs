@@ -52,11 +52,12 @@ public class PickListManager : DomainService
             return result;
         }
 
+        var ownVoucherId = pickList.SalesOrderId ?? pickList.WorkOrderId;
         foreach (var item in pickList.Items)
         {
             var requestedQty = Math.Round(item.Qty, 4);
             var availableQty = Math.Round(await GetAvailableQtyForPickAsync(
-                item.ItemId, item.WarehouseId, pickList.Id), 4);
+                item.ItemId, item.WarehouseId, pickList.Id, ownVoucherId), 4);
 
             var allocatedQty = Math.Min(requestedQty, availableQty);
             result.Allocations.Add(new PickAllocation
@@ -76,29 +77,68 @@ public class PickListManager : DomainService
     }
 
     /// <summary>
-    /// Gets available qty for picking, deducting quantities from other active pick lists.
-    /// Per DO-NOT: "Skip double-pick prevention" — must query active pick lists.
+    /// Gets available qty for picking, deducting quantities from other active pick lists and stock reservations.
+    /// Per ERPNext PR #62256 / PR #62249 (commits cece6b913d, 6872af9162, ee41d1bfa4).
     /// </summary>
     public async Task<decimal> GetAvailableQtyForPickAsync(
-        Guid itemId, Guid warehouseId, Guid excludePickListId)
+        Guid itemId, Guid warehouseId, Guid excludePickListId, Guid? ownVoucherId = null)
     {
         // Get bin balance
         var binQueryable = await _binRepository.GetQueryableAsync();
         var bin = binQueryable.FirstOrDefault(b =>
             b.ItemId == itemId && b.WarehouseId == warehouseId);
 
-        var actualQty = bin?.ActualQty ?? 0;
+        var actualQty = Math.Round(bin?.ActualQty ?? 0, 4);
 
         // Deduct quantities already picked by other active pick lists
         var pickQueryable = await _pickListRepository.GetQueryableAsync();
-        var alreadyPicked = pickQueryable
+        var otherPickLists = pickQueryable
             .Where(pl => pl.Id != excludePickListId
-                && pl.Status == Core.DocumentStatus.Submitted)
+                && (pl.Status == Core.DocumentStatus.Submitted || pl.Status == Core.DocumentStatus.Draft))
+            .ToList();
+
+        var alreadyPicked = Math.Round(otherPickLists
             .SelectMany(pl => pl.Items)
             .Where(pi => pi.ItemId == itemId && pi.WarehouseId == warehouseId)
-            .Sum(pi => pi.Qty - pi.TransferredQty);
+            .Sum(pi => Math.Max(0m, pi.Qty - Math.Max(pi.TransferredQty, pi.DeliveredQty))), 4);
 
-        return Math.Max(0, actualQty - alreadyPicked);
+        decimal reservedQty = 0;
+        if (_sreRepository != null)
+        {
+            var sreQuery = await _sreRepository.GetQueryableAsync();
+            var sreList = sreQuery
+                .Where(s => s.ItemId == itemId && s.WarehouseId == warehouseId
+                    && s.Status == Core.DocumentStatus.Submitted
+                    && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
+                .ToList();
+
+            if (ownVoucherId.HasValue)
+            {
+                sreList = sreList.Where(s => s.VoucherId != ownVoucherId.Value).ToList();
+            }
+
+            var woPickHolds = otherPickLists
+                .Where(pl => pl.WorkOrderId.HasValue)
+                .SelectMany(pl => pl.Items.Where(pi => pi.ItemId == itemId && pi.WarehouseId == warehouseId)
+                    .Select(pi => new { pl.WorkOrderId, pi.WarehouseId, Qty = Math.Max(0m, pi.Qty - Math.Max(pi.TransferredQty, pi.DeliveredQty)) }))
+                .GroupBy(x => x.WorkOrderId!.Value)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
+
+            foreach (var sre in sreList)
+            {
+                var rem = Math.Round(sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty, 4);
+                if ((sre.VoucherType == "Work Order" || sre.VoucherType == "WorkOrder") &&
+                    woPickHolds.TryGetValue(sre.VoucherId, out var heldQty) && heldQty > 0)
+                {
+                    var released = Math.Min(rem, heldQty);
+                    rem = Math.Round(rem - released, 4);
+                    woPickHolds[sre.VoucherId] = Math.Round(heldQty - released, 4);
+                }
+                reservedQty = Math.Round(reservedQty + rem, 4);
+            }
+        }
+
+        return Math.Round(Math.Max(0, actualQty - alreadyPicked - reservedQty), 4);
     }
 
     /// <summary>
@@ -172,7 +212,7 @@ public class PickListManager : DomainService
     {
         var binQueryable = await _binRepository.GetQueryableAsync();
         var bin = binQueryable.FirstOrDefault(b => b.ItemId == itemId && b.WarehouseId == warehouseId);
-        var actualQty = bin?.ActualQty ?? 0;
+        var actualQty = Math.Round(bin?.ActualQty ?? 0, 4);
 
         var pickQueryable = await _pickListRepository.GetQueryableAsync();
         var pickListQuery = pickQueryable
@@ -183,20 +223,20 @@ public class PickListManager : DomainService
             pickListQuery = pickListQuery.Where(pl => pl.Id != excludePickListId.Value);
         }
 
-        var pickedQty = pickListQuery
+        var pickedQty = Math.Round(pickListQuery
             .SelectMany(pl => pl.Items)
             .Where(pi => pi.ItemId == itemId && pi.WarehouseId == warehouseId)
-            .Sum(pi => pi.Qty - pi.TransferredQty);
+            .Sum(pi => pi.Qty - pi.TransferredQty), 4);
 
         decimal reservedQty = 0;
         if (sreRepository != null)
         {
             var sreQuery = await sreRepository.GetQueryableAsync();
-            reservedQty = sreQuery
+            reservedQty = Math.Round(sreQuery
                 .Where(s => s.ItemId == itemId && s.WarehouseId == warehouseId
                     && s.Status == Core.DocumentStatus.Submitted
                     && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
-                .Sum(s => s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty);
+                .Sum(s => s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty), 4);
         }
 
         var freeQty = Math.Round(Math.Max(0m, actualQty - pickedQty - reservedQty), 4);

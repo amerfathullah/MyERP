@@ -200,6 +200,16 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
             entry.TotalAdditionalCosts += opCost;
         }
 
+        // Additional operating cost from Work Order (ERPNext PR #62257 / commit 454fbb3182)
+        if (wo.AdditionalOperatingCost > 0 && wo.Quantity > 0)
+        {
+            var addlCost = Math.Round((wo.AdditionalOperatingCost / wo.Quantity) * delta, 4);
+            if (addlCost > 0)
+            {
+                entry.TotalAdditionalCosts += addlCost;
+            }
+        }
+
         if (wo.FgWarehouseId.HasValue && delta > 0)
         {
             var fgRate = fgAllocatedCost / delta;

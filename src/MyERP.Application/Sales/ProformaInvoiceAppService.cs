@@ -172,6 +172,7 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
             }
 
             decimal rate;
+            decimal? lineAmount = null;
             if (input.BasedOn == ProformaInvoiceBasis.Amount)
             {
                 var amount = row.Amount ?? 0;
@@ -181,6 +182,7 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
                         .WithData("detail", $"Row #{rowIdx}: Amount must be a positive number");
                 }
                 rate = Math.Round(amount / row.Quantity, 4);
+                lineAmount = amount;
             }
             else
             {
@@ -199,11 +201,22 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
                 row.Quantity,
                 rate,
                 soItem.StockUom,
-                description);
+                description,
+                lineAmount);
         }
 
         if (!proforma.Items.Any())
             throw new BusinessException("MyERP:01007");
+
+        // Scale taxes and charges to proforma's share of sales order (ERPNext PR #62207 / commits 0b7a2079a9, f374d83521)
+        if (so.NetTotal > 0 && so.TaxAmount > 0)
+        {
+            var lineTotal = proforma.Items.Sum(i => i.Amount);
+            var orderShare = lineTotal / so.NetTotal;
+            var proratedTax = Math.Round(so.TaxAmount * orderShare, 2);
+            var grandTotal = Math.Round(lineTotal + proratedTax, 2);
+            proforma.SetGrandTotal(grandTotal);
+        }
 
         // Auto-submit on creation (per ERPNext: proforma is insert+submit in one operation)
         proforma.Submit();

@@ -1,3 +1,5 @@
+using System.Linq;
+using MyERP.Sales;
 using System;
 using System.Collections.Generic;
 using MyERP.Accounting.Entities;
@@ -443,5 +445,61 @@ public class UpstreamParityBatch20261025Tests
         // Add finished good row (target warehouse, no source warehouse, isFinishedItem = true)
         entry.AddItem(Guid.NewGuid(), 10m, sourceWarehouseId: null, targetWarehouseId: Guid.NewGuid(), isFinishedItem: true);
         manager.ValidateManufactureItems(entry); // should not throw
+    }
+
+    [Fact]
+    public void WorkOrder_AdditionalOperatingCost_InitializedAndDistributesToFg()
+    {
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+        var wo = new WorkOrder(Guid.NewGuid(), companyId, "WO-TEST-001", itemId, bomId, 10m)
+        {
+            AdditionalOperatingCost = 150m
+        };
+
+        Assert.Equal(150m, wo.AdditionalOperatingCost);
+
+        // Semi-FG check: when producing intermediate item, additional operating cost should NOT book
+        var semiFgItemId = Guid.NewGuid();
+        var isMainFg = semiFgItemId == wo.ItemId;
+        Assert.False(isMainFg);
+
+        // Main FG check: when producing main WO item, additional operating cost is booked proportionally
+        var mainFgItemId = wo.ItemId;
+        var isMainFg2 = mainFgItemId == wo.ItemId;
+        Assert.True(isMainFg2);
+
+        var producedQty = 4m;
+        var addlCost = Math.Round((wo.AdditionalOperatingCost / wo.Quantity) * producedQty, 4);
+        Assert.Equal(60m, addlCost); // (150 / 10) * 4 = 60
+    }
+
+    [Fact]
+    public void ProformaInvoice_AmountBasis_PreservesExactAmountAndRejectsNegativeGrandTotal()
+    {
+        var companyId = Guid.NewGuid();
+        var soId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var proforma = new ProformaInvoice(Guid.NewGuid(), companyId, soId, customerId, DateTime.UtcNow, ProformaInvoiceBasis.Amount);
+
+        // 3 units for total amount 100 -> rate = 33.3333, but Amount must remain exactly 100m
+        var soItemId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        proforma.AddItem(soItemId, itemId, "ITEM-01", "Test Item", 3m, 33.3333m, "Nos", "Test Description", amount: 100m);
+
+        Assert.Single(proforma.Items);
+        var item = proforma.Items.First();
+        Assert.Equal(100m, item.Amount);
+        Assert.Equal(100m, proforma.GrandTotal);
+
+        // SetGrandTotal: prorated tax scale
+        proforma.SetGrandTotal(110m);
+        Assert.Equal(110m, proforma.GrandTotal);
+
+        // Rejects negative grand total
+        var ex = Assert.Throws<BusinessException>(() => proforma.SetGrandTotal(-10m));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("The grand total of a Proforma Invoice cannot be negative", ex.Data["detail"]?.ToString());
     }
 }

@@ -3240,6 +3240,7 @@ public class MyERPDbContext :
             b.Property(x => x.ProducedQuantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.MaterialTransferred).HasColumnType("decimal(18,4)");
             b.Property(x => x.BatchSize).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
+            b.Property(x => x.AdditionalOperatingCost).HasColumnType("decimal(18,4)").HasDefaultValue(0m);
             b.Property(x => x.LeadTime).HasColumnType("decimal(18,2)");
             b.Property(x => x.ReserveStock);
             b.HasMany(x => x.RequiredItems).WithOne().HasForeignKey(x => x.WorkOrderId).IsRequired();

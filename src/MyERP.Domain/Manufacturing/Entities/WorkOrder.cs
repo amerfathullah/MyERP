@@ -89,6 +89,12 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public decimal BatchSize { get; set; } = 0m;
 
+    /// <summary>
+    /// Additional operating cost for the work order, distributed to finished goods stock entry.
+    /// Maps to ERPNext manufacturing/doctype/work_order/work_order.json (additional_operating_cost).
+    /// </summary>
+    public decimal AdditionalOperatingCost { get; set; } = 0m;
+
     public List<WorkOrderItem> RequiredItems { get; private set; } = new();
 
     protected WorkOrder() { }

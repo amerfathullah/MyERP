@@ -1288,6 +1288,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             FromWipWarehouse = input.FromWipWarehouse,
             ReserveStock = input.ReserveStock,
             BatchSize = input.BatchSize,
+            AdditionalOperatingCost = input.AdditionalOperatingCost,
             Notes = input.Notes,
         };
         wo.ValidateBatchSize();
@@ -1420,6 +1421,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.FromWipWarehouse = input.FromWipWarehouse;
         wo.ReserveStock = input.ReserveStock;
         wo.BatchSize = input.BatchSize;
+        wo.AdditionalOperatingCost = input.AdditionalOperatingCost;
         wo.Notes = input.Notes;
         wo.ValidateBatchSize();
         wo.SetPlannedDates(plannedStartDate, plannedEndDate);
@@ -2256,6 +2258,16 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         if (operatingCost > 0)
         {
             entry.TotalAdditionalCosts += operatingCost;
+        }
+
+        // Additional operating cost from Work Order (ERPNext PR #62257 / commit 454fbb3182)
+        if (wo.AdditionalOperatingCost > 0 && wo.Quantity > 0)
+        {
+            var addlCost = Math.Round((wo.AdditionalOperatingCost / wo.Quantity) * quantity, 4);
+            if (addlCost > 0)
+            {
+                entry.TotalAdditionalCosts += addlCost;
+            }
         }
 
         // Per PR #57334: when consumed RM cost is known to be zero (free inputs),

@@ -839,6 +839,7 @@ export interface CreateWorkOrderDto {
   plannedStartDate?: string | null;
   plannedEndDate?: string | null;
   batchSize?: number;
+  additionalOperatingCost?: number;
   skipTransfer?: boolean;
   fromWipWarehouse?: boolean;
   notes?: string | null;
@@ -1075,6 +1076,7 @@ export interface WorkOrderDto extends AuditedEntityDto<string> {
   actualEndDate?: string | null;
   leadTime?: number | null;
   batchSize?: number;
+  additionalOperatingCost?: number;
   notes?: string | null;
   skipTransfer?: boolean;
   fromWipWarehouse?: boolean;
