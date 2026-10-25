@@ -90,7 +90,7 @@ public class InterCompanyTransactionService : DomainService
 
         // Create the PI in target company — do NOT copy party-specific fields
         var pi = new PurchaseInvoice(
-            GuidGenerator.Create(),
+            LazyServiceProvider?.LazyGetService<Volo.Abp.Guids.IGuidGenerator>()?.Create() ?? Guid.NewGuid(),
             targetCompanyId,
             matchingSupplier.Id,
             $"IC-{si.InvoiceNumber}",
@@ -104,7 +104,7 @@ public class InterCompanyTransactionService : DomainService
         // Per ERPNext commit 145a6c5e2a: fetch exchange rate while creating inter-company order and invoice
         if (!string.Equals(pi.CurrencyCode, targetCompany.CurrencyCode, StringComparison.OrdinalIgnoreCase))
         {
-            var exchangeRateService = LazyServiceProvider.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
+            var exchangeRateService = LazyServiceProvider?.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
             if (exchangeRateService != null)
             {
                 var rate = await exchangeRateService.GetExchangeRateAsync(pi.CurrencyCode, targetCompany.CurrencyCode, pi.IssueDate);
@@ -185,7 +185,7 @@ public class InterCompanyTransactionService : DomainService
 
         // Create the SI in target company
         var si = new SalesInvoice(
-            GuidGenerator.Create(),
+            LazyServiceProvider?.LazyGetService<Volo.Abp.Guids.IGuidGenerator>()?.Create() ?? Guid.NewGuid(),
             targetCompanyId,
             matchingCustomer.Id,
             $"IC-{pi.InvoiceNumber}",
@@ -198,7 +198,7 @@ public class InterCompanyTransactionService : DomainService
         // Per ERPNext commit 145a6c5e2a: fetch exchange rate while creating inter-company order and invoice
         if (!string.Equals(si.CurrencyCode, targetCompany.CurrencyCode, StringComparison.OrdinalIgnoreCase))
         {
-            var exchangeRateService = LazyServiceProvider.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
+            var exchangeRateService = LazyServiceProvider?.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
             if (exchangeRateService != null)
             {
                 var rate = await exchangeRateService.GetExchangeRateAsync(si.CurrencyCode, targetCompany.CurrencyCode, si.IssueDate);
@@ -257,7 +257,7 @@ public class InterCompanyTransactionService : DomainService
         var poNumber = await numberGenerator("PurchaseOrder", targetCompanyId);
 
         var po = new PurchaseOrder(
-            GuidGenerator.Create(),
+            LazyServiceProvider?.LazyGetService<Volo.Abp.Guids.IGuidGenerator>()?.Create() ?? Guid.NewGuid(),
             targetCompanyId,
             matchingSupplier.Id,
             poNumber,
@@ -272,7 +272,7 @@ public class InterCompanyTransactionService : DomainService
         // Per ERPNext commit 145a6c5e2a: fetch exchange rate while creating inter-company order and invoice
         if (!string.Equals(po.CurrencyCode, targetCompany.CurrencyCode, StringComparison.OrdinalIgnoreCase))
         {
-            var exchangeRateService = LazyServiceProvider.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
+            var exchangeRateService = LazyServiceProvider?.LazyGetService<Accounting.DomainServices.CurrencyExchangeService>();
             if (exchangeRateService != null)
             {
                 var rate = await exchangeRateService.GetExchangeRateAsync(po.CurrencyCode, targetCompany.CurrencyCode, po.OrderDate);
@@ -292,7 +292,9 @@ public class InterCompanyTransactionService : DomainService
 
         foreach (var item in salesOrder.Items)
         {
-            po.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, 0m, item.Uom);
+            var poItem = po.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, 0m, item.Uom);
+            poItem.SalesOrderId = salesOrder.Id;
+            poItem.SalesOrderItemId = item.Id;
         }
 
         await _purchaseOrderRepository.InsertAsync(po, autoSave: true);

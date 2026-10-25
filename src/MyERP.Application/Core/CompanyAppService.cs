@@ -204,6 +204,23 @@ public class CompanyAppService :
             company.CreditLimit = input.CreditLimit.Value;
         company.AllowUomWithConversionRateDefinedInItem = input.AllowUomWithConversionRateDefinedInItem;
 
+        if (!string.IsNullOrWhiteSpace(input.DefaultValuationMethod) && company.DefaultValuationMethod.HasValue)
+        {
+            var newMethod = Enum.Parse<MyERP.Inventory.ValuationMethod>(input.DefaultValuationMethod, ignoreCase: true);
+            if (newMethod != company.DefaultValuationMethod.Value)
+            {
+                var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
+                var sleQ = await sleRepo.GetQueryableAsync();
+                // Cancelled ledger entries are ignored (ERPNext PR #62101 / commit c52fd92533)
+                var hasActiveSle = sleQ.Any(sle => sle.CompanyId == company.Id && !sle.IsCancelled);
+                if (hasActiveSle)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Default Valuation Method cannot be changed, as there are existing stock ledger entries for items with no valuation method set.");
+                }
+            }
+        }
+
         company.DefaultValuationMethod = string.IsNullOrWhiteSpace(input.DefaultValuationMethod)
             ? null
             : Enum.Parse<MyERP.Inventory.ValuationMethod>(input.DefaultValuationMethod, ignoreCase: true);

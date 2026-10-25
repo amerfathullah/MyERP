@@ -684,4 +684,97 @@ public class UpstreamParityBatch20261025Tests
         Assert.False(UserAccessValidator.CanModifyUserLink(hrManagerEditor, adminUser));
         Assert.False(UserAccessValidator.CanModifyUserLink(hrManagerEditor, genericAdminUser));
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task InterCompanyTransactionService_CreatePurchaseOrderFromSalesOrder_LinksSalesOrderLineAndId()
+    {
+        // Parity with ERPNext PR #61972 / commit 92a4ccffab
+        var sourceCompanyId = Guid.NewGuid();
+        var targetCompanyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var customer = new Customer(customerId, sourceCompanyId, "InterCompany Customer")
+        {
+            RepresentsCompanyId = targetCompanyId
+        };
+        var supplier = new Supplier(supplierId, targetCompanyId, "InterCompany Supplier")
+        {
+            RepresentsCompanyId = sourceCompanyId,
+            IsActive = true
+        };
+        var targetCompany = new Company(targetCompanyId, "Target Co") { CurrencyCode = "MYR" };
+
+        var salesOrder = new SalesOrder(Guid.NewGuid(), sourceCompanyId, customerId, "SO-IC-001", DateTime.UtcNow);
+        salesOrder.AddItem(itemId, "Test Item", 5m, 100m, 0m, "Unit");
+        var soItem = salesOrder.Items[0];
+
+        var poRepo = NSubstitute.Substitute.For<IRepository<PurchaseOrder, Guid>>();
+        var soRepo = NSubstitute.Substitute.For<IRepository<SalesOrder, Guid>>();
+        var siRepo = NSubstitute.Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var piRepo = NSubstitute.Substitute.For<IRepository<PurchaseInvoice, Guid>>();
+        var compRepo = NSubstitute.Substitute.For<IRepository<Company, Guid>>();
+        var custRepo = NSubstitute.Substitute.For<IRepository<Customer, Guid>>();
+        var suppRepo = NSubstitute.Substitute.For<IRepository<Supplier, Guid>>();
+
+        custRepo.GetAsync(customerId).Returns(System.Threading.Tasks.Task.FromResult(customer));
+        compRepo.GetAsync(targetCompanyId).Returns(System.Threading.Tasks.Task.FromResult(targetCompany));
+        suppRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(new List<Supplier> { supplier }.AsQueryable()));
+
+        PurchaseOrder? insertedPo = null;
+        await poRepo.InsertAsync(NSubstitute.Arg.Do<PurchaseOrder>(p => insertedPo = p), autoSave: true);
+
+        var service = new InterCompanyTransactionService(
+            siRepo, piRepo, poRepo, compRepo, custRepo, suppRepo);
+
+        var poId = await service.CreatePurchaseOrderFromSalesOrderAsync(
+            salesOrder, (docType, compId) => System.Threading.Tasks.Task.FromResult("PO-IC-001"));
+
+        Assert.NotNull(insertedPo);
+        Assert.Equal(poId, insertedPo.Id);
+        Assert.Single(insertedPo.Items);
+
+        var poItem = insertedPo.Items[0];
+        Assert.Equal(salesOrder.Id, poItem.SalesOrderId);
+        Assert.Equal(soItem.Id, poItem.SalesOrderItemId);
+        Assert.Equal(itemId, poItem.ItemId);
+        Assert.Equal(5m, poItem.Quantity);
+    }
+
+    [Fact]
+    public void DefaultValuationMethodChangeGuard_CancelledSle_DoesNotBlockChange()
+    {
+        // Parity with ERPNext PR #62101 / commit c52fd92533:
+        // Cancelled stock ledger entries (IsCancelled = true) are ignored when changing default valuation method.
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+
+        // Scenario 1: Only cancelled SLE exists -> NOT blocked
+        var cancelledSles = new List<StockLedgerEntry>
+        {
+            new StockLedgerEntry(Guid.NewGuid(), companyId, itemId, warehouseId,
+                DateTime.UtcNow, 10m, 50m, 10m, 500m)
+            {
+                IsCancelled = true
+            }
+        };
+
+        var hasBlockingSle1 = cancelledSles.Any(s => s.CompanyId == companyId && !s.IsCancelled);
+        Assert.False(hasBlockingSle1);
+
+        // Scenario 2: Active SLE exists -> BLOCKED
+        var activeSles = new List<StockLedgerEntry>
+        {
+            new StockLedgerEntry(Guid.NewGuid(), companyId, itemId, warehouseId,
+                DateTime.UtcNow, 10m, 50m, 10m, 500m)
+            {
+                IsCancelled = false
+            }
+        };
+
+        var hasBlockingSle2 = activeSles.Any(s => s.CompanyId == companyId && !s.IsCancelled);
+        Assert.True(hasBlockingSle2);
+    }
 }

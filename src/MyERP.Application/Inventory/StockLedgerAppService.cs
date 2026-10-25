@@ -31,7 +31,8 @@ public class StockLedgerAppService : ApplicationService, IStockLedgerAppService
     {
         var query = await _ledgerRepository.GetQueryableAsync();
 
-        query = query.Where(e => e.CompanyId == input.CompanyId
+        query = query.Where(e => !e.IsCancelled
+            && e.CompanyId == input.CompanyId
             && e.PostingDate >= input.FromDate
             && e.PostingDate <= input.ToDate);
 
@@ -84,7 +85,7 @@ public class StockLedgerAppService : ApplicationService, IStockLedgerAppService
     {
         var query = await _ledgerRepository.GetQueryableAsync();
         var entries = query
-            .Where(e => e.VoucherType == voucherType && e.VoucherId == voucherId)
+            .Where(e => !e.IsCancelled && e.VoucherType == voucherType && e.VoucherId == voucherId)
             .OrderBy(e => e.PostingDate)
             .ThenBy(e => e.CreationTime)
             .ToList();

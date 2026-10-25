@@ -47,16 +47,9 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
     [Authorize(MyERPPermissions.Settings.Edit)]
     public async Task UpdateAsync(Dictionary<string, string> settings)
     {
-        var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         foreach (var (key, value) in settings)
         {
-            var prevValue = await _settingProvider.GetOrNullAsync(key);
-            await _settingManager.SetGlobalAsync(key, value);
-            await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
-                GuidGenerator.Create(), "Setting", Guid.Empty,
-                "Updated", Guid.Empty,
-                key, prevValue ?? "", value, CurrentUser.Id,
-                $"Setting {key} updated to '{value}'", CurrentTenant.Id));
+            await SetAsync(key, value);
         }
     }
 
@@ -91,6 +84,24 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Default Quotation Validity Days must be a whole number of days, 0 or more.");
+        }
+
+        // Per ERPNext PR #62101 / commit c52fd92533: Cannot change default valuation method if active stock transactions exist for items without explicit valuation method
+        if (name == MyERPSettings.Stock.DefaultValuationMethod && !string.IsNullOrWhiteSpace(value))
+        {
+            var prev = await _settingProvider.GetOrNullAsync(name);
+            if (!string.Equals(prev, value, StringComparison.OrdinalIgnoreCase))
+            {
+                var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
+                var sleQ = await sleRepo.GetQueryableAsync();
+                // Cancelled ledger entries are ignored (ERPNext PR #62101 / commit c52fd92533)
+                var hasActiveSle = sleQ.Any(sle => !sle.IsCancelled);
+                if (hasActiveSle)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", "Default Valuation Method cannot be changed, as there are existing stock ledger entries for items with no valuation method set.");
+                }
+            }
         }
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
