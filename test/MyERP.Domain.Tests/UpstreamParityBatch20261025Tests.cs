@@ -953,4 +953,96 @@ public class UpstreamParityBatch20261025Tests
         });
         Assert.Equal(MyERPDomainErrorCodes.ItemRestrictedForParty, ex.Code);
     }
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(0, true)]
+    [InlineData(3, false)]
+    [InlineData(3, true)]
+    public void SubscriptionGracePeriodBoundaries_MatchesERPNextPR61493(int gracePeriod, bool cancelAfterGrace)
+    {
+        // Enforces parity with ERPNext PR #61493 / commit 1697b6643b & fe897ec6fc:
+        // - Invoice due date is NOT overdue on due date itself (asOfDate == dueDate -> Active).
+        // - Overdue within grace period (days_overdue in 1..grace_period) -> GracePeriod.
+        // - Past grace period (days_overdue > grace_period) -> Cancelled (if cancelAfterGrace) or Unpaid (if !cancelAfterGrace).
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var startDate = new DateTime(2026, 9, 10);
+        var sub = new Subscription(Guid.NewGuid(), companyId, customerId, "Customer", startDate, "Monthly")
+        {
+            DaysUntilDue = 0,
+            CurrentInvoiceStart = startDate,
+            CurrentInvoiceEnd = startDate
+        };
+
+        var dueDate = startDate.AddDays(sub.DaysUntilDue);
+        var engine = new SubscriptionBillingEngine(null!);
+
+        for (int daysOverdue = 0; daysOverdue <= gracePeriod + 2; daysOverdue++)
+        {
+            var postingDate = dueDate.AddDays(daysOverdue);
+
+            var status = engine.DetermineStatus(
+                sub,
+                postingDate,
+                hasOutstandingInvoices: true,
+                isFullyRefunded: false,
+                settingsGracePeriod: gracePeriod,
+                settingsCancelAfterGrace: cancelAfterGrace);
+
+            if (daysOverdue == 0)
+            {
+                Assert.Equal(SubscriptionStatus.Active, status);
+            }
+            else if (daysOverdue <= gracePeriod)
+            {
+                Assert.Equal(SubscriptionStatus.GracePeriod, status);
+            }
+            else
+            {
+                var expected = cancelAfterGrace ? SubscriptionStatus.Cancelled : SubscriptionStatus.Unpaid;
+                Assert.Equal(expected, status);
+            }
+        }
+    }
+
+    [Fact]
+    public void DropShipService_ResolvePurchaseLines_DuplicateItemCodeDifferentRows_MaintainsDistinctSelections()
+    {
+        // Enforces parity with ERPNext PR #61972 / commit 92a4ccffab:
+        // When a Sales Order contains multiple rows for the same ItemId,
+        // each row is identified strictly by SalesOrderItemId and mapped to its specific supplier.
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var so = new SalesOrder(Guid.NewGuid(), companyId, customerId, "SO-DS-001", DateTime.UtcNow);
+
+        var sharedItemId = Guid.NewGuid();
+        var supplierAId = Guid.NewGuid();
+        var supplierBId = Guid.NewGuid();
+
+        // Row 1: 5 units of shared item
+        so.AddItem(sharedItemId, "Shared Item Row 1", 5m, 100m, 0m, "Unit");
+        var item1 = so.Items[0];
+        // Row 2: 10 units of shared item
+        so.AddItem(sharedItemId, "Shared Item Row 2", 10m, 100m, 0m, "Unit");
+        var item2 = so.Items[1];
+        var selections = new List<(Guid SalesOrderItemId, Guid SupplierId)>
+        {
+            (item1.Id, supplierAId),
+            (item2.Id, supplierBId)
+        };
+
+        var lines = DropShipService.ResolvePurchaseLines(so, selections);
+
+        Assert.Equal(2, lines.Count);
+
+        var lineA = lines.FirstOrDefault(l => l.SupplierId == supplierAId);
+        Assert.NotNull(lineA);
+        Assert.Equal(item1.Id, lineA.Item.Id);
+        Assert.Equal(5m, lineA.Quantity);
+
+        var lineB = lines.FirstOrDefault(l => l.SupplierId == supplierBId);
+        Assert.NotNull(lineB);
+        Assert.Equal(item2.Id, lineB.Item.Id);
+        Assert.Equal(10m, lineB.Quantity);
+    }
 }

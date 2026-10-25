@@ -41,7 +41,9 @@ public class SubscriptionBillingEngine : DomainService
         Subscription sub,
         DateTime asOfDate,
         bool hasOutstandingInvoices,
-        bool isFullyRefunded)
+        bool isFullyRefunded,
+        int? settingsGracePeriod = null,
+        bool? settingsCancelAfterGrace = null)
     {
         // 0. Once cancelled, stay cancelled (PR #57774 / commit 0f428ed854)
         if (sub.Status == SubscriptionStatus.Cancelled)
@@ -59,29 +61,60 @@ public class SubscriptionBillingEngine : DomainService
         if (sub.TrialEndDate.HasValue && asOfDate <= sub.TrialEndDate.Value)
             return SubscriptionStatus.Active; // Trialing maps to Active with 100% discount
 
-        // 2. Fully refunded with outstanding → Refunded (mapped to Cancelled)
+        // 2. Fully refunded with outstanding -> Refunded (mapped to Cancelled)
         if (isFullyRefunded && hasOutstandingInvoices)
             return SubscriptionStatus.Cancelled;
 
-        // 3. No outstanding + past end date → Completed
+        // 3. No outstanding + past end date -> Completed
         if (!hasOutstandingInvoices && sub.EndDate.HasValue && asOfDate > sub.EndDate.Value)
             return SubscriptionStatus.Completed;
 
-        // 4. Past grace period → Cancelled or Unpaid; during grace period → GracePeriod
-        // Per ERPNext commit 1697b6643b: grace period is evaluated from invoice due date, strictly >
+        // 4. Past grace period -> Cancelled or Unpaid; during grace period -> GracePeriod
+        // Per ERPNext PR #61493 (commits 1697b6643b, fe897ec6fc):
+        // Invoice is past due strictly when asOfDate.Date > dueDate.Date.
+        // Grace period has expired strictly when asOfDate.Date > dueDate.Date.AddDays(gracePeriod).
         if (hasOutstandingInvoices && sub.CurrentInvoiceEnd.HasValue)
         {
             var dueDate = sub.CurrentInvoiceEnd.Value.AddDays(sub.DaysUntilDue);
-            var gracePeriodEnd = dueDate.AddDays(sub.CancelAfterGraceDays);
+            int gracePeriod;
+            bool cancelAfterGrace;
 
-            if (asOfDate.Date > gracePeriodEnd.Date && sub.CancelAfterGraceDays > 0)
-                return SubscriptionStatus.Cancelled;
+            if (settingsGracePeriod.HasValue || settingsCancelAfterGrace.HasValue)
+            {
+                gracePeriod = settingsGracePeriod ?? (sub.CancelAfterGraceDays > 0 ? sub.CancelAfterGraceDays : 0);
+                cancelAfterGrace = settingsCancelAfterGrace ?? (sub.CancelAfterGraceDays > 0);
+            }
+            else if (sub.CancelAfterGraceDays > 0)
+            {
+                gracePeriod = sub.CancelAfterGraceDays;
+                cancelAfterGrace = true;
+            }
+            else
+            {
+                var settingsRepo = LazyServiceProvider?.LazyGetService<IRepository<SubscriptionSettings, Guid>>();
+                var settings = settingsRepo?.FindAsync(s => s.TenantId == sub.TenantId).GetAwaiter().GetResult();
+                if (settings != null)
+                {
+                    gracePeriod = settings.GracePeriod;
+                    cancelAfterGrace = settings.CancelAfterGrace;
+                }
+                else
+                {
+                    gracePeriod = 0;
+                    cancelAfterGrace = false;
+                }
+            }
+
+            var gracePeriodEnd = dueDate.AddDays(gracePeriod);
+
+            if (asOfDate.Date > gracePeriodEnd.Date)
+            {
+                return cancelAfterGrace ? SubscriptionStatus.Cancelled : SubscriptionStatus.Unpaid;
+            }
 
             if (asOfDate.Date > dueDate.Date)
             {
-                if (sub.CancelAfterGraceDays > 0 && asOfDate.Date <= gracePeriodEnd.Date)
-                    return SubscriptionStatus.GracePeriod;
-                return SubscriptionStatus.Unpaid;
+                return SubscriptionStatus.GracePeriod;
             }
         }
 

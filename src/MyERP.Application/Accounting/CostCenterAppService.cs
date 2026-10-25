@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
@@ -40,10 +41,49 @@ public class CostCenterAppService : ApplicationService, ICostCenterAppService
         return new PagedResultDto<CostCenterDto>(totalCount, items.Select(ObjectMapper.Map<CostCenter, CostCenterDto>).ToList());
     }
 
+    /// <summary>
+    /// Formats Cost Center name with optional number and company abbreviation per ERPNext accounts/utils.py get_autoname_with_number
+    /// (PR #62103 / commit cf4e3a0715).
+    /// </summary>
+    public static string FormatCostCenterName(string rawName, string? costCenterNumber, string companyAbbr)
+    {
+        if (string.IsNullOrWhiteSpace(companyAbbr))
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Company does not exist or has no abbreviation.");
+
+        var cleanTitle = rawName.Trim();
+        var cleanAbbr = companyAbbr.Trim();
+
+        if (cleanTitle.EndsWith($" - {cleanAbbr}", StringComparison.OrdinalIgnoreCase))
+        {
+            cleanTitle = cleanTitle[..^(cleanAbbr.Length + 3)].Trim();
+        }
+
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(costCenterNumber))
+        {
+            parts.Add(costCenterNumber.Trim());
+        }
+        parts.Add(cleanTitle);
+        parts.Add(cleanAbbr);
+
+        return string.Join(" - ", parts);
+    }
+
     [Authorize(MyERPPermissions.Accounts.Create)]
     public async Task<CostCenterDto> CreateAsync(CreateCostCenterDto input)
     {
-        var cc = new CostCenter(GuidGenerator.Create(), input.CompanyId, input.Name,
+        // Validate company exists and has abbreviation (ERPNext PR #62103 / commit cf4e3a0715)
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+        var company = await companyRepo.FindAsync(input.CompanyId);
+        if (company == null || string.IsNullOrWhiteSpace(company.ShortName))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Company {input.CompanyId} does not exist or has no abbreviation.");
+        }
+
+        var formattedName = FormatCostCenterName(input.Name, input.CostCenterNumber, company.ShortName);
+        var cc = new CostCenter(GuidGenerator.Create(), input.CompanyId, formattedName,
             input.IsGroup, input.ParentId, CurrentTenant.Id)
         { CostCenterNumber = input.CostCenterNumber };
         await _repository.InsertAsync(cc);

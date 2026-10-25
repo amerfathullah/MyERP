@@ -152,6 +152,22 @@ public class Subscription : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = SubscriptionStatus.Active;
     }
 
+    /// <summary>
+    /// Sets subscription status directly during billing lifecycle processing.
+    /// Per ERPNext PR #61493 (commits 1697b6643b, fe897ec6fc).
+    /// </summary>
+    public void SetStatus(SubscriptionStatus newStatus)
+    {
+        if (Status == SubscriptionStatus.Cancelled && newStatus != SubscriptionStatus.Cancelled)
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        Status = newStatus;
+        if (newStatus == SubscriptionStatus.Cancelled && !CancellationDate.HasValue)
+        {
+            CancellationDate = DateTime.UtcNow;
+        }
+    }
+
     /// <summary>Advance the billing period to next interval.</summary>
     public void AdvancePeriod()
     {
