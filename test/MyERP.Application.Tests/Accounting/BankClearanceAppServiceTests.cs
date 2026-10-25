@@ -34,7 +34,8 @@ public class BankClearanceAppServiceTests
     private readonly IRepository<Account, Guid> _accountRepo = Substitute.For<IRepository<Account, Guid>>();
     private readonly IRepository<Company, Guid> _companyRepo = Substitute.For<IRepository<Company, Guid>>();
     private readonly IRepository<SalesInvoice, Guid> _salesInvoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
-    private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepo = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
+private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepo = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
+    private readonly IRepository<BankTransaction, Guid> _bankTransactionRepo = Substitute.For<IRepository<BankTransaction, Guid>>();
 
     private readonly Guid _companyId = Guid.NewGuid();
     private readonly Guid _bankAccountId = Guid.NewGuid();
@@ -49,7 +50,8 @@ public class BankClearanceAppServiceTests
             _accountRepo,
             _companyRepo,
             _salesInvoiceRepo,
-            _purchaseInvoiceRepo);
+            _purchaseInvoiceRepo,
+            _bankTransactionRepo);
     }
 
     private void MockPaymentQuery(List<PaymentEntry> list)
@@ -532,5 +534,49 @@ public class BankClearanceAppServiceTests
 
         result.UpdatedCount.ShouldBe(1);
         je.ClearanceDate.ShouldBe(clearanceDate);
+    }
+
+    [Fact]
+    public async Task SetClearanceDateAsync_SalesInvoiceLinkedJeReconciled_ThrowsValidation()
+    {
+        // Parity with ERPNext commit 4890dc1c45 / PR #61468: guard bank clearance on reconciled vouchers
+        var postingDate = new DateTime(2026, 6, 15);
+        var fiscalYearId = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+
+        var je = new JournalEntry(Guid.NewGuid(), _companyId, fiscalYearId, postingDate)
+        {
+            ReferenceType = "SalesInvoice",
+            ReferenceId = invoiceId,
+            EntryNumber = "POS-JE-001"
+        };
+        je.AddLineWithDimensions(_bankAccountId, 200m, true, description: "Bank deposit");
+        je.AddLineWithDimensions(_otherAccountId, 200m, false, description: "Sales receivable");
+        je.SetClearanceDate(new DateTime(2026, 6, 16));
+        je.Post();
+
+        _journalRepo.GetQueryableAsync().Returns(Task.FromResult(new List<JournalEntry> { je }.AsQueryable()));
+
+        var bt = new BankTransaction(
+            Guid.NewGuid(), _companyId, _bankAccountId, new DateTime(2026, 6, 16),
+            "POS deposit", 200m);
+        bt.ReconcileWithJournalEntry(je.Id, "POS-JE-001");
+
+        _bankTransactionRepo.GetQueryableAsync().Returns(Task.FromResult(new List<BankTransaction> { bt }.AsQueryable()));
+
+        var appService = CreateAppService();
+
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            appService.SetClearanceDateAsync(new SetClearanceDateDto
+            {
+                ClearanceDate = null, // attempting to clear clearance date while reconciled
+                Entries = new List<BankClearanceDocRefDto>
+                {
+                    new() { DocumentType = "SalesInvoice", DocumentId = invoiceId }
+                }
+            }));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString()!.ShouldContain("Please unreconcile the voucher before changing the clearance date.");
     }
 }

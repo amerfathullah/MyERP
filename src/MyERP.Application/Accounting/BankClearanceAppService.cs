@@ -265,6 +265,11 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
                     {
                         if (linkedJe.ClearanceDate == input.ClearanceDate)
                             continue;
+                        if (btQueryable.Any(bt => bt.JournalEntryId == linkedJe.Id && bt.IsReconciled))
+                        {
+                            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                                .WithData("detail", $"{linkedJe.EntryNumber ?? linkedJe.Id.ToString()}: Please unreconcile the voucher before changing the clearance date.");
+                        }
                         if (input.ClearanceDate.HasValue && input.ClearanceDate.Value.Date < linkedJe.PostingDate.Date)
                         {
                             throw new BusinessException(MyERPDomainErrorCodes.ClearanceDateBeforePostingDate)
