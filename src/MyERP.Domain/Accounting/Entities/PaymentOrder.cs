@@ -62,6 +62,12 @@ public class PaymentOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
                 .WithData("detail", $"Only {expectedType} references are allowed in this Payment Order.");
         }
 
+        if (amount <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "Amount");
+        }
+
         var reference = new PaymentOrderReference(Guid.NewGuid(), Id, referenceType, referenceId, amount)
         {
             SupplierId = supplierId,
@@ -71,6 +77,25 @@ public class PaymentOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         };
         _references.Add(reference);
         return reference;
+    }
+
+    /// <summary>
+    /// Validates company bank account is active and belongs to the Payment Order's company.
+    /// Per ERPNext PR #62159 (commit 2de828812f).
+    /// </summary>
+    public void ValidateCompanyBankAccount(BankAccount? bankAccount)
+    {
+        if (bankAccount == null || bankAccount.IsDisabled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Bank Account {CompanyBankAccountId} is missing or disabled.");
+        }
+
+        if (!bankAccount.IsCompanyAccount || bankAccount.CompanyId != CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Bank Account {bankAccount.AccountName} must be a company account belonging to Company {CompanyId}.");
+        }
     }
 
     public void Submit()

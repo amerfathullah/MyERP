@@ -191,7 +191,16 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
             EmailTo = input.EmailTo, Subject = input.Subject, Message = input.Message,
             IsASubscription = isSubscription,
             SubscriptionId = subscriptionId,
+            BankAccountId = input.BankAccountId,
         };
+
+        if (input.BankAccountId.HasValue)
+        {
+            var bankAccountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BankAccount, Guid>>();
+            var bankAccount = await bankAccountRepo.FindAsync(input.BankAccountId.Value);
+            pr.ValidateBankAccount(bankAccount, input.BankAccountId);
+        }
+
         await _repository.InsertAsync(pr);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();

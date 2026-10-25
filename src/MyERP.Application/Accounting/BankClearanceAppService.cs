@@ -203,6 +203,8 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
     public async Task<BulkClearanceResultDto> SetClearanceDateAsync(SetClearanceDateDto input)
     {
         var updated = 0;
+        var btRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BankTransaction, Guid>>();
+        var btQueryable = await btRepo.GetQueryableAsync();
 
         foreach (var docRef in input.Entries)
         {
@@ -214,6 +216,11 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
                     var pe = await _paymentEntryRepository.GetAsync(docRef.DocumentId);
                     if (pe.ClearanceDate == input.ClearanceDate)
                         continue;
+                    if (btQueryable.Any(bt => bt.PaymentEntryId == pe.Id && bt.IsReconciled))
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"{pe.PaymentNumber ?? pe.Id.ToString()}: Please unreconcile the voucher before changing the clearance date.");
+                    }
                     if (input.ClearanceDate.HasValue && input.ClearanceDate.Value.Date < pe.PostingDate.Date)
                     {
                         throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
@@ -227,6 +234,11 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
                     var je = await _journalEntryRepository.GetAsync(docRef.DocumentId);
                     if (je.ClearanceDate == input.ClearanceDate)
                         continue;
+                    if (btQueryable.Any(bt => bt.JournalEntryId == je.Id && bt.IsReconciled))
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"{je.EntryNumber ?? je.Id.ToString()}: Please unreconcile the voucher before changing the clearance date.");
+                    }
                     if (input.ClearanceDate.HasValue && input.ClearanceDate.Value.Date < je.PostingDate.Date)
                     {
                         throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)

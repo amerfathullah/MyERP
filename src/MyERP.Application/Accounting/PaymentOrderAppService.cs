@@ -70,9 +70,9 @@ public class PaymentOrderAppService : ApplicationService, IPaymentOrderAppServic
     [Authorize(MyERPPermissions.PaymentOrders.Create)]
     public async Task<PaymentOrderDto> CreateAsync(CreatePaymentOrderDto input)
     {
-        // Per ERPNext PR #61602 & #61664: validate company bank account and reference company match
+        // Per ERPNext PR #61602, #61664 & #62159: validate company bank account and reference company match
         var bankAccount = await _bankAccountRepository.FindAsync(input.CompanyBankAccountId);
-        if (bankAccount != null && (bankAccount.IsDisabled || !bankAccount.IsCompanyAccount || bankAccount.CompanyId != input.CompanyId))
+        if (bankAccount == null || bankAccount.IsDisabled || !bankAccount.IsCompanyAccount || bankAccount.CompanyId != input.CompanyId)
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Bank Account must be an active company account belonging to the Payment Order's company.");
@@ -88,10 +88,21 @@ public class PaymentOrderAppService : ApplicationService, IPaymentOrderAppServic
                     .WithData("detail", $"Only {expectedType} references are allowed in this Payment Order.");
             }
 
+            if (r.Amount <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                    .WithData("field", "Amount");
+            }
+
             if (string.Equals(r.ReferenceType, "PaymentRequest", StringComparison.OrdinalIgnoreCase))
             {
                 var pr = await _paymentRequestRepository.FindAsync(r.ReferenceId);
-                if (pr != null && pr.CompanyId != input.CompanyId)
+                if (pr == null)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Payment Request {r.ReferenceId} not found.");
+                }
+                if (pr.CompanyId != input.CompanyId)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
                         .WithData("referenceType", r.ReferenceType)
@@ -101,7 +112,12 @@ public class PaymentOrderAppService : ApplicationService, IPaymentOrderAppServic
             else if (string.Equals(r.ReferenceType, "PaymentEntry", StringComparison.OrdinalIgnoreCase))
             {
                 var pe = await _paymentEntryRepository.FindAsync(r.ReferenceId);
-                if (pe != null && pe.CompanyId != input.CompanyId)
+                if (pe == null)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Payment Entry {r.ReferenceId} not found.");
+                }
+                if (pe.CompanyId != input.CompanyId)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
                         .WithData("referenceType", r.ReferenceType)

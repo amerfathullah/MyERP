@@ -1098,6 +1098,7 @@ export interface CreatePaymentOrderReferenceDto {
 
 export interface CreatePaymentRequestDto {
   companyId?: string;
+  bankAccountId?: string | null;
   paymentRequestType?: string;
   referenceDoctype?: string;
   referenceId?: string;
@@ -2168,6 +2169,7 @@ export interface PaymentReferenceDto {
 
 export interface PaymentRequestDto extends EntityDto<string> {
   companyId?: string;
+  bankAccountId?: string | null;
   paymentRequestType?: string;
   referenceDoctype?: string;
   referenceId?: string;
@@ -2194,6 +2196,7 @@ export interface PaymentRequestSubscriptionPlanDto {
 
 export interface PaymentRequestSummaryDto {
   id?: string;
+  bankAccountId?: string | null;
   paymentRequestType?: string;
   referenceDoctype?: string;
   referenceId?: string;

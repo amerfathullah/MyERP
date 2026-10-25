@@ -87,6 +87,40 @@ public class PaymentRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
         Status = PaymentRequestStatus.Paid;
     }
 
+    /// <summary>
+    /// Validates bank account ownership and active status.
+    /// Per ERPNext PR #62159 (commit 3419a7c410):
+    /// Company accounts must match the request's company; party accounts must match party type and ID.
+    /// </summary>
+    public void ValidateBankAccount(BankAccount? bankAccount, Guid? bankAccountId)
+    {
+        if (!bankAccountId.HasValue)
+            return;
+
+        if (bankAccount == null || bankAccount.IsDisabled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Bank Account {bankAccountId.Value} is missing or disabled.");
+        }
+
+        if (bankAccount.IsCompanyAccount)
+        {
+            if (bankAccount.CompanyId != CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("detail", $"Bank Account {bankAccount.AccountName} does not belong to Company {CompanyId}.");
+            }
+        }
+        else
+        {
+            if (!string.Equals(bankAccount.PartyType, PartyType, StringComparison.OrdinalIgnoreCase) || bankAccount.PartyId != PartyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Bank Account {bankAccount.AccountName} does not belong to {PartyType} {PartyId}.");
+            }
+        }
+    }
+
     public void Cancel()
     {
         if (Status == PaymentRequestStatus.Paid)

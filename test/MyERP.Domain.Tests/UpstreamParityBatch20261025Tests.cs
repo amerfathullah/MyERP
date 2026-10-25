@@ -259,4 +259,108 @@ public class UpstreamParityBatch20261025Tests
         wo.TrackSemiFinishedGoods = false;
         Assert.Equal(10m, JobCardManager.GetOperationTargetQty(wo, opSemiFg, bom));
     }
+
+    [Fact]
+    public void PaymentRequest_ValidateBankAccount_EnforcesOwnershipAndActiveStatus()
+    {
+        var companyId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        var glAccountId = Guid.NewGuid();
+
+        var pr = new PaymentRequest(Guid.NewGuid(), companyId, "SalesInvoice",
+            Guid.NewGuid(), partyId, "Customer", 500m);
+
+        // 1. Missing bank account throws ValidationFailed
+        var ex1 = Assert.Throws<BusinessException>(() =>
+            pr.ValidateBankAccount(null, Guid.NewGuid()));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex1.Code);
+
+        // 2. Disabled bank account throws ValidationFailed
+        var disabledAcc = new BankAccount(Guid.NewGuid(), companyId, "Disabled Bank", glAccountId, "Bank A");
+        disabledAcc.Disable();
+        var ex2 = Assert.Throws<BusinessException>(() =>
+            pr.ValidateBankAccount(disabledAcc, disabledAcc.Id));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex2.Code);
+
+        // 3. Company account belonging to another company throws CompanyMismatch
+        var otherCompanyAcc = new BankAccount(Guid.NewGuid(), Guid.NewGuid(), "Other Company Bank", glAccountId, "Bank B");
+        var ex3 = Assert.Throws<BusinessException>(() =>
+            pr.ValidateBankAccount(otherCompanyAcc, otherCompanyAcc.Id));
+        Assert.Equal(MyERPDomainErrorCodes.CompanyMismatch, ex3.Code);
+
+        // 4. Party account with mismatching party throws ValidationFailed
+        var partyAcc = new BankAccount(Guid.NewGuid(), companyId, "Customer Bank", glAccountId, "Bank C")
+        {
+            IsCompanyAccount = false,
+            PartyType = "Customer",
+            PartyId = Guid.NewGuid() // mismatch
+        };
+        var ex4 = Assert.Throws<BusinessException>(() =>
+            pr.ValidateBankAccount(partyAcc, partyAcc.Id));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex4.Code);
+
+        // 5. Valid matching company bank account passes
+        var validCompanyAcc = new BankAccount(Guid.NewGuid(), companyId, "Valid Bank", glAccountId, "Bank D");
+        pr.ValidateBankAccount(validCompanyAcc, validCompanyAcc.Id);
+
+        // 6. Valid matching party bank account passes
+        var validPartyAcc = new BankAccount(Guid.NewGuid(), companyId, "Valid Party Bank", glAccountId, "Bank E")
+        {
+            IsCompanyAccount = false,
+            PartyType = "Customer",
+            PartyId = partyId
+        };
+        pr.ValidateBankAccount(validPartyAcc, validPartyAcc.Id);
+    }
+
+    [Fact]
+    public void PaymentOrder_ValidateCompanyBankAccount_And_AddReferencePositiveAmount()
+    {
+        var companyId = Guid.NewGuid();
+        var bankAccountId = Guid.NewGuid();
+        var glAccountId = Guid.NewGuid();
+
+        var order = new PaymentOrder(Guid.NewGuid(), companyId, PaymentOrderType.PaymentRequest,
+            DateTime.UtcNow, bankAccountId);
+
+        // 1. Missing bank account throws ValidationFailed
+        var ex1 = Assert.Throws<BusinessException>(() =>
+            order.ValidateCompanyBankAccount(null));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex1.Code);
+
+        // 2. Disabled bank account throws ValidationFailed
+        var disabledAcc = new BankAccount(bankAccountId, companyId, "Disabled Bank", glAccountId, "Bank A");
+        disabledAcc.Disable();
+        var ex2 = Assert.Throws<BusinessException>(() =>
+            order.ValidateCompanyBankAccount(disabledAcc));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex2.Code);
+
+        // 3. Non-company bank account throws ValidationFailed
+        var partyAcc = new BankAccount(bankAccountId, companyId, "Party Bank", glAccountId, "Bank B")
+        {
+            IsCompanyAccount = false
+        };
+        var ex3 = Assert.Throws<BusinessException>(() =>
+            order.ValidateCompanyBankAccount(partyAcc));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex3.Code);
+
+        // 4. Other company bank account throws ValidationFailed
+        var otherCompAcc = new BankAccount(bankAccountId, Guid.NewGuid(), "Other Bank", glAccountId, "Bank C");
+        var ex4 = Assert.Throws<BusinessException>(() =>
+            order.ValidateCompanyBankAccount(otherCompAcc));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex4.Code);
+
+        // 5. Valid company bank account passes
+        var validAcc = new BankAccount(bankAccountId, companyId, "Company Bank", glAccountId, "Bank D");
+        order.ValidateCompanyBankAccount(validAcc);
+
+        // 6. AddReference throws AmountMustBePositive for amount <= 0
+        var ex5 = Assert.Throws<BusinessException>(() =>
+            order.AddReference("PaymentRequest", Guid.NewGuid(), 0m, Guid.NewGuid(), "Bank Transfer", bankAccountId));
+        Assert.Equal(MyERPDomainErrorCodes.AmountMustBePositive, ex5.Code);
+
+        var ex6 = Assert.Throws<BusinessException>(() =>
+            order.AddReference("PaymentRequest", Guid.NewGuid(), -10m, Guid.NewGuid(), "Bank Transfer", bankAccountId));
+        Assert.Equal(MyERPDomainErrorCodes.AmountMustBePositive, ex6.Code);
+    }
 }
