@@ -230,4 +230,66 @@ public abstract class OpportunityCompanyGuardTests<TStartupModule> : MyERPApplic
             ex.Code.ShouldBe(MyERPDomainErrorCodes.CompanyMismatch);
         });
     }
+
+    [Fact]
+    public async Task CreateOpportunity_PartySpecificItemRestriction_EnforcedForCustomer()
+    {
+        // Parity with ERPNext commit 2d46851cd2: validate party specific items on opportunity from customer
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var partyRuleRepo = GetRequiredService<IRepository<PartySpecificItem, Guid>>();
+            var oppAppService = GetRequiredService<IOpportunityAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Opp Party Specific Co"), autoSave: true);
+
+            var custA = await customerRepo.InsertAsync(
+                new Customer(Guid.NewGuid(), company.Id, "Customer A"), autoSave: true);
+            var custB = await customerRepo.InsertAsync(
+                new Customer(Guid.NewGuid(), company.Id, "Customer B"), autoSave: true);
+
+            var itemAllowed = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "OPP-ALLOWED-ITEM", "Allowed Item", ItemType.Goods), autoSave: true);
+            var itemRestricted = await itemRepo.InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "OPP-RESTRICTED-ITEM", "Restricted Item", ItemType.Goods), autoSave: true);
+
+            // Customer B has a rule for itemRestricted
+            await partyRuleRepo.InsertAsync(new PartySpecificItem(
+                Guid.NewGuid(),
+                PartySpecificItemPartyType.Customer,
+                custB.Id,
+                PartySpecificItemRestrictBasedOn.Item,
+                itemRestricted.Id), autoSave: true);
+
+            // 1. Creating opportunity for Customer A with restricted item throws ItemRestrictedForParty
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                oppAppService.CreateAsync(new CreateOpportunityDto
+                {
+                    CompanyId = company.Id,
+                    Title = "Opp with restricted item",
+                    CustomerId = custA.Id,
+                    Items = new List<CreateOpportunityItemDto>
+                    {
+                        new() { ItemId = itemRestricted.Id, Description = "Restricted", Quantity = 1, UnitPrice = 50 }
+                    }
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ItemRestrictedForParty);
+
+            // 2. Creating opportunity for Customer A with allowed item succeeds
+            var created = await oppAppService.CreateAsync(new CreateOpportunityDto
+            {
+                CompanyId = company.Id,
+                Title = "Opp with allowed item",
+                CustomerId = custA.Id,
+                Items = new List<CreateOpportunityItemDto>
+                {
+                    new() { ItemId = itemAllowed.Id, Description = "Allowed", Quantity = 1, UnitPrice = 50 }
+                }
+            });
+            created.ShouldNotBeNull();
+            created.Title.ShouldBe("Opp with allowed item");
+        });
+    }
 }

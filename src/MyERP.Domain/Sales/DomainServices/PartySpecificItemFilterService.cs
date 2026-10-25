@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Sales.Entities;
 using Volo.Abp.Domain.Repositories;
@@ -20,17 +21,23 @@ public class PartySpecificItemFilterService : DomainService
     private readonly IRepository<Brand, Guid> _brandRepository;
     private readonly IRepository<Item, Guid>? _itemRepository;
     private readonly IRepository<ItemGroup, Guid>? _itemGroupRepository;
+    private readonly IRepository<CustomerGroup, Guid>? _customerGroupRepository;
+    private readonly IRepository<SupplierGroup, Guid>? _supplierGroupRepository;
 
     public PartySpecificItemFilterService(
         IRepository<PartySpecificItem, Guid> repository,
         IRepository<Brand, Guid> brandRepository,
         IRepository<Item, Guid>? itemRepository = null,
-        IRepository<ItemGroup, Guid>? itemGroupRepository = null)
+        IRepository<ItemGroup, Guid>? itemGroupRepository = null,
+        IRepository<CustomerGroup, Guid>? customerGroupRepository = null,
+        IRepository<SupplierGroup, Guid>? supplierGroupRepository = null)
     {
         _repository = repository;
         _brandRepository = brandRepository;
         _itemRepository = itemRepository;
         _itemGroupRepository = itemGroupRepository;
+        _customerGroupRepository = customerGroupRepository;
+        _supplierGroupRepository = supplierGroupRepository;
     }
 
     /// <summary>
@@ -54,6 +61,8 @@ public class PartySpecificItemFilterService : DomainService
         var directRules = queryable.Where(r => r.PartyType == directPartyType).ToList();
         var groupRules = queryable.Where(r => r.PartyType == groupPartyType).ToList();
 
+        var partyGroupIds = await ResolvePartyGroupAncestorsAsync(groupPartyType, groupId);
+
         var ownRules = new List<PartySpecificItem>();
         var otherRules = new List<PartySpecificItem>();
 
@@ -67,7 +76,7 @@ public class PartySpecificItemFilterService : DomainService
 
         foreach (var rule in groupRules)
         {
-            if (groupId.HasValue && rule.PartyId == groupId.Value)
+            if (partyGroupIds.Contains(rule.PartyId))
                 ownRules.Add(rule);
             else
                 otherRules.Add(rule);
@@ -122,6 +131,8 @@ public class PartySpecificItemFilterService : DomainService
         var directRules = queryable.Where(r => r.PartyType == directPartyType).ToList();
         var groupRules = queryable.Where(r => r.PartyType == groupPartyType).ToList();
 
+        var partyGroupIds = await ResolvePartyGroupAncestorsAsync(groupPartyType, groupId);
+
         var ownRules = new List<PartySpecificItem>();
         var otherRules = new List<PartySpecificItem>();
 
@@ -135,7 +146,7 @@ public class PartySpecificItemFilterService : DomainService
 
         foreach (var rule in groupRules)
         {
-            if (groupId.HasValue && rule.PartyId == groupId.Value)
+            if (partyGroupIds.Contains(rule.PartyId))
                 ownRules.Add(rule);
             else
                 otherRules.Add(rule);
@@ -186,13 +197,69 @@ public class PartySpecificItemFilterService : DomainService
         return new PartySpecificItemFilter(excludedItems, excludedGroups, excludedBrands);
     }
 
+    /// <summary>
+    /// Resolves the group and all its ancestor groups in the hierarchy.
+    /// Per ERPNext PR #42111 (commit 9cd213ecab): group rules apply down the group tree,
+    /// so a rule on a parent group covers members belonging to its sub-groups.
+    /// </summary>
+    private async Task<HashSet<Guid>> ResolvePartyGroupAncestorsAsync(
+        PartySpecificItemPartyType groupPartyType,
+        Guid? groupId)
+    {
+        var result = new HashSet<Guid>();
+        if (!groupId.HasValue)
+            return result;
+
+        result.Add(groupId.Value);
+
+        if (groupPartyType == PartySpecificItemPartyType.CustomerGroup)
+        {
+            var repo = _customerGroupRepository ?? LazyServiceProvider?.LazyGetService<IRepository<CustomerGroup, Guid>>();
+            if (repo != null)
+            {
+                var queryable = await repo.GetQueryableAsync();
+                var allGroups = queryable.Select(g => new { g.Id, g.ParentId }).ToList();
+                var parentLookup = allGroups.GroupBy(g => g.Id).ToDictionary(g => g.Key, g => g.First().ParentId);
+                var current = groupId.Value;
+                var depth = 0;
+                while (parentLookup.TryGetValue(current, out var parentId) && parentId.HasValue && depth < 50)
+                {
+                    depth++;
+                    if (!result.Add(parentId.Value))
+                        break;
+                    current = parentId.Value;
+                }
+            }
+        }
+        else if (groupPartyType == PartySpecificItemPartyType.SupplierGroup)
+        {
+            var repo = _supplierGroupRepository ?? LazyServiceProvider?.LazyGetService<IRepository<SupplierGroup, Guid>>();
+            if (repo != null)
+            {
+                var queryable = await repo.GetQueryableAsync();
+                var allGroups = queryable.Select(g => new { g.Id, g.ParentId }).ToList();
+                var parentLookup = allGroups.GroupBy(g => g.Id).ToDictionary(g => g.Key, g => g.First().ParentId);
+                var current = groupId.Value;
+                var depth = 0;
+                while (parentLookup.TryGetValue(current, out var parentId) && parentId.HasValue && depth < 50)
+                {
+                    depth++;
+                    if (!result.Add(parentId.Value))
+                        break;
+                    current = parentId.Value;
+                }
+            }
+        }
+
+        return result;
+    }
     private async Task<HashSet<Guid>> ExpandItemGroupSubtreeAsync(IEnumerable<Guid> itemGroupIds)
     {
         var inputIds = itemGroupIds.ToHashSet();
         if (inputIds.Count == 0)
             return inputIds;
 
-        var repo = _itemGroupRepository ?? LazyServiceProvider.LazyGetService<IRepository<ItemGroup, Guid>>();
+        var repo = _itemGroupRepository ?? LazyServiceProvider?.LazyGetService<IRepository<ItemGroup, Guid>>();
         if (repo == null)
             return inputIds;
 

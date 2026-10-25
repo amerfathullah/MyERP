@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using NSubstitute;
 using MyERP.Core.Entities;
 using MyERP.Core.DomainServices;
@@ -817,5 +818,139 @@ public class UpstreamParityBatch20261025Tests
 
         Assert.Equal(0m, scheduleOutstandingB[s1Id]); // oldest installment fully paid (50 - 50 = 0)
         Assert.Equal(40m, scheduleOutstandingB[s2Id]); // newer installment reduced (50 - 10 = 40)
+    }
+
+    [Fact]
+    public async Task PartySpecificItem_AncestorCustomerGroupRule_AppliesDownToSubGroup()
+    {
+        // Parity with ERPNext commit 9cd213ecab: group rules apply down the group tree
+        var rootGroupId = Guid.NewGuid();
+        var parentGroupId = Guid.NewGuid();
+        var subGroupId = Guid.NewGuid();
+
+        var rootGroup = new CustomerGroup(rootGroupId, "All Customer Groups", isGroup: true);
+        var parentGroup = new CustomerGroup(parentGroupId, "Corporate", parentId: rootGroupId, isGroup: true);
+        var subGroup = new CustomerGroup(subGroupId, "Corporate Sub", parentId: parentGroupId, isGroup: false);
+
+        var custGroupRepo = Substitute.For<IRepository<CustomerGroup, Guid>>();
+        custGroupRepo.GetQueryableAsync().Returns(Task.FromResult(
+            new List<CustomerGroup> { rootGroup, parentGroup, subGroup }.AsQueryable()));
+
+        var itemAllowedId = Guid.NewGuid();
+        var itemOtherId = Guid.NewGuid();
+
+        var ruleAllowed = new PartySpecificItem(
+            Guid.NewGuid(), PartySpecificItemPartyType.CustomerGroup,
+            parentGroupId, PartySpecificItemRestrictBasedOn.Item, itemAllowedId);
+
+        var otherPartyGroupId = Guid.NewGuid();
+        var ruleOther = new PartySpecificItem(
+            Guid.NewGuid(), PartySpecificItemPartyType.CustomerGroup,
+            otherPartyGroupId, PartySpecificItemRestrictBasedOn.Item, itemOtherId);
+
+        var partyRuleRepo = Substitute.For<IRepository<PartySpecificItem, Guid>>();
+        partyRuleRepo.GetQueryableAsync().Returns(Task.FromResult(
+            new List<PartySpecificItem> { ruleAllowed, ruleOther }.AsQueryable()));
+
+        var brandRepo = Substitute.For<IRepository<Brand, Guid>>();
+        brandRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Brand>().AsQueryable()));
+
+        var itemAllowed = new Item(itemAllowedId, Guid.NewGuid(), "ITEM-ALLOWED", "Allowed", ItemType.Goods);
+        var itemOther = new Item(itemOtherId, Guid.NewGuid(), "ITEM-OTHER", "Other", ItemType.Goods);
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.GetQueryableAsync().Returns(Task.FromResult(
+            new List<Item> { itemAllowed, itemOther }.AsQueryable()));
+
+        var filterService = new PartySpecificItemFilterService(
+            partyRuleRepo, brandRepo, itemRepo, null, custGroupRepo, null);
+
+        var customerId = Guid.NewGuid();
+
+        // 1. Customer in subGroup accessing allowed item succeeds (parent group rule covers sub group)
+        await filterService.ValidatePartySpecificItemsAsync(
+            PartySpecificItemPartyType.Customer, customerId,
+            PartySpecificItemPartyType.CustomerGroup, subGroupId,
+            new[] { itemAllowedId }, "Test Customer");
+
+        // 2. Customer in subGroup accessing itemOther throws ItemRestrictedForParty (itemOther is restricted to otherPartyGroup)
+        var ex = await Assert.ThrowsAsync<BusinessException>(async () =>
+        {
+            await filterService.ValidatePartySpecificItemsAsync(
+                PartySpecificItemPartyType.Customer, customerId,
+                PartySpecificItemPartyType.CustomerGroup, subGroupId,
+                new[] { itemOtherId }, "Test Customer");
+        });
+        Assert.Equal(MyERPDomainErrorCodes.ItemRestrictedForParty, ex.Code);
+
+        // 3. Filter check: itemOther is excluded, itemAllowed is NOT excluded
+        var filter = await filterService.GetItemFilterAsync(
+            PartySpecificItemPartyType.Customer, customerId,
+            PartySpecificItemPartyType.CustomerGroup, subGroupId);
+
+        Assert.Contains(itemOtherId, filter.ExcludedItemIds);
+        Assert.DoesNotContain(itemAllowedId, filter.ExcludedItemIds);
+    }
+
+    [Fact]
+    public async Task PartySpecificItem_AncestorSupplierGroupRule_AppliesDownToSubGroup()
+    {
+        // Parity with ERPNext commit 9cd213ecab: supplier group rules apply down tree
+        var rootGroupId = Guid.NewGuid();
+        var parentGroupId = Guid.NewGuid();
+        var subGroupId = Guid.NewGuid();
+
+        var rootGroup = new SupplierGroup(rootGroupId, "All Supplier Groups", isGroup: true);
+        var parentGroup = new SupplierGroup(parentGroupId, "Raw Materials", parentId: rootGroupId, isGroup: true);
+        var subGroup = new SupplierGroup(subGroupId, "Metals", parentId: parentGroupId, isGroup: false);
+
+        var suppGroupRepo = Substitute.For<IRepository<SupplierGroup, Guid>>();
+        suppGroupRepo.GetQueryableAsync().Returns(Task.FromResult(
+            new List<SupplierGroup> { rootGroup, parentGroup, subGroup }.AsQueryable()));
+
+        var itemAllowedId = Guid.NewGuid();
+        var itemOtherId = Guid.NewGuid();
+
+        var ruleAllowed = new PartySpecificItem(
+            Guid.NewGuid(), PartySpecificItemPartyType.SupplierGroup,
+            parentGroupId, PartySpecificItemRestrictBasedOn.Item, itemAllowedId);
+
+        var otherPartyGroupId = Guid.NewGuid();
+        var ruleOther = new PartySpecificItem(
+            Guid.NewGuid(), PartySpecificItemPartyType.SupplierGroup,
+            otherPartyGroupId, PartySpecificItemRestrictBasedOn.Item, itemOtherId);
+
+        var partyRuleRepo = Substitute.For<IRepository<PartySpecificItem, Guid>>();
+        partyRuleRepo.GetQueryableAsync().Returns(Task.FromResult(
+            new List<PartySpecificItem> { ruleAllowed, ruleOther }.AsQueryable()));
+
+        var brandRepo = Substitute.For<IRepository<Brand, Guid>>();
+        brandRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Brand>().AsQueryable()));
+
+        var itemAllowed = new Item(itemAllowedId, Guid.NewGuid(), "ITEM-SUPP-ALLOWED", "Allowed", ItemType.Goods);
+        var itemOther = new Item(itemOtherId, Guid.NewGuid(), "ITEM-SUPP-OTHER", "Other", ItemType.Goods);
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.GetQueryableAsync().Returns(Task.FromResult(
+            new List<Item> { itemAllowed, itemOther }.AsQueryable()));
+
+        var filterService = new PartySpecificItemFilterService(
+            partyRuleRepo, brandRepo, itemRepo, null, null, suppGroupRepo);
+
+        var supplierId = Guid.NewGuid();
+
+        // 1. Supplier in subGroup accessing allowed item succeeds (parent group rule covers sub group)
+        await filterService.ValidatePartySpecificItemsAsync(
+            PartySpecificItemPartyType.Supplier, supplierId,
+            PartySpecificItemPartyType.SupplierGroup, subGroupId,
+            new[] { itemAllowedId }, "Test Supplier");
+
+        // 2. Supplier in subGroup accessing itemOther throws ItemRestrictedForParty
+        var ex = await Assert.ThrowsAsync<BusinessException>(async () =>
+        {
+            await filterService.ValidatePartySpecificItemsAsync(
+                PartySpecificItemPartyType.Supplier, supplierId,
+                PartySpecificItemPartyType.SupplierGroup, subGroupId,
+                new[] { itemOtherId }, "Test Supplier");
+        });
+        Assert.Equal(MyERPDomainErrorCodes.ItemRestrictedForParty, ex.Code);
     }
 }
