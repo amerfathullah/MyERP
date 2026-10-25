@@ -18,6 +18,7 @@ using MyERP.Purchasing;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
+using MyERP.HumanResources.DomainServices;
 using Volo.Abp;
 using Xunit;
 
@@ -625,5 +626,62 @@ public class UpstreamParityBatch20261025Tests
         Assert.Null(resolvedId);
         Assert.Equal("Custom Customer Terms", resolvedText);
         await compRepo.DidNotReceive().FindAsync(NSubstitute.Arg.Any<Guid>());
+    }
+
+    [Fact]
+    public void UserAccessValidator_IsAdminUser_DetectsAdminRoles()
+    {
+        // Parity with ERPNext PR #61894 / commit c80bd8912b: get_admin_roles()
+        Assert.True(UserAccessValidator.IsAdminUser(new[] { "Administrator" }));
+        Assert.True(UserAccessValidator.IsAdminUser(new[] { "System Manager" }));
+        Assert.True(UserAccessValidator.IsAdminUser(new[] { "admin" }));
+        Assert.True(UserAccessValidator.IsAdminUser(new[] { "SYSTEM MANAGER" }));
+        Assert.True(UserAccessValidator.IsAdminUser(new[] { "HR User", "admin" }));
+
+        Assert.False(UserAccessValidator.IsAdminUser(null));
+        Assert.False(UserAccessValidator.IsAdminUser(Array.Empty<string>()));
+        Assert.False(UserAccessValidator.IsAdminUser(new[] { "HR User" }));
+        Assert.False(UserAccessValidator.IsAdminUser(new[] { "HR Manager" }));
+        Assert.False(UserAccessValidator.IsAdminUser(new[] { "Employee" }));
+        Assert.False(UserAccessValidator.IsAdminUser(new[] { "Sales User", "Accounts User" }));
+    }
+
+    [Fact]
+    public void UserAccessValidator_CanModifyUserLink_EnforcesAdminProtection()
+    {
+        // Parity with ERPNext PR #61894 / commit c80bd8912b (validate_user_access):
+        // Only administrators can link/unlink/update users holding admin roles.
+        // HR User/Manager can link/unlink operational users without error.
+
+        var hrEditor = new[] { "HR User" };
+        var hrManagerEditor = new[] { "HR Manager" };
+        var adminEditor = new[] { "System Manager" };
+        var standardUser = new[] { "Employee", "Sales User" };
+        var adminUser = new[] { "System Manager" };
+        var administratorUser = new[] { "Administrator" };
+        var genericAdminUser = new[] { "admin" };
+
+        // 1. Admin editor can link any user
+        Assert.True(UserAccessValidator.CanModifyUserLink(adminEditor, standardUser));
+        Assert.True(UserAccessValidator.CanModifyUserLink(adminEditor, adminUser));
+        Assert.True(UserAccessValidator.CanModifyUserLink(adminEditor, administratorUser));
+        Assert.True(UserAccessValidator.CanModifyUserLink(adminEditor, null));
+        Assert.True(UserAccessValidator.CanModifyUserLink(adminEditor, Array.Empty<string>()));
+
+        // 2. HR editor can link standard/operational users
+        Assert.True(UserAccessValidator.CanModifyUserLink(hrEditor, standardUser));
+        Assert.True(UserAccessValidator.CanModifyUserLink(hrManagerEditor, standardUser));
+        Assert.True(UserAccessValidator.CanModifyUserLink(hrEditor, new[] { "Employee" }));
+        Assert.True(UserAccessValidator.CanModifyUserLink(hrEditor, new[] { "Accounts User" }));
+        Assert.True(UserAccessValidator.CanModifyUserLink(hrEditor, null));
+        Assert.True(UserAccessValidator.CanModifyUserLink(hrEditor, Array.Empty<string>()));
+
+        // 3. HR editor is BLOCKED from linking or unlinking admin users
+        Assert.False(UserAccessValidator.CanModifyUserLink(hrEditor, adminUser));
+        Assert.False(UserAccessValidator.CanModifyUserLink(hrEditor, administratorUser));
+        Assert.False(UserAccessValidator.CanModifyUserLink(hrEditor, genericAdminUser));
+        Assert.False(UserAccessValidator.CanModifyUserLink(hrEditor, new[] { "Employee", "Administrator" }));
+        Assert.False(UserAccessValidator.CanModifyUserLink(hrManagerEditor, adminUser));
+        Assert.False(UserAccessValidator.CanModifyUserLink(hrManagerEditor, genericAdminUser));
     }
 }

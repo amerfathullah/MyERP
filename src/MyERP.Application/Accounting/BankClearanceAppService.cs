@@ -32,6 +32,10 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
     private readonly IRepository<MyERP.Core.Entities.Company, Guid>? _companyRepository;
     private readonly IRepository<SalesInvoice, Guid>? _salesInvoiceRepository;
     private readonly IRepository<PurchaseInvoice, Guid>? _purchaseInvoiceRepository;
+    private readonly IRepository<BankTransaction, Guid>? _bankTransactionRepository;
+
+    private IRepository<BankTransaction, Guid>? BankTransactionRepository =>
+        _bankTransactionRepository ?? LazyServiceProvider?.LazyGetService<IRepository<BankTransaction, Guid>>();
 
     private IRepository<Account, Guid> AccountRepository =>
         _accountRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
@@ -52,7 +56,8 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
         IRepository<Account, Guid>? accountRepository = null,
         IRepository<MyERP.Core.Entities.Company, Guid>? companyRepository = null,
         IRepository<SalesInvoice, Guid>? salesInvoiceRepository = null,
-        IRepository<PurchaseInvoice, Guid>? purchaseInvoiceRepository = null)
+        IRepository<PurchaseInvoice, Guid>? purchaseInvoiceRepository = null,
+        IRepository<BankTransaction, Guid>? bankTransactionRepository = null)
     {
         _paymentEntryRepository = paymentEntryRepository;
         _journalEntryRepository = journalEntryRepository;
@@ -61,6 +66,7 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
         _companyRepository = companyRepository;
         _salesInvoiceRepository = salesInvoiceRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
+        _bankTransactionRepository = bankTransactionRepository;
     }
 
     public async Task<List<BankClearanceEntryDto>> GetEntriesAsync(GetBankClearanceEntriesInput input)
@@ -203,8 +209,8 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
     public async Task<BulkClearanceResultDto> SetClearanceDateAsync(SetClearanceDateDto input)
     {
         var updated = 0;
-        var btRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BankTransaction, Guid>>();
-        var btQueryable = await btRepo.GetQueryableAsync();
+        var btRepo = BankTransactionRepository;
+        var btQueryable = btRepo != null ? await btRepo.GetQueryableAsync() : Enumerable.Empty<BankTransaction>().AsQueryable();
 
         foreach (var docRef in input.Entries)
         {
@@ -223,7 +229,7 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
                     }
                     if (input.ClearanceDate.HasValue && input.ClearanceDate.Value.Date < pe.PostingDate.Date)
                     {
-                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        throw new BusinessException(MyERPDomainErrorCodes.ClearanceDateBeforePostingDate)
                             .WithData("detail", $"{pe.PaymentNumber ?? pe.Id.ToString()}: Clearance date cannot be before posting date.");
                     }
                     pe.SetClearanceDate(input.ClearanceDate);
@@ -241,7 +247,7 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
                     }
                     if (input.ClearanceDate.HasValue && input.ClearanceDate.Value.Date < je.PostingDate.Date)
                     {
-                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        throw new BusinessException(MyERPDomainErrorCodes.ClearanceDateBeforePostingDate)
                             .WithData("detail", $"{je.EntryNumber ?? je.Id.ToString()}: Clearance date cannot be before posting date.");
                     }
                     je.SetClearanceDate(input.ClearanceDate);
@@ -261,7 +267,7 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
                             continue;
                         if (input.ClearanceDate.HasValue && input.ClearanceDate.Value.Date < linkedJe.PostingDate.Date)
                         {
-                            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            throw new BusinessException(MyERPDomainErrorCodes.ClearanceDateBeforePostingDate)
                                 .WithData("detail", $"{linkedJe.EntryNumber ?? linkedJe.Id.ToString()}: Clearance date cannot be before posting date.");
                         }
                         linkedJe.SetClearanceDate(input.ClearanceDate);

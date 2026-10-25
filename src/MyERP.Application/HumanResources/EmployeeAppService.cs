@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
+using MyERP.HumanResources.DomainServices;
 using MyERP.HumanResources.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
@@ -198,7 +199,8 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
     /// </summary>
     private async Task ValidateUserAccessAsync(Guid? targetUserId, Guid? existingUserId)
     {
-        if (CurrentUser.IsInRole("admin") || CurrentUser.IsInRole("System Manager"))
+        var editorRoles = CurrentUser.Roles ?? Array.Empty<string>();
+        if (UserAccessValidator.IsAdminUser(editorRoles))
         {
             return;
         }
@@ -213,10 +215,8 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
             var user = await userManager.FindByIdAsync(uid.ToString());
             if (user != null)
             {
-                var roles = await userManager.GetRolesAsync(user);
-                if (roles.Any(r => string.Equals(r, "admin", StringComparison.OrdinalIgnoreCase) ||
-                                   string.Equals(r, "System Manager", StringComparison.OrdinalIgnoreCase) ||
-                                   string.Equals(r, "Administrator", StringComparison.OrdinalIgnoreCase)))
+                var targetRoles = await userManager.GetRolesAsync(user);
+                if (!UserAccessValidator.CanModifyUserLink(editorRoles, targetRoles))
                 {
                     throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", $"You are not permitted to link or unlink administrator user {user.UserName}.");
