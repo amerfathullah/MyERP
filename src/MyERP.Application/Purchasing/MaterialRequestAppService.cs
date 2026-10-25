@@ -110,10 +110,11 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
             RequiredByDate = input.RequiredByDate,
             WorkOrderId = input.WorkOrderId,
             JobCardId = input.JobCardId,
-            SourceWarehouseId = input.SourceWarehouseId,
+            SourceWarehouseId = input.RequestType == MaterialRequestType.MaterialTransfer ? input.SourceWarehouseId : null,
             TargetWarehouseId = input.TargetWarehouseId,
             Notes = input.Notes,
         };
+        entity.ClearSourceWarehouseIfNotTransfer();
 
         foreach (var item in input.Items)
         {
@@ -177,9 +178,10 @@ public class MaterialRequestAppService : ApplicationService, IMaterialRequestApp
         entity.ProjectId = input.ProjectId;
         entity.WorkOrderId = input.WorkOrderId;
         entity.JobCardId = input.JobCardId;
-        entity.SourceWarehouseId = input.SourceWarehouseId;
+        entity.SourceWarehouseId = input.RequestType == MaterialRequestType.MaterialTransfer ? input.SourceWarehouseId : null;
         entity.TargetWarehouseId = input.TargetWarehouseId;
         entity.Notes = input.Notes;
+        entity.ClearSourceWarehouseIfNotTransfer();
 
         entity.ClearItems();
         foreach (var item in input.Items)

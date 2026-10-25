@@ -377,20 +377,65 @@ public class ItemDetailsResolverService : DomainService
             var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
             var sleQuery = await sleRepo.GetQueryableAsync();
 
-            // Per ERPNext PR #47693 / commit c3b17024bd: skip free items (rate = 0)
+            // Per ERPNext PR #47693 / commit c3b17024bd & commit e27989f201:
+            // inward paid entries only, non-cancelled, skip returns
             var query = sleQuery
-                .Where(e => e.ItemId == itemId && e.QuantityChange > 0 && e.IncomingRate > 0); // inward paid entries only
+                .Where(e => e.ItemId == itemId && e.QuantityChange > 0 && e.IncomingRate > 0 && !e.IsCancelled);
 
             if (companyId.HasValue)
                 query = query.Where(e => e.CompanyId == companyId.Value);
 
-            var lastRate = query
+            var recentSles = query
                 .OrderByDescending(e => e.PostingDate)
                 .ThenByDescending(e => e.CreationTime)
-                .Select(e => e.IncomingRate)
-                .FirstOrDefault();
+                .Take(20)
+                .ToList();
 
-            return lastRate;
+            if (recentSles.Count == 0)
+                return 0;
+
+            var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseReceipt, Guid>>();
+            var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+
+            var prIds = recentSles
+                .Where(e => string.Equals(e.VoucherType, "PurchaseReceipt", StringComparison.OrdinalIgnoreCase) || string.Equals(e.VoucherType, "Purchase Receipt", StringComparison.OrdinalIgnoreCase))
+                .Select(e => e.VoucherId)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+
+            var piIds = recentSles
+                .Where(e => string.Equals(e.VoucherType, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase) || string.Equals(e.VoucherType, "Purchase Invoice", StringComparison.OrdinalIgnoreCase))
+                .Select(e => e.VoucherId)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+
+            var returnPrIds = prIds.Count > 0
+                ? (await prRepo.GetQueryableAsync()).Where(p => prIds.Contains(p.Id) && p.IsReturn).Select(p => p.Id).ToHashSet()
+                : new HashSet<Guid>();
+
+            var returnPiIds = piIds.Count > 0
+                ? (await piRepo.GetQueryableAsync()).Where(p => piIds.Contains(p.Id) && p.IsReturn).Select(p => p.Id).ToHashSet()
+                : new HashSet<Guid>();
+
+            foreach (var sle in recentSles)
+            {
+                if (sle.VoucherId.HasValue)
+                {
+                    if (returnPrIds.Contains(sle.VoucherId.Value) || returnPiIds.Contains(sle.VoucherId.Value))
+                        continue;
+                }
+                if (string.Equals(sle.VoucherType, "DeliveryNote", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(sle.VoucherType, "Delivery Note", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                return sle.IncomingRate;
+            }
+
+            return 0;
         }
         catch
         {

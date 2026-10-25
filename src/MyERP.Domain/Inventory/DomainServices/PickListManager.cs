@@ -198,7 +198,7 @@ public class PickListManager : DomainService
                 .Sum(s => s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty);
         }
 
-        var freeQty = actualQty - pickedQty - reservedQty;
+        var freeQty = Math.Round(Math.Max(0m, actualQty - pickedQty - reservedQty), 4);
 
         return new PickStockAvailability(
             ItemId: itemId,
@@ -271,14 +271,44 @@ public class PickListManager : DomainService
             decimal reservedQty = 0;
             if (sreQuery != null)
             {
-                reservedQty = sreQuery
+                var reservations = sreQuery
                     .Where(s => s.ItemId == pair.ItemId && s.WarehouseId == pair.WarehouseId
                         && s.Status == Core.DocumentStatus.Submitted
                         && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
-                    .Sum(s => s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty);
+                    .ToList();
+
+                // Per ERPNext commit 42b16975c7: stock reserved for this pick list's voucher is ours to pick
+                var ownVouchers = new HashSet<Guid>();
+                if (pickList.SalesOrderId.HasValue) ownVouchers.Add(pickList.SalesOrderId.Value);
+                if (pickList.WorkOrderId.HasValue) ownVouchers.Add(pickList.WorkOrderId.Value);
+
+                var othersReservations = reservations
+                    .Where(s => !ownVouchers.Contains(s.VoucherId))
+                    .ToList();
+
+                // Deduct any work order pick holds from open pick lists so work order reservations are not counted twice (commit ee41d1bfa4)
+                var woPickHolds = otherPickLists
+                    .Where(pl => pl.WorkOrderId.HasValue)
+                    .SelectMany(pl => pl.Items.Where(pi => pi.ItemId == pair.ItemId && pi.WarehouseId == pair.WarehouseId)
+                        .Select(pi => new { pl.WorkOrderId, pi.WarehouseId, Qty = pi.Qty - Math.Max(pi.TransferredQty, pi.DeliveredQty) }))
+                    .GroupBy(x => x.WorkOrderId!.Value)
+                    .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
+
+                foreach (var sre in othersReservations)
+                {
+                    var rem = sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty;
+                    if ((sre.VoucherType == "Work Order" || sre.VoucherType == "WorkOrder") &&
+                        woPickHolds.TryGetValue(sre.VoucherId, out var heldQty) && heldQty > 0)
+                    {
+                        var released = Math.Min(rem, heldQty);
+                        rem -= released;
+                        woPickHolds[sre.VoucherId] -= released;
+                    }
+                    reservedQty += rem;
+                }
             }
 
-            var freeQty = actualQty - pickedQty - reservedQty;
+            var freeQty = Math.Round(Math.Max(0m, actualQty - pickedQty - reservedQty), 4);
 
             string? itemName = pair.ItemName;
             if (string.IsNullOrEmpty(itemName) && _itemRepository != null)

@@ -108,12 +108,12 @@ public class DunningAppService : ApplicationService, IDunningAppService
                 .Where(si => invoiceIds.Contains(si.Id))
                 .ToDictionary(si => si.Id);
 
-            foreach (var invoiceId in invoiceIds)
+            foreach (var p in input.OverduePayments)
             {
-                if (!invoices.TryGetValue(invoiceId, out var invoice))
+                if (!invoices.TryGetValue(p.SalesInvoiceId, out var invoice))
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", $"Sales Invoice {invoiceId} does not exist.");
+                        .WithData("detail", $"Sales Invoice {p.SalesInvoiceId} does not exist.");
                 }
                 if (invoice.CustomerId != input.CustomerId)
                 {
@@ -129,6 +129,18 @@ public class DunningAppService : ApplicationService, IDunningAppService
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", $"Sales Invoice {invoice.InvoiceNumber} must be submitted.");
+                }
+                // Per ERPNext commit 18e651d89e: payment must be overdue on Dunning Posting Date
+                if (p.DueDate.Date >= input.PostingDate.Date)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Payment for invoice {invoice.InvoiceNumber} must be overdue on the Dunning Posting Date.");
+                }
+                // Per ERPNext commit 18e651d89e: outstanding must be positive and cannot exceed unpaid invoice amount
+                if (p.OutstandingAmount <= 0 || p.OutstandingAmount > invoice.OutstandingAmount)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Row for invoice {invoice.InvoiceNumber}: Outstanding must be positive and cannot exceed unpaid invoice amount.");
                 }
             }
         }
@@ -207,6 +219,11 @@ public class DunningAppService : ApplicationService, IDunningAppService
 
         var today = DateTime.UtcNow.Date;
         var dueDate = si.DueDate ?? si.IssueDate;
+        if (dueDate.Date >= today)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Sales Invoice is not overdue.");
+        }
         var overdueDays = Math.Max(0, (int)(today - dueDate).TotalDays);
 
         var level = await _dunningManager.DetermineDunningLevelAsync(

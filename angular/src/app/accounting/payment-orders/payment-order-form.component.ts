@@ -67,8 +67,11 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                   </td>
                   <td>
                     <select class="form-select form-select-sm" formControlName="referenceType">
-                      <option value="PaymentRequest">{{ '::PaymentRequest' | abpLocalization }}</option>
-                      <option value="PaymentEntry">{{ '::PaymentEntry' | abpLocalization }}</option>
+                      @if (form.get('paymentOrderType')?.value == 1) {
+                        <option value="PaymentEntry">{{ '::PaymentEntry' | abpLocalization }}</option>
+                      } @else {
+                        <option value="PaymentRequest">{{ '::PaymentRequest' | abpLocalization }}</option>
+                      }
                     </select>
                   </td>
                   <td><input type="text" class="form-control form-control-sm" formControlName="referenceId" [placeholder]="'::ReferenceId' | abpLocalization"></td>
@@ -124,13 +127,23 @@ export class PaymentOrderFormComponent implements OnInit {
       .subscribe({ next: (r) => this.suppliers.set(r.items ?? []), error: () => {} });
     this.bankAccountService.getList({ skipCount: 0, maxResultCount: 200, sorting: '' } as any)
       .subscribe({ next: (r) => this.bankAccounts.set(r.items ?? []), error: () => {} });
+
+    // Sync reference types on payment order type change (per ERPNext PR #62244)
+    this.form.get('paymentOrderType')?.valueChanges.subscribe((val) => {
+      const expected = Number(val) === 1 ? 'PaymentEntry' : 'PaymentRequest';
+      for (let i = 0; i < this.references.length; i++) {
+        this.references.at(i).get('referenceType')?.setValue(expected);
+      }
+    });
+
     this.addReference();
   }
 
   addReference(): void {
+    const refType = Number(this.form.get('paymentOrderType')?.value) === 1 ? 'PaymentEntry' : 'PaymentRequest';
     this.references.push(this.fb.group({
       supplierId: ['', Validators.required],
-      referenceType: ['PaymentRequest'],
+      referenceType: [refType],
       referenceId: ['', Validators.required],
       amount: [0, [Validators.required, Validators.min(0.01)]],
       modeOfPayment: [''],

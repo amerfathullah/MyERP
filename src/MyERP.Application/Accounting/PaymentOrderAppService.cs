@@ -78,8 +78,16 @@ public class PaymentOrderAppService : ApplicationService, IPaymentOrderAppServic
                 .WithData("detail", "Bank Account must be an active company account belonging to the Payment Order's company.");
         }
 
+        // Per ERPNext commit b831144207: prevent mixed payment sources in payment orders
+        var expectedType = input.PaymentOrderType == PaymentOrderType.PaymentRequest ? "PaymentRequest" : "PaymentEntry";
         foreach (var r in input.References)
         {
+            if (!string.Equals(r.ReferenceType, expectedType, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Only {expectedType} references are allowed in this Payment Order.");
+            }
+
             if (string.Equals(r.ReferenceType, "PaymentRequest", StringComparison.OrdinalIgnoreCase))
             {
                 var pr = await _paymentRequestRepository.FindAsync(r.ReferenceId);

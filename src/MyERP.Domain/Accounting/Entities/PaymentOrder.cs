@@ -54,6 +54,14 @@ public class PaymentOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
+        // Per ERPNext commit b831144207: prevent mixed payment sources in payment orders
+        var expectedType = PaymentOrderType == PaymentOrderType.PaymentRequest ? "PaymentRequest" : "PaymentEntry";
+        if (!string.Equals(referenceType, expectedType, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Only {expectedType} references are allowed in this Payment Order.");
+        }
+
         var reference = new PaymentOrderReference(Guid.NewGuid(), Id, referenceType, referenceId, amount)
         {
             SupplierId = supplierId,

@@ -82,6 +82,9 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        if (outstandingAmount <= 0)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Outstanding amount must be positive.");
         _overduePayments.Add(new DunningOverduePayment(Guid.NewGuid(), Id,
             salesInvoiceId, outstandingAmount, dueDate, overdueDays));
         TotalOutstanding = _overduePayments.Sum(p => p.OutstandingAmount);

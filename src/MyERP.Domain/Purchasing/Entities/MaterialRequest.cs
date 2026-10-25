@@ -38,6 +38,18 @@ public class MaterialRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// Source Warehouse is only used by Material Transfer, so it stays hidden and cleared otherwise.
+    /// Per ERPNext commit 372155864e.
+    /// </summary>
+    public void ClearSourceWarehouseIfNotTransfer()
+    {
+        if (RequestType != MaterialRequestType.MaterialTransfer)
+        {
+            SourceWarehouseId = null;
+        }
+    }
+
     private readonly List<MaterialRequestItem> _items = new();
     public IReadOnlyList<MaterialRequestItem> Items => _items.AsReadOnly();
 
