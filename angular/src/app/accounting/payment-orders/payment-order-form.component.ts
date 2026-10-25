@@ -22,8 +22,8 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
             <div class="col-md-3">
               <label class="form-label">{{ '::Type' | abpLocalization }}</label>
               <select class="form-select" formControlName="paymentOrderType">
-                <option [value]="0">{{ '::PaymentRequest' | abpLocalization }}</option>
-                <option [value]="1">{{ '::PaymentEntry' | abpLocalization }}</option>
+                <option [ngValue]="0">{{ '::PaymentRequest' | abpLocalization }}</option>
+                <option [ngValue]="1">{{ '::PaymentEntry' | abpLocalization }}</option>
               </select>
             </div>
             <div class="col-md-3">
@@ -67,7 +67,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                   </td>
                   <td>
                     <select class="form-select form-select-sm" formControlName="referenceType">
-                      @if (form.get('paymentOrderType')?.value == 1) {
+                      @if (form.get('paymentOrderType')?.value === 1) {
                         <option value="PaymentEntry">{{ '::PaymentEntry' | abpLocalization }}</option>
                       } @else {
                         <option value="PaymentRequest">{{ '::PaymentRequest' | abpLocalization }}</option>
