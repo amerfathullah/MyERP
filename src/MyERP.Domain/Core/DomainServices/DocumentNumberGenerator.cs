@@ -51,6 +51,11 @@ public class DocumentNumberGenerator : DomainService, IDocumentNumberGenerator
 
                 var company = await _companyRepository.FindAsync(companyId);
                 var companyAbbr = company?.ShortName ?? company?.Name;
+                if (string.IsNullOrWhiteSpace(companyAbbr))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Company {companyId} does not exist or has no abbreviation configured for document naming.");
+                }
 
                 var settingProvider = LazyServiceProvider.LazyGetRequiredService<ISettingProvider>();
                 var usePostingDateForNaming = await settingProvider.IsTrueAsync(

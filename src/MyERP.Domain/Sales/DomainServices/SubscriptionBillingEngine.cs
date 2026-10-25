@@ -68,16 +68,18 @@ public class SubscriptionBillingEngine : DomainService
             return SubscriptionStatus.Completed;
 
         // 4. Past grace period → Cancelled or Unpaid; during grace period → GracePeriod
+        // Per ERPNext commit 1697b6643b: grace period is evaluated from invoice due date, strictly >
         if (hasOutstandingInvoices && sub.CurrentInvoiceEnd.HasValue)
         {
-            var gracePeriodEnd = sub.CurrentInvoiceEnd.Value.AddDays(sub.CancelAfterGraceDays);
-            if (asOfDate > gracePeriodEnd && sub.CancelAfterGraceDays > 0)
+            var dueDate = sub.CurrentInvoiceEnd.Value.AddDays(sub.DaysUntilDue);
+            var gracePeriodEnd = dueDate.AddDays(sub.CancelAfterGraceDays);
+
+            if (asOfDate.Date > gracePeriodEnd.Date && sub.CancelAfterGraceDays > 0)
                 return SubscriptionStatus.Cancelled;
 
-            var dueDate = sub.CurrentInvoiceEnd.Value.AddDays(sub.DaysUntilDue);
-            if (asOfDate > dueDate)
+            if (asOfDate.Date > dueDate.Date)
             {
-                if (sub.CancelAfterGraceDays > 0 && asOfDate <= gracePeriodEnd)
+                if (sub.CancelAfterGraceDays > 0 && asOfDate.Date <= gracePeriodEnd.Date)
                     return SubscriptionStatus.GracePeriod;
                 return SubscriptionStatus.Unpaid;
             }

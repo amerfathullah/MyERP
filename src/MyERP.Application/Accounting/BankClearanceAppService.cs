@@ -212,12 +212,26 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
             {
                 case "PaymentEntry":
                     var pe = await _paymentEntryRepository.GetAsync(docRef.DocumentId);
+                    if (pe.ClearanceDate == input.ClearanceDate)
+                        continue;
+                    if (input.ClearanceDate.HasValue && input.ClearanceDate.Value.Date < pe.PostingDate.Date)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"{pe.PaymentNumber ?? pe.Id.ToString()}: Clearance date cannot be before posting date.");
+                    }
                     pe.SetClearanceDate(input.ClearanceDate);
                     await _paymentEntryRepository.UpdateAsync(pe);
                     break;
 
                 case "JournalEntry":
                     var je = await _journalEntryRepository.GetAsync(docRef.DocumentId);
+                    if (je.ClearanceDate == input.ClearanceDate)
+                        continue;
+                    if (input.ClearanceDate.HasValue && input.ClearanceDate.Value.Date < je.PostingDate.Date)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"{je.EntryNumber ?? je.Id.ToString()}: Clearance date cannot be before posting date.");
+                    }
                     je.SetClearanceDate(input.ClearanceDate);
                     await _journalEntryRepository.UpdateAsync(je);
                     break;
@@ -231,6 +245,13 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
                         || (j.ReferenceType == normalizedType && j.ReferenceId == docRef.DocumentId));
                     if (linkedJe != null)
                     {
+                        if (linkedJe.ClearanceDate == input.ClearanceDate)
+                            continue;
+                        if (input.ClearanceDate.HasValue && input.ClearanceDate.Value.Date < linkedJe.PostingDate.Date)
+                        {
+                            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                                .WithData("detail", $"{linkedJe.EntryNumber ?? linkedJe.Id.ToString()}: Clearance date cannot be before posting date.");
+                        }
                         linkedJe.SetClearanceDate(input.ClearanceDate);
                         await _journalEntryRepository.UpdateAsync(linkedJe);
                     }

@@ -6,6 +6,7 @@ using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Purchasing;
 using MyERP.Purchasing.Entities;
+using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using Volo.Abp;
 using Xunit;
@@ -13,7 +14,7 @@ using Xunit;
 namespace MyERP.Domain.Tests;
 
 /// <summary>
-/// Unit tests for upstream parity sync (ERPNext PRs #62244, #61667, #62249, #62218, #61468).
+/// Unit tests for upstream parity sync (ERPNext PRs #62244, #61667, #62249, #62218, #61468, #61493, #62103).
 /// </summary>
 public class UpstreamParityBatch20261025Tests
 {
@@ -84,5 +85,39 @@ public class UpstreamParityBatch20261025Tests
         var sourceWh = mrTransfer.SourceWarehouseId;
         mrTransfer.ClearSourceWarehouseIfNotTransfer();
         Assert.Equal(sourceWh, mrTransfer.SourceWarehouseId);
+    }
+
+    [Fact]
+    public void Subscription_GracePeriod_EvaluatedFromDueDateStrictlyAfter()
+    {
+        var engine = new SubscriptionBillingEngine(null!);
+        var startDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var sub = new Subscription(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Customer",
+            startDate, "Monthly")
+        {
+            CurrentInvoiceStart = startDate,
+            CurrentInvoiceEnd = startDate.AddDays(30), // Day 30
+            DaysUntilDue = 5,                         // Due on Day 35
+            CancelAfterGraceDays = 3                  // Grace period ends on Day 38
+        };
+
+        var invoiceEnd = sub.CurrentInvoiceEnd.Value;
+        var dueDate = invoiceEnd.AddDays(sub.DaysUntilDue);
+        var graceEnd = dueDate.AddDays(sub.CancelAfterGraceDays);
+
+        // Day 34: before due date -> Active
+        Assert.Equal(SubscriptionStatus.Active, engine.DetermineStatus(sub, dueDate.AddDays(-1), hasOutstandingInvoices: true, isFullyRefunded: false));
+
+        // Day 35: on due date -> Active (due date has not passed yet, strictly >)
+        Assert.Equal(SubscriptionStatus.Active, engine.DetermineStatus(sub, dueDate, hasOutstandingInvoices: true, isFullyRefunded: false));
+
+        // Day 36: 1 day past due -> GracePeriod
+        Assert.Equal(SubscriptionStatus.GracePeriod, engine.DetermineStatus(sub, dueDate.AddDays(1), hasOutstandingInvoices: true, isFullyRefunded: false));
+
+        // Day 38: on grace period end -> GracePeriod (strictly > grace period end to cancel)
+        Assert.Equal(SubscriptionStatus.GracePeriod, engine.DetermineStatus(sub, graceEnd, hasOutstandingInvoices: true, isFullyRefunded: false));
+
+        // Day 39: 1 day past grace period end -> Cancelled
+        Assert.Equal(SubscriptionStatus.Cancelled, engine.DetermineStatus(sub, graceEnd.AddDays(1), hasOutstandingInvoices: true, isFullyRefunded: false));
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.DomainServices;
@@ -63,6 +64,7 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
     [Authorize(MyERPPermissions.Employees.Create)]
     public async Task<EmployeeDto> CreateAsync(CreateUpdateEmployeeDto input)
     {
+        await ValidateUserAccessAsync(input.UserId, null);
         await ValidateUserNotAlreadyLinkedAsync(input.UserId, currentEmployeeId: null);
 
         var employeeId = await _numberGenerator.GenerateAsync("Employee", input.CompanyId);
@@ -126,9 +128,9 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
             }
         }
 
-        await ValidateUserNotAlreadyLinkedAsync(input.UserId, currentEmployeeId: id);
-
         var employee = await _repository.GetAsync(id);
+        await ValidateUserAccessAsync(input.UserId, employee.UserId);
+        await ValidateUserNotAlreadyLinkedAsync(input.UserId, currentEmployeeId: id);
 
         employee.FirstName = input.FirstName;
         employee.LastName = input.LastName;
@@ -174,6 +176,12 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
         // Per EmployeeLifecycleManager's own class doc: "Cannot delete with linked transactions
         // (leave, salary, attendance)" — CheckDeletionRulesAsync already implemented this and had
         // zero callers anywhere, so deletion was previously unconditional.
+        var employee = await _repository.GetAsync(id);
+        if (employee.UserId.HasValue)
+        {
+            await ValidateUserAccessAsync(null, employee.UserId);
+        }
+
         var lifecycleManager = LazyServiceProvider.LazyGetRequiredService<DomainServices.EmployeeLifecycleManager>();
         await lifecycleManager.CheckDeletionRulesAsync(id);
 
@@ -185,6 +193,38 @@ public class EmployeeAppService : ApplicationService, IEmployeeAppService
     /// (Leave/Expense Claim) resolve "is CurrentUser this employee?" by this link, so a shared
     /// UserId across employees would make that resolution ambiguous.
     /// </summary>
+    /// <summary>
+    /// Validates that non-admin editors cannot link or unlink User accounts holding admin roles (PR #61894 / commit c80bd8912b).
+    /// </summary>
+    private async Task ValidateUserAccessAsync(Guid? targetUserId, Guid? existingUserId)
+    {
+        if (CurrentUser.IsInRole("admin") || CurrentUser.IsInRole("System Manager"))
+        {
+            return;
+        }
+
+        var userManager = LazyServiceProvider.LazyGetRequiredService<Volo.Abp.Identity.IdentityUserManager>();
+        var userIdsToCheck = new List<Guid>();
+        if (targetUserId.HasValue) userIdsToCheck.Add(targetUserId.Value);
+        if (existingUserId.HasValue && existingUserId.Value != targetUserId) userIdsToCheck.Add(existingUserId.Value);
+
+        foreach (var uid in userIdsToCheck)
+        {
+            var user = await userManager.FindByIdAsync(uid.ToString());
+            if (user != null)
+            {
+                var roles = await userManager.GetRolesAsync(user);
+                if (roles.Any(r => string.Equals(r, "admin", StringComparison.OrdinalIgnoreCase) ||
+                                   string.Equals(r, "System Manager", StringComparison.OrdinalIgnoreCase) ||
+                                   string.Equals(r, "Administrator", StringComparison.OrdinalIgnoreCase)))
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"You are not permitted to link or unlink administrator user {user.UserName}.");
+                }
+            }
+        }
+    }
+
     private async Task ValidateUserNotAlreadyLinkedAsync(Guid? userId, Guid? currentEmployeeId)
     {
         if (!userId.HasValue)
