@@ -21,6 +21,8 @@ public class CompanyDto : FullAuditedEntityDto<Guid>
     public string? Country { get; set; }
     public string CurrencyCode { get; set; } = "MYR";
     public string? DefaultSalesContact { get; set; }
+    public Guid? DefaultSellingTermsId { get; set; }
+    public Guid? DefaultBuyingTermsId { get; set; }
     public int FiscalYearStartMonth { get; set; }
     public bool IsActive { get; set; }
     public decimal CreditLimit { get; set; }

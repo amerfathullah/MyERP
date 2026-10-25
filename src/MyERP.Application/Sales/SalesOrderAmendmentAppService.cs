@@ -66,6 +66,7 @@ public class SalesOrderAmendmentAppService : ApplicationService, ISalesOrderAmen
         amended.CurrencyCode = original.CurrencyCode;
         amended.PriceListId = original.PriceListId;
         amended.Terms = original.Terms;
+        amended.TermsAndConditionsId = original.TermsAndConditionsId;
         amended.Notes = $"Amended from {original.OrderNumber}";
 
         // Copy items

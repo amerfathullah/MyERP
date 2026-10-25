@@ -67,6 +67,7 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     /// <summary>Percentage of advance paid: (AdvancePaid / GrandTotal) × 100.</summary>
     public decimal PerAdvancePaid => GrandTotal > 0 ? Math.Round(AdvancePaid / GrandTotal * 100m, 2) : 0;
 
+    public Guid? TermsAndConditionsId { get; set; }
     public string? Terms { get; set; }
     public string? Notes { get; set; }
     /// <summary>Coupon code applied at creation — persisted so cancellation can reverse the usage count.</summary>

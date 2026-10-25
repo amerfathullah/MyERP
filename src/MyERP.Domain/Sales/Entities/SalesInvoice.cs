@@ -160,6 +160,8 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// </summary>
     public bool IsSubmitToLhdn { get; set; } = true;
 
+    public Guid? TermsAndConditionsId { get; set; }
+    public string? Terms { get; set; }
     public string? Notes { get; set; }
     /// <summary>Coupon code applied at creation — persisted so cancellation can reverse the usage count.</summary>
     public string? CouponCode { get; set; }

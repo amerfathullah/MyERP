@@ -349,6 +349,8 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             ProcessLossQty = Math.Max(0m, Math.Round(ForQuantity - CompletedQty - PendingQty, 4));
         }
+
+        ReleaseHoldIfNoQtyLeft();
     }
 
     public void Complete()
@@ -400,6 +402,12 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != JobCardStatus.WorkInProgress)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Per ERPNext PR #62199 (commits 3d254343f2, f378114bf8):
+        // Hold is only permitted if there is quantity left to make. Finished cards must not be put On Hold.
+        if (!HasQtyLeftToMake())
+            return;
+
         Status = JobCardStatus.OnHold;
     }
 

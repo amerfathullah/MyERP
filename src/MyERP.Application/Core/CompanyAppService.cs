@@ -130,6 +130,8 @@ public class CompanyAppService :
         entity.CurrencyCode = input.CurrencyCode;
         entity.FiscalYearStartMonth = input.FiscalYearStartMonth;
         entity.DefaultSalesContact = input.DefaultSalesContact;
+        entity.DefaultSellingTermsId = input.DefaultSellingTermsId;
+        entity.DefaultBuyingTermsId = input.DefaultBuyingTermsId;
         entity.IsActive = input.IsActive;
         entity.CreditLimit = input.CreditLimit;
         entity.AllowUomWithConversionRateDefinedInItem = input.AllowUomWithConversionRateDefinedInItem;

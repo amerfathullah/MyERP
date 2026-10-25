@@ -60,6 +60,8 @@ export interface CreatePurchaseInvoiceDto {
   exchangeRate?: number;
   useTransactionDateExchangeRate?: boolean;
   priceListId?: string | null;
+  termsAndConditionsId?: string | null;
+  terms?: string | null;
   notes?: string | null;
   costCenterId?: string | null;
   projectId?: string | null;
@@ -109,6 +111,8 @@ export interface CreatePurchaseOrderDto {
   costCenterId?: string | null;
   projectId?: string | null;
   priceListId?: string | null;
+  termsAndConditionsId?: string | null;
+  terms?: string | null;
   notes?: string | null;
   remarks?: string | null;
   shippingAddressId?: string | null;

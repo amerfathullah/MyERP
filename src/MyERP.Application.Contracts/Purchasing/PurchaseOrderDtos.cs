@@ -23,6 +23,8 @@ public class PurchaseOrderDto : EntityDto<Guid>
     public decimal AdvancePaid { get; set; }
     public decimal PerAdvancePaid { get; set; }
     public string AdvancePaymentStatus { get; set; } = "Not Initiated";
+    public Guid? TermsAndConditionsId { get; set; }
+    public string? Terms { get; set; }
     public string? Notes { get; set; }
     public string? Remarks { get; set; }
     public Guid? ShippingAddressId { get; set; }
@@ -83,6 +85,9 @@ public class CreatePurchaseOrderDto
     public string? Remarks { get; set; }
     public Guid? ShippingAddressId { get; set; }
     public Guid? CustomerId { get; set; }
+    public Guid? TermsAndConditionsId { get; set; }
+    [StringLength(PurchaseOrderConsts.MaxTermsLength)]
+    public string? Terms { get; set; }
     [Required][MinLength(1)] public List<CreatePurchaseOrderItemDto> Items { get; set; } = new();
 }
 

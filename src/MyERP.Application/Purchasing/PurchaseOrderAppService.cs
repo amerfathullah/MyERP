@@ -275,6 +275,11 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
             po.CostCenterId = input.CostCenterId;
         }
 
+        var termsResolution = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.TermsResolutionService>();
+        var (buyingTermsId, buyingTerms) = await termsResolution.ResolveBuyingTermsAsync(
+            po.Status, po.CompanyId, input.TermsAndConditionsId, input.Terms);
+        po.TermsAndConditionsId = buyingTermsId;
+        po.Terms = buyingTerms;
         po.Notes = input.Notes;
         po.Remarks = input.Remarks;
 
@@ -776,6 +781,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         amended.ExchangeRate = original.ExchangeRate;
         amended.PriceListId = original.PriceListId;
         amended.Terms = original.Terms;
+        amended.TermsAndConditionsId = original.TermsAndConditionsId;
         amended.Notes = original.Notes;
         amended.Remarks = original.Remarks;
 
@@ -914,6 +920,11 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
         order.ExpectedDeliveryDate = input.ExpectedDeliveryDate;
         order.SupplierId = input.SupplierId;
         order.PriceListId = input.PriceListId;
+        var updateTermsResolution = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.TermsResolutionService>();
+        var (updBuyingTermsId, updBuyingTerms) = await updateTermsResolution.ResolveBuyingTermsAsync(
+            order.Status, order.CompanyId, input.TermsAndConditionsId, input.Terms);
+        order.TermsAndConditionsId = updBuyingTermsId;
+        order.Terms = updBuyingTerms;
         order.Notes = input.Notes;
         order.Remarks = input.Remarks;
         order.CustomerId = input.CustomerId;

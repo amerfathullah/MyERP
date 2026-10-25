@@ -21,6 +21,7 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
+    public Guid? TermsAndConditionsId { get; set; }
     public string? Terms { get; set; }
     public string? Notes { get; set; }
     public string Status { get; set; } = null!;
@@ -141,6 +142,7 @@ public class CreateSalesOrderDto
     /// <summary>Selling Price List. When omitted, defaults from Customer.DefaultPriceListId.</summary>
     public Guid? PriceListId { get; set; }
 
+    public Guid? TermsAndConditionsId { get; set; }
     [StringLength(SalesOrderConsts.MaxTermsLength)]
     public string? Terms { get; set; }
 

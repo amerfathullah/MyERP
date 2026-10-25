@@ -111,6 +111,7 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
     /// <summary>Exchange rate: transaction currency → company currency. Default 1.0 for same-currency.</summary>
     public decimal ExchangeRate { get; set; } = 1m;
 
+    public Guid? TermsAndConditionsId { get; set; }
     public string? Terms { get; set; }
     public string? Notes { get; set; }
     /// <summary>Remarks for additional instructions/notes (PR #59420 / commit e10129ef5e).</summary>

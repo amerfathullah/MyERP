@@ -18,6 +18,7 @@ public class QuotationDto : FullAuditedEntityDto<Guid>
     public decimal NetTotal { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal GrandTotal { get; set; }
+    public Guid? TermsAndConditionsId { get; set; }
     public string? Terms { get; set; }
     public string? Notes { get; set; }
     public string Status { get; set; } = null!;
@@ -77,6 +78,7 @@ public class CreateQuotationDto
     /// <summary>Source Opportunity if created from CRM Opportunity. Per ERPNext commit dc4819e897.</summary>
     public Guid? OpportunityId { get; set; }
 
+    public Guid? TermsAndConditionsId { get; set; }
     [StringLength(QuotationConsts.MaxTermsLength)]
     public string? Terms { get; set; }
 

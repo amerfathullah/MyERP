@@ -163,6 +163,8 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// </summary>
     public bool IsSubmitToLhdn { get; set; } = true;
 
+    public Guid? TermsAndConditionsId { get; set; }
+    public string? Terms { get; set; }
     public string? Notes { get; set; }
 
     // Advance payment tracking

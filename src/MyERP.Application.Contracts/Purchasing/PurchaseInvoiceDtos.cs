@@ -68,6 +68,9 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     /// <summary>Set when auto-created from an inter-company Sales Invoice, or when this PI auto-created one.</summary>
     public Guid? InterCompanyInvoiceId { get; set; }
     public string? InterCompanyInvoiceNumber { get; set; }
+    public Guid? TermsAndConditionsId { get; set; }
+    public string? Terms { get; set; }
+    public string? Notes { get; set; }
     public string? InterCompanyCompanyName { get; set; }
 
     /// <summary>When true, stock is received on invoice submit (direct purchase without PR).</summary>
@@ -170,6 +173,9 @@ public class CreatePurchaseInvoiceDto
     public bool UseTransactionDateExchangeRate { get; set; }
     /// <summary>Buying Price List. When omitted, defaults from Supplier.DefaultPriceListId.</summary>
     public Guid? PriceListId { get; set; }
+    public Guid? TermsAndConditionsId { get; set; }
+    [StringLength(PurchaseInvoiceConsts.MaxTermsLength)]
+    public string? Terms { get; set; }
     public string? Notes { get; set; }
 
     /// <summary>Cost center for departmental P&L attribution.</summary>

@@ -55,6 +55,8 @@ public class CreateUpdateCompanyDto
 
     [StringLength(CompanyConsts.MaxNameLength)]
     public string? DefaultSalesContact { get; set; }
+    public System.Guid? DefaultSellingTermsId { get; set; }
+    public System.Guid? DefaultBuyingTermsId { get; set; }
 
     [Range(1, 12)]
     public int FiscalYearStartMonth { get; set; } = 1;

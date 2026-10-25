@@ -1,3 +1,7 @@
+using NSubstitute;
+using MyERP.Core.Entities;
+using MyERP.Core.DomainServices;
+using Volo.Abp.Domain.Repositories;
 using System.Linq;
 using MyERP.Sales;
 using System;
@@ -501,5 +505,125 @@ public class UpstreamParityBatch20261025Tests
         var ex = Assert.Throws<BusinessException>(() => proforma.SetGrandTotal(-10m));
         Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
         Assert.Contains("The grand total of a Proforma Invoice cannot be negative", ex.Data["detail"]?.ToString());
+    }
+
+    [Fact]
+    public void JobCard_Hold_IgnoredWhenAllQtyIsDone()
+    {
+        // ERPNext PR #62199 (commits 3d254343f2, f378114bf8): Finished cards must not be put On Hold
+        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10m, 1);
+        jc.Start();
+        jc.AddTimeLog(DateTime.UtcNow.AddHours(-2), DateTime.UtcNow.AddHours(-1), 10m);
+        Assert.Equal(10m, jc.CompletedQty);
+        Assert.False(jc.HasQtyLeftToMake());
+        Assert.Equal(JobCardStatus.WorkInProgress, jc.Status);
+
+        // Calling Hold() when HasQtyLeftToMake() is false should no-op and remain WorkInProgress
+        jc.Hold();
+        Assert.Equal(JobCardStatus.WorkInProgress, jc.Status);
+    }
+
+    [Fact]
+    public void JobCard_SetProcessLoss_ReleasesHoldWhenCompletesJob()
+    {
+        // ERPNext PR #62199 (commits 3d254343f2, f378114bf8): Releasing hold once all qty is done
+        var jc = new JobCard(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10m, 1);
+        jc.Start();
+        jc.AddTimeLog(DateTime.UtcNow.AddHours(-2), DateTime.UtcNow.AddHours(-1), 6m);
+        Assert.Equal(6m, jc.CompletedQty);
+        Assert.True(jc.HasQtyLeftToMake());
+
+        // Card is in progress, can be put on hold
+        jc.Hold();
+        Assert.Equal(JobCardStatus.OnHold, jc.Status);
+
+        // Recording process loss that covers remaining qty releases hold
+        jc.ProcessLossQty = 4m;
+        jc.SetProcessLoss();
+        Assert.False(jc.HasQtyLeftToMake());
+        Assert.Equal(JobCardStatus.WorkInProgress, jc.Status);
+    }
+
+    [Fact]
+    public void Company_DefaultSellingAndBuyingTerms_Properties()
+    {
+        // ERPNext PR #62189 / commit 3a1b24cd70
+        var company = new Company(Guid.NewGuid(), "Terms Parity Corp");
+        var sellTermsId = Guid.NewGuid();
+        var buyTermsId = Guid.NewGuid();
+
+        company.DefaultSellingTermsId = sellTermsId;
+        company.DefaultBuyingTermsId = buyTermsId;
+
+        Assert.Equal(sellTermsId, company.DefaultSellingTermsId);
+        Assert.Equal(buyTermsId, company.DefaultBuyingTermsId);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task TermsResolutionService_DraftDocument_AppliesCompanyDefaultTerms()
+    {
+        // ERPNext PR #62189 / commit 3a1b24cd70
+        var companyId = Guid.NewGuid();
+        var defaultTermsId = Guid.NewGuid();
+        var company = new Company(companyId, "Selling Corp") { DefaultSellingTermsId = defaultTermsId };
+        var terms = new TermsAndConditions(defaultTermsId, companyId, "Standard Terms") { Terms = "Pay within 30 days" };
+
+        var termsRepo = NSubstitute.Substitute.For<IRepository<TermsAndConditions, Guid>>();
+        var compRepo = NSubstitute.Substitute.For<IRepository<Company, Guid>>();
+
+        compRepo.FindAsync(companyId).Returns(System.Threading.Tasks.Task.FromResult<Company?>(company));
+        termsRepo.FindAsync(defaultTermsId).Returns(System.Threading.Tasks.Task.FromResult<TermsAndConditions?>(terms));
+
+        var service = new TermsResolutionService(termsRepo, compRepo);
+
+        // Draft without user terms: gets default terms
+        var (resolvedId, resolvedText) = await service.ResolveSellingTermsAsync(
+            DocumentStatus.Draft, companyId, null, null);
+
+        Assert.Equal(defaultTermsId, resolvedId);
+        Assert.Equal("Pay within 30 days", resolvedText);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task TermsResolutionService_NonDraftDocument_NeverAppliesCompanyDefaultTerms()
+    {
+        // ERPNext PR #62189 / commit 3a1b24cd70: Non-draft documents must NOT have default terms applied onload/update
+        var companyId = Guid.NewGuid();
+        var defaultTermsId = Guid.NewGuid();
+        var company = new Company(companyId, "Selling Corp") { DefaultSellingTermsId = defaultTermsId };
+
+        var termsRepo = NSubstitute.Substitute.For<IRepository<TermsAndConditions, Guid>>();
+        var compRepo = NSubstitute.Substitute.For<IRepository<Company, Guid>>();
+
+        var service = new TermsResolutionService(termsRepo, compRepo);
+
+        // Submitted document with empty terms: invariant ensures company default terms are NOT applied
+        var (resolvedId, resolvedText) = await service.ResolveSellingTermsAsync(
+            DocumentStatus.Submitted, companyId, null, null);
+
+        Assert.Null(resolvedId);
+        Assert.Null(resolvedText);
+        await compRepo.DidNotReceive().FindAsync(NSubstitute.Arg.Any<Guid>());
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task TermsResolutionService_CustomTerms_RetainedAndNotOverwritten()
+    {
+        // ERPNext PR #62189: User-provided terms are preserved
+        var companyId = Guid.NewGuid();
+        var defaultTermsId = Guid.NewGuid();
+        var company = new Company(companyId, "Selling Corp") { DefaultSellingTermsId = defaultTermsId };
+
+        var termsRepo = NSubstitute.Substitute.For<IRepository<TermsAndConditions, Guid>>();
+        var compRepo = NSubstitute.Substitute.For<IRepository<Company, Guid>>();
+
+        var service = new TermsResolutionService(termsRepo, compRepo);
+
+        var (resolvedId, resolvedText) = await service.ResolveSellingTermsAsync(
+            DocumentStatus.Draft, companyId, null, "Custom Customer Terms");
+
+        Assert.Null(resolvedId);
+        Assert.Equal("Custom Customer Terms", resolvedText);
+        await compRepo.DidNotReceive().FindAsync(NSubstitute.Arg.Any<Guid>());
     }
 }

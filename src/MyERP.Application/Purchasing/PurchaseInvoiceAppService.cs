@@ -764,6 +764,13 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             }
         }
 
+        invoice.Notes = input.Notes;
+        var termsResolution = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.TermsResolutionService>();
+        var (buyingTermsId, buyingTerms) = await termsResolution.ResolveBuyingTermsAsync(
+            invoice.Status, invoice.CompanyId, input.TermsAndConditionsId, input.Terms);
+        invoice.TermsAndConditionsId = buyingTermsId;
+        invoice.Terms = buyingTerms;
+
         // Auto-fill billing address from supplier
         var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
         var billingAddr = await partyDefaults.GetPrimaryAddressAsync("Supplier", input.SupplierId);
@@ -2170,6 +2177,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
         amended.PriceListId = original.PriceListId;
         amended.SupplierInvoiceNumber = original.SupplierInvoiceNumber;
         amended.PaymentTermsTemplateId = original.PaymentTermsTemplateId;
+        amended.TermsAndConditionsId = original.TermsAndConditionsId;
+        amended.Terms = original.Terms;
         amended.Notes = original.Notes;
         amended.IsReturn = original.IsReturn;
         amended.IsDebitNote = original.IsDebitNote;

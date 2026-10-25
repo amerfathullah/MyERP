@@ -33,6 +33,7 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     public Guid? PriceListId { get; set; }
     public bool HasUnitPriceItems { get; set; }
 
+    public Guid? TermsAndConditionsId { get; set; }
     public string? Terms { get; set; }
     public string? Notes { get; set; }
     public string? OrderLostReason { get; set; }

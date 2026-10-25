@@ -124,6 +124,9 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public Guid? InterCompanyPurchaseInvoiceId { get; set; }
     public string? InterCompanyPurchaseInvoiceNumber { get; set; }
     public string? InterCompanyCompanyName { get; set; }
+    public Guid? TermsAndConditionsId { get; set; }
+    public string? Terms { get; set; }
+    public string? Notes { get; set; }
 }
 
 public class SalesInvoiceItemDto
@@ -176,6 +179,9 @@ public class CreateSalesInvoiceDto
     /// <summary>Selling Price List. When omitted, defaults from Customer.DefaultPriceListId.</summary>
     public Guid? PriceListId { get; set; }
 
+    public Guid? TermsAndConditionsId { get; set; }
+    [StringLength(SalesInvoiceConsts.MaxTermsLength)]
+    public string? Terms { get; set; }
     public string? Notes { get; set; }
 
     public Guid? PaymentTermsTemplateId { get; set; }

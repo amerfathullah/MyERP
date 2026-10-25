@@ -774,6 +774,13 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
+        invoice.Notes = input.Notes;
+        var termsResolution = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.TermsResolutionService>();
+        var (sellingTermsId, sellingTerms) = await termsResolution.ResolveSellingTermsAsync(
+            invoice.Status, invoice.CompanyId, input.TermsAndConditionsId, input.Terms);
+        invoice.TermsAndConditionsId = sellingTermsId;
+        invoice.Terms = sellingTerms;
+
         // Auto-fill addresses from customer
         var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
         var billingAddr = await partyDefaults.GetPrimaryAddressAsync("Customer", input.CustomerId);
@@ -1892,6 +1899,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         amended.ExchangeRate = original.ExchangeRate;
         amended.PriceListId = original.PriceListId;
         amended.PaymentTermsTemplateId = original.PaymentTermsTemplateId;
+        amended.TermsAndConditionsId = original.TermsAndConditionsId;
+        amended.Terms = original.Terms;
 
         foreach (var item in original.Items)
         {

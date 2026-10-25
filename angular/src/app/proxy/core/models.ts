@@ -121,6 +121,8 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   country?: string | null;
   currencyCode?: string;
   defaultSalesContact?: string | null;
+  defaultSellingTermsId?: string | null;
+  defaultBuyingTermsId?: string | null;
   fiscalYearStartMonth?: number;
   isActive?: boolean;
   stockFrozenUpto?: string | null;
@@ -334,6 +336,8 @@ export interface CreateUpdateCompanyDto {
   country?: string | null;
   currencyCode: string;
   defaultSalesContact?: string | null;
+  defaultSellingTermsId?: string | null;
+  defaultBuyingTermsId?: string | null;
   fiscalYearStartMonth?: number;
   isActive?: boolean;
   allowUomWithConversionRateDefinedInItem?: boolean;
@@ -1029,6 +1033,8 @@ export interface UpdateAuthorizationRuleDto {
 export interface UpdateCompanySettingsDto {
   defaultCurrency?: string | null;
   defaultSalesContact?: string | null;
+  defaultSellingTermsId?: string | null;
+  defaultBuyingTermsId?: string | null;
   fiscalYearStartMonth?: number | null;
   stockFrozenUpto?: string | null;
   accountsFrozenTillDate?: string | null;

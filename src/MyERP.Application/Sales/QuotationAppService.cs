@@ -318,7 +318,11 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
 
         quotation.ValidUntil = input.ValidUntil;
         quotation.CurrencyCode = input.CurrencyCode;
-        quotation.Terms = input.Terms;
+        var termsResolution = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.TermsResolutionService>();
+        var (sellingTermsId, sellingTerms) = await termsResolution.ResolveSellingTermsAsync(
+            quotation.Status, quotation.CompanyId, input.TermsAndConditionsId, input.Terms);
+        quotation.TermsAndConditionsId = sellingTermsId;
+        quotation.Terms = sellingTerms;
         quotation.Notes = input.Notes;
 
         // Per ERPNext: Price List defaults from the customer's own default when not given explicitly, if active (commit fd492100b0).
@@ -423,7 +427,11 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         quotation.ValidUntil = input.ValidUntil;
         quotation.CurrencyCode = input.CurrencyCode;
         quotation.PriceListId = input.PriceListId;
-        quotation.Terms = input.Terms;
+        var updateTermsResolution = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.TermsResolutionService>();
+        var (updSellingTermsId, updSellingTerms) = await updateTermsResolution.ResolveSellingTermsAsync(
+            quotation.Status, quotation.CompanyId, input.TermsAndConditionsId, input.Terms);
+        quotation.TermsAndConditionsId = updSellingTermsId;
+        quotation.Terms = updSellingTerms;
         quotation.Notes = input.Notes;
 
         var transactionValidation = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
@@ -667,6 +675,7 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         revision.CurrencyCode = original.CurrencyCode;
         revision.ValidUntil = DateTime.UtcNow.Date.AddDays(30);
         revision.Terms = original.Terms;
+        revision.TermsAndConditionsId = original.TermsAndConditionsId;
         revision.Notes = original.Notes;
 
         foreach (var item in original.Items)
@@ -700,6 +709,7 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         amended.PriceListId = original.PriceListId;
         amended.ValidUntil = DateTime.UtcNow.Date.AddDays(30); // Fresh validity
         amended.Terms = original.Terms;
+        amended.TermsAndConditionsId = original.TermsAndConditionsId;
         amended.Notes = original.Notes;
 
         foreach (var item in original.Items)

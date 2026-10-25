@@ -322,7 +322,11 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.ContactPersonId = input.ContactPersonId;
         order.ShippingContactPersonId = input.ShippingContactPersonId;
         order.CurrencyCode = input.CurrencyCode;
-        order.Terms = input.Terms;
+        var termsResolution = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.TermsResolutionService>();
+        var (sellingTermsId, sellingTerms) = await termsResolution.ResolveSellingTermsAsync(
+            order.Status, order.CompanyId, input.TermsAndConditionsId, input.Terms);
+        order.TermsAndConditionsId = sellingTermsId;
+        order.Terms = sellingTerms;
         order.Notes = input.Notes;
         order.CostCenterId = input.CostCenterId;
         order.ProjectId = input.ProjectId;
@@ -1186,7 +1190,11 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.ContactPersonId = input.ContactPersonId;
         order.ShippingContactPersonId = input.ShippingContactPersonId;
         order.CurrencyCode = input.CurrencyCode;
-        order.Terms = input.Terms;
+        var updateTermsResolution = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.TermsResolutionService>();
+        var (updSellingTermsId, updSellingTerms) = await updateTermsResolution.ResolveSellingTermsAsync(
+            order.Status, order.CompanyId, input.TermsAndConditionsId, input.Terms);
+        order.TermsAndConditionsId = updSellingTermsId;
+        order.Terms = updSellingTerms;
         order.Notes = input.Notes;
         order.CostCenterId = input.CostCenterId;
         order.ProjectId = input.ProjectId;

@@ -49,6 +49,12 @@ public class Company : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// </summary>
     public string? DefaultSalesContact { get; set; }
 
+    /// <summary>Default Terms and Conditions for selling transactions. Per ERPNext PR #62189 / commit 3a1b24cd70.</summary>
+    public Guid? DefaultSellingTermsId { get; set; }
+
+    /// <summary>Default Terms and Conditions for buying transactions. Per ERPNext PR #62189 / commit 3a1b24cd70.</summary>
+    public Guid? DefaultBuyingTermsId { get; set; }
+
     /// <summary>Fiscal year start month (1-12).</summary>
     public int FiscalYearStartMonth { get; set; } = 1;
 

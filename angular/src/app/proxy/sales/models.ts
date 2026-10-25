@@ -355,6 +355,7 @@ export interface CreateQuotationDto {
   currencyCode?: string;
   priceListId?: string | null;
   opportunityId?: string | null;
+  termsAndConditionsId?: string | null;
   terms?: string | null;
   notes?: string | null;
   items: CreateQuotationItemDto[];
@@ -382,6 +383,8 @@ export interface CreateSalesInvoiceDto {
   toDate?: string | null;
   currencyCode?: string;
   priceListId?: string | null;
+  termsAndConditionsId?: string | null;
+  terms?: string | null;
   notes?: string | null;
   paymentTermsTemplateId?: string | null;
   isReturn?: boolean;
@@ -437,6 +440,7 @@ export interface CreateSalesOrderDto {
   shippingContactPersonId?: string | null;
   currencyCode?: string;
   priceListId?: string | null;
+  termsAndConditionsId?: string | null;
   terms?: string | null;
   notes?: string | null;
   quotationId?: string | null;
@@ -1441,6 +1445,7 @@ export interface QuotationDto extends FullAuditedEntityDto<string> {
   netTotal?: number;
   taxAmount?: number;
   grandTotal?: number;
+  termsAndConditionsId?: string | null;
   terms?: string | null;
   notes?: string | null;
   status?: string;
@@ -1586,6 +1591,9 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   interCompanyPurchaseInvoiceId?: string | null;
   interCompanyPurchaseInvoiceNumber?: string | null;
   interCompanyCompanyName?: string | null;
+  termsAndConditionsId?: string | null;
+  terms?: string | null;
+  notes?: string | null;
 }
 
 export interface SalesInvoiceItemDto {
@@ -1632,6 +1640,7 @@ export interface SalesOrderDto extends FullAuditedEntityDto<string> {
   netTotal?: number;
   taxAmount?: number;
   grandTotal?: number;
+  termsAndConditionsId?: string | null;
   terms?: string | null;
   notes?: string | null;
   status?: string;
