@@ -353,6 +353,7 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void Complete()
     {
+        ReleaseHoldIfNoQtyLeft();
         if (Status is not (JobCardStatus.WorkInProgress or JobCardStatus.MaterialTransferred or JobCardStatus.PartiallyTransferred))
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 

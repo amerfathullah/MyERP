@@ -1309,6 +1309,11 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Item '{poItem.Description}' is closed. Reopen the row before updating its delivered quantity.");
 
+            // Per ERPNext PR #62094 (commit 217d288f5a): only drop-ship items can have delivered qty updated
+            if (!poItem.DeliveredBySupplier)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Item '{poItem.Description}' is not a drop ship item. Only drop ship items can have Delivered Qty updated.");
+
             // Validate: negative qty change cannot exceed current received_qty
             if (deliveryItem.QtyChange < 0 && Math.Abs(deliveryItem.QtyChange) > poItem.ReceivedQty)
                 throw new BusinessException(MyERPDomainErrorCodes.DropShipQtyReductionExceeded)
@@ -1317,7 +1322,7 @@ public class PurchaseOrderAppService : ApplicationService, IPurchaseOrderAppServ
 
             // Validate: positive qty change cannot exceed remaining (qty - received_qty)
             if (deliveryItem.QtyChange > 0 && poItem.ReceivedQty + deliveryItem.QtyChange > poItem.Quantity)
-                throw new BusinessException("MyERP:04018")
+                throw new BusinessException(MyERPDomainErrorCodes.DropShipQtyIncreaseExceeded)
                     .WithData("itemCode", poItem.Description)
                     .WithData("maxIncrease", poItem.Quantity - poItem.ReceivedQty);
 

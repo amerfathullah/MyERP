@@ -102,7 +102,11 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
             if (basis.Count == 0) return _items.Count > 0 ? 100m : 0m;
             var totalQty = basis.Sum(i => i.Quantity);
             if (totalQty <= 0) return 100m;
-            return Math.Round(basis.Sum(i => Math.Min(i.DeliveredQty, i.Quantity)) / totalQty * 100, 2);
+            var percentage = Math.Round(basis.Sum(i => Math.Min(i.DeliveredQty, i.Quantity)) / totalQty * 100, 2);
+            // Per ERPNext PR #61983 (commit 13c337cd69): snap rounding-short >= 99.99% to 100% when no pending delivery remains
+            if (percentage >= 99.99m && !basis.Any(i => i.PendingDeliveryQty > 0))
+                return 100m;
+            return percentage;
         }
     }
 
@@ -122,13 +126,21 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
                 // Per ERPNext PR #58816: if any row (e.g. zero-amount free item) still has pending billing qty, cap at 99.99
                 if (percentage >= 100m && basis.Any(i => i.PendingBillingQty > 0))
                     return 99.99m;
+                // Per ERPNext PR #61983 (commit 13c337cd69): snap rounding-short >= 99.99% to 100% when all rows are billed
+                if (percentage >= 99.99m && !basis.Any(i => i.PendingBillingQty > 0))
+                    return 100m;
                 return percentage;
             }
 
             var totalQty = basis.Sum(i => i.Quantity);
-            return totalQty > 0
-                ? Math.Round(basis.Sum(i => Math.Min(i.Quantity, i.BilledQty)) / totalQty * 100, 2)
-                : 100m;
+            if (totalQty > 0)
+            {
+                var percentage = Math.Round(basis.Sum(i => Math.Min(i.Quantity, i.BilledQty)) / totalQty * 100, 2);
+                if (percentage >= 99.99m && !basis.Any(i => i.PendingBillingQty > 0))
+                    return 100m;
+                return percentage;
+            }
+            return 100m;
         }
     }
 

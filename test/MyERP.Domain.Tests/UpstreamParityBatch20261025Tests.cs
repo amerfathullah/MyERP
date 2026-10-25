@@ -5,6 +5,7 @@ using MyERP.Core;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing.DomainServices;
+using MyERP.Manufacturing;
 using MyERP.Manufacturing.Entities;
 using MyERP.Purchasing;
 using MyERP.Purchasing.Entities;
@@ -362,5 +363,49 @@ public class UpstreamParityBatch20261025Tests
         var ex6 = Assert.Throws<BusinessException>(() =>
             order.AddReference("PaymentRequest", Guid.NewGuid(), -10m, Guid.NewGuid(), "Bank Transfer", bankAccountId));
         Assert.Equal(MyERPDomainErrorCodes.AmountMustBePositive, ex6.Code);
+    }
+
+    [Fact]
+    public void JobCard_Complete_ReleasesHoldIfNoQtyLeft()
+    {
+        var companyId = Guid.NewGuid();
+        var woId = Guid.NewGuid();
+        var opId = Guid.NewGuid();
+        var jc = new JobCard(Guid.NewGuid(), companyId, woId, opId, 10m, 1);
+        jc.StartTimeLog(DateTime.UtcNow.AddHours(-2));
+        jc.Hold();
+        Assert.Equal(JobCardStatus.OnHold, jc.Status);
+
+        // Complete full quantity (10m)
+        jc.CompleteTimeLogs(DateTime.UtcNow, 10m);
+        // ReleaseHoldIfNoQtyLeft transitioned status to WorkInProgress
+        Assert.Equal(JobCardStatus.WorkInProgress, jc.Status);
+
+        // Can now be completed cleanly
+        jc.Complete();
+        Assert.Equal(JobCardStatus.Completed, jc.Status);
+    }
+
+    [Fact]
+    public void SalesOrder_And_PurchaseOrder_SnapNearCompletePercentages()
+    {
+        // 1. SalesOrder PerDelivered & PerBilled
+        var so = new SalesOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "SO-001", DateTime.UtcNow);
+        so.AddItem(Guid.NewGuid(), "Item 1", 3m, 33.33m, 0m); // LineTotal = 99.99
+        so.Items[0].DeliveredQty = 3m;
+        so.Items[0].BilledQty = 3m;
+
+        // PendingDeliveryQty is 0 and PendingBillingQty is 0
+        Assert.Equal(100m, so.PerDelivered);
+        Assert.Equal(100m, so.PerBilled);
+
+        // 2. PurchaseOrder PerReceived & PerBilled
+        var po = new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-001", DateTime.UtcNow);
+        var poItem1 = po.AddItem(Guid.NewGuid(), "Item 1", 3m, 33.33m, 0m);
+        poItem1.ReceivedQty = 3m;
+        poItem1.BilledQty = 3m;
+
+        Assert.Equal(100m, po.PerReceived);
+        Assert.Equal(100m, po.PerBilled);
     }
 }

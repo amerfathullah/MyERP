@@ -133,7 +133,11 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
             var totalQty = basis.Sum(i => i.Quantity);
             if (totalQty <= 0) return 0m;
             var receivedQty = basis.Sum(i => Math.Min(Math.Max(0, i.ReceivedQty), i.Quantity));
-            return Math.Round(receivedQty / totalQty * 100m, 2);
+            var percentage = Math.Round(receivedQty / totalQty * 100m, 2);
+            // Per ERPNext PR #61983: snap rounding-short >= 99.99% to 100% when all rows received
+            if (percentage >= 99.99m && !basis.Any(i => i.PendingReceiptQty > 0))
+                return 100m;
+            return percentage;
         }
     }
 
@@ -150,16 +154,23 @@ public class PurchaseOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmen
             if (basisTotal > 0)
             {
                 var percentage = Math.Round(basis.Sum(i => i.BilledQty * i.UnitPrice) / basisTotal * 100, 2);
-                // Per ERPNext PR #58816: if any row (e.g. zero-amount free item) still has pending billing qty, cap at 99.99
                 if (percentage >= 100m && basis.Any(i => i.PendingBillingQty > 0))
                     return 99.99m;
+                // Per ERPNext PR #61983: snap rounding-short >= 99.99% to 100% when all rows billed
+                if (percentage >= 99.99m && !basis.Any(i => i.PendingBillingQty > 0))
+                    return 100m;
                 return percentage;
             }
 
             var totalQty = basis.Sum(i => i.Quantity);
-            return totalQty > 0
-                ? Math.Round(basis.Sum(i => Math.Min(i.Quantity, i.BilledQty)) / totalQty * 100, 2)
-                : 100m;
+            if (totalQty > 0)
+            {
+                var percentage = Math.Round(basis.Sum(i => Math.Min(i.Quantity, i.BilledQty)) / totalQty * 100, 2);
+                if (percentage >= 99.99m && !basis.Any(i => i.PendingBillingQty > 0))
+                    return 100m;
+                return percentage;
+            }
+            return 100m;
         }
     }
 
