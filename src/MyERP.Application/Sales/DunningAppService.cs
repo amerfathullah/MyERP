@@ -109,6 +109,9 @@ public class DunningAppService : ApplicationService, IDunningAppService
                 .Where(si => invoiceIds.Contains(si.Id))
                 .ToDictionary(si => si.Id);
 
+            var seenSchedules = new HashSet<Guid>();
+            var invoiceOutstanding = new Dictionary<Guid, decimal>();
+
             foreach (var p in input.OverduePayments)
             {
                 if (!invoices.TryGetValue(p.SalesInvoiceId, out var invoice))
@@ -137,22 +140,41 @@ public class DunningAppService : ApplicationService, IDunningAppService
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", $"Payment for invoice {invoice.InvoiceNumber} must be overdue on the Dunning Posting Date.");
                 }
-                // Per ERPNext commit 18e651d89e: outstanding must be positive and cannot exceed unpaid invoice amount
-                if (p.OutstandingAmount <= 0 || p.OutstandingAmount > invoice.OutstandingAmount)
-                {
-                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", $"Row for invoice {invoice.InvoiceNumber}: Outstanding must be positive and cannot exceed unpaid invoice amount.");
-                }
-
                 if (p.PaymentScheduleId.HasValue)
                 {
+                    if (!seenSchedules.Add(p.PaymentScheduleId.Value))
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", "Payment Schedule is already included in this Dunning.");
+                    }
+
                     var schedRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.PaymentScheduleEntry, Guid>>();
                     var sched = await schedRepo.FindAsync(p.PaymentScheduleId.Value);
-                    if (sched != null && (sched.ParentId != p.SalesInvoiceId || sched.ParentType != "SalesInvoice"))
+                    if (sched == null || sched.ParentId != p.SalesInvoiceId || sched.ParentType != "SalesInvoice")
                     {
                         throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                             .WithData("detail", $"Payment Schedule entry {p.PaymentScheduleId.Value} does not belong to invoice {p.SalesInvoiceId}.");
                     }
+
+                    if (p.DueDate.Date != sched.DueDate.Date)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", "Due Date must match the Payment Schedule.");
+                    }
+
+                    if (p.OutstandingAmount > sched.Outstanding)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"Row for invoice {invoice.InvoiceNumber}: Outstanding must be positive and cannot exceed the unpaid invoice or installment amount.");
+                    }
+                }
+
+                invoiceOutstanding[p.SalesInvoiceId] = invoiceOutstanding.GetValueOrDefault(p.SalesInvoiceId) + p.OutstandingAmount;
+                // Per ERPNext commit 18e651d89e: outstanding must be positive and cannot exceed unpaid invoice amount
+                if (p.OutstandingAmount <= 0 || invoiceOutstanding[p.SalesInvoiceId] > invoice.OutstandingAmount)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Row for invoice {invoice.InvoiceNumber}: Outstanding must be positive and cannot exceed unpaid invoice amount.");
                 }
             }
         }
@@ -244,8 +266,21 @@ public class DunningAppService : ApplicationService, IDunningAppService
 
         if (schedules.Count > 0)
         {
+            // Per ERPNext PR #61667 / commit 18e651d89e: Apply payments without term allocations to the oldest installments first.
+            var scheduleOutstanding = schedules.ToDictionary(s => s.Id, s => s.Outstanding);
+            var unallocatedPayment = Math.Max(0m, schedules.Sum(s => s.Outstanding) - si.OutstandingAmount);
+            if (unallocatedPayment > 0)
+            {
+                foreach (var row in schedules.OrderBy(s => s.DueDate.Date).ThenBy(s => s.CreationTime))
+                {
+                    var paid = Math.Min(scheduleOutstanding[row.Id], unallocatedPayment);
+                    unallocatedPayment -= paid;
+                    scheduleOutstanding[row.Id] -= paid;
+                }
+            }
+
             var overdueSchedules = schedules
-                .Where(s => s.Outstanding > 0.01m && s.DueDate.Date < today)
+                .Where(s => scheduleOutstanding[s.Id] > 0.01m && s.DueDate.Date < today)
                 .ToList();
 
             if (paymentScheduleIds != null && paymentScheduleIds.Count > 0)
@@ -258,13 +293,13 @@ public class DunningAppService : ApplicationService, IDunningAppService
             if (overdueSchedules.Count == 0)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", "No overdue payment schedule installments found for dunning.");
+                    .WithData("detail", "There are no overdue payments to include in this Dunning.");
             }
 
             foreach (var sched in overdueSchedules)
             {
                 var overdueDays = Math.Max(0, (int)(today - sched.DueDate.Date).TotalDays);
-                d.AddOverduePayment(si.Id, sched.Outstanding, sched.DueDate, overdueDays, sched.Id);
+                d.AddOverduePayment(si.Id, scheduleOutstanding[sched.Id], sched.DueDate, overdueDays, sched.Id);
             }
         }
         else

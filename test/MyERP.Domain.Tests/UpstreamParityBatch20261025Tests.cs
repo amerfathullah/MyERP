@@ -777,4 +777,45 @@ public class UpstreamParityBatch20261025Tests
         var hasBlockingSle2 = activeSles.Any(s => s.CompanyId == companyId && !s.IsCancelled);
         Assert.True(hasBlockingSle2);
     }
+    [Fact]
+    public void Dunning_PaymentScheduleOutstanding_UnallocatedPaymentsReduceOldestInstallmentsFirst()
+    {
+        // Parity with ERPNext PR #61667 / commit 18e651d89e
+        var s1Id = Guid.NewGuid();
+        var s2Id = Guid.NewGuid();
+
+        var schedules = new List<(Guid Id, DateTime DueDate, decimal Outstanding)>
+        {
+            (s1Id, new DateTime(2026, 10, 1), 50m),
+            (s2Id, new DateTime(2026, 10, 15), 50m)
+        };
+
+        // Scenario A: invoice total outstanding = 80m (20m unallocated payment)
+        var totalOutstandingA = 80m;
+        var scheduleOutstandingA = schedules.ToDictionary(s => s.Id, s => s.Outstanding);
+        var unallocatedA = Math.Max(0m, schedules.Sum(s => s.Outstanding) - totalOutstandingA);
+        foreach (var row in schedules.OrderBy(s => s.DueDate))
+        {
+            var paid = Math.Min(scheduleOutstandingA[row.Id], unallocatedA);
+            unallocatedA -= paid;
+            scheduleOutstandingA[row.Id] -= paid;
+        }
+
+        Assert.Equal(30m, scheduleOutstandingA[s1Id]); // oldest installment reduced from 50 to 30
+        Assert.Equal(50m, scheduleOutstandingA[s2Id]); // newer installment untouched
+
+        // Scenario B: invoice total outstanding = 40m (60m unallocated payment)
+        var totalOutstandingB = 40m;
+        var scheduleOutstandingB = schedules.ToDictionary(s => s.Id, s => s.Outstanding);
+        var unallocatedB = Math.Max(0m, schedules.Sum(s => s.Outstanding) - totalOutstandingB);
+        foreach (var row in schedules.OrderBy(s => s.DueDate))
+        {
+            var paid = Math.Min(scheduleOutstandingB[row.Id], unallocatedB);
+            unallocatedB -= paid;
+            scheduleOutstandingB[row.Id] -= paid;
+        }
+
+        Assert.Equal(0m, scheduleOutstandingB[s1Id]); // oldest installment fully paid (50 - 50 = 0)
+        Assert.Equal(40m, scheduleOutstandingB[s2Id]); // newer installment reduced (50 - 10 = 40)
+    }
 }
