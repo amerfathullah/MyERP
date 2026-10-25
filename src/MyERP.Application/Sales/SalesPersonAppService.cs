@@ -197,7 +197,7 @@ public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
     public async Task AddTargetAsync(Guid id, CreateSalesTargetDto input)
     {
         var sp = await _repository.GetAsync(id);
-        sp.AddTarget(input.FiscalYearId, input.TargetQty, input.TargetAmount);
+        sp.AddTarget(input.FiscalYearId, input.TargetQty, input.TargetAmount, input.ItemGroupId);
         await _repository.UpdateAsync(sp);
     }
 

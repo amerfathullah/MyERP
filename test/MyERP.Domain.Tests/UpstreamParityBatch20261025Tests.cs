@@ -1283,4 +1283,109 @@ public class UpstreamParityBatch20261025Tests
         Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
         Assert.Contains("Cannot change Account Type for Sales Partner after ledger entries exist", ex.Data["detail"]?.ToString() ?? "");
     }
+
+    [Theory]
+    [InlineData(-1, 100)]
+    [InlineData(100, -1)]
+    public void SalesPerson_AddTarget_RejectsNegativeTargets_PR62324(decimal qty, decimal amount)
+    {
+        var sp = new SalesPerson(Guid.NewGuid(), "Sam Sales");
+        var fyId = Guid.NewGuid();
+
+        var ex = Assert.Throws<BusinessException>(() => sp.AddTarget(fyId, qty, amount));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("cannot be negative", ex.Data["detail"]?.ToString() ?? "");
+    }
+
+    [Fact]
+    public void SalesPerson_AddTarget_RejectsDuplicateTargets_PR62324()
+    {
+        var sp = new SalesPerson(Guid.NewGuid(), "Sam Sales");
+        var fyId = Guid.NewGuid();
+        var igId = Guid.NewGuid();
+
+        // First target succeeds
+        sp.AddTarget(fyId, 50m, 1000m, igId);
+
+        // Duplicate (same fiscal year and item group) throws
+        var ex = Assert.Throws<BusinessException>(() => sp.AddTarget(fyId, 60m, 2000m, igId));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("already exists", ex.Data["detail"]?.ToString() ?? "");
+
+        // Overall target (null itemGroup) for same fiscal year is separate and succeeds
+        sp.AddTarget(fyId, 200m, 5000m, null);
+        Assert.Equal(2, sp.Targets.Count);
+    }
+
+    [Fact]
+    public async Task SalesPersonTargetVariance_GroupTarget_IncludesDescendantAchievements_PR62324()
+    {
+        var companyId = Guid.NewGuid();
+        var fyId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        var leafId = Guid.NewGuid();
+
+        var manager = new SalesPerson(groupId, "Manager Group") { IsGroup = true };
+        manager.AddTarget(fyId, 0m, 10000m, null);
+
+        var rep = new SalesPerson(leafId, "Sales Rep", parentId: groupId) { IsGroup = false };
+
+        var spRepo = Substitute.For<IRepository<SalesPerson, Guid>>();
+        spRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<SalesPerson, object>>[]>())
+            .Returns(Task.FromResult(new List<SalesPerson> { manager, rep }.AsQueryable()));
+
+        var soId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var item = new Item(itemId, companyId, "ITEM-1", "Test Item", ItemType.Goods);
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Item> { item }.AsQueryable()));
+
+        var itemGroupRepo = Substitute.For<IRepository<ItemGroup, Guid>>();
+        itemGroupRepo.GetQueryableAsync().Returns(Task.FromResult(new List<ItemGroup>().AsQueryable()));
+
+        var fiscalYear = new FiscalYear(fyId, companyId, "2026", new DateTime(2026, 1, 1), new DateTime(2026, 12, 31));
+        var fyRepo = Substitute.For<IRepository<FiscalYear, Guid>>();
+        fyRepo.FindAsync(fyId).Returns(Task.FromResult<FiscalYear?>(fiscalYear));
+
+        var company = new Company(companyId, "Acme");
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+        companyRepo.FindAsync(companyId).Returns(Task.FromResult<Company?>(company));
+
+        var order = new SalesOrder(soId, companyId, Guid.NewGuid(), "SO-101", new DateTime(2026, 3, 1));
+        order.AddItem(itemId, "Item 1", 1m, 2500m, 0m);
+        order.Submit();
+
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        soRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<SalesOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<SalesOrder> { order }.AsQueryable()));
+
+        var teamEntries = new List<SalesTeamEntry>
+        {
+            new SalesTeamEntry(Guid.NewGuid(), leafId, "SalesOrder", soId, 100m, 2500m, 5m)
+        }.AsQueryable();
+        var teamRepo = Substitute.For<IRepository<SalesTeamEntry, Guid>>();
+        teamRepo.GetQueryableAsync().Returns(Task.FromResult(teamEntries));
+
+        var siRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+
+        var service = new SalesPersonTargetVarianceAppService(
+            spRepo, teamRepo, siRepo, soRepo, itemRepo, itemGroupRepo, fyRepo, companyRepo);
+
+        var report = await service.GetReportAsync(new GetSalesPersonTargetVarianceInput
+        {
+            CompanyId = companyId,
+            FiscalYearId = fyId,
+            SalesPersonId = groupId,
+            DocType = "Sales Order",
+            TargetOn = "Amount"
+        });
+
+        // Manager Group target (10000) includes rep's order (2500)
+        var row = Assert.Single(report.Rows);
+        Assert.Equal(groupId, row.SalesPersonId);
+        Assert.Equal(10000m, row.Target);
+        Assert.Equal(2500m, row.Achieved);
+        Assert.Equal(-7500m, row.Variance);
+        Assert.Equal(25m, row.AchievementPercentage);
+    }
 }

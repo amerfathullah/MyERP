@@ -491,6 +491,7 @@ export interface CreateSalesTargetDto {
   fiscalYearId?: string | null;
   targetQty?: number;
   targetAmount?: number;
+  itemGroupId?: string | null;
 }
 
 export interface CreateShippingRuleDto {
@@ -1774,6 +1775,7 @@ export interface SalesTargetDto {
   fiscalYearId?: string | null;
   targetQty?: number;
   targetAmount?: number;
+  itemGroupId?: string | null;
 }
 
 export interface SalesTeamAllocationInputDto {

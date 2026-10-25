@@ -79,13 +79,21 @@ public class SalesPerson : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>
     /// Add a sales target.
-    /// Per ERPNext: must have either qty or amount (not both zero).
+    /// Per ERPNext PR #62324: targets cannot be negative, cannot duplicate (fiscalYear, itemGroup), and must not both be zero.
     /// </summary>
     public void AddTarget(Guid? fiscalYearId, decimal targetQty, decimal targetAmount, Guid? itemGroupId = null)
     {
+        if (targetQty < 0 || targetAmount < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Target Qty and Target Amount cannot be negative.");
+
         if (targetQty == 0 && targetAmount == 0)
             throw new BusinessException("MyERP:03013")
                 .WithData("salesPerson", Name);
+
+        if (Targets.Any(t => t.FiscalYearId == fiscalYearId && t.ItemGroupId == itemGroupId))
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "A target already exists for this fiscal year and item group.");
 
         Targets.Add(new SalesPersonTarget(
             Guid.NewGuid(), Id, fiscalYearId, targetQty, targetAmount, itemGroupId));

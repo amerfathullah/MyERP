@@ -90,11 +90,68 @@ public class SalesPersonTargetVarianceAppService : ApplicationService, ISalesPer
         var itemMap = items.ToDictionary(i => i.Id, i => i);
 
         var spQuery = await _salesPersonRepo.WithDetailsAsync(sp => sp.Targets);
-        var salesPersons = spQuery.ToList();
-        if (input.SalesPersonId.HasValue)
-            salesPersons = salesPersons.Where(sp => sp.Id == input.SalesPersonId.Value).ToList();
+        var allSalesPersons = spQuery.ToList();
+        var salesPersons = input.SalesPersonId.HasValue
+            ? allSalesPersons.Where(sp => sp.Id == input.SalesPersonId.Value).ToList()
+            : allSalesPersons;
 
-        var spMap = salesPersons.ToDictionary(sp => sp.Id, sp => sp.Name);
+        var allSpMap = allSalesPersons.ToDictionary(sp => sp.Id, sp => sp.Name);
+
+        // Build tree rollup map for Sales Person descendants (ERPNext PR #62324 / commit a5f27756a9)
+        var spChildrenMap = allSalesPersons
+            .Where(p => p.ParentSalesPersonId.HasValue)
+            .GroupBy(p => p.ParentSalesPersonId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(c => c.Id).ToList());
+
+        HashSet<Guid> GetSpDescendantIds(Guid rootId)
+        {
+            var result = new HashSet<Guid> { rootId };
+            var queue = new Queue<Guid>();
+            queue.Enqueue(rootId);
+            while (queue.Count > 0)
+            {
+                var cur = queue.Dequeue();
+                if (spChildrenMap.TryGetValue(cur, out var children))
+                {
+                    foreach (var ch in children)
+                    {
+                        if (result.Add(ch))
+                            queue.Enqueue(ch);
+                    }
+                }
+            }
+            return result;
+        }
+
+        var spDescendantsMap = allSalesPersons.ToDictionary(sp => sp.Id, sp => GetSpDescendantIds(sp.Id));
+
+        // Build tree rollup map for Item Group descendants (ERPNext PR #62324 / commit eec3bcf900)
+        var igChildrenMap = itemGroups
+            .Where(g => g.ParentId.HasValue)
+            .GroupBy(g => g.ParentId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(c => c.Id).ToList());
+
+        HashSet<Guid> GetIgDescendantIds(Guid rootId)
+        {
+            var result = new HashSet<Guid> { rootId };
+            var queue = new Queue<Guid>();
+            queue.Enqueue(rootId);
+            while (queue.Count > 0)
+            {
+                var cur = queue.Dequeue();
+                if (igChildrenMap.TryGetValue(cur, out var children))
+                {
+                    foreach (var ch in children)
+                    {
+                        if (result.Add(ch))
+                            queue.Enqueue(ch);
+                    }
+                }
+            }
+            return result;
+        }
+
+        var igDescendantsMap = itemGroups.ToDictionary(g => g.Id, g => GetIgDescendantIds(g.Id));
 
         // 1. Gather Targets
         var targetDict = new Dictionary<(Guid SalesPersonId, Guid? ItemGroupId), decimal>();
@@ -118,9 +175,21 @@ public class SalesPersonTargetVarianceAppService : ApplicationService, ISalesPer
             }
         }
 
-        // 2. Gather Achieved
-        var achievedDict = new Dictionary<(Guid SalesPersonId, Guid? ItemGroupId), decimal>();
-        var spIds = salesPersons.Select(sp => sp.Id).ToHashSet();
+        // 2. Gather Actual Contributions
+        var relevantSpIds = new HashSet<Guid>();
+        foreach (var sp in salesPersons)
+        {
+            if (spDescendantsMap.TryGetValue(sp.Id, out var desc))
+            {
+                foreach (var d in desc) relevantSpIds.Add(d);
+            }
+            else
+            {
+                relevantSpIds.Add(sp.Id);
+            }
+        }
+
+        var actualContributions = new List<(Guid SalesPersonId, Guid? ItemGroupId, decimal Amount)>();
 
         if (docType == "Sales Order")
         {
@@ -139,7 +208,7 @@ public class SalesPersonTargetVarianceAppService : ApplicationService, ISalesPer
             {
                 var orderIds = orders.Select(so => so.Id).ToHashSet();
                 var entries = (await _teamEntryRepo.GetQueryableAsync())
-                    .Where(e => e.ParentType == parentTypeName && orderIds.Contains(e.ParentId) && spIds.Contains(e.SalesPersonId))
+                    .Where(e => e.ParentType == parentTypeName && orderIds.Contains(e.ParentId) && relevantSpIds.Contains(e.SalesPersonId))
                     .ToList();
 
                 var teamByOrder = entries.GroupBy(e => e.ParentId).ToDictionary(g => g.Key, g => g.ToList());
@@ -163,11 +232,7 @@ public class SalesPersonTargetVarianceAppService : ApplicationService, ISalesPer
                         foreach (var entry in orderEntries)
                         {
                             var contribution = Math.Round(valToAttribute * entry.AllocatedPercentage / 100m, 2);
-                            var key = (entry.SalesPersonId, itemGroupId);
-
-                            if (!achievedDict.ContainsKey(key))
-                                achievedDict[key] = 0;
-                            achievedDict[key] += contribution;
+                            actualContributions.Add((entry.SalesPersonId, itemGroupId, contribution));
                         }
                     }
                 }
@@ -190,7 +255,7 @@ public class SalesPersonTargetVarianceAppService : ApplicationService, ISalesPer
             {
                 var invoiceIds = invoices.Select(si => si.Id).ToHashSet();
                 var entries = (await _teamEntryRepo.GetQueryableAsync())
-                    .Where(e => e.ParentType == parentTypeName && invoiceIds.Contains(e.ParentId) && spIds.Contains(e.SalesPersonId))
+                    .Where(e => e.ParentType == parentTypeName && invoiceIds.Contains(e.ParentId) && relevantSpIds.Contains(e.SalesPersonId))
                     .ToList();
 
                 var teamByInvoice = entries.GroupBy(e => e.ParentId).ToDictionary(g => g.Key, g => g.ToList());
@@ -214,18 +279,41 @@ public class SalesPersonTargetVarianceAppService : ApplicationService, ISalesPer
                         foreach (var entry in invEntries)
                         {
                             var contribution = Math.Round(valToAttribute * entry.AllocatedPercentage / 100m, 2);
-                            var key = (entry.SalesPersonId, itemGroupId);
-
-                            if (!achievedDict.ContainsKey(key))
-                                achievedDict[key] = 0;
-                            achievedDict[key] += contribution;
+                            actualContributions.Add((entry.SalesPersonId, itemGroupId, contribution));
                         }
                     }
                 }
             }
         }
 
-        // 3. Merge keys
+        // 3. Roll up achievements to targets and direct contributors
+        var achievedDict = new Dictionary<(Guid SalesPersonId, Guid? ItemGroupId), decimal>();
+
+        foreach (var targetKey in targetDict.Keys)
+        {
+            var targetSpId = targetKey.SalesPersonId;
+            var targetIgId = targetKey.ItemGroupId;
+
+            var spDesc = spDescendantsMap.TryGetValue(targetSpId, out var sd) ? sd : new HashSet<Guid> { targetSpId };
+            var igDesc = targetIgId.HasValue && igDescendantsMap.TryGetValue(targetIgId.Value, out var id) ? id : null;
+
+            var achieved = actualContributions
+                .Where(c => spDesc.Contains(c.SalesPersonId)
+                         && (!targetIgId.HasValue || (c.ItemGroupId.HasValue && (c.ItemGroupId.Value == targetIgId.Value || (igDesc != null && igDesc.Contains(c.ItemGroupId.Value))))))
+                .Sum(c => c.Amount);
+
+            achievedDict[targetKey] = Math.Round(achieved, 2);
+        }
+
+        foreach (var grp in actualContributions.GroupBy(c => (c.SalesPersonId, c.ItemGroupId)))
+        {
+            if (!achievedDict.ContainsKey(grp.Key) && !targetDict.ContainsKey(grp.Key))
+            {
+                achievedDict[grp.Key] = Math.Round(grp.Sum(c => c.Amount), 2);
+            }
+        }
+
+        // 4. Merge keys
         var allKeys = targetDict.Keys.Union(achievedDict.Keys).ToList();
 
         if (input.ItemGroupId.HasValue)
@@ -237,7 +325,7 @@ public class SalesPersonTargetVarianceAppService : ApplicationService, ISalesPer
 
         foreach (var key in allKeys)
         {
-            spMap.TryGetValue(key.SalesPersonId, out var spName);
+            allSpMap.TryGetValue(key.SalesPersonId, out var spName);
             string itemGroupName = "All Item Groups";
             if (key.ItemGroupId.HasValue && itemGroupMap.TryGetValue(key.ItemGroupId.Value, out var ign))
                 itemGroupName = ign;

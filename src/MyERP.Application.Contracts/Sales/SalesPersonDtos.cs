@@ -20,6 +20,7 @@ public class SalesTargetDto
     public Guid? FiscalYearId { get; set; }
     public decimal TargetQty { get; set; }
     public decimal TargetAmount { get; set; }
+    public Guid? ItemGroupId { get; set; }
 }
 
 public class CreateSalesPersonDto
@@ -44,4 +45,5 @@ public class CreateSalesTargetDto
     public Guid? FiscalYearId { get; set; }
     public decimal TargetQty { get; set; }
     public decimal TargetAmount { get; set; }
+    public Guid? ItemGroupId { get; set; }
 }
