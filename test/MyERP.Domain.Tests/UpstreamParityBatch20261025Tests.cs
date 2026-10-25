@@ -4,6 +4,8 @@ using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Manufacturing.DomainServices;
+using MyERP.Manufacturing.Entities;
 using MyERP.Purchasing;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.DomainServices;
@@ -214,5 +216,47 @@ public class UpstreamParityBatch20261025Tests
 
         Assert.Single(filtered);
         Assert.Equal(8.2222m, filtered[0].Qty);
+    }
+
+    [Fact]
+    public void JobCardManager_GetOperationTargetQty_ScalesForSemiFinishedGoods()
+    {
+        var companyId = Guid.NewGuid();
+        var mainItemId = Guid.NewGuid();
+        var semiFgItemId = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+        var opId = Guid.NewGuid();
+
+        var bom = new BillOfMaterials(bomId, companyId, "BOM-001", mainItemId)
+        {
+            Quantity = 2m
+        };
+        // BomItem: 5 units of semiFg for 2 units of mainItem (2.5 per unit)
+        var bomItem = new BomItem(Guid.NewGuid(), bomId, semiFgItemId, "SemiFG", 5m, 10m);
+        bom.AddItem(bomItem);
+
+        var wo = new WorkOrder(Guid.NewGuid(), companyId, "WO-001", mainItemId, bomId, 10m)
+        {
+            TrackSemiFinishedGoods = true
+        };
+
+        var opSemiFg = new BomOperation(Guid.NewGuid(), bomId, opId, 1, 30m)
+        {
+            FinishedGoodItemId = semiFgItemId,
+            IsFinalFinishedGood = false
+        };
+
+        var targetQty = JobCardManager.GetOperationTargetQty(wo, opSemiFg, bom);
+        // 10m * (5m / 2m) = 25m
+        Assert.Equal(25m, targetQty);
+
+        // When IsFinalFinishedGood is true, returns wo.Quantity (10m)
+        opSemiFg.IsFinalFinishedGood = true;
+        Assert.Equal(10m, JobCardManager.GetOperationTargetQty(wo, opSemiFg, bom));
+
+        // When TrackSemiFinishedGoods is false, returns wo.Quantity (10m)
+        opSemiFg.IsFinalFinishedGood = false;
+        wo.TrackSemiFinishedGoods = false;
+        Assert.Equal(10m, JobCardManager.GetOperationTargetQty(wo, opSemiFg, bom));
     }
 }

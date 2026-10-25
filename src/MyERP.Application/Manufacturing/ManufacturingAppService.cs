@@ -528,16 +528,40 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 .WithData("detail", "Cannot create BOM from Work Order without consumed materials.");
         }
 
-        // Build operations with proportional or fixed times
+        // Build operations with actual or proportional times (ERPNext PR #62257 / commit d08e441524)
         var bomOps = new List<CreateBomOperationDto>();
         if (sourceBom != null && sourceBom.Operations.Any())
         {
+            var jcRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JobCard, Guid>>();
+            var jcQueryable = await jcRepo.GetQueryableAsync();
+            var workOrderJobCards = jcQueryable
+                .Where(j => j.WorkOrderId == wo.Id && j.Status != JobCardStatus.Cancelled && !j.IsCorrective)
+                .ToList();
+
             foreach (var op in sourceBom.Operations)
             {
                 decimal timeInMins;
                 int batchSize = op.BatchSize;
 
-                if (op.FixedTime > 0 || op.BatchSize > 0)
+                var opJobCards = workOrderJobCards
+                    .Where(j => j.OperationId == op.OperationId)
+                    .ToList();
+
+                var actualTime = opJobCards.Sum(j => j.TotalTimeInMins);
+                var completedQty = opJobCards.Sum(j => j.CompletedQty);
+                var forQty = opJobCards.Sum(j => j.ForQuantity);
+
+                if (completedQty > 0 && actualTime > 0)
+                {
+                    // Scale completed quantity to work order units for semi-finished goods (ERPNext commit d08e441524)
+                    var normalizedCompletedQty = wo.TrackSemiFinishedGoods && forQty > 0 && wo.Quantity > 0
+                        ? (completedQty * wo.Quantity) / forQty
+                        : completedQty;
+
+                    var timePerUnit = actualTime / (normalizedCompletedQty > 0 ? normalizedCompletedQty : 1m);
+                    timeInMins = Math.Round(timePerUnit * bomQty, 2);
+                }
+                else if (op.FixedTime > 0 || op.BatchSize > 0)
                 {
                     timeInMins = op.TimeInMins;
                 }

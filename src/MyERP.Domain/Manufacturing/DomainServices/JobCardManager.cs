@@ -85,6 +85,29 @@ public class JobCardManager : DomainService
     /// Creates Job Cards from direct BOM Operations (when routing is embedded directly in BOM).
     /// Maps to ERPNext manufacturing/doctype/bom_operation/bom_operation.py.
     /// </summary>
+    /// <summary>
+    /// Gets the target production quantity for an operation.
+    /// Per ERPNext PR #62257 / PR #62140 (commits 74de7638bf, df8fe9bb15, 2d55c8ed4b):
+    /// When TrackSemiFinishedGoods is active, scales operation quantity by the component's per-unit BOM quantity.
+    /// </summary>
+    public static decimal GetOperationTargetQty(WorkOrder wo, BomOperation op, BillOfMaterials? bom)
+    {
+        if (!wo.TrackSemiFinishedGoods || !op.FinishedGoodItemId.HasValue || op.IsFinalFinishedGood || bom == null)
+            return wo.Quantity;
+
+        var matchingBomItem = bom.Items.FirstOrDefault(i => i.ItemId == op.FinishedGoodItemId.Value);
+        if (matchingBomItem != null)
+        {
+            var perUnit = matchingBomItem.GetQtyConsumedPerUnit(bom.Quantity);
+            if (perUnit > 0)
+            {
+                return Math.Round(perUnit * wo.Quantity, 4);
+            }
+        }
+
+        return wo.Quantity;
+    }
+
     public async Task<JobCard[]> CreateJobCardsFromBomOperationsAsync(
         WorkOrder wo, IEnumerable<BomOperation> bomOperations, Guid? tenantId = null, BillOfMaterials? bom = null)
     {
@@ -93,8 +116,9 @@ public class JobCardManager : DomainService
 
         foreach (var op in bomOperations.OrderBy(o => o.SequenceId))
         {
-            var batchSize = op.BatchSize > 0 ? op.BatchSize : wo.Quantity;
-            var remaining = wo.Quantity;
+            var targetQty = GetOperationTargetQty(wo, op, bom);
+            var batchSize = op.BatchSize > 0 ? op.BatchSize : targetQty;
+            var remaining = targetQty;
             sequence++;
             var opSequence = op.SequenceId > 0 ? op.SequenceId : sequence;
 
