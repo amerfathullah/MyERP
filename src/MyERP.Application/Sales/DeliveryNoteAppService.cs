@@ -585,10 +585,44 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
             // RETURN: Stock comes BACK to warehouse (positive SLE, positive Bin)
             var returnItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var returnBundleService = LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
+            var returnItemIds = dn.Items.Select(i => i.ItemId).Distinct();
+            var returnBundleItemIds = await returnBundleService.GetBundleItemIdsAsync(returnItemIds, isReturn: true);
             DeliveryNote? origDnForRates = dn.ReturnAgainstId.HasValue ? await _repository.FindAsync(dn.ReturnAgainstId.Value) : null;
 
             foreach (var item in dn.Items)
             {
+                if (returnBundleItemIds.Contains(item.ItemId))
+                {
+                    // Decompose returned product bundle into components (allowing disabled bundles per PR #62149 / commit ffcf97c223)
+                    var components = await returnBundleService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice, isReturn: true);
+                    foreach (var comp in components)
+                    {
+                        var compEntity = await returnItemRepo.FindAsync(comp.ComponentItemId);
+                        if (compEntity != null && !compEntity.MaintainStock)
+                            continue;
+
+                        var compReturnWarehouseId = item.WarehouseId ?? dn.WarehouseId;
+                        var compReturnStockQty = Math.Abs(comp.Qty);
+
+                        var balance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, compReturnWarehouseId);
+                        var compIncomingRate = balance.ValuationRate > 0
+                            ? balance.ValuationRate
+                            : (compEntity?.StandardBuyingPrice ?? 0m);
+
+                        await _valuationService.CreateLedgerEntryAsync(
+                            dn.CompanyId, comp.ComponentItemId, compReturnWarehouseId,
+                            dn.PostingDate, compReturnStockQty, compIncomingRate,
+                            voucherType: "DeliveryNote", voucherId: dn.Id,
+                            tenantId: dn.TenantId);
+
+                        await _binService.ApplyStockMovementAsync(
+                            comp.ComponentItemId, compReturnWarehouseId,
+                            compReturnStockQty, compReturnStockQty * compIncomingRate, dn.TenantId);
+                    }
+                    continue;
+                }
+
                 // Skip non-stock items
                 var itemEntity = await returnItemRepo.FindAsync(item.ItemId);
                 if (itemEntity != null && !itemEntity.MaintainStock)
@@ -735,7 +769,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
             // Identify which DN items are bundles
             var allItemIds = dn.Items.Select(i => i.ItemId).Distinct();
-            var bundleItemIds = await bundleService.GetBundleItemIdsAsync(allItemIds);
+            var bundleItemIds = await bundleService.GetBundleItemIdsAsync(allItemIds, isReturn: dn.IsReturn);
 
             // Packing Slip completeness gate: once ANY submitted Packing Slip exists for this
             // DN, every non-bundle item must be fully packed before the DN can submit. Per
@@ -1018,7 +1052,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             if (bundleItemIds.Contains(item.ItemId))
             {
                 // Product Bundle: reverse components that were affected on submit
-                var components = await bundleService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice);
+                var components = await bundleService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice, isReturn: dn.IsReturn);
                 foreach (var comp in components)
                 {
                     var compEntity = await cancelItemRepo.FindAsync(comp.ComponentItemId);

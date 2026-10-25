@@ -15,40 +15,53 @@ namespace MyERP.Sales.DomainServices;
 /// 
 /// Per ERPNext: "make_packing_list" orchestrator:
 /// - Selects active bundle version (priority: highest version active, with version deactivation)
-/// - Scales component qty by parent item qty
+/// - Scales component qty by parent item qty, converting component UOM to stock UOM
 /// - Rate rollup: parent_rate × (component_amount / total_bundle_amount)
 /// - Product Bundle items are excluded from packed qty validation
 /// - Internal transfers hard-block packed items
+/// - Returns allow previously active, now-disabled bundles (PR #62149 / commit ffcf97c223)
 /// </summary>
 public class ProductBundleDecompositionService : DomainService
 {
     private readonly IRepository<ProductBundle, Guid> _bundleRepository;
+    private readonly IRepository<Inventory.Entities.Item, Guid>? _itemRepository;
+    private readonly Inventory.DomainServices.UomConversionService? _uomConversionService;
 
     public ProductBundleDecompositionService(IRepository<ProductBundle, Guid> bundleRepository)
+        : this(bundleRepository, null, null)
+    {
+    }
+
+    public ProductBundleDecompositionService(
+        IRepository<ProductBundle, Guid> bundleRepository,
+        IRepository<Inventory.Entities.Item, Guid>? itemRepository,
+        Inventory.DomainServices.UomConversionService? uomConversionService)
     {
         _bundleRepository = bundleRepository;
+        _itemRepository = itemRepository;
+        _uomConversionService = uomConversionService;
     }
 
     /// <summary>
     /// Checks if an item is an active Product Bundle.
     /// </summary>
-    public async Task<bool> IsBundleItemAsync(Guid itemId)
+    public async Task<bool> IsBundleItemAsync(Guid itemId, bool isReturn = false)
     {
         var queryable = await _bundleRepository.GetQueryableAsync();
-        return queryable.Any(b => b.ItemId == itemId && b.IsActive && !b.IsDisabled);
+        return queryable.Any(b => b.ItemId == itemId && b.IsActive && (!b.IsDisabled || isReturn));
     }
 
     /// <summary>
     /// Gets all active bundle item IDs from a list of item IDs (batch check).
     /// </summary>
-    public async Task<HashSet<Guid>> GetBundleItemIdsAsync(IEnumerable<Guid> itemIds)
+    public async Task<HashSet<Guid>> GetBundleItemIdsAsync(IEnumerable<Guid> itemIds, bool isReturn = false)
     {
         var itemIdList = itemIds.ToList();
         if (!itemIdList.Any()) return new HashSet<Guid>();
 
         var queryable = await _bundleRepository.GetQueryableAsync();
         var bundleItemIds = queryable
-            .Where(b => itemIdList.Contains(b.ItemId) && b.IsActive && !b.IsDisabled)
+            .Where(b => itemIdList.Contains(b.ItemId) && b.IsActive && (!b.IsDisabled || isReturn))
             .Select(b => b.ItemId)
             .ToHashSet();
 
@@ -58,6 +71,8 @@ public class ProductBundleDecompositionService : DomainService
     /// <summary>
     /// Decomposes a single bundle item into its components, scaling by the transaction qty.
     /// Returns the list of component items with their scaled quantities and proportional rates.
+    /// Converts component UOM to stock UOM per ERPNext PR #62149 / commit 80590d5e40.
+    /// Allows now-disabled bundles for return transactions per PR #62149 / commit ffcf97c223.
     /// </summary>
     /// <param name="itemId">The bundle parent item ID</param>
     /// <param name="transactionQty">Quantity of the parent in the transaction</param>
@@ -65,13 +80,15 @@ public class ProductBundleDecompositionService : DomainService
     /// <param name="warehouseId">Optional warehouse from parent item row</param>
     /// <param name="parentDetailId">Optional row ID of the parent bundle transaction item (for exact packed item matching per PR #60745)</param>
     /// <param name="parentIndex">Optional row index of the parent bundle transaction item (for exact packed item matching per PR #60745)</param>
+    /// <param name="isReturn">Whether this transaction is a return document (allows disabled bundles)</param>
     /// <returns>List of decomposed component items with qty and proportional rate</returns>
     public async Task<List<DecomposedItem>> DecomposeAsync(
         Guid itemId, decimal transactionQty, decimal parentRate,
-        Guid? warehouseId = null, Guid? parentDetailId = null, int? parentIndex = null)
+        Guid? warehouseId = null, Guid? parentDetailId = null, int? parentIndex = null,
+        bool isReturn = false)
     {
         var queryable = await _bundleRepository.GetQueryableAsync();
-        var bundle = queryable.FirstOrDefault(b => b.ItemId == itemId && b.IsActive && !b.IsDisabled);
+        var bundle = queryable.FirstOrDefault(b => b.ItemId == itemId && b.IsActive && (!b.IsDisabled || isReturn));
 
         if (bundle == null)
             return new List<DecomposedItem>();
@@ -80,11 +97,32 @@ public class ProductBundleDecompositionService : DomainService
         if (totalBundleAmount == 0)
             return new List<DecomposedItem>();
 
+        var componentItemIds = bundle.Items.Select(i => i.ComponentItemId).Distinct().ToList();
+        var itemMap = new Dictionary<Guid, Inventory.Entities.Item>();
+        if (_itemRepository != null)
+        {
+            var itemQueryable = await _itemRepository.GetQueryableAsync();
+            itemMap = itemQueryable.Where(i => componentItemIds.Contains(i.Id)).ToDictionary(i => i.Id);
+        }
+
         var result = new List<DecomposedItem>();
         foreach (var component in bundle.Items)
         {
-            // Scale qty: component_qty × parent_transaction_qty
-            var scaledQty = component.Qty * transactionQty;
+            var componentFactor = 1m;
+            var targetUom = component.Uom ?? "Unit";
+
+            if (itemMap.TryGetValue(component.ComponentItemId, out var compItem))
+            {
+                targetUom = compItem.Uom;
+                if (!string.IsNullOrWhiteSpace(component.Uom) && _uomConversionService != null)
+                {
+                    componentFactor = await _uomConversionService.GetConversionFactorAsync(
+                        compItem.Id, component.Uom, compItem.Uom, compItem.VariantOfId);
+                }
+            }
+
+            // Scale qty: component_qty × componentFactor × parent_transaction_qty
+            var scaledQty = component.Qty * componentFactor * transactionQty;
 
             // Proportional rate: parent_rate × (component_qty / total_bundle_qty)
             // This distributes the selling price across components proportionally
@@ -95,7 +133,7 @@ public class ProductBundleDecompositionService : DomainService
                 ComponentItemName: component.ItemName,
                 Qty: scaledQty,
                 Rate: proportionalRate,
-                Uom: component.Uom ?? "Unit",
+                Uom: targetUom,
                 ParentBundleItemId: itemId,
                 ParentBundleId: bundle.Id,
                 WarehouseId: warehouseId,
@@ -112,11 +150,12 @@ public class ProductBundleDecompositionService : DomainService
     /// Returns a combined list: non-bundle items unchanged + bundle items exploded into components.
     /// </summary>
     public async Task<DecompositionResult> DecomposeTransactionItemsAsync(
-        IEnumerable<BundleTransactionItem> items)
+        IEnumerable<BundleTransactionItem> items,
+        bool isReturn = false)
     {
         var itemList = items.ToList();
         var allItemIds = itemList.Select(i => i.ItemId).Distinct().ToList();
-        var bundleItemIds = await GetBundleItemIdsAsync(allItemIds);
+        var bundleItemIds = await GetBundleItemIdsAsync(allItemIds, isReturn);
 
         var regularItems = new List<BundleTransactionItem>();
         var packedItems = new List<DecomposedItem>();
@@ -126,7 +165,7 @@ public class ProductBundleDecompositionService : DomainService
             if (bundleItemIds.Contains(item.ItemId))
             {
                 var components = await DecomposeAsync(
-                    item.ItemId, item.Qty, item.Rate, item.WarehouseId, item.DetailId, item.Index);
+                    item.ItemId, item.Qty, item.Rate, item.WarehouseId, item.DetailId, item.Index, isReturn);
                 packedItems.AddRange(components);
             }
             else

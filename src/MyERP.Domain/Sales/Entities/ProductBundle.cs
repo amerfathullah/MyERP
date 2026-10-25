@@ -42,6 +42,14 @@ public class ProductBundle : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void AddItem(Guid componentItemId, decimal qty, string? itemName = null, string? uom = null)
     {
+        // Child item cannot be its own parent bundle (ERPNext PR #62149 / commit 268e829577)
+        if (componentItemId == ItemId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("message", "A Product Bundle cannot contain its own parent Item.")
+                .WithData("itemId", componentItemId);
+        }
+
         // Child item quantity must be positive (ERPNext PR #49163 / commit 711076d02d)
         if (qty <= 0)
         {

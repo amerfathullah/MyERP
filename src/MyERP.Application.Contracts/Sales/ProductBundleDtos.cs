@@ -17,6 +17,7 @@ public class ProductBundleItemDto
     public Guid Id { get; set; }
     public Guid ComponentItemId { get; set; }
     public string? ItemName { get; set; }
+    public string? Uom { get; set; }
     public decimal Qty { get; set; }
 }
 
@@ -32,5 +33,6 @@ public class CreateProductBundleItemDto
 {
     public Guid ComponentItemId { get; set; }
     public string? ItemName { get; set; }
+    public string? Uom { get; set; }
     public decimal Qty { get; set; }
 }

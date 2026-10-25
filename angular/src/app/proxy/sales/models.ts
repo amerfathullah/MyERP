@@ -330,6 +330,7 @@ export interface CreateProductBundleDto {
 export interface CreateProductBundleItemDto {
   componentItemId?: string;
   itemName?: string | null;
+  uom?: string | null;
   qty?: number;
 }
 
@@ -1320,6 +1321,7 @@ export interface ProductBundleItemDto {
   id?: string;
   componentItemId?: string;
   itemName?: string | null;
+  uom?: string | null;
   qty?: number;
 }
 

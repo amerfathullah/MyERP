@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using NSubstitute;
+using MyERP.Inventory;
+using MyERP.Inventory.Entities;
+using MyERP.Inventory.DomainServices;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using Shouldly;
@@ -261,5 +265,84 @@ public class ProductBundleDecompositionTests
         // Match unknown row -> empty
         var unknownPacked = ProductBundleDecompositionService.GetPackedItemsForBundleRow(packedItems, Guid.NewGuid(), 99).ToList();
         unknownPacked.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ProductBundleDecomposition_HonoursComponentUomConversion_PerPR62149()
+    {
+        var bundleItemId = Guid.NewGuid();
+        var compItemId = Guid.NewGuid();
+        var bundle = new ProductBundle(Guid.NewGuid(), bundleItemId);
+        bundle.AddItem(compItemId, 1m, "Box of Widgets", uom: "Box");
+
+        var bundleRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<ProductBundle, Guid>>();
+        bundleRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(new List<ProductBundle> { bundle }.AsQueryable()));
+
+        var compItem = new Item(compItemId, Guid.NewGuid(), "WIDGET", "Widget", ItemType.Goods)
+        {
+            Uom = "Nos"
+        };
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Item, Guid>>();
+        itemRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(new List<Item> { compItem }.AsQueryable()));
+
+        var uomConversion = new UomConversion(Guid.NewGuid(), "Box", "Nos", 12m, compItemId);
+        var uomRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<UomConversion, Guid>>();
+        uomRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(new List<UomConversion> { uomConversion }.AsQueryable()));
+        var uomService = new UomConversionService(uomRepo);
+
+        var service = new ProductBundleDecompositionService(bundleRepo, itemRepo, uomService);
+
+        // 2 bundles x 1 Box (12 Nos) = 24 Nos
+        var decomposed = await service.DecomposeAsync(bundleItemId, 2m, 100m);
+
+        decomposed.Count.ShouldBe(1);
+        decomposed[0].ComponentItemId.ShouldBe(compItemId);
+        decomposed[0].Qty.ShouldBe(24m);
+        decomposed[0].Uom.ShouldBe("Nos");
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ProductBundleDecomposition_AllowsDisabledBundleOnReturn_PerPR62149()
+    {
+        var bundleItemId = Guid.NewGuid();
+        var compItemId = Guid.NewGuid();
+        var bundle = new ProductBundle(Guid.NewGuid(), bundleItemId);
+        bundle.AddItem(compItemId, 2m, "Widget");
+        bundle.Disable();
+
+        var bundleRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<ProductBundle, Guid>>();
+        bundleRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(new List<ProductBundle> { bundle }.AsQueryable()));
+
+        var service = new ProductBundleDecompositionService(bundleRepo);
+
+        // Non-return call should not decompose disabled bundle
+        var normalDecomp = await service.DecomposeAsync(bundleItemId, 1m, 50m, isReturn: false);
+        normalDecomp.ShouldBeEmpty();
+
+        // Return call should decompose disabled bundle
+        var returnDecomp = await service.DecomposeAsync(bundleItemId, 1m, 50m, isReturn: true);
+        returnDecomp.Count.ShouldBe(1);
+        returnDecomp[0].Qty.ShouldBe(2m);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ProductBundleDecomposition_PreservesRepeatedBundleComponents_PerPR62149()
+    {
+        var bundleItemId = Guid.NewGuid();
+        var compItemId = Guid.NewGuid();
+        var bundle = new ProductBundle(Guid.NewGuid(), bundleItemId);
+        bundle.AddItem(compItemId, 2m, "Widget 1");
+        bundle.AddItem(compItemId, 3m, "Widget 2");
+
+        var bundleRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<ProductBundle, Guid>>();
+        bundleRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(new List<ProductBundle> { bundle }.AsQueryable()));
+
+        var service = new ProductBundleDecompositionService(bundleRepo);
+
+        // Decompose 2 bundles -> should produce 2 separate rows: 4 and 6
+        var decomposed = await service.DecomposeAsync(bundleItemId, 2m, 100m);
+        decomposed.Count.ShouldBe(2);
+        decomposed[0].Qty.ShouldBe(4m);
+        decomposed[1].Qty.ShouldBe(6m);
     }
 }

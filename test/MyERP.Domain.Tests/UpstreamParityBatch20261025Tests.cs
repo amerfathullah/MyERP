@@ -1045,4 +1045,74 @@ public class UpstreamParityBatch20261025Tests
         Assert.Equal(item2.Id, lineB.Item.Id);
         Assert.Equal(10m, lineB.Quantity);
     }
+
+    [Fact]
+    public void ProductBundle_AddItem_SelfReferencingItem_ThrowsValidationFailed_PR62149()
+    {
+        var parentItemId = Guid.NewGuid();
+        var bundle = new ProductBundle(Guid.NewGuid(), parentItemId);
+
+        var ex = Assert.Throws<BusinessException>(() =>
+            bundle.AddItem(parentItemId, 1m, "Self Component"));
+
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ProductBundle_Decompose_HonoursComponentUomConversion_PR62149()
+    {
+        var bundleItemId = Guid.NewGuid();
+        var compItemId = Guid.NewGuid();
+        var bundle = new ProductBundle(Guid.NewGuid(), bundleItemId);
+        bundle.AddItem(compItemId, 1m, "Box Component", uom: "Box");
+
+        var bundleRepo = NSubstitute.Substitute.For<IRepository<ProductBundle, Guid>>();
+        bundleRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(new List<ProductBundle> { bundle }.AsQueryable()));
+
+        var compItem = new Item(compItemId, Guid.NewGuid(), "COMP-1", "Component 1", ItemType.Goods)
+        {
+            Uom = "Nos"
+        };
+        var itemRepo = NSubstitute.Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(new List<Item> { compItem }.AsQueryable()));
+
+        var uomConversion = new UomConversion(Guid.NewGuid(), "Box", "Nos", 12m, compItemId);
+        var uomRepo = NSubstitute.Substitute.For<IRepository<UomConversion, Guid>>();
+        uomRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(new List<UomConversion> { uomConversion }.AsQueryable()));
+        var uomService = new UomConversionService(uomRepo);
+
+        var service = new ProductBundleDecompositionService(bundleRepo, itemRepo, uomService);
+
+        // 3 bundles x 1 Box (12 Nos) = 36 Nos
+        var decomposed = await service.DecomposeAsync(bundleItemId, 3m, 300m);
+
+        Assert.Single(decomposed);
+        Assert.Equal(compItemId, decomposed[0].ComponentItemId);
+        Assert.Equal(36m, decomposed[0].Qty);
+        Assert.Equal("Nos", decomposed[0].Uom);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ProductBundle_Decompose_AllowsDisabledBundleOnReturn_PR62149()
+    {
+        var bundleItemId = Guid.NewGuid();
+        var compItemId = Guid.NewGuid();
+        var bundle = new ProductBundle(Guid.NewGuid(), bundleItemId);
+        bundle.AddItem(compItemId, 5m, "Component");
+        bundle.Disable();
+
+        var bundleRepo = NSubstitute.Substitute.For<IRepository<ProductBundle, Guid>>();
+        bundleRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(new List<ProductBundle> { bundle }.AsQueryable()));
+
+        var service = new ProductBundleDecompositionService(bundleRepo);
+
+        // Standard transaction does not decompose disabled bundle
+        var standardResult = await service.DecomposeAsync(bundleItemId, 1m, 100m, isReturn: false);
+        Assert.Empty(standardResult);
+
+        // Return transaction decomposes disabled bundle
+        var returnResult = await service.DecomposeAsync(bundleItemId, 1m, 100m, isReturn: true);
+        Assert.Single(returnResult);
+        Assert.Equal(5m, returnResult[0].Qty);
+    }
 }

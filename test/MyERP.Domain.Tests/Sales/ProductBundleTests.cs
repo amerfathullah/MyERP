@@ -1,6 +1,8 @@
 using System;
+using MyERP.Core;
 using MyERP.Sales.Entities;
 using Shouldly;
+using Volo.Abp;
 using Xunit;
 
 namespace MyERP.Sales;
@@ -22,6 +24,18 @@ public class ProductBundleTests
         bundle.AddItem(Guid.NewGuid(), 5m, "Widget A");
         bundle.AddItem(Guid.NewGuid(), 2m, "Widget B");
         bundle.Items.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void AddItem_ThrowsWhenChildIsParentBundle_PerPR62149()
+    {
+        var parentItemId = Guid.NewGuid();
+        var bundle = new ProductBundle(Guid.NewGuid(), parentItemId);
+
+        var ex = Assert.Throws<BusinessException>(() =>
+            bundle.AddItem(parentItemId, 1m, "Self Component"));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
     }
 
     [Fact]

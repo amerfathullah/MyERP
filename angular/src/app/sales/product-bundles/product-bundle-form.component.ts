@@ -1,11 +1,10 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { ProductBundleService } from '../../proxy/sales/product-bundle.service';
-import { CompanyContextService } from '../../shared/services/company-context.service';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ItemService } from '../../proxy/inventory/item.service';
@@ -13,7 +12,7 @@ import { ItemService } from '../../proxy/inventory/item.service';
 @Component({
   selector: 'app-product-bundle-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, LocalizationPipe, SaveShortcutDirective, BreadcrumbComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, LocalizationPipe, SaveShortcutDirective, BreadcrumbComponent],
   template: `
     <app-breadcrumb />
     <div class="container-fluid py-3">
@@ -59,6 +58,7 @@ import { ItemService } from '../../proxy/inventory/item.service';
                 <tr>
                   <th>{{ '::Item' | abpLocalization }}</th>
                   <th>{{ '::Description' | abpLocalization }}</th>
+                  <th>{{ '::Uom' | abpLocalization }}</th>
                   <th class="text-end">{{ '::Quantity' | abpLocalization }}</th>
                   <th class="text-end">{{ '::Rate' | abpLocalization }}</th>
                   <th></th>
@@ -76,6 +76,7 @@ import { ItemService } from '../../proxy/inventory/item.service';
                       </select>
                     </td>
                     <td><input type="text" class="form-control form-control-sm" formControlName="description"></td>
+                    <td><input type="text" class="form-control form-control-sm" formControlName="uom"></td>
                     <td><input type="number" class="form-control form-control-sm" formControlName="quantity" min="0.01" step="0.01"></td>
                     <td><input type="number" class="form-control form-control-sm" formControlName="rate" min="0" step="0.01"></td>
                     <td>
@@ -130,6 +131,7 @@ export class ProductBundleFormComponent implements OnInit {
     this.componentsArray.push(this.fb.group({
       itemId: ['', Validators.required],
       description: [''],
+      uom: [''],
       quantity: [1, [Validators.required, Validators.min(0.01)]],
       rate: [0],
     }));
@@ -142,7 +144,10 @@ export class ProductBundleFormComponent implements OnInit {
     const itemId = group.get('itemId')!.value;
     const item = this.availableItems().find((i: any) => i.id === itemId);
     if (item) {
-      group.patchValue({ description: item.itemName || item.description || '' });
+      group.patchValue({
+        description: item.itemName || item.description || '',
+        uom: item.uom || '',
+      });
     }
   }
 
@@ -151,19 +156,24 @@ export class ProductBundleFormComponent implements OnInit {
     this.saving.set(true);
 
     const raw = this.form.getRawValue();
+    const parent = this.availableItems().find((i: any) => i.id === raw.parentItemId);
     const dto = {
-      parentItemId: raw.parentItemId,
+      itemId: raw.parentItemId,
+      itemName: parent ? `${parent.itemCode} - ${parent.itemName}` : '',
       description: raw.description || undefined,
-      items: (raw.items || []).filter((i: any) => i.itemId).map((i: any) => ({
-        itemId: i.itemId,
-        description: i.description || '',
-        quantity: i.quantity,
-        rate: i.rate || 0,
-      })),
+      items: (raw.items || []).filter((i: any) => i.itemId).map((i: any) => {
+        const item = this.availableItems().find((x: any) => x.id === i.itemId);
+        return {
+          componentItemId: i.itemId,
+          itemName: item ? `${item.itemCode} - ${item.itemName}` : '',
+          uom: i.uom || item?.uom || undefined,
+          qty: i.quantity,
+        };
+      }),
     };
 
     this.service.create(dto as any).subscribe({
-      next: (created) => {
+      next: () => {
         this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/sales/product-bundles']);
       },
