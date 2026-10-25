@@ -111,6 +111,23 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     {
         if (salesTeam == null || salesTeam.Count == 0) return;
 
+        // Per ERPNext PR #61835: unique members and individual bounds
+        var seenSalesPersons = new HashSet<Guid>();
+        for (int i = 0; i < salesTeam.Count; i++)
+        {
+            var row = salesTeam[i];
+            if (!seenSalesPersons.Add(row.SalesPersonId))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Sales Person is repeated in the sales team.");
+            }
+            if (row.AllocatedPercentage < 0m || row.AllocatedPercentage > 100m)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{i + 1}: Contribution (%) must be between 0 and 100.");
+            }
+        }
+
         var totalPercentage = salesTeam.Sum(s => s.AllocatedPercentage);
         if (Math.Round(totalPercentage, 2) != 100m)
             throw new BusinessException(MyERPDomainErrorCodes.SalesTeamPercentageMustTotal100)

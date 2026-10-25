@@ -558,6 +558,13 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
     {
         var quotation = await _repository.GetAsync(id);
 
+        // Per ERPNext PR #61828 (commit 03771aebd8): require at least one lost reason before declaring lost
+        if (input == null || input.LostReasonIds == null || !input.LostReasonIds.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Please select at least one Lost Reason.");
+        }
+
         // Per ERPNext PR #59378: check if any version in the family is ordered
         var rootId = quotation.RevisionOfId ?? quotation.Id;
         var queryable = await _repository.GetQueryableAsync();

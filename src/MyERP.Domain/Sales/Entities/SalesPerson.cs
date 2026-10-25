@@ -167,13 +167,35 @@ public class SalesTeamEntry : Entity<Guid>
     }
 
     /// <summary>
-    /// Validates that the allocated percentages in a sales team sum to exactly 100% (gotcha #301).
+    /// Validates that the allocated percentages in a sales team sum to exactly 100% (gotcha #301)
+    /// and that each member is unique with contribution between 0 and 100% (ERPNext PR #61835).
     /// </summary>
     public static void ValidateAllocatedPercentages(IEnumerable<SalesTeamEntry>? entries)
     {
         if (entries == null) return;
         var list = entries.ToList();
         if (list.Count == 0) return;
+
+        var seen = new HashSet<Guid>();
+        for (int i = 0; i < list.Count; i++)
+        {
+            var e = list[i];
+            if (!seen.Add(e.SalesPersonId))
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Sales Person is repeated in the sales team.");
+            }
+            if (e.AllocatedPercentage < 0m || e.AllocatedPercentage > 100m)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{i + 1}: Contribution (%) must be between 0 and 100.");
+            }
+            if (e.CommissionRate < 0m || e.CommissionRate > 100m)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{i + 1}: Commission Rate must be between 0 and 100.");
+            }
+        }
 
         var total = list.Sum(x => x.AllocatedPercentage);
         if (Math.Round(total, 2) != 100m)

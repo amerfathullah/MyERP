@@ -28,6 +28,7 @@ public abstract class QuotationStatusUpdaterTests<TStartupModule> : MyERPApplica
     private readonly IRepository<Opportunity, Guid> _opportunityRepository;
     private readonly IRepository<Quotation, Guid> _quotationRepository;
     private readonly IRepository<DocumentSeries, Guid> _seriesRepository;
+    private readonly IRepository<QuotationLostReason, Guid> _lostReasonRepository;
 
     protected QuotationStatusUpdaterTests()
     {
@@ -40,6 +41,7 @@ public abstract class QuotationStatusUpdaterTests<TStartupModule> : MyERPApplica
         _opportunityRepository = GetRequiredService<IRepository<Opportunity, Guid>>();
         _quotationRepository = GetRequiredService<IRepository<Quotation, Guid>>();
         _seriesRepository = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+        _lostReasonRepository = GetRequiredService<IRepository<QuotationLostReason, Guid>>();
     }
 
     [Fact]
@@ -113,8 +115,12 @@ public abstract class QuotationStatusUpdaterTests<TStartupModule> : MyERPApplica
                     }
                 }
             });
+            var reason = await _lostReasonRepository.InsertAsync(new QuotationLostReason(Guid.NewGuid(), "Price too high"), autoSave: true);
             await _quotationAppService.SubmitAsync(qtnDto2.Id);
-            await _quotationAppService.MarkLostAsync(qtnDto2.Id);
+            await _quotationAppService.MarkLostAsync(qtnDto2.Id, new MarkQuotationLostDto
+            {
+                LostReasonIds = new List<Guid> { reason.Id }
+            });
 
             var oppAfterLost = await _opportunityRepository.GetAsync(opp.Id);
             oppAfterLost.Status.ShouldBe(OpportunityStatus.Lost);

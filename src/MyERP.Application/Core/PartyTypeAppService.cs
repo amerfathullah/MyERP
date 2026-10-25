@@ -1,3 +1,4 @@
+using Volo.Abp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -67,6 +68,29 @@ public class PartyTypeAppService : MyERPAppService, IPartyTypeAppService
     public async Task<PartyTypeDto> UpdateAsync(Guid id, CreateUpdatePartyTypeDto input)
     {
         var entity = await _repository.GetAsync(id);
+
+        // Per ERPNext PR #60804 (commit f8741089cd): refuse changing AccountType on PartyType if ledger entries exist
+        if (entity.AccountType != input.AccountType)
+        {
+            var partyTypeName = entity.Name.Trim();
+            var jeLineRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.JournalEntryLine, Guid>>();
+            var jeLineQuery = await jeLineRepo.GetQueryableAsync();
+            var exists = jeLineQuery.Any(l => l.PartyType != null && l.PartyType.ToLower() == partyTypeName.ToLower());
+
+            if (!exists)
+            {
+                var pleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.PaymentLedgerEntry, Guid>>();
+                var pleQuery = await pleRepo.GetQueryableAsync();
+                exists = pleQuery.Any(p => p.PartyType.ToLower() == partyTypeName.ToLower());
+            }
+
+            if (exists)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cannot change Account Type for {entity.Name} after ledger entries exist.");
+            }
+        }
+
         entity.Name = input.Name;
         entity.AccountType = input.AccountType;
 

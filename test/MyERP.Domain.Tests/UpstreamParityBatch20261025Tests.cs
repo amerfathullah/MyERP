@@ -1115,4 +1115,172 @@ public class UpstreamParityBatch20261025Tests
         Assert.Single(returnResult);
         Assert.Equal(5m, returnResult[0].Qty);
     }
+
+    [Fact]
+    public async Task Quotation_MarkLost_RequiresLostReason_ThrowsValidationFailed_PR61828()
+    {
+        var quotationRepo = Substitute.For<IRepository<Quotation, Guid>>();
+        var qId = Guid.NewGuid();
+        var qtn = new Quotation(qId, Guid.NewGuid(), Guid.NewGuid(), "QTN-001", DateTime.UtcNow);
+        qtn.AddItem(Guid.NewGuid(), "Item", 1m, 100m, 0m);
+        qtn.Submit();
+        quotationRepo.GetAsync(qId).Returns(Task.FromResult(qtn));
+
+        var appService = new QuotationAppService(
+            quotationRepo,
+            Substitute.For<IRepository<Customer, Guid>>(),
+            Substitute.For<IRepository<MyERP.CRM.Entities.CompetitorDetail, Guid>>(),
+            Substitute.For<IRepository<QuotationLostReasonDetail, Guid>>(),
+            Substitute.For<IRepository<QuotationLostReason, Guid>>(),
+            Substitute.For<IDocumentNumberGenerator>(),
+            null!);
+
+        // Missing input or empty LostReasonIds -> throws ValidationFailed
+        var exNull = await Assert.ThrowsAsync<BusinessException>(() => appService.MarkLostAsync(qId, null));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, exNull.Code);
+        Assert.Contains("Please select at least one Lost Reason", exNull.Data["detail"]?.ToString() ?? "");
+
+        var exEmpty = await Assert.ThrowsAsync<BusinessException>(() => appService.MarkLostAsync(qId, new MarkQuotationLostDto { LostReasonIds = new List<Guid>() }));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, exEmpty.Code);
+        Assert.Contains("Please select at least one Lost Reason", exEmpty.Data["detail"]?.ToString() ?? "");
+    }
+
+    [Fact]
+    public async Task Supplier_ValidateSupplierGroup_RejectsGroupType_PR61829()
+    {
+        var groupRepo = Substitute.For<IRepository<SupplierGroup, Guid>>();
+        var leafGroupId = Guid.NewGuid();
+        var parentGroupId = Guid.NewGuid();
+
+        var groups = new List<SupplierGroup>
+        {
+            new SupplierGroup(parentGroupId, "All Supplier Groups", isGroup: true),
+            new SupplierGroup(leafGroupId, "Services", parentId: parentGroupId, isGroup: false)
+        }.AsQueryable();
+
+        groupRepo.GetQueryableAsync().Returns(Task.FromResult(groups));
+
+        var lazySp = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        lazySp.LazyGetRequiredService<IRepository<SupplierGroup, Guid>>().Returns(groupRepo);
+
+        var suppRepo = Substitute.For<IRepository<Supplier, Guid>>();
+        var appService = new SupplierAppService(suppRepo)
+        {
+            LazyServiceProvider = lazySp
+        };
+
+        // Rejects group type supplier group
+        var groupDto = new CreateUpdateSupplierDto
+        {
+            CompanyId = Guid.NewGuid(),
+            Name = "Acme Vendor",
+            SupplierGroupId = parentGroupId
+        };
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => appService.CreateAsync(groupDto));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("Cannot select a Group type Supplier Group", ex.Data["detail"]?.ToString() ?? "");
+    }
+
+    [Fact]
+    public void SalesTeamEntry_ValidateAllocatedPercentages_RejectsRepeatedSalesPerson_PR61835()
+    {
+        var spId = Guid.NewGuid();
+        var entries = new List<SalesTeamEntry>
+        {
+            new SalesTeamEntry(Guid.NewGuid(), spId, "SalesOrder", Guid.NewGuid(), 50m, 1000m, 5m),
+            new SalesTeamEntry(Guid.NewGuid(), spId, "SalesOrder", Guid.NewGuid(), 50m, 1000m, 5m)
+        };
+
+        var ex = Assert.Throws<BusinessException>(() => SalesTeamEntry.ValidateAllocatedPercentages(entries));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("repeated", ex.Data["detail"]?.ToString() ?? "");
+    }
+
+    [Theory]
+    [InlineData(-10, 110)]
+    [InlineData(120, -20)]
+    public void SalesTeamEntry_ValidateAllocatedPercentages_RejectsOutOfBoundsContribution_PR61835(decimal p1, decimal p2)
+    {
+        var entries = new List<SalesTeamEntry>
+        {
+            new SalesTeamEntry(Guid.NewGuid(), Guid.NewGuid(), "SalesOrder", Guid.NewGuid(), p1, 1000m, 5m),
+            new SalesTeamEntry(Guid.NewGuid(), Guid.NewGuid(), "SalesOrder", Guid.NewGuid(), p2, 1000m, 5m)
+        };
+
+        var ex = Assert.Throws<BusinessException>(() => SalesTeamEntry.ValidateAllocatedPercentages(entries));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("must be between 0 and 100", ex.Data["detail"]?.ToString() ?? "");
+    }
+
+    [Fact]
+    public async Task SalesPerson_Disable_RejectsUnfinishedSalesOrderOrDeliveryNote_PR61835()
+    {
+        var spId = Guid.NewGuid();
+        var sp = new SalesPerson(spId, "John Sales");
+        var spRepo = Substitute.For<IRepository<SalesPerson, Guid>>();
+        spRepo.GetAsync(spId).Returns(Task.FromResult(sp));
+
+        var teamRepo = Substitute.For<IRepository<SalesTeamEntry, Guid>>();
+        var soId = Guid.NewGuid();
+        var teamEntries = new List<SalesTeamEntry>
+        {
+            new SalesTeamEntry(Guid.NewGuid(), spId, "SalesOrder", soId, 100m, 1000m, 5m)
+        }.AsQueryable();
+        teamRepo.GetQueryableAsync().Returns(Task.FromResult(teamEntries));
+
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var order = new SalesOrder(soId, Guid.NewGuid(), Guid.NewGuid(), "SO-001", DateTime.UtcNow);
+        order.AddItem(Guid.NewGuid(), "Item", 1m, 1000m, 0m);
+        order.Submit(); // Status = ToDeliverAndBill (unfinished)
+        var orders = new List<SalesOrder> { order }.AsQueryable();
+        soRepo.GetQueryableAsync().Returns(Task.FromResult(orders));
+
+        var lazySp = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        lazySp.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>().Returns(teamRepo);
+        lazySp.LazyGetRequiredService<IRepository<SalesOrder, Guid>>().Returns(soRepo);
+
+        var appService = new SalesPersonAppService(spRepo)
+        {
+            LazyServiceProvider = lazySp
+        };
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => appService.DisableAsync(spId));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("unfinished", ex.Data["detail"]?.ToString() ?? "");
+    }
+
+    [Fact]
+    public async Task PartyType_Update_RefusesChangingAccountTypeWhenGLEntriesExist_PR60804()
+    {
+        var ptId = Guid.NewGuid();
+        var partyType = new PartyType(ptId, "Sales Partner", PartyAccountType.Receivable);
+        var ptRepo = Substitute.For<IRepository<PartyType, Guid>>();
+        ptRepo.GetAsync(ptId).Returns(Task.FromResult(partyType));
+
+        var jeLineRepo = Substitute.For<IRepository<JournalEntryLine, Guid>>();
+        var jeLines = new List<JournalEntryLine>
+        {
+            new JournalEntryLine(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 100m, true) { PartyType = "Sales Partner" }
+        }.AsQueryable();
+        jeLineRepo.GetQueryableAsync().Returns(Task.FromResult(jeLines));
+
+        var lazySp = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        lazySp.LazyGetRequiredService<IRepository<JournalEntryLine, Guid>>().Returns(jeLineRepo);
+
+        var appService = new PartyTypeAppService(ptRepo)
+        {
+            LazyServiceProvider = lazySp
+        };
+
+        var updateDto = new CreateUpdatePartyTypeDto
+        {
+            Name = "Sales Partner",
+            AccountType = PartyAccountType.Payable
+        };
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => appService.UpdateAsync(ptId, updateDto));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("Cannot change Account Type for Sales Partner after ledger entries exist", ex.Data["detail"]?.ToString() ?? "");
+    }
 }

@@ -164,6 +164,17 @@ public class SupplierAppService :
             throw new BusinessException(MyERPDomainErrorCodes.SupplierNameCannotMatchSupplierGroup)
                 .WithData("name", input.Name);
         }
+
+        // Per ERPNext PR #61829: prevent selection of group type supplier group in supplier master
+        if (input.SupplierGroupId.HasValue)
+        {
+            var supplierGroup = query.FirstOrDefault(g => g.Id == input.SupplierGroupId.Value);
+            if (supplierGroup != null && supplierGroup.IsGroup)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot select a Group type Supplier Group. Please select a non-group Supplier Group.");
+            }
+        }
     }
 
     protected override Supplier MapToEntity(CreateUpdateSupplierDto input)
