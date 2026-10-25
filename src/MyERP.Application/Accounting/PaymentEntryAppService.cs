@@ -83,6 +83,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         var pe = await _repository.GetAsync(id);
         var dto = ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
         await PopulateAccountDetailsAsync(dto);
+        dto.PartyName = await ResolvePartyNameAsync(pe.PartyType, pe.PartyId);
         return dto;
     }
 
@@ -122,12 +123,16 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
         var dtos = list.Select(ObjectMapper.Map<PaymentEntry, PaymentEntryDto>).ToList();
 
-        // Resolve party names
-        var customerIds = list.Where(p => p.PartyType == "Customer" && p.PartyId.HasValue).Select(p => p.PartyId!.Value).Distinct().ToList();
-        var supplierIds = list.Where(p => p.PartyType == "Supplier" && p.PartyId.HasValue).Select(p => p.PartyId!.Value).Distinct().ToList();
+        // Resolve party names (per ERPNext PR #60804 / commit e36428a61d)
+        var customerIds = list.Where(p => string.Equals(p.PartyType, "Customer", StringComparison.OrdinalIgnoreCase) && p.PartyId.HasValue).Select(p => p.PartyId!.Value).Distinct().ToList();
+        var supplierIds = list.Where(p => string.Equals(p.PartyType, "Supplier", StringComparison.OrdinalIgnoreCase) && p.PartyId.HasValue).Select(p => p.PartyId!.Value).Distinct().ToList();
+        var shareholderIds = list.Where(p => string.Equals(p.PartyType, "Shareholder", StringComparison.OrdinalIgnoreCase) && p.PartyId.HasValue).Select(p => p.PartyId!.Value).Distinct().ToList();
+        var employeeIds = list.Where(p => string.Equals(p.PartyType, "Employee", StringComparison.OrdinalIgnoreCase) && p.PartyId.HasValue).Select(p => p.PartyId!.Value).Distinct().ToList();
 
         var customerNames = new Dictionary<Guid, string>();
         var supplierNames = new Dictionary<Guid, string>();
+        var shareholderNames = new Dictionary<Guid, string>();
+        var employeeNames = new Dictionary<Guid, string>();
 
         if (customerIds.Count > 0)
         {
@@ -145,16 +150,39 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 .Select(s => new { s.Id, s.Name }).ToList()
                 .ToDictionary(s => s.Id, s => s.Name);
         }
+        if (shareholderIds.Count > 0)
+        {
+            var shRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Shareholder, Guid>>();
+            var shQuery = await shRepo.GetQueryableAsync();
+            shareholderNames = shQuery.Where(s => shareholderIds.Contains(s.Id))
+                .Select(s => new { s.Id, s.Title }).ToList()
+                .ToDictionary(s => s.Id, s => s.Title);
+        }
+        if (employeeIds.Count > 0)
+        {
+            var empRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<HumanResources.Entities.Employee, Guid>>();
+            var empQuery = await empRepo.GetQueryableAsync();
+            employeeNames = empQuery.Where(e => employeeIds.Contains(e.Id))
+                .Select(e => new { e.Id, Name = string.IsNullOrEmpty(e.LastName) ? e.FirstName : e.FirstName + " " + e.LastName }).ToList()
+                .ToDictionary(e => e.Id, e => e.Name);
+        }
 
         for (int i = 0; i < dtos.Count; i++)
         {
             var pe = list[i];
             dtos[i].PartyType = pe.PartyType;
             dtos[i].PartyId = pe.PartyId;
-            if (pe.PartyType == "Customer" && pe.PartyId.HasValue)
-                dtos[i].PartyName = customerNames.GetValueOrDefault(pe.PartyId.Value);
-            else if (pe.PartyType == "Supplier" && pe.PartyId.HasValue)
-                dtos[i].PartyName = supplierNames.GetValueOrDefault(pe.PartyId.Value);
+            if (pe.PartyId.HasValue && !string.IsNullOrWhiteSpace(pe.PartyType))
+            {
+                if (string.Equals(pe.PartyType, "Customer", StringComparison.OrdinalIgnoreCase))
+                    dtos[i].PartyName = customerNames.GetValueOrDefault(pe.PartyId.Value);
+                else if (string.Equals(pe.PartyType, "Supplier", StringComparison.OrdinalIgnoreCase))
+                    dtos[i].PartyName = supplierNames.GetValueOrDefault(pe.PartyId.Value);
+                else if (string.Equals(pe.PartyType, "Shareholder", StringComparison.OrdinalIgnoreCase))
+                    dtos[i].PartyName = shareholderNames.GetValueOrDefault(pe.PartyId.Value);
+                else if (string.Equals(pe.PartyType, "Employee", StringComparison.OrdinalIgnoreCase))
+                    dtos[i].PartyName = employeeNames.GetValueOrDefault(pe.PartyId.Value);
+            }
         }
 
         return new PagedResultDto<PaymentEntryDto>(count, dtos);
@@ -254,7 +282,13 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             "PaymentEntry", input.CompanyId,
             accountIds: new[] { input.PaidFromAccountId, input.PaidToAccountId });
 
-        await ValidatePartyUsableAsync(input.PartyType, input.PartyId, input.CompanyId);
+        await ValidatePartyDetailsAsync(
+            input.PartyType,
+            input.PartyId,
+            input.PaymentType,
+            input.PaidFromAccountId,
+            input.PaidToAccountId,
+            input.CompanyId);
 
         // Per gotcha #197: Receive type cannot have net negative allocation for Customer
         if (input.PaymentType == PaymentType.Receive && string.Equals(input.PartyType, "Customer", StringComparison.OrdinalIgnoreCase))
@@ -392,6 +426,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         await _repository.InsertAsync(pe, autoSave: true);
         var resultDto = ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
         await PopulateAccountDetailsAsync(resultDto);
+        resultDto.PartyName = await ResolvePartyNameAsync(pe.PartyType, pe.PartyId);
         return resultDto;
     }
 
@@ -410,6 +445,13 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
     {
         var pe = await _repository.GetAsync(id);
         await ValidateEnabledModeOfPaymentAsync(pe.ModeOfPaymentId, pe.ModeOfPayment);
+        await ValidatePartyDetailsAsync(
+            pe.PartyType,
+            pe.PartyId,
+            pe.PaymentType,
+            pe.PaidFromAccountId,
+            pe.PaidToAccountId,
+            pe.CompanyId);
 
         // Supplier hold enforcement: HoldType.All or HoldType.Payments blocks PE
         if (pe.PartyType == "Supplier" && pe.PartyId.HasValue)
@@ -1393,6 +1435,19 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         entry.ReferenceNumber = input.ReferenceNumber;
         entry.ReferenceDate = input.ReferenceDate;
 
+        if (input.PartyType != null)
+            entry.PartyType = input.PartyType;
+        if (input.PartyId.HasValue)
+            entry.PartyId = input.PartyId;
+
+        await ValidatePartyDetailsAsync(
+            entry.PartyType,
+            entry.PartyId,
+            entry.PaymentType,
+            entry.PaidFromAccountId,
+            entry.PaidToAccountId,
+            entry.CompanyId);
+
         if (input.Taxes != null)
         {
             entry.Taxes.Clear();
@@ -1400,7 +1455,10 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         }
 
         await _repository.UpdateAsync(entry, autoSave: true);
-        return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(entry);
+        var resultDto = ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(entry);
+        await PopulateAccountDetailsAsync(resultDto);
+        resultDto.PartyName = await ResolvePartyNameAsync(entry.PartyType, entry.PartyId);
+        return resultDto;
     }
 
     /// <summary>
@@ -1890,6 +1948,88 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         if (account?.AccountSubType == AccountSubType.BankAccount)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Reference No and Reference Date is mandatory for Bank transaction.");
+    }
+
+    /// <summary>
+    /// Validates registered party type and account type compatibility.
+    /// Maps to ERPNext PR #60804 (commit 86bfd5a633).
+    /// </summary>
+    private async Task ValidatePartyDetailsAsync(
+        string? partyType,
+        Guid? partyId,
+        PaymentType paymentType,
+        Guid paidFromAccountId,
+        Guid paidToAccountId,
+        Guid companyId)
+    {
+        if (string.IsNullOrWhiteSpace(partyType))
+            return;
+
+        var trimmedPartyType = partyType.Trim();
+        var partyValidation = LazyServiceProvider.LazyGetRequiredService<PartyValidationService>();
+        var partyTypeEntity = await partyValidation.ValidatePartyTypeExistsAsync(trimmedPartyType);
+
+        if (!string.Equals(trimmedPartyType, "Employee", StringComparison.OrdinalIgnoreCase))
+        {
+            var partyAccountId = paymentType == PaymentType.Receive ? paidFromAccountId :
+                                 paymentType == PaymentType.Pay ? paidToAccountId : Guid.Empty;
+
+            if (partyAccountId != Guid.Empty)
+            {
+                var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+                var company = await companyRepo.FindAsync(companyId);
+                var separateAdvance = company?.BookAdvancePaymentsInSeparatePartyAccount == true;
+
+                var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+                var account = await accountRepo.FindAsync(partyAccountId);
+                if (account != null)
+                {
+                    partyValidation.ValidatePartyAccountType(trimmedPartyType, partyTypeEntity.AccountType, account, separateAdvance);
+                }
+            }
+        }
+
+        if (partyId.HasValue)
+        {
+            await partyValidation.ValidatePartyEntityExistsAsync(trimmedPartyType, partyId.Value);
+            await ValidatePartyUsableAsync(trimmedPartyType, partyId.Value, companyId);
+        }
+    }
+
+    /// <summary>
+    /// Resolves party title/display name across supported party types (per ERPNext PR #60804 / commit e36428a61d).
+    /// </summary>
+    private async Task<string?> ResolvePartyNameAsync(string? partyType, Guid? partyId)
+    {
+        if (!partyId.HasValue || string.IsNullOrWhiteSpace(partyType))
+            return null;
+
+        if (string.Equals(partyType, "Customer", StringComparison.OrdinalIgnoreCase))
+        {
+            var custRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+            var c = await custRepo.FindAsync(partyId.Value);
+            return c?.Name;
+        }
+        if (string.Equals(partyType, "Supplier", StringComparison.OrdinalIgnoreCase))
+        {
+            var suppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+            var s = await suppRepo.FindAsync(partyId.Value);
+            return s?.Name;
+        }
+        if (string.Equals(partyType, "Shareholder", StringComparison.OrdinalIgnoreCase))
+        {
+            var shRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Shareholder, Guid>>();
+            var sh = await shRepo.FindAsync(partyId.Value);
+            return sh?.Title;
+        }
+        if (string.Equals(partyType, "Employee", StringComparison.OrdinalIgnoreCase))
+        {
+            var empRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<HumanResources.Entities.Employee, Guid>>();
+            var emp = await empRepo.FindAsync(partyId.Value);
+            return emp?.FullName;
+        }
+
+        return null;
     }
 
     /// <summary>ERPNext validate_party_frozen_disabled: no payment to/from a disabled or (unless overridden) frozen Customer or Supplier.</summary>

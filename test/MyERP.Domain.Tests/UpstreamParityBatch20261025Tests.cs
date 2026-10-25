@@ -1388,4 +1388,100 @@ public class UpstreamParityBatch20261025Tests
         Assert.Equal(-7500m, row.Variance);
         Assert.Equal(25m, row.AchievementPercentage);
     }
+
+    [Fact]
+    public async Task PartyValidationService_ValidatePartyTypeExists_RejectsUnregisteredType_PR60804()
+    {
+        var partyTypeRepo = Substitute.For<IRepository<PartyType, Guid>>();
+        var registeredTypes = new List<PartyType>
+        {
+            new PartyType(Guid.NewGuid(), "Customer", PartyAccountType.Receivable),
+            new PartyType(Guid.NewGuid(), "Supplier", PartyAccountType.Payable)
+        }.AsQueryable();
+
+        partyTypeRepo.GetQueryableAsync().Returns(Task.FromResult(registeredTypes));
+        partyTypeRepo.GetCountAsync().Returns(Task.FromResult(2L));
+
+        var sp = Substitute.For<IServiceProvider>();
+        sp.GetService(typeof(IRepository<PartyType, Guid>)).Returns(partyTypeRepo);
+
+        var lazySp = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        lazySp.LazyGetService<IRepository<PartyType, Guid>>().Returns(partyTypeRepo);
+
+        var service = new PartyValidationService();
+        typeof(Volo.Abp.Domain.Services.DomainService)
+            .GetProperty("LazyServiceProvider", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)?
+            .SetValue(service, lazySp);
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() =>
+            service.ValidatePartyTypeExistsAsync("User", "Row 1: "));
+
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("Row 1: User is not a valid Party Type", ex.Data["detail"]?.ToString());
+    }
+
+    [Fact]
+    public async Task PartyValidationService_ValidatePartyTypeExists_AcceptsRegisteredType_PR60804()
+    {
+        var partyTypeRepo = Substitute.For<IRepository<PartyType, Guid>>();
+        var customerPt = new PartyType(Guid.NewGuid(), "Customer", PartyAccountType.Receivable);
+        var registeredTypes = new List<PartyType> { customerPt }.AsQueryable();
+
+        partyTypeRepo.GetQueryableAsync().Returns(Task.FromResult(registeredTypes));
+        partyTypeRepo.GetCountAsync().Returns(Task.FromResult(1L));
+
+        var lazySp = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        lazySp.LazyGetService<IRepository<PartyType, Guid>>().Returns(partyTypeRepo);
+
+        var service = new PartyValidationService();
+        typeof(Volo.Abp.Domain.Services.DomainService)
+            .GetProperty("LazyServiceProvider", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)?
+            .SetValue(service, lazySp);
+
+        var result = await service.ValidatePartyTypeExistsAsync("Customer");
+        Assert.NotNull(result);
+        Assert.Equal("Customer", result.Name);
+    }
+
+    [Fact]
+    public void PartyValidationService_ValidatePartyAccountType_RejectsMismatch_PR60804()
+    {
+        var service = new PartyValidationService();
+        var companyId = Guid.NewGuid();
+        var payableAccount = new Account(Guid.NewGuid(), companyId, "2001", "Creditors", AccountType.Liability)
+        {
+            AccountSubType = AccountSubType.AccountsPayable
+        };
+
+        var ex = Assert.Throws<BusinessException>(() =>
+            service.ValidatePartyAccountType("Customer", PartyAccountType.Receivable, payableAccount, separateAdvance: false));
+
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("Account Creditors and Party Type Customer have different account types", ex.Data["detail"]?.ToString());
+    }
+
+    [Fact]
+    public void PartyValidationService_ValidatePartyAccountType_AcceptsShareholderEquity_PR60804()
+    {
+        var service = new PartyValidationService();
+        var companyId = Guid.NewGuid();
+        var equityAccount = new Account(Guid.NewGuid(), companyId, "3001", "Share Capital", AccountType.Equity)
+        {
+            AccountSubType = AccountSubType.ShareCapital
+        };
+
+        // Shareholder with Equity account is accepted without exception
+        service.ValidatePartyAccountType("Shareholder", PartyAccountType.Payable, equityAccount, separateAdvance: false);
+    }
+
+    [Fact]
+    public void PartyValidationService_ValidatePartyAccountType_AcceptsSeparateAdvance_PR60804()
+    {
+        var service = new PartyValidationService();
+        var companyId = Guid.NewGuid();
+        var liabilityAccount = new Account(Guid.NewGuid(), companyId, "2100", "Customer Advances", AccountType.Liability);
+
+        // When separateAdvance is true, different account type is permitted
+        service.ValidatePartyAccountType("Customer", PartyAccountType.Receivable, liabilityAccount, separateAdvance: true);
+    }
 }

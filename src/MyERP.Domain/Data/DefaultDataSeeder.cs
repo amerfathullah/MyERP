@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using MyERP.Accounting;
 using MyERP.Accounting.Entities;
+using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.HumanResources;
 using MyERP.HumanResources.Entities;
@@ -45,6 +46,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
     private readonly IRepository<UomConversion, Guid> _uomConversionRepository;
     private readonly IRepository<CurrencyExchange, Guid> _currencyExchangeRepository;
     private readonly IRepository<FinancialReportTemplate, Guid> _reportTemplateRepository;
+    private readonly IRepository<PartyType, Guid> _partyTypeRepository;
     private readonly MalaysianCoaSeeder _coaSeeder;
     private readonly IGuidGenerator _guidGenerator;
     private readonly IServiceProvider _serviceProvider;
@@ -71,6 +73,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         IRepository<UomConversion, Guid> uomConversionRepository,
         IRepository<CurrencyExchange, Guid> currencyExchangeRepository,
         IRepository<FinancialReportTemplate, Guid> reportTemplateRepository,
+        IRepository<PartyType, Guid> partyTypeRepository,
         MalaysianCoaSeeder coaSeeder,
         IGuidGenerator guidGenerator,
         IServiceProvider serviceProvider)
@@ -96,6 +99,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         _uomConversionRepository = uomConversionRepository;
         _currencyExchangeRepository = currencyExchangeRepository;
         _reportTemplateRepository = reportTemplateRepository;
+        _partyTypeRepository = partyTypeRepository;
         _coaSeeder = coaSeeder;
         _guidGenerator = guidGenerator;
         _serviceProvider = serviceProvider;
@@ -118,6 +122,7 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
         await SeedUomDataAsync();
         await SeedPeggedCurrenciesAsync();
         await SeedFinancialReportTemplatesAsync();
+        await SeedPartyTypesAsync();
         await SeedEmailTemplatesAsync();
         await GrantAdminPosProfilePermissionsAsync();
     }
@@ -785,5 +790,30 @@ public class DefaultDataSeeder : IDataSeedContributor, ITransientDependency
             "<p>Delivery Note: <strong>{{ document_number }}</strong></p>" +
             "<p>Best regards,<br/>{{ company_name }}</p>")
         { DocumentType = "DeliveryNote" }, autoSave: true);
+    }
+
+    /// <summary>
+    /// Seeds standard Party Types mapped to their default account types.
+    /// Maps to ERPNext accounts/doctype/party_type.
+    /// </summary>
+    private async Task SeedPartyTypesAsync()
+    {
+        if (await _partyTypeRepository.GetCountAsync() > 0) return;
+
+        var defaults = new (string Name, PartyAccountType AccountType)[]
+        {
+            ("Customer", PartyAccountType.Receivable),
+            ("Supplier", PartyAccountType.Payable),
+            ("Employee", PartyAccountType.Payable),
+            ("Shareholder", PartyAccountType.Payable),
+            ("Member", PartyAccountType.Receivable),
+        };
+
+        foreach (var (name, accountType) in defaults)
+        {
+            await _partyTypeRepository.InsertAsync(
+                new PartyType(_guidGenerator.Create(), name, accountType),
+                autoSave: false);
+        }
     }
 }

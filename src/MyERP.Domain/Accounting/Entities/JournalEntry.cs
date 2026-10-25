@@ -99,7 +99,15 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
         RecalculateTotals();
     }
 
-    public void AddLine(Guid accountId, decimal amount, bool isDebit, string? description = null)
+    public void AddLine(
+        Guid accountId,
+        decimal amount,
+        bool isDebit,
+        string? description = null,
+        Guid? partyId = null,
+        string? partyType = null,
+        Guid? costCenterId = null,
+        Guid? projectId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -107,14 +115,21 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (amount <= 0)
             throw new ArgumentException("Amount must be positive.", nameof(amount));
 
-        _lines.Add(new JournalEntryLine(
+        var line = new JournalEntryLine(
             Guid.NewGuid(),
             Id,
             accountId,
             amount,
             isDebit,
-            description));
+            description)
+        {
+            PartyId = partyId,
+            PartyType = partyType,
+            CostCenterId = costCenterId,
+            ProjectId = projectId
+        };
 
+        _lines.Add(line);
         RecalculateTotals();
     }
 

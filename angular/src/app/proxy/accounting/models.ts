@@ -1004,6 +1004,10 @@ export interface CreateJournalEntryLineDto {
   amount: number;
   isDebit: boolean;
   description?: string | null;
+  partyId?: string | null;
+  partyType?: string | null;
+  costCenterId?: string | null;
+  projectId?: string | null;
 }
 
 export interface CreateJournalEntryTemplateLineDto {
@@ -1755,6 +1759,10 @@ export interface JournalEntryLineDto {
   amount?: number;
   isDebit?: boolean;
   description?: string | null;
+  partyId?: string | null;
+  partyType?: string | null;
+  costCenterId?: string | null;
+  projectId?: string | null;
 }
 
 export interface JournalEntryTemplateDto extends FullAuditedEntityDto<string> {

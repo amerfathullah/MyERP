@@ -120,9 +120,25 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         entry.ReferenceNumber = input.ReferenceNumber;
         entry.Narration = input.Narration;
 
+        var partyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
+        int createRowIdx = 1;
         foreach (var line in input.Lines)
         {
-            entry.AddLine(line.AccountId, line.Amount, line.IsDebit, line.Description);
+            if (!string.IsNullOrWhiteSpace(line.PartyType))
+            {
+                await partyValidation.ValidatePartyTypeExistsAsync(line.PartyType.Trim(), $"Row {createRowIdx}: ");
+            }
+
+            entry.AddLine(
+                line.AccountId,
+                line.Amount,
+                line.IsDebit,
+                line.Description,
+                line.PartyId,
+                line.PartyType,
+                line.CostCenterId,
+                line.ProjectId);
+            createRowIdx++;
         }
 
         var accountIds = input.Lines.Select(l => l.AccountId).ToArray();
@@ -160,9 +176,25 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
         entry.Narration = input.Narration;
 
         entry.ClearLines();
+        var updatePartyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
+        int updateRowIdx = 1;
         foreach (var line in input.Lines)
         {
-            entry.AddLine(line.AccountId, line.Amount, line.IsDebit, line.Description);
+            if (!string.IsNullOrWhiteSpace(line.PartyType))
+            {
+                await updatePartyValidation.ValidatePartyTypeExistsAsync(line.PartyType.Trim(), $"Row {updateRowIdx}: ");
+            }
+
+            entry.AddLine(
+                line.AccountId,
+                line.Amount,
+                line.IsDebit,
+                line.Description,
+                line.PartyId,
+                line.PartyType,
+                line.CostCenterId,
+                line.ProjectId);
+            updateRowIdx++;
         }
 
         // Validate account heads belong to company on save (ERPNext PR #59655 / commit a7ee553218)
@@ -263,6 +295,22 @@ public class JournalEntryAppService : ApplicationService, IJournalEntryAppServic
                             .WithData("detail", "Total Credit/Debit Amount should be same as linked Journal Entry.");
                     }
                 }
+            }
+        }
+
+        // Per ERPNext PR #60804 (commit 91c731fff2): reject unregistered party types on journal lines
+        // Cancellation / reversal bypass: allow reversing historical entries even if party type is now unregistered
+        if (!entry.ReversalOfId.HasValue)
+        {
+            var postPartyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
+            int postRowIdx = 1;
+            foreach (var line in entry.Lines)
+            {
+                if (!string.IsNullOrWhiteSpace(line.PartyType))
+                {
+                    await postPartyValidation.ValidatePartyTypeExistsAsync(line.PartyType.Trim(), $"Row {postRowIdx}: ");
+                }
+                postRowIdx++;
             }
         }
 

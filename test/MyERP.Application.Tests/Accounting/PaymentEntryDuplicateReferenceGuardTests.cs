@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
@@ -125,6 +126,97 @@ public abstract class PaymentEntryDuplicateReferenceGuardTests<TStartupModule> :
                     PartyId = customer.Id,
                 }));
             ex.Code.ShouldBe(MyERPDomainErrorCodes.PartyDisabled);
+        });
+    }
+
+    [Fact]
+    public async Task CreateAsync_UnregisteredPartyType_ThrowsValidationFailed_PR60804()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "PE Unreg Party Co"), autoSave: true);
+            var accountRepository = GetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
+            var bank = await accountRepository.InsertAsync(new Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1123-PEUNREG", "Bank", AccountType.Asset), autoSave: true);
+            var receivable = await accountRepository.InsertAsync(new Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1132-PEUNREG", "Receivable", AccountType.Asset), autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                GetRequiredService<IPaymentEntryAppService>().CreateAsync(new CreatePaymentEntryDto
+                {
+                    CompanyId = company.Id,
+                    PaymentType = PaymentType.Receive,
+                    PostingDate = DateTime.UtcNow,
+                    PaidAmount = 100m,
+                    PaidFromAccountId = receivable.Id,
+                    PaidToAccountId = bank.Id,
+                    PartyType = "User",
+                    PartyId = Guid.NewGuid(),
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            ex.Data["detail"]!.ToString()!.ShouldContain("User is not a valid Party Type");
+        });
+    }
+
+    [Fact]
+    public async Task CreateAsync_AccountTypeMismatch_ThrowsValidationFailed_PR60804()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "PE Mismatch Co"), autoSave: true);
+            var customer = await GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>().InsertAsync(
+                new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "PE Cust Parity"), autoSave: true);
+            var accountRepository = GetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
+            var bank = await accountRepository.InsertAsync(new Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1123-PEMIS", "Bank", AccountType.Asset), autoSave: true);
+            // Creditors account (Payable) used for Customer (Receivable)
+            var creditors = await accountRepository.InsertAsync(new Accounting.Entities.Account(Guid.NewGuid(), company.Id, "2001-PEMIS", "Creditors", AccountType.Liability)
+            {
+                AccountSubType = AccountSubType.AccountsPayable
+            }, autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                GetRequiredService<IPaymentEntryAppService>().CreateAsync(new CreatePaymentEntryDto
+                {
+                    CompanyId = company.Id,
+                    PaymentType = PaymentType.Receive,
+                    PostingDate = DateTime.UtcNow,
+                    PaidAmount = 100m,
+                    PaidFromAccountId = creditors.Id,
+                    PaidToAccountId = bank.Id,
+                    PartyType = "Customer",
+                    PartyId = customer.Id,
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            ex.Data["detail"]!.ToString()!.ShouldContain("Account Creditors and Party Type Customer have different account types");
+        });
+    }
+
+    [Fact]
+    public async Task CreateAsync_JournalEntry_UnregisteredPartyType_ThrowsValidationFailed_PR60804()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(new Company(Guid.NewGuid(), "JE Unreg Party Co"), autoSave: true);
+            await GetRequiredService<IRepository<DocumentSeries, Guid>>().InsertAsync(
+                new DocumentSeries(Guid.NewGuid(), company.Id, "JE Series", "JournalEntry", "JE-"), autoSave: true);
+            var accountRepository = GetRequiredService<IRepository<Accounting.Entities.Account, Guid>>();
+            var bank = await accountRepository.InsertAsync(new Accounting.Entities.Account(Guid.NewGuid(), company.Id, "1121-JEUNREG", "Bank", AccountType.Asset), autoSave: true);
+            var expense = await accountRepository.InsertAsync(new Accounting.Entities.Account(Guid.NewGuid(), company.Id, "5001-JEUNREG", "Expense", AccountType.Expense), autoSave: true);
+            var fiscalYear = await GetRequiredService<IRepository<FiscalYear, Guid>>().InsertAsync(
+                new FiscalYear(Guid.NewGuid(), company.Id, "2026", new DateTime(2026, 1, 1), new DateTime(2026, 12, 31)), autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                GetRequiredService<IJournalEntryAppService>().CreateAsync(new CreateJournalEntryDto
+                {
+                    CompanyId = company.Id,
+                    FiscalYearId = fiscalYear.Id,
+                    PostingDate = DateTime.UtcNow,
+                    Lines = new List<CreateJournalEntryLineDto>
+                    {
+                        new() { AccountId = expense.Id, Amount = 100m, IsDebit = true, PartyType = "User", PartyId = Guid.NewGuid() },
+                        new() { AccountId = bank.Id, Amount = 100m, IsDebit = false }
+                    }
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            ex.Data["detail"]!.ToString()!.ShouldContain("Row 1: User is not a valid Party Type");
         });
     }
 }

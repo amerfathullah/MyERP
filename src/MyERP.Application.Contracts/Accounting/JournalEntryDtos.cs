@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using MyERP.Core;
 using Volo.Abp.Application.Dtos;
 
 namespace MyERP.Accounting;
@@ -32,6 +33,10 @@ public class JournalEntryLineDto
     public decimal Amount { get; set; }
     public bool IsDebit { get; set; }
     public string? Description { get; set; }
+    public Guid? PartyId { get; set; }
+    public string? PartyType { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
 }
 
 public class CreateJournalEntryDto
@@ -53,4 +58,8 @@ public class CreateJournalEntryLineDto
     [Required][Range(0.01, double.MaxValue)] public decimal Amount { get; set; }
     [Required] public bool IsDebit { get; set; }
     [StringLength(500)] public string? Description { get; set; }
+    public Guid? PartyId { get; set; }
+    [StringLength(PartyTypeConsts.MaxPartyTypeNameLength)] public string? PartyType { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
 }

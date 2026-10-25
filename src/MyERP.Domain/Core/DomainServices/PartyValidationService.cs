@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using MyERP.Accounting;
+using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -176,6 +178,136 @@ public class PartyValidationService : DomainService
         {
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Company address does not belong to company (ID: {expectedCompanyId}).");
+        }
+    }
+
+    private static readonly Dictionary<string, PartyAccountType> StandardPartyTypeDefaults = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "Customer", PartyAccountType.Receivable },
+        { "Supplier", PartyAccountType.Payable },
+        { "Employee", PartyAccountType.Payable },
+        { "Shareholder", PartyAccountType.Payable },
+        { "Member", PartyAccountType.Receivable },
+    };
+
+    /// <summary>
+    /// Validates that the specified partyType exists in the registered PartyType table.
+    /// Maps to ERPNext PR #60804 (commits 91c731fff2, 86bfd5a633).
+    /// </summary>
+    public async Task<PartyType> ValidatePartyTypeExistsAsync(string partyType, string? contextPrefix = null)
+    {
+        Check.NotNullOrWhiteSpace(partyType, nameof(partyType));
+        var trimmed = partyType.Trim();
+
+        var partyTypeRepo = LazyServiceProvider?.LazyGetService<IRepository<PartyType, Guid>>();
+        PartyType? pt = null;
+        if (partyTypeRepo != null)
+        {
+            var query = await partyTypeRepo.GetQueryableAsync();
+            pt = query.FirstOrDefault(p => p.Name.ToLower() == trimmed.ToLower());
+        }
+
+        if (pt == null)
+        {
+            if (partyTypeRepo != null)
+            {
+                var count = await partyTypeRepo.GetCountAsync();
+                if (count == 0 && StandardPartyTypeDefaults.TryGetValue(trimmed, out var defaultAccountType))
+                {
+                    pt = new PartyType(Guid.NewGuid(), trimmed, defaultAccountType);
+                }
+            }
+            else if (StandardPartyTypeDefaults.TryGetValue(trimmed, out var defaultAccountType))
+            {
+                pt = new PartyType(Guid.NewGuid(), trimmed, defaultAccountType);
+            }
+        }
+
+        if (pt == null)
+        {
+            var prefix = contextPrefix ?? string.Empty;
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"{prefix}{trimmed} is not a valid Party Type");
+        }
+
+        return pt;
+    }
+
+    /// <summary>
+    /// Validates that a party account matches the PartyType's configured account type (Receivable vs Payable).
+    /// Maps to ERPNext PR #60804 (commit 86bfd5a633).
+    /// Exemptions:
+    /// 1. Employee party type (no restriction)
+    /// 2. Shareholder with Equity account
+    /// 3. BookAdvancePaymentsInSeparatePartyAccount enabled
+    /// </summary>
+    public void ValidatePartyAccountType(string partyType, PartyAccountType expectedAccountType, Account account, bool separateAdvance = false)
+    {
+        if (string.Equals(partyType, "Employee", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (separateAdvance)
+            return;
+
+        if (string.Equals(partyType, "Shareholder", StringComparison.OrdinalIgnoreCase)
+            && (account.AccountType == AccountType.Equity || account.AccountSubType is AccountSubType.ShareCapital or AccountSubType.RetainedEarnings))
+        {
+            return;
+        }
+
+        bool matches = false;
+        if (expectedAccountType == PartyAccountType.Receivable)
+        {
+            matches = account.AccountSubType == AccountSubType.AccountsReceivable
+                || (account.AccountType == AccountType.Asset && (account.AccountName.Contains("Receivable", StringComparison.OrdinalIgnoreCase) || account.AccountName.Contains("Debtor", StringComparison.OrdinalIgnoreCase)));
+        }
+        else if (expectedAccountType == PartyAccountType.Payable)
+        {
+            matches = account.AccountSubType == AccountSubType.AccountsPayable
+                || (account.AccountType == AccountType.Liability && (account.AccountName.Contains("Payable", StringComparison.OrdinalIgnoreCase) || account.AccountName.Contains("Creditor", StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (!matches)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Account {account.AccountName} and Party Type {partyType} have different account types");
+        }
+    }
+
+    /// <summary>
+    /// Validates that the party record exists in its corresponding aggregate table.
+    /// Maps to ERPNext PR #60804 (commit 86bfd5a633).
+    /// </summary>
+    public async Task ValidatePartyEntityExistsAsync(string partyType, Guid partyId)
+    {
+        if (LazyServiceProvider == null) return;
+
+        bool exists = true;
+        if (string.Equals(partyType, "Customer", StringComparison.OrdinalIgnoreCase))
+        {
+            var custRepo = LazyServiceProvider.LazyGetService<IRepository<Sales.Entities.Customer, Guid>>();
+            if (custRepo != null) exists = await custRepo.FindAsync(partyId) != null;
+        }
+        else if (string.Equals(partyType, "Supplier", StringComparison.OrdinalIgnoreCase))
+        {
+            var suppRepo = LazyServiceProvider.LazyGetService<IRepository<Purchasing.Entities.Supplier, Guid>>();
+            if (suppRepo != null) exists = await suppRepo.FindAsync(partyId) != null;
+        }
+        else if (string.Equals(partyType, "Employee", StringComparison.OrdinalIgnoreCase))
+        {
+            var empRepo = LazyServiceProvider.LazyGetService<IRepository<HumanResources.Entities.Employee, Guid>>();
+            if (empRepo != null) exists = await empRepo.FindAsync(partyId) != null;
+        }
+        else if (string.Equals(partyType, "Shareholder", StringComparison.OrdinalIgnoreCase))
+        {
+            var shRepo = LazyServiceProvider.LazyGetService<IRepository<Shareholder, Guid>>();
+            if (shRepo != null) exists = await shRepo.FindAsync(partyId) != null;
+        }
+
+        if (!exists)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"{partyType} {partyId} does not exist");
         }
     }
 }
