@@ -68,15 +68,23 @@ public class PosAppService : ApplicationService, IPosAppService
         {
             var profileQuery = await profileRepo.WithDetailsAsync(x => x.Users);
             profile = await AsyncExecuter.FirstOrDefaultAsync(profileQuery.Where(x => x.Id == input.PosProfileId.Value));
-            if (profile != null)
+            if (profile == null)
             {
-                // Authorize cashier: if profile has users configured, cashier must be in the list
-                if (currentUserId.HasValue && profile.Users.Count > 0 && !profile.Users.Any(u => u.UserId == currentUserId.Value))
-                {
-                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PosProfileUserNotAuthorized)
-                        .WithData("user", currentUserId.Value.ToString())
-                        .WithData("posProfile", profile.ProfileName);
-                }
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.EntityNotFound)
+                    .WithData("detail", $"POS Profile {input.PosProfileId.Value} not found.");
+            }
+            if (profile.IsDisabled)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"POS Profile '{profile.ProfileName}' is disabled.");
+            }
+
+            // Authorize cashier: if profile has users configured, cashier must be in the list (ERPNext commit 7fc01a6ec8)
+            if (currentUserId.HasValue && profile.Users.Count > 0 && !profile.Users.Any(u => u.UserId == currentUserId.Value))
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PosProfileUserNotAuthorized)
+                    .WithData("user", currentUserId.Value.ToString())
+                    .WithData("posProfile", profile.ProfileName);
             }
 
             var hasActiveSession = openingQuery.Any(
@@ -85,7 +93,7 @@ public class PosAppService : ApplicationService, IPosAppService
                     && e.Status == PosOpeningStatus.Open);
             if (!hasActiveSession)
             {
-                var profileName = profile?.ProfileName ?? input.PosProfileId.Value.ToString();
+                var profileName = profile.ProfileName;
                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.NoPosOpeningEntry)
                     .WithData("posProfile", profileName);
             }
@@ -274,10 +282,18 @@ public class PosAppService : ApplicationService, IPosAppService
         if (input.PosProfileId.HasValue)
         {
             var posProfileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
-            var profileQuery = await posProfileRepo.WithDetailsAsync(x => x.ItemGroups);
+            var profileQuery = await posProfileRepo.WithDetailsAsync(x => x.ItemGroups, x => x.Users);
             var profile = await AsyncExecuter.FirstOrDefaultAsync(profileQuery.Where(x => x.Id == input.PosProfileId.Value));
             if (profile != null)
             {
+                // Authorize cashier for POS profile in search (ERPNext commit 7fc01a6ec8)
+                if (CurrentUser.Id.HasValue && profile.Users.Count > 0 && !profile.Users.Any(u => u.UserId == CurrentUser.Id.Value))
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PosProfileUserNotAuthorized)
+                        .WithData("user", CurrentUser.Id.Value.ToString())
+                        .WithData("posProfile", profile.ProfileName);
+                }
+
                 hideUnavailable = hideUnavailable || profile.HideUnavailableItems;
                 warehouseId ??= profile.WarehouseId;
 

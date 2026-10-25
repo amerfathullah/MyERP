@@ -382,6 +382,7 @@ public class PosProfileAppService : CrudAppService<
     /// Profiles where current user is assigned take precedence, with IsDefault profiles ranked first.
     /// Profiles with no users configured are accessible to all users.
     /// </summary>
+    [Authorize(MyERPPermissions.PosProfiles.Default)]
     public async Task<List<PosProfileDto>> GetForCurrentUserAsync(Guid companyId)
     {
         var currentUserId = CurrentUser.Id;

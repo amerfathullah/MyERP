@@ -1233,6 +1233,10 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         order.ValidateDeliveryDates();
 
+        // Clean up existing delivery schedules when order items are replaced (ERPNext commit 904af45200 / 15dce72d1d)
+        var scheduleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryScheduleEntry, Guid>>();
+        await scheduleRepo.DeleteAsync(e => e.SalesOrderId == id);
+
         await _repository.UpdateAsync(order, autoSave: true);
         var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
         dto.CustomerName = await ResolveCustomerNameAsync(order.CustomerId);
@@ -1464,6 +1468,12 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         if (order.Status != Core.DocumentStatus.Draft)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft sales orders can be deleted");
+
+        // Clean up linked delivery schedule entries (ERPNext PR #62058 / commit 904af45200)
+        var scheduleRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<DeliveryScheduleEntry, Guid>>();
+        await scheduleRepo.DeleteAsync(e => e.SalesOrderId == id);
+
         await _repository.DeleteAsync(id);
     }
 
@@ -1511,6 +1521,12 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         if (!Enum.TryParse<MyERP.Sales.DomainServices.DeliveryFrequency>(frequency, true, out var freq))
             freq = MyERP.Sales.DomainServices.DeliveryFrequency.Monthly;
 
+        var scheduleRepo = LazyServiceProvider
+            .LazyGetRequiredService<IRepository<DeliveryScheduleEntry, Guid>>();
+
+        // Delete existing schedule entries for this item first (ERPNext commit 904af45200 / 15dce72d1d)
+        await scheduleRepo.DeleteAsync(e => e.SalesOrderId == orderId && e.SalesOrderItemId == itemId);
+
         var scheduleService = LazyServiceProvider
             .LazyGetRequiredService<DeliveryScheduleService>();
         var entries = scheduleService.GenerateSchedule(
@@ -1518,8 +1534,6 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             order.OrderDate, order.DeliveryDate ?? order.OrderDate.AddMonths(3),
             freq);
 
-        var scheduleRepo = LazyServiceProvider
-            .LazyGetRequiredService<IRepository<DeliveryScheduleEntry, Guid>>();
         foreach (var entry in entries)
             await scheduleRepo.InsertAsync(entry);
 

@@ -388,7 +388,7 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             await woRepo.UpdateAsync(wo, autoSave: true);
         }
 
-        var completedQty = await jcManager.GetWorkOrderCompletedQtyAsync(wo.Id);
+        var completedQty = await jcManager.GetWorkOrderCompletedQtyAsync(wo.Id, wo.Quantity);
 
         // Only process if bottleneck qty exceeds what WO already recorded
         if (completedQty > wo.ProducedQuantity)

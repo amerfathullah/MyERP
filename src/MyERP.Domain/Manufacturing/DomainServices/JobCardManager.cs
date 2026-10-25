@@ -355,24 +355,36 @@ public class JobCardManager : DomainService
     /// Per ERPNext: total_completed = MIN(per-operation completed) when operations exist.
     /// This is the bottleneck formula — the slowest operation limits WO completion.
     /// </summary>
-    public async Task<decimal> GetWorkOrderCompletedQtyAsync(Guid workOrderId)
+    public async Task<decimal> GetWorkOrderCompletedQtyAsync(Guid workOrderId, decimal? workOrderQty = null)
     {
         var queryable = await _jobCardRepository.GetQueryableAsync();
 
         // Per PR bde118e7cf: exclude corrective job cards from the aggregate
         // Corrective JCs represent rework/repair, not new production output
-        var perOperationQty = queryable
+        var nonCorrectiveJcs = queryable
             .Where(jc => jc.WorkOrderId == workOrderId
                 && jc.Status != JobCardStatus.Cancelled
                 && !jc.IsCorrective)
-            .GroupBy(jc => jc.OperationId)
-            .Select(g => g.Sum(jc => jc.CompletedQty))
             .ToList();
 
-        if (perOperationQty.Count == 0) return 0;
+        if (nonCorrectiveJcs.Count == 0) return 0;
 
-        // Bottleneck: minimum across all operations
-        return perOperationQty.Min();
+        var perOperationNormalized = nonCorrectiveJcs
+            .GroupBy(jc => jc.OperationId)
+            .Select(g =>
+            {
+                var opForQty = g.Sum(jc => jc.ForQuantity);
+                var opCompleted = g.Sum(jc => jc.CompletedQty + jc.ProcessLossQty);
+                if (workOrderQty.HasValue && workOrderQty.Value > 0 && opForQty > 0)
+                {
+                    // Scale operation output quantity to parent work order quantity (ERPNext PR #62257 / #62140)
+                    return Math.Round(opCompleted * workOrderQty.Value / opForQty, 4);
+                }
+                return g.Sum(jc => jc.CompletedQty);
+            })
+            .ToList();
+
+        return perOperationNormalized.Count > 0 ? perOperationNormalized.Min() : 0;
     }
 
     /// <summary>
@@ -465,22 +477,42 @@ public class JobCardManager : DomainService
         var queryable = await _jobCardRepository.GetQueryableAsync();
 
         // Find the previous operation's job cards (lower sequence, same WO)
-        var previousOpCompletedQty = queryable
+        var previousOpCards = queryable
             .Where(jc => jc.WorkOrderId == jobCard.WorkOrderId
                 && jc.SequenceId < jobCard.SequenceId
                 && jc.Status != JobCardStatus.Cancelled
                 && !jc.IsCorrective)
             .OrderByDescending(jc => jc.SequenceId)
-            .GroupBy(jc => jc.SequenceId)
-            .Select(g => g.Sum(jc => jc.CompletedQty))
-            .FirstOrDefault();
+            .ToList();
+
+        if (previousOpCards.Count == 0) return;
+
+        var lastSeq = previousOpCards.Max(jc => jc.SequenceId);
+        var lastSeqCards = previousOpCards.Where(jc => jc.SequenceId == lastSeq).ToList();
+        var prevCompletedQty = lastSeqCards.Sum(jc => jc.CompletedQty);
+        var prevForQty = lastSeqCards.Sum(jc => jc.ForQuantity);
+
+        var currentSeqCards = queryable
+            .Where(jc => jc.WorkOrderId == jobCard.WorkOrderId
+                && jc.SequenceId == jobCard.SequenceId
+                && jc.Status != JobCardStatus.Cancelled
+                && !jc.IsCorrective)
+            .ToList();
+        var currentForQty = currentSeqCards.Sum(jc => jc.ForQuantity);
+        if (currentForQty <= 0) currentForQty = jobCard.ForQuantity;
 
         var qtyToCheck = attemptingQty ?? jobCard.ForQuantity;
-        if (previousOpCompletedQty < qtyToCheck)
+
+        // Scale previous completed qty to current operation's units if output rates differ (ERPNext PR #62257 / PR #62140)
+        var scaledPrevCompleted = prevForQty > 0 && currentForQty > 0 && prevForQty != currentForQty
+            ? Math.Round(prevCompletedQty * currentForQty / prevForQty, 4)
+            : prevCompletedQty;
+
+        if (scaledPrevCompleted < qtyToCheck)
         {
             throw new BusinessException("MyERP:10020")
                 .WithData("sequenceId", jobCard.SequenceId)
-                .WithData("previousCompleted", previousOpCompletedQty)
+                .WithData("previousCompleted", scaledPrevCompleted)
                 .WithData("required", qtyToCheck);
         }
     }

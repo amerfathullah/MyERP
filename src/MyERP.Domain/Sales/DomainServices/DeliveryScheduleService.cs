@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MyERP.Sales.Entities;
 using Volo.Abp.Domain.Services;
 
@@ -96,6 +97,38 @@ public class DeliveryScheduleService : DomainService
         }
 
         return dates;
+    }
+
+    /// <summary>
+    /// Rescale and refresh an item's delivery schedules after its quantity changes.
+    /// Per ERPNext PR #62127 (commit 15dce72d1d):
+    /// Capped by remaining item quantity in order of scheduled date.
+    /// Excess schedule entries with 0 remaining quantity are removed.
+    /// </summary>
+    public List<DeliveryScheduleEntry> SyncScheduleWithItem(
+        List<DeliveryScheduleEntry> existingEntries,
+        decimal newItemQty)
+    {
+        if (existingEntries == null || existingEntries.Count == 0)
+            return new List<DeliveryScheduleEntry>();
+
+        var remaining = newItemQty;
+        var keptEntries = new List<DeliveryScheduleEntry>();
+
+        foreach (var entry in existingEntries.OrderBy(e => e.ScheduledDate))
+        {
+            var keptQty = remaining > 0 ? Math.Min(entry.ScheduledQty, remaining) : 0m;
+            if (keptQty <= 0)
+            {
+                continue;
+            }
+
+            entry.ScheduledQty = keptQty;
+            remaining -= keptQty;
+            keptEntries.Add(entry);
+        }
+
+        return keptEntries;
     }
 }
 

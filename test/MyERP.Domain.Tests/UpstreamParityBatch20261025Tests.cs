@@ -120,4 +120,30 @@ public class UpstreamParityBatch20261025Tests
         // Day 39: 1 day past grace period end -> Cancelled
         Assert.Equal(SubscriptionStatus.Cancelled, engine.DetermineStatus(sub, graceEnd.AddDays(1), hasOutstandingInvoices: true, isFullyRefunded: false));
     }
+
+    [Fact]
+    public void DeliveryScheduleService_SyncScheduleWithItem_RescalesAndRemovesExcess()
+    {
+        var service = new DeliveryScheduleService();
+        var orderId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var entries = new List<DeliveryScheduleEntry>
+        {
+            new DeliveryScheduleEntry(Guid.NewGuid(), orderId, itemId, new DateTime(2026, 1, 1), 5m),
+            new DeliveryScheduleEntry(Guid.NewGuid(), orderId, itemId, new DateTime(2026, 2, 1), 5m),
+            new DeliveryScheduleEntry(Guid.NewGuid(), orderId, itemId, new DateTime(2026, 3, 1), 5m)
+        };
+
+        // Rescale from 15m to 8m: first keeps 5m, second takes 3m, third is removed (excess)
+        var synced = service.SyncScheduleWithItem(entries, 8m);
+
+        Assert.Equal(2, synced.Count);
+        Assert.Equal(5m, synced[0].ScheduledQty);
+        Assert.Equal(3m, synced[1].ScheduledQty);
+
+        // Rescale to 0m: all removed
+        var zeroSynced = service.SyncScheduleWithItem(entries, 0m);
+        Assert.Empty(zeroSynced);
+    }
 }

@@ -39,6 +39,7 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
     private readonly IUnitOfWorkManager _uowManager;
     private readonly ILogger<WorkOrderOperationSyncJob> _logger;
     private readonly WorkOrderManager _woManager;
+    private readonly JobCardManager _jcManager;
 
     public WorkOrderOperationSyncJob(
         IRepository<WorkOrder, Guid> workOrderRepository,
@@ -55,7 +56,8 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
         ICurrentTenant currentTenant,
         IUnitOfWorkManager uowManager,
         ILogger<WorkOrderOperationSyncJob> logger,
-        WorkOrderManager woManager)
+        WorkOrderManager woManager,
+        JobCardManager jcManager)
     {
         _workOrderRepository = workOrderRepository;
         _jobCardRepository = jobCardRepository;
@@ -72,6 +74,7 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
         _uowManager = uowManager;
         _logger = logger;
         _woManager = woManager;
+        _jcManager = jcManager;
     }
 
     [UnitOfWork]
@@ -102,7 +105,7 @@ public class WorkOrderOperationSyncJob : AsyncBackgroundJob<WorkOrderOperationSy
             var allCompleted = jobCards.All(j => j.Status == JobCardStatus.Completed);
             if (allCompleted && jobCards.Count > 0)
             {
-                var minCompletedQty = jobCards.Min(j => j.CompletedQty);
+                var minCompletedQty = await _jcManager.GetWorkOrderCompletedQtyAsync(wo.Id, wo.Quantity);
                 if (minCompletedQty > wo.ProducedQuantity)
                 {
                     var delta = minCompletedQty - wo.ProducedQuantity;
