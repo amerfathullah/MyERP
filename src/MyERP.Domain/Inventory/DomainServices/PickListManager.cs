@@ -54,20 +54,21 @@ public class PickListManager : DomainService
 
         foreach (var item in pickList.Items)
         {
-            var availableQty = await GetAvailableQtyForPickAsync(
-                item.ItemId, item.WarehouseId, pickList.Id);
+            var requestedQty = Math.Round(item.Qty, 4);
+            var availableQty = Math.Round(await GetAvailableQtyForPickAsync(
+                item.ItemId, item.WarehouseId, pickList.Id), 4);
 
-            var allocatedQty = Math.Min(item.Qty, availableQty);
+            var allocatedQty = Math.Min(requestedQty, availableQty);
             result.Allocations.Add(new PickAllocation
             {
                 ItemId = item.ItemId,
                 WarehouseId = item.WarehouseId,
-                RequestedQty = item.Qty,
+                RequestedQty = requestedQty,
                 AllocatedQty = allocatedQty,
-                ShortageQty = item.Qty - allocatedQty
+                ShortageQty = Math.Round(requestedQty - allocatedQty, 4)
             });
 
-            if (allocatedQty < item.Qty)
+            if (allocatedQty < requestedQty)
                 result.HasShortage = true;
         }
 
@@ -296,15 +297,15 @@ public class PickListManager : DomainService
 
                 foreach (var sre in othersReservations)
                 {
-                    var rem = sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty;
+                    var rem = Math.Round(sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty, 4);
                     if ((sre.VoucherType == "Work Order" || sre.VoucherType == "WorkOrder") &&
                         woPickHolds.TryGetValue(sre.VoucherId, out var heldQty) && heldQty > 0)
                     {
                         var released = Math.Min(rem, heldQty);
-                        rem -= released;
+                        rem = Math.Round(rem - released, 4);
                         woPickHolds[sre.VoucherId] -= released;
                     }
-                    reservedQty += rem;
+                    reservedQty = Math.Round(reservedQty + rem, 4);
                 }
             }
 
@@ -388,7 +389,7 @@ public class PickListManager : DomainService
             }
             else
             {
-                loc.Qty -= pickedQty;
+                loc.Qty = Math.Round(loc.Qty - pickedQty, 4);
                 pickedQtyMap[key] = 0;
 
                 if (loc.SerialNumbers != null && loc.SerialNumbers.Count > 0 && pickedSerialNosMap != null && pickedSerialNosMap.TryGetValue(loc.WarehouseId, out var pickedSerials))

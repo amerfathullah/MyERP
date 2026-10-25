@@ -383,6 +383,8 @@ export interface CreateRepostItemValuationDto {
   warehouseId?: string | null;
   postingDate?: string;
   repostGlEntries?: boolean;
+  repostOnlyAccountingLedgers?: boolean;
+  recalculateValuationRate?: boolean;
   voucherType?: string | null;
   voucherId?: string | null;
 }
@@ -1700,6 +1702,8 @@ export interface RepostItemValuationDto extends EntityDto<string> {
   postingDate?: string;
   status?: number;
   repostGlEntries?: boolean;
+  repostOnlyAccountingLedgers?: boolean;
+  recalculateValuationRate?: boolean;
   totalAffectedEntries?: number;
   currentIndex?: number;
   errorLog?: string | null;

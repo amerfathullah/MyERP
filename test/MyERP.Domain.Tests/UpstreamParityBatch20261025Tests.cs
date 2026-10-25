@@ -146,4 +146,73 @@ public class UpstreamParityBatch20261025Tests
         var zeroSynced = service.SyncScheduleWithItem(entries, 0m);
         Assert.Empty(zeroSynced);
     }
+
+    [Fact]
+    public void RepostItemValuation_ValidateRecalculateValuationRate_EnforcesScope()
+    {
+        var companyId = Guid.NewGuid();
+        var postingDate = DateTime.UtcNow;
+
+        // 1. Rejects non-transaction based
+        var rivNonTx = new RepostItemValuation(Guid.NewGuid(), companyId, RepostMethod.ItemAndWarehouse, postingDate)
+        {
+            RecalculateValuationRate = true
+        };
+        var ex1 = Assert.Throws<BusinessException>(() => rivNonTx.ValidateRecalculateValuationRate());
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex1.Code);
+
+        // 2. Transaction based on Purchase Invoice requires Update Stock
+        var rivPiNoStock = new RepostItemValuation(Guid.NewGuid(), companyId, RepostMethod.Transaction, postingDate)
+        {
+            RecalculateValuationRate = true,
+            VoucherType = "Purchase Invoice",
+            VoucherId = Guid.NewGuid()
+        };
+        var ex2 = Assert.Throws<BusinessException>(() => rivPiNoStock.ValidateRecalculateValuationRate(isUpdateStock: false));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex2.Code);
+
+        // 3. Transaction based on Purchase Invoice with Update Stock allowed
+        rivPiNoStock.ValidateRecalculateValuationRate(isUpdateStock: true);
+
+        // 4. Transaction based on Stock Entry rejects material transfers
+        var rivSeTransfer = new RepostItemValuation(Guid.NewGuid(), companyId, RepostMethod.Transaction, postingDate)
+        {
+            RecalculateValuationRate = true,
+            VoucherType = "Stock Entry",
+            VoucherId = Guid.NewGuid()
+        };
+        var ex3 = Assert.Throws<BusinessException>(() => rivSeTransfer.ValidateRecalculateValuationRate(isTransferStockEntry: true));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex3.Code);
+
+        // 5. Transaction based on non-transfer Stock Entry allowed
+        rivSeTransfer.ValidateRecalculateValuationRate(isTransferStockEntry: false);
+
+        // 6. Transaction based on Purchase Receipt allowed
+        var rivPr = new RepostItemValuation(Guid.NewGuid(), companyId, RepostMethod.Transaction, postingDate)
+        {
+            RecalculateValuationRate = true,
+            VoucherType = "Purchase Receipt",
+            VoucherId = Guid.NewGuid()
+        };
+        rivPr.ValidateRecalculateValuationRate();
+    }
+
+    [Fact]
+    public void PickListManager_FilterLocationsByPickedMaterials_RoundsRemainingQty()
+    {
+        var whId = Guid.NewGuid();
+        var locations = new List<PickLocationAllocation>
+        {
+            new PickLocationAllocation { WarehouseId = whId, Qty = 10.333333m }
+        };
+        var pickedMap = new Dictionary<(Guid WarehouseId, Guid? BatchId), decimal>
+        {
+            { (whId, null), 2.111111m }
+        };
+
+        var filtered = PickListManager.FilterLocationsByPickedMaterials(locations, pickedMap);
+
+        Assert.Single(filtered);
+        Assert.Equal(8.2222m, filtered[0].Qty);
+    }
 }

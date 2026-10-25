@@ -43,6 +43,13 @@ public class RepostItemValuation : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Whether this repost is only for accounting ledgers (GL), leaving stock ledgers and valuation rates untouched (PR #59307 / commit 18093079d9).</summary>
     public bool RepostOnlyAccountingLedgers { get; set; }
 
+    /// <summary>
+    /// Whether to recalculate valuation rate (FIFO/MA/LIFO) on the affected voucher.
+    /// Only allowed for Purchase Receipt, Purchase Invoice with Update Stock,
+    /// or Stock Entry that is not a material transfer (ERPNext PR #62287 / commit 712806f9ae, 81940327fe).
+    /// </summary>
+    public bool RecalculateValuationRate { get; set; }
+
     /// <summary>Total SLE entries affected by this repost.</summary>
     public int TotalAffectedEntries { get; set; }
 
@@ -145,6 +152,58 @@ public class RepostItemValuation : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
     }
 
+    public void ValidateRecalculateValuationRate(bool? isUpdateStock = null, bool? isTransferStockEntry = null)
+    {
+        if (!RecalculateValuationRate)
+            return;
+
+        if (BasedOn != RepostMethod.Transaction)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Recalculate Valuation Rate is only allowed when Based On is Transaction.");
+        }
+
+        if (string.Equals(VoucherType, "Purchase Receipt", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (string.Equals(VoucherType, "Purchase Invoice", StringComparison.OrdinalIgnoreCase))
+        {
+            if (isUpdateStock != true)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Recalculate Valuation Rate is only allowed for a Purchase Invoice with Update Stock.");
+            }
+            return;
+        }
+
+        if (string.Equals(VoucherType, "Stock Entry", StringComparison.OrdinalIgnoreCase))
+        {
+            if (isTransferStockEntry == true)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Recalculate Valuation Rate is only allowed for a Purchase Receipt, a Purchase Invoice with Update Stock or a Stock Entry that is not a material transfer.");
+            }
+            return;
+        }
+
+        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+            .WithData("detail", "Recalculate Valuation Rate is only allowed for a Purchase Receipt, a Purchase Invoice with Update Stock or a Stock Entry that is not a material transfer.");
+    }
+
+    public void ValidateUpdateStock(bool? isUpdateStock = null)
+    {
+        if (BasedOn == RepostMethod.Transaction && string.Equals(VoucherType, "Purchase Invoice", StringComparison.OrdinalIgnoreCase))
+        {
+            if (isUpdateStock != true)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Update Stock must be enabled for Purchase Invoice {VoucherId}.");
+            }
+        }
+    }
+
     /// <summary>Check if another repost makes this one redundant (covers same or broader scope).</summary>
     public bool IsCoveredBy(RepostItemValuation other)
     {
@@ -153,6 +212,9 @@ public class RepostItemValuation : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         // GL-only repost and full valuation repost do not cover each other
         if (other.RepostOnlyAccountingLedgers != RepostOnlyAccountingLedgers)
+            return false;
+
+        if (other.RecalculateValuationRate != RecalculateValuationRate)
             return false;
 
         // Transaction-based repost: exact voucher match

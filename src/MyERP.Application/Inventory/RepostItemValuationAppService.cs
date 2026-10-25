@@ -73,11 +73,38 @@ public class RepostItemValuationAppService : ApplicationService, IRepostItemValu
             CurrentTenant.Id);
         entity.RepostGlEntries = input.RepostGlEntries;
         entity.RepostOnlyAccountingLedgers = input.RepostOnlyAccountingLedgers;
+        entity.RecalculateValuationRate = input.RecalculateValuationRate;
         entity.VoucherType = input.VoucherType;
         entity.VoucherId = input.VoucherId;
 
         entity.ResetRepostOnlyAccountingLedgers();
         entity.ValidateRepostOnlyAccountingLedgers();
+
+        // Validate voucher requirements (ERPNext PR #62287 / commit 712806f9ae, 81940327fe)
+        bool? isUpdateStock = null;
+        bool? isTransferStockEntry = null;
+        if (entity.BasedOn == RepostMethod.Transaction && entity.VoucherId.HasValue)
+        {
+            if (string.Equals(entity.VoucherType, "Purchase Invoice", StringComparison.OrdinalIgnoreCase))
+            {
+                var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
+                var pi = await piRepo.FindAsync(entity.VoucherId.Value);
+                isUpdateStock = pi?.UpdateStock;
+            }
+            else if (string.Equals(entity.VoucherType, "Stock Entry", StringComparison.OrdinalIgnoreCase))
+            {
+                var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>();
+                var se = await seRepo.FindAsync(entity.VoucherId.Value);
+                if (se != null)
+                {
+                    isTransferStockEntry = se.EntryType is StockEntryType.MaterialTransfer or StockEntryType.MaterialTransferForManufacture or StockEntryType.SendToSubcontractor
+                        || se.Items.Any(i => i.SourceWarehouseId.HasValue && i.TargetWarehouseId.HasValue);
+                }
+            }
+        }
+
+        entity.ValidateUpdateStock(isUpdateStock);
+        entity.ValidateRecalculateValuationRate(isUpdateStock, isTransferStockEntry);
 
         // Check if covered by existing queued/in-progress repost
         var query = await _repository.GetQueryableAsync();
