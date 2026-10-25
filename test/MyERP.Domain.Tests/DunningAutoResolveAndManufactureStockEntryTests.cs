@@ -65,7 +65,8 @@ public class DunningAutoResolveAndManufactureStockEntryTests
     {
         var dunning = new Dunning(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             DateTime.UtcNow, 1);
-        dunning.AddOverduePayment(Guid.NewGuid(), 0m, DateTime.UtcNow.AddDays(-30), 30);
+        dunning.AddOverduePayment(Guid.NewGuid(), 100m, DateTime.UtcNow.AddDays(-30), 30);
+        dunning.OverduePayments[0].OutstandingAmount = 0m;
         dunning.Submit();
 
         Assert.True(DunningManager.ShouldAutoResolve(dunning));
@@ -87,7 +88,8 @@ public class DunningAutoResolveAndManufactureStockEntryTests
     {
         var dunning = new Dunning(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             DateTime.UtcNow, 1);
-        dunning.AddOverduePayment(Guid.NewGuid(), 0m, DateTime.UtcNow.AddDays(-30), 30);
+        dunning.AddOverduePayment(Guid.NewGuid(), 100m, DateTime.UtcNow.AddDays(-30), 30);
+        dunning.OverduePayments[0].OutstandingAmount = 0m;
         // Not submitted — should not auto-resolve
         Assert.False(DunningManager.ShouldAutoResolve(dunning));
     }

@@ -11,6 +11,7 @@ public interface ISalesPersonAppService : IApplicationService
     Task<SalesPersonDto> GetAsync(Guid id);
     Task<PagedResultDto<SalesPersonDto>> GetListAsync(PagedAndSortedResultRequestDto input);
     Task<List<SalesPersonDto>> GetTreeAsync();
+    Task<Dictionary<string, int>> GetTimelineDataAsync(Guid id);
     Task<SalesPersonDto> CreateAsync(CreateSalesPersonDto input);
     Task<SalesPersonDto> UpdateAsync(Guid id, UpdateSalesPersonDto input);
     Task AddTargetAsync(Guid id, CreateSalesTargetDto input);

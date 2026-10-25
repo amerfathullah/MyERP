@@ -78,15 +78,19 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     public void AddOverduePayment(Guid salesInvoiceId, decimal outstandingAmount,
-        DateTime dueDate, int overdueDays)
+        DateTime dueDate, int overdueDays, Guid? paymentScheduleId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         if (outstandingAmount <= 0)
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Outstanding amount must be positive.");
-        _overduePayments.Add(new DunningOverduePayment(Guid.NewGuid(), Id,
-            salesInvoiceId, outstandingAmount, dueDate, overdueDays));
+        var payment = new DunningOverduePayment(Guid.NewGuid(), Id,
+            salesInvoiceId, outstandingAmount, dueDate, overdueDays)
+        {
+            PaymentScheduleId = paymentScheduleId
+        };
+        _overduePayments.Add(payment);
         TotalOutstanding = _overduePayments.Sum(p => p.OutstandingAmount);
     }
 
@@ -146,6 +150,7 @@ public class DunningOverduePayment : FullAuditedEntity<Guid>
 {
     public Guid DunningId { get; set; }
     public Guid SalesInvoiceId { get; set; }
+    public Guid? PaymentScheduleId { get; set; }
     public decimal OutstandingAmount { get; set; }
     public DateTime DueDate { get; set; }
     public int OverdueDays { get; set; }

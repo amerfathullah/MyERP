@@ -188,6 +188,7 @@ export interface CreateDunningLetterTextDto {
 
 export interface CreateDunningOverdueDto {
   salesInvoiceId?: string;
+  paymentScheduleId?: string | null;
   outstandingAmount?: number;
   dueDate?: string;
   overdueDays?: number;
@@ -779,6 +780,7 @@ export interface DunningLetterTextDto {
 
 export interface DunningOverduePaymentDto {
   salesInvoiceId?: string;
+  paymentScheduleId?: string | null;
   invoiceNumber?: string | null;
   outstandingAmount?: number;
   dueDate?: string;
@@ -2928,4 +2930,10 @@ export interface CustomerLedgerSummaryReportDto {
   toDate: string;
   rows: CustomerLedgerSummaryRowDto[];
   totalRow: CustomerLedgerSummaryRowDto;
+}
+
+
+export interface CreateDunningFromInvoiceDto {
+  salesInvoiceId?: string;
+  paymentScheduleIds?: string[];
 }

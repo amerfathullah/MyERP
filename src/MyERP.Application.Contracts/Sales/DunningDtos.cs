@@ -33,6 +33,7 @@ public class DunningDto : EntityDto<Guid>
 public class DunningOverduePaymentDto
 {
     public Guid SalesInvoiceId { get; set; }
+    public Guid? PaymentScheduleId { get; set; }
     public string? InvoiceNumber { get; set; }
     public decimal OutstandingAmount { get; set; }
     public DateTime DueDate { get; set; }
@@ -57,9 +58,16 @@ public class CreateDunningDto
 public class CreateDunningOverdueDto
 {
     public Guid SalesInvoiceId { get; set; }
+    public Guid? PaymentScheduleId { get; set; }
     public decimal OutstandingAmount { get; set; }
     public DateTime DueDate { get; set; }
     public int OverdueDays { get; set; }
+}
+
+public class CreateDunningFromInvoiceDto
+{
+    public Guid SalesInvoiceId { get; set; }
+    public List<Guid>? PaymentScheduleIds { get; set; }
 }
 
 public class SendDunningEmailDto

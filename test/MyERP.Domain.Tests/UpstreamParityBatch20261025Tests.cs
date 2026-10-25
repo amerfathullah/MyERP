@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Inventory.DomainServices;
+using MyERP.Inventory;
 using MyERP.Inventory.Entities;
 using MyERP.Manufacturing.DomainServices;
 using MyERP.Manufacturing;
@@ -407,5 +408,40 @@ public class UpstreamParityBatch20261025Tests
 
         Assert.Equal(100m, po.PerReceived);
         Assert.Equal(100m, po.PerBilled);
+    }
+
+    [Fact]
+    public void Dunning_AddOverduePayment_StoresPaymentScheduleId()
+    {
+        var dunning = new Dunning(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow, 1);
+        var siId = Guid.NewGuid();
+        var scheduleId = Guid.NewGuid();
+        dunning.AddOverduePayment(siId, 250m, DateTime.UtcNow.AddDays(-10), 10, scheduleId);
+
+        Assert.Single(dunning.OverduePayments);
+        var payment = dunning.OverduePayments[0];
+        Assert.Equal(siId, payment.SalesInvoiceId);
+        Assert.Equal(scheduleId, payment.PaymentScheduleId);
+        Assert.Equal(250m, payment.OutstandingAmount);
+        Assert.Equal(250m, dunning.TotalOutstanding);
+    }
+
+    [Fact]
+    public void StockEntryManager_ValidateManufactureItems_ThrowsWhenNoFinishedGood()
+    {
+        var manager = new StockEntryManager(null!, null!, null!, null!);
+        var companyId = Guid.NewGuid();
+        var entry = new StockEntry(Guid.NewGuid(), companyId, StockEntryType.Manufacture, DateTime.UtcNow);
+        
+        // Add only raw material
+        entry.AddItem(Guid.NewGuid(), 10m, sourceWarehouseId: Guid.NewGuid(), targetWarehouseId: null, isFinishedItem: false);
+
+        var ex = Assert.Throws<BusinessException>(() => manager.ValidateManufactureItems(entry));
+        Assert.Equal(MyERPDomainErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains("There must be at least 1 Finished Good", ex.Data["detail"]?.ToString());
+
+        // Add finished good row (target warehouse, no source warehouse, isFinishedItem = true)
+        entry.AddItem(Guid.NewGuid(), 10m, sourceWarehouseId: null, targetWarehouseId: Guid.NewGuid(), isFinishedItem: true);
+        manager.ValidateManufactureItems(entry); // should not throw
     }
 }

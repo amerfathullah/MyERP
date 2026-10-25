@@ -75,6 +75,7 @@ public class DunningAppService : ApplicationService, IDunningAppService
             dto.OverduePayments = d.OverduePayments.Select(p => new DunningOverduePaymentDto
             {
                 SalesInvoiceId = p.SalesInvoiceId,
+                PaymentScheduleId = p.PaymentScheduleId,
                 InvoiceNumber = invoiceNumbers.GetValueOrDefault(p.SalesInvoiceId),
                 OutstandingAmount = p.OutstandingAmount,
                 DueDate = p.DueDate,
@@ -142,6 +143,17 @@ public class DunningAppService : ApplicationService, IDunningAppService
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", $"Row for invoice {invoice.InvoiceNumber}: Outstanding must be positive and cannot exceed unpaid invoice amount.");
                 }
+
+                if (p.PaymentScheduleId.HasValue)
+                {
+                    var schedRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.PaymentScheduleEntry, Guid>>();
+                    var sched = await schedRepo.FindAsync(p.PaymentScheduleId.Value);
+                    if (sched != null && (sched.ParentId != p.SalesInvoiceId || sched.ParentType != "SalesInvoice"))
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", $"Payment Schedule entry {p.PaymentScheduleId.Value} does not belong to invoice {p.SalesInvoiceId}.");
+                    }
+                }
             }
         }
 
@@ -201,7 +213,7 @@ public class DunningAppService : ApplicationService, IDunningAppService
     /// Per ERPNext PR #56883 / #56006: uses transaction-currency outstanding for foreign-currency invoices.
     /// </summary>
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
-    public async Task<DunningDto> CreateFromSalesInvoiceAsync(Guid salesInvoiceId)
+    public async Task<DunningDto> CreateFromSalesInvoiceAsync(Guid salesInvoiceId, List<Guid>? paymentScheduleIds = null)
     {
         var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
         var si = await siRepo.GetAsync(salesInvoiceId, includeDetails: true);
@@ -209,22 +221,17 @@ public class DunningAppService : ApplicationService, IDunningAppService
         if (si.Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
 
-        // Transaction-currency outstanding
-        var outstanding = si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance;
-        if (outstanding <= 0.01m)
-            throw new BusinessException(MyERPDomainErrorCodes.InvoiceAlreadySettled);
+        var today = DateTime.UtcNow.Date;
+
+        // Per ERPNext PR #61267 (commit 2e7faa8857): check for payment schedule installments first
+        var schedRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.PaymentScheduleEntry, Guid>>();
+        var schedQuery = await schedRepo.GetQueryableAsync();
+        var schedules = schedQuery
+            .Where(s => s.ParentType == "SalesInvoice" && s.ParentId == si.Id)
+            .ToList();
 
         var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
         var customer = await customerRepo.FindAsync(si.CustomerId);
-
-        var today = DateTime.UtcNow.Date;
-        var dueDate = si.DueDate ?? si.IssueDate;
-        if (dueDate.Date >= today)
-        {
-            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                .WithData("detail", "Sales Invoice is not overdue.");
-        }
-        var overdueDays = Math.Max(0, (int)(today - dueDate).TotalDays);
 
         var level = await _dunningManager.DetermineDunningLevelAsync(
             si.CustomerId, si.CompanyId, CurrentTenant.Id);
@@ -235,7 +242,48 @@ public class DunningAppService : ApplicationService, IDunningAppService
             CustomerName = customer?.Name,
         };
 
-        d.AddOverduePayment(si.Id, outstanding, dueDate, overdueDays);
+        if (schedules.Count > 0)
+        {
+            var overdueSchedules = schedules
+                .Where(s => s.Outstanding > 0.01m && s.DueDate.Date < today)
+                .ToList();
+
+            if (paymentScheduleIds != null && paymentScheduleIds.Count > 0)
+            {
+                overdueSchedules = overdueSchedules
+                    .Where(s => paymentScheduleIds.Contains(s.Id))
+                    .ToList();
+            }
+
+            if (overdueSchedules.Count == 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "No overdue payment schedule installments found for dunning.");
+            }
+
+            foreach (var sched in overdueSchedules)
+            {
+                var overdueDays = Math.Max(0, (int)(today - sched.DueDate.Date).TotalDays);
+                d.AddOverduePayment(si.Id, sched.Outstanding, sched.DueDate, overdueDays, sched.Id);
+            }
+        }
+        else
+        {
+            // Transaction-currency outstanding for non-schedule invoices
+            var outstanding = si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance;
+            if (outstanding <= 0.01m)
+                throw new BusinessException(MyERPDomainErrorCodes.InvoiceAlreadySettled);
+
+            var dueDate = si.DueDate ?? si.IssueDate;
+            if (dueDate.Date >= today)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Sales Invoice is not overdue.");
+            }
+            var overdueDays = Math.Max(0, (int)(today - dueDate).TotalDays);
+
+            d.AddOverduePayment(si.Id, outstanding, dueDate, overdueDays);
+        }
 
         await _repository.InsertAsync(d);
         return ObjectMapper.Map<Dunning, DunningDto>(d);

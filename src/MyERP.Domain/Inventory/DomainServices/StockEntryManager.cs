@@ -597,6 +597,14 @@ public class StockEntryManager : DomainService
 
         if (entry.EntryType == StockEntryType.Manufacture)
         {
+            // Per ERPNext PR #61950 (commit 28c89dba2a): ensure at least one finished good row exists
+            var hasFgItem = entry.Items.Any(i => i.IsFinishedItem || (i.TargetWarehouseId.HasValue && !i.SourceWarehouseId.HasValue && string.IsNullOrWhiteSpace(i.SecondaryItemType)));
+            if (entry.Items.Any() && !hasFgItem)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "There must be at least 1 Finished Good in a Manufacture stock entry.");
+            }
+
             // Per ERPNext PR #60421 / commit 00ca106bf5:
             // Output rows received into target warehouse must be either finished good or secondary item
             var hasExplicitFg = entry.Items.Any(i => i.IsFinishedItem);

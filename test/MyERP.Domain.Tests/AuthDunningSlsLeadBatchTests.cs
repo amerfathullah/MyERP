@@ -122,7 +122,8 @@ public class AuthDunningSlsLeadBatchTests
     public void DunningManager_ShouldAutoResolve_AllPaid_ReturnsTrue()
     {
         var dunning = new Dunning(Guid.NewGuid(), _companyId, _customerId, DateTime.UtcNow, 1);
-        dunning.AddOverduePayment(Guid.NewGuid(), 0m, DateTime.UtcNow.AddDays(-30), 30); // zero outstanding = paid
+        dunning.AddOverduePayment(Guid.NewGuid(), 100m, DateTime.UtcNow.AddDays(-30), 30);
+        dunning.OverduePayments[0].OutstandingAmount = 0m; // zero outstanding = paid
         dunning.Submit();
         DunningManager.ShouldAutoResolve(dunning).ShouldBeTrue();
     }
@@ -131,7 +132,8 @@ public class AuthDunningSlsLeadBatchTests
     public void DunningManager_ShouldAutoResolve_NotSubmitted_ReturnsFalse()
     {
         var dunning = new Dunning(Guid.NewGuid(), _companyId, _customerId, DateTime.UtcNow, 1);
-        dunning.AddOverduePayment(Guid.NewGuid(), 0m, DateTime.UtcNow.AddDays(-30), 30);
+        dunning.AddOverduePayment(Guid.NewGuid(), 100m, DateTime.UtcNow.AddDays(-30), 30);
+        dunning.OverduePayments[0].OutstandingAmount = 0m;
         DunningManager.ShouldAutoResolve(dunning).ShouldBeFalse(); // Draft
     }
 

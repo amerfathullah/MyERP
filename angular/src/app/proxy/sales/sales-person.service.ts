@@ -70,6 +70,14 @@ export class SalesPersonService {
     { apiName: this.apiName,...config });
   
 
+  getTimelineData = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, Record<string, number>>({
+      method: 'GET',
+      url: `/api/app/sales-person/${id}/timeline-data`,
+    },
+    { apiName: this.apiName,...config });
+  
+
   update = (id: string, input: UpdateSalesPersonDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesPersonDto>({
       method: 'PUT',

@@ -48,6 +48,85 @@ public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
         return all.Select(x => ObjectMapper.Map<SalesPerson, SalesPersonDto>(x)).ToList();
     }
 
+    /// <summary>
+    /// Gets daily activity timeline data for a sales person over the past year.
+    /// Per ERPNext PR #61952 (commit 1674287d0b): counts only SUBMITTED documents
+    /// (Sales Order, Delivery Note, Sales Invoice) where this sales person is linked in sales team.
+    /// </summary>
+    public async Task<Dictionary<string, int>> GetTimelineDataAsync(Guid id)
+    {
+        var oneYearAgo = DateTime.UtcNow.Date.AddYears(-1);
+        var result = new Dictionary<string, int>();
+
+        var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
+        var teamQuery = await teamRepo.GetQueryableAsync();
+        var teamEntries = teamQuery
+            .Where(t => t.SalesPersonId == id)
+            .Select(t => new { t.ParentType, t.ParentId })
+            .ToList();
+
+        if (teamEntries.Count == 0)
+        {
+            return result;
+        }
+
+        // 1. Sales Invoices
+        var siIds = teamEntries.Where(t => t.ParentType == "SalesInvoice").Select(t => t.ParentId).Distinct().ToList();
+        if (siIds.Count > 0)
+        {
+            var siRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+            var siQuery = await siRepo.GetQueryableAsync();
+            var siDates = siQuery
+                .Where(si => siIds.Contains(si.Id) && si.Status == Core.DocumentStatus.Submitted && si.IssueDate >= oneYearAgo)
+                .Select(si => si.IssueDate.Date)
+                .ToList();
+
+            foreach (var d in siDates)
+            {
+                var key = d.ToString("yyyy-MM-dd");
+                result[key] = result.GetValueOrDefault(key, 0) + 1;
+            }
+        }
+
+        // 2. Sales Orders
+        var soIds = teamEntries.Where(t => t.ParentType == "SalesOrder").Select(t => t.ParentId).Distinct().ToList();
+        if (soIds.Count > 0)
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+            var soQuery = await soRepo.GetQueryableAsync();
+            var soDates = soQuery
+                .Where(so => soIds.Contains(so.Id) && so.Status == Core.DocumentStatus.Submitted && so.OrderDate >= oneYearAgo)
+                .Select(so => so.OrderDate.Date)
+                .ToList();
+
+            foreach (var d in soDates)
+            {
+                var key = d.ToString("yyyy-MM-dd");
+                result[key] = result.GetValueOrDefault(key, 0) + 1;
+            }
+        }
+
+        // 3. Delivery Notes
+        var dnIds = teamEntries.Where(t => t.ParentType == "DeliveryNote").Select(t => t.ParentId).Distinct().ToList();
+        if (dnIds.Count > 0)
+        {
+            var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
+            var dnQuery = await dnRepo.GetQueryableAsync();
+            var dnDates = dnQuery
+                .Where(dn => dnIds.Contains(dn.Id) && dn.Status == Core.DocumentStatus.Submitted && dn.PostingDate >= oneYearAgo)
+                .Select(dn => dn.PostingDate.Date)
+                .ToList();
+
+            foreach (var d in dnDates)
+            {
+                var key = d.ToString("yyyy-MM-dd");
+                result[key] = result.GetValueOrDefault(key, 0) + 1;
+            }
+        }
+
+        return result;
+    }
+
     [Authorize(MyERPPermissions.SalesPersons.Create)]
     public async Task<SalesPersonDto> CreateAsync(CreateSalesPersonDto input)
     {

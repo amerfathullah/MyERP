@@ -171,43 +171,56 @@ public class LhdnApiClient : ILhdnApiClient, ITransientDependency
         var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-        var response = await client.SendAsync(request);
-        var rawJson = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            var msg = response.StatusCode == System.Net.HttpStatusCode.NotFound
-                ? "Taxpayer not found in LHDN database"
-                : (!string.IsNullOrWhiteSpace(idType)
-                    ? $"Status code: {(int)response.StatusCode} As per LHDN, either idType or idValue is wrong"
-                    : $"Status code: {(int)response.StatusCode} As per LHDN, either type or value or taxpayer data is wrong");
-            _logger.LogWarning("LHDN SearchTaxpayer failed: {StatusCode} {Body}", response.StatusCode, rawJson);
-            return new LhdnTaxpayerSearchResponse { IsFound = false, StatusCode = (int)response.StatusCode, RawJson = rawJson, ErrorMessage = msg };
+            var response = await client.SendAsync(request);
+            var rawJson = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var msg = response.StatusCode == System.Net.HttpStatusCode.NotFound
+                    ? "Taxpayer not found in LHDN database"
+                    : (!string.IsNullOrWhiteSpace(idType)
+                        ? $"Status code: {(int)response.StatusCode} As per LHDN, either idType or idValue is wrong"
+                        : $"Status code: {(int)response.StatusCode} As per LHDN, either type or value or taxpayer data is wrong");
+                _logger.LogWarning("LHDN SearchTaxpayer failed: {StatusCode} {Body}", response.StatusCode, rawJson);
+                return new LhdnTaxpayerSearchResponse { IsFound = false, StatusCode = (int)response.StatusCode, RawJson = rawJson, ErrorMessage = msg };
+            }
+
+            using var doc = JsonDocument.Parse(rawJson);
+            var root = doc.RootElement;
+
+            // Per Gotcha #3957 / myinvois search_taxpayer.py: tries data.tin then data.data.tin
+            string? tinVal = null;
+            if (root.TryGetProperty("tin", out var tinProp))
+                tinVal = tinProp.GetString();
+            else if (root.TryGetProperty("data", out var dataProp) && dataProp.TryGetProperty("tin", out var dataTinProp))
+                tinVal = dataTinProp.GetString();
+
+            string? nameVal = null;
+            if (root.TryGetProperty("name", out var nameProp))
+                nameVal = nameProp.GetString();
+            else if (root.TryGetProperty("data", out var dataNameProp) && dataNameProp.TryGetProperty("name", out var dataNameVal))
+                nameVal = dataNameVal.GetString();
+
+            return new LhdnTaxpayerSearchResponse
+            {
+                IsFound = true,
+                StatusCode = (int)response.StatusCode,
+                Tin = tinVal,
+                TaxpayerName = nameVal,
+                RawJson = rawJson
+            };
         }
-
-        using var doc = JsonDocument.Parse(rawJson);
-        var root = doc.RootElement;
-
-        // Per Gotcha #3957 / myinvois search_taxpayer.py: tries data.tin then data.data.tin
-        string? tinVal = null;
-        if (root.TryGetProperty("tin", out var tinProp))
-            tinVal = tinProp.GetString();
-        else if (root.TryGetProperty("data", out var dataProp) && dataProp.TryGetProperty("tin", out var dataTinProp))
-            tinVal = dataTinProp.GetString();
-
-        string? nameVal = null;
-        if (root.TryGetProperty("name", out var nameProp))
-            nameVal = nameProp.GetString();
-        else if (root.TryGetProperty("data", out var dataNameProp) && dataNameProp.TryGetProperty("name", out var dataNameVal))
-            nameVal = dataNameVal.GetString();
-
-        return new LhdnTaxpayerSearchResponse
+        catch (Exception ex)
         {
-            IsFound = true,
-            StatusCode = (int)response.StatusCode,
-            Tin = tinVal,
-            TaxpayerName = nameVal,
-            RawJson = rawJson
-        };
+            _logger.LogError(ex, "LHDN SearchTaxpayer exception");
+            return new LhdnTaxpayerSearchResponse
+            {
+                IsFound = false,
+                StatusCode = 500,
+                ErrorMessage = $"API request failed: {ex.Message}"
+            };
+        }
     }
 }
