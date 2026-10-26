@@ -31,6 +31,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
     private readonly IRepository<Bin, Guid> _binRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly IRepository<Warehouse, Guid> _warehouseRepository;
+    private readonly IRepository<StockEntry, Guid>? _stockEntryRepository;
 
     public ProductionPlanningReportAppService(
         IRepository<WorkOrder, Guid> workOrderRepository,
@@ -40,7 +41,8 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
         IRepository<PurchaseOrder, Guid> purchaseOrderRepository,
         IRepository<Bin, Guid> binRepository,
         IRepository<Item, Guid> itemRepository,
-        IRepository<Warehouse, Guid> warehouseRepository)
+        IRepository<Warehouse, Guid> warehouseRepository,
+        IRepository<StockEntry, Guid>? stockEntryRepository = null)
     {
         _workOrderRepository = workOrderRepository;
         _salesOrderRepository = salesOrderRepository;
@@ -50,6 +52,7 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
         _binRepository = binRepository;
         _itemRepository = itemRepository;
         _warehouseRepository = warehouseRepository;
+        _stockEntryRepository = stockEntryRepository;
     }
 
     public async Task<ProductionPlanningReportDto> GetReportAsync(ProductionPlanningReportFilterDto input)
@@ -161,6 +164,28 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
             workOrders = workOrders.Where(w => w.CompanyId == input.CompanyId.Value).ToList();
         }
 
+        var woIds = workOrders.Select(w => w.Id).ToList();
+        var seRepo = _stockEntryRepository ?? LazyServiceProvider?.LazyGetService<IRepository<StockEntry, Guid>>();
+        var returnQtyMap = new Dictionary<(Guid WorkOrderId, Guid ItemId), decimal>();
+        if (seRepo != null && woIds.Count > 0)
+        {
+            var seQuery = await seRepo.WithDetailsAsync(se => se.Items);
+            var returnEntries = seQuery
+                .Where(se => se.WorkOrderId.HasValue && woIds.Contains(se.WorkOrderId.Value))
+                .Where(se => se.IsReturn && (se.Status == DocumentStatus.Submitted || se.Status == DocumentStatus.Posted))
+                .ToList();
+
+            foreach (var se in returnEntries)
+            {
+                foreach (var item in se.Items)
+                {
+                    var key = (se.WorkOrderId!.Value, item.ItemId);
+                    var qty = item.StockQty > 0 ? item.StockQty : item.Quantity;
+                    returnQtyMap[key] = returnQtyMap.GetValueOrDefault(key) + qty;
+                }
+            }
+        }
+
         foreach (var wo in workOrders)
         {
             var prodItem = itemMap.TryGetValue(wo.ItemId, out var pi) ? pi : null;
@@ -200,7 +225,12 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
                 var rawCode = rawItem?.ItemCode ?? string.Empty;
                 var rawName = rawItem?.ItemName ?? rm.ItemName;
 
-                var issuedQty = Math.Max(rm.TransferredQuantity, rm.ConsumedQuantity);
+                var returnedQty = returnQtyMap.GetValueOrDefault((wo.Id, rm.ItemId));
+                // Per ERPNext PR #61431 (commit 843035248a): count returned materials as needed in planning report.
+                // In MyERP, rm.TransferredQuantity was deducted upon return, so gross transferred is rm.TransferredQuantity + returnedQty.
+                var grossTransferred = rm.TransferredQuantity + returnedQty;
+                var grossIssued = Math.Max(grossTransferred, rm.ConsumedQuantity);
+                var issuedQty = Math.Max(0m, grossIssued - returnedQty);
                 var netRequiredQty = Math.Max(rm.RequiredQuantity - issuedQty, 0m);
                 var allotted = AllotStock(rm.ItemId, rmWhId, netRequiredQty, binTracker);
                 var (arrivalDate, arrivalQty) = GetPoArrival(openPOs, rm.ItemId, rmWhId);

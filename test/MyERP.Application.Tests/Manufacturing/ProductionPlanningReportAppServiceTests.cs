@@ -303,6 +303,77 @@ public class ProductionPlanningReportAppServiceTests
     }
 
     [Fact]
+    public async Task GetReportAsync_WorkOrder_WithReturnedMaterials_CountsReturnedMaterialAsNeededAgain_PR61431()
+    {
+        var fgItemId = Guid.NewGuid();
+        var fgItem = new Item(fgItemId, _companyId, "FG-DESK", "Study Desk", ItemType.Goods);
+        var rmItemId = Guid.NewGuid();
+        var rmItem = new Item(rmItemId, _companyId, "RM-WOOD", "Oak Wood", ItemType.Goods);
+        var whId = Guid.NewGuid();
+        var warehouse = new Warehouse(whId, _companyId, "RM Store");
+        var wipWhId = Guid.NewGuid();
+        var wipWarehouse = new Warehouse(wipWhId, _companyId, "WIP Store");
+
+        var wo = new WorkOrder(Guid.NewGuid(), _companyId, "WO-2026-RET", fgItemId, Guid.NewGuid(), 5m)
+        {
+            FgWarehouseId = whId,
+            SourceWarehouseId = whId,
+            WipWarehouseId = wipWhId,
+            PlannedStartDate = DateTime.UtcNow.Date
+        };
+        wo.Submit();
+
+        // 10 required, 10 was transferred and 10 consumed, but 5 was returned to stock
+        // TransferredQuantity in MyERP is deducted upon return, so TransferredQuantity = 5m, ConsumedQuantity = 10m
+        var woItem = new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItemId, "Oak Wood", 10m)
+        {
+            SourceWarehouseId = whId,
+            TransferredQuantity = 5m,
+            ConsumedQuantity = 10m
+        };
+        wo.RequiredItems.Add(woItem);
+
+        var bin = new Bin(Guid.NewGuid(), rmItemId, whId) { ActualQty = 10m };
+
+        // Return stock entry of 5m (from WIP back to RM warehouse)
+        var se = new StockEntry(Guid.NewGuid(), _companyId, StockEntryType.MaterialTransferForManufacture, DateTime.UtcNow.Date)
+        {
+            EntryNumber = "STE-RET-001",
+            WorkOrderId = wo.Id,
+            IsReturn = true
+        };
+        se.AddItem(rmItemId, 5m, sourceWarehouseId: wipWhId, targetWarehouseId: whId, valuationRate: 10m);
+        se.Submit();
+
+        var seRepo = Substitute.For<IRepository<StockEntry, Guid>>();
+        seRepo.WithDetailsAsync(Arg.Any<Expression<Func<StockEntry, object>>[]>())
+            .Returns(Task.FromResult(new List<StockEntry> { se }.AsQueryable()));
+
+        var appService = new ProductionPlanningReportAppService(
+            _woRepo, _soRepo, _mrRepo, _bomRepo, _poRepo, _binRepo, _itemRepo, _warehouseRepo, seRepo);
+
+        _itemRepo.GetListAsync().Returns(Task.FromResult(new List<Item> { fgItem, rmItem }));
+        _warehouseRepo.GetListAsync().Returns(Task.FromResult(new List<Warehouse> { warehouse }));
+        _binRepo.GetListAsync().Returns(Task.FromResult(new List<Bin> { bin }));
+        _woRepo.WithDetailsAsync(Arg.Any<Expression<Func<WorkOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<WorkOrder> { wo }.AsQueryable()));
+        _poRepo.WithDetailsAsync(Arg.Any<Expression<Func<PurchaseOrder, object>>[]>())
+            .Returns(Task.FromResult(new List<PurchaseOrder>().AsQueryable()));
+
+        var result = await appService.GetReportAsync(new ProductionPlanningReportFilterDto
+        {
+            CompanyId = _companyId,
+            BasedOn = "WorkOrder"
+        });
+
+        result.Rows.Count.ShouldBe(1);
+        // Returned material is needed again: 10 required - (max(5+5, 10) - 5) = 10 - 5 = 5m
+        result.Rows[0].RequiredQty.ShouldBe(5m);
+        result.Rows[0].AllottedQty.ShouldBe(5m);
+        result.Rows[0].ShortageQty.ShouldBe(0m);
+    }
+
+    [Fact]
     public async Task BomStockAnalysis_UsesStockQtyAndRoundsDivisionBeforeFloor()
     {
         var bomId = Guid.NewGuid();
