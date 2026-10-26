@@ -469,8 +469,8 @@ public class UpstreamParityBatch20261026Part4Tests
 
         var ex = await Should.ThrowAsync<BusinessException>(async () => await appService.CancelAsync(dunningId));
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
-        ex.Data["detail"]!.ToString().ShouldContain("Cannot cancel Dunning");
-        ex.Data["detail"]!.ToString().ShouldContain("PE-2026-0001");
+        ex.Data["detail"]!.ToString()!.ShouldContain("Cannot cancel Dunning");
+        ex.Data["detail"]!.ToString()!.ShouldContain("PE-2026-0001");
     }
 
     [Fact]
@@ -483,7 +483,7 @@ public class UpstreamParityBatch20261026Part4Tests
 
         var ex = Should.Throw<BusinessException>(() => dunning.Cancel());
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
-        ex.Data["detail"]!.ToString().ShouldContain("Cannot cancel Dunning with paid fees or interest");
+        ex.Data["detail"]!.ToString()!.ShouldContain("Cannot cancel Dunning with paid fees or interest");
     }
 
     [Fact]
@@ -537,7 +537,7 @@ public class UpstreamParityBatch20261026Part4Tests
 
         var ex = await Should.ThrowAsync<BusinessException>(async () => await appService.SubmitAsync(peId));
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
-        ex.Data["detail"]!.ToString().ShouldContain("must be submitted");
+        ex.Data["detail"]!.ToString()!.ShouldContain("must be submitted");
     }
 
     [Fact]
@@ -593,7 +593,7 @@ public class UpstreamParityBatch20261026Part4Tests
 
         var ex = await Should.ThrowAsync<BusinessException>(async () => await appService.SubmitAsync(peId));
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
-        ex.Data["detail"]!.ToString().ShouldContain("belongs to a different customer");
+        ex.Data["detail"]!.ToString()!.ShouldContain("belongs to a different customer");
     }
 
     // --- ERPNext PR #62149 / commit ffcf97c223: Product Bundle disabled version in returns vs standard ---
@@ -618,7 +618,7 @@ public class UpstreamParityBatch20261026Part4Tests
             await service.DecomposeAsync(parentItemId, 1m, 100m, isReturn: false, productBundleId: bundleId));
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
-        ex.Data["detail"]!.ToString().ShouldContain("disabled and cannot be used");
+        ex.Data["detail"]!.ToString()!.ShouldContain("disabled and cannot be used");
     }
 
     [Fact]
@@ -679,7 +679,7 @@ public class UpstreamParityBatch20261026Part4Tests
             await manager.ValidateSerialAndBatchRequirementsAsync(wo));
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
-        ex.Data["detail"]!.ToString().ShouldContain("Set Automatically Create New Batch in Item");
+        ex.Data["detail"]!.ToString()!.ShouldContain("Set Automatically Create New Batch in Item");
     }
 
     [Fact]
@@ -716,7 +716,7 @@ public class UpstreamParityBatch20261026Part4Tests
             await manager.ValidateSerialAndBatchRequirementsAsync(wo));
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
-        ex.Data["detail"]!.ToString().ShouldContain("Set Serial No Series in Item");
+        ex.Data["detail"]!.ToString()!.ShouldContain("Set Serial No Series in Item");
     }
 
     [Fact]
@@ -844,7 +844,7 @@ public class UpstreamParityBatch20261026Part4Tests
             await appService.GetReceiptItemsAsync(input));
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
-        ex.Data["detail"]!.ToString().ShouldContain("Landed Cost Voucher can only be made against a Manufacture or Repack Stock Entry");
+        ex.Data["detail"]!.ToString()!.ShouldContain("Landed Cost Voucher can only be made against a Manufacture or Repack Stock Entry");
     }
 
     [Fact]
