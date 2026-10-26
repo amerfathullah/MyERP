@@ -179,11 +179,15 @@ public class InstallationNoteAppService : ApplicationService, IInstallationNoteA
     public async Task SubmitAsync(Guid id)
     {
         var note = await _repository.GetAsync(id);
+        var deliveryNote = await _deliveryNoteRepository.GetAsync(note.DeliveryNoteId, includeDetails: true);
+
+        // Per ERPNext PR #61806 / commit d2f0e2981a: validate installable limit on submit in case returns occurred after creation
+        await ValidateItemQtyAsync(deliveryNote, note);
+
         note.Submit();
         await _repository.UpdateAsync(note);
 
         // Update DeliveryNoteItem.InstalledQty and DeliveryNote status (per ERPNext status_updater)
-        var deliveryNote = await _deliveryNoteRepository.GetAsync(note.DeliveryNoteId, includeDetails: true);
         foreach (var item in note.Items)
         {
             DeliveryNoteItem? dnItem = null;

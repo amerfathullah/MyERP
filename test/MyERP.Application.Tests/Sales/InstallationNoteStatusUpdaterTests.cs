@@ -89,4 +89,56 @@ public abstract class InstallationNoteStatusUpdaterTests<TStartupModule> : MyERP
             dnAfterCancel.InstallationStatus.ShouldBe("Not Installed");
         });
     }
+
+    [Fact]
+    public async Task Submit_Should_Block_When_Sales_Return_Occurred_After_Note_Creation()
+    {
+        // Per ERPNext PR #61806 / commit d2f0e2981a (test_full_return_blocks_installation)
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await _companyRepository.InsertAsync(new Company(Guid.NewGuid(), "Inst Co 2"), autoSave: true);
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "IN Series 2", "IN", "IN-"), autoSave: true);
+            var customer = await _customerRepository.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Inst Cust 2"), autoSave: true);
+            var warehouse = await _warehouseRepository.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Inst WH 2"), autoSave: true);
+            var item = await _itemRepository.InsertAsync(new Item(Guid.NewGuid(), company.Id, "INST-ITEM-002", "Installation Item 2", ItemType.Goods) { MaintainStock = false }, autoSave: true);
+
+            var dn = new DeliveryNote(Guid.NewGuid(), company.Id, customer.Id, warehouse.Id, "DN-INST-002", DateTime.UtcNow.Date);
+            dn.AddItem(item.Id, "Installation Item 2 Desc", 5m, 100m, 0m);
+            dn.Submit();
+            await _deliveryNoteRepository.InsertAsync(dn, autoSave: true);
+
+            var dnItemId = dn.Items[0].Id;
+
+            // 1. Create Installation Note in Draft for full 5 units (valid at creation time)
+            var inDto = await _installationNoteAppService.CreateAsync(new CreateInstallationNoteDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                DeliveryNoteId = dn.Id,
+                InstallationDate = DateTime.UtcNow.Date,
+                Items = new List<InstallationNoteItemDto>
+                {
+                    new InstallationNoteItemDto
+                    {
+                        ItemId = item.Id,
+                        DeliveryNoteItemId = dnItemId,
+                        Qty = 5m
+                    }
+                }
+            });
+
+            // 2. Sales return occurs for 5 units against the DN
+            var dnEntity = await _deliveryNoteRepository.GetAsync(dn.Id, includeDetails: true);
+            dnEntity.Items[0].ReturnedQty = 5m;
+            await _deliveryNoteRepository.UpdateAsync(dnEntity, autoSave: true);
+
+            // 3. Submitting the Installation Note now must be rejected because installable qty is 0 (5 - 5)
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(async () =>
+            {
+                await _installationNoteAppService.SubmitAsync(inDto.Id);
+            });
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.InstallationQtyExceedsDeliveryNote);
+        });
+    }
 }
