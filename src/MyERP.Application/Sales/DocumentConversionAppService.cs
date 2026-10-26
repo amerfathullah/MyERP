@@ -690,6 +690,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         var supplierRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.Supplier, Guid>>();
         var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
         var exchangeService = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.CurrencyExchangeService>();
+        var bundleService = LazyServiceProvider.LazyGetService<DomainServices.ProductBundleDecompositionService>();
         var company = await companyRepo.GetAsync(salesOrder.CompanyId);
 
         var createdIds = new List<Guid>();
@@ -711,21 +712,55 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             foreach (var line in supplierGroup)
             {
                 var soItem = line.Item;
-                var poItem = po.AddItem(
-                    soItem.ItemId,
-                    soItem.Description ?? string.Empty,
-                    line.Quantity,
-                    unitPrice: 0m,
-                    taxAmount: 0m,
-                    soItem.Uom ?? "Unit",
-                    soItem.WarehouseId,
-                    projectId: salesOrder.ProjectId,
-                    deliveredBySupplier: soItem.DeliveredBySupplier);
-                poItem.StockUom = soItem.StockUom;
-                poItem.ConversionFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
-                poItem.ExpectedDeliveryDate = soItem.DeliveryDate ?? salesOrder.DeliveryDate;
-                poItem.SalesOrderId = salesOrder.Id;
-                poItem.SalesOrderItemId = soItem.Id;
+                // ERPNext PR #61966 (commit a26ae5639f): decompose product bundle components and filter by purchase supplier
+                var isBundle = bundleService != null && (soItem.ProductBundleId.HasValue || await bundleService.IsBundleItemAsync(soItem.ItemId));
+                List<DomainServices.DecomposedItem>? components = null;
+                if (isBundle)
+                {
+                    components = await bundleService!.DecomposeAsync(
+                        soItem.ItemId, line.Quantity, soItem.UnitPrice,
+                        soItem.WarehouseId, soItem.Id, productBundleId: soItem.ProductBundleId);
+                }
+
+                if (components != null && components.Count > 0)
+                {
+                    foreach (var comp in components)
+                    {
+                        var poItem = po.AddItem(
+                            comp.ComponentItemId,
+                            comp.ComponentItemName ?? string.Empty,
+                            comp.Qty,
+                            unitPrice: 0m,
+                            taxAmount: 0m,
+                            comp.Uom ?? "Unit",
+                            comp.WarehouseId ?? soItem.WarehouseId,
+                            projectId: salesOrder.ProjectId,
+                            deliveredBySupplier: soItem.DeliveredBySupplier);
+                        poItem.StockUom = comp.Uom ?? "Unit";
+                        poItem.ConversionFactor = 1m;
+                        poItem.ExpectedDeliveryDate = soItem.DeliveryDate ?? salesOrder.DeliveryDate;
+                        poItem.SalesOrderId = salesOrder.Id;
+                        poItem.SalesOrderItemId = soItem.Id;
+                    }
+                }
+                else
+                {
+                    var poItem = po.AddItem(
+                        soItem.ItemId,
+                        soItem.Description ?? string.Empty,
+                        line.Quantity,
+                        unitPrice: 0m,
+                        taxAmount: 0m,
+                        soItem.Uom ?? "Unit",
+                        soItem.WarehouseId,
+                        projectId: salesOrder.ProjectId,
+                        deliveredBySupplier: soItem.DeliveredBySupplier);
+                    poItem.StockUom = soItem.StockUom;
+                    poItem.ConversionFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                    poItem.ExpectedDeliveryDate = soItem.DeliveryDate ?? salesOrder.DeliveryDate;
+                    poItem.SalesOrderId = salesOrder.Id;
+                    poItem.SalesOrderItemId = soItem.Id;
+                }
             }
 
             if (po.Items.Any(i => i.DeliveredBySupplier))

@@ -56,6 +56,8 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
             new DocumentSeries(Guid.NewGuid(), company.Id, "DNS", "DeliveryNote", "DN-"), autoSave: true);
         await _seriesRepository.InsertAsync(
             new DocumentSeries(Guid.NewGuid(), company.Id, "SIS", "SalesInvoice", "SI-"), autoSave: true);
+        await _seriesRepository.InsertAsync(
+            new DocumentSeries(Guid.NewGuid(), company.Id, "POS", "PurchaseOrder", "PO-"), autoSave: true);
 
         return (company.Id, customer.Id, warehouse.Id);
     }
@@ -591,6 +593,86 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
         await Should.ThrowAsync<Volo.Abp.BusinessException>(async () =>
         {
             await _conversionService.ConvertSalesOrderToDeliveryNoteAsync(salesOrder.Id);
+        });
+    }
+
+    [Fact]
+    public async Task Should_Create_PurchaseOrders_From_SalesOrder_Decomposing_Bundles_By_Supplier()
+    {
+        // Arrange (Per ERPNext PR #61966 / commit a26ae5639f & 901eddb0b9)
+        var (companyId, customerId, warehouseId) = await SeedDataAsync();
+        var supplierRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.Supplier, Guid>>();
+        var bundleRepo = GetRequiredService<IRepository<ProductBundle, Guid>>();
+        var poRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+
+        var supplierA = await supplierRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), companyId, "Supplier A"), autoSave: true);
+        var supplierB = await supplierRepo.InsertAsync(new MyERP.Purchasing.Entities.Supplier(Guid.NewGuid(), companyId, "Supplier B"), autoSave: true);
+
+        var bundleItemA = Guid.NewGuid();
+        var compA = Guid.NewGuid();
+        var bundleA = new ProductBundle(Guid.NewGuid(), bundleItemA);
+        bundleA.AddItem(compA, 2m, "Component A", "Nos");
+        await bundleRepo.InsertAsync(bundleA, autoSave: true);
+
+        var bundleItemB = Guid.NewGuid();
+        var compB = Guid.NewGuid();
+        var bundleB = new ProductBundle(Guid.NewGuid(), bundleItemB);
+        bundleB.AddItem(compB, 3m, "Component B", "Nos");
+        await bundleRepo.InsertAsync(bundleB, autoSave: true);
+
+        var normalItem = Guid.NewGuid();
+
+        var salesOrder = await _salesOrderService.CreateAsync(new CreateSalesOrderDto
+        {
+            CompanyId = companyId,
+            CustomerId = customerId,
+            OrderDate = DateTime.Today,
+            Items = new()
+            {
+                new() { ItemId = bundleItemA, Description = "Bundle A", Quantity = 2, UnitPrice = 100m, WarehouseId = warehouseId },
+                new() { ItemId = bundleItemB, Description = "Bundle B", Quantity = 1, UnitPrice = 150m, WarehouseId = warehouseId },
+                new() { ItemId = normalItem, Description = "Normal Item", Quantity = 5, UnitPrice = 20m, WarehouseId = warehouseId }
+            }
+        });
+        await _salesOrderService.SubmitAsync(salesOrder.Id);
+
+        var so = await _salesOrderRepository.GetAsync(salesOrder.Id);
+        var soItemBundleA = so.Items.First(i => i.ItemId == bundleItemA);
+        var soItemBundleB = so.Items.First(i => i.ItemId == bundleItemB);
+        var soItemNormal = so.Items.First(i => i.ItemId == normalItem);
+
+        // Act: Map Bundle A and Normal Item to Supplier A; Bundle B to Supplier B
+        var selections = new List<SalesOrderPurchaseItemSelectionDto>
+        {
+            new() { SalesOrderItemId = soItemBundleA.Id, SupplierId = supplierA.Id },
+            new() { SalesOrderItemId = soItemNormal.Id, SupplierId = supplierA.Id },
+            new() { SalesOrderItemId = soItemBundleB.Id, SupplierId = supplierB.Id }
+        };
+
+        var poIds = await _conversionService.ConvertSalesOrderToPurchaseOrdersAsync(salesOrder.Id, selections);
+
+        // Assert: 2 Purchase Orders created (one per supplier)
+        poIds.Count.ShouldBe(2);
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var currentPoRepo = GetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+            var poQueryable = await currentPoRepo.WithDetailsAsync(p => p.Items);
+            var allPos = poQueryable.Where(p => poIds.Contains(p.Id)).ToList();
+            var poA = allPos.First(p => p.SupplierId == supplierA.Id);
+            var poB = allPos.First(p => p.SupplierId == supplierB.Id);
+
+            // Supplier A: Component A (qty 2 * 2 = 4) and Normal Item (qty 5)
+            poA.Items.Count.ShouldBe(2);
+            var poAComp = poA.Items.First(i => i.ItemId == compA);
+            poAComp.Quantity.ShouldBe(4m);
+            var poANormal = poA.Items.First(i => i.ItemId == normalItem);
+            poANormal.Quantity.ShouldBe(5m);
+
+            // Supplier B: Component B (qty 1 * 3 = 3)
+            poB.Items.Count.ShouldBe(1);
+            var poBComp = poB.Items.First(i => i.ItemId == compB);
+            poBComp.Quantity.ShouldBe(3m);
         });
     }
 }
