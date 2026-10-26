@@ -97,4 +97,38 @@ public class DunningResolutionAndFeeTests
         var dunning = new Dunning(Guid.NewGuid(), _companyId, _customerId, DateTime.UtcNow, 1);
         Assert.Throws<BusinessException>(() => dunning.Submit());
     }
+
+    // === ERPNext PR #61620: Validate Dunning cancellation requires payment cancellation first ===
+
+    [Fact]
+    public void Dunning_Cancel_WithPaidCharges_Throws()
+    {
+        var dunning = new Dunning(Guid.NewGuid(), _companyId, _customerId, DateTime.UtcNow, 1);
+        dunning.AddOverduePayment(Guid.NewGuid(), 1000m, DateTime.UtcNow.AddDays(-30), 30);
+        dunning.DunningFee = 50m;
+        dunning.Submit();
+        dunning.RecordDunningPayment(50m);
+
+        var ex = Assert.Throws<BusinessException>(() => dunning.Cancel());
+        Assert.Contains("Cannot cancel Dunning with paid fees or interest", ex.Data["detail"]?.ToString());
+    }
+
+    [Fact]
+    public void Dunning_Cancel_AfterPaymentCancelled_Succeeds()
+    {
+        var dunning = new Dunning(Guid.NewGuid(), _companyId, _customerId, DateTime.UtcNow, 1);
+        dunning.AddOverduePayment(Guid.NewGuid(), 1000m, DateTime.UtcNow.AddDays(-30), 30);
+        dunning.DunningFee = 50m;
+        dunning.Submit();
+        dunning.RecordDunningPayment(50m);
+        dunning.Resolve();
+
+        // Payment cancelled -> reversal of payment and reopen
+        dunning.RecordDunningPayment(-50m);
+        Assert.Equal(0m, dunning.PaidDunningAmount);
+        dunning.Reopen();
+
+        dunning.Cancel();
+        Assert.Equal(DocumentStatus.Cancelled, dunning.Status);
+    }
 }

@@ -72,6 +72,7 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
     /// </summary>
     public async Task<List<ProformaInvoiceDto>> GetForSalesOrderAsync(Guid salesOrderId)
     {
+        await CheckSalesOrderReadPermissionAsync();
         var queryable = await _repository.GetQueryableAsync();
         var items = queryable
             .Where(x => x.SalesOrderId == salesOrderId)
@@ -90,6 +91,7 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
     /// </summary>
     public async Task<List<ProformedTotalsDto>> GetProformedTotalsAsync(Guid salesOrderId)
     {
+        await CheckSalesOrderReadPermissionAsync();
         var so = await _salesOrderRepository.GetAsync(salesOrderId);
         var queryable = await _repository.GetQueryableAsync();
         var issuedProformas = queryable
@@ -128,6 +130,7 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
     [Authorize(MyERPPermissions.SalesInvoices.Create)]
     public async Task<ProformaInvoiceDto> CreateAsync(CreateProformaInvoiceDto input)
     {
+        await CheckSalesOrderReadPermissionAsync();
         if (!await _settingProvider.IsTrueAsync(MyERPSettings.Selling.EnableProformaInvoice))
             throw new BusinessException(MyERPDomainErrorCodes.ProformaInvoiceDisabled);
 
@@ -346,5 +349,11 @@ public class ProformaInvoiceAppService : ApplicationService, IProformaInvoiceApp
                 Amount = i.Amount
             }).ToList()
         };
+    }
+
+    private async Task CheckSalesOrderReadPermissionAsync()
+    {
+        // Per ERPNext PR #62405 (commit e5455f7fef): check Sales Order read permission
+        await AuthorizationService.CheckAsync(MyERPPermissions.SalesOrders.Default);
     }
 }

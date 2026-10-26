@@ -218,6 +218,44 @@ public class CreditLimitServiceTests
         shouldEnforce.ShouldBeTrue();
     }
 
+    // === ERPNext PR #62092: Account for returned deliveries in credit limits ===
+
+    [Fact]
+    public void DeliveryNote_ReturnedQty_ReducesCreditExposure()
+    {
+        // 4 units delivered at 100 each = 400 total
+        // 3 units returned via sales return DN
+        // 0 units billed
+        decimal qty = 4m;
+        decimal unitPrice = 100m;
+        decimal billedQty = 0m;
+        decimal returnedQty = 3m;
+
+        var netUnbilledQty = qty - billedQty - Math.Abs(returnedQty);
+        netUnbilledQty.ShouldBe(1m);
+
+        var unbilledFraction = netUnbilledQty / qty;
+        unbilledFraction.ShouldBe(0.25m);
+
+        var exposure = (qty * unitPrice) * unbilledFraction;
+        exposure.ShouldBe(100m);
+    }
+
+    [Fact]
+    public void DeliveryNote_FullyReturned_ProducesZeroCreditExposure()
+    {
+        decimal qty = 4m;
+        decimal unitPrice = 100m;
+        decimal billedQty = 0m;
+        decimal returnedQty = 4m;
+
+        var netUnbilledQty = qty - billedQty - Math.Abs(returnedQty);
+        netUnbilledQty.ShouldBe(0m);
+
+        var exposure = netUnbilledQty > 0 ? (qty * unitPrice) * (netUnbilledQty / qty) : 0m;
+        exposure.ShouldBe(0m);
+    }
+
     /// <summary>Mirrors CreditLimitService.ValidateCreditLimitAsync's role/SO-bypass decision (pre-amount-check).</summary>
     private static bool CreditLimitShouldEnforce(
         decimal creditLimit, decimal exposure, bool isAtSalesOrder,

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using MyERP.Accounting.Entities;
 using MyERP.Core.Entities;
 using MyERP.Permissions;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Domain.Repositories;
 
@@ -71,6 +72,23 @@ public class BankAccountBalanceAppService : MyERPAppService, IBankAccountBalance
     [Authorize(MyERPPermissions.BankAccountBalances.Create)]
     public async Task<BankAccountBalanceDto> CreateAsync(CreateUpdateBankAccountBalanceDto input)
     {
+        // Per ERPNext PR #61415 (commit c2679f01a6): validate bank account is company account and prevent duplicates
+        var bankAccount = await _bankAccountRepository.GetAsync(input.BankAccountId);
+        if (!bankAccount.IsCompanyAccount)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Closing balances can only be recorded for company bank accounts.");
+        }
+
+        var balanceQuery = await _repository.GetQueryableAsync();
+        var dateOnly = input.Date.Date;
+        var exists = balanceQuery.Any(x => x.BankAccountId == input.BankAccountId && x.Date.Date == dateOnly);
+        if (exists)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
+                .WithData("detail", $"A closing balance already exists for Bank Account {bankAccount.AccountName} on {input.Date:yyyy-MM-dd}.");
+        }
+
         var entity = new BankAccountBalance(GuidGenerator.Create(), input.BankAccountId, input.Date, input.Balance, CurrentTenant.Id);
 
         await _repository.InsertAsync(entity);
@@ -82,7 +100,24 @@ public class BankAccountBalanceAppService : MyERPAppService, IBankAccountBalance
     [Authorize(MyERPPermissions.BankAccountBalances.Edit)]
     public async Task<BankAccountBalanceDto> UpdateAsync(Guid id, CreateUpdateBankAccountBalanceDto input)
     {
+        // Per ERPNext PR #61415 (commit c2679f01a6): validate bank account is company account and prevent duplicates
         var entity = await _repository.GetAsync(id);
+        var bankAccount = await _bankAccountRepository.GetAsync(input.BankAccountId);
+        if (!bankAccount.IsCompanyAccount)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Closing balances can only be recorded for company bank accounts.");
+        }
+
+        var balanceQuery = await _repository.GetQueryableAsync();
+        var dateOnly = input.Date.Date;
+        var exists = balanceQuery.Any(x => x.Id != id && x.BankAccountId == input.BankAccountId && x.Date.Date == dateOnly);
+        if (exists)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DuplicateRecord)
+                .WithData("detail", $"A closing balance already exists for Bank Account {bankAccount.AccountName} on {input.Date:yyyy-MM-dd}.");
+        }
+
         entity.BankAccountId = input.BankAccountId;
         entity.Date = input.Date;
         entity.Balance = input.Balance;

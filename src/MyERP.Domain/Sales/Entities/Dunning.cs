@@ -142,6 +142,10 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+        // Per ERPNext PR #61620: require payment cancellation before dunning cancellation
+        if (PaidDunningAmount > 0)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot cancel Dunning with paid fees or interest. Cancel the linked Payment Entry first.");
         Status = DocumentStatus.Cancelled;
     }
 }

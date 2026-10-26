@@ -195,9 +195,11 @@ public class CreditLimitService : DomainService
                     var exchangeRate = dn.ExchangeRate > 0 ? dn.ExchangeRate : 1m;
                     foreach (var item in dn.Items)
                     {
-                        if (!item.IsClosed && !item.SalesOrderItemId.HasValue && item.Quantity > 0 && item.Quantity > item.BilledQty)
+                        // Deduct returned qty per ERPNext PR #62092 (commit 60ba2d388b)
+                        var netUnbilledQty = item.Quantity - item.BilledQty - Math.Abs(item.ReturnedQty);
+                        if (!item.IsClosed && !item.SalesOrderItemId.HasValue && item.Quantity > 0 && netUnbilledQty > 0)
                         {
-                            var unbilledFraction = (item.Quantity - item.BilledQty) / item.Quantity;
+                            var unbilledFraction = netUnbilledQty / item.Quantity;
                             var dnExposure = (item.LineTotal * unbilledFraction / dn.NetTotal) * dn.GrandTotal * exchangeRate;
                             outstanding += dnExposure;
                         }
