@@ -416,4 +416,179 @@ public class UpstreamParityBatch20261026Part4Tests
         // Verifies FX gain/loss also reversed for linked against voucher (return / invoice)
         await postingOrchestrator.Received(1).ReverseExchangeGainLossJournalEntriesAsync("SalesInvoice", siId);
     }
+
+    // --- ERPNext PR #61620 / commits 58e9c6f8a8, 1662d7ba59, a5f08e36ec: Dunning Payment Linking & Cancellation ---
+
+    [Fact]
+    public async Task DunningAppService_CancelAsync_ThrowsWhenActivePaymentEntryLinked()
+    {
+        var dunningId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+
+        var dunning = new Dunning(dunningId, companyId, customerId, DateTime.UtcNow, 1);
+        dunning.AddOverduePayment(Guid.NewGuid(), 100m, DateTime.UtcNow.AddDays(-10), 10);
+        dunning.Submit();
+
+        var dunningRepo = Substitute.For<IRepository<Dunning, Guid>>();
+        dunningRepo.GetAsync(dunningId).Returns(Task.FromResult(dunning));
+
+        var peId = Guid.NewGuid();
+        var pe = new PaymentEntry(peId, companyId, PaymentType.Receive, DateTime.UtcNow, 100m, Guid.NewGuid(), Guid.NewGuid())
+        {
+            PaymentNumber = "PE-2026-0001"
+        };
+        pe.Submit();
+
+        var peTax = new PaymentEntryTax(Guid.NewGuid(), peId, Guid.NewGuid())
+        {
+            DunningId = dunningId,
+            TaxAmount = 25m
+        };
+
+        var peTaxRepo = Substitute.For<IRepository<PaymentEntryTax, Guid>>();
+        peTaxRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { peTax }.AsQueryable()));
+
+        var peRepo = Substitute.For<IRepository<PaymentEntry, Guid>>();
+        peRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { pe }.AsQueryable()));
+
+        var lazyProvider = Substitute.For<IAbpLazyServiceProvider>();
+        lazyProvider.LazyGetRequiredService<IRepository<PaymentEntryTax, Guid>>().Returns(peTaxRepo);
+        lazyProvider.LazyGetRequiredService<IRepository<PaymentEntry, Guid>>().Returns(peRepo);
+
+        var dunningManager = new DunningManager(dunningRepo);
+
+        var appService = new DunningAppService(dunningRepo, dunningManager)
+        {
+            LazyServiceProvider = lazyProvider
+        };
+
+        var ex = await Should.ThrowAsync<BusinessException>(async () => await appService.CancelAsync(dunningId));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString().ShouldContain("Cannot cancel Dunning");
+        ex.Data["detail"]!.ToString().ShouldContain("PE-2026-0001");
+    }
+
+    [Fact]
+    public void Dunning_Cancel_ThrowsWhenPaidDunningAmountGreaterThanZero()
+    {
+        var dunning = new Dunning(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow, 1);
+        dunning.AddOverduePayment(Guid.NewGuid(), 100m, DateTime.UtcNow.AddDays(-10), 10);
+        dunning.Submit();
+        dunning.RecordDunningPayment(50m);
+
+        var ex = Should.Throw<BusinessException>(() => dunning.Cancel());
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString().ShouldContain("Cannot cancel Dunning with paid fees or interest");
+    }
+
+    [Fact]
+    public async Task PaymentEntryAppService_SubmitAsync_ThrowsWhenDunningNotSubmitted()
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var dunningId = Guid.NewGuid();
+
+        var dunning = new Dunning(dunningId, companyId, customerId, DateTime.UtcNow, 1);
+        // Note: dunning left in Draft status!
+
+        var dunningRepo = Substitute.For<IRepository<Dunning, Guid>>();
+        dunningRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { dunning }.AsQueryable()));
+
+        var peId = Guid.NewGuid();
+        var pe = new PaymentEntry(peId, companyId, PaymentType.Receive, DateTime.UtcNow, 100m, Guid.NewGuid(), Guid.NewGuid())
+        {
+            PartyType = "Customer",
+            PartyId = customerId,
+            PaymentNumber = "PE-2026-TEST"
+        };
+        pe.AddTax(new PaymentEntryTax(Guid.NewGuid(), peId, Guid.NewGuid())
+        {
+            DunningId = dunningId,
+            AddDeductTax = TaxAddDeduct.Add,
+            TaxAmount = 20m
+        });
+
+        var peRepo = Substitute.For<IRepository<PaymentEntry, Guid>>();
+        peRepo.GetAsync(peId).Returns(Task.FromResult(pe));
+
+        var lazyProvider = Substitute.For<IAbpLazyServiceProvider>();
+        lazyProvider.LazyGetRequiredService<IRepository<Dunning, Guid>>().Returns(dunningRepo);
+        lazyProvider.LazyGetRequiredService<IRepository<DunningType, Guid>>().Returns(Substitute.For<IRepository<DunningType, Guid>>());
+        lazyProvider.LazyGetRequiredService<IRepository<global::MyERP.Core.Entities.Company, Guid>>().Returns(Substitute.For<IRepository<global::MyERP.Core.Entities.Company, Guid>>());
+        lazyProvider.LazyGetRequiredService<IRepository<ModeOfPayment, Guid>>().Returns(Substitute.For<IRepository<ModeOfPayment, Guid>>());
+
+        var appService = new PaymentEntryAppService(
+            peRepo,
+            Substitute.For<IRepository<SalesInvoice, Guid>>(),
+            Substitute.For<IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>>(),
+            Substitute.For<IRepository<PaymentScheduleEntry, Guid>>(),
+            Substitute.For<IRepository<PaymentLedgerEntry, Guid>>(),
+            Substitute.For<MyERP.Core.DomainServices.IDocumentNumberGenerator>(),
+            Substitute.For<DocumentPostingOrchestrator>(),
+            Substitute.For<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>())
+        {
+            LazyServiceProvider = lazyProvider
+        };
+
+        var ex = await Should.ThrowAsync<BusinessException>(async () => await appService.SubmitAsync(peId));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString().ShouldContain("must be submitted");
+    }
+
+    [Fact]
+    public async Task PaymentEntryAppService_SubmitAsync_ThrowsWhenCustomerMismatch()
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var otherCustomerId = Guid.NewGuid();
+        var dunningId = Guid.NewGuid();
+
+        var dunning = new Dunning(dunningId, companyId, customerId, DateTime.UtcNow, 1);
+        dunning.AddOverduePayment(Guid.NewGuid(), 100m, DateTime.UtcNow.AddDays(-10), 10);
+        dunning.Submit();
+
+        var dunningRepo = Substitute.For<IRepository<Dunning, Guid>>();
+        dunningRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { dunning }.AsQueryable()));
+
+        var peId = Guid.NewGuid();
+        var pe = new PaymentEntry(peId, companyId, PaymentType.Receive, DateTime.UtcNow, 100m, Guid.NewGuid(), Guid.NewGuid())
+        {
+            PartyType = "Customer",
+            PartyId = otherCustomerId, // Mismatched customer!
+            PaymentNumber = "PE-2026-TEST"
+        };
+        pe.AddTax(new PaymentEntryTax(Guid.NewGuid(), peId, Guid.NewGuid())
+        {
+            DunningId = dunningId,
+            AddDeductTax = TaxAddDeduct.Add,
+            TaxAmount = 20m
+        });
+
+        var peRepo = Substitute.For<IRepository<PaymentEntry, Guid>>();
+        peRepo.GetAsync(peId).Returns(Task.FromResult(pe));
+
+        var lazyProvider = Substitute.For<IAbpLazyServiceProvider>();
+        lazyProvider.LazyGetRequiredService<IRepository<Dunning, Guid>>().Returns(dunningRepo);
+        lazyProvider.LazyGetRequiredService<IRepository<DunningType, Guid>>().Returns(Substitute.For<IRepository<DunningType, Guid>>());
+        lazyProvider.LazyGetRequiredService<IRepository<global::MyERP.Core.Entities.Company, Guid>>().Returns(Substitute.For<IRepository<global::MyERP.Core.Entities.Company, Guid>>());
+        lazyProvider.LazyGetRequiredService<IRepository<ModeOfPayment, Guid>>().Returns(Substitute.For<IRepository<ModeOfPayment, Guid>>());
+
+        var appService = new PaymentEntryAppService(
+            peRepo,
+            Substitute.For<IRepository<SalesInvoice, Guid>>(),
+            Substitute.For<IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>>(),
+            Substitute.For<IRepository<PaymentScheduleEntry, Guid>>(),
+            Substitute.For<IRepository<PaymentLedgerEntry, Guid>>(),
+            Substitute.For<MyERP.Core.DomainServices.IDocumentNumberGenerator>(),
+            Substitute.For<DocumentPostingOrchestrator>(),
+            Substitute.For<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>())
+        {
+            LazyServiceProvider = lazyProvider
+        };
+
+        var ex = await Should.ThrowAsync<BusinessException>(async () => await appService.SubmitAsync(peId));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString().ShouldContain("belongs to a different customer");
+    }
 }

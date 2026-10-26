@@ -422,6 +422,23 @@ public class DunningAppService : ApplicationService, IDunningAppService
     public async Task<DunningDto> CancelAsync(Guid id)
     {
         var d = await _repository.GetAsync(id);
+
+        // Per ERPNext PR #61620 (commits 58e9c6f8a8, 1662d7ba59):
+        // Prevent cancelling Dunning if payments are linked to it. The linked payment must be cancelled first.
+        var peTaxRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PaymentEntryTax, Guid>>();
+        var peRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PaymentEntry, Guid>>();
+        var peTaxQuery = await peTaxRepo.GetQueryableAsync();
+        var peQuery = await peRepo.GetQueryableAsync();
+        var linkedActivePeNumber = (from tax in peTaxQuery
+                                    join p in peQuery on tax.PaymentEntryId equals p.Id
+                                    where tax.DunningId == d.Id && p.Status == DocumentStatus.Submitted
+                                    select p.PaymentNumber).FirstOrDefault();
+        if (linkedActivePeNumber != null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot cancel Dunning {d.Id} because active Payment Entry {linkedActivePeNumber} is linked to it. Cancel the payment entry first.");
+        }
+
         d.Cancel();
 
         // Cancel linked Journal Entries created by Dunning submit

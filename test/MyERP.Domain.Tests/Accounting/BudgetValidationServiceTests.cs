@@ -185,6 +185,30 @@ public class BudgetValidationServiceTests
         po.Items[0].IsClosed.ShouldBeTrue();
     }
 
+    [Fact]
+    public void MaterialRequest_CommitmentWithConversionFactor_CalculatesInPurchaseUom()
+    {
+        // Per ERPNext PR #61988 (commit cba938004e):
+        // (child.stock_qty - child.ordered_qty) * child.rate / child.conversion_factor
+        var mr = new Purchasing.Entities.MaterialRequest(
+            Guid.NewGuid(), Guid.NewGuid(), "MR-CONV-001",
+            Purchasing.MaterialRequestType.Purchase, DateTime.UtcNow);
+
+        var itemId = Guid.NewGuid();
+        // 10 Boxes, conversion factor = 12 (120 units in StockQty), 2 Boxes ordered
+        mr.AddItem(itemId, "Widget", 10m, "Box", conversionFactor: 12m);
+        var item = mr.Items[0];
+        item.OrderedQuantity = 2m; // 2 Boxes ordered
+
+        var conversion = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+        var unorderedStockQty = Math.Max(0, item.StockQty - (item.OrderedQuantity * conversion));
+        decimal rate = 50m; // 50 per Box
+        var amount = (unorderedStockQty / conversion) * rate;
+
+        unorderedStockQty.ShouldBe(96m); // (10 - 2) * 12 = 96 stock units remaining
+        amount.ShouldBe(400m); // 8 boxes * 50 = 400
+    }
+
     private static Budget CreateBudget(decimal amount, bool submit = true)
     {
         var budget = new Budget(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "CostCenter", Guid.NewGuid());

@@ -442,6 +442,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
         pe.Remarks = input.Remarks;
         ApplyTaxRows(pe, input.Taxes);
+        await ValidateDunningDeductionsAsync(pe);
 
         await _repository.InsertAsync(pe, autoSave: true);
         var resultDto = ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
@@ -455,6 +456,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
     {
         var pe = await _repository.GetAsync(id);
         await ValidateEnabledModeOfPaymentAsync(pe.ModeOfPaymentId, pe.ModeOfPayment);
+        await ValidateDunningDeductionsAsync(pe);
         pe.Submit();
         await _repository.UpdateAsync(pe, autoSave: true);
         return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
@@ -465,6 +467,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
     {
         var pe = await _repository.GetAsync(id);
         await ValidateEnabledModeOfPaymentAsync(pe.ModeOfPaymentId, pe.ModeOfPayment);
+        await ValidateDunningDeductionsAsync(pe);
         await ValidatePartyDetailsAsync(
             pe.PartyType,
             pe.PartyId,
@@ -1473,6 +1476,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         {
             entry.Taxes.Clear();
             ApplyTaxRows(entry, input.Taxes);
+            await ValidateDunningDeductionsAsync(entry);
         }
 
         await _repository.UpdateAsync(entry, autoSave: true);
@@ -2143,6 +2147,89 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         {
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("message", $"Mode of Payment '{mop.Name}' is disabled.");
+        }
+    }
+
+    /// <summary>
+    /// Validates dunning deductions linked to Payment Entry per ERPNext PR #61620 (commit a5f08e36ec).
+    /// Enforces submitted dunning, customer/company match, receive payment type, and income account alignment.
+    /// </summary>
+    private async Task ValidateDunningDeductionsAsync(PaymentEntry pe)
+    {
+        var dunningIds = pe.Taxes
+            .Where(t => t.DunningId.HasValue && t.DunningId.Value != Guid.Empty)
+            .Select(t => t.DunningId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (dunningIds.Count == 0) return;
+
+        var dunningRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Dunning, Guid>>();
+        var dunningQuery = await dunningRepo.GetQueryableAsync();
+        var dunnings = dunningQuery
+            .Where(d => dunningIds.Contains(d.Id))
+            .ToDictionary(d => d.Id);
+
+        var dunningTypeIds = dunnings.Values
+            .Where(d => d.DunningTypeId.HasValue)
+            .Select(d => d.DunningTypeId!.Value)
+            .Distinct()
+            .ToList();
+        var dtRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.DunningType, Guid>>();
+        var dtQuery = await dtRepo.GetQueryableAsync();
+        var dunningTypes = dtQuery
+            .Where(dt => dunningTypeIds.Contains(dt.Id))
+            .ToDictionary(dt => dt.Id);
+
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+        var company = await companyRepo.FindAsync(pe.CompanyId);
+
+        var idx = 0;
+        foreach (var tax in pe.Taxes.Where(t => t.DunningId.HasValue && t.DunningId.Value != Guid.Empty))
+        {
+            idx++;
+            if (!dunnings.TryGetValue(tax.DunningId!.Value, out var dunning) || dunning.Status != Core.DocumentStatus.Submitted)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx}: Dunning {tax.DunningId} must be submitted.");
+            }
+
+            if (pe.PaymentType != PaymentType.Receive || !string.Equals(pe.PartyType, "Customer", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx}: Dunning charges require a Receive payment from a Customer.");
+            }
+
+            if (pe.PartyId != dunning.CustomerId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx}: Dunning {dunning.Id} belongs to a different customer.");
+            }
+
+            if (pe.CompanyId != dunning.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx}: Dunning {dunning.Id} belongs to a different company.");
+            }
+
+            Guid? expectedIncomeAccountId = null;
+            if (dunning.DunningTypeId.HasValue && dunningTypes.TryGetValue(dunning.DunningTypeId.Value, out var dt))
+            {
+                expectedIncomeAccountId = dt.IncomeAccountId;
+            }
+            expectedIncomeAccountId ??= company?.DefaultIncomeAccountId;
+
+            if (expectedIncomeAccountId.HasValue && expectedIncomeAccountId.Value != Guid.Empty && tax.AccountId != expectedIncomeAccountId.Value)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx}: Dunning charges must use the income account configured on Dunning {dunning.Id}.");
+            }
+
+            if (tax.AddDeductTax == TaxAddDeduct.Deduct && tax.TaxAmount >= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row #{idx}: Dunning charges must have a negative deduction amount.");
+            }
         }
     }
 }

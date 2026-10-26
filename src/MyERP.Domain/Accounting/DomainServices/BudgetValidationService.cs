@@ -318,16 +318,17 @@ public class BudgetValidationService : DomainService
                 {
                     foreach (var item in mr.Items)
                     {
-                        var unorderedQty = Math.Max(0, item.Quantity - item.OrderedQuantity);
-                        if (unorderedQty <= 0) continue;
+                        var conversion = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+                        var unorderedStockQty = Math.Max(0, item.StockQty - (item.OrderedQuantity * conversion));
+                        if (unorderedStockQty <= 0) continue;
 
                         itemDetails.TryGetValue(item.ItemId, out var detail);
                         var accId = detail.Account ?? company?.DefaultExpenseAccountId;
 
                         if (accId.HasValue && accId.Value != Guid.Empty && detail.Rate > 0)
                         {
-                            var conversion = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
-                            var amount = unorderedQty * detail.Rate;
+                            // Per ERPNext PR #61988 (commit cba938004e): count requested budget amounts in the purchase UOM
+                            var amount = (unorderedStockQty / conversion) * detail.Rate;
                             result[accId.Value] = result.GetValueOrDefault(accId.Value, 0m) + amount;
                         }
                     }
