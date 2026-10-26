@@ -12,4 +12,6 @@ public interface ITerritoryAppService : IApplicationService
     Task<TerritoryDto> CreateAsync(CreateUpdateTerritoryDto input);
     Task<TerritoryDto> UpdateAsync(Guid id, CreateUpdateTerritoryDto input);
     Task DeleteAsync(Guid id);
+    Task AddTargetAsync(Guid id, CreateTerritoryTargetDto input);
+    Task RemoveTargetAsync(Guid id, Guid targetId);
 }

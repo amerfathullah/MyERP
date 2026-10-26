@@ -973,6 +973,25 @@ export interface TermsAndConditionsDto extends FullAuditedEntityDto<string> {
   copyAttachmentsToTransaction?: boolean;
 }
 
+export interface TerritoryTargetDto extends EntityDto<string> {
+  territoryId: string;
+  fiscalYearId?: string | null;
+  fiscalYearName?: string | null;
+  targetQty: number;
+  targetAmount: number;
+  itemGroupId?: string | null;
+  itemGroupName?: string | null;
+  distributionId?: string | null;
+}
+
+export interface CreateTerritoryTargetDto {
+  fiscalYearId?: string | null;
+  targetQty: number;
+  targetAmount: number;
+  itemGroupId?: string | null;
+  distributionId?: string | null;
+}
+
 export interface TerritoryDto extends FullAuditedEntityDto<string> {
   name?: string;
   parentId?: string | null;
@@ -980,6 +999,7 @@ export interface TerritoryDto extends FullAuditedEntityDto<string> {
   isGroup?: boolean;
   territoryManagerId?: string | null;
   territoryManagerName?: string | null;
+  targets?: TerritoryTargetDto[];
 }
 
 export interface TodaysActivityDto {

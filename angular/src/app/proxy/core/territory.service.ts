@@ -1,4 +1,4 @@
-import type { CreateUpdateTerritoryDto, GetTerritoryListDto, TerritoryDto } from './models';
+import type { CreateTerritoryTargetDto, CreateUpdateTerritoryDto, GetTerritoryListDto, TerritoryDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -50,6 +50,21 @@ export class TerritoryService {
       method: 'PUT',
       url: `/api/app/territory/${id}`,
       body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  addTarget = (id: string, input: CreateTerritoryTargetDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'POST',
+      url: `/api/app/territory/${id}/target`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  removeTarget = (id: string, targetId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/territory/${id}/target/${targetId}`,
     },
     { apiName: this.apiName,...config });
 }

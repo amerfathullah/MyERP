@@ -2731,6 +2731,40 @@ export interface SalesPersonTargetVarianceReportDto {
   overallAchievementPercentage: number;
 }
 
+export interface GetTerritoryTargetVarianceInput {
+  companyId: string;
+  docType?: string;
+  targetOn?: string;
+  fiscalYearId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  territoryId?: string | null;
+  itemGroupId?: string | null;
+}
+
+export interface TerritoryTargetVarianceRowDto {
+  territoryId: string;
+  territoryName: string;
+  itemGroupId?: string | null;
+  itemGroupName: string;
+  target: number;
+  achieved: number;
+  variance: number;
+  achievementPercentage: number;
+}
+
+export interface TerritoryTargetVarianceReportDto {
+  currency: string;
+  docType: string;
+  targetOn: string;
+  fiscalYearName?: string | null;
+  rows: TerritoryTargetVarianceRowDto[];
+  totalTarget: number;
+  totalAchieved: number;
+  totalVariance: number;
+  overallAchievementPercentage: number;
+}
+
 export interface DelayedOrderFilterDto {
   companyId: string;
   fromDate: string;

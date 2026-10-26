@@ -1770,6 +1770,7 @@ public partial class TerritoryMapper : MapperBase<Core.Entities.Territory, Core.
 {
     public override partial Core.TerritoryDto Map(Core.Entities.Territory source);
     public override partial void Map(Core.Entities.Territory source, Core.TerritoryDto destination);
+    private partial Core.TerritoryTargetDto MapChild(Core.Entities.TerritoryTarget source);
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]

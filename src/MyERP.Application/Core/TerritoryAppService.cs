@@ -81,4 +81,20 @@ public class TerritoryAppService : MyERPAppService, ITerritoryAppService
     {
         await _repository.DeleteAsync(id);
     }
+
+    [Authorize(MyERPPermissions.Territories.Edit)]
+    public async Task AddTargetAsync(Guid id, CreateTerritoryTargetDto input)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.AddTarget(input.FiscalYearId, input.TargetQty, input.TargetAmount, input.ItemGroupId, input.DistributionId);
+        await _repository.UpdateAsync(entity);
+    }
+
+    [Authorize(MyERPPermissions.Territories.Edit)]
+    public async Task RemoveTargetAsync(Guid id, Guid targetId)
+    {
+        var entity = await _repository.GetAsync(id);
+        entity.RemoveTarget(targetId);
+        await _repository.UpdateAsync(entity);
+    }
 }

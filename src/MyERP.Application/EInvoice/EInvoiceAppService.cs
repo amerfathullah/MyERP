@@ -988,8 +988,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             { "E", "Tax Exemption" }
         };
 
-        var salesQuery = await _salesInvoiceRepository.GetQueryableAsync();
-        var purchaseQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
+        var salesQuery = await _salesInvoiceRepository.WithDetailsAsync(si => si.Items);
+        var purchaseQuery = await _purchaseInvoiceRepository.WithDetailsAsync(pi => pi.Items);
 
         if (input.CompanyId.HasValue)
         {
@@ -1007,11 +1007,49 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             purchaseQuery = purchaseQuery.Where(x => x.IssueDate <= input.ToDate.Value);
         }
 
-        salesQuery = salesQuery.Where(x => x.Status == Core.DocumentStatus.Submitted);
-        purchaseQuery = purchaseQuery.Where(x => x.Status == Core.DocumentStatus.Submitted);
+        salesQuery = salesQuery.Where(x => x.Status == Core.DocumentStatus.Submitted || x.Status == Core.DocumentStatus.Posted);
+        purchaseQuery = purchaseQuery.Where(x => x.Status == Core.DocumentStatus.Submitted || x.Status == Core.DocumentStatus.Posted);
 
         var salesInvoices = await AsyncExecuter.ToListAsync(salesQuery);
         var purchaseInvoices = await AsyncExecuter.ToListAsync(purchaseQuery);
+
+        var taxCategoryRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Tax.Entities.TaxCategory, Guid>>();
+        var allTaxCategories = await taxCategoryRepo.GetListAsync();
+        var taxCatById = allTaxCategories.ToDictionary(tc => tc.Id, tc => tc);
+
+        string ResolveCategoryCode(Guid? taxCategoryId, decimal taxAmount, bool isSales)
+        {
+            if (taxCategoryId.HasValue && taxCatById.TryGetValue(taxCategoryId.Value, out var cat))
+            {
+                var code = cat.Code?.Trim();
+                if (!string.IsNullOrEmpty(code))
+                {
+                    if (code.Contains(':'))
+                        code = code.Split(':')[0].Trim();
+
+                    if (taxCategories.ContainsKey(code))
+                        return code;
+
+                    if (code.StartsWith("SST-S", StringComparison.OrdinalIgnoreCase)) return "01";
+                    if (code.StartsWith("SST-SV", StringComparison.OrdinalIgnoreCase)) return "02";
+                    if (code.StartsWith("SST-E", StringComparison.OrdinalIgnoreCase)) return "E";
+                    if (code.StartsWith("SST-ZR", StringComparison.OrdinalIgnoreCase)) return "06";
+                    if (code.StartsWith("SST-OS", StringComparison.OrdinalIgnoreCase)) return "06";
+                }
+
+                switch (cat.TaxType)
+                {
+                    case Tax.TaxType.Sales: return "01";
+                    case Tax.TaxType.Service: return "02";
+                    case Tax.TaxType.Exempt: return "E";
+                    case Tax.TaxType.ZeroRated: return "06";
+                    case Tax.TaxType.OutOfScope: return "06";
+                }
+            }
+
+            if (taxAmount == 0) return "E";
+            return isSales ? "01" : "02";
+        }
 
         var salesCatMap = taxCategories.ToDictionary(k => k.Key, v => new LhdnVatCategorySummaryDto
         {
@@ -1021,18 +1059,47 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
 
         foreach (var si in salesInvoices)
         {
-            var catCode = si.TaxAmount > 0 ? "01" : "E";
-            if (!salesCatMap.ContainsKey(catCode)) catCode = "E";
-
-            if (si.IsReturn)
+            var itemsWithTaxCat = si.Items.Where(i => i.TaxCategoryId.HasValue).ToList();
+            if (itemsWithTaxCat.Count > 0)
             {
-                salesCatMap[catCode].Adjustment += si.GrandTotal;
-                salesCatMap[catCode].VatAmount -= si.TaxAmount;
+                foreach (var item in si.Items)
+                {
+                    var catCode = ResolveCategoryCode(item.TaxCategoryId, item.TaxAmount, isSales: true);
+                    if (!salesCatMap.ContainsKey(catCode)) catCode = "E";
+
+                    var amt = Math.Abs(item.LineTotal);
+                    var vat = Math.Abs(item.TaxAmount);
+
+                    if (si.IsReturn)
+                    {
+                        salesCatMap[catCode].Adjustment += amt;
+                        salesCatMap[catCode].VatAmount -= vat;
+                    }
+                    else
+                    {
+                        salesCatMap[catCode].Amount += amt;
+                        salesCatMap[catCode].VatAmount += vat;
+                    }
+                }
             }
             else
             {
-                salesCatMap[catCode].Amount += si.GrandTotal;
-                salesCatMap[catCode].VatAmount += si.TaxAmount;
+                var catCode = ResolveCategoryCode(null, si.TaxAmount, isSales: true);
+                if (!salesCatMap.ContainsKey(catCode)) catCode = "E";
+
+                var amt = Math.Abs(si.GrandTotal);
+                var vat = Math.Abs(si.TaxAmount);
+
+                if (si.IsReturn)
+                {
+                    salesCatMap[catCode].Adjustment += amt;
+                    salesCatMap[catCode].VatAmount -= vat;
+                }
+                else
+                {
+                    salesCatMap[catCode].Amount += amt;
+                    salesCatMap[catCode].VatAmount += vat;
+                }
             }
         }
 
@@ -1044,18 +1111,47 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
 
         foreach (var pi in purchaseInvoices)
         {
-            var catCode = pi.TaxAmount > 0 ? "02" : "E";
-            if (!purchaseCatMap.ContainsKey(catCode)) catCode = "E";
-
-            if (pi.IsReturn)
+            var itemsWithTaxCat = pi.Items.Where(i => i.TaxCategoryId.HasValue).ToList();
+            if (itemsWithTaxCat.Count > 0)
             {
-                purchaseCatMap[catCode].Adjustment += pi.GrandTotal;
-                purchaseCatMap[catCode].VatAmount -= pi.TaxAmount;
+                foreach (var item in pi.Items)
+                {
+                    var catCode = ResolveCategoryCode(item.TaxCategoryId, item.TaxAmount, isSales: false);
+                    if (!purchaseCatMap.ContainsKey(catCode)) catCode = "E";
+
+                    var amt = Math.Abs(item.LineTotal);
+                    var vat = Math.Abs(item.TaxAmount);
+
+                    if (pi.IsReturn)
+                    {
+                        purchaseCatMap[catCode].Adjustment += amt;
+                        purchaseCatMap[catCode].VatAmount -= vat;
+                    }
+                    else
+                    {
+                        purchaseCatMap[catCode].Amount += amt;
+                        purchaseCatMap[catCode].VatAmount += vat;
+                    }
+                }
             }
             else
             {
-                purchaseCatMap[catCode].Amount += pi.GrandTotal;
-                purchaseCatMap[catCode].VatAmount += pi.TaxAmount;
+                var catCode = ResolveCategoryCode(null, pi.TaxAmount, isSales: false);
+                if (!purchaseCatMap.ContainsKey(catCode)) catCode = "E";
+
+                var amt = Math.Abs(pi.GrandTotal);
+                var vat = Math.Abs(pi.TaxAmount);
+
+                if (pi.IsReturn)
+                {
+                    purchaseCatMap[catCode].Adjustment += amt;
+                    purchaseCatMap[catCode].VatAmount -= vat;
+                }
+                else
+                {
+                    purchaseCatMap[catCode].Amount += amt;
+                    purchaseCatMap[catCode].VatAmount += vat;
+                }
             }
         }
 
@@ -1078,8 +1174,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
     [Authorize(MyERPPermissions.EInvoice.Default)]
     public async Task<LhdnDashboardStatsDto> GetDashboardStatsAsync(Guid? companyId)
     {
-        var salesQuery = await _salesInvoiceRepository.GetQueryableAsync();
-        var purchaseQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
+        var salesQuery = await _salesInvoiceRepository.WithDetailsAsync(si => si.Items);
+        var purchaseQuery = await _purchaseInvoiceRepository.WithDetailsAsync(pi => pi.Items);
 
         if (companyId.HasValue)
         {

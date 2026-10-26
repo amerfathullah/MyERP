@@ -80,6 +80,7 @@ public class MyERPDbContext :
     public DbSet<AutoRepeat> AutoRepeats { get; set; }
     public DbSet<AuthorizationRule> AuthorizationRules { get; set; }
     public DbSet<Territory> Territories { get; set; }
+    public DbSet<TerritoryTarget> TerritoryTargets { get; set; }
     public DbSet<CustomerGroup> CustomerGroups { get; set; }
     public DbSet<SupplierGroup> SupplierGroups { get; set; }
     public DbSet<MyERP.Core.Entities.PartyType> PartyTypes { get; set; }
@@ -730,6 +731,17 @@ public class MyERPDbContext :
             b.Property(x => x.Name).IsRequired().HasMaxLength(200);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.ParentId });
+            b.HasMany(x => x.Targets).WithOne().HasForeignKey(x => x.TerritoryId).IsRequired();
+            b.Navigation(x => x.Targets).AutoInclude();
+        });
+
+        builder.Entity<TerritoryTarget>(b =>
+        {
+            b.ToTable(MyERPConsts.DbTablePrefix + "TerritoryTargets", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TargetQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.TargetAmount).HasColumnType("decimal(18,2)");
+            b.HasIndex(x => new { x.TerritoryId, x.FiscalYearId, x.ItemGroupId });
         });
 
         builder.Entity<CustomerGroup>(b =>

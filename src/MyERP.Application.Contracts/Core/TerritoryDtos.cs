@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Volo.Abp.Application.Dtos;
 
@@ -12,6 +13,28 @@ public class TerritoryDto : FullAuditedEntityDto<Guid>
     public bool IsGroup { get; set; }
     public Guid? TerritoryManagerId { get; set; }
     public string? TerritoryManagerName { get; set; }
+    public List<TerritoryTargetDto> Targets { get; set; } = new();
+}
+
+public class TerritoryTargetDto : EntityDto<Guid>
+{
+    public Guid TerritoryId { get; set; }
+    public Guid? FiscalYearId { get; set; }
+    public string? FiscalYearName { get; set; }
+    public decimal TargetQty { get; set; }
+    public decimal TargetAmount { get; set; }
+    public Guid? ItemGroupId { get; set; }
+    public string? ItemGroupName { get; set; }
+    public Guid? DistributionId { get; set; }
+}
+
+public class CreateTerritoryTargetDto
+{
+    public Guid? FiscalYearId { get; set; }
+    public decimal TargetQty { get; set; }
+    public decimal TargetAmount { get; set; }
+    public Guid? ItemGroupId { get; set; }
+    public Guid? DistributionId { get; set; }
 }
 
 public class CreateUpdateTerritoryDto

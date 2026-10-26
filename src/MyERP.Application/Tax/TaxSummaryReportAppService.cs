@@ -153,15 +153,15 @@ public class TaxSummaryReportAppService : ApplicationService, ITaxSummaryReportA
     }
 
     private static List<TaxRateBreakdownDto> BuildTaxBreakdown(
-        IEnumerable<dynamic> invoices)
+        IEnumerable<(decimal NetTotal, decimal TaxAmount)> invoices)
     {
         // Group invoices by effective tax rate (approximate from TaxAmount/NetTotal)
         var groups = new Dictionary<string, (decimal taxable, decimal tax, int count)>();
 
-        foreach (dynamic inv in invoices)
+        foreach (var inv in invoices)
         {
-            decimal net = (decimal)inv.NetTotal;
-            decimal tax = (decimal)inv.TaxAmount;
+            decimal net = inv.NetTotal;
+            decimal tax = inv.TaxAmount;
             if (net <= 0) continue;
 
             decimal effectiveRate = Math.Round(tax / net * 100, 0);
@@ -189,12 +189,12 @@ public class TaxSummaryReportAppService : ApplicationService, ITaxSummaryReportA
 
     private static List<TaxRateBreakdownDto> BuildTaxBreakdown(IEnumerable<SalesInvoice> invoices)
     {
-        return BuildTaxBreakdown(invoices.Cast<dynamic>());
+        return BuildTaxBreakdown(invoices.Select(i => (i.NetTotal, i.TaxAmount)));
     }
 
     private static List<TaxRateBreakdownDto> BuildTaxBreakdown(IEnumerable<PurchaseInvoice> invoices)
     {
-        return BuildTaxBreakdown(invoices.Cast<dynamic>());
+        return BuildTaxBreakdown(invoices.Select(i => (i.NetTotal, i.TaxAmount)));
     }
 
     /// <summary>
