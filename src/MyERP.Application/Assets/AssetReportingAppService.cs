@@ -20,6 +20,9 @@ public class AssetReportingAppService : ApplicationService, IAssetReportingAppSe
     private readonly IRepository<AssetValueAdjustment, Guid> _adjustmentRepository;
     private readonly IRepository<FinanceBook, Guid> _financeBookRepository;
     private readonly IRepository<AssetCapitalization, Guid> _capitalizationRepository;
+    private readonly IRepository<CostCenter, Guid>? _costCenterRepository;
+    private IRepository<CostCenter, Guid>? CostCenterRepository =>
+        _costCenterRepository ?? LazyServiceProvider?.LazyGetService<IRepository<CostCenter, Guid>>();
 
     public AssetReportingAppService(
         IRepository<Asset, Guid> assetRepository,
@@ -27,12 +30,24 @@ public class AssetReportingAppService : ApplicationService, IAssetReportingAppSe
         IRepository<AssetValueAdjustment, Guid> adjustmentRepository,
         IRepository<FinanceBook, Guid> financeBookRepository,
         IRepository<AssetCapitalization, Guid> capitalizationRepository)
+        : this(assetRepository, categoryRepository, adjustmentRepository, financeBookRepository, capitalizationRepository, null)
+    {
+    }
+
+    public AssetReportingAppService(
+        IRepository<Asset, Guid> assetRepository,
+        IRepository<AssetCategory, Guid> categoryRepository,
+        IRepository<AssetValueAdjustment, Guid> adjustmentRepository,
+        IRepository<FinanceBook, Guid> financeBookRepository,
+        IRepository<AssetCapitalization, Guid> capitalizationRepository,
+        IRepository<CostCenter, Guid>? costCenterRepository)
     {
         _assetRepository = assetRepository;
         _categoryRepository = categoryRepository;
         _adjustmentRepository = adjustmentRepository;
         _financeBookRepository = financeBookRepository;
         _capitalizationRepository = capitalizationRepository;
+        _costCenterRepository = costCenterRepository;
     }
 
     /// <summary>
@@ -326,6 +341,13 @@ public class AssetReportingAppService : ApplicationService, IAssetReportingAppSe
             assetQueryable = assetQueryable.Where(a => a.LocationId == input.LocationId.Value);
         }
 
+        // Per ERPNext PR #59326 (commit 30ce0fbf04): include descendant/child cost centers
+        if (input.CostCenterId.HasValue)
+        {
+            var ccIds = await GetCostCenterWithChildrenIdsAsync(input.CompanyId, input.CostCenterId.Value);
+            assetQueryable = assetQueryable.Where(a => a.CostCenterId.HasValue && ccIds.Contains(a.CostCenterId.Value));
+        }
+
         if (input.OnlyExistingAssets)
         {
             assetQueryable = assetQueryable.Where(a => a.OpeningAccumulatedDepreciation > 0
@@ -408,6 +430,11 @@ public class AssetReportingAppService : ApplicationService, IAssetReportingAppSe
         var categories = (await _categoryRepository.GetListAsync())
             .ToDictionary(c => c.Id, c => c.CategoryName);
 
+        var costCenters = CostCenterRepository != null
+            ? (await CostCenterRepository.GetListAsync(c => c.CompanyId == input.CompanyId))
+                .ToDictionary(c => c.Id, c => c.Name)
+            : new Dictionary<Guid, string>();
+
         var rows = new List<FixedAssetRegisterRowDto>();
 
         foreach (var asset in candidateAssets)
@@ -444,6 +471,12 @@ public class AssetReportingAppService : ApplicationService, IAssetReportingAppSe
                 categoryName = cName;
             }
 
+            string? costCenterName = null;
+            if (asset.CostCenterId.HasValue && costCenters.TryGetValue(asset.CostCenterId.Value, out var ccName))
+            {
+                costCenterName = ccName;
+            }
+
             rows.Add(new FixedAssetRegisterRowDto
             {
                 AssetId = asset.Id,
@@ -451,6 +484,8 @@ public class AssetReportingAppService : ApplicationService, IAssetReportingAppSe
                 AssetName = asset.AssetName,
                 AssetCategoryId = asset.AssetCategoryId,
                 AssetCategoryName = categoryName,
+                CostCenterId = asset.CostCenterId,
+                CostCenterName = costCenterName,
                 Status = asset.Status.ToString(),
                 PurchaseDate = asset.PurchaseDate,
                 AvailableForUseDate = asset.AvailableForUseDate,
@@ -498,6 +533,23 @@ public class AssetReportingAppService : ApplicationService, IAssetReportingAppSe
                     AssetValue = g.Sum(r => r.AssetValue),
                 })
                 .OrderBy(r => r.Location)
+                .ToList();
+        }
+        else if (string.Equals(input.GroupBy, "Cost Center", StringComparison.OrdinalIgnoreCase))
+        {
+            finalRows = rows
+                .GroupBy(r => (r.CostCenterId, r.CostCenterName))
+                .Select(g => new FixedAssetRegisterRowDto
+                {
+                    CostCenterId = g.Key.CostCenterId,
+                    CostCenterName = g.Key.CostCenterName ?? "Unassigned",
+                    GrossPurchaseAmount = g.Sum(r => r.GrossPurchaseAmount),
+                    OpeningAccumulatedDepreciation = g.Sum(r => r.OpeningAccumulatedDepreciation),
+                    DepreciatedAmount = g.Sum(r => r.DepreciatedAmount),
+                    RevaluationAmount = g.Sum(r => r.RevaluationAmount),
+                    AssetValue = g.Sum(r => r.AssetValue),
+                })
+                .OrderBy(r => r.CostCenterName)
                 .ToList();
         }
         else
@@ -552,5 +604,33 @@ public class AssetReportingAppService : ApplicationService, IAssetReportingAppSe
              - asset.OpeningAccumulatedDepreciation
              - depreciationAmount
              + revaluationAmount;
+    }
+
+    /// <summary>
+    /// Returns the root cost center and all its recursive descendant IDs.
+    /// Per ERPNext PR #59326 (commit 30ce0fbf04): get_cost_centers_with_children([filters.cost_center]).
+    /// </summary>
+    private async Task<HashSet<Guid>> GetCostCenterWithChildrenIdsAsync(Guid companyId, Guid rootCostCenterId)
+    {
+        if (CostCenterRepository == null) return new HashSet<Guid> { rootCostCenterId };
+        var allCostCenters = await CostCenterRepository.GetListAsync(c => c.CompanyId == companyId);
+        var result = new HashSet<Guid> { rootCostCenterId };
+        var queue = new Queue<Guid>();
+        queue.Enqueue(rootCostCenterId);
+
+        while (queue.Count > 0)
+        {
+            var currentId = queue.Dequeue();
+            var children = allCostCenters.Where(c => c.ParentId == currentId).Select(c => c.Id);
+            foreach (var childId in children)
+            {
+                if (result.Add(childId))
+                {
+                    queue.Enqueue(childId);
+                }
+            }
+        }
+
+        return result;
     }
 }

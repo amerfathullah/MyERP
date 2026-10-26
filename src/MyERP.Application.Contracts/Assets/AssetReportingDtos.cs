@@ -142,8 +142,10 @@ public class FixedAssetRegisterRequestDto
 
     public Guid? LocationId { get; set; }
 
+    public Guid? CostCenterId { get; set; }
+
     /// <summary>
-    /// Grouping mode: "--Select a group--" (default, individual assets), "Asset Category", or "Location".
+    /// Grouping mode: "--Select a group--" (default, individual assets), "Asset Category", "Location", or "Cost Center".
     /// </summary>
     public string GroupBy { get; set; } = "--Select a group--";
 }
@@ -155,6 +157,8 @@ public class FixedAssetRegisterRowDto
     public string? AssetName { get; set; }
     public Guid? AssetCategoryId { get; set; }
     public string? AssetCategoryName { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public string? CostCenterName { get; set; }
     public string? Status { get; set; }
     public DateTime? PurchaseDate { get; set; }
     public DateTime? AvailableForUseDate { get; set; }

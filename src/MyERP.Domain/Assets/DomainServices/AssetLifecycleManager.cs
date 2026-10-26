@@ -363,6 +363,7 @@ public class AssetLifecycleManager : DomainService
             Location = existingAsset.Location,
             LocationId = existingAsset.LocationId,
             CustodianEmployeeId = existingAsset.CustodianEmployeeId,
+            CostCenterId = existingAsset.CostCenterId,
             PurchaseReceiptId = existingAsset.PurchaseReceiptId,
             PurchaseReceiptItemId = existingAsset.PurchaseReceiptItemId,
             PurchaseInvoiceId = existingAsset.PurchaseInvoiceId,

@@ -10,6 +10,7 @@ export * from './asset-movement-purpose.enum';
 export * from './asset-movement.service';
 export * from './asset-repair-status.enum';
 export * from './asset-repair.service';
+export * from './asset-reporting.service';
 export * from './asset-shift-allocation.service';
 export * from './asset-shift-factor.service';
 export * from './asset-status.enum';

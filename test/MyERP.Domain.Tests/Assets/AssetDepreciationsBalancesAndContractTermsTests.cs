@@ -438,6 +438,10 @@ public class AssetDepreciationsBalancesAndContractTermsTests
         capRepo.WithDetailsAsync(Arg.Any<Expression<Func<AssetCapitalization, object>>[]>())
             .Returns(Task.FromResult(new List<AssetCapitalization>().AsQueryable()));
 
-        return new AssetReportingAppService(assetRepo, catRepo, adjRepo, bookRepo, capRepo);
+        var costCenterRepo = Substitute.For<IRepository<CostCenter, Guid>>();
+        costCenterRepo.GetListAsync(Arg.Any<Expression<Func<CostCenter, bool>>>())
+            .Returns(Task.FromResult(new List<CostCenter>()));
+
+        return new AssetReportingAppService(assetRepo, catRepo, adjRepo, bookRepo, capRepo, costCenterRepo);
     }
 }

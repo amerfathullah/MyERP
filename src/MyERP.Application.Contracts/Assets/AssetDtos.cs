@@ -21,6 +21,8 @@ public class AssetDto : FullAuditedEntityDto<Guid>
     public string? Location { get; set; }
     public Guid? LocationId { get; set; }
     public Guid? CustodianEmployeeId { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public string? CostCenterName { get; set; }
     public DateTime PurchaseDate { get; set; }
     public decimal PurchaseAmount { get; set; }
     public decimal AdditionalCost { get; set; }
@@ -79,6 +81,8 @@ public class CreateAssetDto
 
     public Guid? CustodianEmployeeId { get; set; }
 
+    public Guid? CostCenterId { get; set; }
+
     [Required]
     public DateTime PurchaseDate { get; set; }
 
@@ -128,6 +132,7 @@ public class UpdateAssetDto
     public Guid? LocationId { get; set; }
 
     public Guid? CustodianEmployeeId { get; set; }
+    public Guid? CostCenterId { get; set; }
     public decimal AdditionalCost { get; set; }
     public bool CalculateDepreciation { get; set; }
     public DepreciationMethod DepreciationMethod { get; set; }

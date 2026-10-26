@@ -110,6 +110,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
             Location = await ResolveLocationNameAsync(input.LocationId, input.Location),
             LocationId = input.LocationId,
             CustodianEmployeeId = input.CustodianEmployeeId,
+            CostCenterId = input.CostCenterId,
             PurchaseReceiptId = input.PurchaseReceiptId,
             PurchaseReceiptItemId = input.PurchaseReceiptItemId,
             PurchaseInvoiceId = input.PurchaseInvoiceId,
@@ -133,6 +134,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         };
 
         await ValidateDepreciationAccountsAsync(asset);
+        await ValidateCostCenterAsync(asset);
         await ValidateLinkedPurchaseDocumentsAsync(asset);
 
         asset.SetDepreciationRateAndValueAfterDepreciation();
@@ -184,6 +186,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         asset.Location = await ResolveLocationNameAsync(input.LocationId, input.Location);
         asset.LocationId = input.LocationId;
         asset.CustodianEmployeeId = input.CustodianEmployeeId;
+        asset.CostCenterId = input.CostCenterId;
         asset.AdditionalCost = input.AdditionalCost;
         asset.CalculateDepreciation = input.CalculateDepreciation;
         asset.DepreciationMethod = input.DepreciationMethod;
@@ -199,6 +202,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
         asset.IsCompositeComponent = input.IsCompositeComponent;
 
         await ValidateDepreciationAccountsAsync(asset);
+        await ValidateCostCenterAsync(asset);
         await ValidateLinkedPurchaseDocumentsAsync(asset);
 
         asset.SetDepreciationRateAndValueAfterDepreciation();
@@ -354,6 +358,34 @@ public class AssetAppService : ApplicationService, IAssetAppService
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", $"Please set Depreciation related Accounts in Asset Category '{category.CategoryName}' or Company '{comp?.Name ?? asset.CompanyId.ToString()}'.");
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates cost center belongs to company, is not a group, and is active.
+    /// Per ERPNext assets/doctype/asset/asset.py validate_cost_center.
+    /// </summary>
+    private async Task ValidateCostCenterAsync(Asset asset)
+    {
+        if (asset.CostCenterId.HasValue)
+        {
+            var costCenterRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.CostCenter, Guid>>();
+            var costCenter = await costCenterRepo.FindAsync(asset.CostCenterId.Value);
+            if (costCenter == null || costCenter.CompanyId != asset.CompanyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cost Center does not belong to Company.");
+            }
+            if (costCenter.IsGroup)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cost Center '{costCenter.Name}' cannot be a group.");
+            }
+            if (!costCenter.IsActive)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Cost Center '{costCenter.Name}' is inactive.");
             }
         }
     }
@@ -747,6 +779,7 @@ public class AssetAppService : ApplicationService, IAssetAppService
                 ItemName = selectedItem.Description,
                 PurchaseInvoiceId = pi.Id,
                 PurchaseInvoiceItemId = selectedItem.Id,
+                CostCenterId = pi.CostCenterId,
             };
         }
         else

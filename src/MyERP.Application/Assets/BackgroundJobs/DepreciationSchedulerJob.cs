@@ -172,11 +172,14 @@ public class DepreciationSchedulerJob : AsyncBackgroundJob<DepreciationScheduler
                     // Round depreciation amount to currency precision (2 decimal places) to match JE debit (ERPNext PR #56964)
                     var deprAmount = Math.Round(entry.DepreciationAmount, 2);
 
-                    // Tag JE lines with finance book for multi-book GL separation
+                    // Tag JE lines with finance book for multi-book GL separation and cost center
+                    var effectiveCostCenterId = asset.CostCenterId ?? company.DefaultCostCenterId;
                     journal.AddLine(depreciationExpenseAccountId.Value, deprAmount, true,
-                        $"Depreciation of {asset.AssetName}" + (financeBookName != null ? $" [{financeBookName}]" : ""));
+                        $"Depreciation of {asset.AssetName}" + (financeBookName != null ? $" [{financeBookName}]" : ""),
+                        costCenterId: effectiveCostCenterId);
                     journal.AddLine(accumulatedDepAccountId.Value, deprAmount, false,
-                        $"Accumulated depreciation - {asset.AssetName}" + (financeBookName != null ? $" [{financeBookName}]" : ""));
+                        $"Accumulated depreciation - {asset.AssetName}" + (financeBookName != null ? $" [{financeBookName}]" : ""),
+                        costCenterId: effectiveCostCenterId);
 
                     // Set finance book on all lines (after AddLine, which returns void)
                     if (financeBookName != null)

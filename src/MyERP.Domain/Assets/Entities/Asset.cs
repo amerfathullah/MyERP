@@ -27,6 +27,9 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public Guid? CustodianEmployeeId { get; set; }
 
+    /// <summary>Cost Center responsible for this asset and receiving depreciation expense postings.</summary>
+    public Guid? CostCenterId { get; set; }
+
     // Purchase
     public DateTime PurchaseDate { get; set; }
     public decimal PurchaseAmount { get; set; }
