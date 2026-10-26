@@ -91,7 +91,8 @@ public class LoyaltyPointService : DomainService
         Guid? tenantId = null)
     {
         var program = await _programRepository.GetAsync(loyaltyProgramId);
-        var availablePoints = await GetAvailablePointsAsync(customerId, loyaltyProgramId, postingDate);
+        // Per ERPNext PR #62208 / commit 25d099ca26: cross-doctype redemption allowed, but skip points earned by current invoice
+        var availablePoints = await GetAvailablePointsAsync(customerId, loyaltyProgramId, postingDate, invoiceId);
 
         if (pointsToRedeem > availablePoints)
         {
@@ -119,6 +120,10 @@ public class LoyaltyPointService : DomainService
 
         foreach (var earnEntry in earnEntries)
         {
+            // Per ERPNext PR #62208 / commit 25d099ca26: cannot redeem against the invoice's own earning entry
+            if (invoiceId.HasValue && earnEntry.InvoiceId == invoiceId.Value)
+                continue;
+
             if (remaining <= 0) break;
 
             var alreadyRedeemed = query
@@ -156,18 +161,25 @@ public class LoyaltyPointService : DomainService
 
     /// <summary>
     /// Get available (non-expired, non-redeemed) points for a customer.
+    /// Optionally excludes points earned by a specific invoice (ERPNext PR #62208 / commit 25d099ca26).
     /// </summary>
     public async Task<int> GetAvailablePointsAsync(
-        Guid customerId, Guid loyaltyProgramId, DateTime asOfDate)
+        Guid customerId, Guid loyaltyProgramId, DateTime asOfDate, Guid? excludeInvoiceId = null)
     {
         var query = await _entryRepository.GetQueryableAsync();
-        var totalEarned = query
+        var earnQuery = query
             .Where(e => e.CustomerId == customerId
                 && e.LoyaltyProgramId == loyaltyProgramId
                 && e.Points > 0
                 && e.PostingDate <= asOfDate
-                && (!e.ExpiryDate.HasValue || e.ExpiryDate.Value >= asOfDate))
-            .Sum(e => e.Points);
+                && (!e.ExpiryDate.HasValue || e.ExpiryDate.Value >= asOfDate));
+
+        if (excludeInvoiceId.HasValue)
+        {
+            earnQuery = earnQuery.Where(e => e.InvoiceId != excludeInvoiceId.Value);
+        }
+
+        var totalEarned = earnQuery.Sum(e => e.Points);
 
         var totalRedeemed = query
             .Where(e => e.CustomerId == customerId
