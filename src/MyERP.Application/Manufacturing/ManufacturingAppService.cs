@@ -2936,8 +2936,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                 continue;
 
             var returnQty = item.TransferredQuantity - item.ConsumedQuantity;
-            var itemTransferred = transferItems.Where(i => i.ItemId == item.ItemId).Sum(i => i.Quantity);
-            var itemConsumedOrReturned = priorConsumedItems.Where(i => i.ItemId == item.ItemId).Sum(i => i.Quantity);
+            // Per ERPNext PR #61581 (commit d6468175a8): keep transferred materials in stock UOM (StockQty) for return calculation
+            var itemTransferred = transferItems.Where(i => i.ItemId == item.ItemId).Sum(i => i.StockQty > 0 ? i.StockQty : i.Quantity);
+            var itemConsumedOrReturned = priorConsumedItems.Where(i => i.ItemId == item.ItemId).Sum(i => i.StockQty > 0 ? i.StockQty : i.Quantity);
             if (itemTransferred > 0)
             {
                 var netAvailable = Math.Max(0m, itemTransferred - itemConsumedOrReturned);

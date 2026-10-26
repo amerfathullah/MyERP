@@ -396,4 +396,76 @@ public abstract class WorkOrderMaterialReturnTests<TStartupModule> : MyERPApplic
             secondItem.TargetWarehouseId.ShouldBe(storesWh.Id);
         });
     }
+
+    [Fact]
+    public async Task CreateMaterialReturn_Transferred_In_Multiple_UOMs_Uses_Stock_Quantity()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var bomRepo = GetRequiredService<IRepository<BillOfMaterials, Guid>>();
+            var woRepo = GetRequiredService<IRepository<WorkOrder, Guid>>();
+            var seRepo = GetRequiredService<IRepository<StockEntry, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var mfgAppService = GetRequiredService<IManufacturingAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "Return Test Co UOM"), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "SE Series UOM", "SE", "SEU-"), autoSave: true);
+
+            var fgItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "FG-UOM-1", "Finished Good UOM", ItemType.Goods), autoSave: true);
+            var rmItem = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "RM-UOM-1", "Raw Material UOM", ItemType.Goods), autoSave: true);
+
+            var storesWh = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "Stores Wh UOM"), autoSave: true);
+            var wipWh = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "WIP Wh UOM"), autoSave: true);
+
+            var bom = await bomRepo.InsertAsync(new BillOfMaterials(Guid.NewGuid(), company.Id, "BOM-UOM-1", fgItem.Id), autoSave: true);
+
+            var wo = new WorkOrder(Guid.NewGuid(), company.Id, "WO-UOM-001", fgItem.Id, bom.Id, quantity: 1m)
+            {
+                SourceWarehouseId = storesWh.Id,
+                WipWarehouseId = wipWh.Id,
+            };
+            var woItem = new WorkOrderItem(Guid.NewGuid(), wo.Id, rmItem.Id, "Raw Material UOM", requiredQuantity: 60m)
+            {
+                SourceWarehouseId = storesWh.Id,
+                TransferredQuantity = 60m,
+                ConsumedQuantity = 0m,
+            };
+            wo.RequiredItems.Add(woItem);
+            wo.Submit();
+            wo.Start();
+            wo.Close();
+            await woRepo.InsertAsync(wo, autoSave: true);
+
+            // Transfer 1: 1 Box = 50 Kg
+            var transfer1 = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.MaterialTransferForManufacture, DateTime.UtcNow.Date)
+            {
+                WorkOrderId = wo.Id,
+                EntryNumber = "SEU-001",
+            };
+            transfer1.AddItem(rmItem.Id, quantity: 1m, storesWh.Id, wipWh.Id, valuationRate: 10m, conversionFactor: 50m, stockUom: "Kg");
+            transfer1.Submit();
+            await seRepo.InsertAsync(transfer1, autoSave: true);
+
+            // Transfer 2: 10 Kg = 10 Kg
+            var transfer2 = new StockEntry(Guid.NewGuid(), company.Id, StockEntryType.MaterialTransferForManufacture, DateTime.UtcNow.Date)
+            {
+                WorkOrderId = wo.Id,
+                EntryNumber = "SEU-002",
+            };
+            transfer2.AddItem(rmItem.Id, quantity: 10m, storesWh.Id, wipWh.Id, valuationRate: 10m, conversionFactor: 1m, stockUom: "Kg");
+            transfer2.Submit();
+            await seRepo.InsertAsync(transfer2, autoSave: true);
+
+            var result = await mfgAppService.CreateMaterialReturnForManufactureAsync(wo.Id);
+            result.ShouldNotBeNull();
+
+            var returnSe = await seRepo.GetAsync(result.StockEntryId);
+            returnSe.Items.Count.ShouldBe(1);
+            // PR #61581 (commit d6468175a8): 50 + 10 = 60, not 1 + 10 = 11
+            returnSe.Items.First().Quantity.ShouldBe(60m);
+        });
+    }
 }
