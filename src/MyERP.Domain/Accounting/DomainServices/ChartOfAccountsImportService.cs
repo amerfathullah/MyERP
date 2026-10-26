@@ -108,7 +108,9 @@ public class ChartOfAccountsImportService : DomainService
                 .WithData("detail", $"Account '{string.Join(", ", duplicateFullAccounts)}' is duplicated. Use a different name or account number.");
         }
 
-        // Per ERPNext PR #62153 (commit 36ddeb4f5e): validate hierarchy and circular references BEFORE modifying accounts
+        // Per ERPNext PR #62153 (commit 9c9b82f7bb & 36ddeb4f5e): validate roots, mandatory account types, and hierarchy BEFORE modifying accounts
+        ValidateRootTypes(rows);
+        ValidateMandatoryAccountTypes(rows);
         var sortedRows = TopologicalSort(rows);
 
         // Reset existing company default accounts before replacing (per ERPNext unset_existing_data / PR #62150)
@@ -336,6 +338,71 @@ public class ChartOfAccountsImportService : DomainService
 
         throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
             .WithData("detail", $"Chart of Accounts template for country '{countryCode}' not found.");
+    }
+
+    /// <summary>
+    /// Validates that root accounts cover all 5 accounting root types (Asset, Liability, Equity, Revenue, Expense).
+    /// Maps to ERPNext chart_of_accounts_importer validate_missing_roots.
+    /// </summary>
+    public static void ValidateRootTypes(IReadOnlyList<CoaTemplateRow> rows)
+    {
+        var rootTypesPresent = rows
+            .Where(r => string.IsNullOrWhiteSpace(r.ParentCode))
+            .Select(r => r.AccountType)
+            .ToHashSet();
+
+        var missing = Enum.GetValues<AccountType>()
+            .Where(t => !rootTypesPresent.Contains(t))
+            .Select(t => t.ToString())
+            .ToList();
+
+        if (missing.Count > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Please add root accounts for the following types: {string.Join(", ", missing)}");
+        }
+    }
+
+    /// <summary>
+    /// Validates that accounts for mandatory account types are present in the template.
+    /// Per ERPNext PR #62153 / commit 9c9b82f7bb: requires Bank, Cash, Receivable, Payable, Stock, Fixed Asset, Cost of Goods Sold, Depreciation, Stock Adjustment.
+    /// </summary>
+    public static void ValidateMandatoryAccountTypes(IReadOnlyList<CoaTemplateRow> rows)
+    {
+        var missing = new List<string>();
+
+        bool hasBank = rows.Any(r => r.SubType == AccountSubType.BankAccount || r.AccountName.Contains("Bank", StringComparison.OrdinalIgnoreCase));
+        if (!hasBank) missing.Add("Bank");
+
+        bool hasCash = rows.Any(r => r.SubType == AccountSubType.CashAccount || r.AccountName.Contains("Cash", StringComparison.OrdinalIgnoreCase));
+        if (!hasCash) missing.Add("Cash");
+
+        bool hasReceivable = rows.Any(r => r.SubType == AccountSubType.AccountsReceivable || r.AccountName.Contains("Receivable", StringComparison.OrdinalIgnoreCase));
+        if (!hasReceivable) missing.Add("Receivable");
+
+        bool hasPayable = rows.Any(r => r.SubType == AccountSubType.AccountsPayable || r.AccountName.Contains("Payable", StringComparison.OrdinalIgnoreCase));
+        if (!hasPayable) missing.Add("Payable");
+
+        bool hasStock = rows.Any(r => r.SubType == AccountSubType.Stock || r.AccountName.Contains("Stock", StringComparison.OrdinalIgnoreCase) || r.AccountName.Contains("Inventory", StringComparison.OrdinalIgnoreCase));
+        if (!hasStock) missing.Add("Stock");
+
+        bool hasFixedAsset = rows.Any(r => r.SubType == AccountSubType.FixedAsset || r.AccountName.Contains("Fixed Asset", StringComparison.OrdinalIgnoreCase) || r.AccountName.Contains("Equipment", StringComparison.OrdinalIgnoreCase) || r.AccountName.Contains("Property", StringComparison.OrdinalIgnoreCase));
+        if (!hasFixedAsset) missing.Add("Fixed Asset");
+
+        bool hasCogs = rows.Any(r => r.SubType == AccountSubType.CostOfGoodsSold || r.AccountName.Contains("Cost of Goods", StringComparison.OrdinalIgnoreCase));
+        if (!hasCogs) missing.Add("Cost of Goods Sold");
+
+        bool hasDepreciation = rows.Any(r => r.SubType == AccountSubType.DepreciationExpense || r.SubType == AccountSubType.AccumulatedDepreciation || r.AccountName.Contains("Depreciation", StringComparison.OrdinalIgnoreCase));
+        if (!hasDepreciation) missing.Add("Depreciation");
+
+        bool hasStockAdjustment = rows.Any(r => r.AccountName.Contains("Stock Adjustment", StringComparison.OrdinalIgnoreCase));
+        if (!hasStockAdjustment) missing.Add("Stock Adjustment");
+
+        if (missing.Count > 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Please add accounts for the following Account Types: {string.Join(", ", missing)}");
+        }
     }
 
     /// <summary>

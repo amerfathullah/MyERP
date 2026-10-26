@@ -85,10 +85,16 @@ public class ProductBundleDecompositionService : DomainService
     public async Task<List<DecomposedItem>> DecomposeAsync(
         Guid itemId, decimal transactionQty, decimal parentRate,
         Guid? warehouseId = null, Guid? parentDetailId = null, int? parentIndex = null,
-        bool isReturn = false)
+        bool isReturn = false,
+        Guid? productBundleId = null)
     {
         var queryable = await _bundleRepository.GetQueryableAsync();
-        var bundle = queryable.FirstOrDefault(b => b.ItemId == itemId && b.IsActive && (!b.IsDisabled || isReturn));
+        ProductBundle? bundle = null;
+        if (productBundleId.HasValue)
+        {
+            bundle = queryable.FirstOrDefault(b => b.Id == productBundleId.Value);
+        }
+        bundle ??= queryable.FirstOrDefault(b => b.ItemId == itemId && b.IsActive && (!b.IsDisabled || isReturn));
 
         if (bundle == null)
             return new List<DecomposedItem>();
@@ -165,7 +171,7 @@ public class ProductBundleDecompositionService : DomainService
             if (bundleItemIds.Contains(item.ItemId))
             {
                 var components = await DecomposeAsync(
-                    item.ItemId, item.Qty, item.Rate, item.WarehouseId, item.DetailId, item.Index, isReturn);
+                    item.ItemId, item.Qty, item.Rate, item.WarehouseId, item.DetailId, item.Index, isReturn, item.ProductBundleId);
                 packedItems.AddRange(components);
             }
             else
@@ -217,7 +223,8 @@ public record BundleTransactionItem(
     decimal Rate,
     Guid? WarehouseId = null,
     Guid? DetailId = null,
-    int? Index = null
+    int? Index = null,
+    Guid? ProductBundleId = null
 );
 
 /// <summary>

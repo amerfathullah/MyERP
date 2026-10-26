@@ -107,6 +107,12 @@ public class SalesOrderItemDto
     /// <summary>Link to Quotation item (for Quotation fulfillment tracking and handling duplicate items).</summary>
     public Guid? QuotationItemId { get; set; }
 
+    /// <summary>Product bundle version associated with this order line (PR #62149).</summary>
+    public Guid? ProductBundleId { get; set; }
+
+    /// <summary>Quantity picked via Pick Lists (ERPNext Sales Order Item picked_qty).</summary>
+    public decimal PickedQty { get; set; }
+
     /// <summary>Available stock qty for this item (populated on create/get for warehouse visibility).</summary>
     public decimal AvailableQty { get; set; }
 
@@ -218,6 +224,9 @@ public class CreateSalesOrderItemDto
 
     /// <summary>Link to Quotation item (for Quotation fulfillment tracking and handling duplicate items).</summary>
     public Guid? QuotationItemId { get; set; }
+
+    /// <summary>Product bundle version associated with this order line (PR #62149).</summary>
+    public Guid? ProductBundleId { get; set; }
 }
 
 /// <summary>

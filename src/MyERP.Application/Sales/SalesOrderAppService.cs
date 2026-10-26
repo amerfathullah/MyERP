@@ -418,9 +418,16 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
             order.QuotationId = input.QuotationId;
         }
 
+        var bundleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.ProductBundle, Guid>>();
+        var activeBundles = (await bundleRepo.GetQueryableAsync())
+            .Where(b => itemIds.Contains(b.ItemId) && b.IsActive && !b.IsDisabled)
+            .ToList();
+        var activeBundleMap = activeBundles.GroupBy(b => b.ItemId).ToDictionary(g => g.Key, g => g.First().Id);
+
         foreach (var item in input.Items)
         {
-            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.DeliveryDate, item.QuotationItemId);
+            var bundleId = item.ProductBundleId ?? (activeBundleMap.TryGetValue(item.ItemId, out var bId) ? bId : (Guid?)null);
+            order.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom, item.DeliveryDate, item.QuotationItemId, bundleId);
             if (item.WarehouseId.HasValue)
                 order.Items[^1].WarehouseId = item.WarehouseId;
             ApplyDropShip(order.Items[^1], item);

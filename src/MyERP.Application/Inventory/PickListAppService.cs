@@ -107,6 +107,10 @@ public class PickListAppService : ApplicationService, IPickListAppService
         var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
         pl.Submit();
         await _repository.UpdateAsync(pl);
+        if (pl.SalesOrderId.HasValue)
+        {
+            await UpdateSalesOrderPickingStatusAsync(pl, isSubmit: true);
+        }
         return ObjectMapper.Map<PickList, PickListDto>(pl);
     }
 
@@ -116,7 +120,90 @@ public class PickListAppService : ApplicationService, IPickListAppService
         var pl = (await _repository.WithDetailsAsync()).First(p => p.Id == id);
         pl.Cancel();
         await _repository.UpdateAsync(pl);
+        if (pl.SalesOrderId.HasValue)
+        {
+            await UpdateSalesOrderPickingStatusAsync(pl, isSubmit: false);
+        }
         return ObjectMapper.Map<PickList, PickListDto>(pl);
+    }
+
+    /// <summary>
+    /// Updates picked quantities on linked Sales Order items.
+    /// Per ERPNext PR #62149 / commit 05bc9ce0fe:
+    /// - Counts picked bundles against the version recorded on the order row, not the item's current active version.
+    /// - Converts component UOM to stock UOM before computing bundle completion.
+    /// </summary>
+    private async Task UpdateSalesOrderPickingStatusAsync(PickList pl, bool isSubmit)
+    {
+        if (!pl.SalesOrderId.HasValue) return;
+
+        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+        var so = await soRepo.GetAsync(pl.SalesOrderId.Value);
+
+        var bundleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.ProductBundle, Guid>>();
+        var bundleQueryable = await bundleRepo.GetQueryableAsync();
+
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var uomService = LazyServiceProvider.LazyGetService<Inventory.DomainServices.UomConversionService>();
+
+        var direction = isSubmit ? 1m : -1m;
+
+        // Group pick list items by source document item id
+        var pickedBySoItem = pl.Items
+            .Where(i => i.SourceDocumentItemId.HasValue)
+            .GroupBy(i => i.SourceDocumentItemId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var soItem in so.Items)
+        {
+            if (!pickedBySoItem.TryGetValue(soItem.Id, out var pickRows))
+            {
+                continue;
+            }
+
+            // Check if this SO row is a Product Bundle
+            // Count picked bundles against the version recorded on the order row,
+            // not the item's current active version (PR #62149)
+            MyERP.Sales.Entities.ProductBundle? bundle = null;
+            if (soItem.ProductBundleId.HasValue)
+            {
+                bundle = bundleQueryable.FirstOrDefault(b => b.Id == soItem.ProductBundleId.Value);
+            }
+            bundle ??= bundleQueryable.FirstOrDefault(b => b.ItemId == soItem.ItemId && b.IsActive && !b.IsDisabled);
+
+            if (bundle != null && bundle.Items.Count > 0)
+            {
+                var componentStockQtyMap = new Dictionary<Guid, decimal>();
+                var compIds = bundle.Items.Select(x => x.ComponentItemId).Distinct().ToList();
+                var compItems = (await itemRepo.GetQueryableAsync())
+                    .Where(i => compIds.Contains(i.Id))
+                    .ToDictionary(i => i.Id);
+
+                foreach (var comp in bundle.Items)
+                {
+                    var factor = 1m;
+                    if (compItems.TryGetValue(comp.ComponentItemId, out var compItem)
+                        && !string.IsNullOrWhiteSpace(comp.Uom)
+                        && uomService != null)
+                    {
+                        factor = await uomService.GetConversionFactorAsync(compItem.Id, comp.Uom, compItem.Uom, compItem.VariantOfId);
+                    }
+                    componentStockQtyMap[comp.ComponentItemId] = comp.Qty * factor;
+                }
+
+                var bundlePickedCount = PickListManager.ComputePickedQtyForBundle(
+                    pickRows, soItem.Id, componentStockQtyMap);
+
+                soItem.UpdatePickedQty(direction * bundlePickedCount);
+            }
+            else
+            {
+                var standardPickedQty = pickRows.Sum(r => r.Qty);
+                soItem.UpdatePickedQty(direction * standardPickedQty);
+            }
+        }
+
+        await soRepo.UpdateAsync(so);
     }
 
     /// <summary>

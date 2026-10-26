@@ -382,6 +382,41 @@ public class PickListManager : DomainService
     }
 
     /// <summary>
+    /// Computes how many full bundles can be created from picked items.
+    /// Per ERPNext PR #62149 / commit 05bc9ce0fe:
+    /// - Counts picked product bundles against the bundle version recorded on the order row (not active version).
+    /// - Component bundle quantities must be expressed in component stock UOM (with conversion factor applied).
+    /// </summary>
+    public static int ComputePickedQtyForBundle(
+        IEnumerable<PickListItem> pickItems,
+        Guid salesOrderItemId,
+        IReadOnlyDictionary<Guid, decimal> componentRequiredStockQuantities)
+    {
+        var possibleBundles = new Dictionary<Guid, decimal>();
+
+        foreach (var item in pickItems)
+        {
+            if (item.SourceDocumentItemId != salesOrderItemId)
+                continue;
+
+            if (componentRequiredStockQuantities.TryGetValue(item.ItemId, out var requiredQty) && requiredQty > 0)
+            {
+                var bundleKey = item.ProductBundleItemId ?? item.Id;
+                if (!possibleBundles.ContainsKey(bundleKey))
+                {
+                    possibleBundles[bundleKey] = 0;
+                }
+                possibleBundles[bundleKey] += item.Qty / requiredQty;
+            }
+        }
+
+        if (possibleBundles.Count == 0)
+            return 0;
+
+        return (int)Math.Floor(possibleBundles.Values.Min());
+    }
+
+    /// <summary>
     /// Aggregates picked batch quantities from bundles, correctly splitting across multiple batches in a bundle.
     /// Per ERPNext PR #60301 (commit ead0229375b): handles multiple batches in pick list bundles without KeyError/loss.
     /// </summary>

@@ -170,7 +170,7 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         TenantId = tenantId;
     }
 
-    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", DateTime? deliveryDate = null, Guid? quotationItemId = null)
+    public void AddItem(Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom = "Unit", DateTime? deliveryDate = null, Guid? quotationItemId = null, Guid? productBundleId = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
@@ -180,6 +180,7 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
         var item = new SalesOrderItem(Guid.NewGuid(), Id, itemId, description, quantity, unitPrice, taxAmount, uom);
         item.DeliveryDate = deliveryDate;
         item.QuotationItemId = quotationItemId;
+        item.ProductBundleId = productBundleId;
         item.Idx = _items.Count;
         _items.Add(item);
         RecalculateTotals();
@@ -487,6 +488,17 @@ public class SalesOrderItem : CreationAuditedEntity<Guid>, IMultiTenant
 
     /// <summary>Link to Quotation item (for Quotation fulfillment tracking and handling duplicate items per ERPNext PR #47775 / commit 39f6d8ffb6).</summary>
     public Guid? QuotationItemId { get; set; }
+
+    /// <summary>Product bundle version associated with this order line (PR #62149).</summary>
+    public Guid? ProductBundleId { get; set; }
+
+    /// <summary>Quantity picked via Pick Lists (ERPNext Sales Order Item picked_qty).</summary>
+    public decimal PickedQty { get; set; }
+
+    public void UpdatePickedQty(decimal delta)
+    {
+        PickedQty = Math.Max(0m, Math.Round(PickedQty + delta, 4));
+    }
 
     protected SalesOrderItem() { }
     public SalesOrderItem(Guid id, Guid salesOrderId, Guid itemId, string description, decimal quantity, decimal unitPrice, decimal taxAmount, string uom)
