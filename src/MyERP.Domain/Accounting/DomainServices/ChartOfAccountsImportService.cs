@@ -47,7 +47,11 @@ public class ChartOfAccountsImportService : DomainService
     /// - Auto-assigns standard company default accounts after import.
     /// </summary>
     /// <returns>Number of accounts created.</returns>
-    public async Task<int> ImportAsync(Guid companyId, IReadOnlyList<CoaTemplateRow> rows, Guid? tenantId = null)
+    public async Task<int> ImportAsync(
+        Guid companyId,
+        IReadOnlyList<CoaTemplateRow> rows,
+        Guid? tenantId = null,
+        bool validateCompleteness = false)
     {
         // Guard: cannot import if GL entries exist
         var hasGlEntries = await _journalRepository.AnyAsync(je =>
@@ -108,10 +112,15 @@ public class ChartOfAccountsImportService : DomainService
                 .WithData("detail", $"Account '{string.Join(", ", duplicateFullAccounts)}' is duplicated. Use a different name or account number.");
         }
 
-        // Per ERPNext PR #62153 (commit 9c9b82f7bb & 36ddeb4f5e): validate roots, mandatory account types, and hierarchy BEFORE modifying accounts
-        ValidateRootTypes(rows);
-        ValidateMandatoryAccountTypes(rows);
+        // Per ERPNext PR #62153 (commit 36ddeb4f5e): validate hierarchy and circular references BEFORE modifying accounts
         var sortedRows = TopologicalSort(rows);
+
+        // Per ERPNext PR #62153 (commit 9c9b82f7bb): validate roots and mandatory account types if full template import requested
+        if (validateCompleteness)
+        {
+            ValidateRootTypes(rows);
+            ValidateMandatoryAccountTypes(rows);
+        }
 
         // Reset existing company default accounts before replacing (per ERPNext unset_existing_data / PR #62150)
         Core.Entities.Company? company = null;

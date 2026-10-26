@@ -38,7 +38,7 @@ public class ChartOfAccountsImportAppService : ApplicationService, IChartOfAccou
             r.SubType
         )).ToList();
 
-        var count = await _importService.ImportAsync(input.CompanyId, rows, CurrentTenant.Id);
+        var count = await _importService.ImportAsync(input.CompanyId, rows, CurrentTenant.Id, validateCompleteness: true);
 
         return new CoaImportResultDto { AccountsCreated = count, CompanyId = input.CompanyId };
     }
