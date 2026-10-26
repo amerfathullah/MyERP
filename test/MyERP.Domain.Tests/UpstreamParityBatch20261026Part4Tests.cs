@@ -9,6 +9,10 @@ using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Inventory;
+using MyERP.Dtos;
+using MyERP.Manufacturing.DomainServices;
+using MyERP.Manufacturing.Entities;
 using MyERP.Sales;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
@@ -637,5 +641,269 @@ public class UpstreamParityBatch20261026Part4Tests
 
         result.Count.ShouldBe(1);
         result[0].Qty.ShouldBe(2m);
+    }
+
+    // --- ERPNext PR #62430 / commits 52f1f5268c & 5fe3b81f32: Work Order Serial/Batch Requirement Validation ---
+
+    [Fact]
+    public async Task WorkOrderManager_ValidateSerialAndBatchRequirements_BatchItemWithoutCreateNewBatch_Throws()
+    {
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+
+        var wo = new WorkOrder(Guid.NewGuid(), companyId, "WO-TEST-001", itemId, bomId, 10m);
+
+        var item = new Item(itemId, companyId, "BATCH-ITEM-01", "Batch Item 1", ItemType.Goods)
+        {
+            HasBatchNo = true,
+            CreateNewBatch = false
+        };
+
+        var settings = new ManufacturingSettings(Guid.NewGuid(), companyId)
+        {
+            MakeSerialNoBatchFromWorkOrder = true
+        };
+
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.GetAsync(itemId).Returns(Task.FromResult(item));
+
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = Substitute.For<IRepository<ManufacturingSettings, Guid>>();
+        settingsRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<ManufacturingSettings, bool>>>())
+            .Returns(Task.FromResult<ManufacturingSettings?>(settings));
+
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        var ex = await Should.ThrowAsync<BusinessException>(async () =>
+            await manager.ValidateSerialAndBatchRequirementsAsync(wo));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString().ShouldContain("Set Automatically Create New Batch in Item");
+    }
+
+    [Fact]
+    public async Task WorkOrderManager_ValidateSerialAndBatchRequirements_SerialItemWithoutSerialNoSeries_Throws()
+    {
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+
+        var wo = new WorkOrder(Guid.NewGuid(), companyId, "WO-TEST-002", itemId, bomId, 10m);
+
+        var item = new Item(itemId, companyId, "SERIAL-ITEM-01", "Serial Item 1", ItemType.Goods)
+        {
+            HasSerialNo = true,
+            SerialNoSeries = null
+        };
+
+        var settings = new ManufacturingSettings(Guid.NewGuid(), companyId)
+        {
+            MakeSerialNoBatchFromWorkOrder = true
+        };
+
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.GetAsync(itemId).Returns(Task.FromResult(item));
+
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = Substitute.For<IRepository<ManufacturingSettings, Guid>>();
+        settingsRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<ManufacturingSettings, bool>>>())
+            .Returns(Task.FromResult<ManufacturingSettings?>(settings));
+
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        var ex = await Should.ThrowAsync<BusinessException>(async () =>
+            await manager.ValidateSerialAndBatchRequirementsAsync(wo));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString().ShouldContain("Set Serial No Series in Item");
+    }
+
+    [Fact]
+    public async Task WorkOrderManager_ValidateSerialAndBatchRequirements_SettingDisabled_Succeeds()
+    {
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+
+        var wo = new WorkOrder(Guid.NewGuid(), companyId, "WO-TEST-003", itemId, bomId, 10m);
+
+        var item = new Item(itemId, companyId, "BATCH-ITEM-03", "Batch Item 3", ItemType.Goods)
+        {
+            HasBatchNo = true,
+            CreateNewBatch = false
+        };
+
+        var settings = new ManufacturingSettings(Guid.NewGuid(), companyId)
+        {
+            MakeSerialNoBatchFromWorkOrder = false
+        };
+
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.GetAsync(itemId).Returns(Task.FromResult(item));
+
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = Substitute.For<IRepository<ManufacturingSettings, Guid>>();
+        settingsRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<ManufacturingSettings, bool>>>())
+            .Returns(Task.FromResult<ManufacturingSettings?>(settings));
+
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        // Should complete without throwing
+        await manager.ValidateSerialAndBatchRequirementsAsync(wo);
+    }
+
+    [Fact]
+    public async Task WorkOrderManager_ValidateSerialAndBatchRequirements_ValidConfiguration_Succeeds()
+    {
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var bomId = Guid.NewGuid();
+
+        var wo = new WorkOrder(Guid.NewGuid(), companyId, "WO-TEST-004", itemId, bomId, 10m);
+
+        var item = new Item(itemId, companyId, "VALID-ITEM-04", "Valid Item 4", ItemType.Goods)
+        {
+            HasBatchNo = true,
+            CreateNewBatch = true,
+            HasSerialNo = true,
+            SerialNoSeries = "SN-.#####"
+        };
+
+        var settings = new ManufacturingSettings(Guid.NewGuid(), companyId)
+        {
+            MakeSerialNoBatchFromWorkOrder = true
+        };
+
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        itemRepo.GetAsync(itemId).Returns(Task.FromResult(item));
+
+        var bomRepo = Substitute.For<IRepository<BillOfMaterials, Guid>>();
+        var settingsRepo = Substitute.For<IRepository<ManufacturingSettings, Guid>>();
+        settingsRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<ManufacturingSettings, bool>>>())
+            .Returns(Task.FromResult<ManufacturingSettings?>(settings));
+
+        var manager = new WorkOrderManager(itemRepo, bomRepo, settingsRepo);
+
+        // Should complete without throwing
+        await manager.ValidateSerialAndBatchRequirementsAsync(wo);
+    }
+
+    // --- ERPNext PR #62315 / commit 96d3101955: Landed Cost Voucher restricted to Manufacture & Repack ---
+
+    [Fact]
+    public async Task LandedCostVoucher_GetReceiptItems_MaterialReceiptStockEntry_Throws()
+    {
+        var companyId = Guid.NewGuid();
+        var seId = Guid.NewGuid();
+
+        var se = new StockEntry(seId, companyId, StockEntryType.MaterialReceipt, DateTime.UtcNow)
+        {
+            EntryNumber = "STE-REC-001"
+        };
+        se.AddItem(Guid.NewGuid(), 5m, targetWarehouseId: Guid.NewGuid(), valuationRate: 20m);
+        se.Submit();
+
+        var seRepo = Substitute.For<IRepository<StockEntry, Guid>>();
+        seRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<StockEntry, object>>[]>())
+            .Returns(Task.FromResult(new[] { se }.AsQueryable()));
+
+        var lazyProvider = Substitute.For<IAbpLazyServiceProvider>();
+        lazyProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>().Returns(seRepo);
+
+        var appService = new LandedCostVoucherAppService(
+            Substitute.For<IRepository<LandedCostVoucher, Guid>>(),
+            Substitute.For<IRepository<SerialNo, Guid>>(),
+            Substitute.For<IRepository<MyERP.Purchasing.Entities.PurchaseReceipt, Guid>>(),
+            Substitute.For<IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>>(),
+            Substitute.For<IRepository<JournalEntry, Guid>>(),
+            Substitute.For<IRepository<FiscalYear, Guid>>(),
+            Substitute.For<StockValuationService>(
+                Substitute.For<IRepository<StockLedgerEntry, Guid>>(),
+                Substitute.For<IRepository<Item, Guid>>(),
+                Substitute.For<Volo.Abp.Settings.ISettingProvider>()),
+            Substitute.For<BinService>(Substitute.For<IRepository<Bin, Guid>>()),
+            Substitute.For<WarehouseAccountService>(
+                Substitute.For<IRepository<WarehouseAccount, Guid>>(),
+                Substitute.For<IRepository<Warehouse, Guid>>(),
+                Substitute.For<IRepository<Company, Guid>>(),
+                Substitute.For<IRepository<Account, Guid>>()),
+            Substitute.For<MyERP.Core.DomainServices.IDocumentNumberGenerator>())
+        {
+            LazyServiceProvider = lazyProvider
+        };
+
+        var input = new GetLandedCostReceiptItemsInput
+        {
+            CompanyId = companyId,
+            ReceiptType = "StockEntry",
+            ReceiptIds = new List<Guid> { seId }
+        };
+
+        var ex = await Should.ThrowAsync<BusinessException>(async () =>
+            await appService.GetReceiptItemsAsync(input));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString().ShouldContain("Landed Cost Voucher can only be made against a Manufacture or Repack Stock Entry");
+    }
+
+    [Fact]
+    public async Task LandedCostVoucher_GetReceiptItems_ManufactureStockEntry_Succeeds()
+    {
+        var companyId = Guid.NewGuid();
+        var seId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var targetWhId = Guid.NewGuid();
+
+        var se = new StockEntry(seId, companyId, StockEntryType.Manufacture, DateTime.UtcNow)
+        {
+            EntryNumber = "STE-MFG-001"
+        };
+        se.AddItem(itemId, 5m, targetWarehouseId: targetWhId, valuationRate: 20m);
+        se.Submit();
+
+        var seRepo = Substitute.For<IRepository<StockEntry, Guid>>();
+        seRepo.WithDetailsAsync(Arg.Any<System.Linq.Expressions.Expression<Func<StockEntry, object>>[]>())
+            .Returns(Task.FromResult(new[] { se }.AsQueryable()));
+
+        var lazyProvider = Substitute.For<IAbpLazyServiceProvider>();
+        lazyProvider.LazyGetRequiredService<IRepository<StockEntry, Guid>>().Returns(seRepo);
+
+        var appService = new LandedCostVoucherAppService(
+            Substitute.For<IRepository<LandedCostVoucher, Guid>>(),
+            Substitute.For<IRepository<SerialNo, Guid>>(),
+            Substitute.For<IRepository<MyERP.Purchasing.Entities.PurchaseReceipt, Guid>>(),
+            Substitute.For<IRepository<MyERP.Purchasing.Entities.PurchaseInvoice, Guid>>(),
+            Substitute.For<IRepository<JournalEntry, Guid>>(),
+            Substitute.For<IRepository<FiscalYear, Guid>>(),
+            Substitute.For<StockValuationService>(
+                Substitute.For<IRepository<StockLedgerEntry, Guid>>(),
+                Substitute.For<IRepository<Item, Guid>>(),
+                Substitute.For<Volo.Abp.Settings.ISettingProvider>()),
+            Substitute.For<BinService>(Substitute.For<IRepository<Bin, Guid>>()),
+            Substitute.For<WarehouseAccountService>(
+                Substitute.For<IRepository<WarehouseAccount, Guid>>(),
+                Substitute.For<IRepository<Warehouse, Guid>>(),
+                Substitute.For<IRepository<Company, Guid>>(),
+                Substitute.For<IRepository<Account, Guid>>()),
+            Substitute.For<MyERP.Core.DomainServices.IDocumentNumberGenerator>())
+        {
+            LazyServiceProvider = lazyProvider
+        };
+
+        var input = new GetLandedCostReceiptItemsInput
+        {
+            CompanyId = companyId,
+            ReceiptType = "StockEntry",
+            ReceiptIds = new List<Guid> { seId }
+        };
+
+        var result = await appService.GetReceiptItemsAsync(input);
+
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(1);
+        result[0].ItemId.ShouldBe(itemId);
+        result[0].Quantity.ShouldBe(5m);
+        result[0].Amount.ShouldBe(100m);
     }
 }

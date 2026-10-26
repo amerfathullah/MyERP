@@ -1797,6 +1797,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var wo = await _workOrderRepository.GetAsync(id, includeDetails: true);
         var woManager = LazyServiceProvider.LazyGetRequiredService<Manufacturing.DomainServices.WorkOrderManager>();
         woManager.ValidateMandatoryWarehouses(wo, wo.SkipTransfer);
+        await woManager.ValidateSerialAndBatchRequirementsAsync(wo);
 
         if (wo.ProductionPlanId.HasValue)
         {

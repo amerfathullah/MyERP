@@ -807,6 +807,32 @@ public class WorkOrderManager : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Validates serial number series and automatic batch creation settings when
+    /// MakeSerialNoBatchFromWorkOrder is enabled in Manufacturing Settings.
+    /// Per ERPNext PR #62430 (commits 52f1f5268c &amp; 5fe3b81f32).
+    /// </summary>
+    public async Task ValidateSerialAndBatchRequirementsAsync(WorkOrder workOrder)
+    {
+        var settings = await _settingsRepository.FindAsync(s => s.CompanyId == workOrder.CompanyId);
+        if (settings == null || !settings.MakeSerialNoBatchFromWorkOrder)
+            return;
+
+        var item = await _itemRepository.GetAsync(workOrder.ItemId);
+
+        if (item.HasBatchNo && !item.CreateNewBatch)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Set Automatically Create New Batch in Item '{item.ItemCode}' or disable Make Serial No / Batch from Work Order in Manufacturing Settings.");
+        }
+
+        if (item.HasSerialNo && string.IsNullOrWhiteSpace(item.SerialNoSeries))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Set Serial No Series in Item '{item.ItemCode}' or disable Make Serial No / Batch from Work Order in Manufacturing Settings.");
+        }
+    }
 }
 
 /// <summary>

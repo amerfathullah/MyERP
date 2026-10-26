@@ -93,8 +93,8 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
     /// <summary>
     /// Guards a receipt reference before it's allowed onto a Landed Cost Voucher: must belong to
     /// the same company as the voucher and be submitted. Purchase Invoices additionally require
-    /// UpdateStock (gotcha #280); Stock Entries are restricted to the entry types that actually
-    /// move stock in (Material Receipt/Manufacture/Repack), matching GetReceiptItemsAsync.
+    /// UpdateStock (gotcha #280); Stock Entries are restricted to Manufacture and Repack per
+    /// ERPNext PR #62315 (commit 96d3101955), matching GetReceiptItemsAsync.
     /// </summary>
     private async Task<HashSet<Guid>> ValidateReceiptForLandedCostAsync(string receiptType, Guid receiptId, Guid companyId)
     {
@@ -133,11 +133,11 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
             if (se.Status != Core.DocumentStatus.Submitted)
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be submitted.");
-            if (se.EntryType != StockEntryType.MaterialReceipt &&
-                se.EntryType != StockEntryType.Manufacture &&
+            // Per ERPNext PR #62315 (commit 96d3101955): Landed Cost Voucher can only be made against Manufacture or Repack
+            if (se.EntryType != StockEntryType.Manufacture &&
                 se.EntryType != StockEntryType.Repack)
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be of entry type Material Receipt, Manufacture, or Repack.");
+                    .WithData("detail", $"Landed Cost Voucher can only be made against a Manufacture or Repack Stock Entry. Stock Entry '{se.EntryNumber}' is a {se.EntryType}.");
             return se.Items.Select(i => i.ItemId).ToHashSet();
         }
         else
@@ -679,12 +679,12 @@ public class LandedCostVoucherAppService : ApplicationService, ILandedCostVouche
                         .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be submitted.");
                 }
 
-                if (se.EntryType != StockEntryType.MaterialReceipt &&
-                    se.EntryType != StockEntryType.Manufacture &&
+                // Per ERPNext PR #62315 (commit 96d3101955): Landed Cost Voucher can only be made against Manufacture or Repack
+                if (se.EntryType != StockEntryType.Manufacture &&
                     se.EntryType != StockEntryType.Repack)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                        .WithData("detail", $"Stock Entry '{se.EntryNumber}' must be of entry type Material Receipt, Manufacture, or Repack.");
+                        .WithData("detail", $"Landed Cost Voucher can only be made against a Manufacture or Repack Stock Entry. Stock Entry '{se.EntryNumber}' is a {se.EntryType}.");
                 }
 
                 // Deterministic item ordering matching stock entry row sequence (PR #48372 / commit 32a45cf635)
