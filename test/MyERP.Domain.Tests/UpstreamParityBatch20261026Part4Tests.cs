@@ -9,12 +9,15 @@ using MyERP.Core;
 using MyERP.Core.Entities;
 using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
+using MyERP.Sales;
 using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using NSubstitute;
 using Shouldly;
 using Volo.Abp;
+using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Guids;
 using Volo.Abp.Settings;
 using Xunit;
 
@@ -325,5 +328,92 @@ public class UpstreamParityBatch20261026Part4Tests
         d.RecordDunningPayment(-50m);
         d.Cancel();
         d.Status.ShouldBe(DocumentStatus.Cancelled);
+    }
+
+    // --- ERPNext PR #61620 (commit 308143fc67): Income account is required to collect dunning fees or interest ---
+
+    [Fact]
+    public async Task DunningAppService_SubmitAsync_ThrowsWhenIncomeAccountMissingForFeeOrInterest()
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var d = new Dunning(Guid.NewGuid(), companyId, customerId, new DateTime(2026, 3, 1), 1);
+        d.AddOverduePayment(Guid.NewGuid(), 500m, new DateTime(2026, 2, 1), 10);
+        d.DunningFee = 25m; // Has fee
+
+        var dunningRepo = Substitute.For<IRepository<Dunning, Guid>>();
+        dunningRepo.WithDetailsAsync().Returns(Task.FromResult(new[] { d }.AsQueryable()));
+
+        var dunningManager = new DunningManager(dunningRepo);
+
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+        var company = new Company(companyId, "Test Company")
+        {
+            DefaultReceivableAccountId = Guid.NewGuid(),
+            DefaultIncomeAccountId = null // Missing income account!
+        };
+        companyRepo.GetAsync(companyId).Returns(Task.FromResult(company));
+
+        var fyRepo = Substitute.For<IRepository<FiscalYear, Guid>>();
+        var fy = new FiscalYear(Guid.NewGuid(), companyId, "2026", new DateTime(2026, 1, 1), new DateTime(2026, 12, 31));
+        fyRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { fy }.AsQueryable()));
+
+        var lazyProvider = Substitute.For<IAbpLazyServiceProvider>();
+        lazyProvider.LazyGetRequiredService<IRepository<Company, Guid>>().Returns(companyRepo);
+        lazyProvider.LazyGetRequiredService<IRepository<FiscalYear, Guid>>().Returns(fyRepo);
+
+        var appService = new DunningAppService(dunningRepo, dunningManager)
+        {
+            LazyServiceProvider = lazyProvider
+        };
+
+        var ex = await Should.ThrowAsync<BusinessException>(() => appService.SubmitAsync(d.Id));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString()!.ShouldContain("Income Account is required to collect dunning fees or interest.");
+    }
+
+    // --- ERPNext PR #62251 (commit ef89cb497d): Unreconcile payment reverses FX gain/loss for both voucher and against-vouchers ---
+
+    [Fact]
+    public async Task UnreconcilePaymentAppService_SubmitAsync_ReversesExchangeGainLossForBothVoucherAndAgainstVoucher()
+    {
+        var companyId = Guid.NewGuid();
+        var peId = Guid.NewGuid();
+        var siId = Guid.NewGuid();
+        var pleId = Guid.NewGuid();
+        var ple = new PaymentLedgerEntry(
+            pleId, companyId, DateTime.UtcNow.Date,
+            Guid.NewGuid(), "Customer", Guid.NewGuid(),
+            "PaymentEntry", peId,
+            "SalesInvoice", siId,
+            150m, 150m, "MYR");
+
+        var unrecon = new UnreconcilePayment(Guid.NewGuid(), companyId, UnreconcileVoucherType.PaymentEntry, peId);
+        unrecon.AddAllocation(pleId, "SalesInvoice", siId, 150m);
+
+        var unreconRepo = Substitute.For<IRepository<UnreconcilePayment, Guid>>();
+        unreconRepo.WithDetailsAsync().Returns(Task.FromResult(new[] { unrecon }.AsQueryable()));
+
+        var pleRepo = Substitute.For<IRepository<PaymentLedgerEntry, Guid>>();
+        pleRepo.GetAsync(pleId).Returns(Task.FromResult(ple));
+
+        var postingOrchestrator = Substitute.For<DocumentPostingOrchestrator>();
+
+        var activityLogRepo = Substitute.For<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>();
+        var lazyProvider = Substitute.For<IAbpLazyServiceProvider>();
+        lazyProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.DocumentActivityLog, Guid>>().Returns(activityLogRepo);
+
+        var appService = new UnreconcilePaymentAppService(unreconRepo, pleRepo, postingOrchestrator)
+        {
+            LazyServiceProvider = lazyProvider
+        };
+
+        await appService.SubmitAsync(unrecon.Id);
+
+        // Verifies FX gain/loss reversed for the primary voucher
+        await postingOrchestrator.Received(1).ReverseExchangeGainLossJournalEntriesAsync("PaymentEntry", peId);
+
+        // Verifies FX gain/loss also reversed for linked against voucher (return / invoice)
+        await postingOrchestrator.Received(1).ReverseExchangeGainLossJournalEntriesAsync("SalesInvoice", siId);
     }
 }

@@ -338,43 +338,52 @@ public class DunningAppService : ApplicationService, IDunningAppService
         var feeAndInterest = d.DunningFee + d.InterestAmount;
         if (feeAndInterest > 0)
         {
-            try
-            {
-                var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
-                var fyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<FiscalYear, Guid>>();
-                var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
-                var company = await companyRepo.GetAsync(d.CompanyId);
-                var fy = (await fyRepo.GetQueryableAsync())
-                    .Where(f => f.CompanyId == d.CompanyId && f.StartDate <= d.PostingDate && f.EndDate >= d.PostingDate)
-                    .FirstOrDefault();
+            var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+            var fyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<FiscalYear, Guid>>();
+            var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+            var company = await companyRepo.GetAsync(d.CompanyId);
+            var fy = (await fyRepo.GetQueryableAsync())
+                .Where(f => f.CompanyId == d.CompanyId && f.StartDate <= d.PostingDate && f.EndDate >= d.PostingDate)
+                .FirstOrDefault();
 
-                // Prefer the Dunning Type's configured income account, falling back to the company default.
-                Guid? incomeAccountId = company.DefaultIncomeAccountId;
-                if (d.DunningTypeId.HasValue)
-                {
-                    var typeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.DunningType, Guid>>();
-                    var dunningType = await typeRepo.FindAsync(d.DunningTypeId.Value);
-                    if (dunningType?.IncomeAccountId != null)
-                        incomeAccountId = dunningType.IncomeAccountId;
-                }
-
-                if (fy != null && company.DefaultReceivableAccountId.HasValue && incomeAccountId.HasValue)
-                {
-                    var je = new JournalEntry(GuidGenerator.Create(), d.CompanyId, fy.Id, d.PostingDate, d.TenantId);
-                    je.ReferenceType = "Dunning";
-                    je.ReferenceId = d.Id;
-                    // DR Receivable (customer owes fee + interest)
-                    je.AddLineWithParty(company.DefaultReceivableAccountId.Value, feeAndInterest, true, d.CustomerId, "Customer", AccountSubType.AccountsReceivable);
-                    // CR Income (dunning fee + interest earned)
-                    je.AddLine(incomeAccountId.Value, feeAndInterest, false);
-                    je.Post();
-                    await jeRepo.InsertAsync(je);
-                }
-            }
-            catch (Exception ex)
+            if (fy == null)
             {
-                Logger.LogWarning(ex, "Failed to post GL entries for Dunning {DunningId}", d.Id);
+                throw new BusinessException(MyERPDomainErrorCodes.FiscalYearClosed)
+                    .WithData("detail", $"Fiscal Year not found or closed for date {d.PostingDate:d}.");
             }
+
+            // Prefer the Dunning Type's configured income account, falling back to the company default.
+            Guid? incomeAccountId = company.DefaultIncomeAccountId;
+            if (d.DunningTypeId.HasValue)
+            {
+                var typeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.DunningType, Guid>>();
+                var dunningType = await typeRepo.FindAsync(d.DunningTypeId.Value);
+                if (dunningType?.IncomeAccountId != null)
+                    incomeAccountId = dunningType.IncomeAccountId;
+            }
+
+            // Per ERPNext PR #61620 (commit 308143fc67): Income account is required to collect dunning fees or interest
+            if (!incomeAccountId.HasValue)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Income Account is required to collect dunning fees or interest.");
+            }
+
+            if (!company.DefaultReceivableAccountId.HasValue)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Default Receivable Account is required on Company to collect dunning charges.");
+            }
+
+            var je = new JournalEntry(GuidGenerator.Create(), d.CompanyId, fy.Id, d.PostingDate, d.TenantId);
+            je.ReferenceType = "Dunning";
+            je.ReferenceId = d.Id;
+            // DR Receivable (customer owes fee + interest)
+            je.AddLineWithParty(company.DefaultReceivableAccountId.Value, feeAndInterest, true, d.CustomerId, "Customer", AccountSubType.AccountsReceivable);
+            // CR Income (dunning fee + interest earned)
+            je.AddLine(incomeAccountId.Value, feeAndInterest, false);
+            je.Post();
+            await jeRepo.InsertAsync(je);
         }
 
         // Activity log

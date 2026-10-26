@@ -138,11 +138,19 @@ public class UnreconcilePaymentAppService : ApplicationService, IUnreconcilePaym
         }
 
         // Cancel any exchange gain/loss JE(s) posted for this voucher during the reconciliation(s)
-        // being undone — otherwise they stay posted forever with no reconciliation left to justify
-        // them. Reverses only the FX JE(s), never the voucher's own main GL (which is untouched —
+        // being undone — including linked return vouchers (ERPNext PR #62251 / commit ef89cb497d).
+        // Reverses only the FX JE(s), never the voucher's own main GL (which is untouched —
         // unreconcile undoes an allocation, not the payment itself).
         var voucherTypeName = entity.VoucherType.ToString();
         await _postingOrchestrator.ReverseExchangeGainLossJournalEntriesAsync(voucherTypeName, entity.VoucherId);
+
+        foreach (var allocation in entity.Allocations)
+        {
+            if (allocation.AgainstVoucherId != Guid.Empty && !string.IsNullOrWhiteSpace(allocation.AgainstVoucherType))
+            {
+                await _postingOrchestrator.ReverseExchangeGainLossJournalEntriesAsync(allocation.AgainstVoucherType, allocation.AgainstVoucherId);
+            }
+        }
 
         await _repository.UpdateAsync(entity);
 

@@ -43,6 +43,10 @@ public class DocumentPostingOrchestrator : DomainService
     private readonly WarehouseAccountService _warehouseAccountService;
     private readonly IGuidGenerator? _guidGenerator;
 
+#pragma warning disable CS8618
+    protected DocumentPostingOrchestrator() { }
+#pragma warning restore CS8618
+
     public DocumentPostingOrchestrator(
         AccountingRuleEngine ruleEngine,
         PaymentLedgerService pleService,
@@ -672,7 +676,7 @@ public class DocumentPostingOrchestrator : DomainService
     /// settled via reconciliation. Matches directly on ReferenceType/ReferenceId OR on lines with
     /// matching AgainstVoucherType/AgainstVoucherId. Reverses ALL matches. No-op if none are posted.
     /// </summary>
-    public async Task ReverseExchangeGainLossJournalEntriesAsync(string voucherType, Guid voucherId)
+    public virtual async Task ReverseExchangeGainLossJournalEntriesAsync(string voucherType, Guid voucherId)
     {
         var query = await GetJournalQueryWithLinesAsync();
         var entries = query.Where(j =>
