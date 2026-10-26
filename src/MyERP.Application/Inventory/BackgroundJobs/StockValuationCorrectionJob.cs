@@ -128,7 +128,31 @@ public class StockValuationCorrectionJob : AsyncBackgroundJob<StockValuationCorr
                             // SLE — so falling back to them here silently zeroed out the recomputed
                             // value on every repost. ValuationRate is the one field that's always
                             // set to the entry's real posting rate.
-                            runningValue += sle.QuantityChange * sle.ValuationRate;
+                            var inwardRate = sle.ValuationRate;
+
+                            // Per ERPNext PR #62314 (commit 27303023b9): value a transfer's inward leg
+                            // at what left the source warehouse on repost
+                            if (sle.VoucherType == "Stock Entry" && sle.VoucherId.HasValue)
+                            {
+                                var outwardLeg = sleQuery
+                                    .Where(s => s.CompanyId == args.CompanyId &&
+                                                s.VoucherType == sle.VoucherType &&
+                                                s.VoucherId == sle.VoucherId &&
+                                                s.ItemId == sle.ItemId &&
+                                                s.QuantityChange < 0 &&
+                                                !s.IsCancelled)
+                                    .OrderByDescending(s => s.PostingDateTime)
+                                    .ThenByDescending(s => s.CreationTime)
+                                    .FirstOrDefault();
+
+                                if (outwardLeg != null && outwardLeg.ValuationRate > 0)
+                                {
+                                    inwardRate = outwardLeg.ValuationRate;
+                                    sle.ValuationRate = inwardRate;
+                                }
+                            }
+
+                            runningValue += sle.QuantityChange * inwardRate;
                         }
                         else if (sle.QuantityChange < 0 && runningQty > 0)
                         {

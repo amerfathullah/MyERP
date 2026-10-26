@@ -6,9 +6,10 @@ using System.Threading.Tasks;
 using MyERP.Accounting;
 using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
+using MyERP.Assets;
+using MyERP.Assets.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
-using MyERP.Purchasing.Entities;
 using NSubstitute;
 using Shouldly;
 using Volo.Abp;
@@ -66,7 +67,7 @@ public class UpstreamParityBatch20261026Tests
         (Math.Round(diff, 2) > 0m).ShouldBeFalse();
 
         // 2. Closed PO item excluded
-        var po = new PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-UP-001", DateTime.UtcNow);
+        var po = new global::MyERP.Purchasing.Entities.PurchaseOrder(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-UP-001", DateTime.UtcNow);
         po.AddItem(Guid.NewGuid(), "Raw Material A", 10m, 100m, 0m, "Unit");
         var item = po.Items[0];
         item.IsClosed.ShouldBeFalse();
@@ -79,7 +80,7 @@ public class UpstreamParityBatch20261026Tests
     {
         var pleRepo = Substitute.For<IRepository<PaymentLedgerEntry, Guid>>();
         var siRepo = Substitute.For<IRepository<MyERP.Sales.Entities.SalesInvoice, Guid>>();
-        var piRepo = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
+        var piRepo = Substitute.For<IRepository<global::MyERP.Purchasing.Entities.PurchaseInvoice, Guid>>();
         var peRepo = Substitute.For<IRepository<PaymentEntry, Guid>>();
         var jeRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
         var fyRepo = Substitute.For<IRepository<FiscalYear, Guid>>();
@@ -228,4 +229,75 @@ public class UpstreamParityBatch20261026Tests
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
         (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Cannot change company of a shareholder with submitted share transfers");
     }
+
+    [Fact]
+    public async Task Asset_GetValuesFromPurchaseDoc_DeductsExistingLinkedAssetQty_PR62091()
+    {
+        var assetRepo = Substitute.For<IRepository<Asset, Guid>>();
+        var catRepo = Substitute.For<IRepository<AssetCategory, Guid>>();
+        var actRepo = Substitute.For<IRepository<AssetActivity, Guid>>();
+        var locRepo = Substitute.For<IRepository<Location, Guid>>();
+        var prRepo = Substitute.For<IRepository<global::MyERP.Purchasing.Entities.PurchaseReceipt, Guid>>();
+
+        var companyId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var prId = Guid.NewGuid();
+
+        var pr = new global::MyERP.Purchasing.Entities.PurchaseReceipt(
+            prId, companyId, Guid.NewGuid(), Guid.NewGuid(), "PR-001", DateTime.UtcNow);
+        pr.AddItem(itemId, "MacBook Pro", 5m, 2000m, 0m, "Unit", Guid.NewGuid()); // 5 units @ 2000 = 10,000
+
+        prRepo.GetAsync(prId, includeDetails: true).Returns(Task.FromResult(pr));
+
+        // Existing asset with 3 units linked to this PR
+        var existingAsset = new Asset(Guid.NewGuid(), companyId, "AST-001", "MacBook", DateTime.UtcNow, 6000m)
+        {
+            PurchaseReceiptId = prId,
+            ItemId = itemId,
+            AssetQuantity = 3
+        };
+
+        assetRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Asset> { existingAsset }.AsQueryable()));
+
+        var appService = new AssetAppService(
+            assetRepo, catRepo, actRepo, locRepo,
+            null!, null!,
+            new AssetMapper(), new AssetCategoryMapper());
+
+        var authService = Substitute.For<Microsoft.AspNetCore.Authorization.IAuthorizationService, Volo.Abp.Authorization.IAbpAuthorizationService>();
+        authService.AuthorizeAsync(Arg.Any<System.Security.Claims.ClaimsPrincipal>(), Arg.Any<object>(), Arg.Any<string>())
+            .Returns(Microsoft.AspNetCore.Authorization.AuthorizationResult.Success());
+
+        var lazySp = Substitute.For<Volo.Abp.DependencyInjection.IAbpLazyServiceProvider>();
+        lazySp.LazyGetService<Microsoft.AspNetCore.Authorization.IAuthorizationService>().Returns(authService);
+        lazySp.LazyGetRequiredService<Microsoft.AspNetCore.Authorization.IAuthorizationService>().Returns(authService);
+        lazySp.LazyGetRequiredService<IRepository<global::MyERP.Purchasing.Entities.PurchaseReceipt, Guid>>().Returns(prRepo);
+        appService.LazyServiceProvider = lazySp;
+
+        // Act: should return remaining 2 units
+        var values = await appService.GetValuesFromPurchaseDocAsync("PurchaseReceipt", prId, itemId);
+        values.AssetQuantity.ShouldBe(2);
+        values.PurchaseAmount.ShouldBe(4000m);
+
+        // When all 5 units are linked, should throw ValidationFailed
+        existingAsset.AssetQuantity = 5;
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            appService.GetValuesFromPurchaseDocAsync("PurchaseReceipt", prId, itemId));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("already linked to Assets");
+    }
+
+    [Fact]
+    public void ChequePrintTemplate_GenerateHtmlTemplate_ContainsExpectedPlaceholders_PR62252()
+    {
+        var template = new ChequePrintTemplate(
+            Guid.NewGuid(), "Maybank", ChequeSize.A4, 20m, 10m);
+
+        var html = template.GenerateHtmlTemplate();
+        html.ShouldContain("amount_in_words");
+        html.ShouldContain("amount_in_figures");
+        html.ShouldContain("party_name");
+        html.ShouldContain("reference_date");
+    }
 }
+

@@ -139,13 +139,14 @@ export class PosComponent implements OnInit {
   }
 
   addToCart(item: PosItemDto): void {
-    const existing = this.cart.find(c => c.itemId === item.id);
+    const rate = item.sellingPrice ?? 0;
+    // Per ERPNext PR #60580: merge repeat clicks with matching rate precision
+    const existing = this.cart.find(c => c.itemId === item.id && Math.abs(c.rate - rate) < 0.001);
     if (existing) {
       existing.qty++;
       existing.amount = existing.qty * existing.rate * (1 - existing.discount / 100);
       existing.taxAmount = existing.amount * existing.taxRate / 100;
     } else {
-      const rate = item.sellingPrice ?? 0;
       const taxRate = this.defaultTaxRate;
       this.cart.push({
         itemId: item.id!,

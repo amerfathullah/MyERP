@@ -578,14 +578,29 @@ public class AssetAppService : ApplicationService, IAssetAppService
             // Per PR #57618 & PR #60415 (commit b102d0561e): purchase amount sourced from receipt valuation (including landed costs) and stock qty
             var amount = (item.LineTotal * (pr.ExchangeRate > 0 ? pr.ExchangeRate : 1m)) + item.LandedCostVoucherAmount;
             var stockQty = item.Quantity * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
-            var qty = (int)Math.Max(1, Math.Round(stockQty));
+            var totalQty = (int)Math.Max(1, Math.Round(stockQty));
+
+            // Per ERPNext PR #62091 (commit f8de444ca5): subtract already linked asset quantities and validate availability
+            var assetQuery = await _assetRepository.GetQueryableAsync();
+            var linkedQty = assetQuery
+                .Where(a => a.PurchaseReceiptId == pr.Id && a.ItemId == item.ItemId && a.Status != AssetStatus.Cancelled)
+                .Sum(a => a.AssetQuantity);
+
+            var availableQty = totalQty - linkedQty;
+            if (availableQty <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"All quantities of Item '{item.ItemId}' in Purchase Receipt are already linked to Assets.");
+            }
+
+            var proportionalAmount = totalQty > 0 ? (amount / totalQty) * availableQty : amount;
 
             return new AssetPurchaseDocValuesDto
             {
                 CompanyId = pr.CompanyId,
                 PurchaseDate = pr.PostingDate,
-                PurchaseAmount = amount,
-                AssetQuantity = qty,
+                PurchaseAmount = proportionalAmount,
+                AssetQuantity = availableQty,
                 ItemId = item.ItemId,
                 ItemName = item.Description,
                 PurchaseReceiptId = pr.Id,
@@ -606,14 +621,29 @@ public class AssetAppService : ApplicationService, IAssetAppService
             // Per PR #60415 (commit b102d0561e): include base valuation and landed cost voucher amount, and use stock qty
             var amount = (item.LineTotal * (pi.ExchangeRate > 0 ? pi.ExchangeRate : 1m)) + item.LandedCostVoucherAmount;
             var stockQty = item.Quantity * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
-            var qty = (int)Math.Max(1, Math.Round(stockQty));
+            var totalQty = (int)Math.Max(1, Math.Round(stockQty));
+
+            // Per ERPNext PR #62091 (commit f8de444ca5): subtract already linked asset quantities and validate availability
+            var assetQuery = await _assetRepository.GetQueryableAsync();
+            var linkedQty = assetQuery
+                .Where(a => a.PurchaseInvoiceId == pi.Id && a.ItemId == item.ItemId && a.Status != AssetStatus.Cancelled)
+                .Sum(a => a.AssetQuantity);
+
+            var availableQty = totalQty - linkedQty;
+            if (availableQty <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"All quantities of Item '{item.ItemId}' in Purchase Invoice are already linked to Assets.");
+            }
+
+            var proportionalAmount = totalQty > 0 ? (amount / totalQty) * availableQty : amount;
 
             return new AssetPurchaseDocValuesDto
             {
                 CompanyId = pi.CompanyId,
                 PurchaseDate = pi.IssueDate,
-                PurchaseAmount = amount,
-                AssetQuantity = qty,
+                PurchaseAmount = proportionalAmount,
+                AssetQuantity = availableQty,
                 ItemId = item.ItemId,
                 ItemName = item.Description,
                 PurchaseInvoiceId = pi.Id,
