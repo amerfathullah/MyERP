@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Sales.Entities;
+using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Domain.Services;
 
@@ -93,6 +94,12 @@ public class ProductBundleDecompositionService : DomainService
         if (productBundleId.HasValue)
         {
             bundle = queryable.FirstOrDefault(b => b.Id == productBundleId.Value);
+            // Per ERPNext PR #62149 (commit ffcf97c223): disabled version blocks transaction unless it's a return
+            if (bundle != null && bundle.IsDisabled && !isReturn)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Product Bundle {bundle.Id} is disabled and cannot be used in transactions.");
+            }
         }
         bundle ??= queryable.FirstOrDefault(b => b.ItemId == itemId && b.IsActive && (!b.IsDisabled || isReturn));
 

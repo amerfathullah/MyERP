@@ -591,4 +591,51 @@ public class UpstreamParityBatch20261026Part4Tests
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
         ex.Data["detail"]!.ToString().ShouldContain("belongs to a different customer");
     }
+
+    // --- ERPNext PR #62149 / commit ffcf97c223: Product Bundle disabled version in returns vs standard ---
+
+    [Fact]
+    public async Task ProductBundleDecompositionService_DecomposeAsync_ThrowsWhenChosenBundleIsDisabledAndNotReturn()
+    {
+        var parentItemId = Guid.NewGuid();
+        var bundleId = Guid.NewGuid();
+        var bundle = new ProductBundle(bundleId, parentItemId)
+        {
+            IsDisabled = true
+        };
+        bundle.AddItem(Guid.NewGuid(), 2m, "Component A", "Unit");
+
+        var bundleRepo = Substitute.For<IRepository<ProductBundle, Guid>>();
+        bundleRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { bundle }.AsQueryable()));
+
+        var service = new ProductBundleDecompositionService(bundleRepo);
+
+        var ex = await Should.ThrowAsync<BusinessException>(async () =>
+            await service.DecomposeAsync(parentItemId, 1m, 100m, isReturn: false, productBundleId: bundleId));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        ex.Data["detail"]!.ToString().ShouldContain("disabled and cannot be used");
+    }
+
+    [Fact]
+    public async Task ProductBundleDecompositionService_DecomposeAsync_AllowsDisabledBundleWhenIsReturn()
+    {
+        var parentItemId = Guid.NewGuid();
+        var bundleId = Guid.NewGuid();
+        var bundle = new ProductBundle(bundleId, parentItemId)
+        {
+            IsDisabled = true
+        };
+        bundle.AddItem(Guid.NewGuid(), 2m, "Component A", "Unit");
+
+        var bundleRepo = Substitute.For<IRepository<ProductBundle, Guid>>();
+        bundleRepo.GetQueryableAsync().Returns(Task.FromResult(new[] { bundle }.AsQueryable()));
+
+        var service = new ProductBundleDecompositionService(bundleRepo);
+
+        var result = await service.DecomposeAsync(parentItemId, 1m, 100m, isReturn: true, productBundleId: bundleId);
+
+        result.Count.ShouldBe(1);
+        result[0].Qty.ShouldBe(2m);
+    }
 }

@@ -645,7 +645,17 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 if (returnBundleItemIds.Contains(item.ItemId))
                 {
                     // Decompose returned product bundle into components (allowing disabled bundles per PR #62149 / commit ffcf97c223)
-                    var components = await returnBundleService.DecomposeAsync(item.ItemId, item.Quantity, item.UnitPrice, isReturn: true);
+                    Guid? returnBundleVersionId = null;
+                    if (origDnForRates?.SalesOrderId.HasValue == true && item.SalesOrderItemId.HasValue)
+                    {
+                        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+                        var origSo = await soRepo.FindAsync(origDnForRates.SalesOrderId.Value);
+                        returnBundleVersionId = origSo?.Items.FirstOrDefault(i => i.Id == item.SalesOrderItemId.Value)?.ProductBundleId;
+                    }
+
+                    var components = await returnBundleService.DecomposeAsync(
+                        item.ItemId, item.Quantity, item.UnitPrice, isReturn: true,
+                        productBundleId: returnBundleVersionId);
                     foreach (var comp in components)
                     {
                         var compEntity = await returnItemRepo.FindAsync(comp.ComponentItemId);
@@ -849,8 +859,17 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 if (bundleItemIds.Contains(item.ItemId))
                 {
                     // Bundle item: decompose into components and deliver each component
+                    Guid? bundleVersionId = null;
+                    if (dn.SalesOrderId.HasValue && item.SalesOrderItemId.HasValue)
+                    {
+                        var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+                        var so = await soRepo.FindAsync(dn.SalesOrderId.Value);
+                        bundleVersionId = so?.Items.FirstOrDefault(i => i.Id == item.SalesOrderItemId.Value)?.ProductBundleId;
+                    }
+
                     var components = await bundleService.DecomposeAsync(
-                        item.ItemId, item.Quantity, item.UnitPrice);
+                        item.ItemId, item.Quantity, item.UnitPrice,
+                        productBundleId: bundleVersionId);
 
                     // Capture component valuation rates BEFORE stock removal (Bug #4 fix)
                     decimal bundleCostTotal = 0;
