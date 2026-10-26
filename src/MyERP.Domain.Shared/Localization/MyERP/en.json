@@ -1602,6 +1602,7 @@
     "MyERP:02093": "Bank account must be a company account.",
     "MyERP:02094": "Bank account does not belong to the selected company.",
     "MyERP:02095": "Bank clearance date cannot be earlier than the cheque/reference date.",
+    "MyERP:02096": "Exchange rate from {fromCurrency} to {toCurrency} on {date} not found. Create a Currency Exchange record and run again.",
     "BudgetExceededMessage": "Budget exceeded for account '{account}': budget {budget}, spent {spent}, requested {requested}.",
 
     "MyERP:08001": "Return items must have negative quantity. Item '{item}' has positive qty.",

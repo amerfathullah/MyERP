@@ -37,8 +37,13 @@ public class CurrencyExchangeService : DomainService
     /// Get the exchange rate for a currency pair on a given date.
     /// Checks stored rates first, then fetches from external provider if not found.
     /// Successfully fetched rates are auto-stored for future use.
+    /// Per ERPNext PR #61900 (commit c265f6aaac): when throwOnMissing is true, throws instead of falling back to 1.0.
     /// </summary>
-    public async Task<decimal> GetExchangeRateAsync(string fromCurrency, string toCurrency, DateTime transactionDate)
+    public async Task<decimal> GetExchangeRateAsync(
+        string fromCurrency,
+        string toCurrency,
+        DateTime transactionDate,
+        bool throwOnMissing = false)
     {
         if (string.Equals(fromCurrency, toCurrency, StringComparison.OrdinalIgnoreCase))
             return 1m;
@@ -73,6 +78,14 @@ public class CurrencyExchangeService : DomainService
                 "Auto-fetched exchange rate {From}→{To} = {Rate} for {Date}",
                 fromCurrency, toCurrency, fetchedRate.Value, transactionDate.ToString("yyyy-MM-dd"));
             return fetchedRate.Value;
+        }
+
+        if (throwOnMissing)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ExchangeRateMissing)
+                .WithData("fromCurrency", fromCurrency)
+                .WithData("toCurrency", toCurrency)
+                .WithData("date", transactionDate.ToString("yyyy-MM-dd"));
         }
 
         // Step 4: No rate found anywhere — return 1.0

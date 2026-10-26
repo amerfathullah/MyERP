@@ -1,8 +1,15 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
+using MyERP.Accounting.DomainServices;
+using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
+using NSubstitute;
 using Shouldly;
+using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Domain.Tests.Core;
@@ -38,6 +45,33 @@ public class CurrencyExchangeAndRecurringTests
         decimal rate = 0m;
         bool canInvert = rate != 0;
         canInvert.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task CurrencyExchange_ThrowOnMissing_ThrowsWhenNotFound()
+    {
+        var repo = Substitute.For<IRepository<CurrencyExchange, Guid>>();
+        repo.GetQueryableAsync().Returns(Task.FromResult(Enumerable.Empty<CurrencyExchange>().AsQueryable()));
+        var provider = Substitute.For<ICurrencyExchangeProvider>();
+        provider.FetchRateAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTime>())
+            .Returns(Task.FromResult<decimal?>(null));
+
+        var service = new CurrencyExchangeService(repo, provider, NullLogger<CurrencyExchangeService>.Instance);
+
+        // Same currency returns 1
+        var sameRate = await service.GetExchangeRateAsync("USD", "USD", DateTime.Today, throwOnMissing: true);
+        sameRate.ShouldBe(1m);
+
+        // Fallback returns 1 when throwOnMissing = false
+        var fallbackRate = await service.GetExchangeRateAsync("USD", "MYR", DateTime.Today, throwOnMissing: false);
+        fallbackRate.ShouldBe(1m);
+
+        // Throws when throwOnMissing = true (Per ERPNext PR #61900 / commit c265f6aaac)
+        var ex = await Should.ThrowAsync<BusinessException>(async () =>
+        {
+            await service.GetExchangeRateAsync("USD", "MYR", DateTime.Today, throwOnMissing: true);
+        });
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ExchangeRateMissing);
     }
 
     // === Auto-Repeat / Recurring Invoice ===
