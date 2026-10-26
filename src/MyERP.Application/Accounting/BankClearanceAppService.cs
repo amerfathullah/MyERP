@@ -232,6 +232,11 @@ public class BankClearanceAppService : ApplicationService, IBankClearanceAppServ
                         throw new BusinessException(MyERPDomainErrorCodes.ClearanceDateBeforePostingDate)
                             .WithData("detail", $"{pe.PaymentNumber ?? pe.Id.ToString()}: Clearance date cannot be before posting date.");
                     }
+                    if (input.ClearanceDate.HasValue && pe.ReferenceDate.HasValue && input.ClearanceDate.Value.Date < pe.ReferenceDate.Value.Date)
+                    {
+                        throw new BusinessException(MyERPDomainErrorCodes.ClearanceDateBeforeChequeDate)
+                            .WithData("detail", $"{pe.PaymentNumber ?? pe.Id.ToString()}: Bank clearance date cannot be earlier than the cheque/reference date.");
+                    }
                     pe.SetClearanceDate(input.ClearanceDate);
                     await _paymentEntryRepository.UpdateAsync(pe);
                     break;

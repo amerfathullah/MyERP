@@ -155,6 +155,7 @@ public class ErpSettingsAppService : ApplicationService, IErpSettingsAppService
             MyERPSettings.Selling.ProformaEmailTemplate,
             MyERPSettings.Selling.UseLegacyJsReactivity,
             MyERPSettings.Selling.AllowDeliveryOfOverproducedQty,
+            MyERPSettings.Selling.HideTaxId,
         ],
         "Buying" => [
             MyERPSettings.Buying.DefaultPriceList,

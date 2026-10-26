@@ -1601,6 +1601,7 @@
     "MyERP:02091": "Paid From and Paid To accounts must be different for an Internal Transfer.",
     "MyERP:02093": "Bank account must be a company account.",
     "MyERP:02094": "Bank account does not belong to the selected company.",
+    "MyERP:02095": "Bank clearance date cannot be earlier than the cheque/reference date.",
     "BudgetExceededMessage": "Budget exceeded for account '{account}': budget {budget}, spent {spent}, requested {requested}.",
 
     "MyERP:08001": "Return items must have negative quantity. Item '{item}' has positive qty.",

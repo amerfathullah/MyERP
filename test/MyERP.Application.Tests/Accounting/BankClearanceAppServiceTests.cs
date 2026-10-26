@@ -363,6 +363,70 @@ private readonly IRepository<PurchaseInvoice, Guid> _purchaseInvoiceRepo = Subst
     }
 
     [Fact]
+    public async Task SetClearanceDateAsync_ClearanceDateBeforeReferenceDate_ThrowsClearanceDateBeforeChequeDate()
+    {
+        var postingDate = new DateTime(2026, 6, 15);
+        var pe = new PaymentEntry(
+            Guid.NewGuid(), _companyId, PaymentType.Receive, postingDate,
+            500m, _otherAccountId, _bankAccountId)
+        {
+            ReferenceDate = new DateTime(2026, 6, 18)
+        };
+        pe.SetAmounts();
+        pe.Submit();
+        pe.Post();
+
+        _paymentRepo.GetAsync(pe.Id).Returns(Task.FromResult(pe));
+
+        var appService = CreateAppService();
+
+        var invalidClearanceDate = new DateTime(2026, 6, 16);
+        var ex = await Should.ThrowAsync<BusinessException>(() =>
+            appService.SetClearanceDateAsync(new SetClearanceDateDto
+            {
+                ClearanceDate = invalidClearanceDate,
+                Entries = new List<BankClearanceDocRefDto>
+                {
+                    new() { DocumentType = "PaymentEntry", DocumentId = pe.Id }
+                }
+            }));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ClearanceDateBeforeChequeDate);
+    }
+
+    [Fact]
+    public async Task SetClearanceDateAsync_ClearanceDateOnOrAfterReferenceDate_Succeeds()
+    {
+        var postingDate = new DateTime(2026, 6, 15);
+        var pe = new PaymentEntry(
+            Guid.NewGuid(), _companyId, PaymentType.Receive, postingDate,
+            500m, _otherAccountId, _bankAccountId)
+        {
+            ReferenceDate = new DateTime(2026, 6, 18)
+        };
+        pe.SetAmounts();
+        pe.Submit();
+        pe.Post();
+
+        _paymentRepo.GetAsync(pe.Id).Returns(Task.FromResult(pe));
+
+        var appService = CreateAppService();
+
+        var validClearanceDate = new DateTime(2026, 6, 18);
+        var result = await appService.SetClearanceDateAsync(new SetClearanceDateDto
+        {
+            ClearanceDate = validClearanceDate,
+            Entries = new List<BankClearanceDocRefDto>
+            {
+                new() { DocumentType = "PaymentEntry", DocumentId = pe.Id }
+            }
+        });
+
+        result.UpdatedCount.ShouldBe(1);
+        pe.ClearanceDate.ShouldBe(validClearanceDate);
+    }
+
+    [Fact]
     public async Task GetEntriesAsync_SalesInvoiceJournalEntry_ResolvesDocTypeAndReference()
     {
         var company = new Company(_companyId, "Test Co") { CurrencyCode = "MYR" };

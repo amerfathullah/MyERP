@@ -433,9 +433,8 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
 
     /// <summary>
     /// Sets or clears the bank clearance date. Pass null to un-clear (reversible).
-    /// Per ERPNext bank_clearance.py: clearance_date must not be earlier than the
-    /// document's own date (cheque_date there; PostingDate here, since PE has no
-    /// separate cheque date field).
+    /// Per ERPNext bank_clearance.py / PR #61267 (commit 96be98d7d6):
+    /// clearance_date must not be earlier than PostingDate, nor earlier than ReferenceDate (cheque_date).
     /// </summary>
     public void SetClearanceDate(DateTime? clearanceDate)
     {
@@ -443,6 +442,11 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
             throw new BusinessException(MyERPDomainErrorCodes.ClearanceDateBeforePostingDate)
                 .WithData("clearanceDate", clearanceDate.Value)
                 .WithData("postingDate", PostingDate);
+
+        if (clearanceDate.HasValue && ReferenceDate.HasValue && clearanceDate.Value.Date < ReferenceDate.Value.Date)
+            throw new BusinessException(MyERPDomainErrorCodes.ClearanceDateBeforeChequeDate)
+                .WithData("clearanceDate", clearanceDate.Value)
+                .WithData("referenceDate", ReferenceDate.Value);
 
         ClearanceDate = clearanceDate;
     }

@@ -69,6 +69,7 @@ public static class MyERPSettings
         public const string AllowDeliveryOfOverproducedQty = G + ".AllowDeliveryOfOverproducedQty";
         public const string AllowSalesOrderCreationForExpiredQuotation = G + ".AllowSalesOrderCreationForExpiredQuotation";
         public const string SkipDeliveryNoteForServiceItems = G + ".SkipDeliveryNoteForServiceItems";
+        public const string HideTaxId = G + ".HideTaxId";
     }
 
     // ═══════════════════════════════════════════════════

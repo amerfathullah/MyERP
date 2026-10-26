@@ -385,6 +385,7 @@ public static class MyERPDomainErrorCodes
 
     // Bank Clearance
     public const string ClearanceDateBeforePostingDate = "MyERP:02049";
+    public const string ClearanceDateBeforeChequeDate = "MyERP:02095";
 
     // POS
     public const string NoPosOpeningEntry = "MyERP:16003";
