@@ -111,7 +111,9 @@ public class AssetAppService : ApplicationService, IAssetAppService
             LocationId = input.LocationId,
             CustodianEmployeeId = input.CustodianEmployeeId,
             PurchaseReceiptId = input.PurchaseReceiptId,
+            PurchaseReceiptItemId = input.PurchaseReceiptItemId,
             PurchaseInvoiceId = input.PurchaseInvoiceId,
+            PurchaseInvoiceItemId = input.PurchaseInvoiceItemId,
             AdditionalCost = input.AdditionalCost,
             CalculateDepreciation = input.CalculateDepreciation,
             DepreciationMethod = input.DepreciationMethod,
@@ -225,7 +227,25 @@ public class AssetAppService : ApplicationService, IAssetAppService
                         .WithData("detail", $"Purchase Receipt '{pr.ReceiptNumber}' is not submitted. Please submit it before creating the Asset.");
                 }
 
-                if (asset.ItemId.HasValue)
+                if (asset.PurchaseReceiptItemId.HasValue)
+                {
+                    var prItem = pr.Items.FirstOrDefault(i => i.Id == asset.PurchaseReceiptItemId.Value);
+                    if (prItem != null)
+                    {
+                        var purchasedQty = prItem.Quantity * (prItem.ConversionFactor > 0 ? prItem.ConversionFactor : 1m);
+                        var assetQuery = await _assetRepository.GetQueryableAsync();
+                        var existingAssetQty = assetQuery
+                            .Where(a => a.PurchaseReceiptItemId == asset.PurchaseReceiptItemId.Value && a.Id != asset.Id && a.Status != AssetStatus.Cancelled)
+                            .Sum(a => (decimal?)a.AssetQuantity) ?? 0m;
+
+                        if ((existingAssetQty + asset.AssetQuantity) > purchasedQty)
+                        {
+                            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                                .WithData("detail", $"Created asset quantity ({existingAssetQty + asset.AssetQuantity}) exceeds purchased row quantity ({purchasedQty}) in Purchase Receipt '{pr.ReceiptNumber}'.");
+                        }
+                    }
+                }
+                else if (asset.ItemId.HasValue)
                 {
                     var purchasedQty = pr.Items
                         .Where(i => i.ItemId == asset.ItemId.Value)
@@ -257,7 +277,25 @@ public class AssetAppService : ApplicationService, IAssetAppService
                         .WithData("detail", $"Purchase Invoice '{pi.InvoiceNumber}' is not submitted. Please submit it before creating the Asset.");
                 }
 
-                if (asset.ItemId.HasValue)
+                if (asset.PurchaseInvoiceItemId.HasValue)
+                {
+                    var piItem = pi.Items.FirstOrDefault(i => i.Id == asset.PurchaseInvoiceItemId.Value);
+                    if (piItem != null)
+                    {
+                        var purchasedQty = piItem.Quantity * (piItem.ConversionFactor > 0 ? piItem.ConversionFactor : 1m);
+                        var assetQuery = await _assetRepository.GetQueryableAsync();
+                        var existingAssetQty = assetQuery
+                            .Where(a => a.PurchaseInvoiceItemId == asset.PurchaseInvoiceItemId.Value && a.Id != asset.Id && a.Status != AssetStatus.Cancelled)
+                            .Sum(a => (decimal?)a.AssetQuantity) ?? 0m;
+
+                        if ((existingAssetQty + asset.AssetQuantity) > purchasedQty)
+                        {
+                            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                                .WithData("detail", $"Created asset quantity ({existingAssetQty + asset.AssetQuantity}) exceeds purchased row quantity ({purchasedQty}) in Purchase Invoice '{pi.InvoiceNumber}'.");
+                        }
+                    }
+                }
+                else if (asset.ItemId.HasValue)
                 {
                     var purchasedQty = pi.Items
                         .Where(i => i.ItemId == asset.ItemId.Value)
@@ -558,8 +596,10 @@ public class AssetAppService : ApplicationService, IAssetAppService
     /// Fetches asset header and item values from a Purchase Receipt or Purchase Invoice
     /// for manually or semi-automatically creating an asset (per ERPNext PR #57618 / commit 46e01c2d92).
     /// Per ERPNext PR #59788 (commit 04d0bb5492): verifies caller has Asset.Create and read on purchase doc.
+    /// Per ERPNext PR #62091 (commit f8de444ca5): preserves purchase row links, subtracts linked qty per row,
+    /// and excludes current asset if provided.
     /// </summary>
-    public async Task<AssetPurchaseDocValuesDto> GetValuesFromPurchaseDocAsync(string purchaseDocType, Guid purchaseDocId, Guid? itemId = null)
+    public async Task<AssetPurchaseDocValuesDto> GetValuesFromPurchaseDocAsync(string purchaseDocType, Guid purchaseDocId, Guid? itemId = null, Guid? assetId = null)
     {
         await CheckPolicyAsync(MyERPPermissions.Assets.Create);
 
@@ -568,32 +608,61 @@ public class AssetAppService : ApplicationService, IAssetAppService
             await CheckPolicyAsync(MyERPPermissions.PurchaseReceipts.Default);
             var prRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseReceipt, Guid>>();
             var pr = await prRepo.GetAsync(purchaseDocId, includeDetails: true);
-            var item = itemId.HasValue
-                ? pr.Items.FirstOrDefault(i => i.ItemId == itemId.Value)
-                : pr.Items.FirstOrDefault();
 
-            if (item == null)
+            var matchingItems = itemId.HasValue
+                ? pr.Items.Where(i => i.ItemId == itemId.Value).ToList()
+                : pr.Items.ToList();
+
+            if (!matchingItems.Any())
                 throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
 
-            // Per PR #57618 & PR #60415 (commit b102d0561e): purchase amount sourced from receipt valuation (including landed costs) and stock qty
-            var amount = (item.LineTotal * (pr.ExchangeRate > 0 ? pr.ExchangeRate : 1m)) + item.LandedCostVoucherAmount;
-            var stockQty = item.Quantity * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
-            var totalQty = (int)Math.Max(1, Math.Round(stockQty));
-
-            // Per ERPNext PR #62091 (commit f8de444ca5): subtract already linked asset quantities and validate availability
             var assetQuery = await _assetRepository.GetQueryableAsync();
-            var linkedQty = assetQuery
-                .Where(a => a.PurchaseReceiptId == pr.Id && a.ItemId == item.ItemId && a.Status != AssetStatus.Cancelled)
-                .Sum(a => a.AssetQuantity);
+            var existingAssets = assetQuery
+                .Where(a => a.PurchaseReceiptId == pr.Id && a.Status != AssetStatus.Cancelled)
+                .ToList();
 
-            var availableQty = totalQty - linkedQty;
-            if (availableQty <= 0)
+            if (assetId.HasValue)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"All quantities of Item '{item.ItemId}' in Purchase Receipt are already linked to Assets.");
+                existingAssets = existingAssets.Where(a => a.Id != assetId.Value).ToList();
+                var currentAsset = await _assetRepository.FindAsync(assetId.Value);
+                if (currentAsset?.PurchaseReceiptItemId.HasValue == true)
+                {
+                    matchingItems = matchingItems
+                        .OrderByDescending(i => i.Id == currentAsset.PurchaseReceiptItemId.Value)
+                        .ToList();
+                }
             }
 
-            var proportionalAmount = totalQty > 0 ? (amount / totalQty) * availableQty : amount;
+            Purchasing.Entities.PurchaseReceiptItem? selectedItem = null;
+            int availableQty = 0;
+            decimal proportionalAmount = 0m;
+
+            foreach (var candidate in matchingItems)
+            {
+                var candStockQty = candidate.Quantity * (candidate.ConversionFactor > 0 ? candidate.ConversionFactor : 1m);
+                var candTotalQty = (int)Math.Max(1, Math.Round(candStockQty));
+
+                var linkedQty = existingAssets
+                    .Where(a => (a.PurchaseReceiptItemId.HasValue && a.PurchaseReceiptItemId.Value == candidate.Id)
+                             || (!a.PurchaseReceiptItemId.HasValue && a.ItemId == candidate.ItemId))
+                    .Sum(a => a.AssetQuantity);
+
+                var remaining = candTotalQty - linkedQty;
+                if (remaining > 0)
+                {
+                    selectedItem = candidate;
+                    availableQty = remaining;
+                    var candAmount = (candidate.LineTotal * (pr.ExchangeRate > 0 ? pr.ExchangeRate : 1m)) + candidate.LandedCostVoucherAmount;
+                    proportionalAmount = candTotalQty > 0 ? (candAmount / candTotalQty) * availableQty : candAmount;
+                    break;
+                }
+            }
+
+            if (selectedItem == null || availableQty <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"All quantities of Item '{(itemId.HasValue ? itemId.Value.ToString() : pr.ReceiptNumber)}' in Purchase Receipt are already linked to Assets.");
+            }
 
             return new AssetPurchaseDocValuesDto
             {
@@ -601,9 +670,10 @@ public class AssetAppService : ApplicationService, IAssetAppService
                 PurchaseDate = pr.PostingDate,
                 PurchaseAmount = proportionalAmount,
                 AssetQuantity = availableQty,
-                ItemId = item.ItemId,
-                ItemName = item.Description,
+                ItemId = selectedItem.ItemId,
+                ItemName = selectedItem.Description,
                 PurchaseReceiptId = pr.Id,
+                PurchaseReceiptItemId = selectedItem.Id,
             };
         }
         else if (string.Equals(purchaseDocType, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase))
@@ -611,32 +681,61 @@ public class AssetAppService : ApplicationService, IAssetAppService
             await CheckPolicyAsync(MyERPPermissions.PurchaseInvoices.Default);
             var piRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Purchasing.Entities.PurchaseInvoice, Guid>>();
             var pi = await piRepo.GetAsync(purchaseDocId, includeDetails: true);
-            var item = itemId.HasValue
-                ? pi.Items.FirstOrDefault(i => i.ItemId == itemId.Value)
-                : pi.Items.FirstOrDefault();
 
-            if (item == null)
+            var matchingItems = itemId.HasValue
+                ? pi.Items.Where(i => i.ItemId == itemId.Value).ToList()
+                : pi.Items.ToList();
+
+            if (!matchingItems.Any())
                 throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
 
-            // Per PR #60415 (commit b102d0561e): include base valuation and landed cost voucher amount, and use stock qty
-            var amount = (item.LineTotal * (pi.ExchangeRate > 0 ? pi.ExchangeRate : 1m)) + item.LandedCostVoucherAmount;
-            var stockQty = item.Quantity * (item.ConversionFactor > 0 ? item.ConversionFactor : 1m);
-            var totalQty = (int)Math.Max(1, Math.Round(stockQty));
-
-            // Per ERPNext PR #62091 (commit f8de444ca5): subtract already linked asset quantities and validate availability
             var assetQuery = await _assetRepository.GetQueryableAsync();
-            var linkedQty = assetQuery
-                .Where(a => a.PurchaseInvoiceId == pi.Id && a.ItemId == item.ItemId && a.Status != AssetStatus.Cancelled)
-                .Sum(a => a.AssetQuantity);
+            var existingAssets = assetQuery
+                .Where(a => a.PurchaseInvoiceId == pi.Id && a.Status != AssetStatus.Cancelled)
+                .ToList();
 
-            var availableQty = totalQty - linkedQty;
-            if (availableQty <= 0)
+            if (assetId.HasValue)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"All quantities of Item '{item.ItemId}' in Purchase Invoice are already linked to Assets.");
+                existingAssets = existingAssets.Where(a => a.Id != assetId.Value).ToList();
+                var currentAsset = await _assetRepository.FindAsync(assetId.Value);
+                if (currentAsset?.PurchaseInvoiceItemId.HasValue == true)
+                {
+                    matchingItems = matchingItems
+                        .OrderByDescending(i => i.Id == currentAsset.PurchaseInvoiceItemId.Value)
+                        .ToList();
+                }
             }
 
-            var proportionalAmount = totalQty > 0 ? (amount / totalQty) * availableQty : amount;
+            Purchasing.Entities.PurchaseInvoiceItem? selectedItem = null;
+            int availableQty = 0;
+            decimal proportionalAmount = 0m;
+
+            foreach (var candidate in matchingItems)
+            {
+                var candStockQty = candidate.Quantity * (candidate.ConversionFactor > 0 ? candidate.ConversionFactor : 1m);
+                var candTotalQty = (int)Math.Max(1, Math.Round(candStockQty));
+
+                var linkedQty = existingAssets
+                    .Where(a => (a.PurchaseInvoiceItemId.HasValue && a.PurchaseInvoiceItemId.Value == candidate.Id)
+                             || (!a.PurchaseInvoiceItemId.HasValue && a.ItemId == candidate.ItemId))
+                    .Sum(a => a.AssetQuantity);
+
+                var remaining = candTotalQty - linkedQty;
+                if (remaining > 0)
+                {
+                    selectedItem = candidate;
+                    availableQty = remaining;
+                    var candAmount = (candidate.LineTotal * (pi.ExchangeRate > 0 ? pi.ExchangeRate : 1m)) + candidate.LandedCostVoucherAmount;
+                    proportionalAmount = candTotalQty > 0 ? (candAmount / candTotalQty) * availableQty : candAmount;
+                    break;
+                }
+            }
+
+            if (selectedItem == null || availableQty <= 0)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"All quantities of Item '{(itemId.HasValue ? itemId.Value.ToString() : pi.InvoiceNumber)}' in Purchase Invoice are already linked to Assets.");
+            }
 
             return new AssetPurchaseDocValuesDto
             {
@@ -644,9 +743,10 @@ public class AssetAppService : ApplicationService, IAssetAppService
                 PurchaseDate = pi.IssueDate,
                 PurchaseAmount = proportionalAmount,
                 AssetQuantity = availableQty,
-                ItemId = item.ItemId,
-                ItemName = item.Description,
+                ItemId = selectedItem.ItemId,
+                ItemName = selectedItem.Description,
                 PurchaseInvoiceId = pi.Id,
+                PurchaseInvoiceItemId = selectedItem.Id,
             };
         }
         else

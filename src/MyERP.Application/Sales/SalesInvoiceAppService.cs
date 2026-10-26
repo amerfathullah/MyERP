@@ -633,6 +633,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         await transactionValidation.ValidatePriceListAsync(invoice.PriceListId, invoice.IsReturn, returnAgainstPriceListId);
         invoice.IsOpening = input.IsOpening;
         invoice.IsPos = input.IsPos;
+        invoice.SalesPartnerId = input.SalesPartnerId;
+        invoice.CommissionRate = input.CommissionRate;
+        invoice.TotalCommission = input.TotalCommission;
         invoice.IsConsolidated = input.IsConsolidated;
         invoice.ConsolidatedSalesInvoiceId = input.ConsolidatedSalesInvoiceId;
         invoice.BuyerTin = input.BuyerTin;

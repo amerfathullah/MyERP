@@ -28,7 +28,9 @@ public class AssetDto : FullAuditedEntityDto<Guid>
     public int AssetQuantity { get; set; } = 1;
     public Guid? SplitFromAssetId { get; set; }
     public Guid? PurchaseReceiptId { get; set; }
+    public Guid? PurchaseReceiptItemId { get; set; }
     public Guid? PurchaseInvoiceId { get; set; }
+    public Guid? PurchaseInvoiceItemId { get; set; }
     public bool CalculateDepreciation { get; set; }
     public DepreciationMethod DepreciationMethod { get; set; }
     public int UsefulLifeMonths { get; set; }
@@ -85,7 +87,9 @@ public class CreateAssetDto
 
     public decimal AdditionalCost { get; set; }
     public Guid? PurchaseReceiptId { get; set; }
+    public Guid? PurchaseReceiptItemId { get; set; }
     public Guid? PurchaseInvoiceId { get; set; }
+    public Guid? PurchaseInvoiceItemId { get; set; }
     public bool CalculateDepreciation { get; set; }
     public DepreciationMethod DepreciationMethod { get; set; }
     public int UsefulLifeMonths { get; set; }
@@ -612,7 +616,9 @@ public class AssetPurchaseDocValuesDto
     public Guid? LocationId { get; set; }
     public string? Location { get; set; }
     public Guid? PurchaseReceiptId { get; set; }
+    public Guid? PurchaseReceiptItemId { get; set; }
     public Guid? PurchaseInvoiceId { get; set; }
+    public Guid? PurchaseInvoiceItemId { get; set; }
 }
 
 public interface IAssetAppService : IApplicationService
@@ -630,5 +636,5 @@ public interface IAssetAppService : IApplicationService
     System.Threading.Tasks.Task<AssetCategoryDto[]> GetCategoriesAsync();
     System.Threading.Tasks.Task<AssetCategoryDto> CreateCategoryAsync(CreateUpdateAssetCategoryDto input);
     System.Threading.Tasks.Task<AssetDto> SplitAsync(Guid id, int splitQty);
-    System.Threading.Tasks.Task<AssetPurchaseDocValuesDto> GetValuesFromPurchaseDocAsync(string purchaseDocType, Guid purchaseDocId, Guid? itemId = null);
+    System.Threading.Tasks.Task<AssetPurchaseDocValuesDto> GetValuesFromPurchaseDocAsync(string purchaseDocType, Guid purchaseDocId, Guid? itemId = null, Guid? assetId = null);
 }

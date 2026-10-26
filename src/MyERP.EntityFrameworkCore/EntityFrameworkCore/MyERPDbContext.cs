@@ -457,6 +457,7 @@ public class MyERPDbContext :
     public DbSet<SalesPersonTarget> SalesPersonTargets { get; set; }
     public DbSet<SalesTeamEntry> SalesTeamEntries { get; set; }
     public DbSet<SalesPartner> SalesPartners { get; set; }
+    public DbSet<SalesPartnerTarget> SalesPartnerTargets { get; set; }
     public DbSet<SalesPartnerType> SalesPartnerTypes { get; set; }
 
     // CRM (additional)
@@ -1212,6 +1213,10 @@ public class MyERPDbContext :
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.OrderNumber }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.CustomerId, x.Status });
+            b.Property(x => x.SalesPartnerId);
+            b.Property(x => x.CommissionRate).HasColumnType("decimal(5,2)");
+            b.Property(x => x.TotalCommission).HasColumnType("decimal(18,2)");
+            b.HasIndex(x => new { x.TenantId, x.SalesPartnerId });
 
             // Optimistic concurrency — protects DeliveredQty/BilledQty from concurrent DN/SI submission
             b.Property(x => x.ConcurrencyStamp).IsConcurrencyToken().HasMaxLength(40);
@@ -3116,6 +3121,10 @@ public class MyERPDbContext :
             b.Property(x => x.ValueAfterDepreciation).HasColumnType("decimal(18,2)");
             b.Property(x => x.DisposalAmount).HasColumnType("decimal(18,2)");
             b.Property(x => x.DepreciationRate).HasColumnType("decimal(5,2)");
+            b.Property(x => x.PurchaseReceiptItemId);
+            b.Property(x => x.PurchaseInvoiceItemId);
+            b.HasIndex(x => new { x.TenantId, x.PurchaseReceiptItemId });
+            b.HasIndex(x => new { x.TenantId, x.PurchaseInvoiceItemId });
             b.HasMany(x => x.DepreciationSchedule).WithOne().HasForeignKey(x => x.AssetId).IsRequired();
             b.Navigation(x => x.DepreciationSchedule).AutoInclude();
             b.HasMany(x => x.DepreciationDetails).WithOne().HasForeignKey(x => x.AssetId).IsRequired();
@@ -3654,6 +3663,17 @@ public class MyERPDbContext :
             b.Property(x => x.Website).HasMaxLength(SalesPartnerConsts.MaxWebsiteLength);
             b.Property(x => x.ReferralCode).HasMaxLength(50);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            b.HasMany(x => x.Targets).WithOne().HasForeignKey(x => x.SalesPartnerId).IsRequired();
+            b.Navigation(x => x.Targets).AutoInclude();
+        });
+
+        builder.Entity<SalesPartnerTarget>(b =>
+        {
+            b.ToTable("Sal_SalesPartnerTargets", MyERPConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TargetQty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.TargetAmount).HasColumnType("decimal(18,2)");
+            b.HasIndex(x => new { x.SalesPartnerId, x.FiscalYearId, x.ItemGroupId });
         });
 
         builder.Entity<SalesPartnerType>(b =>

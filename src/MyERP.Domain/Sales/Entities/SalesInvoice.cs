@@ -95,6 +95,15 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// <summary>Shipping contact person (Contact ID) per ERPNext PR #58159.</summary>
     public Guid? ShippingContactPersonId { get; set; }
 
+    /// <summary>Sales partner linked to this invoice for commission tracking.</summary>
+    public Guid? SalesPartnerId { get; set; }
+
+    /// <summary>Commission rate percentage for the sales partner.</summary>
+    public decimal CommissionRate { get; set; }
+
+    /// <summary>Total commission amount for the sales partner.</summary>
+    public decimal TotalCommission { get; set; }
+
     /// <summary>If true, this is a return (credit note).</summary>
     public bool IsReturn { get; set; }
 

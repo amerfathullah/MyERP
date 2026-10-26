@@ -347,6 +347,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         order.Notes = input.Notes;
         order.CostCenterId = input.CostCenterId;
         order.ProjectId = input.ProjectId;
+        order.SalesPartnerId = input.SalesPartnerId;
+        order.CommissionRate = input.CommissionRate;
+        order.TotalCommission = input.TotalCommission;
         if (order.ProjectId.HasValue)
         {
             var projectValidation = LazyServiceProvider

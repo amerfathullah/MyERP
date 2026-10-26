@@ -98,6 +98,8 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public Guid DebitToAccountId { get; set; }
     public Guid? CostCenterId { get; set; }
     public Guid? ProjectId { get; set; }
+    public Guid? SalesPartnerId { get; set; }
+    public decimal CommissionRate { get; set; }
     public bool IsPos { get; set; }
     public bool IsConsolidated { get; set; }
     public Guid? ConsolidatedSalesInvoiceId { get; set; }
@@ -199,6 +201,9 @@ public class CreateSalesInvoiceDto
 
     /// <summary>Link to project for timesheet-based billing (auto-fetches unbilled timesheets).</summary>
     public Guid? ProjectId { get; set; }
+    public Guid? SalesPartnerId { get; set; }
+    public decimal CommissionRate { get; set; }
+    public decimal TotalCommission { get; set; }
 
     /// <summary>When true, stock is deducted on invoice submit (POS/direct sale without DN).</summary>
     public bool UpdateStock { get; set; }

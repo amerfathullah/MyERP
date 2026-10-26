@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
@@ -73,4 +75,66 @@ public class SalesPartner : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void Disable() => IsEnabled = false;
     public void Enable() => IsEnabled = true;
+
+    /// <summary>Sales targets for this partner (PR #62324).</summary>
+    public ICollection<SalesPartnerTarget> Targets { get; private set; }
+        = new List<SalesPartnerTarget>();
+
+    /// <summary>
+    /// Add a sales target.
+    /// Per ERPNext PR #62324: targets cannot be negative, cannot duplicate (fiscalYear, itemGroup), and must not both be zero.
+    /// </summary>
+    public void AddTarget(Guid? fiscalYearId, decimal targetQty, decimal targetAmount, Guid? itemGroupId = null, Guid? distributionId = null)
+    {
+        if (targetQty < 0 || targetAmount < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Target Qty and Target Amount cannot be negative.");
+
+        if (targetQty == 0 && targetAmount == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Target Qty or Target Amount must be greater than zero.");
+
+        if (Targets.Any(t => t.FiscalYearId == fiscalYearId && t.ItemGroupId == itemGroupId))
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "A target already exists for this fiscal year and item group.");
+
+        Targets.Add(new SalesPartnerTarget(
+            Guid.NewGuid(), Id, fiscalYearId, targetQty, targetAmount, itemGroupId, distributionId));
+    }
+
+    public void RemoveTarget(Guid targetId)
+    {
+        var target = Targets.FirstOrDefault(t => t.Id == targetId);
+        if (target != null)
+        {
+            Targets.Remove(target);
+        }
+    }
+}
+
+/// <summary>
+/// Sales target for a sales partner (qty or amount target per fiscal year).
+/// Maps to ERPNext target_detail for Sales Partner (PR #62324).
+/// </summary>
+public class SalesPartnerTarget : Volo.Abp.Domain.Entities.Entity<Guid>
+{
+    public Guid SalesPartnerId { get; set; }
+    public Guid? FiscalYearId { get; set; }
+    public decimal TargetQty { get; set; }
+    public decimal TargetAmount { get; set; }
+    public Guid? ItemGroupId { get; set; }
+    public Guid? DistributionId { get; set; }
+
+    protected SalesPartnerTarget() { }
+
+    public SalesPartnerTarget(Guid id, Guid salesPartnerId, Guid? fiscalYearId,
+        decimal targetQty, decimal targetAmount, Guid? itemGroupId, Guid? distributionId = null) : base(id)
+    {
+        SalesPartnerId = salesPartnerId;
+        FiscalYearId = fiscalYearId;
+        TargetQty = targetQty;
+        TargetAmount = targetAmount;
+        ItemGroupId = itemGroupId;
+        DistributionId = distributionId;
+    }
 }

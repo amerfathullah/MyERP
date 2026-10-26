@@ -62,6 +62,15 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     public Guid? ProjectId { get; set; }
 
     /// <summary>Total advance payment received against this order.</summary>
+    /// <summary>Sales partner linked to this order for commission tracking.</summary>
+    public Guid? SalesPartnerId { get; set; }
+
+    /// <summary>Commission rate percentage for the sales partner.</summary>
+    public decimal CommissionRate { get; set; }
+
+    /// <summary>Total commission amount for the sales partner.</summary>
+    public decimal TotalCommission { get; set; }
+
     public decimal AdvancePaid { get; set; }
 
     /// <summary>Percentage of advance paid: (AdvancePaid / GrandTotal) × 100.</summary>

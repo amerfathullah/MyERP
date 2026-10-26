@@ -13,4 +13,6 @@ public interface ISalesPartnerAppService : IApplicationService
     Task<SalesPartnerDto> UpdateAsync(Guid id, CreateSalesPartnerDto input);
     Task DeleteAsync(Guid id);
     Task ToggleAsync(Guid id);
+    Task<SalesPartnerDto> AddTargetAsync(Guid id, CreateSalesPartnerTargetDto input);
+    Task<SalesPartnerDto> RemoveTargetAsync(Guid id, Guid targetId);
 }

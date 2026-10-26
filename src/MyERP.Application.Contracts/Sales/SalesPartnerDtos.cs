@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using System.ComponentModel.DataAnnotations;
 using Volo.Abp.Application.Dtos;
@@ -14,6 +15,27 @@ public class SalesPartnerDto : EntityDto<Guid>
     public string? Description { get; set; }
     public bool IsEnabled { get; set; }
     public string? ReferralCode { get; set; }
+    public List<SalesPartnerTargetDto> Targets { get; set; } = new();
+}
+
+public class SalesPartnerTargetDto
+{
+    public Guid Id { get; set; }
+    public Guid SalesPartnerId { get; set; }
+    public Guid? FiscalYearId { get; set; }
+    public decimal TargetQty { get; set; }
+    public decimal TargetAmount { get; set; }
+    public Guid? ItemGroupId { get; set; }
+    public Guid? DistributionId { get; set; }
+}
+
+public class CreateSalesPartnerTargetDto
+{
+    public Guid? FiscalYearId { get; set; }
+    public decimal TargetQty { get; set; }
+    public decimal TargetAmount { get; set; }
+    public Guid? ItemGroupId { get; set; }
+    public Guid? DistributionId { get; set; }
 }
 
 public class CreateSalesPartnerDto

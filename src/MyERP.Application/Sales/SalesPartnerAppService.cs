@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -45,7 +46,25 @@ public class SalesPartnerAppService : ApplicationService, ISalesPartnerAppServic
 
     public async Task<SalesPartnerDto> GetAsync(Guid id)
     {
-        var entity = await _repository.GetAsync(id);
+        var entity = await _repository.GetAsync(id, includeDetails: true);
+        return MapToDto(entity);
+    }
+
+    [Authorize(MyERPPermissions.SalesPartners.Edit)]
+    public async Task<SalesPartnerDto> AddTargetAsync(Guid id, CreateSalesPartnerTargetDto input)
+    {
+        var entity = await _repository.GetAsync(id, includeDetails: true);
+        entity.AddTarget(input.FiscalYearId, input.TargetQty, input.TargetAmount, input.ItemGroupId, input.DistributionId);
+        await _repository.UpdateAsync(entity);
+        return MapToDto(entity);
+    }
+
+    [Authorize(MyERPPermissions.SalesPartners.Edit)]
+    public async Task<SalesPartnerDto> RemoveTargetAsync(Guid id, Guid targetId)
+    {
+        var entity = await _repository.GetAsync(id, includeDetails: true);
+        entity.RemoveTarget(targetId);
+        await _repository.UpdateAsync(entity);
         return MapToDto(entity);
     }
 
@@ -142,6 +161,16 @@ public class SalesPartnerAppService : ApplicationService, ISalesPartnerAppServic
         Website = e.Website,
         Description = e.Description,
         IsEnabled = e.IsEnabled,
-        ReferralCode = e.ReferralCode
+        ReferralCode = e.ReferralCode,
+        Targets = e.Targets?.Select(t => new SalesPartnerTargetDto
+        {
+            Id = t.Id,
+            SalesPartnerId = t.SalesPartnerId,
+            FiscalYearId = t.FiscalYearId,
+            TargetQty = t.TargetQty,
+            TargetAmount = t.TargetAmount,
+            ItemGroupId = t.ItemGroupId,
+            DistributionId = t.DistributionId
+        }).ToList() ?? new List<SalesPartnerTargetDto>()
     };
 }

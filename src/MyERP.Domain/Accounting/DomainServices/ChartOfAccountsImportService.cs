@@ -59,16 +59,33 @@ public class ChartOfAccountsImportService : DomainService
                 .WithData("companyId", companyId);
         }
 
+        if (rows == null || rows.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "No data found. Seems like you uploaded a blank file.");
+        }
+
+        // Per ERPNext PR #62153 (commit 36ddeb4f5e): validate every row has an Account Name
+        for (int i = 0; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            if (string.IsNullOrWhiteSpace(row.AccountName))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Row {i + 1}: Please enter Account Name");
+            }
+        }
+
         // Validate no duplicate codes in template
         var codes = rows.Select(r => r.AccountCode).ToList();
-        var duplicates = codes.GroupBy(c => c).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+        var duplicates = codes.GroupBy(c => c, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
         if (duplicates.Any())
         {
             throw new BusinessException(MyERPDomainErrorCodes.DuplicateAccountCode)
                 .WithData("codes", string.Join(", ", duplicates));
         }
 
-        // Per ERPNext PR #60274 (commit c3402e7280): reject duplicate account names under the same parent
+        // Per ERPNext PR #60274 (commit 1f5fd7fc46): reject duplicate account names under the same parent
         var duplicateNames = rows
             .GroupBy(r => $"{r.ParentCode ?? string.Empty}::{r.AccountName.Trim()}", StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Count() > 1)
@@ -80,7 +97,21 @@ public class ChartOfAccountsImportService : DomainService
                 .WithData("detail", $"Account '{string.Join(", ", duplicateNames)}' is duplicated under the same parent. Use a different name or account number.");
         }
 
-        // Reset existing company default accounts before replacing (per ERPNext unset_existing_data)
+        var duplicateFullAccounts = rows
+            .GroupBy(r => $"{r.AccountCode.Trim()} - {r.AccountName.Trim()}", StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+        if (duplicateFullAccounts.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Account '{string.Join(", ", duplicateFullAccounts)}' is duplicated. Use a different name or account number.");
+        }
+
+        // Per ERPNext PR #62153 (commit 36ddeb4f5e): validate hierarchy and circular references BEFORE modifying accounts
+        var sortedRows = TopologicalSort(rows);
+
+        // Reset existing company default accounts before replacing (per ERPNext unset_existing_data / PR #62150)
         Core.Entities.Company? company = null;
         if (_companyRepository != null)
         {
@@ -109,13 +140,18 @@ public class ChartOfAccountsImportService : DomainService
         }
 
         // Remove existing un-posted accounts for this company before importing new ones
-        await _accountRepository.DeleteAsync(a => a.CompanyId == companyId);
+        // Per ERPNext PR #62150 (commit e70518742a): delete children before parents
+        var existingAccounts = await _accountRepository.GetListAsync(a => a.CompanyId == companyId);
+        if (existingAccounts != null && existingAccounts.Count > 0)
+        {
+            var orderedToDelete = existingAccounts
+                .OrderByDescending(a => a.ParentAccountId.HasValue ? 1 : 0)
+                .ToList();
+            await _accountRepository.DeleteManyAsync(orderedToDelete);
+        }
 
         // Build parent code → ID map for hierarchical linking
         var codeToIdMap = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
-
-        // Sort by depth (parents first) — use parent code presence as proxy
-        var sortedRows = TopologicalSort(rows);
 
         var createdAccounts = new List<Account>();
         foreach (var row in sortedRows)
@@ -326,8 +362,13 @@ public class ChartOfAccountsImportService : DomainService
             visiting.Add(row.AccountCode);
 
             // Process parent first if it exists
-            if (!string.IsNullOrWhiteSpace(row.ParentCode) && codeToRow.TryGetValue(row.ParentCode, out var parent))
+            if (!string.IsNullOrWhiteSpace(row.ParentCode))
             {
+                if (!codeToRow.TryGetValue(row.ParentCode, out var parent))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"The parent account '{row.ParentCode}' does not exist in the uploaded template.");
+                }
                 Visit(parent);
             }
 

@@ -1713,6 +1713,24 @@ export interface SalesOrderTrackingBoardDto {
   totalValue?: number;
 }
 
+export interface SalesPartnerTargetDto {
+  id?: string;
+  salesPartnerId?: string;
+  fiscalYearId?: string | null;
+  targetQty?: number;
+  targetAmount?: number;
+  itemGroupId?: string | null;
+  distributionId?: string | null;
+}
+
+export interface CreateSalesPartnerTargetDto {
+  fiscalYearId?: string | null;
+  targetQty?: number;
+  targetAmount?: number;
+  itemGroupId?: string | null;
+  distributionId?: string | null;
+}
+
 export interface SalesPartnerDto extends EntityDto<string> {
   name?: string;
   partnerType?: number;
@@ -1722,6 +1740,41 @@ export interface SalesPartnerDto extends EntityDto<string> {
   description?: string | null;
   isEnabled?: boolean;
   referralCode?: string | null;
+  targets?: SalesPartnerTargetDto[];
+}
+
+export interface GetSalesPartnerTargetVarianceInput {
+  companyId?: string;
+  docType?: string;
+  targetOn?: string;
+  fiscalYearId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  salesPartnerId?: string | null;
+  itemGroupId?: string | null;
+}
+
+export interface SalesPartnerTargetVarianceRowDto {
+  salesPartnerId?: string;
+  salesPartnerName?: string;
+  itemGroupId?: string | null;
+  itemGroupName?: string;
+  target?: number;
+  achieved?: number;
+  variance?: number;
+  achievementPercentage?: number;
+}
+
+export interface SalesPartnerTargetVarianceReportDto {
+  currency?: string;
+  docType?: string;
+  targetOn?: string;
+  fiscalYearName?: string | null;
+  rows?: SalesPartnerTargetVarianceRowDto[];
+  totalTarget?: number;
+  totalAchieved?: number;
+  totalVariance?: number;
+  overallAchievementPercentage?: number;
 }
 
 export interface SalesPartnerTypeDto extends FullAuditedEntityDto<string> {

@@ -100,8 +100,14 @@ public class Asset : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Source Purchase Receipt that created this asset (for return validation).</summary>
     public Guid? PurchaseReceiptId { get; set; }
 
+    /// <summary>Source Purchase Receipt Item row that created this asset (ERPNext PR #62091).</summary>
+    public Guid? PurchaseReceiptItemId { get; set; }
+
     /// <summary>Source Purchase Invoice that created this asset (for return validation).</summary>
     public Guid? PurchaseInvoiceId { get; set; }
+
+    /// <summary>Source Purchase Invoice Item row that created this asset (ERPNext PR #62091).</summary>
+    public Guid? PurchaseInvoiceItemId { get; set; }
 
     // Depreciation
     public bool CalculateDepreciation

@@ -298,6 +298,61 @@ public class ChartOfAccountsImportTests
 
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
         (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Circular reference found for account");
+
+        // Verify accounts were NOT deleted when validation failed (PR #62153)
+        await accountRepo.DidNotReceive().DeleteManyAsync(Arg.Any<IEnumerable<Account>>());
+    }
+
+    [Fact]
+    public async Task ImportAsync_BlankAccountName_ThrowsValidationException()
+    {
+        // Per ERPNext PR #62153 / commit 36ddeb4f5e: row validation
+        var accountRepo = Substitute.For<IRepository<Account, Guid>>();
+        var journalRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
+        var companyRepo = Substitute.For<IRepository<MyERP.Core.Entities.Company, Guid>>();
+
+        journalRepo.AnyAsync(Arg.Any<Expression<Func<JournalEntry, bool>>>())
+            .Returns(Task.FromResult(false));
+
+        var importService = new ChartOfAccountsImportService(accountRepo, journalRepo, companyRepo);
+        var companyId = Guid.NewGuid();
+
+        var rows = new List<CoaTemplateRow>
+        {
+            new("1000", "", AccountType.Asset, isGroup: true)
+        };
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            importService.ImportAsync(companyId, rows));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Please enter Account Name");
+    }
+
+    [Fact]
+    public async Task ImportAsync_ParentAccountDoesNotExist_ThrowsValidationException()
+    {
+        // Per ERPNext PR #62153 / commit 36ddeb4f5e: missing parent validation before replacement
+        var accountRepo = Substitute.For<IRepository<Account, Guid>>();
+        var journalRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
+        var companyRepo = Substitute.For<IRepository<MyERP.Core.Entities.Company, Guid>>();
+
+        journalRepo.AnyAsync(Arg.Any<Expression<Func<JournalEntry, bool>>>())
+            .Returns(Task.FromResult(false));
+
+        var importService = new ChartOfAccountsImportService(accountRepo, journalRepo, companyRepo);
+        var companyId = Guid.NewGuid();
+
+        var rows = new List<CoaTemplateRow>
+        {
+            new("1100", "Bank", AccountType.Asset, parentCode: "9999") // Parent 9999 does not exist
+        };
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            importService.ImportAsync(companyId, rows));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("The parent account '9999' does not exist in the uploaded template.");
     }
 }
 

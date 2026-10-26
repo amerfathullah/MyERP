@@ -287,6 +287,54 @@ public class BudgetValidationService : DomainService
             }
         }
 
+        // 3. Requested spend in Material Requests (submitted Purchase MRs within fiscal year)
+        // Per ERPNext PR #61988 (commits 298b4fe202, b5a4734a8d, cba938004e):
+        // Material Request un-ordered commitments check across all items per expense account
+        var mrRepo = LazyServiceProvider.LazyGetService<IRepository<Purchasing.Entities.MaterialRequest, Guid>>();
+        if (mrRepo != null && fiscalYear != null)
+        {
+            var companyRepo = LazyServiceProvider.LazyGetService<IRepository<Core.Entities.Company, Guid>>();
+            var itemRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.Item, Guid>>();
+            var company = companyRepo != null ? await companyRepo.FindAsync(companyId) : null;
+
+            var mrQuery = await mrRepo.GetQueryableAsync();
+            var activeMrs = mrQuery
+                .Where(mr => mr.CompanyId == companyId
+                          && mr.Status == Core.DocumentStatus.Submitted
+                          && mr.RequestType == Purchasing.MaterialRequestType.Purchase
+                          && mr.RequestDate >= fiscalYear.StartDate
+                          && mr.RequestDate <= fiscalYear.EndDate)
+                .ToList();
+
+            if (activeMrs.Any() && itemRepo != null)
+            {
+                var mrItemIds = activeMrs.SelectMany(m => m.Items).Select(i => i.ItemId).Distinct().ToList();
+                var itemsQuery = await itemRepo.GetQueryableAsync();
+                var itemDetails = itemsQuery
+                    .Where(i => mrItemIds.Contains(i.Id))
+                    .ToDictionary(i => i.Id, i => (Account: i.DefaultExpenseAccountId, Rate: i.StandardBuyingPrice ?? 0m));
+
+                foreach (var mr in activeMrs)
+                {
+                    foreach (var item in mr.Items)
+                    {
+                        var unorderedQty = Math.Max(0, item.Quantity - item.OrderedQuantity);
+                        if (unorderedQty <= 0) continue;
+
+                        itemDetails.TryGetValue(item.ItemId, out var detail);
+                        var accId = detail.Account ?? company?.DefaultExpenseAccountId;
+
+                        if (accId.HasValue && accId.Value != Guid.Empty && detail.Rate > 0)
+                        {
+                            var conversion = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+                            var amount = unorderedQty * detail.Rate;
+                            result[accId.Value] = result.GetValueOrDefault(accId.Value, 0m) + amount;
+                        }
+                    }
+                }
+            }
+        }
+
         return result;
     }
 

@@ -99,7 +99,9 @@ export interface AssetDto extends FullAuditedEntityDto<string> {
   assetQuantity?: number;
   splitFromAssetId?: string | null;
   purchaseReceiptId?: string | null;
+  purchaseReceiptItemId?: string | null;
   purchaseInvoiceId?: string | null;
+  purchaseInvoiceItemId?: string | null;
   calculateDepreciation?: boolean;
   depreciationMethod?: DepreciationMethod;
   usefulLifeMonths?: number;
@@ -232,7 +234,9 @@ export interface AssetPurchaseDocValuesDto {
   locationId?: string | null;
   location?: string | null;
   purchaseReceiptId?: string | null;
+  purchaseReceiptItemId?: string | null;
   purchaseInvoiceId?: string | null;
+  purchaseInvoiceItemId?: string | null;
 }
 
 export interface AssetRepairConsumedItemDto extends FullAuditedEntityDto<string> {
@@ -354,7 +358,9 @@ export interface CreateAssetDto {
   purchaseAmount?: number;
   additionalCost?: number;
   purchaseReceiptId?: string | null;
+  purchaseReceiptItemId?: string | null;
   purchaseInvoiceId?: string | null;
+  purchaseInvoiceItemId?: string | null;
   calculateDepreciation?: boolean;
   depreciationMethod?: DepreciationMethod;
   usefulLifeMonths?: number;

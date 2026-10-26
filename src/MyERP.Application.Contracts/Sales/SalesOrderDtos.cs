@@ -28,6 +28,9 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     public Guid? QuotationId { get; set; }
     public Guid? CostCenterId { get; set; }
     public Guid? ProjectId { get; set; }
+    public Guid? SalesPartnerId { get; set; }
+    public decimal CommissionRate { get; set; }
+    public decimal TotalCommission { get; set; }
     public decimal PerDelivered { get; set; }
     public decimal PerBilled { get; set; }
     public decimal AdvancePaid { get; set; }
@@ -157,6 +160,9 @@ public class CreateSalesOrderDto
 
     /// <summary>Project for project-wise cost tracking.</summary>
     public Guid? ProjectId { get; set; }
+    public Guid? SalesPartnerId { get; set; }
+    public decimal CommissionRate { get; set; }
+    public decimal TotalCommission { get; set; }
 
     /// <summary>Shipping destination country code (for shipping rule matching).</summary>
     public string? ShippingCountry { get; set; }

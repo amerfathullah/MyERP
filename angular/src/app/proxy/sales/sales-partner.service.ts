@@ -1,4 +1,4 @@
-import type { CreateSalesPartnerDto, GetSalesPartnerListDto, SalesPartnerDto } from './models';
+import type { CreateSalesPartnerDto, CreateSalesPartnerTargetDto, GetSalesPartnerListDto, SalesPartnerDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -58,6 +58,21 @@ export class SalesPartnerService {
       method: 'PUT',
       url: `/api/app/sales-partner/${id}`,
       body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  addTarget = (id: string, input: CreateSalesPartnerTargetDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesPartnerDto>({
+      method: 'POST',
+      url: `/api/app/sales-partner/${id}/target`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
+  removeTarget = (id: string, targetId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesPartnerDto>({
+      method: 'DELETE',
+      url: `/api/app/sales-partner/${id}/target/${targetId}`,
     },
     { apiName: this.apiName,...config });
 }
