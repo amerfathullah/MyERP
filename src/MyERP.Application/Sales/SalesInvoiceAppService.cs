@@ -2252,6 +2252,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                     UnitPrice = item.UnitPrice,
                     TaxAmount = 0,
                     Uom = item.Uom ?? "Unit",
+                    ConversionFactor = item.ConversionFactor,
                     DeliveryNoteItemId = item.Id,
                 });
                 dnItemLinks.Add((Guid.Empty, item.Id, dn.Id));

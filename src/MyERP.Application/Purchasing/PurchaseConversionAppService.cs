@@ -253,16 +253,31 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
         invoice.UseTransactionDateExchangeRate = false;
         invoice.UpdateStock = false; // Stock is already received via Purchase Receipt
 
-        // Deduct quantities already mapped in draft Purchase Invoices (per ERPNext PR #58617)
-        var piQuery2 = await _purchaseInvoiceRepository.GetQueryableAsync();
-        var draftInvoices2 = piQuery2
-            .Where(pi => pi.Status == Core.DocumentStatus.Draft)
-            .SelectMany(pi => pi.Items)
-            .Where(i => i.PurchaseReceiptItemId.HasValue)
-            .GroupBy(i => i.PurchaseReceiptItemId!.Value)
-            .Select(g => new { PrItemId = g.Key, Qty = g.Sum(i => i.Quantity) })
-            .ToList();
-        var draftInvoiceQtyByPrItem = draftInvoices2.ToDictionary(x => x.PrItemId, x => x.Qty);
+        // Deduct quantities already mapped in draft Purchase Invoices (per ERPNext PR #58617 & PR #60570)
+        var prItemIds = receipt.Items.Select(i => i.Id).ToList();
+        var draftInvoiceQtyByPrItem = new Dictionary<Guid, decimal>();
+
+        if (prItemIds.Count > 0)
+        {
+            var piQuery2 = await _purchaseInvoiceRepository.GetQueryableAsync();
+            var draftInvoices2 = piQuery2
+                .Where(pi => pi.Status == Core.DocumentStatus.Draft && !pi.IsReturn && !pi.IsDebitNote)
+                .SelectMany(pi => pi.Items)
+                .Where(i => i.PurchaseReceiptItemId.HasValue && prItemIds.Contains(i.PurchaseReceiptItemId.Value))
+                .ToList();
+
+            draftInvoiceQtyByPrItem = draftInvoices2
+                .GroupBy(i => i.PurchaseReceiptItemId!.Value)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Sum(i =>
+                    {
+                        var prItem = receipt.Items.FirstOrDefault(pri => pri.Id == g.Key);
+                        var factor = prItem != null && prItem.ConversionFactor > 0 ? prItem.ConversionFactor : 1m;
+                        return (i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m)) / factor;
+                    })
+                );
+        }
 
         foreach (var item in receipt.Items)
         {

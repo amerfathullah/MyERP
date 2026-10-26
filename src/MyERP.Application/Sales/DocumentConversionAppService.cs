@@ -57,7 +57,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
     /// <summary>
     /// Computes returned quantity per DN item across all submitted Return Delivery Notes referencing this DN.
-    /// Per ERPNext PR #58953 & PR #58869: enables accurate billable quantity calculation when converting DN to SI.
+    /// Per ERPNext PR #58953, PR #58869 & PR #60570 (commit 257d827f5b): enables accurate billable quantity calculation
+    /// when converting DN to SI by converting return quantities from their transaction UOM into the original DN item's UOM.
     /// Maps directly to DeliveryNoteItem.Id using ReturnedQty on item and any linked return delivery note items.
     /// </summary>
     private async Task<Dictionary<Guid, decimal>> GetReturnedQtyMapAsync(DeliveryNote deliveryNote)
@@ -76,19 +77,28 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                       && dn.Status != Core.DocumentStatus.Cancelled)
             .ToList();
 
+        var queriedReturns = new Dictionary<Guid, decimal>();
         foreach (var returnDn in returnDns)
         {
             foreach (var item in returnDn.Items)
             {
-                var absQty = Math.Abs(item.Quantity);
                 var origItem = deliveryNote.Items.FirstOrDefault(i =>
                     (item.SalesOrderItemId.HasValue && i.SalesOrderItemId == item.SalesOrderItemId) ||
                     (!item.SalesOrderItemId.HasValue && i.ItemId == item.ItemId));
                 if (origItem != null)
                 {
-                    result[origItem.Id] = Math.Max(result.GetValueOrDefault(origItem.Id, 0m), absQty);
+                    // Per ERPNext PR #60570: convert returned qty from return UOM to original DN item UOM
+                    var returnFactor = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+                    var origFactor = origItem.ConversionFactor > 0 ? origItem.ConversionFactor : 1m;
+                    var returnedInOrigUom = (Math.Abs(item.Quantity) * returnFactor) / origFactor;
+                    queriedReturns[origItem.Id] = queriedReturns.GetValueOrDefault(origItem.Id, 0m) + returnedInOrigUom;
                 }
             }
+        }
+
+        foreach (var item in deliveryNote.Items)
+        {
+            result[item.Id] = Math.Max(result.GetValueOrDefault(item.Id, 0m), queriedReturns.GetValueOrDefault(item.Id, 0m));
         }
 
         return result;
@@ -455,16 +465,30 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         invoice.Notes = salesOrder.Notes;
         invoice.CustomerPoNumber = salesOrder.CustomerPoNumber;
 
-        // Account for draft Sales Invoices in the system (per ERPNext PR #58617)
-        var siQuery = await _salesInvoiceRepository.GetQueryableAsync();
-        var draftInvoices = siQuery
-            .Where(si => si.Status == Core.DocumentStatus.Draft)
-            .SelectMany(si => si.Items)
-            .Where(i => i.SalesOrderItemId.HasValue)
-            .GroupBy(i => i.SalesOrderItemId!.Value)
-            .Select(g => new { SoItemId = g.Key, Qty = g.Sum(i => i.Quantity) })
-            .ToList();
-        var draftMappedQtyByItem = draftInvoices.ToDictionary(x => x.SoItemId, x => x.Qty);
+        // Account for draft Sales Invoices in the system (per ERPNext PR #58617 & PR #60570)
+        var soItemIds = salesOrder.Items.Select(i => i.Id).ToList();
+        var draftMappedQtyByItem = new Dictionary<Guid, decimal>();
+        if (soItemIds.Count > 0)
+        {
+            var siQuery = await _salesInvoiceRepository.GetQueryableAsync();
+            var draftSiItems = siQuery
+                .Where(si => si.Status == Core.DocumentStatus.Draft && !si.IsReturn && !si.IsDebitNote)
+                .SelectMany(si => si.Items)
+                .Where(i => i.SalesOrderItemId.HasValue && soItemIds.Contains(i.SalesOrderItemId.Value))
+                .ToList();
+
+            foreach (var draftItem in draftSiItems)
+            {
+                var soItem = salesOrder.Items.FirstOrDefault(i => i.Id == draftItem.SalesOrderItemId!.Value);
+                if (soItem != null)
+                {
+                    var siFactor = draftItem.ConversionFactor > 0 ? draftItem.ConversionFactor : 1m;
+                    var soFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                    var qtyInSoUom = (draftItem.Quantity * siFactor) / soFactor;
+                    draftMappedQtyByItem[soItem.Id] = draftMappedQtyByItem.GetValueOrDefault(soItem.Id, 0m) + qtyInSoUom;
+                }
+            }
+        }
 
         foreach (var item in salesOrder.Items)
         {
@@ -511,25 +535,58 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         // Get returned qty per DN item (from return DNs referencing this DN)
         var returnedQtyMap = await GetReturnedQtyMapAsync(deliveryNote);
 
-        // Account for draft Sales Invoices in the system (per ERPNext PR #58617)
+        var dnItemIds = deliveryNote.Items.Select(i => i.Id).ToList();
         var siQuery2 = await _salesInvoiceRepository.GetQueryableAsync();
+
+        // Account for draft Sales Invoices in the system (per ERPNext PR #58617 & PR #60570)
         var draftInvoices2 = siQuery2
-            .Where(si => si.Status == Core.DocumentStatus.Draft)
+            .Where(si => si.Status == Core.DocumentStatus.Draft && !si.IsReturn && !si.IsDebitNote)
             .SelectMany(si => si.Items)
-            .Where(i => i.DeliveryNoteItemId.HasValue)
-            .GroupBy(i => i.DeliveryNoteItemId!.Value)
-            .Select(g => new { DnItemId = g.Key, Qty = g.Sum(i => i.Quantity) })
+            .Where(i => i.DeliveryNoteItemId.HasValue && dnItemIds.Contains(i.DeliveryNoteItemId.Value))
             .ToList();
-        var draftMappedQtyByItem = draftInvoices2.ToDictionary(x => x.DnItemId, x => x.Qty);
+        var draftMappedQtyByItem = new Dictionary<Guid, decimal>();
+        foreach (var draftItem in draftInvoices2)
+        {
+            var dnItem = deliveryNote.Items.FirstOrDefault(i => i.Id == draftItem.DeliveryNoteItemId!.Value);
+            if (dnItem != null)
+            {
+                var siFactor = draftItem.ConversionFactor > 0 ? draftItem.ConversionFactor : 1m;
+                var dnFactor = dnItem.ConversionFactor > 0 ? dnItem.ConversionFactor : 1m;
+                var qtyInDnUom = (draftItem.Quantity * siFactor) / dnFactor;
+                draftMappedQtyByItem[dnItem.Id] = draftMappedQtyByItem.GetValueOrDefault(dnItem.Id, 0m) + qtyInDnUom;
+            }
+        }
+
+        // Compute invoiced quantity map across submitted invoices & credit notes (per ERPNext PR #60570 / commit 257d827f5b)
+        var submittedInvoices = siQuery2
+            .Where(si => (si.Status == Core.DocumentStatus.Submitted || si.Status == Core.DocumentStatus.Posted) && !si.UpdateStock)
+            .SelectMany(si => si.Items)
+            .Where(i => i.DeliveryNoteItemId.HasValue && dnItemIds.Contains(i.DeliveryNoteItemId.Value))
+            .ToList();
+        var invoicedQtyByItem = new Dictionary<Guid, decimal>();
+        foreach (var siItem in submittedInvoices)
+        {
+            var dnItem = deliveryNote.Items.FirstOrDefault(i => i.Id == siItem.DeliveryNoteItemId!.Value);
+            if (dnItem != null)
+            {
+                var siFactor = siItem.ConversionFactor > 0 ? siItem.ConversionFactor : 1m;
+                var dnFactor = dnItem.ConversionFactor > 0 ? dnItem.ConversionFactor : 1m;
+                var qtyInDnUom = (siItem.Quantity * siFactor) / dnFactor;
+                invoicedQtyByItem[dnItem.Id] = invoicedQtyByItem.GetValueOrDefault(dnItem.Id, 0m) + qtyInDnUom;
+            }
+        }
 
         // Guard: check pending billing qty per DN item to prevent double-billing
         var hasConvertibleItems = false;
         foreach (var item in deliveryNote.Items)
         {
             if (item.IsClosed) continue;
+            var invoicedQty = invoicedQtyByItem.TryGetValue(item.Id, out var queriedBilled)
+                ? Math.Max(0m, queriedBilled)
+                : Math.Abs(item.BilledQty);
             var returnedQty = Math.Max(item.ReturnedQty, returnedQtyMap.GetValueOrDefault(item.Id, 0m));
             var draftQty = draftMappedQtyByItem.GetValueOrDefault(item.Id, 0m);
-            var pendingQty = Math.Max(0, Math.Abs(item.Quantity) - Math.Abs(item.BilledQty) - returnedQty - draftQty);
+            var pendingQty = Math.Max(0, Math.Abs(item.Quantity) - invoicedQty - returnedQty - draftQty);
             if (pendingQty > 0)
             {
                 hasConvertibleItems = true;
@@ -571,9 +628,12 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         {
             if (item.IsClosed) continue;
             // Per ERPNext: pending = qty - invoiced_qty - returned_qty - draft_qty
+            var invoicedQty = invoicedQtyByItem.TryGetValue(item.Id, out var queriedBilled)
+                ? Math.Max(0m, queriedBilled)
+                : Math.Abs(item.BilledQty);
             var returnedQty = Math.Max(item.ReturnedQty, returnedQtyMap.GetValueOrDefault(item.Id, 0m));
             var draftQty = draftMappedQtyByItem.GetValueOrDefault(item.Id, 0m);
-            var billingQty = Math.Max(0, Math.Abs(item.Quantity) - Math.Abs(item.BilledQty) - returnedQty - draftQty);
+            var billingQty = Math.Max(0, Math.Abs(item.Quantity) - invoicedQty - returnedQty - draftQty);
             if (billingQty <= 0) continue;
 
             var itemTax = Math.Abs(item.Quantity) > 0 ? Math.Round(item.TaxAmount * (billingQty / Math.Abs(item.Quantity)), 2) : 0m;

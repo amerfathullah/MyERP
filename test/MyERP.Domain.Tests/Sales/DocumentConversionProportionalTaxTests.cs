@@ -320,4 +320,149 @@ public class DocumentConversionProportionalTaxTests
         // Tax is pro-rated: 90 * (3 / 10) = 27
         savedInvoice.Items[0].TaxAmount.ShouldBe(27m);
     }
+
+    [Fact]
+    public async Task ConvertDeliveryNoteToInvoice_WhenReturnAndCreditNoteInDifferentUom_CalculatesRemainingQtyCorrectly_PR60570()
+    {
+        // Per ERPNext PR #60570 / commit 257d827f5b & test_make_sales_invoice_after_return_and_credit_note_in_stock_uom:
+        // Item in Box (factor = 4), DN qty = 2 Box.
+        // Return DN for -4 Nos (factor = 1) -> 4 / 4 = 1 Box returned.
+        // First SI submitted for 1 Box (factor = 4).
+        // Credit note submitted for -1 Nos (factor = 1) against SI -> -1 / 4 = -0.25 Box.
+        // Net invoiced = 1 - 0.25 = 0.75 Box.
+        // Unbilled remaining to convert = 2 - 1 - 0.75 = 0.25 Box!
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var dn = new DeliveryNote(Guid.NewGuid(), companyId, customerId, warehouseId, "DN-UOM-001", DateTime.UtcNow);
+        dn.AddItem(itemId, "Widget in Box", quantity: 2m, unitPrice: 40m, taxAmount: 0m, uom: "Box");
+        var dnItem = dn.Items[0];
+        dnItem.StockUom = "Nos";
+        dnItem.ConversionFactor = 4m;
+        dn.Submit();
+
+        var dnRepo = Substitute.For<IRepository<DeliveryNote, Guid>>();
+        dnRepo.GetAsync(dn.Id).Returns(Task.FromResult(dn));
+
+        // Return DN: -4 Nos (factor = 1)
+        var returnDn = new DeliveryNote(Guid.NewGuid(), companyId, customerId, warehouseId, "DN-RET-001", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = dn.Id
+        };
+        returnDn.AddItem(itemId, "Widget in Box", quantity: -4m, unitPrice: 10m, taxAmount: 0m, uom: "Nos");
+        returnDn.Items[0].StockUom = "Nos";
+        returnDn.Items[0].ConversionFactor = 1m;
+        returnDn.Submit();
+
+        var dnList = new List<DeliveryNote> { dn, returnDn };
+        dnRepo.GetQueryableAsync().Returns(Task.FromResult(dnList.AsQueryable()));
+
+        // Submitted SI for 1 Box (factor = 4)
+        var si = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-001", DateTime.UtcNow);
+        si.AddItem(itemId, "Widget in Box", quantity: 1m, unitPrice: 40m, taxAmount: 0m, uom: "Box");
+        si.Items[0].DeliveryNoteItemId = dnItem.Id;
+        si.Items[0].StockUom = "Nos";
+        si.Items[0].ConversionFactor = 4m;
+        si.Submit();
+
+        // Credit note against SI: -1 Nos (factor = 1)
+        var creditNote = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "CN-001", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = si.Id
+        };
+        creditNote.AddItem(itemId, "Widget in Box", quantity: -1m, unitPrice: 10m, taxAmount: 0m, uom: "Nos");
+        creditNote.Items[0].DeliveryNoteItemId = dnItem.Id;
+        creditNote.Items[0].StockUom = "Nos";
+        creditNote.Items[0].ConversionFactor = 1m;
+        creditNote.Submit();
+
+        var siRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var siList = new List<SalesInvoice> { si, creditNote };
+        siRepo.GetQueryableAsync().Returns(Task.FromResult(siList.AsQueryable()));
+
+        SalesInvoice? savedInvoice = null;
+        await siRepo.InsertAsync(Arg.Do<SalesInvoice>(s => savedInvoice = s), Arg.Any<bool>());
+
+        var numGen = Substitute.For<IDocumentNumberGenerator>();
+        numGen.GenerateAsync("SalesInvoice", companyId).Returns(Task.FromResult("SI-0002"));
+
+        var activityLog = CreateActivityLogService();
+
+        var service = new DocumentConversionAppService(
+            Substitute.For<IRepository<Quotation, Guid>>(),
+            Substitute.For<IRepository<SalesOrder, Guid>>(),
+            dnRepo,
+            siRepo,
+            Substitute.For<IRepository<Customer, Guid>>(),
+            numGen,
+            activityLog);
+        ConfigureLazyServiceProvider(service);
+
+        await service.ConvertDeliveryNoteToSalesInvoiceAsync(dn.Id);
+
+        savedInvoice.ShouldNotBeNull();
+        savedInvoice.Items.Count.ShouldBe(1);
+        savedInvoice.Items[0].Quantity.ShouldBe(0.25m);
+    }
+
+    [Fact]
+    public async Task ConvertSalesOrderToInvoice_WhenDraftSiInDifferentUom_ScalesToOrderUom_PR60570()
+    {
+        // Per ERPNext PR #60570 & PR #58617:
+        // SO has 2 Box (factor = 4).
+        // Draft SI in Nos for 4 Nos (factor = 1) -> maps to 4 / 4 = 1 Box.
+        // Pending to bill on SO = 2 - 1 = 1 Box!
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var so = new SalesOrder(Guid.NewGuid(), companyId, customerId, "SO-UOM-001", DateTime.UtcNow);
+        so.AddItem(itemId, "Widget", quantity: 2m, unitPrice: 100m, taxAmount: 0m, uom: "Box");
+        var soItem = so.Items[0];
+        soItem.StockUom = "Nos";
+        soItem.ConversionFactor = 4m;
+        so.Submit();
+
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        soRepo.GetAsync(so.Id).Returns(Task.FromResult(so));
+
+        // Draft SI for 4 Nos (factor = 1)
+        var draftSi = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-DRAFT-UOM", DateTime.UtcNow);
+        draftSi.AddItem(itemId, "Widget", quantity: 4m, unitPrice: 25m, taxAmount: 0m, uom: "Nos");
+        draftSi.Items[0].SalesOrderItemId = soItem.Id;
+        draftSi.Items[0].StockUom = "Nos";
+        draftSi.Items[0].ConversionFactor = 1m;
+
+        var siRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var siList = new List<SalesInvoice> { draftSi };
+        siRepo.GetQueryableAsync().Returns(Task.FromResult(siList.AsQueryable()));
+
+        SalesInvoice? savedInvoice = null;
+        await siRepo.InsertAsync(Arg.Do<SalesInvoice>(s => savedInvoice = s), Arg.Any<bool>());
+
+        var numGen = Substitute.For<IDocumentNumberGenerator>();
+        numGen.GenerateAsync("SalesInvoice", companyId).Returns(Task.FromResult("SI-0002"));
+
+        var activityLog = CreateActivityLogService();
+
+        var service = new DocumentConversionAppService(
+            Substitute.For<IRepository<Quotation, Guid>>(),
+            soRepo,
+            Substitute.For<IRepository<DeliveryNote, Guid>>(),
+            siRepo,
+            Substitute.For<IRepository<Customer, Guid>>(),
+            numGen,
+            activityLog);
+        ConfigureLazyServiceProvider(service);
+
+        await service.ConvertSalesOrderToSalesInvoiceAsync(so.Id);
+
+        savedInvoice.ShouldNotBeNull();
+        savedInvoice.Items.Count.ShouldBe(1);
+        savedInvoice.Items[0].Quantity.ShouldBe(1m);
+    }
 }
