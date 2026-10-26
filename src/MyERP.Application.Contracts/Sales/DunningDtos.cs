@@ -20,6 +20,12 @@ public class DunningDto : EntityDto<Guid>
     public decimal DunningAmount { get; set; }
     public decimal PaidDunningAmount { get; set; }
     public decimal UnpaidDunningAmount { get; set; }
+    public string Currency { get; set; } = "MYR";
+    public decimal ConversionRate { get; set; } = 1m;
+    public decimal BaseDunningAmount { get; set; }
+    public Guid? IncomeAccountId { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public decimal RateOfInterest { get; set; }
     public int Status { get; set; }
     public int OverduePaymentCount { get; set; }
     public DateTime? EmailSentAt { get; set; }
@@ -52,6 +58,10 @@ public class CreateDunningDto
     public decimal InterestAmount { get; set; }
     /// <summary>Per-annum interest rate. If set and InterestAmount is 0, interest is auto-calculated.</summary>
     public decimal InterestRatePerAnnum { get; set; }
+    public string? Currency { get; set; }
+    public decimal? ConversionRate { get; set; }
+    public Guid? IncomeAccountId { get; set; }
+    public Guid? CostCenterId { get; set; }
     public CreateDunningOverdueDto[] OverduePayments { get; set; } = [];
 }
 

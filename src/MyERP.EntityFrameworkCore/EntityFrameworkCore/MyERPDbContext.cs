@@ -4140,6 +4140,9 @@ public class MyERPDbContext :
             b.ToTable("Sal_Dunnings", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.Property(x => x.CustomerName).HasMaxLength(200);
+            b.Property(x => x.Currency).HasMaxLength(10);
+            b.Property(x => x.ConversionRate).HasColumnType("decimal(18,6)");
+            b.Property(x => x.RateOfInterest).HasColumnType("decimal(18,4)");
             b.Property(x => x.TotalOutstanding).HasColumnType("decimal(18,2)");
             b.Property(x => x.DunningFee).HasColumnType("decimal(18,2)");
             b.Property(x => x.InterestAmount).HasColumnType("decimal(18,2)");

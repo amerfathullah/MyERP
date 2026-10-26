@@ -183,13 +183,13 @@ public class RepostItemValuation : FullAuditedAggregateRoot<Guid>, IMultiTenant
             if (isTransferStockEntry == true)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", "Recalculate Valuation Rate is only allowed for a Purchase Receipt, a Purchase Invoice with Update Stock or a Stock Entry that is not a material transfer.");
+                    .WithData("detail", "Recalculate Valuation Rate is only allowed for a Purchase Receipt, a Purchase Invoice with Update Stock or a Stock Entry with no row that has both a Source and Target Warehouse.");
             }
             return;
         }
 
         throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-            .WithData("detail", "Recalculate Valuation Rate is only allowed for a Purchase Receipt, a Purchase Invoice with Update Stock or a Stock Entry that is not a material transfer.");
+            .WithData("detail", "Recalculate Valuation Rate is only allowed for a Purchase Receipt, a Purchase Invoice with Update Stock or a Stock Entry with no row that has both a Source and Target Warehouse.");
     }
 
     public void ValidateUpdateStock(bool? isUpdateStock = null)

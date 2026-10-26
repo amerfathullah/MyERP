@@ -77,6 +77,12 @@ public class StockEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccount
     public bool IsReturn { get; set; }
 
     /// <summary>
+    /// Whether any item row in this Stock Entry has both a source and target warehouse (i.e. is an internal transfer row).
+    /// Per ERPNext PR #62287 / commit 81940327fe: used to detect transfer stock entries.
+    /// </summary>
+    public bool HasTransferRow => _items.Any(i => i.SourceWarehouseId.HasValue && i.TargetWarehouseId.HasValue);
+
+    /// <summary>
     /// Total additional costs for this stock entry (per ERPNext commit 074c84e880 / PR #58433).
     /// Distributed across all incoming rows.
     /// </summary>

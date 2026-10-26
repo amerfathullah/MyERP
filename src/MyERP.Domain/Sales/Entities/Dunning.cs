@@ -47,6 +47,24 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Remaining uncollected dunning fee and interest amount (ERPNext PR #58227).</summary>
     public decimal UnpaidDunningAmount => Math.Max(0, DunningAmount - PaidDunningAmount);
 
+    /// <summary>Currency of the dunning charges and invoices (defaults to company currency).</summary>
+    public string Currency { get; set; } = "MYR";
+
+    /// <summary>Exchange rate from document currency to company base currency.</summary>
+    public decimal ConversionRate { get; set; } = 1m;
+
+    /// <summary>Total dunning fee and interest in company currency (DunningAmount × ConversionRate).</summary>
+    public decimal BaseDunningAmount => Math.Round(DunningAmount * ConversionRate, 2);
+
+    /// <summary>Income account to credit dunning fee and interest revenue.</summary>
+    public Guid? IncomeAccountId { get; set; }
+
+    /// <summary>Cost center for departmental GL reporting.</summary>
+    public Guid? CostCenterId { get; set; }
+
+    /// <summary>Yearly interest rate (%) on overdue amounts.</summary>
+    public decimal RateOfInterest { get; set; }
+
     public DocumentStatus Status { get; private set; } = DocumentStatus.Draft;
     public string? Notes { get; set; }
 
@@ -110,12 +128,35 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
             p.OutstandingAmount * (rateOfInterest / 100m / 365m) * p.OverdueDays), 2);
     }
 
-    public void Submit()
+    public void ValidateIncomeAccount()
+    {
+        // Per ERPNext PR #61620 (commit 308143fc67): income account is required to collect dunning fees or interest
+        if (DunningAmount > 0 && (!IncomeAccountId.HasValue || IncomeAccountId.Value == Guid.Empty))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Income Account is required to collect dunning fees or interest.");
+        }
+    }
+
+    public void Submit(bool validateIncomeAccount = false)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         if (!_overduePayments.Any())
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+        // Per ERPNext PR #61620 (commit 0850b876a3): conversion rate must be greater than zero
+        if (ConversionRate <= 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Conversion Rate must be greater than zero.");
+        }
+
+        if (validateIncomeAccount)
+        {
+            ValidateIncomeAccount();
+        }
+
         Status = DocumentStatus.Submitted;
     }
 
@@ -142,7 +183,7 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         if (Status != DocumentStatus.Submitted)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        // Per ERPNext PR #61620: require payment cancellation before dunning cancellation
+        // Per ERPNext PR #61620 (commit 58e9c6f8a8): require payment cancellation before dunning cancellation
         if (PaidDunningAmount > 0)
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", "Cannot cancel Dunning with paid fees or interest. Cancel the linked Payment Entry first.");

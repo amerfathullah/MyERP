@@ -183,9 +183,11 @@ public class DunningAppService : ApplicationService, IDunningAppService
         var level = await _dunningManager.DetermineDunningLevelAsync(
             input.CustomerId, input.CompanyId, CurrentTenant.Id);
 
-        // Default fee/interest rate from the Dunning Type when not explicitly overridden (per ERPNext fetch_from)
+        // Default fee/interest rate/accounts from the Dunning Type when not explicitly overridden (per ERPNext fetch_from)
         var dunningFee = input.DunningFee;
         var interestRatePerAnnum = input.InterestRatePerAnnum;
+        Guid? incomeAccountId = input.IncomeAccountId;
+        Guid? costCenterId = input.CostCenterId;
         if (input.DunningTypeId.HasValue)
         {
             var typeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.DunningType, Guid>>();
@@ -194,6 +196,8 @@ public class DunningAppService : ApplicationService, IDunningAppService
             {
                 if (dunningFee == 0) dunningFee = dunningType.DunningFee;
                 if (interestRatePerAnnum == 0) interestRatePerAnnum = dunningType.RateOfInterest;
+                incomeAccountId ??= dunningType.IncomeAccountId;
+                costCenterId ??= dunningType.CostCenterId;
             }
         }
 
@@ -208,6 +212,11 @@ public class DunningAppService : ApplicationService, IDunningAppService
                 interestRatePerAnnum, overdueData);
         }
 
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        var company = await companyRepo.FindAsync(input.CompanyId);
+        var currency = !string.IsNullOrWhiteSpace(input.Currency) ? input.Currency : (company?.CurrencyCode ?? "MYR");
+        var conversionRate = input.ConversionRate ?? 1m;
+
         var d = new Dunning(GuidGenerator.Create(), input.CompanyId, input.CustomerId,
             input.PostingDate, level, CurrentTenant.Id)
         {
@@ -215,6 +224,11 @@ public class DunningAppService : ApplicationService, IDunningAppService
             DunningTypeId = input.DunningTypeId,
             DunningFee = dunningFee,
             InterestAmount = interestAmount,
+            RateOfInterest = interestRatePerAnnum,
+            Currency = currency,
+            ConversionRate = conversionRate,
+            IncomeAccountId = incomeAccountId,
+            CostCenterId = costCenterId,
         };
         foreach (var p in input.OverduePayments)
             d.AddOverduePayment(p.SalesInvoiceId, p.OutstandingAmount, p.DueDate, p.OverdueDays);
@@ -262,6 +276,8 @@ public class DunningAppService : ApplicationService, IDunningAppService
             today, level, CurrentTenant.Id)
         {
             CustomerName = customer?.Name,
+            Currency = !string.IsNullOrWhiteSpace(si.CurrencyCode) ? si.CurrencyCode : "MYR",
+            ConversionRate = si.ExchangeRate > 0 ? si.ExchangeRate : 1m,
         };
 
         if (schedules.Count > 0)
@@ -332,7 +348,25 @@ public class DunningAppService : ApplicationService, IDunningAppService
         // Validate level sequencing before submit
         await _dunningManager.ValidateLevelSequencingAsync(d.CustomerId, d.CompanyId, d.DunningLevel, d.TenantId);
 
-        d.Submit();
+        // Resolve income account from Dunning Type or Company default if fee/interest is charged
+        if (d.DunningAmount > 0 && !d.IncomeAccountId.HasValue)
+        {
+            if (d.DunningTypeId.HasValue)
+            {
+                var typeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.DunningType, Guid>>();
+                var dunningType = await typeRepo.FindAsync(d.DunningTypeId.Value);
+                if (dunningType?.IncomeAccountId != null)
+                    d.IncomeAccountId = dunningType.IncomeAccountId;
+            }
+            if (!d.IncomeAccountId.HasValue)
+            {
+                var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+                var company = await companyRepo.FindAsync(d.CompanyId);
+                d.IncomeAccountId = company?.DefaultIncomeAccountId;
+            }
+        }
+
+        d.Submit(validateIncomeAccount: true);
 
         // Post GL entries for dunning fee + interest (DR Receivable, CR Income)
         var feeAndInterest = d.DunningFee + d.InterestAmount;
@@ -352,15 +386,7 @@ public class DunningAppService : ApplicationService, IDunningAppService
                     .WithData("detail", $"Fiscal Year not found or closed for date {d.PostingDate:d}.");
             }
 
-            // Prefer the Dunning Type's configured income account, falling back to the company default.
-            Guid? incomeAccountId = company.DefaultIncomeAccountId;
-            if (d.DunningTypeId.HasValue)
-            {
-                var typeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.DunningType, Guid>>();
-                var dunningType = await typeRepo.FindAsync(d.DunningTypeId.Value);
-                if (dunningType?.IncomeAccountId != null)
-                    incomeAccountId = dunningType.IncomeAccountId;
-            }
+            var incomeAccountId = d.IncomeAccountId;
 
             // Per ERPNext PR #61620 (commit 308143fc67): Income account is required to collect dunning fees or interest
             if (!incomeAccountId.HasValue)

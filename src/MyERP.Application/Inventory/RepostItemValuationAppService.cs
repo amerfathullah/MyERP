@@ -97,8 +97,8 @@ public class RepostItemValuationAppService : ApplicationService, IRepostItemValu
                 var se = await seRepo.FindAsync(entity.VoucherId.Value);
                 if (se != null)
                 {
-                    isTransferStockEntry = se.EntryType is StockEntryType.MaterialTransfer or StockEntryType.MaterialTransferForManufacture or StockEntryType.SendToSubcontractor
-                        || se.Items.Any(i => i.SourceWarehouseId.HasValue && i.TargetWarehouseId.HasValue);
+                    isTransferStockEntry = se.HasTransferRow
+                        || se.EntryType is StockEntryType.MaterialTransfer or StockEntryType.MaterialTransferForManufacture or StockEntryType.SendToSubcontractor;
                 }
             }
         }
