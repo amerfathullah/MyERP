@@ -49,6 +49,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
     private readonly DocumentActivityLogService _activityLog;
     private readonly ItemTransactionValidationService _itemValidation;
     private readonly SalesInvoiceManager _invoiceManager;
+    private readonly SalesTeamService? _salesTeamService;
+    private SalesTeamService SalesTeamService =>
+        _salesTeamService ?? LazyServiceProvider.LazyGetRequiredService<SalesTeamService>();
 
     public SalesInvoiceAppService(
         IRepository<SalesInvoice, Guid> repository,
@@ -68,8 +71,10 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         BinService binService,
         DocumentActivityLogService activityLog,
         ItemTransactionValidationService itemValidation,
-        SalesInvoiceManager invoiceManager)
+        SalesInvoiceManager invoiceManager,
+        SalesTeamService? salesTeamService = null)
     {
+        _salesTeamService = salesTeamService;
         _repository = repository;
         _customerRepository = customerRepository;
         _salesOrderRepository = salesOrderRepository;
@@ -146,64 +151,42 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
     /// </summary>
     private async Task CreateSalesTeamEntriesAsync(SalesInvoice invoice, List<SalesTeamAllocationInputDto> salesTeam)
     {
-        // Per ERPNext PR #61835: unique members and individual bounds
-        var seenSalesPersons = new HashSet<Guid>();
-        for (int i = 0; i < salesTeam.Count; i++)
+        if (salesTeam == null || salesTeam.Count == 0) return;
+
+        var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
+            invoice.Items.Select(i => (i.ItemId, i.LineTotal)), invoice.ExchangeRate);
+        var inputs = salesTeam.Select(s => new SalesTeamAllocationInput
         {
-            var row = salesTeam[i];
-            if (!seenSalesPersons.Add(row.SalesPersonId))
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", "Sales Person is repeated in the sales team.");
-            }
-            if (row.AllocatedPercentage < 0m || row.AllocatedPercentage > 100m)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Row #{i + 1}: Contribution (%) must be between 0 and 100.");
-            }
+            SalesPersonId = s.SalesPersonId,
+            AllocatedPercentage = s.AllocatedPercentage,
+            CommissionRate = s.CommissionRate
+        });
+        await SalesTeamService.SetSalesTeamAsync("SalesInvoice", invoice.Id, eligibleAmount, inputs, invoice.IsReturn, invoice.ReturnAgainstId);
+    }
+
+    [Authorize(MyERPPermissions.SalesInvoices.Edit)]
+    public async Task<SalesInvoiceDto> UpdateSalesTeamAsync(Guid id, List<SalesTeamAllocationInputDto> input)
+    {
+        var invoice = await _repository.GetAsync(id);
+        if (invoice.Status == Core.DocumentStatus.Cancelled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot update sales team on a cancelled Sales Invoice.");
         }
 
-        var totalPercentage = salesTeam.Sum(s => s.AllocatedPercentage);
-        if (Math.Round(totalPercentage, 2) != 100m)
-            throw new BusinessException(MyERPDomainErrorCodes.SalesTeamPercentageMustTotal100)
-                .WithData("total", Math.Round(totalPercentage, 2));
-
-        var spRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesPerson, Guid>>();
-        var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
-        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
-
-        // Filter commission-eligible items (per ERPNext grant_commission flag, gotcha #6156)
-        var itemIds = invoice.Items.Select(i => i.ItemId).Distinct().ToList();
-        var itemEntities = await itemRepo.GetListAsync(i => itemIds.Contains(i.Id));
-        var itemGrantMap = itemEntities.ToDictionary(i => i.Id, i => i.GrantCommission);
-
-        // Amount eligible for commission is in company default currency (ERPNext PR #48271 / commit 7c7b392789)
-        var exchangeRate = invoice.ExchangeRate > 0 ? invoice.ExchangeRate : 1m;
-        var eligibleAmount = Math.Round(invoice.Items
-            .Where(i => !itemGrantMap.TryGetValue(i.ItemId, out var grant) || grant)
-            .Sum(i => i.LineTotal) * exchangeRate, 2);
-
-        foreach (var row in salesTeam)
+        var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
+            invoice.Items.Select(i => (i.ItemId, i.LineTotal)), invoice.ExchangeRate);
+        var inputs = input.Select(s => new SalesTeamAllocationInput
         {
-            var salesPerson = await spRepo.GetAsync(row.SalesPersonId);
-            if (salesPerson.IsGroup)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Cannot assign Group Sales Person '{salesPerson.Name}' to Sales Team.");
-            }
-            if (!salesPerson.IsEnabled)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Cannot assign Disabled Sales Person '{salesPerson.Name}' to Sales Team.");
-            }
+            SalesPersonId = s.SalesPersonId,
+            AllocatedPercentage = s.AllocatedPercentage,
+            CommissionRate = s.CommissionRate
+        });
+        await SalesTeamService.SetSalesTeamAsync("SalesInvoice", invoice.Id, eligibleAmount, inputs, invoice.IsReturn, invoice.ReturnAgainstId);
 
-            var commissionRate = row.CommissionRate ?? salesPerson.CommissionRate;
-
-            var entry = new SalesTeamEntry(
-                GuidGenerator.Create(), row.SalesPersonId, "SalesInvoice", invoice.Id,
-                row.AllocatedPercentage, eligibleAmount, commissionRate);
-            await teamRepo.InsertAsync(entry);
-        }
+        var dto = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
+        await AttachSalesTeamAsync(dto);
+        return dto;
     }
 
     private async Task AttachSalesTeamAsync(SalesInvoiceDto dto)
@@ -1003,6 +986,75 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         {
             await CreateSalesTeamEntriesAsync(invoice, input.SalesTeam);
         }
+        else if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
+        {
+            var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
+            var teamQuery = await teamRepo.GetQueryableAsync();
+            var origEntries = teamQuery.Where(e => e.ParentType == "SalesInvoice" && e.ParentId == invoice.ReturnAgainstId.Value).ToList();
+            if (origEntries.Count > 0)
+            {
+                var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
+                    invoice.Items.Select(i => (i.ItemId, i.LineTotal)), invoice.ExchangeRate);
+                var inputs = origEntries.Select(s => new SalesTeamAllocationInput
+                {
+                    SalesPersonId = s.SalesPersonId,
+                    AllocatedPercentage = s.AllocatedPercentage,
+                    CommissionRate = s.CommissionRate // preserve return rate
+                });
+                await SalesTeamService.SetSalesTeamAsync("SalesInvoice", invoice.Id, eligibleAmount, inputs, true, invoice.ReturnAgainstId);
+            }
+        }
+        else
+        {
+            // Per ERPNext PR #61835: mapped sales team from SO or DN uses current master rate
+            var linkedSoId = invoice.Items.FirstOrDefault(i => i.SalesOrderItemId.HasValue)?.SalesOrderItemId;
+            var linkedDnId = invoice.Items.FirstOrDefault(i => i.DeliveryNoteItemId.HasValue)?.DeliveryNoteItemId;
+            Guid? sourceDocId = null;
+            string? sourceParentType = null;
+
+            if (linkedDnId.HasValue)
+            {
+                var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
+                var dnQuery = await dnRepo.GetQueryableAsync();
+                var dn = dnQuery.FirstOrDefault(d => d.Items.Any(item => item.Id == linkedDnId.Value));
+                if (dn != null)
+                {
+                    sourceDocId = dn.Id;
+                    sourceParentType = "DeliveryNote";
+                }
+            }
+
+            if (!sourceDocId.HasValue && linkedSoId.HasValue)
+            {
+                var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
+                var soQuery = await soRepo.GetQueryableAsync();
+                var so = soQuery.FirstOrDefault(s => s.Items.Any(item => item.Id == linkedSoId.Value));
+                if (so != null)
+                {
+                    sourceDocId = so.Id;
+                    sourceParentType = "SalesOrder";
+                }
+            }
+
+            if (sourceDocId.HasValue && sourceParentType != null)
+            {
+                var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
+                var teamQuery = await teamRepo.GetQueryableAsync();
+                var sourceEntries = teamQuery.Where(e => e.ParentType == sourceParentType && e.ParentId == sourceDocId.Value).ToList();
+                if (sourceEntries.Count > 0)
+                {
+                    var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
+                        invoice.Items.Select(i => (i.ItemId, i.LineTotal)), invoice.ExchangeRate);
+                    var inputs = sourceEntries.Select(s => new SalesTeamAllocationInput
+                    {
+                        SalesPersonId = s.SalesPersonId,
+                        AllocatedPercentage = s.AllocatedPercentage,
+                        CommissionRate = null // fetch master rate
+                    });
+                    await SalesTeamService.SetSalesTeamAsync("SalesInvoice", invoice.Id, eligibleAmount, inputs);
+                }
+            }
+        }
 
         // Persist payment schedule entries (after invoice saved so we have the ID)
         if (input.PaymentTermsTemplateId.HasValue && !invoice.IsOpening)
@@ -1031,7 +1083,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             await AdjustAdvanceFromSalesOrderAsync(invoice);
         }
 
-        return ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
+        var createResultDto = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
+        await AttachSalesTeamAsync(createResultDto);
+        return createResultDto;
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]

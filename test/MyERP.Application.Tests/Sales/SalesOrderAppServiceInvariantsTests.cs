@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
 using MyERP.Core.Entities;
@@ -133,6 +134,73 @@ public abstract class SalesOrderAppServiceInvariantsTests<TStartupModule> : MyER
             var updatedLead = await leadRepo.GetAsync(lead.Id);
             updatedLead.Status.ShouldBe(LeadStatus.Interested);
             updatedLead.ConvertedCustomerId.ShouldBeNull();
+        });
+    }
+
+    [Fact]
+    public async Task UpdateSalesTeamAsync_OnCancelledSalesOrder_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var soRepo = GetRequiredService<IRepository<SalesOrder, Guid>>();
+            var salesPersonRepo = GetRequiredService<IRepository<SalesPerson, Guid>>();
+            var soAppService = GetRequiredService<ISalesOrderAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SO Cancel Co"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Cust Cancel"), autoSave: true);
+            var salesPerson = await salesPersonRepo.InsertAsync(new SalesPerson(Guid.NewGuid(), "Rep 1"), autoSave: true);
+
+            var so = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-CANCEL-01", DateTime.UtcNow.Date);
+            so.Cancel();
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                soAppService.UpdateSalesTeamAsync(so.Id, new List<SalesTeamAllocationInputDto>
+                {
+                    new() { SalesPersonId = salesPerson.Id, AllocatedPercentage = 100m, CommissionRate = 5m }
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
+
+    [Fact]
+    public async Task UpdateSalesTeamAsync_OnSubmittedSalesOrder_Succeeds()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var soRepo = GetRequiredService<IRepository<SalesOrder, Guid>>();
+            var salesPersonRepo = GetRequiredService<IRepository<SalesPerson, Guid>>();
+            var soAppService = GetRequiredService<ISalesOrderAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SO Submit Co"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Cust Submit"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "SO-ITM-SUB", "SO Itm Sub", ItemType.Goods), autoSave: true);
+            var sp1 = await salesPersonRepo.InsertAsync(new SalesPerson(Guid.NewGuid(), "Rep 1") { CommissionRate = 10m }, autoSave: true);
+            var sp2 = await salesPersonRepo.InsertAsync(new SalesPerson(Guid.NewGuid(), "Rep 2") { CommissionRate = 5m }, autoSave: true);
+
+            var so = new SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-SUB-01", DateTime.UtcNow.Date);
+            so.AddItem(item.Id, "SO Itm Sub", 2, 500m, 0m);
+            so.Submit();
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            // Update sales team post-submit
+            var result = await soAppService.UpdateSalesTeamAsync(so.Id, new List<SalesTeamAllocationInputDto>
+            {
+                new() { SalesPersonId = sp1.Id, AllocatedPercentage = 60m },
+                new() { SalesPersonId = sp2.Id, AllocatedPercentage = 40m }
+            });
+
+            result.ShouldNotBeNull();
+            result.SalesTeam.Count.ShouldBe(2);
+            result.SalesTeam.Sum(s => s.AllocatedPercentage).ShouldBe(100m);
+            result.SalesTeam.First(s => s.SalesPersonId == sp1.Id).Incentives.ShouldBe(60m); // 1000 * 60% * 10% = 60
+            result.SalesTeam.First(s => s.SalesPersonId == sp2.Id).Incentives.ShouldBe(20m); // 1000 * 40% * 5% = 20
         });
     }
 }

@@ -36,6 +36,9 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
     private readonly BatchExpiryValidationService _batchValidation;
     private readonly ItemTransactionValidationService _itemValidation;
     private readonly CreditLimitService _creditLimitService;
+    private readonly SalesTeamService? _salesTeamService;
+    private SalesTeamService SalesTeamService =>
+        _salesTeamService ?? LazyServiceProvider.LazyGetRequiredService<SalesTeamService>();
 
     public DeliveryNoteAppService(
         IRepository<DeliveryNote, Guid> repository,
@@ -49,8 +52,10 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         QualityInspectionEnforcementService qiEnforcement,
         BatchExpiryValidationService batchValidation,
         ItemTransactionValidationService itemValidation,
-        CreditLimitService creditLimitService)
+        CreditLimitService creditLimitService,
+        SalesTeamService? salesTeamService = null)
     {
+        _salesTeamService = salesTeamService;
         _repository = repository;
         _salesOrderRepository = salesOrderRepository;
         _activityLogRepository = activityLogRepository;
@@ -76,6 +81,7 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         if (customer != null)
             dto.CustomerName = customer.Name;
 
+        await AttachSalesTeamAsync(dto);
         return dto;
     }
 
@@ -323,7 +329,35 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         }
 
         await _repository.InsertAsync(dn, autoSave: true);
-        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+
+        if (input.SalesTeam != null && input.SalesTeam.Count > 0)
+        {
+            var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
+                dn.Items.Select(i => (i.ItemId, i.LineTotal)), dn.ExchangeRate);
+            var inputs = input.SalesTeam.Select(s => new SalesTeamAllocationInput
+            {
+                SalesPersonId = s.SalesPersonId,
+                AllocatedPercentage = s.AllocatedPercentage,
+                CommissionRate = s.CommissionRate
+            });
+            await SalesTeamService.SetSalesTeamAsync("DeliveryNote", dn.Id, eligibleAmount, inputs, dn.IsReturn, dn.ReturnAgainstId);
+        }
+        else if (dn.IsReturn && dn.ReturnAgainstId.HasValue)
+        {
+            var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
+                dn.Items.Select(i => (i.ItemId, i.LineTotal)), dn.ExchangeRate);
+            await SalesTeamService.CopySalesTeamFromSourceAsync("DeliveryNote", dn.ReturnAgainstId.Value, "DeliveryNote", dn.Id, eligibleAmount);
+        }
+        else if (dn.SalesOrderId.HasValue)
+        {
+            var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
+                dn.Items.Select(i => (i.ItemId, i.LineTotal)), dn.ExchangeRate);
+            await SalesTeamService.CopySalesTeamFromSourceAsync("SalesOrder", dn.SalesOrderId.Value, "DeliveryNote", dn.Id, eligibleAmount);
+        }
+
+        var dto = ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+        await AttachSalesTeamAsync(dto);
+        return dto;
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Edit)]
@@ -445,7 +479,23 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
         }
 
         await _repository.UpdateAsync(dn, autoSave: true);
-        return ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+
+        if (input.SalesTeam != null && input.SalesTeam.Count > 0)
+        {
+            var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
+                dn.Items.Select(i => (i.ItemId, i.LineTotal)), dn.ExchangeRate);
+            var inputs = input.SalesTeam.Select(s => new SalesTeamAllocationInput
+            {
+                SalesPersonId = s.SalesPersonId,
+                AllocatedPercentage = s.AllocatedPercentage,
+                CommissionRate = s.CommissionRate
+            });
+            await SalesTeamService.SetSalesTeamAsync("DeliveryNote", dn.Id, eligibleAmount, inputs, dn.IsReturn, dn.ReturnAgainstId);
+        }
+
+        var dto = ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+        await AttachSalesTeamAsync(dto);
+        return dto;
     }
 
     [Authorize(MyERPPermissions.DeliveryNotes.Submit)]
@@ -1457,5 +1507,54 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
 
         return updatedCount;
     }
-}
+[Authorize(MyERPPermissions.DeliveryNotes.Edit)]
+    public async Task<DeliveryNoteDto> UpdateSalesTeamAsync(Guid id, List<SalesTeamAllocationInputDto> input)
+    {
+        var dn = await _repository.GetAsync(id);
+        if (dn.Status == Core.DocumentStatus.Cancelled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot update sales team on a cancelled Delivery Note.");
+        }
 
+        var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
+            dn.Items.Select(i => (i.ItemId, i.LineTotal)), dn.ExchangeRate);
+        var inputs = input.Select(s => new SalesTeamAllocationInput
+        {
+            SalesPersonId = s.SalesPersonId,
+            AllocatedPercentage = s.AllocatedPercentage,
+            CommissionRate = s.CommissionRate
+        });
+        await SalesTeamService.SetSalesTeamAsync("DeliveryNote", dn.Id, eligibleAmount, inputs, dn.IsReturn, dn.ReturnAgainstId);
+
+        var dto = ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(dn);
+        await AttachSalesTeamAsync(dto);
+        return dto;
+    }
+
+    private async Task AttachSalesTeamAsync(DeliveryNoteDto dto)
+    {
+        var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
+        var teamQuery = await teamRepo.GetQueryableAsync();
+        var entries = teamQuery.Where(e => e.ParentType == "DeliveryNote" && e.ParentId == dto.Id).ToList();
+        if (entries.Count == 0) return;
+
+        var spRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesPerson, Guid>>();
+        var spQuery = await spRepo.GetQueryableAsync();
+        var spIds = entries.Select(e => e.SalesPersonId).Distinct().ToList();
+        var spNames = spQuery.Where(sp => spIds.Contains(sp.Id))
+            .Select(sp => new { sp.Id, sp.Name }).ToList()
+            .ToDictionary(sp => sp.Id, sp => sp.Name);
+
+        dto.SalesTeam = entries.Select(e => new SalesTeamEntryDto
+        {
+            SalesPersonId = e.SalesPersonId,
+            SalesPersonName = spNames.GetValueOrDefault(e.SalesPersonId),
+            AllocatedPercentage = e.AllocatedPercentage,
+            AllocatedAmount = e.AllocatedAmount,
+            CommissionRate = e.CommissionRate,
+            Incentives = e.Incentives,
+        }).ToList();
+        dto.TotalCommission = entries.Sum(e => e.Incentives);
+    }
+}

@@ -1,4 +1,4 @@
-import type { CreateInvoiceFromDeliveryNotesDto, CreateSalesInvoiceDto, InvoicePaymentHistoryDto, PaymentScheduleDto, SalesInvoiceDto, SalesInvoiceListSummaryDto, UnbilledDeliveryItemDto, UnbilledOrderItemDto } from './models';
+import type { CreateInvoiceFromDeliveryNotesDto, CreateSalesInvoiceDto, InvoicePaymentHistoryDto, PaymentScheduleDto, SalesInvoiceDto, SalesInvoiceListSummaryDto, SalesTeamAllocationInputDto, UnbilledDeliveryItemDto, UnbilledOrderItemDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -170,4 +170,12 @@ export class SalesInvoiceService {
       url: `/api/app/sales-invoice/${id}/write-off`,
     },
     { apiName: this.apiName,...config });
+  updateSalesTeam = (id: string, input: SalesTeamAllocationInputDto[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesInvoiceDto>({
+      method: 'PUT',
+      url: `/api/app/sales-invoice/${id}/sales-team`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
 }

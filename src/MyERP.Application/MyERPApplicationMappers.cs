@@ -754,8 +754,12 @@ public partial class BlanketOrderMapper : MapperBase<Sales.Entities.BlanketOrder
 public partial class DeliveryNoteMapper : MapperBase<Sales.Entities.DeliveryNote, Sales.DeliveryNoteDto>
 {
     [MapperIgnoreTarget(nameof(Sales.DeliveryNoteDto.CustomerName))]
+    [MapperIgnoreTarget(nameof(Sales.DeliveryNoteDto.SalesTeam))]
+    [MapperIgnoreTarget(nameof(Sales.DeliveryNoteDto.TotalCommission))]
     public override partial Sales.DeliveryNoteDto Map(Sales.Entities.DeliveryNote source);
     [MapperIgnoreTarget(nameof(Sales.DeliveryNoteDto.CustomerName))]
+    [MapperIgnoreTarget(nameof(Sales.DeliveryNoteDto.SalesTeam))]
+    [MapperIgnoreTarget(nameof(Sales.DeliveryNoteDto.TotalCommission))]
     public override partial void Map(Sales.Entities.DeliveryNote source, Sales.DeliveryNoteDto destination);
     private partial Sales.DeliveryNoteItemDto MapChild(Sales.Entities.DeliveryNoteItem source);
 }

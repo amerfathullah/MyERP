@@ -134,6 +134,16 @@ public class SalesPersonTarget : Entity<Guid>
 }
 
 /// <summary>
+/// Input model for assigning or updating sales team allocations on selling documents.
+/// </summary>
+public class SalesTeamAllocationInput
+{
+    public Guid SalesPersonId { get; set; }
+    public decimal AllocatedPercentage { get; set; }
+    public decimal? CommissionRate { get; set; }
+}
+
+/// <summary>
 /// Links a sales person to a transaction (Sales Order, Sales Invoice, etc.)
 /// with their allocated percentage and calculated commission.
 /// Embedded as a child row in selling documents.

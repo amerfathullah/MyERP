@@ -35,4 +35,5 @@ public interface ISalesOrderAppService : IApplicationService
     /// factoring in item-level and global OverBillingAllowance.
     /// </summary>
     Task<List<SalesOrderDto>> GetBillableSalesOrdersAsync(Guid? customerId = null, Guid? companyId = null);
+    Task<SalesOrderDto> UpdateSalesTeamAsync(Guid id, List<SalesTeamAllocationInputDto> input);
 }

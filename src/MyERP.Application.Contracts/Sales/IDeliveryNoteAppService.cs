@@ -21,4 +21,5 @@ public interface IDeliveryNoteAppService : IApplicationService
     Task<DeliveryNoteDto> ReopenItemAsync(Guid id, Guid itemId);
     Task<BulkOperationResultDto> BulkSubmitAsync(List<Guid> ids);
     Task<int> RecalculateReturnedDeliveryNotesBillingStatusAsync();
+    Task<DeliveryNoteDto> UpdateSalesTeamAsync(Guid id, List<SalesTeamAllocationInputDto> input);
 }

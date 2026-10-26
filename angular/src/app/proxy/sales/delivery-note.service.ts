@@ -1,4 +1,4 @@
-import type { CreateDeliveryNoteDto, DeliveryNoteDto } from './models';
+import type { CreateDeliveryNoteDto, DeliveryNoteDto, SalesTeamAllocationInputDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -110,4 +110,12 @@ export class DeliveryNoteService {
       body: input,
     },
     { apiName: this.apiName,...config });
+  updateSalesTeam = (id: string, input: SalesTeamAllocationInputDto[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DeliveryNoteDto>({
+      method: 'PUT',
+      url: `/api/app/delivery-note/${id}/sales-team`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
 }

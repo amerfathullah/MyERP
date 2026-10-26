@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Accounting;
 using MyERP.Accounting.Entities;
@@ -601,5 +602,79 @@ public abstract class DeliveryNoteCompanyGuardTests<TStartupModule> : MyERPAppli
             new DocumentSeries(Guid.NewGuid(), company.Id, $"DN Series {tag}", "DeliveryNote", $"DN{tag}-"), autoSave: true);
         await seriesRepo.InsertAsync(
             new DocumentSeries(Guid.NewGuid(), company.Id, $"SI Series {tag}", "SalesInvoice", $"SI{tag}-"), autoSave: true);
+    }
+
+    [Fact]
+    public async Task UpdateSalesTeamAsync_OnCancelledDeliveryNote_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var dnRepo = GetRequiredService<IRepository<DeliveryNote, Guid>>();
+            var salesPersonRepo = GetRequiredService<IRepository<SalesPerson, Guid>>();
+            var dnAppService = GetRequiredService<IDeliveryNoteAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "DN Cancel Co"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Cust Cancel"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "WH Cancel"), autoSave: true);
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "DN-ITM-CANC", "DN Itm Canc", ItemType.Goods), autoSave: true);
+            var sp = await salesPersonRepo.InsertAsync(new SalesPerson(Guid.NewGuid(), "Rep 1"), autoSave: true);
+
+            var dn = new DeliveryNote(Guid.NewGuid(), company.Id, customer.Id, wh.Id, "DN-CANCEL-01", DateTime.UtcNow.Date);
+            dn.AddItem(item.Id, "DN Itm Canc", 1, 100m, 0m);
+            dn.Submit();
+            dn.Cancel();
+            await dnRepo.InsertAsync(dn, autoSave: true);
+
+            var ex = await Should.ThrowAsync<BusinessException>(() =>
+                dnAppService.UpdateSalesTeamAsync(dn.Id, new List<SalesTeamAllocationInputDto>
+                {
+                    new() { SalesPersonId = sp.Id, AllocatedPercentage = 100m, CommissionRate = 5m }
+                }));
+
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        });
+    }
+
+    [Fact]
+    public async Task UpdateSalesTeamAsync_OnSubmittedDeliveryNote_Succeeds()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<Customer, Guid>>();
+            var whRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var dnRepo = GetRequiredService<IRepository<DeliveryNote, Guid>>();
+            var salesPersonRepo = GetRequiredService<IRepository<SalesPerson, Guid>>();
+            var dnAppService = GetRequiredService<IDeliveryNoteAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "DN Submit Co"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "Cust Submit"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "WH Submit"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "DN-ITM-SUB", "DN Itm Sub", ItemType.Goods), autoSave: true);
+            var sp1 = await salesPersonRepo.InsertAsync(new SalesPerson(Guid.NewGuid(), "Rep 1") { CommissionRate = 10m }, autoSave: true);
+            var sp2 = await salesPersonRepo.InsertAsync(new SalesPerson(Guid.NewGuid(), "Rep 2") { CommissionRate = 5m }, autoSave: true);
+
+            var dn = new DeliveryNote(Guid.NewGuid(), company.Id, customer.Id, wh.Id, "DN-SUB-01", DateTime.UtcNow.Date);
+            dn.AddItem(item.Id, "DN Itm Sub", 2, 500m, 0m);
+            dn.Submit();
+            await dnRepo.InsertAsync(dn, autoSave: true);
+
+            var result = await dnAppService.UpdateSalesTeamAsync(dn.Id, new List<SalesTeamAllocationInputDto>
+            {
+                new() { SalesPersonId = sp1.Id, AllocatedPercentage = 60m },
+                new() { SalesPersonId = sp2.Id, AllocatedPercentage = 40m }
+            });
+
+            result.ShouldNotBeNull();
+            result.SalesTeam.Count.ShouldBe(2);
+            result.SalesTeam.Sum(s => s.AllocatedPercentage).ShouldBe(100m);
+            result.SalesTeam.First(s => s.SalesPersonId == sp1.Id).Incentives.ShouldBe(60m);
+            result.SalesTeam.First(s => s.SalesPersonId == sp2.Id).Incentives.ShouldBe(20m);
+        });
     }
 }

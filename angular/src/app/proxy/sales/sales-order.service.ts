@@ -1,4 +1,4 @@
-import type { CreateSalesOrderDto, DeliveryScheduleEntryDto, OrderPaymentDto, SalesOrderDto, SalesOrderTrackingBoardDto } from './models';
+import type { CreateSalesOrderDto, DeliveryScheduleEntryDto, OrderPaymentDto, SalesOrderDto, SalesOrderTrackingBoardDto, SalesTeamAllocationInputDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -153,4 +153,12 @@ export class SalesOrderService {
       body: input,
     },
     { apiName: this.apiName,...config });
+  updateSalesTeam = (id: string, input: SalesTeamAllocationInputDto[], config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesOrderDto>({
+      method: 'PUT',
+      url: `/api/app/sales-order/${id}/sales-team`,
+      body: input,
+    },
+    { apiName: this.apiName,...config });
+
 }

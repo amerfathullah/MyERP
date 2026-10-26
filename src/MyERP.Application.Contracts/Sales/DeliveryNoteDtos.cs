@@ -36,6 +36,9 @@ public class DeliveryNoteDto : EntityDto<Guid>
     public string? BillingStatus { get; set; }
     public string? InstallationStatus { get; set; }
     public List<DeliveryNoteItemDto> Items { get; set; } = new();
+    public List<SalesTeamEntryDto> SalesTeam { get; set; } = new();
+    /// <summary>Sum of SalesTeam.Incentives — total commission payable on this delivery note.</summary>
+    public decimal TotalCommission { get; set; }
 }
 
 public class DeliveryNoteItemDto
@@ -74,6 +77,7 @@ public class CreateDeliveryNoteDto
     public Guid? ReturnAgainstId { get; set; }
     public string? Notes { get; set; }
     [Required][MinLength(1)] public List<CreateDeliveryNoteItemDto> Items { get; set; } = new();
+    public List<SalesTeamAllocationInputDto>? SalesTeam { get; set; }
 }
 
 public class CreateDeliveryNoteItemDto

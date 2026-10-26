@@ -35,4 +35,5 @@ public interface ISalesInvoiceAppService : IApplicationService
     /// Enables dashboard-style cards without fetching all invoices.
     /// </summary>
     Task<SalesInvoiceListSummaryDto> GetListSummaryAsync(Guid? companyId);
+    Task<SalesInvoiceDto> UpdateSalesTeamAsync(Guid id, List<SalesTeamAllocationInputDto> input);
 }

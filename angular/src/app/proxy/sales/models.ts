@@ -140,6 +140,7 @@ export interface CreateDeliveryNoteDto {
   returnAgainstId?: string | null;
   notes?: string | null;
   items: CreateDeliveryNoteItemDto[];
+  salesTeam?: SalesTeamAllocationInputDto[] | null;
 }
 
 export interface CreateDeliveryNoteItemDto {
@@ -728,6 +729,8 @@ export interface DeliveryNoteDto extends EntityDto<string> {
   billingStatus?: string | null;
   installationStatus?: string | null;
   items?: DeliveryNoteItemDto[];
+  salesTeam?: SalesTeamEntryDto[] | null;
+  totalCommission?: number;
 }
 
 export interface DeliveryNoteItemDto {

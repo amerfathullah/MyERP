@@ -37,6 +37,9 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     private readonly PricingRuleApplicationService _pricingRuleService;
     private readonly ItemTransactionValidationService _itemValidation;
     private readonly ChildItemUpdateService _childItemUpdateService;
+    private readonly SalesTeamService? _salesTeamService;
+    private SalesTeamService SalesTeamService =>
+        _salesTeamService ?? LazyServiceProvider.LazyGetRequiredService<SalesTeamService>();
 
     public SalesOrderAppService(
         IRepository<SalesOrder, Guid> repository,
@@ -46,8 +49,10 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         ApprovalWorkflowManager approvalManager,
         PricingRuleApplicationService pricingRuleService,
         ItemTransactionValidationService itemValidation,
-        ChildItemUpdateService childItemUpdateService)
+        ChildItemUpdateService childItemUpdateService,
+        SalesTeamService? salesTeamService = null)
     {
+        _salesTeamService = salesTeamService;
         _repository = repository;
         _customerRepository = customerRepository;
         _numberGenerator = numberGenerator;
@@ -111,71 +116,40 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     {
         if (salesTeam == null || salesTeam.Count == 0) return;
 
-        // Per ERPNext PR #61835: unique members and individual bounds
-        var seenSalesPersons = new HashSet<Guid>();
-        for (int i = 0; i < salesTeam.Count; i++)
+        var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
+            order.Items.Select(i => (i.ItemId, i.LineTotal)), order.ExchangeRate);
+        var inputs = salesTeam.Select(s => new SalesTeamAllocationInput
         {
-            var row = salesTeam[i];
-            if (!seenSalesPersons.Add(row.SalesPersonId))
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", "Sales Person is repeated in the sales team.");
-            }
-            if (row.AllocatedPercentage < 0m || row.AllocatedPercentage > 100m)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Row #{i + 1}: Contribution (%) must be between 0 and 100.");
-            }
+            SalesPersonId = s.SalesPersonId,
+            AllocatedPercentage = s.AllocatedPercentage,
+            CommissionRate = s.CommissionRate
+        });
+        await SalesTeamService.SetSalesTeamAsync("SalesOrder", order.Id, eligibleAmount, inputs);
+    }
+
+    [Authorize(MyERPPermissions.SalesOrders.Edit)]
+    public async Task<SalesOrderDto> UpdateSalesTeamAsync(Guid id, List<SalesTeamAllocationInputDto> input)
+    {
+        var order = await _repository.GetAsync(id);
+        if (order.Status == Core.DocumentStatus.Cancelled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot update sales team on a cancelled Sales Order.");
         }
 
-        var totalPercentage = salesTeam.Sum(s => s.AllocatedPercentage);
-        if (Math.Round(totalPercentage, 2) != 100m)
-            throw new BusinessException(MyERPDomainErrorCodes.SalesTeamPercentageMustTotal100)
-                .WithData("total", Math.Round(totalPercentage, 2));
-
-        var spRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesPerson, Guid>>();
-        var teamRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesTeamEntry, Guid>>();
-        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
-
-        var itemIds = order.Items.Select(i => i.ItemId).Distinct().ToList();
-        var itemEntities = await itemRepo.GetListAsync(i => itemIds.Contains(i.Id));
-        var itemGrantMap = itemEntities.ToDictionary(i => i.Id, i => i.GrantCommission);
-
-        var eligibleAmount = order.Items
-            .Where(i => !itemGrantMap.TryGetValue(i.ItemId, out var grant) || grant)
-            .Sum(i => i.LineTotal);
-
-        foreach (var row in salesTeam)
+        var eligibleAmount = await SalesTeamService.CalculateEligibleAmountAsync(
+            order.Items.Select(i => (i.ItemId, i.LineTotal)), order.ExchangeRate);
+        var inputs = input.Select(s => new SalesTeamAllocationInput
         {
-            var salesPerson = await spRepo.GetAsync(row.SalesPersonId);
-            if (salesPerson.IsGroup)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Cannot assign Group Sales Person '{salesPerson.Name}' to Sales Team.");
-            }
-            if (!salesPerson.IsEnabled)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Cannot assign Disabled Sales Person '{salesPerson.Name}' to Sales Team.");
-            }
+            SalesPersonId = s.SalesPersonId,
+            AllocatedPercentage = s.AllocatedPercentage,
+            CommissionRate = s.CommissionRate
+        });
+        await SalesTeamService.SetSalesTeamAsync("SalesOrder", order.Id, eligibleAmount, inputs);
 
-            var commissionRate = row.CommissionRate ?? salesPerson.CommissionRate;
-            if (commissionRate > 100m)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Commission rate ({commissionRate}%) cannot exceed 100%.");
-            }
-            if (commissionRate < 0m)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                    .WithData("detail", $"Commission rate ({commissionRate}%) cannot be negative.");
-            }
-
-            var entry = new SalesTeamEntry(
-                GuidGenerator.Create(), row.SalesPersonId, "SalesOrder", order.Id,
-                row.AllocatedPercentage, eligibleAmount, commissionRate);
-            await teamRepo.InsertAsync(entry);
-        }
+        var dto = ObjectMapper.Map<SalesOrder, SalesOrderDto>(order);
+        await AttachSalesTeamAsync(dto);
+        return dto;
     }
 
     private async Task AttachSalesTeamAsync(SalesOrderDto dto)
