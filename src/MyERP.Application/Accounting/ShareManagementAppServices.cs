@@ -101,7 +101,7 @@ public class ShareholderAppService : ApplicationService, IShareholderAppService
     {
         var shareholder = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
 
-        // Per ERPNext PR #61496 / commit 3421cba306: protect shareholder registers
+        // Per ERPNext PR #61496 / commits 3421cba306 & 6ddb6d8617: protect shareholder registers
         if (shareholder.CompanyId != input.CompanyId)
         {
             if (shareholder.ShareBalances.Any(b => b.NoOfShares > 0))
@@ -113,7 +113,7 @@ public class ShareholderAppService : ApplicationService, IShareholderAppService
             var transferQuery = await _shareTransferRepository.GetQueryableAsync();
             var hasSubmittedTransfers = transferQuery.Any(t =>
                 t.Status == Core.DocumentStatus.Submitted &&
-                (t.FromShareholderId == id || t.ToShareholderId == id));
+                (t.FromShareholderId == id || t.ToShareholderId == id || (shareholder.IsCompany && t.CompanyId == shareholder.CompanyId)));
 
             if (hasSubmittedTransfers)
             {
@@ -135,7 +135,7 @@ public class ShareholderAppService : ApplicationService, IShareholderAppService
     {
         var shareholder = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
 
-        // Per ERPNext PR #61496 / commit 3421cba306: protect shareholder registers
+        // Per ERPNext PR #61496 / commits 3421cba306 & 6ddb6d8617: protect shareholder registers
         if (shareholder.ShareBalances.Any(b => b.NoOfShares > 0))
         {
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
@@ -145,7 +145,7 @@ public class ShareholderAppService : ApplicationService, IShareholderAppService
         var transferQuery = await _shareTransferRepository.GetQueryableAsync();
         var hasSubmittedTransfers = transferQuery.Any(t =>
             t.Status == Core.DocumentStatus.Submitted &&
-            (t.FromShareholderId == id || t.ToShareholderId == id));
+            (t.FromShareholderId == id || t.ToShareholderId == id || (shareholder.IsCompany && t.CompanyId == shareholder.CompanyId)));
 
         if (hasSubmittedTransfers)
         {

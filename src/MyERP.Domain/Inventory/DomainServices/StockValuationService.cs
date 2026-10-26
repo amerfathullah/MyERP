@@ -587,6 +587,46 @@ public class StockValuationService : DomainService
             .ThenByDescending(e => e.CreationTime)
             .FirstOrDefault();
 
+        // Per ERPNext PR #62314 / commit 27303023b9:
+        // Value a transfer's inward leg at what left the source warehouse on repost.
+        // Update incoming_rate from the outward leg's stock_value_difference so target warehouse
+        // maintains valuation equality with the source warehouse.
+        var inwardTransferEntries = entries
+            .Where(e => e.QuantityChange > 0 && (e.RecalculateRate || e.VoucherType == "StockEntry") && e.VoucherDetailNo.HasValue && e.VoucherId.HasValue)
+            .ToList();
+
+        if (inwardTransferEntries.Count > 0)
+        {
+            var voucherDetailIds = inwardTransferEntries.Select(e => e.VoucherDetailNo!.Value).Distinct().ToList();
+            var voucherIds = inwardTransferEntries.Select(e => e.VoucherId!.Value).Distinct().ToList();
+
+            var outwardSles = query
+                .Where(e => e.ItemId == itemId
+                         && e.QuantityChange < 0
+                         && !e.IsCancelled
+                         && e.VoucherDetailNo.HasValue
+                         && voucherDetailIds.Contains(e.VoucherDetailNo.Value)
+                         && e.VoucherId.HasValue
+                         && voucherIds.Contains(e.VoucherId.Value))
+                .ToList();
+
+            var outwardValueByDetail = outwardSles
+                .GroupBy(o => (o.VoucherId, o.VoucherDetailNo))
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Sum(o => Math.Abs(o.StockValueDifference != 0 ? o.StockValueDifference : o.StockValue)));
+
+            foreach (var inward in inwardTransferEntries)
+            {
+                if (outwardValueByDetail.TryGetValue((inward.VoucherId, inward.VoucherDetailNo), out var outwardVal) && outwardVal > 0)
+                {
+                    var updatedRate = inward.QuantityChange > 0 ? (outwardVal / inward.QuantityChange) : inward.ValuationRate;
+                    inward.IncomingRate = updatedRate;
+                    inward.ValuationRate = updatedRate;
+                }
+            }
+        }
+
         switch (item.ValuationMethod)
         {
             case ValuationMethod.FIFO:
@@ -868,6 +908,7 @@ public class StockValuationService : DomainService
 
             if (entry.QuantityChange > 0)
             {
+                entry.StockValue = entry.QuantityChange * entry.ValuationRate;
                 if (runningQty <= 0)
                 {
                     // Reset behavior

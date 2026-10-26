@@ -565,6 +565,13 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
                 .WithData("detail", "Please select at least one Lost Reason.");
         }
 
+        // Per ERPNext PR #61828 (commit 03771aebd8): check if this quotation itself is ordered
+        if (quotation.OrderStatus == "Ordered" || quotation.ConvertedToSalesOrderId.HasValue || quotation.Items.Any(i => i.OrderedQty > 0))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot set as Lost as Sales Order is made.");
+        }
+
         // Per ERPNext PR #59378: check if any version in the family is ordered
         var rootId = quotation.RevisionOfId ?? quotation.Id;
         var queryable = await _repository.GetQueryableAsync();
