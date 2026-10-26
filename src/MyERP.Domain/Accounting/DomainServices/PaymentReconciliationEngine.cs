@@ -114,21 +114,29 @@ public class PaymentReconciliationEngine : DomainService
         IReadOnlyList<ReconciliationAllocation> allocations)
     {
         var result = new ReconciliationResult();
+        var remainingOutstandingMap = new Dictionary<(string VoucherType, Guid VoucherId), decimal>();
 
         foreach (var alloc in allocations)
         {
             try
             {
-                // Stale outstanding validation (real-time, not from UI snapshot)
-                var currentOutstanding = await _pleService.GetOutstandingAsync(
-                    alloc.InvoiceVoucherType, alloc.InvoiceVoucherId);
+                var key = (alloc.InvoiceVoucherType, alloc.InvoiceVoucherId);
+                if (!remainingOutstandingMap.TryGetValue(key, out var remainingOutstanding))
+                {
+                    // Stale outstanding validation (real-time, not from UI snapshot)
+                    remainingOutstanding = Math.Abs(await _pleService.GetOutstandingAsync(
+                        alloc.InvoiceVoucherType, alloc.InvoiceVoucherId));
+                    remainingOutstandingMap[key] = remainingOutstanding;
+                }
 
-                if (Math.Abs(alloc.AllocatedAmount) > Math.Abs(currentOutstanding) + 0.01m)
+                // Per ERPNext PR #61484 / commit eb2a08a8ac: protect against over-allocation
+                // when multiple batch allocation rows target the same invoice
+                if (Math.Abs(alloc.AllocatedAmount) > remainingOutstanding + 0.01m)
                 {
                     result.Errors.Add(new ReconciliationError
                     {
                         InvoiceVoucherId = alloc.InvoiceVoucherId,
-                        Message = $"Outstanding changed: was expected > {alloc.AllocatedAmount:N2}, now {currentOutstanding:N2}",
+                        Message = $"Outstanding changed or exceeded: requested {alloc.AllocatedAmount:N2}, remaining {remainingOutstanding:N2}",
                     });
                     continue;
                 }
@@ -142,6 +150,7 @@ public class PaymentReconciliationEngine : DomainService
                     alloc.AllocatedAmount, alloc.AllocatedAmount,
                     accountCurrency);
 
+                remainingOutstandingMap[key] = Math.Max(0m, remainingOutstanding - Math.Abs(alloc.AllocatedAmount));
                 result.ReconciledCount++;
                 result.TotalAllocated += alloc.AllocatedAmount;
                 result.AppliedAllocations.Add(alloc);

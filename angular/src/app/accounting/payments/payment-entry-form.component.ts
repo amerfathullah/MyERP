@@ -9,10 +9,11 @@ import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
+import { BankAccountService } from '../../proxy/accounting/bank-account.service';
 import { AccountService } from '../../proxy/accounting/account.service';
 import { CustomerService } from '../../proxy/sales/customer.service';
 import { SupplierService } from '../../proxy/purchasing/supplier.service';
-import type { AccountDto, CreatePaymentEntryDto, PaymentEntryTaxDto } from '../../proxy/accounting/models';
+import type { AccountDto, BankAccountDto, CreatePaymentEntryDto, PaymentEntryTaxDto } from '../../proxy/accounting/models';
 import { AccountSubType } from '../../proxy/accounting/account-sub-type.enum';
 import { PaymentTaxChargeType } from '../../proxy/accounting/payment-tax-charge-type.enum';
 import { TaxAddDeduct } from '../../proxy/accounting/tax-add-deduct.enum';
@@ -43,8 +44,10 @@ export class PaymentEntryFormComponent implements OnInit {
   private currencyExchangeService = inject(CurrencyExchangeService);
   private projectService = inject(ProjectService);
   private costCenterService = inject(CostCenterService);
+  private bankAccountService = inject(BankAccountService);
 
   accounts = signal<AccountDto[]>([]);
+  bankAccounts = signal<BankAccountDto[]>([]);
   parties = signal<{ id: string; name: string }[]>([]);
   costCenters = signal<{ id: string; name: string }[]>([]);
   projects = signal<{ id: string; name: string }[]>([]);
@@ -84,6 +87,19 @@ export class PaymentEntryFormComponent implements OnInit {
     return type === 'Pay' ? this.payableAccounts() : this.receivableAccounts();
   });
   bankAccountOptions = computed(() => this.bankCashAccounts());
+
+  // Linked bank accounts for Internal Transfer (per ERPNext PR #60585)
+  paidFromBankAccount = computed(() => {
+    const acctId = this.form?.get('paidFromAccount')?.value;
+    if (!acctId) return null;
+    return this.bankAccounts().find(b => b.accountId === acctId && !b.isDisabled) || null;
+  });
+
+  paidToBankAccount = computed(() => {
+    const acctId = this.form?.get('paidToAccount')?.value;
+    if (!acctId) return null;
+    return this.bankAccounts().find(b => b.accountId === acctId && !b.isDisabled) || null;
+  });
 
   totalAllocated = computed(() => {
     let sum = 0;
@@ -142,6 +158,11 @@ export class PaymentEntryFormComponent implements OnInit {
         this.accounts.set(res.items ?? []);
         // Auto-resolve accounts once list is loaded (only for new entries)
         if (!this.isEditMode) { this.resolveAccounts(); }
+      }, error: () => {} });
+
+    this.bankAccountService.getList({ skipCount: 0, maxResultCount: 500 } as any)
+      .subscribe({ next: (res) => {
+        this.bankAccounts.set(res.items ?? []);
       }, error: () => {} });
 
     // Load cost centers and projects for dimension selectors
@@ -640,6 +661,8 @@ export class PaymentEntryFormComponent implements OnInit {
       paidAmount: raw.amount,
       paidFromAccountId: raw.paidFromAccount,
       paidToAccountId: raw.paidToAccount,
+      paidFromBankAccountId: this.paidFromBankAccount()?.id ?? null,
+      paidToBankAccountId: this.paidToBankAccount()?.id ?? null,
       paidFromAccountCurrency: this.paidFromAccountCurrency(),
       paidToAccountCurrency: this.paidToAccountCurrency(),
       referenceNumber: raw.reference,

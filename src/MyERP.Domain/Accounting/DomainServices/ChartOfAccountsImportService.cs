@@ -68,6 +68,18 @@ public class ChartOfAccountsImportService : DomainService
                 .WithData("codes", string.Join(", ", duplicates));
         }
 
+        // Per ERPNext PR #60274 (commit c3402e7280): reject duplicate account names under the same parent
+        var duplicateNames = rows
+            .GroupBy(r => $"{r.ParentCode ?? string.Empty}::{r.AccountName.Trim()}", StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.First().AccountName)
+            .ToList();
+        if (duplicateNames.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Account '{string.Join(", ", duplicateNames)}' is duplicated under the same parent. Use a different name or account number.");
+        }
+
         // Reset existing company default accounts before replacing (per ERPNext unset_existing_data)
         Core.Entities.Company? company = null;
         if (_companyRepository != null)
@@ -297,11 +309,21 @@ public class ChartOfAccountsImportService : DomainService
     {
         var result = new List<CoaTemplateRow>();
         var processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var codeToRow = rows.ToDictionary(r => r.AccountCode, StringComparer.OrdinalIgnoreCase);
 
         void Visit(CoaTemplateRow row)
         {
             if (processed.Contains(row.AccountCode)) return;
+
+            // Per ERPNext PR #62153 (commit 36ddeb4f5e): detect circular reference
+            if (visiting.Contains(row.AccountCode))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Circular reference found for account '{row.AccountCode}' ({row.AccountName}).");
+            }
+
+            visiting.Add(row.AccountCode);
 
             // Process parent first if it exists
             if (!string.IsNullOrWhiteSpace(row.ParentCode) && codeToRow.TryGetValue(row.ParentCode, out var parent))
@@ -309,6 +331,7 @@ public class ChartOfAccountsImportService : DomainService
                 Visit(parent);
             }
 
+            visiting.Remove(row.AccountCode);
             processed.Add(row.AccountCode);
             result.Add(row);
         }

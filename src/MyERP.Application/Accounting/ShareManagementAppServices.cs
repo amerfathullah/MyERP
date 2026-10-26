@@ -53,8 +53,15 @@ public class ShareTypeAppService : ApplicationService, IShareTypeAppService
 public class ShareholderAppService : ApplicationService, IShareholderAppService
 {
     private readonly IRepository<Shareholder, Guid> _repository;
+    private readonly IRepository<ShareTransfer, Guid> _shareTransferRepository;
 
-    public ShareholderAppService(IRepository<Shareholder, Guid> repository) => _repository = repository;
+    public ShareholderAppService(
+        IRepository<Shareholder, Guid> repository,
+        IRepository<ShareTransfer, Guid> shareTransferRepository)
+    {
+        _repository = repository;
+        _shareTransferRepository = shareTransferRepository;
+    }
 
     public async Task<PagedResultDto<ShareholderDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
@@ -92,7 +99,31 @@ public class ShareholderAppService : ApplicationService, IShareholderAppService
     [Authorize(MyERPPermissions.ShareManagement.Edit)]
     public async Task<ShareholderDto> UpdateAsync(Guid id, CreateUpdateShareholderDto input)
     {
-        var shareholder = await _repository.GetAsync(id);
+        var shareholder = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
+
+        // Per ERPNext PR #61496 / commit 3421cba306: protect shareholder registers
+        if (shareholder.CompanyId != input.CompanyId)
+        {
+            if (shareholder.ShareBalances.Any(b => b.NoOfShares > 0))
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot change company of a shareholder with active shares.");
+            }
+
+            var transferQuery = await _shareTransferRepository.GetQueryableAsync();
+            var hasSubmittedTransfers = transferQuery.Any(t =>
+                t.Status == Core.DocumentStatus.Submitted &&
+                (t.FromShareholderId == id || t.ToShareholderId == id));
+
+            if (hasSubmittedTransfers)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Cannot change company of a shareholder with submitted share transfers.");
+            }
+
+            shareholder.CompanyId = input.CompanyId;
+        }
+
         shareholder.Title = input.Title;
         shareholder.FolioNo = input.FolioNo;
         await _repository.UpdateAsync(shareholder);
@@ -100,7 +131,30 @@ public class ShareholderAppService : ApplicationService, IShareholderAppService
     }
 
     [Authorize(MyERPPermissions.ShareManagement.Delete)]
-    public async Task DeleteAsync(Guid id) => await _repository.DeleteAsync(id);
+    public async Task DeleteAsync(Guid id)
+    {
+        var shareholder = (await _repository.WithDetailsAsync()).First(s => s.Id == id);
+
+        // Per ERPNext PR #61496 / commit 3421cba306: protect shareholder registers
+        if (shareholder.ShareBalances.Any(b => b.NoOfShares > 0))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot delete a shareholder with active shares. Transfer shares first.");
+        }
+
+        var transferQuery = await _shareTransferRepository.GetQueryableAsync();
+        var hasSubmittedTransfers = transferQuery.Any(t =>
+            t.Status == Core.DocumentStatus.Submitted &&
+            (t.FromShareholderId == id || t.ToShareholderId == id));
+
+        if (hasSubmittedTransfers)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot delete a shareholder with submitted share transfers.");
+        }
+
+        await _repository.DeleteAsync(id);
+    }
 }
 
 [Authorize(MyERPPermissions.ShareManagement.Default)]

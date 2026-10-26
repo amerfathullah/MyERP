@@ -108,7 +108,8 @@ public class BudgetValidationService : DomainService
                 var totalAfter = currentSpend + item.Amount;
 
                 // 1. Annual budget check
-                if (annualAction != BudgetAction.Ignore && totalAfter > budgetAccount.BudgetAmount)
+                // Per ERPNext PR #61988 (commit fe95375b98 / f6f18a9ca2): round comparison to budget amount precision
+                if (annualAction != BudgetAction.Ignore && Math.Round(totalAfter - budgetAccount.BudgetAmount, 2) > 0)
                 {
                     if (annualAction == BudgetAction.Stop)
                     {
@@ -121,13 +122,13 @@ public class BudgetValidationService : DomainService
                     }
                 }
 
-                // 2. Accumulated monthly budget check (ERPNext commit 388d901668)
+                // 2. Accumulated monthly budget check (ERPNext commit 388d901668 & PR #61988)
                 if (monthlyAction != BudgetAction.Ignore)
                 {
                     var accumulatedMonthlyBudget = await CalculateAccumulatedMonthlyBudgetAsync(
                         budget, budgetAccount.BudgetAmount, postingDate, fiscalYearId);
 
-                    if (totalAfter > accumulatedMonthlyBudget)
+                    if (Math.Round(totalAfter - accumulatedMonthlyBudget, 2) > 0)
                     {
                         if (monthlyAction == BudgetAction.Stop)
                         {
@@ -142,7 +143,7 @@ public class BudgetValidationService : DomainService
                 }
 
                 // 3. Cumulative expense check (Purchase Order + Material Request + Actual Expense)
-                // Per ERPNext commits 45368f983b / 3eb07fba2a
+                // Per ERPNext commits 45368f983b / 3eb07fba2a & PR #61988
                 if (budget.ApplicableOnCumulativeExpense)
                 {
                     var cumulativeAnnualAction = budget.ActionIfAnnualExceededOnCumulativeExpense;
@@ -159,7 +160,7 @@ public class BudgetValidationService : DomainService
                         var cumulativeSpend = await GetCumulativeSpendAsync(companyId, fiscalYearId, tenantId);
                         var totalCumulativeAfter = cumulativeSpend.GetValueOrDefault(item.AccountId, 0m) + item.Amount;
 
-                        if (cumulativeAnnualAction != BudgetAction.Ignore && totalCumulativeAfter > budgetAccount.BudgetAmount)
+                        if (cumulativeAnnualAction != BudgetAction.Ignore && Math.Round(totalCumulativeAfter - budgetAccount.BudgetAmount, 2) > 0)
                         {
                             if (cumulativeAnnualAction == BudgetAction.Stop)
                             {
@@ -177,7 +178,7 @@ public class BudgetValidationService : DomainService
                             var accumulatedMonthlyBudget = await CalculateAccumulatedMonthlyBudgetAsync(
                                 budget, budgetAccount.BudgetAmount, postingDate, fiscalYearId);
 
-                            if (totalCumulativeAfter > accumulatedMonthlyBudget)
+                            if (Math.Round(totalCumulativeAfter - accumulatedMonthlyBudget, 2) > 0)
                             {
                                 if (cumulativeMonthlyAction == BudgetAction.Stop)
                                 {
@@ -267,6 +268,9 @@ public class BudgetValidationService : DomainService
                 var conversionRate = po.ExchangeRate > 0 ? po.ExchangeRate : 1m;
                 foreach (var item in po.Items)
                 {
+                    // Per ERPNext PR #61988 (commit b5a4734a8d): skip closed PO item rows in budget commitments
+                    if (item.IsClosed) continue;
+
                     var unbilledQty = Math.Max(0, item.Quantity - item.BilledQty);
                     if (unbilledQty <= 0) continue;
 

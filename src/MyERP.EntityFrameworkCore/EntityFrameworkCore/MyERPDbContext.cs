@@ -1673,6 +1673,8 @@ public class MyERPDbContext :
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasOne<Account>().WithMany().HasForeignKey(x => x.PaidFromAccountId).IsRequired().OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Account>().WithMany().HasForeignKey(x => x.PaidToAccountId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<BankAccount>().WithMany().HasForeignKey(x => x.PaidFromBankAccountId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<BankAccount>().WithMany().HasForeignKey(x => x.PaidToBankAccountId).OnDelete(DeleteBehavior.Restrict);
             b.HasMany(x => x.References).WithOne().HasForeignKey(x => x.PaymentEntryId).IsRequired();
             b.Navigation(x => x.References).AutoInclude();
             b.HasMany(x => x.Taxes).WithOne().HasForeignKey(x => x.PaymentEntryId).IsRequired();

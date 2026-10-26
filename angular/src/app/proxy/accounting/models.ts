@@ -1058,6 +1058,8 @@ export interface CreatePaymentEntryDto {
   receivedAmount?: number | null;
   paidFromAccountId: string;
   paidToAccountId: string;
+  paidFromBankAccountId?: string | null;
+  paidToBankAccountId?: string | null;
   paidFromAccountCurrency?: string | null;
   paidFromAccountType?: string | null;
   paidToAccountCurrency?: string | null;
@@ -2102,6 +2104,10 @@ export interface PaymentEntryDto extends EntityDto<string> {
   referenceDate?: string | null;
   paidFromAccountId?: string;
   paidToAccountId?: string;
+  paidFromBankAccountId?: string | null;
+  paidFromBankAccountName?: string | null;
+  paidToBankAccountId?: string | null;
+  paidToBankAccountName?: string | null;
   paidFromAccountCurrency?: string | null;
   paidFromAccountType?: string | null;
   paidToAccountCurrency?: string | null;

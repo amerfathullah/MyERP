@@ -990,6 +990,8 @@
     "BankStatementImport": "Bank Statement Import",
     "BankStatementImportHelp": "Upload a CSV bank statement to import transactions for reconciliation.",
     "BankAccount": "Bank Account",
+    "BankAccountFrom": "Bank Account (From)",
+    "BankAccountTo": "Bank Account (To)",
     "SelectCSVFile": "Select CSV File",
     "SelectMT940File": "Select MT940 File",
     "ImportFormat": "Import Format",

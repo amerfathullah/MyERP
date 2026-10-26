@@ -20,6 +20,10 @@ public class PaymentEntryDto : EntityDto<Guid>
     public DateTime? ReferenceDate { get; set; }
     public Guid PaidFromAccountId { get; set; }
     public Guid PaidToAccountId { get; set; }
+    public Guid? PaidFromBankAccountId { get; set; }
+    public string? PaidFromBankAccountName { get; set; }
+    public Guid? PaidToBankAccountId { get; set; }
+    public string? PaidToBankAccountName { get; set; }
     public string? PaidFromAccountCurrency { get; set; }
     public string? PaidFromAccountType { get; set; }
     public string? PaidToAccountCurrency { get; set; }
@@ -59,6 +63,8 @@ public class CreatePaymentEntryDto
     public decimal? ReceivedAmount { get; set; }
     [Required] public Guid PaidFromAccountId { get; set; }
     [Required] public Guid PaidToAccountId { get; set; }
+    public Guid? PaidFromBankAccountId { get; set; }
+    public Guid? PaidToBankAccountId { get; set; }
     public string? PaidFromAccountCurrency { get; set; }
     public string? PaidFromAccountType { get; set; }
     public string? PaidToAccountCurrency { get; set; }

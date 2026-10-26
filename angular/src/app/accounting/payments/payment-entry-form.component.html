@@ -94,6 +94,18 @@
               }
             </small>
           </div>
+          @if (form.get('paymentType')?.value === 'InternalTransfer') {
+            <div class="col-12 col-md-6 mb-3">
+              <label class="form-label text-muted">{{ '::BankAccountFrom' | abpLocalization }}</label>
+              <input type="text" class="form-control bg-light" readonly
+                     [value]="paidFromBankAccount()?.accountName ?? '—'" />
+            </div>
+            <div class="col-12 col-md-6 mb-3">
+              <label class="form-label text-muted">{{ '::BankAccountTo' | abpLocalization }}</label>
+              <input type="text" class="form-control bg-light" readonly
+                     [value]="paidToBankAccount()?.accountName ?? '—'" />
+            </div>
+          }
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::Amount' | abpLocalization }}</label>
             <div class="input-group">

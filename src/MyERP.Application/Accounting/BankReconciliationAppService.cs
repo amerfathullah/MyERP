@@ -734,6 +734,49 @@ public class BankReconciliationAppService : ApplicationService, IBankReconciliat
             : amount;
     }
 
+    /// <summary>
+    /// Returns the GL balance of the bank account up to the specified date, cleared or uncleared.
+    /// Maps to ERPNext accounts/doctype/bank_reconciliation_tool get_account_opening_balance.
+    /// Per ERPNext PR #60523 / commit 1fc15db869.
+    /// </summary>
+    public async Task<decimal> GetAccountOpeningBalanceAsync(Guid bankAccountId, DateTime tillDate)
+    {
+        var bankAccountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BankAccount, Guid>>();
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+        var jeLineRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntryLine, Guid>>();
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+
+        var bankAccount = await bankAccountRepo.FindAsync(bankAccountId);
+        var glAccountId = bankAccount?.AccountId ?? bankAccountId;
+
+        var account = await accountRepo.FindAsync(glAccountId);
+        var companyId = bankAccount?.CompanyId ?? account?.CompanyId ?? Guid.Empty;
+        var company = companyId != Guid.Empty ? await companyRepo.FindAsync(companyId) : null;
+        var companyCurrency = company?.CurrencyCode ?? "MYR";
+        var bankCurrency = account?.Currency ?? companyCurrency;
+
+        var postedJeIds = (await jeRepo.GetQueryableAsync())
+            .Where(je => (companyId == Guid.Empty || je.CompanyId == companyId)
+                && je.Status == Core.DocumentStatus.Posted
+                && je.PostingDate <= tillDate)
+            .Select(je => je.Id)
+            .ToList();
+
+        var lines = (await jeLineRepo.GetQueryableAsync())
+            .Where(l => postedJeIds.Contains(l.JournalEntryId)
+                && l.AccountId == glAccountId
+                && (l.FinanceBook == null || l.FinanceBook == ""))
+            .ToList();
+
+        var totalDebit = lines.Where(l => l.IsDebit)
+            .Sum(l => GetAmountInBankCurrency(bankCurrency, companyCurrency, l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount, l.Amount));
+        var totalCredit = lines.Where(l => !l.IsDebit)
+            .Sum(l => GetAmountInBankCurrency(bankCurrency, companyCurrency, l.AmountInAccountCurrency != 0 ? l.AmountInAccountCurrency : l.Amount, l.Amount));
+
+        return totalDebit - totalCredit;
+    }
+
 
     /// <summary>
     /// Regular Payment Entry number series when configured; otherwise a timestamp number with a random

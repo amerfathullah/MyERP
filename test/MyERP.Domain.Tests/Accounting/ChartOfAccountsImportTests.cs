@@ -241,5 +241,63 @@ public class ChartOfAccountsImportTests
         Should.Throw<Volo.Abp.BusinessException>(() =>
             ChartOfAccountsImportService.GetTemplateByCountry("XX"));
     }
+
+    [Fact]
+    public async Task ImportAsync_DuplicateAccountNameUnderSameParent_ThrowsValidationException()
+    {
+        // Per ERPNext PR #60274 / commit c3402e7280: reject duplicate account names under the same parent
+        var accountRepo = Substitute.For<IRepository<Account, Guid>>();
+        var journalRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
+        var companyRepo = Substitute.For<IRepository<MyERP.Core.Entities.Company, Guid>>();
+
+        journalRepo.AnyAsync(Arg.Any<Expression<Func<JournalEntry, bool>>>())
+            .Returns(Task.FromResult(false));
+
+        var importService = new ChartOfAccountsImportService(accountRepo, journalRepo, companyRepo);
+        var companyId = Guid.NewGuid();
+
+        var rows = new List<CoaTemplateRow>
+        {
+            new("1000", "Assets", AccountType.Asset, isGroup: true),
+            new("1100", "Bank Accounts", AccountType.Asset, isGroup: true, parentCode: "1000"),
+            new("1110", "Operating Account", AccountType.Asset, parentCode: "1100"),
+            new("1120", "Operating Account", AccountType.Asset, parentCode: "1100") // Duplicate under same parent "1100"
+        };
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            importService.ImportAsync(companyId, rows));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("is duplicated under the same parent");
+    }
+
+    [Fact]
+    public async Task ImportAsync_CircularReferenceInHierarchy_ThrowsValidationException()
+    {
+        // Per ERPNext PR #62153 / commit 36ddeb4f5e: circular reference detection
+        var accountRepo = Substitute.For<IRepository<Account, Guid>>();
+        var journalRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
+        var companyRepo = Substitute.For<IRepository<MyERP.Core.Entities.Company, Guid>>();
+
+        journalRepo.AnyAsync(Arg.Any<Expression<Func<JournalEntry, bool>>>())
+            .Returns(Task.FromResult(false));
+
+        var importService = new ChartOfAccountsImportService(accountRepo, journalRepo, companyRepo);
+        var companyId = Guid.NewGuid();
+
+        // Cycle: A -> B -> C -> A
+        var rows = new List<CoaTemplateRow>
+        {
+            new("1000", "Group A", AccountType.Asset, isGroup: true, parentCode: "3000"),
+            new("2000", "Group B", AccountType.Asset, isGroup: true, parentCode: "1000"),
+            new("3000", "Group C", AccountType.Asset, isGroup: true, parentCode: "2000"),
+        };
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            importService.ImportAsync(companyId, rows));
+
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Circular reference found for account");
+    }
 }
 

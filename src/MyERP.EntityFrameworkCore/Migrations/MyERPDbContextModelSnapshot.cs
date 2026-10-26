@@ -4008,7 +4008,13 @@ namespace MyERP.Migrations
                     b.Property<Guid>("PaidFromAccountId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("PaidFromBankAccountId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("PaidToAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("PaidToBankAccountId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("PartyId")
@@ -4063,7 +4069,11 @@ namespace MyERP.Migrations
 
                     b.HasIndex("PaidFromAccountId");
 
+                    b.HasIndex("PaidFromBankAccountId");
+
                     b.HasIndex("PaidToAccountId");
+
+                    b.HasIndex("PaidToBankAccountId");
 
                     b.HasIndex("TenantId", "CompanyId", "PaymentNumber")
                         .IsUnique()
@@ -10276,6 +10286,9 @@ namespace MyERP.Migrations
                     b.Property<Guid?>("DefaultBankAccountId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("DefaultBuyingTermsId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("DefaultCostCenterId")
                         .HasColumnType("uuid");
 
@@ -10304,6 +10317,9 @@ namespace MyERP.Migrations
                         .HasColumnType("text");
 
                     b.Property<Guid?>("DefaultScrapWarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultSellingTermsId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("DefaultStockAdjustmentAccountId")
@@ -17868,6 +17884,9 @@ namespace MyERP.Migrations
                     b.Property<TimeSpan?>("PostingTime")
                         .HasColumnType("interval");
 
+                    b.Property<bool>("RecalculateValuationRate")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("RepostGlEntries")
                         .HasColumnType("boolean");
 
@@ -22357,6 +22376,11 @@ namespace MyERP.Migrations
                     b.Property<DateTime?>("ActualStartDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<decimal>("AdditionalOperatingCost")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,4)")
+                        .HasDefaultValue(0m);
+
                     b.Property<bool>("AllowAlternativeItem")
                         .HasColumnType("boolean");
 
@@ -24404,6 +24428,13 @@ namespace MyERP.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");
 
+                    b.Property<string>("Terms")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid?>("TermsAndConditionsId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("ToDate")
                         .HasColumnType("timestamp without time zone");
 
@@ -24709,6 +24740,9 @@ namespace MyERP.Migrations
                     b.Property<string>("Terms")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid?>("TermsAndConditionsId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -27563,6 +27597,9 @@ namespace MyERP.Migrations
                     b.Property<int>("OverdueDays")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("PaymentScheduleId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("SalesInvoiceId")
                         .HasColumnType("uuid");
 
@@ -29503,6 +29540,9 @@ namespace MyERP.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<Guid?>("TermsAndConditionsId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("ValidUntil")
                         .HasColumnType("timestamp without time zone");
 
@@ -29943,6 +29983,13 @@ namespace MyERP.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");
 
+                    b.Property<string>("Terms")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid?>("TermsAndConditionsId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("ToDate")
                         .HasColumnType("timestamp without time zone");
 
@@ -30220,6 +30267,9 @@ namespace MyERP.Migrations
                     b.Property<string>("Terms")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid?>("TermsAndConditionsId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -35720,11 +35770,21 @@ namespace MyERP.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("MyERP.Accounting.Entities.BankAccount", null)
+                        .WithMany()
+                        .HasForeignKey("PaidFromBankAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("MyERP.Accounting.Entities.Account", null)
                         .WithMany()
                         .HasForeignKey("PaidToAccountId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("MyERP.Accounting.Entities.BankAccount", null)
+                        .WithMany()
+                        .HasForeignKey("PaidToBankAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("MyERP.Accounting.Entities.PaymentEntryReference", b =>

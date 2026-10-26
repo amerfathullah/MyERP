@@ -167,11 +167,30 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 .ToDictionary(e => e.Id, e => e.Name);
         }
 
+        var bankAccountIds = list.SelectMany(p => new[] { p.PaidFromBankAccountId, p.PaidToBankAccountId })
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+        var bankAccountNames = new Dictionary<Guid, string>();
+        if (bankAccountIds.Count > 0)
+        {
+            var bankRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BankAccount, Guid>>();
+            var bankQuery = await bankRepo.GetQueryableAsync();
+            bankAccountNames = bankQuery.Where(b => bankAccountIds.Contains(b.Id))
+                .Select(b => new { b.Id, b.AccountName }).ToList()
+                .ToDictionary(b => b.Id, b => b.AccountName);
+        }
+
         for (int i = 0; i < dtos.Count; i++)
         {
             var pe = list[i];
             dtos[i].PartyType = pe.PartyType;
             dtos[i].PartyId = pe.PartyId;
+            if (pe.PaidFromBankAccountId.HasValue)
+                dtos[i].PaidFromBankAccountName = bankAccountNames.GetValueOrDefault(pe.PaidFromBankAccountId.Value);
+            if (pe.PaidToBankAccountId.HasValue)
+                dtos[i].PaidToBankAccountName = bankAccountNames.GetValueOrDefault(pe.PaidToBankAccountId.Value);
             if (pe.PartyId.HasValue && !string.IsNullOrWhiteSpace(pe.PartyType))
             {
                 if (string.Equals(pe.PartyType, "Customer", StringComparison.OrdinalIgnoreCase))
@@ -339,6 +358,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         pe.ReceivedAmount = input.ReceivedAmount.HasValue && input.ReceivedAmount.Value > 0
             ? input.ReceivedAmount.Value
             : input.PaidAmount;
+        await SetInternalTransferBankAccountsAsync(pe);
 
         // Multi-currency: auto-resolve exchange rate if not explicitly provided
         // Per ERPNext: when payment currency ≠ company currency, fetch rate from CurrencyExchange
@@ -1430,6 +1450,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         entry.PaidFromAccountId = input.PaidFromAccountId != Guid.Empty ? input.PaidFromAccountId : entry.PaidFromAccountId;
         entry.PaidToAccountId = input.PaidToAccountId != Guid.Empty ? input.PaidToAccountId : entry.PaidToAccountId;
         entry.ValidateInternalTransferAccounts();
+        await SetInternalTransferBankAccountsAsync(entry);
         await ValidateTransactionReferenceAsync(
             entry.PaymentType, entry.PaidFromAccountId, entry.PaidToAccountId, input.ReferenceNumber, input.ReferenceDate);
         entry.ReferenceNumber = input.ReferenceNumber;
@@ -1903,6 +1924,42 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 dto.PaidToAccountCurrency ??= acc.Currency;
                 dto.PaidToAccountType ??= acc.AccountType.ToString();
             }
+        }
+        if (dto.PaidFromBankAccountId.HasValue && string.IsNullOrEmpty(dto.PaidFromBankAccountName))
+        {
+            var bankRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BankAccount, Guid>>();
+            var b = await bankRepo.FindAsync(dto.PaidFromBankAccountId.Value);
+            dto.PaidFromBankAccountName = b?.AccountName;
+        }
+        if (dto.PaidToBankAccountId.HasValue && string.IsNullOrEmpty(dto.PaidToBankAccountName))
+        {
+            var bankRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BankAccount, Guid>>();
+            var b = await bankRepo.FindAsync(dto.PaidToBankAccountId.Value);
+            dto.PaidToBankAccountName = b?.AccountName;
+        }
+    }
+
+    /// <summary>
+    /// Sets read-only bank account links for Internal Transfer payment entries.
+    /// Per ERPNext PR #60585 / commit ff8bbe8f56: sets PaidFromBankAccountId and PaidToBankAccountId
+    /// from the active Bank Account linked to PaidFromAccountId / PaidToAccountId.
+    /// Clears them when payment type is not Internal Transfer.
+    /// </summary>
+    private async Task SetInternalTransferBankAccountsAsync(PaymentEntry pe)
+    {
+        if (pe.PaymentType == PaymentType.InternalTransfer)
+        {
+            var bankRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BankAccount, Guid>>();
+            var query = await bankRepo.GetQueryableAsync();
+            var activeBankAccounts = query.Where(b => !b.IsDisabled).ToList();
+
+            pe.PaidFromBankAccountId = activeBankAccounts.FirstOrDefault(b => b.AccountId == pe.PaidFromAccountId)?.Id;
+            pe.PaidToBankAccountId = activeBankAccounts.FirstOrDefault(b => b.AccountId == pe.PaidToAccountId)?.Id;
+        }
+        else
+        {
+            pe.PaidFromBankAccountId = null;
+            pe.PaidToBankAccountId = null;
         }
     }
 

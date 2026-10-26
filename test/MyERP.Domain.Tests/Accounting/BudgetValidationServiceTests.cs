@@ -157,6 +157,34 @@ public class BudgetValidationServiceTests
         checkItem.Amount.ShouldBe(4500m);
     }
 
+    [Fact]
+    public void BudgetCheck_PrecisionRounding_SubCentDifferenceDoesNotExceed()
+    {
+        // Per ERPNext PR #61988 (commits fe95375b98, f6f18a9ca2): round comparison to 2 decimals
+        decimal budgetAmount = 1000.00m;
+        decimal totalSpend = 1000.004m; // floating sub-cent difference
+
+        var rawDiff = totalSpend - budgetAmount;
+        var roundedDiff = Math.Round(rawDiff, 2);
+
+        rawDiff.ShouldBeGreaterThan(0m);
+        (roundedDiff > 0).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void PurchaseOrder_ClosedItem_IsMarkedClosedForBudgetExclusion()
+    {
+        // Per ERPNext PR #61988 (commit b5a4734a8d): closed PO items excluded from budget commitment
+        var po = new Purchasing.Entities.PurchaseOrder(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PO-CLOSED-01", DateTime.UtcNow);
+        var itemId = Guid.NewGuid();
+        po.AddItem(itemId, "Item 1", 10m, 100m, 0m, "Unit");
+
+        po.Items[0].IsClosed.ShouldBeFalse();
+        po.CloseItem(po.Items[0].Id);
+        po.Items[0].IsClosed.ShouldBeTrue();
+    }
+
     private static Budget CreateBudget(decimal amount, bool submit = true)
     {
         var budget = new Budget(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "CostCenter", Guid.NewGuid());

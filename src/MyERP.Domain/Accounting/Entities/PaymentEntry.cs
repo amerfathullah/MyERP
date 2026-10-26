@@ -35,6 +35,18 @@ public class PaymentEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public Guid PaidFromAccountId { get; set; }
     public Guid PaidToAccountId { get; set; }
 
+    /// <summary>
+    /// Bank account linked to PaidFromAccountId for Internal Transfer payment entries.
+    /// Maps to ERPNext accounts/doctype/payment_entry paid_from_bank_account.
+    /// </summary>
+    public Guid? PaidFromBankAccountId { get; set; }
+
+    /// <summary>
+    /// Bank account linked to PaidToAccountId for Internal Transfer payment entries.
+    /// Maps to ERPNext accounts/doctype/payment_entry paid_to_bank_account.
+    /// </summary>
+    public Guid? PaidToBankAccountId { get; set; }
+
     /// <summary>Mode of payment (Cash, Bank Transfer, Cheque, etc.).</summary>
     public Guid? ModeOfPaymentId { get; set; }
 

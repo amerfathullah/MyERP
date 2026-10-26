@@ -201,4 +201,35 @@ public class PaymentEntryValidationRuleTests
 
         Assert.Equal(MyERPDomainErrorCodes.OverAllocation, ex.Code);
     }
+
+    [Fact]
+    public void PaymentEntry_InternalTransfer_BankAccountsCanBeAssignedAndCleared()
+    {
+        // Per ERPNext PR #60585 / commit ff8bbe8f56: internal transfer bank account linkage
+        var pe = new PaymentEntry(
+            Guid.NewGuid(),
+            _companyId,
+            PaymentType.InternalTransfer,
+            DateTime.UtcNow,
+            1000m,
+            _paidFrom,
+            _paidTo
+        );
+
+        pe.PaidFromBankAccountId.ShouldBeNull();
+        pe.PaidToBankAccountId.ShouldBeNull();
+
+        var bankFrom = Guid.NewGuid();
+        var bankTo = Guid.NewGuid();
+
+        pe.PaidFromBankAccountId = bankFrom;
+        pe.PaidToBankAccountId = bankTo;
+        pe.PaidFromBankAccountId.ShouldBe(bankFrom);
+        pe.PaidToBankAccountId.ShouldBe(bankTo);
+
+        pe.PaidFromBankAccountId = null;
+        pe.PaidToBankAccountId = null;
+        pe.PaidFromBankAccountId.ShouldBeNull();
+        pe.PaidToBankAccountId.ShouldBeNull();
+    }
 }

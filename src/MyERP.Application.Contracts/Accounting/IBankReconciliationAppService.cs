@@ -21,6 +21,7 @@ public interface IBankReconciliationAppService : IApplicationService
     Task<VoucherCreatedResultDto> CreatePaymentEntryFromTransactionAsync(CreatePEFromTransactionDto input);
     Task<JournalEntryCreatedResultDto> CreateJournalEntryFromTransactionAsync(CreateJEFromTransactionDto input);
     Task<BankReconciliationStatementDto> GetReconciliationStatementAsync(GetBankReconciliationStatementInput input);
+    Task<decimal> GetAccountOpeningBalanceAsync(Guid bankAccountId, DateTime tillDate);
 }
 
 /// <summary>
