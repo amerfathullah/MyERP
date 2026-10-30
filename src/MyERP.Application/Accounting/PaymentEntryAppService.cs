@@ -726,12 +726,14 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 if (refRow.ReferenceType == "SalesInvoice")
                 {
                     var si = await _salesInvoiceRepository.GetAsync(refRow.ReferenceId);
+                    var allocatedInInvCurrency = ConvertAllocatedToInvoiceCurrency(
+                        refRow.AllocatedAmount, pe.CurrencyCode, pe.ExchangeRate, si.CurrencyCode, si.ExchangeRate);
 
                     // Stale outstanding validation per reference at currency precision (ERPNext PR #59783)
                     PaymentEntryManager.ValidateReferenceAllocation(
-                        refRow.AllocatedAmount, si.OutstandingAmount, si.InvoiceNumber);
+                        allocatedInInvCurrency, si.OutstandingAmount, si.InvoiceNumber);
 
-                    await UpdateInvoiceAmountPaidAsync("SalesInvoice", refRow.ReferenceId, refRow.AllocatedAmount);
+                    await UpdateInvoiceAmountPaidAsync("SalesInvoice", refRow.ReferenceId, allocatedInInvCurrency);
 
                     multiAllocations.Add(new PaymentAllocation
                     {
@@ -741,7 +743,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     });
 
                     // FIFO payment schedule allocation per referenced invoice
-                    await AllocateToPaymentScheduleAsync(refRow.ReferenceType, refRow.ReferenceId, refRow.AllocatedAmount);
+                    await AllocateToPaymentScheduleAsync(refRow.ReferenceType, refRow.ReferenceId, allocatedInInvCurrency);
                 }
                 else if (refRow.ReferenceType == "PurchaseInvoice")
                 {
@@ -753,11 +755,14 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                             .WithData("invoiceNumber", pi.InvoiceNumber);
                     }
 
+                    var allocatedInInvCurrency = ConvertAllocatedToInvoiceCurrency(
+                        refRow.AllocatedAmount, pe.CurrencyCode, pe.ExchangeRate, pi.CurrencyCode, pi.ExchangeRate);
+
                     // Stale outstanding validation per reference at currency precision (ERPNext PR #59783)
                     PaymentEntryManager.ValidateReferenceAllocation(
-                        refRow.AllocatedAmount, pi.OutstandingAmount, pi.InvoiceNumber);
+                        allocatedInInvCurrency, pi.OutstandingAmount, pi.InvoiceNumber);
 
-                    await UpdateInvoiceAmountPaidAsync("PurchaseInvoice", refRow.ReferenceId, refRow.AllocatedAmount);
+                    await UpdateInvoiceAmountPaidAsync("PurchaseInvoice", refRow.ReferenceId, allocatedInInvCurrency);
 
                     multiAllocations.Add(new PaymentAllocation
                     {
@@ -766,7 +771,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                         AllocatedAmount = refRow.AllocatedAmount
                     });
 
-                    await AllocateToPaymentScheduleAsync(refRow.ReferenceType, refRow.ReferenceId, refRow.AllocatedAmount);
+                    await AllocateToPaymentScheduleAsync(refRow.ReferenceType, refRow.ReferenceId, allocatedInInvCurrency);
                 }
             }
 
@@ -1033,7 +1038,9 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
     [Authorize(MyERPPermissions.PaymentEntries.Cancel)]
     public async Task<PaymentEntryDto> CancelAsync(Guid id)
     {
-        var pe = await _repository.GetAsync(id);
+        var pe = (await _repository.WithDetailsAsync(p => p.References, p => p.Taxes))
+            .FirstOrDefault(p => p.Id == id)
+            ?? await _repository.GetAsync(id);
 
         // Validate posting period is not frozen/closed (reversals can't post to locked periods)
         await _postingOrchestrator.ValidatePostingPeriodAsync(pe.CompanyId, pe.PostingDate, "PaymentEntry");
@@ -1098,10 +1105,21 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         {
             foreach (var refRow in pe.References)
             {
-                if (refRow.ReferenceType == "SalesInvoice" || refRow.ReferenceType == "PurchaseInvoice")
+                if (refRow.ReferenceType == "SalesInvoice")
                 {
-                    await UpdateInvoiceAmountPaidAsync(refRow.ReferenceType, refRow.ReferenceId, -refRow.AllocatedAmount);
-                    await ReversePaymentScheduleAllocationAsync(refRow.ReferenceType, refRow.ReferenceId, refRow.AllocatedAmount);
+                    var si = await _salesInvoiceRepository.GetAsync(refRow.ReferenceId);
+                    var allocatedInInvCurrency = ConvertAllocatedToInvoiceCurrency(
+                        refRow.AllocatedAmount, pe.CurrencyCode, pe.ExchangeRate, si.CurrencyCode, si.ExchangeRate);
+                    await UpdateInvoiceAmountPaidAsync(refRow.ReferenceType, refRow.ReferenceId, -allocatedInInvCurrency);
+                    await ReversePaymentScheduleAllocationAsync(refRow.ReferenceType, refRow.ReferenceId, allocatedInInvCurrency);
+                }
+                else if (refRow.ReferenceType == "PurchaseInvoice")
+                {
+                    var pi = await _purchaseInvoiceRepository.GetAsync(refRow.ReferenceId);
+                    var allocatedInInvCurrency = ConvertAllocatedToInvoiceCurrency(
+                        refRow.AllocatedAmount, pe.CurrencyCode, pe.ExchangeRate, pi.CurrencyCode, pi.ExchangeRate);
+                    await UpdateInvoiceAmountPaidAsync(refRow.ReferenceType, refRow.ReferenceId, -allocatedInInvCurrency);
+                    await ReversePaymentScheduleAllocationAsync(refRow.ReferenceType, refRow.ReferenceId, allocatedInInvCurrency);
                 }
             }
         }
@@ -1863,6 +1881,159 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 };
                 break;
             }
+            case "Dunning":
+            {
+                // Per ERPNext commits 7ca8bc3290 & 8a09633536 (get_payment_entry for Dunning):
+                // Resolve overdue amounts and unpaid dunning fees/interest in the receivable account currency.
+                await AuthorizationService.CheckAsync(MyERPPermissions.Dunnings.Default);
+                var dunningRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Dunning, Guid>>();
+                var d = (await dunningRepo.WithDetailsAsync()).FirstOrDefault(x => x.Id == documentId)
+                    ?? await dunningRepo.GetAsync(documentId);
+
+                if (d.Status != Core.DocumentStatus.Submitted)
+                    throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
+
+                var company = await companyRepo.GetAsync(d.CompanyId);
+                var companyCurrency = !string.IsNullOrWhiteSpace(company.CurrencyCode) ? company.CurrencyCode : "MYR";
+                var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.Customer, Guid>>();
+                var customer = await customerRepo.GetAsync(d.CustomerId);
+                var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+
+                Guid partyAccountId = Guid.Empty;
+                var invoiceLookup = new Dictionary<Guid, Sales.Entities.SalesInvoice>();
+                if (d.OverduePayments.Any())
+                {
+                    var invIds = d.OverduePayments.Select(p => p.SalesInvoiceId).Distinct().ToList();
+                    var siQuery = await _salesInvoiceRepository.GetQueryableAsync();
+                    invoiceLookup = siQuery.Where(si => invIds.Contains(si.Id)).ToDictionary(si => si.Id);
+                    var firstWithDebitTo = d.OverduePayments
+                        .Select(p => invoiceLookup.GetValueOrDefault(p.SalesInvoiceId))
+                        .FirstOrDefault(si => si != null && si.DebitToAccountId != Guid.Empty);
+                    if (firstWithDebitTo != null)
+                        partyAccountId = firstWithDebitTo.DebitToAccountId;
+                }
+
+                if (partyAccountId == Guid.Empty)
+                {
+                    partyAccountId = customer.DefaultReceivableAccountId
+                        ?? company.DefaultReceivableAccountId
+                        ?? Guid.Empty;
+                }
+
+                var partyAccount = partyAccountId != Guid.Empty ? await accountRepo.FindAsync(partyAccountId) : null;
+                var partyAccountCurrency = !string.IsNullOrWhiteSpace(partyAccount?.Currency)
+                    ? partyAccount.Currency!
+                    : companyCurrency;
+
+                decimal partyExchangeRate = 1m;
+                if (!string.Equals(partyAccountCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.Equals(partyAccountCurrency, d.Currency, StringComparison.OrdinalIgnoreCase) && d.ConversionRate > 0)
+                    {
+                        partyExchangeRate = d.ConversionRate;
+                    }
+                    else
+                    {
+                        var exchangeService = LazyServiceProvider.LazyGetRequiredService<CurrencyExchangeService>();
+                        var fetchedRate = await exchangeService.GetExchangeRateAsync(partyAccountCurrency, companyCurrency, DateTime.UtcNow.Date);
+                        if (fetchedRate > 0) partyExchangeRate = fetchedRate;
+                    }
+                }
+
+                var dunningAppService = LazyServiceProvider.LazyGetRequiredService<Sales.IDunningAppService>();
+                var unpaidOverdue = await dunningAppService.GetUnpaidOverduePaymentsAsync(documentId, inAccountCurrency: true);
+
+                var references = unpaidOverdue
+                    .GroupBy(p => p.SalesInvoiceId)
+                    .Select(g =>
+                    {
+                        var alloc = Math.Round(g.Sum(x => x.OutstandingAmount), 2);
+                        var inv = invoiceLookup.GetValueOrDefault(g.Key);
+                        var refRate = (inv != null
+                                && string.Equals(partyAccountCurrency, inv.CurrencyCode, StringComparison.OrdinalIgnoreCase)
+                                && inv.ExchangeRate > 0)
+                            ? inv.ExchangeRate
+                            : partyExchangeRate;
+                        return new PaymentReferenceDto
+                        {
+                            ReferenceType = "SalesInvoice",
+                            ReferenceId = g.Key,
+                            AllocatedAmount = alloc,
+                            ExchangeRate = refRate
+                        };
+                    })
+                    .Where(r => r.AllocatedAmount > 0m)
+                    .ToList();
+
+                decimal unpaidCharges;
+                if (string.Equals(partyAccountCurrency, d.Currency, StringComparison.OrdinalIgnoreCase))
+                {
+                    unpaidCharges = d.UnpaidDunningAmount;
+                }
+                else if (string.Equals(partyAccountCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+                {
+                    unpaidCharges = d.UnpaidBaseDunningAmount;
+                }
+                else
+                {
+                    unpaidCharges = partyExchangeRate > 0
+                        ? Math.Round(d.UnpaidBaseDunningAmount / partyExchangeRate, 2)
+                        : d.UnpaidBaseDunningAmount;
+                }
+
+                var overdueTotal = references.Sum(r => r.AllocatedAmount);
+                var grandTotal = Math.Round(overdueTotal + unpaidCharges, 2);
+
+                Guid? incomeAccountId = d.IncomeAccountId;
+                if ((!incomeAccountId.HasValue || incomeAccountId.Value == Guid.Empty) && d.DunningTypeId.HasValue)
+                {
+                    var dtRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.DunningType, Guid>>();
+                    var dt = await dtRepo.FindAsync(d.DunningTypeId.Value);
+                    incomeAccountId = dt?.IncomeAccountId;
+                }
+                if (!incomeAccountId.HasValue || incomeAccountId.Value == Guid.Empty)
+                {
+                    incomeAccountId = company.DefaultIncomeAccountId;
+                }
+
+                var taxes = new List<PaymentEntryTaxDto>();
+                if (unpaidCharges > 0m && incomeAccountId.HasValue && incomeAccountId.Value != Guid.Empty)
+                {
+                    taxes.Add(new PaymentEntryTaxDto
+                    {
+                        AccountId = incomeAccountId.Value,
+                        ChargeType = PaymentTaxChargeType.Actual,
+                        AddDeductTax = TaxAddDeduct.Add,
+                        TaxAmount = unpaidCharges,
+                        BaseTaxAmount = Math.Round(unpaidCharges * partyExchangeRate, 2),
+                        IncludedInPaidAmount = false,
+                        DunningId = d.Id,
+                        CostCenterId = d.CostCenterId,
+                        Description = $"Dunning Level {d.DunningLevel} Charges"
+                    });
+                }
+
+                var bankAccountId = company.DefaultBankAccountId ?? Guid.Empty;
+                template = new CreatePaymentEntryDto
+                {
+                    CompanyId = d.CompanyId,
+                    PaymentType = PaymentType.Receive,
+                    PostingDate = DateTime.UtcNow.Date,
+                    PaidAmount = grandTotal > 0 ? grandTotal : 0.01m,
+                    ReceivedAmount = grandTotal > 0 ? grandTotal : 0.01m,
+                    PaidFromAccountId = partyAccountId,
+                    PaidFromAccountCurrency = partyAccountCurrency,
+                    PaidToAccountId = bankAccountId,
+                    PartyType = "Customer",
+                    PartyId = d.CustomerId,
+                    CostCenterId = d.CostCenterId,
+                    PaymentCurrency = partyAccountCurrency,
+                    ExchangeRate = partyExchangeRate,
+                    References = references,
+                    Taxes = taxes
+                };
+                break;
+            }
             default:
                 throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                     .WithData("documentType", documentType);
@@ -2212,12 +2383,17 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     .WithData("detail", $"Row #{idx}: Dunning {dunning.Id} belongs to a different company.");
             }
 
-            Guid? expectedIncomeAccountId = null;
-            if (dunning.DunningTypeId.HasValue && dunningTypes.TryGetValue(dunning.DunningTypeId.Value, out var dt))
+            Guid? expectedIncomeAccountId = dunning.IncomeAccountId;
+            if ((!expectedIncomeAccountId.HasValue || expectedIncomeAccountId.Value == Guid.Empty)
+                && dunning.DunningTypeId.HasValue
+                && dunningTypes.TryGetValue(dunning.DunningTypeId.Value, out var dt))
             {
                 expectedIncomeAccountId = dt.IncomeAccountId;
             }
-            expectedIncomeAccountId ??= company?.DefaultIncomeAccountId;
+            if (!expectedIncomeAccountId.HasValue || expectedIncomeAccountId.Value == Guid.Empty)
+            {
+                expectedIncomeAccountId = company?.DefaultIncomeAccountId;
+            }
 
             if (expectedIncomeAccountId.HasValue && expectedIncomeAccountId.Value != Guid.Empty && tax.AccountId != expectedIncomeAccountId.Value)
             {
@@ -2231,5 +2407,24 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     .WithData("detail", $"Row #{idx}: Dunning charges must have a negative deduction amount.");
             }
         }
+    }
+
+    private static decimal ConvertAllocatedToInvoiceCurrency(
+        decimal allocatedAmount,
+        string? paymentCurrency,
+        decimal paymentExchangeRate,
+        string? invoiceCurrency,
+        decimal invoiceExchangeRate)
+    {
+        if (string.IsNullOrWhiteSpace(paymentCurrency)
+            || string.IsNullOrWhiteSpace(invoiceCurrency)
+            || string.Equals(paymentCurrency, invoiceCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            return allocatedAmount;
+        }
+
+        var peRate = paymentExchangeRate > 0 ? paymentExchangeRate : 1m;
+        var invRate = invoiceExchangeRate > 0 ? invoiceExchangeRate : 1m;
+        return Math.Round((allocatedAmount * peRate) / invRate, 2);
     }
 }

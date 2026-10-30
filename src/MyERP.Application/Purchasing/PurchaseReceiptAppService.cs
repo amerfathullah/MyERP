@@ -1025,7 +1025,8 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         // Reverse the posted GL Journal Entry (DR Stock / CR SRBNB on submit)
         await _postingOrchestrator.ReverseGlForDocumentAsync("PurchaseReceipt", receipt.Id);
 
-        // Reverse SLE + Bin for each item (in stock UOM)
+        // Reverse SLE + Bin for each item (in stock UOM) — skip non-stock items (matches SubmitAsync)
+        var cancelItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
         if (receipt.IsReturn)
         {
             Dictionary<Guid, PurchaseReceiptItem>? originalItems = null;
@@ -1045,6 +1046,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                     : item.UnitPrice;
 
                 var cancelWarehouseId = item.WarehouseId ?? receipt.WarehouseId;
+
+                var cancelReturnItemEntity = await cancelItemRepo.FindAsync(item.ItemId);
+                if (cancelReturnItemEntity != null && !cancelReturnItemEntity.MaintainStock)
+                    continue;
 
                 // Reverse accepted return: on submit we deducted stock, so on cancel we add it back
                 if (item.Quantity < 0)
@@ -1113,6 +1118,10 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
                 var ratePerStockUnit = item.ConversionFactor != 0
                     ? item.UnitPrice / item.ConversionFactor
                     : item.UnitPrice;
+
+                var cancelItemEntity = await cancelItemRepo.FindAsync(item.ItemId);
+                if (cancelItemEntity != null && !cancelItemEntity.MaintainStock)
+                    continue;
 
                 // Reverse out of the warehouse the line actually went into on submit.
                 var cancelWarehouseId = item.WarehouseId ?? receipt.WarehouseId;

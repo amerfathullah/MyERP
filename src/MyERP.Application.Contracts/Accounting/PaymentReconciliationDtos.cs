@@ -7,13 +7,18 @@ namespace MyERP.Accounting;
 public class ReconcilePaymentDto
 {
     [Required]
-    public string PartyType { get; set; } = null!; // "Customer" or "Supplier"
+    public string PartyType { get; set; } = null!; // "Customer", "Supplier", or "Employee"
 
     [Required]
     public Guid PartyId { get; set; }
 
-    [Required]
     public Guid CompanyId { get; set; }
+
+    /// <summary>
+    /// Optional Receivable or Payable account filter. Determines GL &amp; PLE direction
+    /// per ERPNext commit 7623dae273 (especially when PartyType is "Employee").
+    /// </summary>
+    public Guid? AccountId { get; set; }
 
     [Required]
     public List<ReconcileAllocationDto> Allocations { get; set; } = new();

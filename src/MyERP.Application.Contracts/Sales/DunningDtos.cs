@@ -23,6 +23,7 @@ public class DunningDto : EntityDto<Guid>
     public string Currency { get; set; } = "MYR";
     public decimal ConversionRate { get; set; } = 1m;
     public decimal BaseDunningAmount { get; set; }
+    public decimal UnpaidBaseDunningAmount { get; set; }
     public Guid? IncomeAccountId { get; set; }
     public Guid? CostCenterId { get; set; }
     public decimal RateOfInterest { get; set; }

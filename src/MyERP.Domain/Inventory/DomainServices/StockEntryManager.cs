@@ -982,25 +982,37 @@ public class StockEntryManager : DomainService
         var scaleFactor = disassembleQty / sourceFgQty;
         var tolerance = 1m / (decimal)Math.Pow(10, precision);
 
-        foreach (var item in disassemblyItems.Where(i => !i.IsFinishedItem))
+        var groupedDisassembly = disassemblyItems
+            .Where(i => !i.IsFinishedItem)
+            .GroupBy(i => (i.SourceStockEntryDetailId, i.ItemId));
+
+        foreach (var group in groupedDisassembly)
         {
-            // Match by source detail ID first, then by item_code
-            var sourceItem = item.SourceStockEntryDetailId.HasValue
-                ? sourceItems.FirstOrDefault(s => s.Id == item.SourceStockEntryDetailId.Value)
-                : sourceItems.FirstOrDefault(s => s.ItemId == item.ItemId && !s.IsFinishedItem);
+            decimal sourceStockQty;
+            if (group.Key.SourceStockEntryDetailId.HasValue)
+            {
+                var sourceItem = sourceItems.FirstOrDefault(s => s.Id == group.Key.SourceStockEntryDetailId.Value);
+                if (sourceItem == null) continue;
+                sourceStockQty = sourceItem.StockQty;
+            }
+            else
+            {
+                var matchingSource = sourceItems.Where(s => s.ItemId == group.Key.ItemId && !s.IsFinishedItem).ToList();
+                if (matchingSource.Count == 0) continue;
+                sourceStockQty = matchingSource.Sum(s => s.StockQty);
+            }
 
-            if (sourceItem == null) continue;
-
-            // Per PR #57710: use StockQty for comparison (avoids cross-UOM confusion)
-            var expectedStockQty = Math.Round(sourceItem.StockQty * scaleFactor, precision);
-            var diff = Math.Abs(item.StockQty - expectedStockQty);
+            // Per PR #57710 & commits b9121c2188/54fcf4abd5: compare aggregated StockQty across batch-split rows
+            var actualStockQty = group.Sum(i => i.StockQty);
+            var expectedStockQty = Math.Round(sourceStockQty * scaleFactor, precision);
+            var diff = Math.Abs(actualStockQty - expectedStockQty);
 
             if (diff > tolerance)
             {
                 throw new BusinessException(MyERPDomainErrorCodes.DisassembleScaleFactorMismatch)
-                    .WithData("itemId", item.ItemId)
+                    .WithData("itemId", group.Key.ItemId)
                     .WithData("expectedQty", expectedStockQty)
-                    .WithData("actualQty", item.StockQty)
+                    .WithData("actualQty", actualStockQty)
                     .WithData("scaleFactor", scaleFactor);
             }
         }
@@ -1657,5 +1669,133 @@ public class StockEntryManager : DomainService
                 unreserved.MaterialRequestItemId = item.MaterialRequestItemId;
             }
         }
+    }
+
+    /// <summary>
+    /// Builds the remaining batch pool per (ItemId, WarehouseId, IsFinishedItem) from posted Manufacture
+    /// Stock Entries after subtracting batches already reversed by non-draft, non-cancelled Disassemble entries.
+    /// Per ERPNext commit b9121c2188 (_get_available_batch_nos_from_stock_entries).
+    /// </summary>
+    public static Dictionary<(Guid ItemId, Guid WarehouseId, bool IsFinishedItem), List<(Guid BatchId, decimal AvailableQty)>>
+        BuildAvailableDisassemblyBatchPool(
+            IReadOnlyList<StockEntry> sourceManufactureEntries,
+            IReadOnlyList<StockEntry> priorDisassembleEntries,
+            int precision = 4)
+    {
+        var pool = new Dictionary<(Guid ItemId, Guid WarehouseId, bool IsFinishedItem), List<(Guid BatchId, decimal AvailableQty)>>();
+
+        foreach (var se in sourceManufactureEntries)
+        {
+            if (se.EntryType != StockEntryType.Manufacture
+                || se.Status == Core.DocumentStatus.Draft
+                || se.Status == Core.DocumentStatus.Cancelled)
+            {
+                continue;
+            }
+
+            foreach (var item in se.Items)
+            {
+                if (!item.BatchId.HasValue) continue;
+
+                var isFg = item.IsFinishedItem || (item.TargetWarehouseId.HasValue && !item.SourceWarehouseId.HasValue);
+                var whId = isFg ? item.TargetWarehouseId : item.SourceWarehouseId;
+                if (!whId.HasValue) continue;
+
+                var key = (item.ItemId, whId.Value, isFg);
+                if (!pool.TryGetValue(key, out var list))
+                {
+                    list = new List<(Guid BatchId, decimal AvailableQty)>();
+                    pool[key] = list;
+                }
+
+                var qty = Math.Round(Math.Abs(item.Quantity), precision);
+                if (qty <= 0m) continue;
+
+                var existingIdx = list.FindIndex(x => x.BatchId == item.BatchId.Value);
+                if (existingIdx >= 0)
+                {
+                    list[existingIdx] = (item.BatchId.Value, Math.Round(list[existingIdx].AvailableQty + qty, precision));
+                }
+                else
+                {
+                    list.Add((item.BatchId.Value, qty));
+                }
+            }
+        }
+
+        foreach (var se in priorDisassembleEntries)
+        {
+            if (se.EntryType != StockEntryType.Disassemble
+                || se.Status == Core.DocumentStatus.Draft
+                || se.Status == Core.DocumentStatus.Cancelled)
+            {
+                continue;
+            }
+
+            foreach (var item in se.Items)
+            {
+                if (!item.BatchId.HasValue) continue;
+
+                var isFg = item.IsFinishedItem || (item.SourceWarehouseId.HasValue && !item.TargetWarehouseId.HasValue);
+                var whId = isFg ? item.SourceWarehouseId : item.TargetWarehouseId;
+                if (!whId.HasValue) continue;
+
+                var key = (item.ItemId, whId.Value, isFg);
+                if (!pool.TryGetValue(key, out var list)) continue;
+
+                var usedQty = Math.Round(Math.Abs(item.Quantity), precision);
+                var existingIdx = list.FindIndex(x => x.BatchId == item.BatchId.Value);
+                if (existingIdx >= 0)
+                {
+                    var remaining = Math.Round(list[existingIdx].AvailableQty - usedQty, precision);
+                    list[existingIdx] = (item.BatchId.Value, Math.Max(0m, remaining));
+                }
+            }
+        }
+
+        foreach (var key in pool.Keys.ToList())
+        {
+            pool[key] = pool[key].Where(x => Math.Round(x.AvailableQty, precision) > 0m).ToList();
+        }
+
+        return pool;
+    }
+
+    /// <summary>
+    /// Allocates batch quantities in order up to requiredQty, rounding at precision, skipping exhausted
+    /// batches, and deducting allocated quantities from the pool in-place.
+    /// Per ERPNext commits b9121c2188 &amp; 54fcf4abd5 (_set_disassembly_serial_and_batch_bundle).
+    /// </summary>
+    public static List<(Guid BatchId, decimal Qty)> CollectDisassemblyBatches(
+        Dictionary<(Guid ItemId, Guid WarehouseId, bool IsFinishedItem), List<(Guid BatchId, decimal AvailableQty)>> pool,
+        Guid itemId,
+        Guid warehouseId,
+        bool isFinishedItem,
+        decimal requiredQty,
+        int precision = 4)
+    {
+        var allocations = new List<(Guid BatchId, decimal Qty)>();
+        var remaining = Math.Round(Math.Abs(requiredQty), precision);
+        if (remaining <= 0m) return allocations;
+
+        var key = (itemId, warehouseId, isFinishedItem);
+        if (!pool.TryGetValue(key, out var list) || list.Count == 0)
+            return allocations;
+
+        for (var idx = 0; idx < list.Count && remaining > 0m; idx++)
+        {
+            var (batchId, available) = list[idx];
+            var availRounded = Math.Round(available, precision);
+            if (availRounded <= 0m) continue;
+
+            var take = Math.Round(Math.Min(availRounded, remaining), precision);
+            if (take <= 0m) continue;
+
+            allocations.Add((batchId, take));
+            list[idx] = (batchId, Math.Round(availRounded - take, precision));
+            remaining = Math.Round(remaining - take, precision);
+        }
+
+        return allocations;
     }
 }

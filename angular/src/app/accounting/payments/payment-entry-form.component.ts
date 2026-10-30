@@ -236,8 +236,49 @@ export class PaymentEntryFormComponent implements OnInit {
       return;
     }
 
-    // Pre-fill from query params (from "Make Payment" buttons on SI/PI/SO/PO detail)
+    // Pre-fill from query params (from "Make Payment" buttons on SI/PI/SO/PO/Dunning detail)
     const params = this.route.snapshot.queryParams;
+    if (params['dunningId']) {
+      this.linkedDocLabel.set(`Against Dunning: ${String(params['dunningId']).substring(0, 8)}...`);
+      this.paymentService.getPaymentEntryTemplate('Dunning', params['dunningId']).subscribe({
+        next: (tpl) => {
+          const emptyGuid = '00000000-0000-0000-0000-000000000000';
+          this.form.patchValue({
+            companyId: tpl.companyId ?? '',
+            paymentType: 'Receive',
+            amount: tpl.paidAmount ?? 0,
+            paidFromAccount: tpl.paidFromAccountId && tpl.paidFromAccountId !== emptyGuid ? tpl.paidFromAccountId : (this.form.get('paidFromAccount')?.value ?? ''),
+            paidToAccount: tpl.paidToAccountId && tpl.paidToAccountId !== emptyGuid ? tpl.paidToAccountId : (this.form.get('paidToAccount')?.value ?? ''),
+            partyType: tpl.partyType ?? 'Customer',
+            partyId: tpl.partyId ?? '',
+            costCenterId: tpl.costCenterId ?? '',
+            currency: tpl.paymentCurrency ?? 'MYR',
+            exchangeRate: tpl.exchangeRate ?? 1,
+          }, { emitEvent: false });
+          if (tpl.paidFromAccountCurrency) {
+            this.paidFromAccountCurrency.set(tpl.paidFromAccountCurrency);
+          }
+          if (tpl.paidToAccountCurrency) {
+            this.paidToAccountCurrency.set(tpl.paidToAccountCurrency);
+          }
+          this.taxRows.set(tpl.taxes ?? []);
+          const allocMap = new Map<string, number>();
+          for (const ref of tpl.references ?? []) {
+            if (ref.referenceId) {
+              allocMap.set(ref.referenceId, ref.allocatedAmount ?? 0);
+            }
+          }
+          this.allocations.set(allocMap);
+          this.loadParties(tpl.partyType ?? 'Customer');
+          if (tpl.partyId) {
+            this.loadOutstandingInvoices(tpl.partyType ?? 'Customer');
+          }
+        },
+        error: () => {},
+      });
+      return;
+    }
+
     if (params['partyType']) {
       this.form.patchValue({ partyType: params['partyType'] });
       if (params['partyType'] === 'Supplier') {
@@ -659,6 +700,7 @@ export class PaymentEntryFormComponent implements OnInit {
       ...raw,
       postingDate: raw.paymentDate,
       paidAmount: raw.amount,
+      paymentCurrency: raw.currency || 'MYR',
       paidFromAccountId: raw.paidFromAccount,
       paidToAccountId: raw.paidToAccount,
       paidFromBankAccountId: this.paidFromBankAccount()?.id ?? null,
@@ -669,9 +711,10 @@ export class PaymentEntryFormComponent implements OnInit {
       referenceDate: raw.referenceDate || null,
     };
 
-    // Multi-invoice allocation: include references array
+    // Multi-invoice or split-charge allocation (e.g. Dunning fee/interest alongside single invoice): include references array
     const allocs = Array.from(this.allocations().entries());
-    if (allocs.length > 1) {
+    const hasDunningCharges = this.taxRows().some(t => !!t.dunningId);
+    if (allocs.length > 1 || (allocs.length === 1 && (hasDunningCharges || Math.abs(allocs[0][1] - (raw.amount ?? 0)) > 0.009))) {
       dto.references = allocs.map(([invoiceId, amount]) => ({
         referenceType: raw.partyType === 'Customer' ? 'SalesInvoice' : 'PurchaseInvoice',
         referenceId: invoiceId,
@@ -681,6 +724,7 @@ export class PaymentEntryFormComponent implements OnInit {
       dto.againstInvoiceId = null; // Clear single-invoice field
     } else if (allocs.length === 1) {
       dto.againstInvoiceId = allocs[0][0];
+      dto.againstInvoiceType = raw.partyType === 'Customer' ? 'SalesInvoice' : 'PurchaseInvoice';
     }
 
     dto.taxes = this.taxRows().filter(t => t.accountId);

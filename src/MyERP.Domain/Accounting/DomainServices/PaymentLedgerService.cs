@@ -15,10 +15,14 @@ namespace MyERP.Accounting.DomainServices;
 public class PaymentLedgerService : DomainService
 {
     private readonly IRepository<PaymentLedgerEntry, Guid> _pleRepository;
+    private readonly IRepository<Account, Guid>? _accountRepository;
 
-    public PaymentLedgerService(IRepository<PaymentLedgerEntry, Guid> pleRepository)
+    public PaymentLedgerService(
+        IRepository<PaymentLedgerEntry, Guid> pleRepository,
+        IRepository<Account, Guid>? accountRepository = null)
     {
         _pleRepository = pleRepository;
+        _accountRepository = accountRepository;
     }
 
     /// <summary>
@@ -171,20 +175,42 @@ public class PaymentLedgerService : DomainService
                 .WithData("allocatedAmount", allocatedAmountInAccountCurrency);
         }
 
-        // Determine sign: receive from customer (CR = negative), pay to supplier (DR = positive)
-        var sign = partyType == "Customer" ? -1m : 1m;
+        // Per ERPNext commit 7623dae273: determine Receivable vs Payable direction from the selected
+        // party Account rather than party_type (e.g. Employee on Receivable vs Payable account).
+        var sign = await ResolveReconciliationSignAsync(accountId, partyType, currentOutstanding);
 
         var ple = new PaymentLedgerEntry(
             GuidGenerator.Create(), companyId, postingDate,
             accountId, partyType, partyId,
             paymentVoucherType, paymentVoucherId,
             invoiceVoucherType, invoiceVoucherId,
-            sign * allocatedAmount,
-            sign * allocatedAmountInAccountCurrency,
+            sign * Math.Abs(allocatedAmount),
+            sign * Math.Abs(allocatedAmountInAccountCurrency),
             accountCurrency, tenantId);
 
         await _pleRepository.InsertAsync(ple);
         return ple;
+    }
+
+    private async Task<decimal> ResolveReconciliationSignAsync(Guid accountId, string partyType, decimal currentOutstanding)
+    {
+        var accountRepo = _accountRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Account, Guid>>();
+        if (accountRepo != null && accountId != Guid.Empty)
+        {
+            var account = await accountRepo.FindAsync(accountId);
+            if (account != null)
+            {
+                if (account.AccountSubType == AccountSubType.AccountsPayable) return 1m;
+                if (account.AccountSubType == AccountSubType.AccountsReceivable) return -1m;
+                if (account.AccountType == AccountType.Liability) return 1m;
+                if (account.AccountType == AccountType.Asset) return -1m;
+            }
+        }
+
+        if (currentOutstanding != 0m)
+            return currentOutstanding > 0m ? -1m : 1m;
+
+        return string.Equals(partyType, "Customer", StringComparison.OrdinalIgnoreCase) ? -1m : 1m;
     }
 
     /// <summary>
@@ -227,4 +253,3 @@ public class OutstandingVoucher
     public Guid VoucherId { get; set; }
     public decimal Outstanding { get; set; }
 }
-

@@ -1973,6 +1973,7 @@ export interface OpeningStatusDto {
 }
 
 export interface OutstandingInvoiceDto {
+  accountId?: string | null;
   voucherId?: string;
   voucherType?: string;
   outstanding?: number;
@@ -2131,6 +2132,7 @@ export interface PaymentEntryTaxDto {
   addDeductTax?: TaxAddDeduct;
   description?: string | null;
   costCenterId?: string | null;
+  dunningId?: string | null;
 }
 
 export interface PaymentLedgerRepostResultDto {
@@ -2414,7 +2416,8 @@ export interface ReconcileBankTransactionDto {
 export interface ReconcilePaymentDto {
   partyType: string;
   partyId: string;
-  companyId: string;
+  companyId?: string;
+  accountId?: string;
   allocations: ReconcileAllocationDto[];
 }
 

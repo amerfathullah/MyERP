@@ -3536,11 +3536,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
 
         Inventory.Entities.StockEntry? sourceEntry = null;
         List<Inventory.Entities.StockEntry>? aggregateSourceEntries = null;
+        var seWithDetails = await seRepo.WithDetailsAsync(s => s.Items);
 
         if (input.SourceStockEntryId.HasValue)
         {
             // Tier 1: exact reversal of one explicitly-chosen Manufacture Stock Entry.
-            sourceEntry = await seRepo.GetAsync(input.SourceStockEntryId.Value);
+            sourceEntry = seWithDetails.FirstOrDefault(s => s.Id == input.SourceStockEntryId.Value)
+                ?? await seRepo.GetAsync(input.SourceStockEntryId.Value, includeDetails: true);
 
             // ERPNext validate_source_stock_entry (+ the disassembly tamper checks): the source must
             // be a live Manufacture entry of this very Work Order, otherwise the reversal would mint
@@ -3556,8 +3558,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
         else
         {
-            var seQueryable = await seRepo.GetQueryableAsync();
-            var manufactureEntries = seQueryable
+            var manufactureEntries = seWithDetails
                 .Where(se => se.WorkOrderId == wo.Id
                     && se.EntryType == Inventory.StockEntryType.Manufacture
                     && se.Status != Core.DocumentStatus.Draft
@@ -3575,15 +3576,44 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             // else: Tier 3 fallback below — no posted Manufacture SE exists for this WO at all.
         }
 
+        // Per ERPNext commits b9121c2188 & 54fcf4abd5: build available batch pool by subtracting
+        // batches already reversed by earlier non-draft, non-cancelled Disassemble Stock Entries.
+        var sourceEntriesForBatchPool = sourceEntry != null
+            ? new List<Inventory.Entities.StockEntry> { sourceEntry }
+            : (aggregateSourceEntries ?? new List<Inventory.Entities.StockEntry>());
+
+        var priorDisassembleEntries = seWithDetails
+            .Where(se => se.WorkOrderId == wo.Id
+                && se.EntryType == Inventory.StockEntryType.Disassemble
+                && se.Status != Core.DocumentStatus.Draft
+                && se.Status != Core.DocumentStatus.Cancelled
+                && (sourceEntry == null || !se.SourceStockEntryId.HasValue || se.SourceStockEntryId == sourceEntry.Id))
+            .ToList()
+            .OrderBy(se => se.CreationTime)
+            .ThenBy(se => (se.EntryNumber ?? string.Empty).ToLowerInvariant(), StringComparer.Ordinal)
+            .ToList();
+
+        var batchPool = Inventory.DomainServices.StockEntryManager.BuildAvailableDisassemblyBatchPool(
+            sourceEntriesForBatchPool, priorDisassembleEntries);
+
         decimal sourceFgQty;
-        List<(Guid ItemId, decimal Qty, decimal? Rate, Guid WarehouseId)> rmSourceItems;
+        List<(Guid ItemId, decimal Qty, decimal? Rate, Guid WarehouseId, Guid? SourceDetailId)> rmSourceItems;
 
         if (sourceEntry != null)
         {
             sourceFgQty = sourceEntry.FgCompletedQty;
             rmSourceItems = sourceEntry.Items
                 .Where(i => i.SourceWarehouseId.HasValue && !i.TargetWarehouseId.HasValue)
-                .Select(i => (i.ItemId, i.Quantity, (decimal?)i.ValuationRate, i.SourceWarehouseId!.Value))
+                .GroupBy(i => (i.ItemId, WarehouseId: i.SourceWarehouseId!.Value))
+                .Select(g =>
+                {
+                    var totalQty = g.Sum(x => x.Quantity);
+                    var avgRate = totalQty > 0
+                        ? (decimal?)(g.Sum(x => x.Quantity * (x.ValuationRate ?? 0m)) / totalQty)
+                        : g.First().ValuationRate;
+                    var detailId = g.Count() == 1 ? (Guid?)g.First().Id : null;
+                    return (g.Key.ItemId, totalQty, avgRate, g.Key.WarehouseId, detailId);
+                })
                 .ToList();
         }
         else if (aggregateSourceEntries != null)
@@ -3607,7 +3637,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
                     // Qty-weighted average rate across all contributing entries.
                     var avgRate = totalQty > 0 ? g.Sum(x => x.Item.Quantity * (x.Item.ValuationRate ?? 0m)) / totalQty : 0m;
                     var representativeWarehouse = g.First().Item.SourceWarehouseId!.Value;
-                    return (g.Key, totalQty, (decimal?)avgRate, representativeWarehouse);
+                    return (g.Key, totalQty, (decimal?)avgRate, representativeWarehouse, (Guid?)null);
                 })
                 .ToList();
         }
@@ -3619,7 +3649,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             sourceFgQty = wo.Quantity;
             rmSourceItems = wo.RequiredItems
                 .Where(i => (i.SourceWarehouseId ?? wo.SourceWarehouseId).HasValue)
-                .Select(i => (i.ItemId, i.RequiredQuantity, (decimal?)null, (i.SourceWarehouseId ?? wo.SourceWarehouseId)!.Value))
+                .Select(i => (i.ItemId, i.RequiredQuantity, (decimal?)null, (i.SourceWarehouseId ?? wo.SourceWarehouseId)!.Value, (Guid?)null))
                 .ToList();
         }
 
@@ -3631,9 +3661,29 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var fgWarehouse = wo.FgWarehouseId ?? wo.SourceWarehouseId;
         if (fgWarehouse.HasValue)
         {
-            entry.AddItem(wo.ItemId, input.Quantity, sourceWarehouseId: fgWarehouse.Value, targetWarehouseId: null);
-            var lastFgItem = entry.Items.Last();
-            lastFgItem.IsFinishedItem = true;
+            var fgBatches = Inventory.DomainServices.StockEntryManager.CollectDisassemblyBatches(
+                batchPool, wo.ItemId, fgWarehouse.Value, isFinishedItem: true, input.Quantity);
+            if (fgBatches.Count > 0)
+            {
+                var allocatedFg = 0m;
+                foreach (var (batchId, batchQty) in fgBatches)
+                {
+                    entry.AddItem(wo.ItemId, batchQty, sourceWarehouseId: fgWarehouse.Value, targetWarehouseId: null,
+                        isFinishedItem: true, batchId: batchId);
+                    allocatedFg += batchQty;
+                }
+                var remainderFg = Math.Round(input.Quantity - allocatedFg, 4);
+                if (remainderFg > 0m)
+                {
+                    entry.AddItem(wo.ItemId, remainderFg, sourceWarehouseId: fgWarehouse.Value, targetWarehouseId: null,
+                        isFinishedItem: true);
+                }
+            }
+            else
+            {
+                entry.AddItem(wo.ItemId, input.Quantity, sourceWarehouseId: fgWarehouse.Value, targetWarehouseId: null,
+                    isFinishedItem: true);
+            }
         }
 
         // RM items come back IN, proportional to scale factor. Tier 1/2 rows carry a real rate
@@ -3644,8 +3694,33 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             if (returnQty <= 0) continue;
 
             var rate = rm.Rate ?? (await _valuationService.GetCurrentBalanceAsync(rm.ItemId, rm.WarehouseId)).ValuationRate;
-            entry.AddItem(rm.ItemId, returnQty, sourceWarehouseId: null, targetWarehouseId: rm.WarehouseId,
-                valuationRate: rate);
+            var rmBatches = Inventory.DomainServices.StockEntryManager.CollectDisassemblyBatches(
+                batchPool, rm.ItemId, rm.WarehouseId, isFinishedItem: false, returnQty);
+
+            if (rmBatches.Count > 0)
+            {
+                var allocatedRm = 0m;
+                foreach (var (batchId, batchQty) in rmBatches)
+                {
+                    var added = entry.AddItem(rm.ItemId, batchQty, sourceWarehouseId: null, targetWarehouseId: rm.WarehouseId,
+                        valuationRate: rate, batchId: batchId);
+                    added.SourceStockEntryDetailId = rm.SourceDetailId;
+                    allocatedRm += batchQty;
+                }
+                var remainderRm = Math.Round(returnQty - allocatedRm, 4);
+                if (remainderRm > 0m)
+                {
+                    var unbatched = entry.AddItem(rm.ItemId, remainderRm, sourceWarehouseId: null, targetWarehouseId: rm.WarehouseId,
+                        valuationRate: rate);
+                    unbatched.SourceStockEntryDetailId = rm.SourceDetailId;
+                }
+            }
+            else
+            {
+                var added = entry.AddItem(rm.ItemId, returnQty, sourceWarehouseId: null, targetWarehouseId: rm.WarehouseId,
+                    valuationRate: rate);
+                added.SourceStockEntryDetailId = rm.SourceDetailId;
+            }
         }
 
         // Validate against the real source row-by-row where a single source entry exists (Tiers 1

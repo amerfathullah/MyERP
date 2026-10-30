@@ -56,6 +56,9 @@ public class Dunning : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Total dunning fee and interest in company currency (DunningAmount × ConversionRate).</summary>
     public decimal BaseDunningAmount => Math.Round(DunningAmount * ConversionRate, 2);
 
+    /// <summary>Remaining uncollected dunning fee and interest in company currency (ERPNext commit 7ca8bc3290).</summary>
+    public decimal UnpaidBaseDunningAmount => Math.Max(0, Math.Round((DunningAmount - PaidDunningAmount) * ConversionRate, 2));
+
     /// <summary>Income account to credit dunning fee and interest revenue.</summary>
     public Guid? IncomeAccountId { get; set; }
 

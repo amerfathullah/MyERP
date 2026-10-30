@@ -131,6 +131,32 @@ public class TaxesAndTotalsService : DomainService
             tax.Total = 0;
         }
 
+        // Per ERPNext commit 0ca4c81ea3: split "Actual" tax over applicable items only
+        // (excluding items marked N/A via decimal.MinValue in ItemTaxRateOverrides),
+        // absorb any divisional/rounding remainder on the last applicable item, and fall back
+        // to placing the full Actual amount on the last applicable item when applicable net total is 0.
+        var actualApplicableNetTotals = new decimal[orderedTaxes.Count];
+        var actualLastApplicableIdx = new int[orderedTaxes.Count];
+        var actualRemaining = new decimal[orderedTaxes.Count];
+        for (int i = 0; i < orderedTaxes.Count; i++)
+        {
+            var tax = orderedTaxes[i];
+            actualLastApplicableIdx[i] = -1;
+            if (tax.ChargeType != "Actual") continue;
+
+            actualRemaining[i] = tax.Rate;
+            decimal applicableSum = 0m;
+            for (int idx = 0; idx < items.Count; idx++)
+            {
+                if (!IsTaxNotApplicableForItem(items[idx], tax))
+                {
+                    applicableSum += items[idx].NetAmount;
+                    actualLastApplicableIdx[i] = idx;
+                }
+            }
+            actualApplicableNetTotals[i] = applicableSum;
+        }
+
         // Track per-item running totals for cascade
         var perItemGrandTotal = new decimal[orderedTaxes.Count];
 
@@ -143,29 +169,57 @@ public class TaxesAndTotalsService : DomainService
         // every later item's cascade (round-98 fix).
         var perItemTaxAmount = new decimal[orderedTaxes.Count];
 
-        foreach (var item in items)
+        for (int itemIdx = 0; itemIdx < items.Count; itemIdx++)
         {
+            var item = items[itemIdx];
+
             for (int i = 0; i < orderedTaxes.Count; i++)
             {
                 var tax = orderedTaxes[i];
+                decimal currentTaxAmount;
 
-                // Per-item tax rate override from Item Tax Template
-                // If the item has a specific rate for this tax's account, use it instead
-                decimal effectiveRate = tax.Rate;
-                if (item.ItemTaxRateOverrides != null
-                    && tax.AccountId.HasValue
-                    && item.ItemTaxRateOverrides.TryGetValue(tax.AccountId.Value, out var overrideRate))
+                // Per-item N/A sentinel: zero this row's contribution AND still overwrite
+                // perItemTaxAmount[i] / perItemGrandTotal[i] so later cascading rows on this item
+                // never inherit stale values from the previous item.
+                if (IsTaxNotApplicableForItem(item, tax))
                 {
-                    if (overrideRate == decimal.MinValue)
-                        continue; // N/A sentinel: skip this tax row entirely for this item
-
-                    effectiveRate = overrideRate;
+                    currentTaxAmount = 0m;
                 }
+                else if (tax.ChargeType == "Actual")
+                {
+                    var applicableNet = actualApplicableNetTotals[i];
+                    var lastIdx = actualLastApplicableIdx[i];
 
-                decimal currentTaxAmount = CalculateTaxForItem(tax, item, netTotal, perItemGrandTotal, perItemTaxAmount, effectiveRate);
+                    currentTaxAmount = applicableNet != 0m
+                        ? (item.NetAmount / applicableNet) * tax.Rate
+                        : (itemIdx == lastIdx ? tax.Rate : 0m);
 
-                if (roundRowWiseTax)
-                    currentTaxAmount = Math.Round(currentTaxAmount, 2);
+                    if (roundRowWiseTax)
+                        currentTaxAmount = Math.Round(currentTaxAmount, 2);
+
+                    actualRemaining[i] -= currentTaxAmount;
+                    if (itemIdx == lastIdx)
+                    {
+                        currentTaxAmount += actualRemaining[i];
+                        actualRemaining[i] = 0m;
+                    }
+                }
+                else
+                {
+                    // Per-item tax rate override from Item Tax Template
+                    decimal effectiveRate = tax.Rate;
+                    if (item.ItemTaxRateOverrides != null
+                        && tax.AccountId.HasValue
+                        && item.ItemTaxRateOverrides.TryGetValue(tax.AccountId.Value, out var overrideRate))
+                    {
+                        effectiveRate = overrideRate;
+                    }
+
+                    currentTaxAmount = CalculateTaxForItem(tax, item, netTotal, perItemGrandTotal, perItemTaxAmount, effectiveRate);
+
+                    if (roundRowWiseTax)
+                        currentTaxAmount = Math.Round(currentTaxAmount, 2);
+                }
 
                 tax.TaxAmount += currentTaxAmount;
                 perItemTaxAmount[i] = currentTaxAmount;
@@ -253,7 +307,7 @@ public class TaxesAndTotalsService : DomainService
         // Step 6: Item-wise tax detail error diffusion
         // Per ERPNext gotcha #585: adjust_rounding_in_item_wise_tax_details()
         // SUM of per-item tax allocations may differ from tax_amount due to rounding.
-        // Diff is applied to the LAST item. Hard throw if exceeds tolerance.
+        // Diff is applied to the LAST applicable item. Hard throw if exceeds tolerance.
         // Tolerance: ≤1 for zero-precision currencies (JPY/KRW), ≤0.5 otherwise.
         AdjustItemWiseTaxDetails(items, orderedTaxes);
 
@@ -274,6 +328,12 @@ public class TaxesAndTotalsService : DomainService
             BaseGrandTotal = Math.Round(grandTotal * exchangeRate, 2),
         };
     }
+
+    private static bool IsTaxNotApplicableForItem(TransactionItem item, TransactionTaxRow tax) =>
+        item.ItemTaxRateOverrides != null
+        && tax.AccountId.HasValue
+        && item.ItemTaxRateOverrides.TryGetValue(tax.AccountId.Value, out var overrideRate)
+        && overrideRate == decimal.MinValue;
 
     private static decimal CalculateTaxForItem(
         TransactionTaxRow tax,
@@ -303,10 +363,10 @@ public class TaxesAndTotalsService : DomainService
 
     /// <summary>
     /// Adjusts per-item tax breakup to match total tax amounts exactly.
-    /// Per ERPNext gotcha #585: adjust_rounding_in_item_wise_tax_details()
-    /// Uses delta-from-cumulative-total (error diffusion) to prevent rounding drift.
+    /// Per ERPNext gotcha #585 &amp; commit 0ca4c81ea3: adjust_rounding_in_item_wise_tax_details()
+    /// Uses delta-from-cumulative-total (error diffusion) across applicable items to prevent rounding drift.
     /// Tolerance: ≤1.0 for zero-precision currencies (JPY/KRW), ≤0.5 for all others.
-    /// Diff applied to the LAST item in the list.
+    /// Diff applied to the LAST applicable item in the list.
     /// </summary>
     private static void AdjustItemWiseTaxDetails(List<TransactionItem> items, List<TransactionTaxRow> taxRows)
     {
@@ -316,21 +376,24 @@ public class TaxesAndTotalsService : DomainService
         {
             if (tax.TaxAmount == 0) continue;
 
+            var applicableItems = items.Where(it => !IsTaxNotApplicableForItem(it, tax)).ToList();
+            if (applicableItems.Count < 2) continue;
+
             // Calculate per-item tax using delta-from-cumulative approach
             // This prevents rounding drift by computing: item_tax = ROUND(cumulative) - already_allocated
             decimal allocated = 0m;
             decimal cumulativeExact = 0m;
-            decimal totalNetAmount = items.Sum(i => i.NetAmount);
+            decimal totalNetAmount = applicableItems.Sum(i => i.NetAmount);
             if (totalNetAmount == 0) continue;
 
-            for (int i = 0; i < items.Count; i++)
+            for (int i = 0; i < applicableItems.Count; i++)
             {
-                var item = items[i];
+                var item = applicableItems[i];
                 // Exact proportional tax for this item (unrounded)
                 decimal proportion = item.NetAmount / totalNetAmount;
                 cumulativeExact += tax.TaxAmountAfterDiscount * proportion;
 
-                if (i < items.Count - 1)
+                if (i < applicableItems.Count - 1)
                 {
                     // Non-last items: round normally
                     decimal itemTax = Math.Round(cumulativeExact - allocated, 2);
@@ -338,7 +401,7 @@ public class TaxesAndTotalsService : DomainService
                 }
                 else
                 {
-                    // Last item: absorbs remainder to ensure exact match
+                    // Last applicable item: absorbs remainder to ensure exact match
                     // itemTax = total - allocated (exact, no rounding error)
                     decimal itemTax = tax.TaxAmountAfterDiscount - allocated;
 

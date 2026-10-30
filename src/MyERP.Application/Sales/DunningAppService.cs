@@ -282,18 +282,9 @@ public class DunningAppService : ApplicationService, IDunningAppService
 
         if (schedules.Count > 0)
         {
-            // Per ERPNext PR #61667 / commit 18e651d89e: Apply payments without term allocations to the oldest installments first.
-            var scheduleOutstanding = schedules.ToDictionary(s => s.Id, s => s.Outstanding);
-            var unallocatedPayment = Math.Max(0m, schedules.Sum(s => s.Outstanding) - si.OutstandingAmount);
-            if (unallocatedPayment > 0)
-            {
-                foreach (var row in schedules.OrderBy(s => s.DueDate.Date).ThenBy(s => s.CreationTime))
-                {
-                    var paid = Math.Min(scheduleOutstanding[row.Id], unallocatedPayment);
-                    unallocatedPayment -= paid;
-                    scheduleOutstanding[row.Id] -= paid;
-                }
-            }
+            // Per ERPNext commits 18e651d89e & 8a09633536: apply payments without term allocations to oldest installments first.
+            var scheduleOutstanding = DomainServices.DunningManager.GetPaymentScheduleOutstanding(
+                si, schedules, si.CurrencyCode, inAccountCurrency: false);
 
             var overdueSchedules = schedules
                 .Where(s => scheduleOutstanding[s.Id] > 0.01m && s.DueDate.Date < today)
@@ -653,6 +644,89 @@ public class DunningAppService : ApplicationService, IDunningAppService
 
         d.MarkEmailSent(recipientEmail);
         await _repository.UpdateAsync(d);
+    }
+
+    public async Task<List<DunningOverduePaymentDto>> GetUnpaidOverduePaymentsAsync(Guid id, bool inAccountCurrency = false)
+    {
+        var d = (await _repository.WithDetailsAsync()).First(x => x.Id == id);
+        if (!d.OverduePayments.Any())
+            return new List<DunningOverduePaymentDto>();
+
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        var company = await companyRepo.FindAsync(d.CompanyId);
+        var companyCurrency = !string.IsNullOrWhiteSpace(company?.CurrencyCode) ? company.CurrencyCode : "MYR";
+
+        var invoiceIds = d.OverduePayments.Select(p => p.SalesInvoiceId).Distinct().ToList();
+        var invoiceRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesInvoice, Guid>>();
+        var invoiceQuery = await invoiceRepo.GetQueryableAsync();
+        var invoices = invoiceQuery
+            .Where(si => invoiceIds.Contains(si.Id))
+            .ToDictionary(si => si.Id);
+
+        var schedRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PaymentScheduleEntry, Guid>>();
+        var schedQuery = await schedRepo.GetQueryableAsync();
+        var schedulesByInvoice = schedQuery
+            .Where(s => s.ParentType == "SalesInvoice" && invoiceIds.Contains(s.ParentId))
+            .ToList()
+            .GroupBy(s => s.ParentId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<PaymentScheduleEntry>)g.ToList());
+
+        var accountIds = invoices.Values
+            .Where(si => si.DebitToAccountId != Guid.Empty)
+            .Select(si => si.DebitToAccountId)
+            .Distinct()
+            .ToList();
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var accountQuery = await accountRepo.GetQueryableAsync();
+        var accountCurrencies = accountIds.Count > 0
+            ? accountQuery.Where(a => accountIds.Contains(a.Id))
+                .Select(a => new { a.Id, a.Currency })
+                .ToDictionary(a => a.Id, a => a.Currency)
+            : new Dictionary<Guid, string?>();
+
+        var customerRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Customer, Guid>>();
+        var customer = await customerRepo.FindAsync(d.CustomerId);
+        string? defaultPartyCurrency = null;
+        var defaultPartyAccountId = customer?.DefaultReceivableAccountId ?? company?.DefaultReceivableAccountId;
+        if (defaultPartyAccountId.HasValue && defaultPartyAccountId.Value != Guid.Empty)
+        {
+            var defaultAcc = await accountRepo.FindAsync(defaultPartyAccountId.Value);
+            defaultPartyCurrency = defaultAcc?.Currency;
+        }
+
+        var result = new List<DunningOverduePaymentDto>();
+        foreach (var row in d.OverduePayments)
+        {
+            if (!invoices.TryGetValue(row.SalesInvoiceId, out var si))
+                continue;
+            if (si.Status == DocumentStatus.Draft || si.Status == DocumentStatus.Cancelled)
+                continue;
+
+            var partyAccountCurrency = (si.DebitToAccountId != Guid.Empty
+                    && accountCurrencies.TryGetValue(si.DebitToAccountId, out var accCurr)
+                    && !string.IsNullOrWhiteSpace(accCurr))
+                ? accCurr
+                : (!string.IsNullOrWhiteSpace(defaultPartyCurrency) ? defaultPartyCurrency : companyCurrency);
+
+            var invSchedules = schedulesByInvoice.GetValueOrDefault(si.Id, Array.Empty<PaymentScheduleEntry>());
+            var currentOutstanding = DomainServices.DunningManager.GetCurrentOverdueOutstanding(
+                row, si, invSchedules, partyAccountCurrency, inAccountCurrency);
+
+            if (currentOutstanding > 0m)
+            {
+                result.Add(new DunningOverduePaymentDto
+                {
+                    SalesInvoiceId = row.SalesInvoiceId,
+                    PaymentScheduleId = row.PaymentScheduleId,
+                    InvoiceNumber = si.InvoiceNumber,
+                    OutstandingAmount = currentOutstanding,
+                    DueDate = row.DueDate,
+                    OverdueDays = row.OverdueDays
+                });
+            }
+        }
+
+        return result;
     }
 }
 

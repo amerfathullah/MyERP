@@ -12,6 +12,7 @@
       <select class="form-select" [(ngModel)]="partyType" (ngModelChange)="partyType.set($event)">
         <option value="Customer">{{ 'Customer' | abpLocalization }}</option>
         <option value="Supplier">{{ 'Supplier' | abpLocalization }}</option>
+        <option value="Employee">{{ 'Employee' | abpLocalization }}</option>
       </select>
     </div>
     <div class="col-md-5">

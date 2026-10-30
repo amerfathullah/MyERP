@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyERP.Shared;
 using Volo.Abp.Application.Dtos;
@@ -10,8 +11,9 @@ public interface IDunningAppService : IApplicationService
 {
     Task<PagedResultDto<DunningDto>> GetListAsync(CompanyFilteredPagedRequestDto input);
     Task<DunningDto> GetAsync(Guid id);
+    Task<List<DunningOverduePaymentDto>> GetUnpaidOverduePaymentsAsync(Guid id, bool inAccountCurrency = false);
     Task<DunningDto> CreateAsync(CreateDunningDto input);
-    Task<DunningDto> CreateFromSalesInvoiceAsync(Guid salesInvoiceId, System.Collections.Generic.List<Guid>? paymentScheduleIds = null);
+    Task<DunningDto> CreateFromSalesInvoiceAsync(Guid salesInvoiceId, List<Guid>? paymentScheduleIds = null);
     Task<DunningDto> SubmitAsync(Guid id);
     Task<DunningDto> ResolveAsync(Guid id);
     Task<DunningDto> CancelAsync(Guid id);

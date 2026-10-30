@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Sales.Entities;
 using Volo.Abp.DependencyInjection;
@@ -41,22 +42,46 @@ public class DunningAutoResolutionHandler :
         _logger = logger;
     }
 
+    private static decimal ExtractDunningPaidAmount(PaymentEntry pe, PaymentEntryTax tax, Dunning d)
+    {
+        decimal rawPaid = tax.AddDeductTax == TaxAddDeduct.Deduct && tax.TaxAmount < 0m
+            ? -tax.TaxAmount
+            : (tax.TaxAmount > 0m ? tax.TaxAmount : 0m);
+
+        if (rawPaid <= 0m) return 0m;
+
+        // Convert to Dunning document currency when PE is in company/account currency != Dunning.Currency (commit 7ca8bc3290)
+        if (!string.IsNullOrWhiteSpace(pe.CurrencyCode)
+            && !string.Equals(pe.CurrencyCode, d.Currency, StringComparison.OrdinalIgnoreCase)
+            && d.ConversionRate > 0m && d.ConversionRate != 1m)
+        {
+            var basePaid = tax.BaseTaxAmount != 0m ? Math.Abs(tax.BaseTaxAmount) : rawPaid * (pe.ExchangeRate > 0m ? pe.ExchangeRate : 1m);
+            return Math.Round(basePaid / d.ConversionRate, 2);
+        }
+
+        return rawPaid;
+    }
+
     public async Task HandleEventAsync(PaymentEntryPostedEvent eventData)
     {
         var pe = eventData.PaymentEntry;
 
         try
         {
-            // Record dunning fee/interest payments from PE taxes
+            // Record dunning fee/interest payments from PE taxes (both Add > 0 and Deduct < 0)
             if (pe.Taxes != null)
             {
-                foreach (var tax in pe.Taxes.Where(t => t.DunningId.HasValue && t.TaxAmount > 0))
+                foreach (var tax in pe.Taxes.Where(t => t.DunningId.HasValue))
                 {
                     var d = await _dunningRepository.FindAsync(tax.DunningId!.Value);
                     if (d != null)
                     {
-                        d.RecordDunningPayment(tax.TaxAmount);
-                        await _dunningRepository.UpdateAsync(d);
+                        var paidAmount = ExtractDunningPaidAmount(pe, tax, d);
+                        if (paidAmount > 0m)
+                        {
+                            d.RecordDunningPayment(paidAmount);
+                            await _dunningRepository.UpdateAsync(d);
+                        }
                     }
                 }
             }
@@ -126,13 +151,17 @@ public class DunningAutoResolutionHandler :
             // Reverse dunning fee/interest payments from cancelled PE taxes
             if (pe.Taxes != null)
             {
-                foreach (var tax in pe.Taxes.Where(t => t.DunningId.HasValue && t.TaxAmount > 0))
+                foreach (var tax in pe.Taxes.Where(t => t.DunningId.HasValue))
                 {
                     var d = await _dunningRepository.FindAsync(tax.DunningId!.Value);
                     if (d != null)
                     {
-                        d.RecordDunningPayment(-tax.TaxAmount);
-                        await _dunningRepository.UpdateAsync(d);
+                        var paidAmount = ExtractDunningPaidAmount(pe, tax, d);
+                        if (paidAmount > 0m)
+                        {
+                            d.RecordDunningPayment(-paidAmount);
+                            await _dunningRepository.UpdateAsync(d);
+                        }
                     }
                 }
             }
@@ -172,13 +201,13 @@ public class DunningAutoResolutionHandler :
                     return currentOutstanding > 0;
                 });
 
-                if (anyOwed)
+                if (anyOwed || dunning.UnpaidDunningAmount > 0)
                 {
                     dunning.Reopen();
                     await _dunningRepository.UpdateAsync(dunning);
 
                     _logger.LogInformation(
-                        "Reopened Dunning {DunningId} (Level {Level}) for Customer {CustomerId} — invoice outstanding > 0 after payment cancellation",
+                        "Reopened Dunning {DunningId} (Level {Level}) for Customer {CustomerId} — invoice or fee outstanding > 0 after payment cancellation",
                         dunning.Id, dunning.DunningLevel, dunning.CustomerId);
                 }
             }

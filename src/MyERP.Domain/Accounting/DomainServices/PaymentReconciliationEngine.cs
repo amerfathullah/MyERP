@@ -40,6 +40,7 @@ public class PaymentReconciliationEngine : DomainService
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
     private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
+    private readonly IRepository<Account, Guid>? _accountRepository;
 
     public PaymentReconciliationEngine(
         PaymentLedgerService pleService,
@@ -49,7 +50,8 @@ public class PaymentReconciliationEngine : DomainService
         IRepository<PaymentEntry, Guid> paymentEntryRepository,
         IRepository<JournalEntry, Guid> journalEntryRepository,
         IRepository<FiscalYear, Guid> fiscalYearRepository,
-        IRepository<Company, Guid> companyRepository)
+        IRepository<Company, Guid> companyRepository,
+        IRepository<Account, Guid>? accountRepository = null)
     {
         _pleService = pleService;
         _pleRepository = pleRepository;
@@ -59,21 +61,28 @@ public class PaymentReconciliationEngine : DomainService
         _journalEntryRepository = journalEntryRepository;
         _fiscalYearRepository = fiscalYearRepository;
         _companyRepository = companyRepository;
+        _accountRepository = accountRepository;
     }
 
     /// <summary>
     /// Get unreconciled payments for a party — payments that have unallocated amounts.
     /// Per ERPNext: includes Payment Entries, Journal Entries, and return invoices
-    /// (credit/debit notes are treated as payments for reconciliation).
+    /// (credit/debit notes are treated as payments for reconciliation), scoped to the selected
+    /// Receivable/Payable account when provided (ERPNext commit 7623dae273).
     /// </summary>
     public async Task<List<UnreconciledPayment>> GetUnreconciledPaymentsAsync(
-        string partyType, Guid partyId)
+        string partyType, Guid partyId, Guid? accountId = null)
     {
         var query = await _pleRepository.GetQueryableAsync();
 
+        query = query.Where(p => p.PartyType == partyType && p.PartyId == partyId && !p.Delinked);
+        if (accountId.HasValue)
+        {
+            query = query.Where(p => p.AccountId == accountId.Value);
+        }
+
         // Get all PLE entries for this party grouped by voucher
         var grouped = query
-            .Where(p => p.PartyType == partyType && p.PartyId == partyId && !p.Delinked)
             .GroupBy(p => new { p.VoucherType, p.VoucherId })
             .Select(g => new
             {
@@ -206,6 +215,16 @@ public class PaymentReconciliationEngine : DomainService
                 await CreateExchangeGainLossJeIfNeededAsync(company, alloc, pi.ExchangeRate, partyType, partyAccountId);
                 await UpdatePaymentEntryReferenceReconciliationAsync(company, alloc, pi.IssueDate);
             }
+            else if (alloc.InvoiceVoucherType == "JournalEntry")
+            {
+                var je = await _journalEntryRepository.FindAsync(alloc.InvoiceVoucherId);
+                if (je != null)
+                {
+                    var jeRate = je.Lines.FirstOrDefault(l => l.AccountId == partyAccountId && l.ExchangeRate > 0)?.ExchangeRate ?? 1m;
+                    await CreateExchangeGainLossJeIfNeededAsync(company, alloc, jeRate, partyType, partyAccountId);
+                    await UpdatePaymentEntryReferenceReconciliationAsync(company, alloc, je.PostingDate);
+                }
+            }
         }
 
         return result;
@@ -257,10 +276,9 @@ public class PaymentReconciliationEngine : DomainService
 
     /// <summary>
     /// Creates an Exchange Gain/Loss Journal Entry when payment rate != invoice rate.
-    /// Per ERPNext: gain_loss = allocated_amount × (payment_rate - invoice_rate), with the sign
-    /// reversed for Payable accounts (the same rate difference means the opposite GL direction on a
-    /// liability vs an asset account). Posts against the party's own receivable/payable account —
-    /// no bank movement happens here (unlike Payment Entry submit, which posts against bank/cash).
+    /// Per ERPNext commit 7623dae273: gain_loss = allocated_amount × (payment_rate - invoice_rate),
+    /// with the sign determined from the selected party Account's Receivable vs Payable type
+    /// (rather than assuming party_type == "Supplier" vs "Customer", which breaks Employee accounts).
     /// </summary>
     private async Task CreateExchangeGainLossJeIfNeededAsync(
         Company company,
@@ -282,11 +300,21 @@ public class PaymentReconciliationEngine : DomainService
             costCenterId = pe.CostCenterId;
             projectId = pe.ProjectId;
         }
+        else if (alloc.PaymentVoucherType == "JournalEntry")
+        {
+            var payJe = await _journalEntryRepository.FindAsync(alloc.PaymentVoucherId);
+            if (payJe != null)
+            {
+                var line = payJe.Lines.FirstOrDefault(l => l.AccountId == partyAccountId && l.ExchangeRate > 0);
+                if (line != null) paymentExchangeRate = line.ExchangeRate;
+            }
+        }
 
         var gainLoss = CalculateExchangeGainLoss(alloc.AllocatedAmount, paymentExchangeRate, invoiceExchangeRate);
         if (Math.Abs(gainLoss) < 0.01m) return;
 
-        var effectiveGainLoss = partyType == "Supplier" ? -gainLoss : gainLoss;
+        var isPayable = await IsPayableAccountAsync(partyAccountId, partyType);
+        var effectiveGainLoss = isPayable ? -gainLoss : gainLoss;
         var isGain = effectiveGainLoss > 0;
 
         // Resolve exchange gain/loss account: explicit override > gain/loss split > fallback (PR #57839)
@@ -327,6 +355,23 @@ public class PaymentReconciliationEngine : DomainService
 
         je.Post();
         await _journalEntryRepository.InsertAsync(je);
+    }
+
+    private async Task<bool> IsPayableAccountAsync(Guid partyAccountId, string partyType)
+    {
+        var accountRepo = _accountRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Account, Guid>>();
+        if (accountRepo != null && partyAccountId != Guid.Empty)
+        {
+            var account = await accountRepo.FindAsync(partyAccountId);
+            if (account != null)
+            {
+                if (account.AccountSubType == AccountSubType.AccountsPayable) return true;
+                if (account.AccountSubType == AccountSubType.AccountsReceivable) return false;
+                return account.AccountType == AccountType.Liability;
+            }
+        }
+
+        return !string.Equals(partyType, "Customer", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task UpdateInvoiceAmountPaidAsync(string invoiceType, Guid invoiceId, decimal amount)
@@ -398,8 +443,8 @@ public class PaymentReconciliationEngine : DomainService
     {
         var allocations = new List<ReconciliationAllocation>();
         var remainingInvoices = invoices
-            .Where(i => i.Outstanding > 0.009m)
-            .Select(i => new { i.VoucherType, i.VoucherId, Remaining = Math.Round(i.Outstanding, precision) })
+            .Where(i => Math.Abs(i.Outstanding) > 0.009m)
+            .Select(i => new { i.VoucherType, i.VoucherId, Remaining = Math.Round(Math.Abs(i.Outstanding), precision) })
             .ToList();
 
         foreach (var payment in payments)
@@ -447,7 +492,9 @@ public class PaymentReconciliationEngine : DomainService
                      && p.AgainstVoucherType == invoiceVoucherType
                      && p.AgainstVoucherId == invoiceVoucherId
                      && !p.Delinked && !p.IsReversal)
-            .Sum(p => Math.Abs(p.AmountInAccountCurrency));
+            .Select(p => p.AmountInAccountCurrency)
+            .ToList()
+            .Sum(Math.Abs);
 
         // Delink the PLE entries
         await _pleService.UnreconcileAsync(

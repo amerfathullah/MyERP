@@ -72,16 +72,11 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
 
     /// <summary>
     /// Get unallocated payments (Payment Entries and Journal Entries) for a party — the payment
-    /// side of the reconciliation UI. <see cref="PaymentReconciliationEngine.GetUnreconciledPaymentsAsync"/>
-    /// already implemented this lookup but had zero callers: the Angular reconciliation page only
-    /// ever fetched outstanding invoices, with no way to pick which payment to allocate — so
-    /// "Reconcile" sent whatever default value the allocation DTO's PaymentVoucherType/Id happened to
-    /// have (Angular never set them), creating PLE rows against a nonexistent, all-zeros payment
-    /// voucher. This endpoint is what the fixed Angular page now calls to let the user pick a real one.
+    /// side of the reconciliation UI, optionally filtered by Receivable/Payable account (ERPNext commit 7623dae273).
     /// </summary>
-    public async Task<List<UnreconciledPaymentDto>> GetUnreconciledPaymentsAsync(string partyType, Guid partyId)
+    public async Task<List<UnreconciledPaymentDto>> GetUnreconciledPaymentsAsync(string partyType, Guid partyId, Guid? accountId = null)
     {
-        var payments = await _engine.GetUnreconciledPaymentsAsync(partyType, partyId);
+        var payments = await _engine.GetUnreconciledPaymentsAsync(partyType, partyId, accountId);
         var result = new List<UnreconciledPaymentDto>();
 
         foreach (var p in payments)
@@ -129,20 +124,30 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
     /// Delegates to PaymentReconciliationEngine for stale-outstanding validation
     /// and batch processing.
     /// 
-    /// Per ERPNext: when payment exchange rate differs from invoice exchange rate,
-    /// creates an Exchange Gain/Loss JE to book the difference.
-    /// gain_loss = allocated_amount × (payment_rate - invoice_rate)
+    /// Per ERPNext commit 7623dae273: resolves the Receivable/Payable account (explicit AccountId
+    /// or PLE account) so Employee and cross-type reconciliations determine GL direction accurately.
     /// </summary>
     public async Task ReconcileAsync(ReconcilePaymentDto input)
     {
-        // Resolve party account
         var pleQuery = await _pleRepository.GetQueryableAsync();
-        var partyAccount = pleQuery
-            .Where(p => p.PartyType == input.PartyType && p.PartyId == input.PartyId)
-            .Select(p => p.AccountId)
+        var matchingPle = pleQuery
+            .Where(p => p.PartyType == input.PartyType && p.PartyId == input.PartyId && !p.Delinked)
             .FirstOrDefault();
 
-        var company = await _companyRepository.GetAsync(input.CompanyId);
+        var partyAccount = input.AccountId.HasValue && input.AccountId.Value != Guid.Empty
+            ? input.AccountId.Value
+            : (matchingPle?.AccountId ?? Guid.Empty);
+
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var resolvedAccount = partyAccount != Guid.Empty ? await accountRepo.FindAsync(partyAccount) : null;
+
+        var companyId = input.CompanyId != Guid.Empty
+            ? input.CompanyId
+            : (resolvedAccount?.CompanyId ?? matchingPle?.CompanyId ?? Guid.Empty);
+        var company = await _companyRepository.GetAsync(companyId);
+        var accountCurrency = !string.IsNullOrWhiteSpace(resolvedAccount?.Currency)
+            ? resolvedAccount!.Currency!
+            : company.CurrencyCode;
 
         var allocations = input.Allocations.Select(a => new ReconciliationAllocation
         {
@@ -153,13 +158,9 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
             AllocatedAmount = a.AllocatedAmount,
         }).ToList();
 
-        // Delegate to the engine — handles stale-outstanding validation, PLE batch, invoice
-        // AmountPaid updates, and exchange gain/loss JE creation all in one place (also used by
-        // ProcessPaymentReconciliationJob, which has no ABP authorization context to call this
-        // AppService method directly).
         await _engine.ReconcileAndApplyAsync(
-            input.CompanyId, input.PartyType, input.PartyId,
-            partyAccount, company.CurrencyCode, allocations);
+            companyId, input.PartyType, input.PartyId,
+            partyAccount, accountCurrency, allocations);
     }
 
     /// <summary>
@@ -167,10 +168,10 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
     /// applying it — lets the Angular "Auto-Allocate" convenience button pre-fill allocation amounts
     /// for the user to review/adjust before calling <see cref="ReconcileAsync"/>.
     /// </summary>
-    public async Task<List<ReconcileAllocationDto>> GetAutoAllocationAsync(string partyType, Guid partyId)
+    public async Task<List<ReconcileAllocationDto>> GetAutoAllocationAsync(string partyType, Guid partyId, Guid? accountId = null)
     {
-        var payments = await _engine.GetUnreconciledPaymentsAsync(partyType, partyId);
-        var invoices = await _pleService.GetOutstandingVouchersAsync(partyType, partyId);
+        var payments = await _engine.GetUnreconciledPaymentsAsync(partyType, partyId, accountId);
+        var invoices = await _pleService.GetOutstandingVouchersAsync(partyType, partyId, accountId);
 
         var plan = PaymentReconciliationEngine.AutoAllocate(payments, invoices);
         return plan.Select(a => new ReconcileAllocationDto
@@ -190,24 +191,70 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
     /// </summary>
     public async Task UnreconcileAsync(UnreconcileDto input)
     {
-        // Engine returns the allocated amount that was delinked
+        var pleQueryBefore = await _pleRepository.GetQueryableAsync();
+        var matchingPles = pleQueryBefore
+            .Where(p => p.VoucherType == input.PaymentVoucherType
+                     && p.VoucherId == input.PaymentVoucherId
+                     && p.AgainstVoucherType == input.InvoiceVoucherType
+                     && p.AgainstVoucherId == input.InvoiceVoucherId
+                     && !p.Delinked && !p.IsReversal)
+            .Select(p => new { p.AccountCurrency, p.Amount })
+            .ToList();
+
+        var pleAccountCurrency = matchingPles.FirstOrDefault()?.AccountCurrency;
+        var pleBaseAmount = matchingPles.Sum(p => Math.Abs(p.Amount));
+
         var allocatedAmount = await _engine.UnreconcileAsync(
             input.PaymentVoucherType, input.PaymentVoucherId,
             input.InvoiceVoucherType, input.InvoiceVoucherId);
 
-        // Reduce the invoice's AmountPaid (with concurrency retry)
         if (allocatedAmount > 0)
         {
-            await UpdateInvoiceAmountPaidAsync(input.InvoiceVoucherType, input.InvoiceVoucherId, -allocatedAmount);
+            var amountInInvoiceCurrency = allocatedAmount;
+            if (input.InvoiceVoucherType == "SalesInvoice")
+            {
+                var si = await _salesInvoiceRepository.GetAsync(input.InvoiceVoucherId);
+                if (!string.IsNullOrWhiteSpace(pleAccountCurrency)
+                    && !string.Equals(pleAccountCurrency, si.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+                {
+                    amountInInvoiceCurrency = si.ExchangeRate > 0 ? Math.Round(pleBaseAmount / si.ExchangeRate, 2) : allocatedAmount;
+                }
+            }
+            else if (input.InvoiceVoucherType == "PurchaseInvoice")
+            {
+                var pi = await _purchaseInvoiceRepository.GetAsync(input.InvoiceVoucherId);
+                if (!string.IsNullOrWhiteSpace(pleAccountCurrency)
+                    && !string.Equals(pleAccountCurrency, pi.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+                {
+                    amountInInvoiceCurrency = pi.ExchangeRate > 0 ? Math.Round(pleBaseAmount / pi.ExchangeRate, 2) : allocatedAmount;
+                }
+            }
+
+            await UpdateInvoiceAmountPaidAsync(input.InvoiceVoucherType, input.InvoiceVoucherId, -amountInInvoiceCurrency);
+
+            if (input.PaymentVoucherType == "PaymentEntry")
+            {
+                var pe = (await _paymentEntryRepository.WithDetailsAsync(p => p.References))
+                    .FirstOrDefault(p => p.Id == input.PaymentVoucherId)
+                    ?? await _paymentEntryRepository.FindAsync(input.PaymentVoucherId);
+                if (pe != null)
+                {
+                    var matchingRef = pe.References.FirstOrDefault(r =>
+                        r.ReferenceType == input.InvoiceVoucherType && r.ReferenceId == input.InvoiceVoucherId);
+                    if (matchingRef != null)
+                    {
+                        pe.References.Remove(matchingRef);
+                    }
+                    if (pe.AgainstInvoiceType == input.InvoiceVoucherType && pe.AgainstInvoiceId == input.InvoiceVoucherId)
+                    {
+                        pe.AgainstInvoiceId = null;
+                        pe.AgainstInvoiceType = null;
+                    }
+                    await _paymentEntryRepository.UpdateAsync(pe, autoSave: true);
+                }
+            }
         }
 
-        // Cancel related exchange gain/loss JEs
-        // Per ERPNext: unreconciliation must cancel exchange gain/loss JE that was created during reconcile.
-        // CreateExchangeGainLossJeIfNeeded tags the JE with the actual payment voucher's own type
-        // ("PaymentEntry"/"JournalEntry"), not a "PaymentReconciliation" constant — this query used to
-        // filter on that literal, which never matched anything, so no exchange JE was ever found or
-        // cancelled here. Also scope to VoucherType=ExchangeGainOrLoss: a payment voucher's own main GL
-        // JE shares the same (ReferenceType, ReferenceId) and must never be touched by unreconcile.
         var jeQuery = await _journalEntryRepository.GetQueryableAsync();
         var relatedJes = jeQuery
             .Where(je => je.ReferenceType == input.PaymentVoucherType
@@ -223,9 +270,6 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
         }
     }
 
-    /// <summary>
-    /// Concurrency-safe AmountPaid update with retry on optimistic concurrency conflict.
-    /// </summary>
     private async Task UpdateInvoiceAmountPaidAsync(string invoiceType, Guid invoiceId, decimal amount)
     {
         for (int attempt = 1; attempt <= 3; attempt++)
@@ -256,10 +300,6 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
         }
     }
 
-    /// <summary>
-    /// Unreconciles a batch of selected allocations in a document.
-    /// Per ERPNext PR #59677 (commit dbcb87fae8): dialog retains selection and unreconciles only chosen rows.
-    /// </summary>
     public async Task UnreconcileAllocationsAsync(List<UnreconcileDto> inputs)
     {
         if (inputs == null || inputs.Count == 0)
@@ -271,10 +311,6 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
         }
     }
 
-    /// <summary>
-    /// Returns all active (non-delinked) allocations for a voucher (Payment, Invoice, or Journal).
-    /// Used by the Unreconcile Dialog.
-    /// </summary>
     public async Task<List<LinkedAllocationDto>> GetLinkedAllocationsAsync(string voucherType, Guid voucherId)
     {
         var pleQuery = await _pleRepository.GetQueryableAsync();
@@ -368,7 +404,7 @@ public class PaymentReconciliationAppService : ApplicationService, IPaymentRecon
                 });
             }
         }
-        else // Invoice voucher: SalesInvoice or PurchaseInvoice
+        else
         {
             var entries = pleQuery
                 .Where(p => p.AgainstVoucherType == voucherType

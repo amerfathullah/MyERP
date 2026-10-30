@@ -2,13 +2,14 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { LocalizationPipe } from '@abp/ng.core';
+import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
-import { LocalizationService } from '@abp/ng.core';
 import { PaymentReconciliationService } from '../../proxy/accounting/payment-reconciliation.service';
 import type { OutstandingInvoiceDto, UnreconciledPaymentDto } from '../../proxy/accounting/models';
+import { CompanyContextService } from '../../shared/services/company-context.service';
 
 interface OutstandingInvoice {
+  accountId?: string;
   voucherId: string;
   voucherType: string;
   documentNumber?: string;
@@ -30,9 +31,11 @@ export class PaymentReconciliationComponent implements OnInit {
   private reconciliationService = inject(PaymentReconciliationService);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
+  private companyContext = inject(CompanyContextService);
 
   partyType = signal<string>('Customer');
   partyId = signal<string>('');
+  accountId = signal<string>('');
   invoices = signal<OutstandingInvoice[]>([]);
   payments = signal<UnreconciledPaymentDto[]>([]);
   selectedPaymentVoucherId = signal<string | null>(null);
@@ -48,6 +51,9 @@ export class PaymentReconciliationComponent implements OnInit {
     if (qp['partyId']) {
       this.partyId.set(qp['partyId']);
     }
+    if (qp['accountId']) {
+      this.accountId.set(qp['accountId']);
+    }
     if (this.partyId()) {
       this.fetchOutstanding();
     }
@@ -61,10 +67,13 @@ export class PaymentReconciliationComponent implements OnInit {
 
     this.reconciliationService.getOutstandingInvoices(this.partyType(), this.partyId()).subscribe({
       next: (result: OutstandingInvoiceDto[]) => {
-        this.invoices.set((result ?? []).map(i => ({
+        const acctFilter = this.accountId();
+        const filtered = acctFilter ? (result ?? []).filter(i => i.accountId === acctFilter) : (result ?? []);
+        this.invoices.set(filtered.map(i => ({
+          accountId: i.accountId,
           voucherId: i.voucherId!,
           voucherType: i.voucherType ?? 'SalesInvoice',
-          outstanding: i.outstanding ?? 0,
+          outstanding: Math.abs(i.outstanding ?? 0),
           allocatedAmount: 0,
           selected: false,
         })));
@@ -117,9 +126,6 @@ export class PaymentReconciliationComponent implements OnInit {
 
   autoAllocating = signal(false);
 
-  /// Fetches the greedy first-fit allocation plan and applies only the rows for the currently
-  /// selected payment onto the matching invoice rows — the plan covers every unreconciled payment,
-  /// but the UI reconciles one payment at a time.
   autoAllocate() {
     const payment = this.selectedPayment;
     if (!payment) {
@@ -148,24 +154,28 @@ export class PaymentReconciliationComponent implements OnInit {
       return;
     }
 
-    const allocations = this.invoices()
-      .filter(i => i.selected && i.allocatedAmount > 0)
-      .map(i => ({
-        paymentVoucherId: payment.voucherId,
-        paymentVoucherType: payment.voucherType,
-        invoiceVoucherId: i.voucherId,
-        invoiceVoucherType: i.voucherType,
-        allocatedAmount: i.allocatedAmount,
-      }));
+    const selectedInvoices = this.invoices().filter(i => i.selected && i.allocatedAmount > 0);
+    const allocations = selectedInvoices.map(i => ({
+      paymentVoucherId: payment.voucherId,
+      paymentVoucherType: payment.voucherType,
+      invoiceVoucherId: i.voucherId,
+      invoiceVoucherType: i.voucherType,
+      allocatedAmount: i.allocatedAmount,
+    }));
 
     if (allocations.length === 0) return;
+
+    const resolvedAccountId = this.accountId() || selectedInvoices[0]?.accountId || undefined;
+    const companyId = this.companyContext.currentCompanyId() || undefined;
 
     this.reconciling.set(true);
     this.reconciliationService.reconcile({
       partyType: this.partyType(),
       partyId: this.partyId(),
+      companyId,
+      accountId: resolvedAccountId,
       allocations,
-    } as any).subscribe({
+    }).subscribe({
       next: () => {
         this.toaster.success('::SuccessfullyReconciled');
         this.successMessage.set(this.l.instant('::SuccessfullyReconciled'));

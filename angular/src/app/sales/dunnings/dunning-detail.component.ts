@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -23,7 +23,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             <div class="col-md-3"><strong>{{ 'Customer' | abpLocalization }}:</strong> {{ d.customerName }}</div>
             <div class="col-md-2"><strong>{{ 'Level' | abpLocalization }}:</strong> <span class="badge bg-warning">Level {{ d.dunningLevel }}</span></div>
             <div class="col-md-2"><strong>{{ 'Date' | abpLocalization }}:</strong> {{ d.postingDate | date:'dd/MM/yyyy' }}</div>
-            <div class="col-md-2"><strong>{{ 'Fee' | abpLocalization }}:</strong> {{ d.dunningFee | number:'1.2-2' }}</div>
+            <div class="col-md-2"><strong>{{ 'Fee' | abpLocalization }}:</strong> {{ d.currency || 'MYR' }} {{ d.dunningFee | number:'1.2-2' }}</div>
             <div class="col-md-3">
               <span class="badge" [ngClass]="{'bg-secondary':d.status===0,'bg-primary':d.status===1,'bg-success':d.status===3,'bg-danger':d.status===4}">
                 {{ getStatusLabel(d.status) }}
@@ -31,13 +31,19 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
             </div>
           </div>
           <div class="row mt-2">
-            <div class="col-md-4"><strong>{{ 'Outstanding' | abpLocalization }}:</strong> <span class="text-danger fw-bold">{{ d.totalOutstanding | number:'1.2-2' }}</span></div>
-            <div class="col-md-4"><strong>{{ 'Interest' | abpLocalization }}:</strong> {{ d.interestAmount | number:'1.2-2' }}</div>
-            <div class="col-md-4"><strong>{{ 'GrandTotal' | abpLocalization }}:</strong> <span class="fw-bold">{{ d.grandTotal | number:'1.2-2' }}</span></div>
+            <div class="col-md-4"><strong>{{ 'Outstanding' | abpLocalization }}:</strong> <span class="text-danger fw-bold">{{ d.currency || 'MYR' }} {{ d.totalOutstanding | number:'1.2-2' }}</span></div>
+            <div class="col-md-4"><strong>{{ 'Interest' | abpLocalization }}:</strong> {{ d.currency || 'MYR' }} {{ d.interestAmount | number:'1.2-2' }}</div>
+            <div class="col-md-4"><strong>{{ 'GrandTotal' | abpLocalization }}:</strong> <span class="fw-bold">{{ d.currency || 'MYR' }} {{ d.grandTotal | number:'1.2-2' }}</span></div>
           </div>
-          @if ($any(d).emailSentAt) {
+          @if ((d.dunningAmount ?? 0) > 0) {
+            <div class="row mt-2 text-muted small">
+              <div class="col-md-4"><strong>{{ '::Paid' | abpLocalization }}:</strong> {{ d.currency || 'MYR' }} {{ d.paidDunningAmount | number:'1.2-2' }}</div>
+              <div class="col-md-4"><strong>{{ 'Outstanding' | abpLocalization }}:</strong> {{ d.currency || 'MYR' }} {{ d.unpaidDunningAmount | number:'1.2-2' }}</div>
+            </div>
+          }
+          @if (d.emailSentAt) {
             <div class="mt-2">
-              <span class="badge bg-info"><i class="fa fa-envelope me-1"></i>{{ '::EmailSent' | abpLocalization }} {{ $any(d).emailSentAt | date:'dd/MM/yyyy HH:mm' }} to {{ $any(d).emailSentTo }}</span>
+              <span class="badge bg-info"><i class="fa fa-envelope me-1"></i>{{ '::EmailSent' | abpLocalization }} {{ d.emailSentAt | date:'dd/MM/yyyy HH:mm' }} to {{ d.emailSentTo }}</span>
             </div>
           }
           @if (d.status === 0) {
@@ -47,6 +53,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
           }
           @if (d.status === 1) {
             <div class="mt-3 d-flex gap-2">
+              <button class="btn btn-sm btn-primary" [disabled]="actionLoading()" (click)="recordPayment()"><i class="fa fa-credit-card me-1"></i>{{ '::RecordPayment' | abpLocalization }}</button>
               <button class="btn btn-sm btn-success" [disabled]="actionLoading()" (click)="action('resolve')"><i class="fa fa-check me-1"></i>{{ 'Resolve' | abpLocalization }}</button>
               <button class="btn btn-sm btn-outline-info" [disabled]="actionLoading()" (click)="showEmailDialog.set(true)"><i class="fa fa-envelope me-1"></i>{{ '::SendDunningNotice' | abpLocalization }}</button>
               <button class="btn btn-sm btn-danger" [disabled]="actionLoading()" (click)="action('cancel')"><i class="fa fa-times me-1"></i>{{ 'Cancel' | abpLocalization }}</button>
@@ -89,6 +96,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
 })
 export class DunningDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private service = inject(DunningService);
   private toaster = inject(ToasterService);
   private l = inject(LocalizationService);
@@ -112,6 +120,18 @@ export class DunningDetailComponent implements OnInit {
   getStatusLabel(status: number | undefined): string {
     const keys = ['Draft', 'Submitted', '', 'Resolved', 'Cancelled'];
     return this.l.instant('::' + (keys[status ?? 0] || 'Draft'));
+  }
+
+  recordPayment(): void {
+    if (!this.d?.id) return;
+    this.router.navigate(['/accounting/payments/new'], {
+      queryParams: {
+        dunningId: this.d.id,
+        partyType: 'Customer',
+        partyId: this.d.customerId,
+        companyId: this.d.companyId,
+      },
+    });
   }
 
   action(type: string) {

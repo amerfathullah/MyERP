@@ -772,6 +772,16 @@ export interface DunningDto extends EntityDto<string> {
   dunningFee?: number;
   interestAmount?: number;
   grandTotal?: number;
+  dunningAmount?: number;
+  paidDunningAmount?: number;
+  unpaidDunningAmount?: number;
+  currency?: string;
+  conversionRate?: number;
+  baseDunningAmount?: number;
+  unpaidBaseDunningAmount?: number;
+  incomeAccountId?: string | null;
+  costCenterId?: string | null;
+  rateOfInterest?: number;
   status?: number;
   overduePaymentCount?: number;
   emailSentAt?: string | null;

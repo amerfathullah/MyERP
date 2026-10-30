@@ -43,7 +43,8 @@ public class PaymentScheduleEntry : CreationAuditedEntity<Guid>, IMultiTenant
 
     /// <summary>
     /// Base outstanding amount = BasePaymentAmount - (PaidAmount * (BasePaymentAmount / PaymentAmount)).
-    /// Guaranteed to equal BasePaymentAmount on schedule creation (ERPNext PR #47178 / commit 02356029a8).
+    /// Guaranteed to equal BasePaymentAmount on schedule creation (ERPNext PR #47178 / commit 02356029a8),
+    /// including fixed-amount zero-portion terms (ERPNext commit 0953a16dba).
     /// </summary>
     public decimal BaseOutstanding => BasePaymentAmount > 0 && PaymentAmount > 0
         ? Math.Max(0, Math.Round(BasePaymentAmount - (PaidAmount * BasePaymentAmount / PaymentAmount), 2))
@@ -125,6 +126,50 @@ public class PaymentScheduleEntry : CreationAuditedEntity<Guid>, IMultiTenant
         InvoicePortion = invoicePortion;
         PaymentAmount = paymentAmount;
         Description = description;
+    }
+
+    /// <summary>
+    /// Synchronizes PaymentAmount, BasePaymentAmount, PaidAmount, and DiscountedAmount from invoice grand total.
+    /// Per ERPNext commits 0953a16dba &amp; 4bd25cf1df:
+    /// - When InvoicePortion == 0 (fixed-amount row), preserves PaymentAmount and computes BasePaymentAmount
+    ///   from PaymentAmount × exchangeRate so BaseOutstanding is populated accurately.
+    /// - When keepSettled is true, preserves PaidAmount instead of resetting settled installments to zero.
+    /// </summary>
+    public void SyncAmounts(decimal grandTotal, decimal exchangeRate = 1m, bool keepSettled = false)
+    {
+        var effectiveRate = exchangeRate > 0 ? exchangeRate : 1m;
+        var previousPaymentAmount = PaymentAmount;
+
+        if (InvoicePortion > 0m)
+        {
+            PaymentAmount = Math.Round(grandTotal * InvoicePortion / 100m, 2);
+            BasePaymentAmount = Math.Round(Math.Round(grandTotal * effectiveRate, 2) * InvoicePortion / 100m, 2);
+
+            // Per ERPNext commit 240a3a97a3: scale fixed Amount discount proportionally when PaymentAmount changes
+            if (DiscountType == "Amount" && DiscountPercentage > 0m
+                && previousPaymentAmount > 0m && previousPaymentAmount != PaymentAmount)
+            {
+                DiscountPercentage = Math.Round(DiscountPercentage * PaymentAmount / previousPaymentAmount, 2);
+            }
+        }
+        else
+        {
+            BasePaymentAmount = Math.Round(PaymentAmount * effectiveRate, 2);
+        }
+
+        if (!keepSettled)
+        {
+            PaidAmount = 0m;
+        }
+
+        if (DiscountType == "Percentage" && DiscountPercentage > 0m)
+        {
+            DiscountedAmount = Math.Max(0m, Math.Round(PaymentAmount * (1m - DiscountPercentage / 100m), 2));
+        }
+        else if (DiscountType == "Amount" && DiscountPercentage > 0m)
+        {
+            DiscountedAmount = Math.Max(0m, Math.Round(PaymentAmount - DiscountPercentage, 2));
+        }
     }
 
     /// <summary>

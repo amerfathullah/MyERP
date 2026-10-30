@@ -8,8 +8,8 @@ namespace MyERP.Accounting;
 public interface IPaymentReconciliationAppService : IApplicationService
 {
     Task<List<OutstandingInvoiceDto>> GetOutstandingInvoicesAsync(string partyType, Guid partyId, Guid? accountId = null);
-    Task<List<UnreconciledPaymentDto>> GetUnreconciledPaymentsAsync(string partyType, Guid partyId);
-    Task<List<ReconcileAllocationDto>> GetAutoAllocationAsync(string partyType, Guid partyId);
+    Task<List<UnreconciledPaymentDto>> GetUnreconciledPaymentsAsync(string partyType, Guid partyId, Guid? accountId = null);
+    Task<List<ReconcileAllocationDto>> GetAutoAllocationAsync(string partyType, Guid partyId, Guid? accountId = null);
     Task ReconcileAsync(ReconcilePaymentDto input);
     Task UnreconcileAsync(UnreconcileDto input);
     Task<List<LinkedAllocationDto>> GetLinkedAllocationsAsync(string voucherType, Guid voucherId);
