@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
+using MyERP.Accounting;
+using MyERP.Accounting.Entities;
 using MyERP.Dtos;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
@@ -458,6 +460,76 @@ public abstract class StockReconciliationValidationTests<TStartupModule> : MyERP
                     PostingDate = DateTime.Today
                 }));
             ex.Code.ShouldBe(MyERPDomainErrorCodes.GroupWarehouseCannotReceiveStock);
+        });
+    }
+
+    [Fact]
+    public async Task CreateAsync_OpeningStock_ExpenseAccountProfitAndLoss_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var srAppService = GetRequiredService<IStockReconciliationAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SR Opening PnL Co"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "SR Opening WH"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "SR-OP-1", "Opening Item", MyERP.Inventory.ItemType.Goods), autoSave: true);
+            var expenseAccount = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "5001", "Cost of Goods Sold", AccountType.Expense)
+            {
+                AccountSubType = AccountSubType.CostOfGoodsSold
+            }, autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                srAppService.CreateAsync(new CreateStockReconciliationDto
+                {
+                    CompanyId = company.Id,
+                    PostingDate = DateTime.Today,
+                    Purpose = "Opening Stock",
+                    ExpenseAccountId = expenseAccount.Id,
+                    Items = new List<CreateStockReconciliationItemDto>
+                    {
+                        new() { ItemId = item.Id, WarehouseId = wh.Id, NewQuantity = 10m, NewValuationRate = 20m }
+                    }.ToArray()
+                }));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.OpeningBalanceOnlyBSAccounts);
+        });
+    }
+
+    [Fact]
+    public async Task CreateAsync_DifferenceAccountIsStockAccount_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var srAppService = GetRequiredService<IStockReconciliationAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "SR Stock Diff Co"), autoSave: true);
+            var wh = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "SR Stock Diff WH"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "SR-SD-1", "Stock Diff Item", MyERP.Inventory.ItemType.Goods), autoSave: true);
+            var stockAccount = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1410", "Stock In Hand", AccountType.Asset)
+            {
+                AccountSubType = AccountSubType.Stock
+            }, autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                srAppService.CreateAsync(new CreateStockReconciliationDto
+                {
+                    CompanyId = company.Id,
+                    PostingDate = DateTime.Today,
+                    Purpose = "Stock Reconciliation",
+                    ExpenseAccountId = stockAccount.Id,
+                    Items = new List<CreateStockReconciliationItemDto>
+                    {
+                        new() { ItemId = item.Id, WarehouseId = wh.Id, NewQuantity = 10m, NewValuationRate = 20m }
+                    }.ToArray()
+                }));
+            ex.Data["detail"]!.ToString()!.ShouldContain("cannot be a Stock account");
         });
     }
 }

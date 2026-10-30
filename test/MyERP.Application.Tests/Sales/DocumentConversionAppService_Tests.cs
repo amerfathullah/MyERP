@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MyERP.Sales;
 using MyERP.Sales.Entities;
 using MyERP.Core.Entities;
+using MyERP.Inventory;
 using MyERP.Inventory.Entities;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
@@ -674,5 +675,62 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
             var poBComp = poB.Items.First(i => i.ItemId == compB);
             poBComp.Quantity.ShouldBe(3m);
         });
+    }
+
+    [Fact]
+    public async Task ConvertQuotationToSalesInvoiceAsync_Valid_Creates_Invoice()
+    {
+        var (companyId, customerId, _) = await SeedDataAsync();
+        var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+        var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), companyId, "Q-SI-ITEM-1", "Quotation SI Item", ItemType.Goods) { MaintainStock = false }, autoSave: true);
+
+        var qtn = await _quotationService.CreateAsync(new CreateQuotationDto
+        {
+            CompanyId = companyId,
+            CustomerId = customerId,
+            IssueDate = DateTime.UtcNow.Date,
+            Items = new List<CreateQuotationItemDto>
+            {
+                new() { ItemId = item.Id, Description = "Item 1", Quantity = 5m, UnitPrice = 120m, Uom = "Unit" }
+            }
+        });
+        await _quotationService.SubmitAsync(qtn.Id);
+
+        var invoiceDto = await _conversionService.ConvertQuotationToSalesInvoiceAsync(qtn.Id);
+        invoiceDto.ShouldNotBeNull();
+        invoiceDto.CustomerId.ShouldBe(customerId);
+        invoiceDto.CompanyId.ShouldBe(companyId);
+        invoiceDto.Items.Count.ShouldBe(1);
+        invoiceDto.Items[0].Quantity.ShouldBe(5m);
+        invoiceDto.Items[0].UnitPrice.ShouldBe(120m);
+    }
+
+    [Fact]
+    public async Task ConvertQuotationToSalesInvoiceAsync_LostOrExpired_Throws()
+    {
+        var (companyId, customerId, _) = await SeedDataAsync();
+        var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+        var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), companyId, "Q-SI-ITEM-2", "Quotation SI Item 2", ItemType.Goods) { MaintainStock = false }, autoSave: true);
+
+        var qtn = await _quotationService.CreateAsync(new CreateQuotationDto
+        {
+            CompanyId = companyId,
+            CustomerId = customerId,
+            IssueDate = DateTime.UtcNow.Date,
+            Items = new List<CreateQuotationItemDto>
+            {
+                new() { ItemId = item.Id, Description = "Item 2", Quantity = 2m, UnitPrice = 50m, Uom = "Unit" }
+            }
+        });
+        await _quotationService.SubmitAsync(qtn.Id);
+
+        // Mark lost with valid reason
+        var reasonRepo = GetRequiredService<IRepository<QuotationLostReason, Guid>>();
+        var reason = await reasonRepo.InsertAsync(new QuotationLostReason(Guid.NewGuid(), "Price too high"), autoSave: true);
+        await _quotationService.MarkLostAsync(qtn.Id, new MarkQuotationLostDto { LostReasonIds = new List<Guid> { reason.Id } });
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+            _conversionService.ConvertQuotationToSalesInvoiceAsync(qtn.Id));
+        (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Lost");
     }
 }

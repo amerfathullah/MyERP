@@ -1827,6 +1827,30 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
 
         invoice.Cancel();
 
+        // Reverse Debit Note reduction on original invoice outstanding
+        if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
+        {
+            var returnAmount = Math.Abs(invoice.GrandTotal);
+            for (int attempt = 1; attempt <= 3; attempt++)
+            {
+                try
+                {
+                    var original = await _repository.FindAsync(invoice.ReturnAgainstId.Value);
+                    if (original != null)
+                    {
+                        original.AmountPaid = Math.Max(0, original.AmountPaid - returnAmount);
+                        await _repository.UpdateAsync(original, autoSave: true);
+                    }
+                    break;
+                }
+                catch (Volo.Abp.Data.AbpDbConcurrencyException) when (attempt < 3)
+                {
+                    Logger.LogWarning("Concurrency conflict reversing PI debit note AmountPaid (attempt {Attempt})", attempt);
+                    await Task.Delay(attempt * 10);
+                }
+            }
+        }
+
         // Auto-cancel linked system-generated Debit Note Journal Entries (gotcha #3909)
         var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.JournalEntry, Guid>>();
         var linkedJes = await jeRepo.GetListAsync(j =>

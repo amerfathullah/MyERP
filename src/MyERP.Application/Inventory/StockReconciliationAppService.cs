@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.DomainServices;
@@ -117,6 +118,36 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
     /// up outstanding reservations for the (Item, Warehouse) pairs directly, since a Stock
     /// Reconciliation isn't tied to a single voucher.
     /// </summary>
+    private async Task ValidateExpenseAccountAsync(StockReconciliation sr)
+    {
+        if (!sr.ExpenseAccountId.HasValue) return;
+
+        var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+        var account = await accountRepo.FindAsync(sr.ExpenseAccountId.Value);
+        if (account == null) return;
+
+        if (account.AccountSubType == AccountSubType.Stock)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Difference Account '{account.AccountName}' cannot be a Stock account.");
+        }
+
+        // Per ERPNext PR #62578 (commit 333273300a): check opening stock reconciliation per company
+        var isOpening = sr.Purpose == "Opening Stock";
+        if (!isOpening)
+        {
+            var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+            var sleQuery = await sleRepo.GetQueryableAsync();
+            isOpening = !sleQuery.Any(sle => sle.CompanyId == sr.CompanyId && !sle.IsCancelled);
+        }
+
+        if (isOpening && (account.AccountType == AccountType.Revenue || account.AccountType == AccountType.Expense))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.OpeningBalanceOnlyBSAccounts)
+                .WithData("detail", "Difference Account must be an Asset/Liability type account, since this Stock Reconciliation is an Opening Entry.");
+        }
+    }
+
     private async Task ValidateNoActiveReservationsAsync(StockReconciliation sr)
     {
         var affectedPairs = sr.Items
@@ -217,6 +248,8 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
             CostCenterId = input.CostCenterId,
         };
 
+        await ValidateExpenseAccountAsync(sr);
+
         var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
         var itemIds = input.Items.Select(i => i.ItemId).Distinct().ToList();
         var itemMap = (await itemRepo.GetQueryableAsync())
@@ -295,6 +328,7 @@ public class StockReconciliationAppService : ApplicationService, IStockReconcili
         await postingOrchestrator.ValidatePostingPeriodAsync(sr.CompanyId, sr.PostingDate, "StockReconciliation");
 
         await ValidateNoActiveReservationsAsync(sr);
+        await ValidateExpenseAccountAsync(sr);
 
         sr.Submit();
 

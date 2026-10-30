@@ -310,6 +310,20 @@ public class SalesInvoiceManager : DomainService
     }
 
     /// <summary>
+    /// Reverses credit note outstanding reduction on the original invoice when the credit note is cancelled.
+    /// </summary>
+    public async Task ReverseCreditNoteAsync(SalesInvoice creditNote)
+    {
+        if (!creditNote.IsReturn || !creditNote.ReturnAgainstId.HasValue) return;
+
+        var original = await _invoiceRepository.FindAsync(creditNote.ReturnAgainstId.Value);
+        if (original == null) return;
+
+        original.AmountPaid = Math.Max(0, original.AmountPaid - Math.Abs(creditNote.GrandTotal));
+        await _invoiceRepository.UpdateAsync(original, autoSave: true);
+    }
+
+    /// <summary>
     /// Validates that an SI cannot be cancelled if it has been paid.
     /// Must reverse payments before cancelling.
     /// </summary>

@@ -8,6 +8,7 @@ using MyERP.Core.Entities;
 using MyERP.Inventory;
 using MyERP.Inventory.Entities;
 using MyERP.Sales.Entities;
+using MyERP.Purchasing;
 using Shouldly;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -252,6 +253,83 @@ public abstract class QuotationStatusUpdaterTests<TStartupModule> : MyERPApplica
             // Opportunity reverts to Quotation
             var oppReverted = await _opportunityRepository.GetAsync(opp.Id);
             oppReverted.Status.ShouldBe(OpportunityStatus.Quotation);
+        });
+    }
+
+    [Fact]
+    public async Task SalesOrder_UpdateItems_Refreshes_Quotation_OrderedQty_And_Status()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await _companyRepository.InsertAsync(new Company(Guid.NewGuid(), "SO Update Items Co"), autoSave: true);
+            await _seriesRepository.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "Quotation Series", "Quotation", "QTN-"), autoSave: true);
+            await _seriesRepository.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "Sales Order Series", "SalesOrder", "SO-"), autoSave: true);
+            var customer = await _customerRepository.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "SO Update Cust"), autoSave: true);
+            var item1 = await _itemRepository.InsertAsync(new Item(Guid.NewGuid(), company.Id, "SO-UPD-ITEM-1", "SO Update Item 1", ItemType.Goods) { MaintainStock = false }, autoSave: true);
+            var item2 = await _itemRepository.InsertAsync(new Item(Guid.NewGuid(), company.Id, "SO-UPD-ITEM-2", "SO Update Item 2", ItemType.Goods) { MaintainStock = false }, autoSave: true);
+
+            var qtnDto = await _quotationAppService.CreateAsync(new CreateQuotationDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                IssueDate = DateTime.UtcNow.Date,
+                Items = new List<CreateQuotationItemDto>
+                {
+                    new() { ItemId = item1.Id, Description = "Item 1", Quantity = 10m, UnitPrice = 100m, Uom = "Unit" },
+                    new() { ItemId = item2.Id, Description = "Item 2", Quantity = 4m, UnitPrice = 50m, Uom = "Unit" }
+                }
+            });
+            await _quotationAppService.SubmitAsync(qtnDto.Id);
+
+            var qtn = await _quotationRepository.GetAsync(qtnDto.Id, includeDetails: true);
+            var qItem1Id = qtn.Items[0].Id;
+            var qItem2Id = qtn.Items[1].Id;
+
+            var soDto = await _salesOrderAppService.CreateAsync(new CreateSalesOrderDto
+            {
+                CompanyId = company.Id,
+                CustomerId = customer.Id,
+                OrderDate = DateTime.UtcNow.Date,
+                QuotationId = qtn.Id,
+                Items = new List<CreateSalesOrderItemDto>
+                {
+                    new() { ItemId = item1.Id, Description = "Item 1", Quantity = 10m, UnitPrice = 100m, Uom = "Unit", QuotationItemId = qItem1Id },
+                    new() { ItemId = item2.Id, Description = "Item 2", Quantity = 4m, UnitPrice = 50m, Uom = "Unit", QuotationItemId = qItem2Id }
+                }
+            });
+            await _salesOrderAppService.SubmitAsync(soDto.Id);
+
+            var qtnAfterSubmit = await _quotationRepository.GetAsync(qtn.Id, includeDetails: true);
+            qtnAfterSubmit.OrderStatus.ShouldBe("Ordered");
+            qtnAfterSubmit.Items[0].OrderedQty.ShouldBe(10m);
+            qtnAfterSubmit.Items[1].OrderedQty.ShouldBe(4m);
+
+            // Update items on SO: shrink item 1 from 10 to 4, remove item 2
+            var so = await _salesOrderAppService.GetAsync(soDto.Id);
+            var soItem1 = so.Items[0];
+            var soItem2 = so.Items[1];
+
+            await _salesOrderAppService.UpdateItemsAsync(so.Id, new UpdateOrderItemsDto
+            {
+                RemovedItemIds = new List<Guid> { soItem2.Id },
+                Items = new List<UpdateOrderItemDto>
+                {
+                    new() { ItemId = soItem1.Id, Quantity = 4m, UnitPrice = soItem1.UnitPrice, Uom = soItem1.Uom }
+                }
+            });
+
+            var qtnAfterUpdate = await _quotationRepository.GetAsync(qtn.Id, includeDetails: true);
+            qtnAfterUpdate.Items[0].OrderedQty.ShouldBe(4m);
+            qtnAfterUpdate.Items[1].OrderedQty.ShouldBe(0m);
+            qtnAfterUpdate.OrderStatus.ShouldBe("Partially Ordered");
+
+            // Cancel SO: all ordered qty reset to 0, status reverts to Open
+            await _salesOrderAppService.CancelAsync(soDto.Id);
+
+            var qtnAfterCancel = await _quotationRepository.GetAsync(qtn.Id, includeDetails: true);
+            qtnAfterCancel.Items[0].OrderedQty.ShouldBe(0m);
+            qtnAfterCancel.Items[1].OrderedQty.ShouldBe(0m);
+            qtnAfterCancel.OrderStatus.ShouldBe("Open");
         });
     }
 }

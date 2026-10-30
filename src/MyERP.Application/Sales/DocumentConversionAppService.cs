@@ -206,6 +206,100 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         return soDto;
     }
 
+    [Authorize(MyERPPermissions.SalesInvoices.Create)]
+    public async Task<SalesInvoiceDto> ConvertQuotationToSalesInvoiceAsync(Guid quotationId, List<Guid>? selectedItemIds = null)
+    {
+        var quotation = await _quotationRepository.GetAsync(quotationId);
+
+        // Per ERPNext PR #62623 (commit bddb16e1a3): block invoicing inactive, lost, or expired quotations
+        if (!quotation.IsActive)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot create Sales Invoice from inactive Quotation {quotation.QuotationNumber}.");
+
+        if (quotation.Status == Core.DocumentStatus.Rejected || quotation.OrderStatus == "Lost")
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Cannot create Sales Invoice from Lost Quotation {quotation.QuotationNumber}.");
+
+        if (quotation.IsExpired)
+            throw new BusinessException("MyERP:07003")
+                .WithData("quotationNumber", quotation.QuotationNumber)
+                .WithData("validUntil", quotation.ValidUntil?.ToString("dd/MM/yyyy") ?? "");
+
+        if (quotation.Status != Core.DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", quotation.CompanyId);
+
+        var invoice = new SalesInvoice(
+            GuidGenerator.Create(),
+            quotation.CompanyId,
+            quotation.CustomerId,
+            invoiceNumber,
+            Clock.Now.Date,
+            quotation.TenantId);
+
+        invoice.CurrencyCode = quotation.CurrencyCode;
+        invoice.Terms = quotation.Terms;
+        invoice.Notes = quotation.Notes;
+        invoice.PriceListId = quotation.PriceListId;
+
+        var partyDefaults = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyDefaultsService>();
+        var billingAddress = await partyDefaults.GetPrimaryAddressAsync("Customer", quotation.CustomerId);
+        if (billingAddress != null) invoice.BillingAddressId = billingAddress.Id;
+        var shippingAddress = await partyDefaults.GetShippingAddressAsync("Customer", quotation.CustomerId);
+        if (shippingAddress != null) invoice.ShippingAddressId = shippingAddress.Id;
+
+        IEnumerable<QuotationItem> itemsToInvoice;
+        if (selectedItemIds is { Count: > 0 })
+        {
+            var unknown = selectedItemIds.FirstOrDefault(id => quotation.Items.All(i => i.Id != id));
+            if (unknown != default)
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Item {unknown} does not belong to Quotation {quotation.QuotationNumber}.");
+
+            var setStart = 0;
+            for (var idx = 0; idx < quotation.Items.Count; idx++)
+            {
+                if (!quotation.Items[idx].IsAlternative)
+                    setStart = idx;
+                if (idx == quotation.Items.Count - 1 || !quotation.Items[idx + 1].IsAlternative)
+                {
+                    var picked = quotation.Items.Skip(setStart).Take(idx - setStart + 1).Count(i => selectedItemIds.Contains(i.Id));
+                    if (picked > 1)
+                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                            .WithData("detail", "Only one item of an alternatives set can be ordered.");
+                }
+            }
+
+            itemsToInvoice = quotation.Items.Where(i => selectedItemIds.Contains(i.Id));
+        }
+        else
+        {
+            itemsToInvoice = quotation.Items.Where(i => !i.IsAlternative);
+        }
+
+        foreach (var item in itemsToInvoice)
+        {
+            invoice.AddItem(item.ItemId, item.Description, item.Quantity, item.UnitPrice, item.TaxAmount, item.Uom);
+            var last = invoice.Items[^1];
+            last.StockUom = item.StockUom;
+            last.ConversionFactor = item.ConversionFactor;
+        }
+
+        if (invoice.Items.Count == 0)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "No items to convert into Sales Invoice.");
+
+        await _salesInvoiceRepository.InsertAsync(invoice, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("Quotation", quotation.Id, quotation.CompanyId,
+            "SalesInvoice", invoice.Id, quotation.QuotationNumber, quotation.TenantId);
+
+        var siDto = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(invoice);
+        siDto.CustomerName = await ResolveCustomerNameAsync(invoice.CustomerId);
+        return siDto;
+    }
+
     private async Task<(decimal AllowancePct, Dictionary<string, bool> WholeNumberUoms)> GetDeliveryAllowanceContextAsync(SalesOrder salesOrder)
     {
         var companyRepo = LazyServiceProvider.LazyGetService<IRepository<Company, Guid>>();
@@ -464,6 +558,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         invoice.CurrencyCode = salesOrder.CurrencyCode;
         invoice.Notes = salesOrder.Notes;
         invoice.CustomerPoNumber = salesOrder.CustomerPoNumber;
+        invoice.CouponCode = salesOrder.CouponCode;
 
         // Account for draft Sales Invoices in the system (per ERPNext PR #58617 & PR #60570)
         var soItemIds = salesOrder.Items.Select(i => i.Id).ToList();

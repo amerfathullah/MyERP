@@ -1600,6 +1600,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
         var previousGrandTotal = so.GrandTotal;
         var warnings = new List<string>();
         var updatedCount = 0;
+        var quotationItemDeltas = new List<(Guid? QuotationItemId, Guid ItemId, decimal DeltaStockQty)>();
 
         // Check for issued Proforma Invoices on deleted items (PR #59401 / commit 3e5da36b59)
         if (input.RemovedItemIds != null && input.RemovedItemIds.Count > 0)
@@ -1669,6 +1670,7 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
                 }
             }
 
+            quotationItemDeltas.Add((soItemToRemove.QuotationItemId, soItemToRemove.ItemId, -soItemToRemove.StockQty));
             so.RemoveItem(removeId);
         }
 
@@ -1736,6 +1738,10 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
             // Adjust Bin.ReservedQty for qty changes (delta in stock UOM)
             var qtyDelta = soItem.StockQty - oldStockQty;
+            if (qtyDelta != 0)
+            {
+                quotationItemDeltas.Add((soItem.QuotationItemId, soItem.ItemId, qtyDelta));
+            }
             if (qtyDelta != 0 && soItem.WarehouseId.HasValue && !soItem.DeliveredBySupplier)
             {
                 await _binService.UpdateReservedQtyAsync(
@@ -1769,6 +1775,82 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
 
         so.RecalculateTotals();
         so.UpdateFulfillmentStatus();
+
+        // Per ERPNext PR #62623 / commit 532b212fde: refresh quotation ordered_qty on Sales Order Update Items
+        if (so.QuotationId.HasValue || quotationItemDeltas.Any(d => d.QuotationItemId.HasValue))
+        {
+            var quotationRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Quotation, Guid>>();
+            var quotationsToUpdate = new HashSet<Guid>();
+            if (so.QuotationId.HasValue)
+                quotationsToUpdate.Add(so.QuotationId.Value);
+
+            var explicitQItemIds = quotationItemDeltas.Where(d => d.QuotationItemId.HasValue)
+                .Select(d => d.QuotationItemId!.Value).ToList();
+            if (explicitQItemIds.Count > 0)
+            {
+                var qQuery = await quotationRepo.GetQueryableAsync();
+                var parents = qQuery.Where(q => q.Items.Any(i => explicitQItemIds.Contains(i.Id)))
+                    .Select(q => q.Id).ToList();
+                foreach (var pid in parents)
+                    quotationsToUpdate.Add(pid);
+            }
+
+            foreach (var qId in quotationsToUpdate)
+            {
+                var quotation = await quotationRepo.FindAsync(qId);
+                if (quotation == null) continue;
+
+                var quotationChanged = false;
+                foreach (var delta in quotationItemDeltas)
+                {
+                    var qItem = delta.QuotationItemId.HasValue
+                        ? quotation.Items.FirstOrDefault(i => i.Id == delta.QuotationItemId.Value)
+                        : (so.QuotationId == quotation.Id ? quotation.Items.FirstOrDefault(i => i.ItemId == delta.ItemId) : null);
+
+                    if (qItem != null && delta.DeltaStockQty != 0)
+                    {
+                        qItem.OrderedQty = Math.Max(0, qItem.OrderedQty + delta.DeltaStockQty);
+                        quotationChanged = true;
+                    }
+                }
+
+                if (quotationChanged || so.QuotationId == quotation.Id)
+                {
+                    if (quotation.Items.All(i => i.OrderedQty <= 0))
+                    {
+                        quotation.ConvertedToSalesOrderId = null;
+                    }
+                    else
+                    {
+                        quotation.ConvertedToSalesOrderId = so.Id;
+                    }
+
+                    await quotationRepo.UpdateAsync(quotation, autoSave: true);
+
+                    // Revert Opportunity if no other submitted SOs exist and quotation has 0 ordered
+                    if (quotation.OpportunityId.HasValue && quotation.Items.All(i => i.OrderedQty <= 0))
+                    {
+                        var soQuery = await _repository.GetQueryableAsync();
+                        var hasOtherSubmittedSo = soQuery.Any(s =>
+                            s.Id != so.Id
+                            && s.QuotationId == quotation.Id
+                            && s.Status != Core.DocumentStatus.Draft
+                            && s.Status != Core.DocumentStatus.Cancelled);
+
+                        if (!hasOtherSubmittedSo)
+                        {
+                            var oppRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CRM.Entities.Opportunity, Guid>>();
+                            var opp = await oppRepo.FindAsync(quotation.OpportunityId.Value);
+                            if (opp != null && opp.Status == CRM.OpportunityStatus.Converted)
+                            {
+                                opp.RevertToQuotation();
+                                await oppRepo.UpdateAsync(opp, autoSave: true);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // Per ERPNext PR #61904 / commit 67ebd725eb: validate Party Specific Item rules after updating items
         var companyRestrictionForUpdate = LazyServiceProvider.LazyGetService<Core.DomainServices.CompanyRestrictionValidationService>();

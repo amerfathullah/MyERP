@@ -37,7 +37,7 @@ public class QuotationAlternativeItemTests
     }
 
     [Fact]
-    public void PerOrdered_IgnoresUnorderedAlternativeSet()
+    public void PerOrdered_CountsUnorderedAlternativeSet_AsPending()
     {
         var q = NewQuotation();
         q.AddItem(Guid.NewGuid(), "Plain", 1, 10m, 0m);
@@ -46,7 +46,28 @@ public class QuotationAlternativeItemTests
         q.Submit();
 
         // Only the plain row is ordered; the primary/alternative set was never ordered.
+        // Per ERPNext PR #62623 (commit ce302cee55): keeps quotation Partially Ordered.
         q.Items[0].OrderedQty = 1;
+        q.PerOrdered.ShouldBe(0m);
+        q.OrderStatus.ShouldBe("Partially Ordered");
+
+        // When the primary row is ordered, quotation becomes Ordered.
+        q.Items[1].OrderedQty = 1;
+        q.PerOrdered.ShouldBe(100m);
+        q.OrderStatus.ShouldBe("Ordered");
+    }
+
+    [Fact]
+    public void PerOrdered_WhenAlternativeRowOrdered_BecomesOrdered()
+    {
+        var q = NewQuotation();
+        q.AddItem(Guid.NewGuid(), "Plain", 1, 10m, 0m);
+        q.AddItem(Guid.NewGuid(), "Primary", 1, 100m, 0m);
+        q.AddItem(Guid.NewGuid(), "Alternative", 1, 90m, 0m, isAlternative: true);
+        q.Submit();
+
+        q.Items[0].OrderedQty = 1;
+        q.Items[2].OrderedQty = 1; // Alternative row ordered instead of primary
         q.PerOrdered.ShouldBe(100m);
         q.OrderStatus.ShouldBe("Ordered");
     }

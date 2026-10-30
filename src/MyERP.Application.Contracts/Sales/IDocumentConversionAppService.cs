@@ -14,6 +14,9 @@ public interface IDocumentConversionAppService : IApplicationService
     /// <summary>Convert a submitted Quotation into a Sales Order.</summary>
     Task<SalesOrderDto> ConvertQuotationToSalesOrderAsync(Guid quotationId, List<Guid>? selectedItemIds = null);
 
+    /// <summary>Convert a submitted Quotation into a Sales Invoice (ERPNext PR #62623 / commit bddb16e1a3).</summary>
+    Task<SalesInvoiceDto> ConvertQuotationToSalesInvoiceAsync(Guid quotationId, List<Guid>? selectedItemIds = null);
+
     /// <summary>Convert a submitted Sales Order into a Delivery Note. When selectedItems is empty, delivers all pending items.</summary>
     Task<DeliveryNoteDto> ConvertSalesOrderToDeliveryNoteAsync(Guid salesOrderId, List<PartialDeliveryItemDto>? selectedItems = null);
 

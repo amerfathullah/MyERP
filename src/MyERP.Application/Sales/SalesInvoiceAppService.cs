@@ -941,12 +941,17 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
-        // Apply coupon code discount if provided
-        if (!string.IsNullOrWhiteSpace(input.CouponCode) && !input.IsReturn)
+        // Apply coupon code discount if provided (PR #59581 / commit 2cc77651b7: count coupons once across linked invoices)
+        if (!string.IsNullOrWhiteSpace(input.CouponCode))
         {
-            var couponService = LazyServiceProvider.LazyGetRequiredService<CouponCodeAppService>();
-            var pricingRuleId = await couponService.ValidateAndApplyAsync(
-                input.CouponCode, input.CustomerId, input.IssueDate);
+            var countsCoupon = await CountsCouponUseAsync(
+                invoice.CompanyId, invoice.CustomerId, input.CouponCode, input.IsReturn, input.IsConsolidated, input.Items.Select(i => i.SalesOrderItemId));
+            if (countsCoupon)
+            {
+                var couponService = LazyServiceProvider.LazyGetRequiredService<CouponCodeAppService>();
+                var pricingRuleId = await couponService.ValidateAndApplyAsync(
+                    input.CouponCode, input.CustomerId, input.IssueDate);
+            }
             invoice.CouponCode = input.CouponCode;
             invoice.Notes = string.IsNullOrEmpty(invoice.Notes)
                 ? $"Coupon: {input.CouponCode}"
@@ -1753,7 +1758,14 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
         invoice.Cancel();
 
-        if (!string.IsNullOrWhiteSpace(invoice.CouponCode))
+        // Reverse credit note reduction on original invoice outstanding
+        if (invoice.IsReturn && invoice.ReturnAgainstId.HasValue)
+        {
+            await _invoiceManager.ReverseCreditNoteAsync(invoice);
+        }
+
+        if (!string.IsNullOrWhiteSpace(invoice.CouponCode) && await CountsCouponUseAsync(
+            invoice.CompanyId, invoice.CustomerId, invoice.CouponCode, invoice.IsReturn, invoice.IsConsolidated, invoice.Items.Select(i => i.SalesOrderItemId)))
         {
             var couponServiceCancel = LazyServiceProvider.LazyGetRequiredService<CouponCodeAppService>();
             await couponServiceCancel.ReverseUsageAsync(invoice.CouponCode);
@@ -2343,6 +2355,39 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 .WithData("daysSinceRate", daysSinceRate == int.MaxValue ? "no rate on record" : daysSinceRate.ToString())
                 .WithData("rateDate", rateDate?.ToString("yyyy-MM-dd") ?? "never");
         }
+    }
+
+    /// <summary>
+    /// Checks whether this invoice should count/redeem the coupon code.
+    /// Per ERPNext PR #59581 / commit 2cc77651b7: returns, POS consolidation, and invoices whose items all belong
+    /// to a submitted Sales Order that already consumed this coupon do not redeem it again.
+    /// </summary>
+    private async Task<bool> CountsCouponUseAsync(
+        Guid companyId, Guid customerId, string? couponCode, bool isReturn, bool isConsolidated, IEnumerable<Guid?> salesOrderItemIds)
+    {
+        if (string.IsNullOrWhiteSpace(couponCode) || isReturn || isConsolidated)
+            return false;
+
+        var soIdList = salesOrderItemIds.ToList();
+        if (soIdList.Count == 0 || soIdList.Any(id => !id.HasValue))
+            return true;
+
+        var soItemIds = soIdList.Select(id => id!.Value).Distinct().ToList();
+        var soItemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrderItem, Guid>>();
+        var soItemQuery = await soItemRepo.GetQueryableAsync();
+        var soQuery = await _salesOrderRepository.GetQueryableAsync();
+
+        var matchingCount = (from item in soItemQuery
+                             join order in soQuery on item.SalesOrderId equals order.Id
+                             where soItemIds.Contains(item.Id)
+                                && order.Status != Core.DocumentStatus.Draft
+                                && order.Status != Core.DocumentStatus.Cancelled
+                                && order.CustomerId == customerId
+                                && order.CompanyId == companyId
+                                && order.CouponCode == couponCode
+                             select item.Id).Distinct().Count();
+
+        return soItemIds.Count != matchingCount;
     }
 }
 

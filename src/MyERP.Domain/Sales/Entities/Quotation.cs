@@ -64,15 +64,60 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
     /// <summary>Rows in document order (Idx), since the database gives no ordering guarantee.</summary>
     public IReadOnlyList<QuotationItem> Items => _items.OrderBy(i => i.Idx).ThenBy(i => i.CreationTime).ToList();
 
+    /// <summary>
+    /// Filters items for status calculation per ERPNext get_valid_items (PR #62623 / commit ce302cee55).
+    /// Collapses each alternatives set to its ordered row, or keeps the main row if none was ordered.
+    /// </summary>
+    public List<QuotationItem> GetValidItems()
+    {
+        var validItems = new List<QuotationItem>();
+        var alternativesSet = new List<QuotationItem>();
+
+        void CollapseSet()
+        {
+            if (alternativesSet.Count == 0) return;
+            var orderedRows = alternativesSet.Where(r => r.OrderedQty > 0).ToList();
+            if (orderedRows.Count > 0)
+            {
+                validItems.AddRange(orderedRows);
+            }
+            else
+            {
+                validItems.Add(alternativesSet[0]);
+            }
+        }
+
+        foreach (var row in Items)
+        {
+            if (row.HasAlternativeItem)
+            {
+                CollapseSet();
+                alternativesSet = [row];
+            }
+            else if (row.IsAlternative)
+            {
+                alternativesSet.Add(row);
+            }
+            else
+            {
+                CollapseSet();
+                alternativesSet.Clear();
+                validItems.Add(row);
+            }
+        }
+
+        CollapseSet();
+        return validItems;
+    }
+
     /// <summary>SO conversion completion %. MIN% formula per ERPNext StatusUpdater (PR #58603: compares in stock UOM).</summary>
     public decimal PerOrdered
     {
         get
         {
-            // ERPNext get_valid_items: rows in an alternatives set count only once they were ordered.
-            var valid = _items.Where(i => !(i.IsAlternative || i.HasAlternativeItem) || i.OrderedQty > 0).ToList();
+            var valid = GetValidItems();
             if (!valid.Any()) return 0;
-            return valid.Min(i => i.StockQty == 0 ? 100 : Math.Min(100, i.OrderedQty / i.StockQty * 100));
+            return valid.Min(i => i.StockQty == 0 ? (i.OrderedQty > 0 ? 100 : 0) : Math.Min(100, i.OrderedQty / i.StockQty * 100));
         }
     }
 
@@ -84,11 +129,14 @@ public class Quotation : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendabl
             if (Status != DocumentStatus.Submitted)
                 return Status == DocumentStatus.Rejected ? "Lost" : Status.ToString();
 
-            if (PerOrdered >= 100m)
+            var valid = GetValidItems();
+            if (!valid.Any() || valid.All(i => i.OrderedQty <= 0))
+                return "Open";
+
+            if (valid.All(i => i.StockQty == 0 ? i.OrderedQty > 0 : i.OrderedQty >= i.StockQty))
                 return "Ordered";
-            if (PerOrdered > 0m)
-                return "Partially Ordered";
-            return "Open";
+
+            return "Partially Ordered";
         }
     }
 
