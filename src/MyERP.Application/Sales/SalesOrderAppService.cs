@@ -936,10 +936,18 @@ public class SalesOrderAppService : ApplicationService, ISalesOrderAppService
     public async Task<SalesOrderDto> CloseAsync(Guid id)
     {
         var order = await _repository.GetAsync(id);
+
+        // Per ERPNext commit b8154bedb4: closing must not strand reserved stock; user must unreserve deliberately first (like row close).
+        var closeReservationManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+        if (await closeReservationManager.HasReservedStockAsync(order.Id))
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Sales Order {order.OrderNumber} has reserved stock. Unreserve it before closing.");
+        }
+
         order.Close();
 
-        // Cancel any Stock Reservation Entries raised against this order (Bin release handled separately below)
-        var closeReservationManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+        // Trim/close any fully-consumed Stock Reservation Entries on this order
         await closeReservationManager.CancelReservationsForOrderAsync(order.Id);
 
         // Release remaining reserved stock for undelivered items (short-close)

@@ -5,6 +5,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
 import { PickListService } from '../../proxy/inventory/pick-list.service';
+import { CreatePickListDto } from '../../proxy/inventory/models';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.directive';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -49,7 +50,7 @@ import { ItemService } from '../../proxy/inventory/item.service';
               </div>
               <div class="col-md-4">
                 <label class="form-label">{{ '::SalesOrder' | abpLocalization }}</label>
-                <select class="form-select" formControlName="salesOrderId">
+                <select class="form-select" formControlName="salesOrderId" (change)="onSalesOrderChange()">
                   <option value="">{{ '::None' | abpLocalization }}</option>
                   @for (so of salesOrders(); track so.id) {
                     <option [value]="so.id">{{ so.orderNumber }}</option>
@@ -160,7 +161,6 @@ export class PickListFormComponent implements OnInit {
     if (cid) this.form.patchValue({ companyId: cid });
 
     const params = this.route.snapshot.queryParams;
-    if (params['salesOrderId']) this.form.patchValue({ salesOrderId: params['salesOrderId'] });
     if (params['customerId']) this.form.patchValue({ customerId: params['customerId'] });
     if (params['companyId']) this.form.patchValue({ companyId: params['companyId'] });
 
@@ -176,12 +176,65 @@ export class PickListFormComponent implements OnInit {
       next: (res: any) => this.warehouses.set(res.items || []),
       error: () => {},
     });
-    this.salesOrderProxyService.getList({ skipCount: 0, maxResultCount: 100, status: 2 } as any).subscribe({
-      next: (res: any) => this.salesOrders.set(res.items || []),
+    this.salesOrderProxyService.getList({ skipCount: 0, maxResultCount: 100 } as any).subscribe({
+      next: (res: any) => this.salesOrders.set((res.items || []).filter((so: any) => so.status !== 'Draft' && so.status !== 'Cancelled' && so.status !== 'Closed')),
       error: () => {},
     });
 
-    this.addItem();
+    if (params['salesOrderId']) {
+      this.form.patchValue({ salesOrderId: params['salesOrderId'] });
+      this.populateFromSalesOrder(params['salesOrderId']);
+    } else {
+      this.addItem();
+    }
+  }
+
+  onSalesOrderChange() {
+    const soId = this.form.get('salesOrderId')?.value;
+    if (soId) {
+      this.populateFromSalesOrder(soId);
+    }
+  }
+
+  private populateFromSalesOrder(salesOrderId: string) {
+    this.salesOrderProxyService.get(salesOrderId).subscribe({
+      next: (so: any) => {
+        if (so.customerId) this.form.patchValue({ customerId: so.customerId });
+        if (so.companyId) this.form.patchValue({ companyId: so.companyId });
+
+        const defaultWh = this.warehouses()[0]?.id ?? '';
+        // Per ERPNext commit 754475b51a: skip closed, drop-ship, skip-delivery, and already delivered rows
+        const pickableRows = (so.items || []).filter((row: any) =>
+          !row.isClosed
+          && !row.deliveredBySupplier
+          && !row.skipDelivery
+          && Math.abs(row.deliveredQty ?? 0) < Math.abs(row.quantity ?? 0)
+        );
+
+        this.itemsArray.clear();
+        for (const row of pickableRows) {
+          const factor = row.conversionFactor > 0 ? row.conversionFactor : 1;
+          const pickedInOrderUom = (row.pickedQty ?? 0) / factor;
+          const remainingOrderQty = (row.quantity ?? 0) - Math.max(pickedInOrderUom, row.deliveredQty ?? 0);
+          const stockQty = Math.round(remainingOrderQty * factor * 10000) / 10000;
+          if (stockQty <= 0) continue;
+
+          this.itemsArray.push(this.fb.group({
+            itemId: [row.itemId, Validators.required],
+            warehouseId: [row.warehouseId || defaultWh, Validators.required],
+            quantity: [stockQty, [Validators.required, Validators.min(0.01)]],
+            sourceDocumentItemId: [row.id || ''],
+          }));
+        }
+
+        if (this.itemsArray.length === 0) {
+          this.addItem();
+        }
+      },
+      error: () => {
+        if (this.itemsArray.length === 0) this.addItem();
+      },
+    });
   }
 
   addItem() {
@@ -189,6 +242,7 @@ export class PickListFormComponent implements OnInit {
       itemId: ['', Validators.required],
       warehouseId: ['', Validators.required],
       quantity: [1, [Validators.required, Validators.min(0.01)]],
+      sourceDocumentItemId: [''],
     }));
   }
 
@@ -199,20 +253,21 @@ export class PickListFormComponent implements OnInit {
     this.saving.set(true);
 
     const raw = this.form.getRawValue();
-    const dto = {
-      companyId: raw.companyId,
-      purpose: raw.purpose,
+    const dto: CreatePickListDto = {
+      companyId: raw.companyId || undefined,
+      purpose: raw.purpose || 'Delivery',
       customerId: raw.customerId || undefined,
       salesOrderId: raw.salesOrderId || undefined,
       pickManually: raw.pickManually ?? false,
       items: (raw.items || []).filter((i: any) => i.itemId).map((i: any) => ({
         itemId: i.itemId,
         warehouseId: i.warehouseId,
-        quantity: i.quantity,
+        qty: Number(i.quantity),
+        sourceDocumentItemId: i.sourceDocumentItemId || undefined,
       })),
     };
 
-    this.service.create(dto as any).subscribe({
+    this.service.create(dto).subscribe({
       next: (created) => {
         this.toaster.success('::SuccessfullyCreated');
         this.router.navigate(['/inventory/pick-lists', created.id]);

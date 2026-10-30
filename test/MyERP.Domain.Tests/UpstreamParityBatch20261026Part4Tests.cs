@@ -906,4 +906,55 @@ public class UpstreamParityBatch20261026Part4Tests
         result[0].Quantity.ShouldBe(5m);
         result[0].Amount.ShouldBe(100m);
     }
+
+    [Fact]
+    public void PickListManager_ComputePickedQtyForBundle_PendingOnly_DeductsDeliveredComponentQty()
+    {
+        var soItemId = Guid.NewGuid();
+        var compA = Guid.NewGuid();
+        var compB = Guid.NewGuid();
+        var pickListId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+
+        var rowA = new PickListItem(Guid.NewGuid(), pickListId, compA, warehouseId, 6m, 6m, "Comp A", null, Guid.NewGuid())
+        {
+            SourceDocumentItemId = soItemId
+        };
+        var rowB = new PickListItem(Guid.NewGuid(), pickListId, compB, warehouseId, 3m, 3m, "Comp B", null, Guid.NewGuid())
+        {
+            SourceDocumentItemId = soItemId
+        };
+
+        // 1 bundle delivered (2 of A, 1 of B)
+        rowA.RecordDelivery(2m);
+        rowB.RecordDelivery(1m);
+
+        var bundleMap = new Dictionary<Guid, decimal>
+        {
+            [compA] = 2m,
+            [compB] = 1m
+        };
+
+        PickListManager.ComputePickedQtyForBundle(new[] { rowA, rowB }, soItemId, bundleMap, pendingOnly: false)
+            .ShouldBe(3);
+        PickListManager.ComputePickedQtyForBundle(new[] { rowA, rowB }, soItemId, bundleMap, pendingOnly: true)
+            .ShouldBe(2);
+
+        // Deliver remaining 2 bundles -> pendingOnly drops to 0
+        rowA.RecordDelivery(4m);
+        rowB.RecordDelivery(2m);
+        PickListManager.ComputePickedQtyForBundle(new[] { rowA, rowB }, soItemId, bundleMap, pendingOnly: true)
+            .ShouldBe(0);
+    }
+
+    [Fact]
+    public void InvoiceDocumentBuilder_NormalizeCountryCode_MapsCountryNamesAndIso2ToIso3()
+    {
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.NormalizeCountryCode(null).ShouldBe("MYS");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.NormalizeCountryCode("Malaysia").ShouldBe("MYS");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.NormalizeCountryCode("MY").ShouldBe("MYS");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.NormalizeCountryCode("Singapore").ShouldBe("SGP");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.NormalizeCountryCode("SG").ShouldBe("SGP");
+        MyERP.EInvoice.Services.InvoiceDocumentBuilder.NormalizeCountryCode("SGP").ShouldBe("SGP");
+    }
 }

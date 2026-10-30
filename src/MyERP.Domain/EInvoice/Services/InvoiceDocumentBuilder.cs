@@ -92,6 +92,44 @@ public class InvoiceDocumentBuilder : ITransientDependency
     /// Extracts the LHDN state code from composite string (e.g., "14:Kuala Lumpur" -> "14")
     /// with default fallback to "17" (Not Applicable / Others) per MyInvois spec (gotcha #921).
     /// </summary>
+    /// <summary>
+    /// Normalizes country names and ISO-3166-1 alpha-2 codes to LHDN MyInvois ISO-3166-1 alpha-3 codes (MyInvois commit 84cf3bd).
+    /// </summary>
+    public static string NormalizeCountryCode(string? country)
+    {
+        if (string.IsNullOrWhiteSpace(country)) return "MYS";
+        var trimmed = country.Trim();
+        return trimmed.ToUpperInvariant() switch
+        {
+            "MY" or "MYS" or "MALAYSIA" => "MYS",
+            "SG" or "SGP" or "SINGAPORE" => "SGP",
+            "US" or "USA" or "UNITED STATES" or "UNITED STATES OF AMERICA" => "USA",
+            "GB" or "UK" or "GBR" or "UNITED KINGDOM" => "GBR",
+            "ID" or "IDN" or "INDONESIA" => "IDN",
+            "TH" or "THA" or "THAILAND" => "THA",
+            "CN" or "CHN" or "CHINA" => "CHN",
+            "JP" or "JPN" or "JAPAN" => "JPN",
+            "IN" or "IND" or "INDIA" => "IND",
+            "AU" or "AUS" or "AUSTRALIA" => "AUS",
+            "BN" or "BRN" or "BRUNEI" or "BRUNEI DARUSSALAM" => "BRN",
+            "VN" or "VNM" or "VIETNAM" => "VNM",
+            "PH" or "PHL" or "PHILIPPINES" => "PHL",
+            "DE" or "DEU" or "GERMANY" => "DEU",
+            "QA" or "QAT" or "QATAR" => "QAT",
+            "SA" or "SAU" or "SAUDI ARABIA" => "SAU",
+            "AE" or "ARE" or "UNITED ARAB EMIRATES" or "UAE" => "ARE",
+            "HK" or "HKG" or "HONG KONG" => "HKG",
+            "TW" or "TWN" or "TAIWAN" => "TWN",
+            "KR" or "KOR" or "SOUTH KOREA" or "KOREA, REPUBLIC OF" => "KOR",
+            "NZ" or "NZL" or "NEW ZEALAND" => "NZL",
+            "CA" or "CAN" or "CANADA" => "CAN",
+            "FR" or "FRA" or "FRANCE" => "FRA",
+            "NL" or "NLD" or "NETHERLANDS" => "NLD",
+            "CH" or "CHE" or "SWITZERLAND" => "CHE",
+            _ => trimmed.ToUpperInvariant()
+        };
+    }
+
     public static string NormalizeStateCode(string? state)
     {
         if (string.IsNullOrWhiteSpace(state)) return "17";
@@ -140,7 +178,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
                     new XElement(Cbc + "PostalZone", supplier.PostalCode ?? ""),
                     new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(supplier.State)),
                     new XElement(Cac + "Country",
-                        new XElement(Cbc + "IdentificationCode", supplier.CountryCode ?? "MYS"))),
+                        new XElement(Cbc + "IdentificationCode", NormalizeCountryCode(supplier.CountryCode)))),
                 new XElement(Cac + "PartyLegalEntity",
                     new XElement(Cbc + "RegistrationName", supplier.Name))));
 
@@ -192,7 +230,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
                     new XElement(Cbc + "PostalZone", buyer.PostalCode ?? ""),
                     new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(buyer.State)),
                     new XElement(Cac + "Country",
-                        new XElement(Cbc + "IdentificationCode", buyer.CountryCode ?? "MYS"))),
+                        new XElement(Cbc + "IdentificationCode", NormalizeCountryCode(buyer.CountryCode)))),
                 new XElement(Cac + "PartyLegalEntity",
                     new XElement(Cbc + "RegistrationName", buyer.Name))));
 
@@ -349,7 +387,7 @@ public class InvoiceDocumentBuilder : ITransientDependency
                 new XElement(Cbc + "PostalZone", delivery.PostalCode ?? ""),
                 new XElement(Cbc + "CountrySubentityCode", NormalizeStateCode(delivery.State)),
                 new XElement(Cac + "Country",
-                    new XElement(Cbc + "IdentificationCode", delivery.CountryCode ?? "MYS"))),
+                    new XElement(Cbc + "IdentificationCode", NormalizeCountryCode(delivery.CountryCode)))),
             new XElement(Cac + "DeliveryParty",
                 new XElement(Cac + "PartyLegalEntity",
                     new XElement(Cbc + "RegistrationName", delivery.RecipientName ?? ""))));

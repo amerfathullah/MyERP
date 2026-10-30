@@ -377,6 +377,19 @@ public class StockReservationManager : DomainService
     /// Checks whether an individual item row has active reserved stock (per ERPNext PR #57596 has_reserved_stock).
     /// Used before closing an item row in Sales Order.
     /// </summary>
+    /// <summary>
+    /// Checks whether a voucher (e.g. Sales Order) has any active reserved stock remaining (per ERPNext commit b8154bedb4).
+    /// Closing must not strand reserved stock; user must unreserve deliberately first.
+    /// </summary>
+    public async Task<bool> HasReservedStockAsync(Guid voucherId)
+    {
+        var queryable = await _sreRepository.GetQueryableAsync();
+        return queryable.Any(s =>
+            s.VoucherId == voucherId
+            && s.Status == DocumentStatus.Submitted
+            && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0);
+    }
+
     public async Task<bool> HasReservedStockForItemAsync(Guid voucherId, Guid voucherDetailId)
     {
         var queryable = await _sreRepository.GetQueryableAsync();

@@ -809,6 +809,165 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
     }
 
     /// <summary>
+    /// Converts a submitted Sales Order's open, non-drop-ship rows into a Draft Pick List.
+    /// Per ERPNext selling/doctype/sales_order/mapper.py create_pick_list &amp; PR #62321 (commit 754475b51a):
+    /// - Blocks Pick List creation if the Sales Order has active Stock Reservation Entries.
+    /// - Skips closed, drop-ship (DeliveredBySupplier), SkipDelivery, and fully delivered rows for BOTH
+    ///   plain items and Product Bundle packed components.
+    /// - Sizes remaining qty as qty - max(picked_qty / conversion_factor, delivered_qty).
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Create)]
+    public async Task<Guid> ConvertSalesOrderToPickListAsync(Guid salesOrderId)
+    {
+        var salesOrder = await _salesOrderRepository.GetAsync(salesOrderId);
+        if (salesOrder.Status == Core.DocumentStatus.Draft
+            || salesOrder.Status == Core.DocumentStatus.Cancelled
+            || salesOrder.Status == Core.DocumentStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion)
+                .WithData("documentType", "SalesOrder");
+        }
+
+        var sreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+        if (await sreManager.HasReservedStockAsync(salesOrder.Id))
+        {
+            throw new BusinessException("MyERP:13020")
+                .WithData("reason", $"Cannot create a Pick List for Sales Order {salesOrder.OrderNumber} because it has reserved stock. Deliver directly against the reservation or unreserve first.");
+        }
+
+        var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PickList, Guid>>();
+        var bundleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ProductBundle, Guid>>();
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var warehouseRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Warehouse, Guid>>();
+        var uomService = LazyServiceProvider.LazyGetService<Inventory.DomainServices.UomConversionService>();
+
+        string plNumber;
+        try
+        {
+            plNumber = await _numberGenerator.GenerateAsync("PickList", salesOrder.CompanyId);
+        }
+        catch (BusinessException ex) when (ex.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+        {
+            plNumber = $"PL-{GuidGenerator.Create().ToString("N")[..8].ToUpperInvariant()}";
+        }
+        var pickList = new PickList(GuidGenerator.Create(), salesOrder.CompanyId, "Delivery", salesOrder.TenantId)
+        {
+            PickListNumber = plNumber,
+            SalesOrderId = salesOrder.Id,
+            CustomerId = salesOrder.CustomerId,
+        };
+
+        var fallbackWarehouseId = salesOrder.Items.FirstOrDefault(i => i.WarehouseId.HasValue)?.WarehouseId
+            ?? (await warehouseRepo.FirstOrDefaultAsync(w => w.CompanyId == salesOrder.CompanyId && !w.IsGroup))?.Id;
+
+        var bundleQueryable = await bundleRepo.GetQueryableAsync();
+        var itemQueryable = await itemRepo.GetQueryableAsync();
+
+        foreach (var soItem in salesOrder.Items)
+        {
+            // Per ERPNext commit 754475b51a (should_pick_order_item & should_pick_packed_item):
+            // skip closed, drop-ship, skip-delivery, and already delivered rows (including bundles)
+            if (soItem.IsClosed
+                || soItem.DeliveredBySupplier
+                || soItem.SkipDelivery
+                || Math.Abs(soItem.DeliveredQty) >= Math.Abs(soItem.Quantity))
+            {
+                continue;
+            }
+
+            var rowFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+            ProductBundle? bundle = null;
+            if (soItem.ProductBundleId.HasValue)
+            {
+                bundle = bundleQueryable.FirstOrDefault(b => b.Id == soItem.ProductBundleId.Value);
+            }
+            bundle ??= bundleQueryable.FirstOrDefault(b => b.ItemId == soItem.ItemId && b.IsActive && !b.IsDisabled);
+
+            var rowWarehouseId = soItem.WarehouseId ?? fallbackWarehouseId;
+
+            if (bundle != null && bundle.Items.Count > 0)
+            {
+                // PickedQty on bundle SO item is recorded in bundle count (ERPNext update_packed_item_qty)
+                var pickedInOrderUom = soItem.PickedQty / rowFactor;
+                var pendingBundles = soItem.Quantity - Math.Max(pickedInOrderUom, soItem.DeliveredQty);
+                if (pendingBundles <= 0)
+                    continue;
+
+                if (!rowWarehouseId.HasValue)
+                    throw new BusinessException("MyERP:01007")
+                        .WithData("documentType", "Pick List — Warehouse is required");
+
+                var compIds = bundle.Items.Select(c => c.ComponentItemId).Distinct().ToList();
+                var compItems = itemQueryable.Where(i => compIds.Contains(i.Id)).ToDictionary(i => i.Id);
+
+                foreach (var comp in bundle.Items)
+                {
+                    if (comp.Qty <= 0) continue;
+
+                    var compFactor = 1m;
+                    compItems.TryGetValue(comp.ComponentItemId, out var compItem);
+                    if (compItem != null && !string.IsNullOrWhiteSpace(comp.Uom) && uomService != null)
+                    {
+                        compFactor = await uomService.GetConversionFactorAsync(
+                            compItem.Id, comp.Uom, compItem.Uom, compItem.VariantOfId);
+                    }
+
+                    var compStockQty = Math.Round(comp.Qty * compFactor * pendingBundles, 6);
+                    if (compStockQty <= 0) continue;
+
+                    pickList.AddItem(
+                        comp.ComponentItemId,
+                        rowWarehouseId.Value,
+                        compStockQty,
+                        stockQty: compStockQty,
+                        itemName: comp.ItemName ?? compItem?.ItemName,
+                        productBundleItemId: comp.Id,
+                        sourceDocumentItemId: soItem.Id);
+                }
+            }
+            else
+            {
+                var itemEntity = itemQueryable.FirstOrDefault(i => i.Id == soItem.ItemId);
+                if (itemEntity != null && !itemEntity.MaintainStock)
+                    continue;
+
+                var pickedInOrderUom = soItem.PickedQty / rowFactor;
+                var qtyToPick = soItem.Quantity - Math.Max(pickedInOrderUom, soItem.DeliveredQty);
+                if (qtyToPick <= 0)
+                    continue;
+
+                if (!rowWarehouseId.HasValue)
+                    throw new BusinessException("MyERP:01007")
+                        .WithData("documentType", "Pick List — Warehouse is required");
+
+                var stockQtyToPick = Math.Round(qtyToPick * rowFactor, 6);
+                pickList.AddItem(
+                    soItem.ItemId,
+                    rowWarehouseId.Value,
+                    stockQtyToPick,
+                    stockQty: stockQtyToPick,
+                    itemName: soItem.Description ?? itemEntity?.ItemName,
+                    sourceDocumentItemId: soItem.Id);
+            }
+        }
+
+        if (!pickList.Items.Any())
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentAlreadyConverted)
+                .WithData("documentType", "SalesOrder")
+                .WithData("documentNumber", salesOrder.OrderNumber)
+                .WithData("reason", "No pickable items remain on this Sales Order.");
+        }
+
+        await plRepo.InsertAsync(pickList, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("SalesOrder", salesOrder.Id, salesOrder.CompanyId,
+            "PickList", pickList.Id, salesOrder.OrderNumber, salesOrder.TenantId);
+
+        return pickList.Id;
+    }
+
+    /// <summary>
     /// Creates one draft Purchase Order per supplier from the selected rows of a submitted Sales Order.
     /// Per ERPNext sales_order/mapper.py make_purchase_order: rows are matched by row id, only
     /// open, not-fully-ordered rows are mapped (qty = qty - ordered_qty / conversion_factor), rate and

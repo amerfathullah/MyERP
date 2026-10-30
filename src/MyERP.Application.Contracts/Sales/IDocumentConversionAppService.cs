@@ -38,6 +38,12 @@ public interface IDocumentConversionAppService : IApplicationService
     Task<Guid> ConvertSalesOrderToMaterialRequestAsync(Guid salesOrderId);
 
     /// <summary>
+    /// Convert a submitted Sales Order's open, warehouse-delivered items (including decomposed Product Bundles)
+    /// into a Draft Pick List (ERPNext selling/doctype/sales_order/mapper.py create_pick_list, commit 754475b51a).
+    /// </summary>
+    Task<Guid> ConvertSalesOrderToPickListAsync(Guid salesOrderId);
+
+    /// <summary>
     /// Create a draft Purchase Order per supplier from the selected rows of a submitted Sales Order
     /// (ERPNext Sales Order → Make → Purchase Order). Returns the new Purchase Order ids; an empty
     /// selection returns an empty list.

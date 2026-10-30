@@ -969,27 +969,8 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 await UpdateDeliveryScheduleAsync(dn.SalesOrderId.Value, dn.Items);
             }
 
-            // Update linked Pick List delivery tracking (per ERPNext status updater: DN Item -> Pick List Item delivered_qty)
-            var itemsWithPickList = dn.Items.Where(i => i.PickListItemId.HasValue).ToList();
-            if (itemsWithPickList.Count > 0)
-            {
-                var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.PickList, Guid>>();
-                var plQuery = await plRepo.WithDetailsAsync(p => p.Items);
-                var pickListItemIds = itemsWithPickList.Select(i => i.PickListItemId!.Value).ToHashSet();
-                var pickLists = plQuery.Where(p => p.Items.Any(pi => pickListItemIds.Contains(pi.Id))).ToList();
-                foreach (var pl in pickLists)
-                {
-                    foreach (var item in itemsWithPickList)
-                    {
-                        var plItem = pl.Items.FirstOrDefault(pi => pi.Id == item.PickListItemId!.Value);
-                        if (plItem != null)
-                        {
-                            plItem.RecordDelivery(Math.Abs(item.Quantity));
-                        }
-                    }
-                    await plRepo.UpdateAsync(pl, autoSave: true);
-                }
-            }
+            // Update linked Pick List delivery tracking (per ERPNext status updater & commit e3c6082498: DN Item + decomposed bundles -> Pick List Item delivered_qty)
+            await SyncPickListDeliveryQtyAsync(dn, isCancel: false);
 
             // Check auto-reorder for items that had stock reduced
             foreach (var item in dn.Items)
@@ -1197,27 +1178,8 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             await ReverseDeliveryScheduleAsync(dn.SalesOrderId.Value, dn.Items);
         }
 
-        // Update linked Pick List delivery tracking (Gotcha #427: decrement DeliveredQty on cancel)
-        var cancelPickListItems = dn.Items.Where(i => i.PickListItemId.HasValue).ToList();
-        if (cancelPickListItems.Count > 0)
-        {
-            var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.PickList, Guid>>();
-            var plQuery = await plRepo.WithDetailsAsync(p => p.Items);
-            var pickListItemIds = cancelPickListItems.Select(i => i.PickListItemId!.Value).ToHashSet();
-            var pickLists = plQuery.Where(p => p.Items.Any(pi => pickListItemIds.Contains(pi.Id))).ToList();
-            foreach (var pl in pickLists)
-            {
-                foreach (var item in cancelPickListItems)
-                {
-                    var plItem = pl.Items.FirstOrDefault(pi => pi.Id == item.PickListItemId!.Value);
-                    if (plItem != null)
-                    {
-                        plItem.RevertDelivery(Math.Abs(item.Quantity));
-                    }
-                }
-                await plRepo.UpdateAsync(pl, autoSave: true);
-            }
-        }
+        // Update linked Pick List delivery tracking (Gotcha #427 & commit e3c6082498: decrement DeliveredQty on cancel for plain and bundle rows)
+        await SyncPickListDeliveryQtyAsync(dn, isCancel: true);
 
         // Per ERPNext PR #58953 / commit be8208e7cb & PR #58869 / commit f864333afa: revert original DN returned_qty & recalculate billing when return is cancelled
         if (dn.IsReturn && dn.ReturnAgainstId.HasValue)
@@ -1575,5 +1537,132 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
             Incentives = e.Incentives,
         }).ToList();
         dto.TotalCommission = entries.Sum(e => e.Incentives);
+    }
+
+    private async Task SyncPickListDeliveryQtyAsync(DeliveryNote dn, bool isCancel)
+    {
+        if (dn.IsReturn) return;
+
+        var itemsWithPickList = dn.Items.Where(i => i.PickListItemId.HasValue).ToList();
+        var bundleCandidates = dn.PickListId.HasValue
+            ? dn.Items.Where(i => !i.PickListItemId.HasValue && i.SalesOrderItemId.HasValue).ToList()
+            : new List<DeliveryNoteItem>();
+
+        if (itemsWithPickList.Count == 0 && bundleCandidates.Count == 0)
+            return;
+
+        var plRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.PickList, Guid>>();
+        var plQuery = await plRepo.WithDetailsAsync(p => p.Items);
+        var pickListItemIds = itemsWithPickList.Select(i => i.PickListItemId!.Value).ToHashSet();
+        var targetPickListId = dn.PickListId;
+
+        var pickLists = plQuery
+            .Where(p => (targetPickListId.HasValue && p.Id == targetPickListId.Value)
+                     || p.Items.Any(pi => pickListItemIds.Contains(pi.Id)))
+            .ToList();
+
+        if (pickLists.Count == 0)
+            return;
+
+        SalesOrder? linkedSo = null;
+        if (bundleCandidates.Count > 0 && dn.SalesOrderId.HasValue)
+        {
+            linkedSo = await _salesOrderRepository.FindAsync(dn.SalesOrderId.Value);
+        }
+
+        var bundleService = bundleCandidates.Count > 0
+            ? LazyServiceProvider.LazyGetService<ProductBundleDecompositionService>()
+            : null;
+
+        foreach (var pl in pickLists)
+        {
+            var modified = false;
+
+            foreach (var item in itemsWithPickList)
+            {
+                var plItem = pl.Items.FirstOrDefault(pi => pi.Id == item.PickListItemId!.Value);
+                if (plItem != null)
+                {
+                    var stockQty = Math.Abs(item.StockQty);
+                    if (isCancel)
+                        plItem.RevertDelivery(stockQty);
+                    else
+                        plItem.RecordDelivery(stockQty);
+                    modified = true;
+                }
+            }
+
+            if (targetPickListId.HasValue && pl.Id == targetPickListId.Value && bundleService != null)
+            {
+                foreach (var bundleDnItem in bundleCandidates)
+                {
+                    var soItem = linkedSo?.Items.FirstOrDefault(si => si.Id == bundleDnItem.SalesOrderItemId!.Value);
+                    var isBundle = (soItem?.ProductBundleId.HasValue ?? false)
+                        || await bundleService.IsBundleItemAsync(bundleDnItem.ItemId, isReturn: isCancel);
+                    if (!isBundle)
+                        continue;
+
+                    var components = await bundleService.DecomposeAsync(
+                        bundleDnItem.ItemId,
+                        Math.Abs(bundleDnItem.Quantity),
+                        bundleDnItem.UnitPrice,
+                        bundleDnItem.WarehouseId ?? dn.WarehouseId,
+                        bundleDnItem.SalesOrderItemId,
+                        isReturn: isCancel,
+                        productBundleId: soItem?.ProductBundleId);
+
+                    foreach (var comp in components)
+                    {
+                        var remaining = Math.Abs(comp.Qty);
+                        var matchingRows = pl.Items
+                            .Where(pi => pi.SourceDocumentItemId == bundleDnItem.SalesOrderItemId
+                                      && pi.ItemId == comp.ComponentItemId)
+                            .ToList();
+                        if (matchingRows.Count == 0)
+                            continue;
+
+                        if (isCancel)
+                        {
+                            foreach (var row in matchingRows)
+                            {
+                                if (remaining <= 0) break;
+                                var toRevert = Math.Min(remaining, row.DeliveredQty);
+                                if (toRevert > 0)
+                                {
+                                    row.RevertDelivery(toRevert);
+                                    remaining -= toRevert;
+                                    modified = true;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            foreach (var row in matchingRows)
+                            {
+                                if (remaining <= 0) break;
+                                var available = Math.Max(0m, row.Qty - row.DeliveredQty);
+                                var toRecord = Math.Min(remaining, available);
+                                if (toRecord > 0)
+                                {
+                                    row.RecordDelivery(toRecord);
+                                    remaining -= toRecord;
+                                    modified = true;
+                                }
+                            }
+                            if (remaining > 0)
+                            {
+                                matchingRows[^1].RecordDelivery(remaining);
+                                modified = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (modified)
+            {
+                await plRepo.UpdateAsync(pl, autoSave: true);
+            }
+        }
     }
 }

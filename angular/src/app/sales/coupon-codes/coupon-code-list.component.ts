@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { CouponCodeService } from '../../proxy/sales/coupon-code.service';
 import { PricingRuleService } from '../../proxy/sales/pricing-rule.service';
+import { CustomerService } from '../../proxy/sales/customer.service';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
@@ -40,17 +41,28 @@ interface CouponCodeDto {
         @if (showCreateForm) {
           <div class="card-body border-bottom bg-light">
             <div class="row g-3">
-              <div class="col-md-3">
+              <div class="col-md-2">
                 <label class="form-label">{{ '::CouponName' | abpLocalization }}</label>
                 <input type="text" class="form-control form-control-sm" [(ngModel)]="newCoupon.couponName" />
               </div>
               <div class="col-md-2">
                 <label class="form-label">{{ '::CouponType' | abpLocalization }}</label>
-                <select class="form-select form-select-sm" [(ngModel)]="newCoupon.couponType">
-                  <option [value]="0">Promotional</option>
-                  <option [value]="1">Gift Card</option>
+                <select class="form-select form-select-sm" [(ngModel)]="newCoupon.couponType" (ngModelChange)="onCouponTypeChange($event)">
+                  <option [ngValue]="0">Promotional</option>
+                  <option [ngValue]="1">Gift Card</option>
                 </select>
               </div>
+              @if (newCoupon.couponType === 1) {
+                <div class="col-md-2">
+                  <label class="form-label">{{ '::Customer' | abpLocalization }} *</label>
+                  <select class="form-select form-select-sm" [(ngModel)]="newCoupon.customerId">
+                    <option value="">{{ '::SelectCustomer' | abpLocalization }}</option>
+                    @for (c of customers(); track c.id) {
+                      <option [value]="c.id">{{ c.name }}</option>
+                    }
+                  </select>
+                </div>
+              }
               <div class="col-md-2">
                 <label class="form-label">{{ '::PricingRule' | abpLocalization }}</label>
                 <select class="form-select form-select-sm" [(ngModel)]="newCoupon.pricingRuleId">
@@ -62,7 +74,7 @@ interface CouponCodeDto {
               </div>
               <div class="col-md-1">
                 <label class="form-label">{{ '::MaxUses' | abpLocalization }}</label>
-                <input type="number" class="form-control form-control-sm" [(ngModel)]="newCoupon.maximumUse" />
+                <input type="number" class="form-control form-control-sm" [(ngModel)]="newCoupon.maximumUse" [disabled]="newCoupon.couponType === 1" />
               </div>
               <div class="col-md-2">
                 <label class="form-label">{{ '::ValidFrom' | abpLocalization }}</label>
@@ -73,7 +85,7 @@ interface CouponCodeDto {
                 <input type="date" class="form-control form-control-sm" [(ngModel)]="newCoupon.validUpto" />
               </div>
               <div class="col-md-1 d-flex align-items-end">
-                <button class="btn btn-success btn-sm w-100" (click)="create()" [disabled]="!newCoupon.couponName">
+                <button class="btn btn-success btn-sm w-100" (click)="create()" [disabled]="!newCoupon.couponName || (newCoupon.couponType === 1 && !newCoupon.customerId)">
                   <i class="fa fa-check"></i>
                 </button>
               </div>
@@ -163,22 +175,36 @@ interface CouponCodeDto {
 export class CouponCodeListComponent implements OnInit {
   private couponCodeService = inject(CouponCodeService);
   private pricingRuleService = inject(PricingRuleService);
+  private customerService = inject(CustomerService);
   private toaster = inject(ToasterService);
   private confirmation = inject(ConfirmationService);
 
   coupons = signal<CouponCodeDto[]>([]);
   pricingRules = signal<any[]>([]);
+  customers = signal<{ id: string; name: string }[]>([]);
   totalCount = signal(0);
   currentPage = signal(1);
   showCreateForm = false;
-  newCoupon: any = { couponName: '', couponType: 0, maximumUse: 0, validFrom: '', validUpto: '', pricingRuleId: '' };
+  newCoupon: any = { couponName: '', couponType: 0, maximumUse: 0, validFrom: '', validUpto: '', pricingRuleId: '', customerId: '' };
 
   ngOnInit() {
     this.loadData();
     this.pricingRuleService.getList({ maxResultCount: 200, skipCount: 0, sorting: '' } as any).subscribe({
-      next: (res) => this.pricingRules.set(res.items ?? []),
+      next: (res) => this.pricingRules.set((res.items ?? []).filter((r: any) => !r.isDisabled)),
       error: () => {}
     });
+    this.customerService.getList({ maxResultCount: 200, skipCount: 0 } as any).subscribe({
+      next: (res: any) => this.customers.set((res.items ?? []).filter((c: any) => c.isActive !== false).map((c: any) => ({ id: c.id, name: c.name }))),
+      error: () => {}
+    });
+  }
+
+  onCouponTypeChange(type: number) {
+    if (type === 1) {
+      this.newCoupon.maximumUse = 1;
+    } else {
+      this.newCoupon.customerId = '';
+    }
   }
 
   loadData() {
@@ -193,13 +219,19 @@ export class CouponCodeListComponent implements OnInit {
     const dto: any = {
       couponName: this.newCoupon.couponName,
       couponType: +this.newCoupon.couponType,
-      maximumUse: this.newCoupon.maximumUse || 0,
+      maximumUse: this.newCoupon.couponType === 1 ? 1 : (this.newCoupon.maximumUse || 0),
       pricingRuleId: this.newCoupon.pricingRuleId || undefined,
+      customerId: this.newCoupon.couponType === 1 ? (this.newCoupon.customerId || undefined) : undefined,
       validFrom: this.newCoupon.validFrom || undefined,
       validUpto: this.newCoupon.validUpto || undefined,
     };
     this.couponCodeService.create(dto as any).subscribe({
-      next: () => { this.toaster.success('::SuccessfullyCreated'); this.showCreateForm = false; this.loadData(); },
+      next: () => {
+        this.toaster.success('::SuccessfullyCreated');
+        this.showCreateForm = false;
+        this.newCoupon = { couponName: '', couponType: 0, maximumUse: 0, validFrom: '', validUpto: '', pricingRuleId: '', customerId: '' };
+        this.loadData();
+      },
       error: () => {}
     });
   }

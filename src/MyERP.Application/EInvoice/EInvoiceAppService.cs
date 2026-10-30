@@ -393,7 +393,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                         result.SkippedCount++;
                         continue;
                     }
-                    if (si.EInvoiceStatus != Sales.EInvoiceStatus.NotSubmitted)
+                    if (si.EInvoiceStatus != Sales.EInvoiceStatus.NotSubmitted && si.EInvoiceStatus != Sales.EInvoiceStatus.Invalid)
                     {
                         result.Results.Add(new BatchSubmitItemResult
                         {
@@ -425,7 +425,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                         result.SkippedCount++;
                         continue;
                     }
-                    if (pi.EInvoiceStatus != Sales.EInvoiceStatus.NotSubmitted)
+                    if (pi.EInvoiceStatus != Sales.EInvoiceStatus.NotSubmitted && pi.EInvoiceStatus != Sales.EInvoiceStatus.Invalid)
                     {
                         result.Results.Add(new BatchSubmitItemResult
                         {

@@ -156,10 +156,14 @@ export class SalesInvoiceDetailComponent implements OnInit {
           actions.push({ name: 'cancel', label: 'Cancel', icon: 'fa fa-ban', btnClass: 'btn-outline-danger' });
         }
         // Per MyInvois commit 0e3fc83: cannot submit to LHDN if already consolidated
-        if ((!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted') && !(this.invoice as any).consolidatedSalesInvoiceId) {
-          actions.push({ name: 'submitLhdn', label: 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', btnClass: 'btn-outline-primary' });
+        if ((!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted' || this.invoice.eInvoiceStatus === 'Invalid') && !(this.invoice as any).consolidatedSalesInvoiceId) {
+          actions.push({ name: 'submitLhdn', label: this.invoice.eInvoiceStatus === 'Invalid' ? 'Resubmit to LHDN' : 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', btnClass: 'btn-outline-primary' });
         }
-        if (this.invoice.eInvoiceStatus === 'Valid') {
+        if (this.invoice.eInvoiceStatus === 'Pending' || this.invoice.eInvoiceStatus === 'Valid' || this.invoice.eInvoiceStatus === 'Submitted') {
+          actions.push({ name: 'refreshLhdn', label: 'Refresh Status', icon: 'fa fa-rotate', btnClass: 'btn-outline-info' });
+
+        }
+        if (this.invoice.eInvoiceStatus === 'Valid' && this.isWithin72HourWindow()) {
           actions.push({ name: 'cancelLhdn', label: 'Cancel e-Invoice', icon: 'fa fa-cloud-xmark', btnClass: 'btn-outline-warning' });
         }
         actions.push({ name: 'sendEmail', label: 'Send Email', icon: 'fa fa-envelope', btnClass: 'btn-outline-secondary' });
@@ -224,6 +228,9 @@ export class SalesInvoiceDetailComponent implements OnInit {
         break;
       case 'submitLhdn':
         this.submitToLhdn();
+        break;
+      case 'refreshLhdn':
+        this.refreshLhdnStatus();
         break;
       case 'cancelLhdn':
         this.cancelLhdn();
@@ -296,6 +303,24 @@ export class SalesInvoiceDetailComponent implements OnInit {
     });
   }
 
+  private refreshLhdnStatus(): void {
+    const submissionId = this.invoice!.lhdnSubmissionId ?? this.invoice!.id!;
+    this.eInvoiceService.getStatus(submissionId).subscribe({
+      next: () => {
+        this.toaster.success('::LhdnStatusRefreshed');
+        this.reloadAfterAction();
+      },
+      error: () => this.toaster.error('::LhdnRefreshFailed'),
+    });
+  }
+
+  isWithin72HourWindow(): boolean {
+    const submittedAt = this.invoice?.lhdnSubmittedAt;
+    if (!submittedAt) return false;
+    const hoursSince = (Date.now() - new Date(submittedAt).getTime()) / (1000 * 60 * 60);
+    return hoursSince <= 72;
+  }
+
   private cancelLhdn(): void {
     this.confirmation.warn(
       'Cancel this e-Invoice with LHDN? This is only allowed within 72 hours of submission.',
@@ -303,7 +328,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
     ).subscribe((status) => {
       if (status === Confirmation.Status.confirm) {
         this.eInvoiceService.cancel({
-          submissionId: (this.invoice as any).eInvoiceSubmissionId ?? this.invoice!.id!,
+          submissionId: this.invoice!.lhdnSubmissionId ?? this.invoice!.id!,
           reason: 'Cancelled by user',
         }).subscribe({
           next: () => {

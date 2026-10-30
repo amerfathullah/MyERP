@@ -60,7 +60,7 @@ public abstract class SalesOrderCancelReservationTests<TStartupModule> : MyERPAp
     }
 
     [Fact]
-    public async Task CloseAsync_CancelsActiveStockReservationEntriesForTheOrder()
+    public async Task CloseAsync_BlocksClosingWhenStockIsReserved_AndSucceedsAfterUnreserve()
     {
         await WithUnitOfWorkAsync(async () =>
         {
@@ -88,10 +88,18 @@ public abstract class SalesOrderCancelReservationTests<TStartupModule> : MyERPAp
             sre.Submit();
             await sreRepository.InsertAsync(sre, autoSave: true);
 
-            await salesOrderAppService.CloseAsync(so.Id);
+            // Per ERPNext PR #62328 (commit b8154bedb4): closing a Sales Order while stock is reserved must be blocked
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() =>
+                salesOrderAppService.CloseAsync(so.Id));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("reserved stock");
 
-            var reloaded = await sreRepository.GetAsync(sre.Id);
-            reloaded.Status.ShouldBe(DocumentStatus.Cancelled);
+            // Unreserving allows closing the order
+            sre.Cancel();
+            await sreRepository.UpdateAsync(sre, autoSave: true);
+
+            var closedDto = await salesOrderAppService.CloseAsync(so.Id);
+            closedDto.Status.ShouldBe("Closed");
         });
     }
 }

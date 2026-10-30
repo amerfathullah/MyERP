@@ -64,30 +64,63 @@ public class CouponCodeAppService : ApplicationService, ICouponCodeAppService
                 .WithData("field", "MaximumUse/MaximumUsePerCustomer");
         }
 
-        // Validate pricing rule exists
+        // Validate pricing rule exists and is not disabled (ERPNext commit 1db5df0d6d)
         var rule = await _pricingRuleRepository.FindAsync(input.PricingRuleId);
         if (rule == null)
             throw new BusinessException("MyERP:03018").WithData("pricingRuleId", input.PricingRuleId);
 
-        // Generate code if not provided
-        var code = input.Code;
-        if (string.IsNullOrWhiteSpace(code))
+        if (rule.IsDisabled)
         {
-            code = input.CouponType == CouponType.GiftCard
-                ? CouponCode.GenerateGiftCardCode()
-                : CouponCode.GeneratePromotionalCode(input.CouponName);
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Pricing Rule '{rule.Title}' is disabled.");
+        }
+
+        if (input.CouponType == CouponType.GiftCard && !input.CustomerId.HasValue)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Please select the customer for Gift Card coupon.");
+        }
+
+        var couponName = input.CouponName.Trim();
+        var existingQuery = await _repository.GetQueryableAsync();
+
+        // Generate code if not provided, avoiding collisions (ERPNext commit 8fa3f79311)
+        var code = input.Code?.Trim();
+        if (!string.IsNullOrWhiteSpace(code))
+        {
+            if (existingQuery.Any(x => x.Code == code))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Coupon Code '{code}' already exists.");
+            }
+        }
+        else if (input.CouponType == CouponType.GiftCard)
+        {
+            do
+            {
+                code = CouponCode.GenerateGiftCardCode();
+            } while (existingQuery.Any(x => x.Code == code));
+        }
+        else
+        {
+            var prefix = CouponCode.GeneratePromotionalCode(couponName);
+            code = prefix;
+            while (string.IsNullOrEmpty(code) || existingQuery.Any(x => x.Code == code))
+            {
+                code = prefix + Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+            }
         }
 
         var entity = new CouponCode(
             GuidGenerator.Create(),
             code,
-            input.CouponName,
+            couponName,
             input.CouponType,
             input.PricingRuleId,
             CurrentTenant.Id);
 
         entity.CompanyId = input.CompanyId;
-        entity.MaximumUse = input.MaximumUse;
+        entity.MaximumUse = input.CouponType == CouponType.GiftCard ? 1 : input.MaximumUse;
         entity.MaximumUsePerCustomer = input.MaximumUsePerCustomer;
         entity.ValidFrom = input.ValidFrom;
         entity.ValidUpto = input.ValidUpto;

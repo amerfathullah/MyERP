@@ -127,6 +127,32 @@ public class PickListAppService : ApplicationService, IPickListAppService
         return ObjectMapper.Map<PickList, PickListDto>(pl);
     }
 
+    private async Task<Dictionary<Guid, decimal>> BuildBundleComponentStockQtyMapAsync(
+        MyERP.Sales.Entities.ProductBundle bundle,
+        IRepository<Inventory.Entities.Item, Guid> itemRepo,
+        Inventory.DomainServices.UomConversionService? uomService)
+    {
+        var componentStockQtyMap = new Dictionary<Guid, decimal>();
+        var compIds = bundle.Items.Select(x => x.ComponentItemId).Distinct().ToList();
+        var compItems = (await itemRepo.GetQueryableAsync())
+            .Where(i => compIds.Contains(i.Id))
+            .ToDictionary(i => i.Id);
+
+        foreach (var comp in bundle.Items)
+        {
+            var factor = 1m;
+            if (compItems.TryGetValue(comp.ComponentItemId, out var compItem)
+                && !string.IsNullOrWhiteSpace(comp.Uom)
+                && uomService != null)
+            {
+                factor = await uomService.GetConversionFactorAsync(compItem.Id, comp.Uom, compItem.Uom, compItem.VariantOfId);
+            }
+            componentStockQtyMap[comp.ComponentItemId] = comp.Qty * factor;
+        }
+
+        return componentStockQtyMap;
+    }
+
     /// <summary>
     /// Updates picked quantities on linked Sales Order items.
     /// Per ERPNext PR #62149 / commit 05bc9ce0fe:
@@ -173,24 +199,7 @@ public class PickListAppService : ApplicationService, IPickListAppService
 
             if (bundle != null && bundle.Items.Count > 0)
             {
-                var componentStockQtyMap = new Dictionary<Guid, decimal>();
-                var compIds = bundle.Items.Select(x => x.ComponentItemId).Distinct().ToList();
-                var compItems = (await itemRepo.GetQueryableAsync())
-                    .Where(i => compIds.Contains(i.Id))
-                    .ToDictionary(i => i.Id);
-
-                foreach (var comp in bundle.Items)
-                {
-                    var factor = 1m;
-                    if (compItems.TryGetValue(comp.ComponentItemId, out var compItem)
-                        && !string.IsNullOrWhiteSpace(comp.Uom)
-                        && uomService != null)
-                    {
-                        factor = await uomService.GetConversionFactorAsync(compItem.Id, comp.Uom, compItem.Uom, compItem.VariantOfId);
-                    }
-                    componentStockQtyMap[comp.ComponentItemId] = comp.Qty * factor;
-                }
-
+                var componentStockQtyMap = await BuildBundleComponentStockQtyMapAsync(bundle, itemRepo, uomService);
                 var bundlePickedCount = PickListManager.ComputePickedQtyForBundle(
                     pickRows, soItem.Id, componentStockQtyMap);
 
@@ -289,8 +298,9 @@ public class PickListAppService : ApplicationService, IPickListAppService
     /// <summary>
     /// Creates a Delivery Note from a submitted Pick List.
     /// Per ERPNext PR #57412: maps customer from Pick List when no Sales Order is linked.
-    /// When a SO exists, the customer is inherited from the SO; when no SO,
     /// Per ERPNext PR #60311 / commit 4eb8ba500c: enforce pick list read permissions when generating delivery notes.
+    /// Per ERPNext PR #62326 / commit e3c6082498: maps only undelivered picked quantities (Qty - DeliveredQty)
+    /// for both plain items and Product Bundles (sizing parent bundle rows via ComputePickedQtyForBundle(..., pendingOnly: true)).
     /// </summary>
     [Authorize(MyERPPermissions.DeliveryNotes.Create)]
     [Volo.Abp.Uow.UnitOfWork]
@@ -321,13 +331,14 @@ public class PickListAppService : ApplicationService, IPickListAppService
         // Resolve customer: SO takes priority, then Pick List customer (per PR #57412)
         Guid? customerId = null;
         Guid? warehouseId = null;
+        MyERP.Sales.Entities.SalesOrder? targetSo = null;
 
         if (targetSalesOrderId.HasValue)
         {
             var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
-            var so = await soRepo.GetAsync(targetSalesOrderId.Value);
-            customerId = so.CustomerId;
-            warehouseId = so.Items.FirstOrDefault(i => i.WarehouseId.HasValue)?.WarehouseId;
+            targetSo = await soRepo.GetAsync(targetSalesOrderId.Value);
+            customerId = targetSo.CustomerId;
+            warehouseId = targetSo.Items.FirstOrDefault(i => i.WarehouseId.HasValue)?.WarehouseId;
         }
 
         // Per PR #57412: when no SO, use Pick List's own customer
@@ -358,30 +369,122 @@ public class PickListAppService : ApplicationService, IPickListAppService
         dn.SalesOrderId = targetSalesOrderId;
         dn.PickListId = pl.Id;
 
-        // Map pending transfer items to DN items
-        var pickListManager = LazyServiceProvider.LazyGetRequiredService<PickListManager>();
-        var pendingItems = pickListManager.GetPendingTransfers(pl);
-
-        if (targetSalesOrderId.HasValue)
+        if (targetSo != null)
         {
-            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
-            var so = await soRepo.GetAsync(targetSalesOrderId.Value);
-            var soItemIds = so.Items.Select(i => i.Id).ToHashSet();
-            pendingItems = pendingItems.Where(p => p.SourceDocumentItemId.HasValue && soItemIds.Contains(p.SourceDocumentItemId.Value)).ToList();
+            var bundleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.ProductBundle, Guid>>();
+            var bundleQueryable = await bundleRepo.GetQueryableAsync();
+            var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+            var uomService = LazyServiceProvider.LazyGetService<Inventory.DomainServices.UomConversionService>();
+
+            var pickedBySoItem = pl.Items
+                .Where(i => i.SourceDocumentItemId.HasValue)
+                .GroupBy(i => i.SourceDocumentItemId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var soItem in targetSo.Items)
+            {
+                if (!pickedBySoItem.TryGetValue(soItem.Id, out var pickRows))
+                    continue;
+
+                MyERP.Sales.Entities.ProductBundle? bundle = null;
+                if (soItem.ProductBundleId.HasValue)
+                {
+                    bundle = bundleQueryable.FirstOrDefault(b => b.Id == soItem.ProductBundleId.Value);
+                }
+                bundle ??= bundleQueryable.FirstOrDefault(b => b.ItemId == soItem.ItemId && b.IsActive && !b.IsDisabled);
+
+                if (bundle != null && bundle.Items.Count > 0)
+                {
+                    // Per ERPNext commit e3c6082498: count picked minus delivered per component row and skip bundles with nothing left
+                    var componentStockQtyMap = await BuildBundleComponentStockQtyMapAsync(bundle, itemRepo, uomService);
+                    var pendingBundles = PickListManager.ComputePickedQtyForBundle(
+                        pickRows, soItem.Id, componentStockQtyMap, pendingOnly: true);
+
+                    if (pendingBundles <= 0)
+                        continue;
+
+                    var perBundleTax = soItem.Quantity != 0
+                        ? Math.Round(soItem.TaxAmount / soItem.Quantity * pendingBundles, 2)
+                        : 0m;
+
+                    dn.AddItem(
+                        soItem.ItemId,
+                        soItem.Description ?? string.Empty,
+                        pendingBundles,
+                        soItem.UnitPrice,
+                        perBundleTax,
+                        soItem.Uom ?? "Unit",
+                        salesOrderItemId: soItem.Id,
+                        pickListItemId: null);
+
+                    var addedBundleRow = dn.Items[^1];
+                    addedBundleRow.StockUom = soItem.StockUom;
+                    addedBundleRow.ConversionFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                    addedBundleRow.WarehouseId = soItem.WarehouseId ?? pickRows.First().WarehouseId;
+                }
+                else
+                {
+                    var rowFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                    foreach (var pickRow in pickRows)
+                    {
+                        var pendingStockQty = Math.Max(0m, pickRow.Qty - Math.Max(pickRow.TransferredQty, pickRow.DeliveredQty));
+                        if (pendingStockQty <= 0)
+                            continue;
+
+                        var pendingOrderUomQty = Math.Round(pendingStockQty / rowFactor, 6);
+                        if (pendingOrderUomQty <= 0)
+                            continue;
+
+                        var rowTax = soItem.Quantity != 0
+                            ? Math.Round(soItem.TaxAmount / soItem.Quantity * pendingOrderUomQty, 2)
+                            : 0m;
+
+                        dn.AddItem(
+                            pickRow.ItemId,
+                            soItem.Description ?? pickRow.ItemName ?? string.Empty,
+                            pendingOrderUomQty,
+                            soItem.UnitPrice,
+                            rowTax,
+                            soItem.Uom ?? "Unit",
+                            salesOrderItemId: soItem.Id,
+                            pickListItemId: pickRow.Id);
+
+                        var addedRow = dn.Items[^1];
+                        addedRow.StockUom = soItem.StockUom;
+                        addedRow.ConversionFactor = rowFactor;
+                        addedRow.WarehouseId = pickRow.WarehouseId;
+                        addedRow.BatchId = pickRow.BatchId;
+                    }
+                }
+            }
+        }
+        else
+        {
+            foreach (var pickRow in pl.Items)
+            {
+                var pendingQty = Math.Max(0m, pickRow.Qty - Math.Max(pickRow.TransferredQty, pickRow.DeliveredQty));
+                if (pendingQty <= 0)
+                    continue;
+
+                dn.AddItem(
+                    pickRow.ItemId,
+                    pickRow.ItemName ?? string.Empty,
+                    pendingQty,
+                    0m,
+                    0m,
+                    "Unit",
+                    salesOrderItemId: pickRow.SourceDocumentItemId,
+                    pickListItemId: pickRow.Id);
+
+                var addedRow = dn.Items[^1];
+                addedRow.WarehouseId = pickRow.WarehouseId;
+                addedRow.BatchId = pickRow.BatchId;
+            }
         }
 
-        var itemsToDeliver = pendingItems.Where(p => p.PendingQty > 0).ToList();
-        if (itemsToDeliver.Count == 0)
+        if (dn.Items.Count == 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.DocumentMustHaveItems);
-        }
-
-        foreach (var item in itemsToDeliver)
-        {
-            // PendingTransfer doesn't carry ItemName; use empty string (DN detail resolves from Item master)
-            dn.AddItem(item.ItemId, "", item.PendingQty, 0m, 0m, "Unit",
-                salesOrderItemId: item.SourceDocumentItemId,
-                pickListItemId: item.PickListItemId);
         }
 
         await dnRepo.InsertAsync(dn, autoSave: true);
@@ -463,4 +566,3 @@ public class PickListAppService : ApplicationService, IPickListAppService
         return ObjectMapper.Map<PickList, PickListDto>(pl);
     }
 }
-

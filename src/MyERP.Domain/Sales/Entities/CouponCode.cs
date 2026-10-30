@@ -74,16 +74,19 @@ public class CouponCode : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
     }
 
-    /// <summary>Generate promotional code from name: first 8 non-digit uppercase chars.</summary>
+    /// <summary>Generate promotional code prefix from name: first 8 non-digit, non-whitespace uppercase chars (ERPNext commit 8fa3f79311).</summary>
     public static string GeneratePromotionalCode(string name)
     {
+        if (string.IsNullOrWhiteSpace(name))
+            return string.Empty;
+
         var chars = new System.Text.StringBuilder();
-        foreach (var c in name.ToUpper())
+        foreach (var c in name.ToUpperInvariant())
         {
-            if (!char.IsDigit(c) && char.IsLetterOrDigit(c) && chars.Length < 8)
+            if (!char.IsDigit(c) && !char.IsWhiteSpace(c) && chars.Length < 8)
                 chars.Append(c);
         }
-        return chars.Length > 0 ? chars.ToString() : name[..Math.Min(8, name.Length)].ToUpper();
+        return chars.ToString();
     }
 
     /// <summary>Generate gift card code: random 10-char hex hash.</summary>

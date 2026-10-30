@@ -390,7 +390,8 @@ public class PickListManager : DomainService
     public static int ComputePickedQtyForBundle(
         IEnumerable<PickListItem> pickItems,
         Guid salesOrderItemId,
-        IReadOnlyDictionary<Guid, decimal> componentRequiredStockQuantities)
+        IReadOnlyDictionary<Guid, decimal> componentRequiredStockQuantities,
+        bool pendingOnly = false)
     {
         var possibleBundles = new Dictionary<Guid, decimal>();
 
@@ -401,19 +402,20 @@ public class PickListManager : DomainService
 
             if (componentRequiredStockQuantities.TryGetValue(item.ItemId, out var requiredQty) && requiredQty > 0)
             {
-                var bundleKey = item.ProductBundleItemId ?? item.Id;
+                var effectiveQty = pendingOnly ? Math.Max(0m, item.Qty - item.DeliveredQty) : item.Qty;
+                var bundleKey = item.ProductBundleItemId ?? item.ItemId;
                 if (!possibleBundles.ContainsKey(bundleKey))
                 {
                     possibleBundles[bundleKey] = 0;
                 }
-                possibleBundles[bundleKey] += item.Qty / requiredQty;
+                possibleBundles[bundleKey] += effectiveQty / requiredQty;
             }
         }
 
-        if (possibleBundles.Count == 0)
+        if (possibleBundles.Count == 0 || possibleBundles.Count < componentRequiredStockQuantities.Count)
             return 0;
 
-        return (int)Math.Floor(possibleBundles.Values.Min());
+        return (int)Math.Floor(Math.Round(possibleBundles.Values.Min(), 6));
     }
 
     /// <summary>

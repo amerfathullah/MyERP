@@ -136,10 +136,11 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
       if ((this.invoice as any).updateStock && canCreateLCV) {
         actions.push({ name: 'createLCV', label: 'Create Landed Cost Voucher', icon: 'fa fa-receipt', color: 'info' });
       }
-      if (!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted') {
-        actions.push({ name: 'submitLhdn', label: 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', color: 'primary' });
+      if (!this.invoice.eInvoiceStatus || this.invoice.eInvoiceStatus === 'NotSubmitted' || this.invoice.eInvoiceStatus === 'Invalid') {
+
+        actions.push({ name: 'submitLhdn', label: this.invoice.eInvoiceStatus === 'Invalid' ? 'Resubmit to LHDN' : 'Submit to LHDN', icon: 'fa fa-cloud-arrow-up', color: 'primary' });
       }
-      if (this.invoice.eInvoiceStatus === 'Valid' || this.invoice.eInvoiceStatus === 'Submitted') {
+      if (this.invoice.eInvoiceStatus === 'Pending' || this.invoice.eInvoiceStatus === 'Valid' || this.invoice.eInvoiceStatus === 'Submitted') {
         actions.push({ name: 'refreshLhdn', label: 'Refresh Status', icon: 'fa fa-rotate', color: 'info' });
       }
       if (this.invoice.eInvoiceStatus === 'Valid' && this.isWithin72HourWindow()) {
