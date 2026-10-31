@@ -1,7 +1,4 @@
 <Solution>
-    <Configurations>
-        <Platform Name="Any CPU" />
-    </Configurations>
     <Folder Name="/src/">
         <Project Path="src/MyERP.Domain/MyERP.Domain.csproj" />
         <Project Path="src/MyERP.Application/MyERP.Application.csproj" />
