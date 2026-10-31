@@ -1174,50 +1174,107 @@ public class StockEntryAppService : ApplicationService, IStockEntryAppService
 
         var woRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<WorkOrder, Guid>>();
         var bomRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<BillOfMaterials, Guid>>();
-
-        var wo = await woRepo.GetAsync(workOrderId, includeDetails: true);
-        if (wo.Status == Manufacturing.WorkOrderStatus.Closed)
-        {
-            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.StockEntryAgainstClosedWorkOrder)
-                .WithData("workOrder", wo.WorkOrderNumber ?? wo.Id.ToString())
-                .WithData("detail", $"Transaction not allowed against closed Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}");
-        }
-        if (wo.Status == Manufacturing.WorkOrderStatus.Stopped)
-        {
-            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
-                .WithData("detail", $"Transaction not allowed against stopped Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}");
-        }
-        if (wo.BomId == Guid.Empty)
-            throw new Volo.Abp.BusinessException("MyERP:10003")
-                .WithData("reason", "Work Order has no linked BOM");
-
-        var bom = await bomRepo.GetAsync(wo.BomId, includeDetails: true);
-        var multiplier = produceQty / (bom.Quantity > 0 ? bom.Quantity : 1m);
-
-        var result = new ManufactureItemsDto
-        {
-            WorkOrderId = wo.Id,
-            BomId = bom.Id,
-            ProduceQty = produceQty,
-            FgItemId = bom.ItemId,
-            FgWarehouseId = wo.FgWarehouseId ?? bom.TargetWarehouseId,
-            SourceWarehouseId = wo.SourceWarehouseId ?? bom.SourceWarehouseId,
-        };
-
-        // Raw material consumption items (with recursive phantom explosion per PR #59445)
         var woManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.DomainServices.WorkOrderManager>();
-        var reqs = await woManager.CalculateMaterialRequirementsAsync(bom.Id, produceQty);
-        foreach (var req in reqs)
+
+        var wo = await woRepo.FindAsync(workOrderId, includeDetails: true);
+        BillOfMaterials bom;
+        ManufactureItemsDto result;
+
+        if (wo != null)
         {
-            result.Items.Add(new ManufactureItemLineDto
+            if (wo.Status == Manufacturing.WorkOrderStatus.Closed)
             {
-                ItemId = req.ItemId,
-                ItemName = req.ItemName,
-                RequiredQty = Math.Round(req.RequiredQty, 4),
-                Rate = req.Rate,
-                SourceWarehouseId = req.SourceWarehouseId ?? result.SourceWarehouseId,
-                IsRawMaterial = true,
-            });
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.StockEntryAgainstClosedWorkOrder)
+                    .WithData("workOrder", wo.WorkOrderNumber ?? wo.Id.ToString())
+                    .WithData("detail", $"Transaction not allowed against closed Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}");
+            }
+            if (wo.Status == Manufacturing.WorkOrderStatus.Stopped)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                    .WithData("detail", $"Transaction not allowed against stopped Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}");
+            }
+            if (wo.BomId == Guid.Empty)
+                throw new Volo.Abp.BusinessException("MyERP:10003")
+                    .WithData("reason", "Work Order has no linked BOM");
+
+            bom = await bomRepo.GetAsync(wo.BomId, includeDetails: true);
+            result = new ManufactureItemsDto
+            {
+                WorkOrderId = wo.Id,
+                BomId = bom.Id,
+                ProduceQty = produceQty,
+                FgItemId = bom.ItemId,
+                FgWarehouseId = wo.FgWarehouseId ?? bom.TargetWarehouseId,
+                SourceWarehouseId = wo.SourceWarehouseId ?? bom.SourceWarehouseId,
+            };
+
+            var backflushMethod = await woManager.GetBackflushMethodAsync(bom.Id, wo.CompanyId);
+            if ((backflushMethod == "Material Transferred" || backflushMethod == "Material Transferred for Manufacture")
+                && !wo.SkipTransfer)
+            {
+                var productionService = LazyServiceProvider
+                    .LazyGetRequiredService<MyERP.Manufacturing.Services.WorkOrderProductionService>();
+                var transferredItems = productionService.CalculateRawMaterialConsumption(wo, produceQty, backflushMethod);
+                foreach (var c in transferredItems)
+                {
+                    var bomRate = bom.Items.FirstOrDefault(b => b.ItemId == c.ItemId)?.Rate ?? 0m;
+                    result.Items.Add(new ManufactureItemLineDto
+                    {
+                        ItemId = c.ItemId,
+                        ItemName = c.ItemName,
+                        RequiredQty = Math.Round(c.Quantity, 4),
+                        Rate = bomRate,
+                        SourceWarehouseId = wo.WipWarehouseId ?? c.SourceWarehouseId ?? result.SourceWarehouseId,
+                        IsRawMaterial = true,
+                    });
+                }
+            }
+            else
+            {
+                var reqs = await woManager.CalculateMaterialRequirementsAsync(bom.Id, produceQty);
+                foreach (var req in reqs)
+                {
+                    result.Items.Add(new ManufactureItemLineDto
+                    {
+                        ItemId = req.ItemId,
+                        ItemName = req.ItemName,
+                        RequiredQty = Math.Round(req.RequiredQty, 4),
+                        Rate = req.Rate,
+                        SourceWarehouseId = req.SourceWarehouseId ?? result.SourceWarehouseId,
+                        IsRawMaterial = true,
+                    });
+                }
+            }
+        }
+        else
+        {
+            // Per ERPNext PR #62943 / commit 8f40bec4f5:
+            // Standalone Manufacture / Material Consumption for Manufacture without a Work Order
+            // always fetches raw materials from the BOM even if BackflushRawMaterialsBasedOn is Material Transferred.
+            bom = await bomRepo.GetAsync(workOrderId, includeDetails: true);
+            result = new ManufactureItemsDto
+            {
+                WorkOrderId = Guid.Empty,
+                BomId = bom.Id,
+                ProduceQty = produceQty,
+                FgItemId = bom.ItemId,
+                FgWarehouseId = bom.TargetWarehouseId,
+                SourceWarehouseId = bom.SourceWarehouseId,
+            };
+
+            var reqs = await woManager.CalculateMaterialRequirementsAsync(bom.Id, produceQty);
+            foreach (var req in reqs)
+            {
+                result.Items.Add(new ManufactureItemLineDto
+                {
+                    ItemId = req.ItemId,
+                    ItemName = req.ItemName,
+                    RequiredQty = Math.Round(req.RequiredQty, 4),
+                    Rate = req.Rate,
+                    SourceWarehouseId = req.SourceWarehouseId ?? result.SourceWarehouseId,
+                    IsRawMaterial = true,
+                });
+            }
         }
 
         // Finished good item

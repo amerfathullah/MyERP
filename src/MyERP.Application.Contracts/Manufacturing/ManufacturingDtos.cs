@@ -19,6 +19,10 @@ public class BomDto : AuditedEntityDto<Guid>
     public Guid CompanyId { get; set; }
     public bool IsActive { get; set; }
     public bool IsDefault { get; set; }
+    public bool WithOperations { get; set; }
+    public bool IsPhantomBom { get; set; }
+    public bool FgBasedOperatingCost { get; set; }
+    public decimal OperatingCostPerBomQuantity { get; set; }
     public decimal TotalMaterialCost { get; set; }
     public decimal OperatingCost { get; set; }
     public decimal TotalCost { get; set; }
@@ -160,6 +164,10 @@ public class CreateBomDto
     public string? Uom { get; set; }
     [Required] public Guid CompanyId { get; set; }
     public bool IsDefault { get; set; }
+    public bool WithOperations { get; set; }
+    public bool IsPhantomBom { get; set; }
+    public bool FgBasedOperatingCost { get; set; }
+    [Range(0, double.MaxValue)] public decimal OperatingCostPerBomQuantity { get; set; }
     public Guid? SourceWarehouseId { get; set; }
     public Guid? TargetWarehouseId { get; set; }
     public Guid? RoutingId { get; set; }

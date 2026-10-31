@@ -163,4 +163,57 @@ public class CostCenterAllocationService : DomainService
 
         return result;
     }
+
+    /// <summary>
+    /// Resolves standard ISO 4217 currency precision for GL transaction-currency allocation.
+    /// Per ERPNext commit 4a66be27ac (get_transaction_currency_precision):
+    /// zero-decimal currencies (e.g. JPY) round to 0 decimals; three-decimal currencies (e.g. KWD) round to 3;
+    /// standard currencies round to defaultPrecision (2).
+    /// </summary>
+    public static int GetCurrencyPrecision(string? currencyCode, int defaultPrecision = 2)
+    {
+        if (string.IsNullOrWhiteSpace(currencyCode))
+            return defaultPrecision;
+
+        return currencyCode.Trim().ToUpperInvariant() switch
+        {
+            "BIF" or "CLP" or "DJF" or "GNF" or "ISK" or "JPY" or "KMF" or "KRW"
+                or "PYG" or "RWF" or "UGX" or "VND" or "VUV" or "XAF" or "XOF" or "XPF" => 0,
+            "BHD" or "IQD" or "JOD" or "KWD" or "LYD" or "OMR" or "TND" => 3,
+            _ => defaultPrecision
+        };
+    }
+
+    /// <summary>
+    /// Distributes an amount across cost center allocation percentages using cumulative rounding
+    /// so each sub-cost-center carries forward the rounding remainder and the distributed slices
+    /// sum to the exact rounded total. Per ERPNext commit 4a66be27ac.
+    /// </summary>
+    public static List<(Guid CostCenterId, decimal Amount)> DistributeAmountByPercentages(
+        decimal amount,
+        IReadOnlyList<(Guid ChildCostCenterId, decimal Percentage)> entries,
+        int precision = 2,
+        MidpointRounding rounding = MidpointRounding.AwayFromZero)
+    {
+        var result = new List<(Guid CostCenterId, decimal Amount)>(entries.Count);
+        if (entries.Count == 0)
+            return result;
+
+        decimal allocatedPercentage = 0m;
+        decimal allocatedAmount = 0m;
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            var (childCcId, percentage) = entries[i];
+            allocatedPercentage += percentage;
+            var cumulativeAmount = i == entries.Count - 1 && Math.Abs(allocatedPercentage - 100m) < 0.0001m
+                ? Math.Round(amount, precision, rounding)
+                : Math.Round(amount * allocatedPercentage / 100m, precision, rounding);
+            var sliceAmount = Math.Round(cumulativeAmount - allocatedAmount, precision, rounding);
+            allocatedAmount = cumulativeAmount;
+            result.Add((childCcId, sliceAmount));
+        }
+
+        return result;
+    }
 }

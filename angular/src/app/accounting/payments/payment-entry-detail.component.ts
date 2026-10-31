@@ -9,6 +9,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { DocumentWorkflowComponent, WorkflowAction } from '../../shared/components/document-workflow/document-workflow.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
+import { DocumentConnectionsComponent } from '../../shared/components/document-connections/document-connections.component';
 import { VoucherLedgerComponent } from '../../shared/components/voucher-ledger/voucher-ledger.component';
 import { PaymentEntryPrintLayoutComponent } from '../../shared/components/pe-print-layout/pe-print-layout.component';
 import { PaymentEntryService } from '../../proxy/accounting/payment-entry.service';
@@ -18,7 +19,7 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
 @Component({
   selector: 'app-payment-entry-detail',
   standalone: true,
-  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, VoucherLedgerComponent, RouterLink, PaymentEntryPrintLayoutComponent],
+  imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, DocumentConnectionsComponent, VoucherLedgerComponent, RouterLink, PaymentEntryPrintLayoutComponent],
   template: `
     <app-breadcrumb />
     <abp-page [title]="entry()?.paymentNumber || ('PaymentEntry' | abpLocalization)">
@@ -170,6 +171,8 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
             </div>
           </div>
         }
+
+        <app-document-connections documentType="PaymentEntry" [documentId]="entry()!.id!" />
 
         <app-activity-log documentType="PaymentEntry" [documentId]="entry()!.id!" />
 

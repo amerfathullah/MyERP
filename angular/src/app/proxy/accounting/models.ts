@@ -2181,6 +2181,7 @@ export interface PaymentReferenceDto {
   referenceId: string;
   allocatedAmount: number;
   exchangeRate?: number;
+  paymentTermId?: string | null;
 }
 
 export interface PaymentRequestDto extends EntityDto<string> {

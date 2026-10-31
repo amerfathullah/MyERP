@@ -5638,7 +5638,11 @@
     "Menu:BilledItemsToBeReceived": "Billed Items to be Received",
     "BilledItemsToBeReceived": "Billed Items to be Received",
     "BilledItemsToBeReceivedDescription": "Track items that have been invoiced by suppliers but not yet received into inventory.",
-    "NoBilledItemsToBeReceivedFound": "No pending items to be received found for the selected criteria."
+    "NoBilledItemsToBeReceivedFound": "No pending items to be received found for the selected criteria.",
+    "FinishedGoodsBasedOperatingCost": "Finished Goods Based Operating Cost",
+    "OperatingCostPerBomQuantity": "Operating Cost Per BOM Quantity",
+    "IsPhantomBom": "Is Phantom BOM",
+    "LoadBom": "Load BOM"
   }
 }
 

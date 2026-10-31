@@ -89,6 +89,36 @@
     </div>
     }
 
+    <!-- Standalone BOM Loader for Manufacture / MaterialConsumptionForManufacture without Work Order (PR #62943) -->
+    @if (isStandaloneManufactureOrConsumption()) {
+    <div class="card mb-4 border-start border-info border-3">
+      <div class="card-body py-2">
+        <div class="row align-items-center g-2">
+          <div class="col-12 col-md-5">
+            <select class="form-select form-select-sm" [value]="selectedBomId()" (change)="selectedBomId.set($any($event.target).value)">
+              <option value="">{{ '::SelectBOM' | abpLocalization }}</option>
+              @for (b of boms(); track b.id) {
+                <option [value]="b.id">{{ b.bomNumber }} — {{ b.itemName || b.itemId }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-auto">
+            <label class="col-form-label col-form-label-sm fw-semibold">{{ '::ProduceQty' | abpLocalization }}</label>
+          </div>
+          <div class="col-auto">
+            <input type="number" class="form-control form-control-sm" style="width: 110px;"
+              [value]="produceQty()" (change)="onProduceQtyChanged($any($event.target).valueAsNumber)" min="0.001" step="1" />
+          </div>
+          <div class="col-auto">
+            <button type="button" class="btn btn-sm btn-outline-info" [disabled]="!selectedBomId() || isLoadingBOM" (click)="loadStandaloneBomItems(selectedBomId())">
+              <i class="fa fa-sitemap me-1"></i>{{ '::LoadBom' | abpLocalization }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    }
+
     <!-- Items -->
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">

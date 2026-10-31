@@ -51,7 +51,7 @@ public class WorkOrderProductionService : DomainService
         {
             decimal consumeQty;
 
-            if (backflushMethod == "Material Transferred")
+            if (backflushMethod is "Material Transferred" or "Material Transferred for Manufacture")
             {
                 // Per gotcha #491: consumed cannot exceed transferred
                 var available = item.TransferredQuantity - item.ConsumedQuantity;

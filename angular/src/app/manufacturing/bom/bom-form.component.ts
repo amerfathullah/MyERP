@@ -42,6 +42,10 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
                   <input type="checkbox" class="form-check-input" formControlName="isActive" id="bomActive" />
                   <label class="form-check-label" for="bomActive">{{ 'Active' | abpLocalization }}</label>
                 </div>
+                <div class="form-check mt-1">
+                  <input type="checkbox" class="form-check-input" formControlName="isPhantomBom" id="bomPhantom" />
+                  <label class="form-check-label" for="bomPhantom">{{ 'IsPhantomBom' | abpLocalization }}</label>
+                </div>
               </div>
             </div>
           </div>
@@ -132,6 +136,30 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
           }
         </div>
 
+        @if (operations.length === 0 && !form.get('isPhantomBom')?.value) {
+          <div class="card mb-3">
+            <div class="card-header">
+              <h6 class="mb-0"><i class="fa fa-calculator me-2"></i>{{ 'FinishedGoodsBasedOperatingCost' | abpLocalization }}</h6>
+            </div>
+            <div class="card-body">
+              <div class="row align-items-center">
+                <div class="col-md-5">
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" formControlName="fgBasedOperatingCost" id="fgBasedOpCost" />
+                    <label class="form-check-label" for="fgBasedOpCost">{{ 'FinishedGoodsBasedOperatingCost' | abpLocalization }}</label>
+                  </div>
+                </div>
+                @if (form.get('fgBasedOperatingCost')?.value) {
+                  <div class="col-md-4">
+                    <label class="form-label">{{ 'OperatingCostPerBomQuantity' | abpLocalization }}</label>
+                    <input type="number" class="form-control form-control-sm text-end" formControlName="operatingCostPerBomQuantity" min="0" step="0.01" />
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+        }
+
         <!-- Secondary Items Section (Co-Products, By-Products, Scrap) -->
         <div class="card mb-3">
           <div class="card-header d-flex justify-content-between align-items-center">
@@ -220,6 +248,9 @@ export class BomFormComponent implements OnInit {
     itemName: [''],
     quantity: [1, [Validators.required, Validators.min(0.01)]],
     isActive: [true],
+    isPhantomBom: [false],
+    fgBasedOperatingCost: [false],
+    operatingCostPerBomQuantity: [0, [Validators.min(0)]],
     materials: this.fb.array([]),
     operations: this.fb.array([]),
     secondaryItems: this.fb.array([]),
@@ -235,7 +266,13 @@ export class BomFormComponent implements OnInit {
   }
 
   get operatingCost(): number {
-    return this.operations.controls.reduce((sum, _, i) => sum + this.getOpCost(i), 0);
+    if (this.operations.length > 0) {
+      return this.operations.controls.reduce((sum, _, i) => sum + this.getOpCost(i), 0);
+    }
+    if (this.form.get('fgBasedOperatingCost')?.value && !this.form.get('isPhantomBom')?.value) {
+      return (Number(this.form.get('quantity')?.value ?? 0)) * (Number(this.form.get('operatingCostPerBomQuantity')?.value ?? 0));
+    }
+    return 0;
   }
 
   get totalCost(): number { return this.materialCost + this.operatingCost; }
@@ -249,7 +286,15 @@ export class BomFormComponent implements OnInit {
     this.isEditMode = !!this.entityId;
     if (this.isEditMode) {
       this.manufacturingService.getBom(this.entityId!).subscribe(bom => {
-        this.form.patchValue({ itemId: bom.itemId, itemName: bom.itemName, quantity: bom.quantity, isActive: bom.isActive });
+        this.form.patchValue({
+          itemId: bom.itemId,
+          itemName: bom.itemName,
+          quantity: bom.quantity,
+          isActive: bom.isActive,
+          isPhantomBom: bom.isPhantomBom ?? false,
+          fgBasedOperatingCost: bom.fgBasedOperatingCost ?? false,
+          operatingCostPerBomQuantity: bom.operatingCostPerBomQuantity ?? 0,
+        });
         (bom.items ?? []).forEach((item: any) => this.addMaterial(item));
         (bom.operations ?? []).forEach((op: any) => this.addOperation(op));
         (bom.secondaryItems ?? []).forEach((si: any) => this.addSecondaryItem(si));
@@ -355,6 +400,10 @@ export class BomFormComponent implements OnInit {
     const raw = this.form.getRawValue();
     const payload = {
       ...raw,
+      withOperations: this.operations.length > 0,
+      isPhantomBom: !!raw.isPhantomBom,
+      fgBasedOperatingCost: this.operations.length === 0 && !raw.isPhantomBom ? !!raw.fgBasedOperatingCost : false,
+      operatingCostPerBomQuantity: Number(raw.operatingCostPerBomQuantity ?? 0),
       // Map BOM material 'qty'→'quantity' and 'description'→'itemName' to match CreateBomItemDto
       items: this.materials.controls.map(c => {
         const v = c.getRawValue();

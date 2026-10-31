@@ -45,6 +45,18 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Whether this BOM defines routing operations.</summary>
     public bool WithOperations { get; set; }
 
+    /// <summary>Whether this BOM is a phantom BOM (not stocked independently; ERPNext bom.py is_phantom_bom).</summary>
+    public bool IsPhantomBom { get; set; }
+
+    /// <summary>
+    /// Whether operating cost is derived from finished-good BOM quantity rather than routing operations
+    /// (ERPNext bom.py fg_based_operating_cost &amp; commit 7fb16ab015).
+    /// </summary>
+    public bool FgBasedOperatingCost { get; set; }
+
+    /// <summary>Operating cost per unit of finished good when FgBasedOperatingCost is enabled.</summary>
+    public decimal OperatingCostPerBomQuantity { get; set; }
+
     /// <summary>
     /// Transfer material against: "Work Order" or "Job Card".
     /// Per gotcha #446: forced to "Work Order" when WithOperations is false.
@@ -187,7 +199,18 @@ public class BillOfMaterials : FullAuditedAggregateRoot<Guid>, IMultiTenant
             item.Recalculate();
             TotalMaterialCost += item.Amount;
         }
-        OperatingCost = Operations.Sum(o => o.OperatingCost);
+        if (WithOperations || Operations.Any())
+        {
+            OperatingCost = Operations.Sum(o => o.OperatingCost);
+        }
+        else if (FgBasedOperatingCost && !IsPhantomBom)
+        {
+            OperatingCost = Quantity * OperatingCostPerBomQuantity;
+        }
+        else
+        {
+            OperatingCost = 0m;
+        }
 
         // Valuation Rate and Manual rows carry their own cost, deducted from raw material cost;
         // The PercentageOfComponentCost rows split the remaining allocation basis by their percentage (per ERPNext PR #58431 / PR #59021).

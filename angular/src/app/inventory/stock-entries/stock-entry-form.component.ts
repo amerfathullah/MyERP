@@ -64,6 +64,8 @@ export class StockEntryFormComponent implements OnInit {
   warehouses = signal<any[]>([]);
   companies = signal<any[]>([]);
   workOrders = signal<any[]>([]);
+  boms = signal<any[]>([]);
+  selectedBomId = signal<string>('');
   linkedWorkOrderId: string | null = null;
   isLoadingBOM = false;
   isEditMode = false;
@@ -123,9 +125,13 @@ export class StockEntryFormComponent implements OnInit {
       res => this.warehouses.set((res.items ?? []).filter((w: any) => !w.isGroup)));
     this.companyService.getList({ skipCount: 0, maxResultCount: 100, sorting: '' }).subscribe(
       res => this.companies.set(res.items ?? []));
-    // Load active work orders for BOM picker
+    // Load active work orders and BOMs for manufacture/consumption BOM loading
     this.mfgService.getWorkOrderList({ maxResultCount: 100, skipCount: 0, sorting: '' } as any).subscribe({
       next: (res: any) => this.workOrders.set(res.items ?? []),
+      error: () => {},
+    });
+    this.mfgService.getBomList({ maxResultCount: 100, skipCount: 0, sorting: '' } as any).subscribe({
+      next: (res: any) => this.boms.set(res.items ?? []),
       error: () => {},
     });
 
@@ -181,11 +187,64 @@ export class StockEntryFormComponent implements OnInit {
     }
   }
 
+  isStandaloneManufactureOrConsumption(): boolean {
+    const type = this.form.get('entryType')?.value;
+    return !this.linkedWorkOrderId && (type === 'Manufacture' || type === 'MaterialConsumptionForManufacture');
+  }
+
   onProduceQtyChanged(qty: number): void {
     this.produceQty.set(qty > 0 ? qty : 1);
     if (this.linkedWorkOrderId) {
       this.loadBomItems(this.linkedWorkOrderId);
+    } else if (this.selectedBomId()) {
+      this.loadStandaloneBomItems(this.selectedBomId());
     }
+  }
+
+  loadStandaloneBomItems(bomId: string): void {
+    if (!bomId) return;
+    this.isLoadingBOM = true;
+    const qty = this.produceQty();
+    const isConsumptionOnly = this.form.get('entryType')?.value === 'MaterialConsumptionForManufacture';
+    this.service.getManufactureItems(bomId, qty).subscribe({
+      next: (result) => {
+        this.isLoadingBOM = false;
+        if (result.sourceWarehouseId) {
+          this.form.patchValue({ sourceWarehouse: result.sourceWarehouseId });
+        }
+        if (!isConsumptionOnly && result.fgWarehouseId) {
+          this.form.patchValue({ targetWarehouse: result.fgWarehouseId });
+        }
+        const rows = isConsumptionOnly
+          ? (result.items ?? []).filter((i: any) => i.isRawMaterial)
+          : (result.items ?? []);
+        this.items.clear();
+        for (const item of rows) {
+          const itemQty = item.requiredQty ?? 0;
+          const rate = item.rate ?? 0;
+          this.items.push(this.fb.group({
+            itemId: [item.itemId, Validators.required],
+            itemName: [item.isRawMaterial ? (item.itemName ?? '') : `✓ ${item.itemName ?? ''}`, Validators.required],
+            qty: [itemQty, [Validators.required, Validators.min(0.001)]],
+            uom: ['Unit'],
+            conversionFactor: [1],
+            transferQty: [itemQty],
+            basicRate: [rate],
+            amount: [Math.round(itemQty * rate * 100) / 100],
+            setBasicRateManually: [false],
+            isFinishedItem: [!item.isRawMaterial],
+            sourceWarehouseId: [item.sourceWarehouseId || ''],
+            targetWarehouseId: [isConsumptionOnly ? '' : (item.targetWarehouseId || '')],
+            materialRequestItemId: [null],
+          }));
+        }
+        this.toaster.info(`Loaded ${rows.length} item(s) from BOM`);
+      },
+      error: () => {
+        this.isLoadingBOM = false;
+        this.toaster.warn('::CouldNotLoadBomItems');
+      },
+    });
   }
 
   loadBomItems(workOrderId: string): void {

@@ -404,7 +404,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
         if (input.References != null && input.References.Count > 0)
         {
             var duplicateRef = input.References
-                .GroupBy(r => (r.ReferenceType, r.ReferenceId))
+                .GroupBy(r => (r.ReferenceType, r.ReferenceId, r.PaymentTermId))
                 .FirstOrDefault(g => g.Count() > 1);
             if (duplicateRef != null)
             {
@@ -430,6 +430,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     outstandingAmount: refDto.AllocatedAmount,
                     allocatedAmount: refDto.AllocatedAmount);
                 reference.ExchangeRate = refDto.ExchangeRate;
+                reference.PaymentTermId = refDto.PaymentTermId;
                 pe.References.Add(reference);
             }
         }
@@ -454,9 +455,11 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
     [Authorize(MyERPPermissions.PaymentEntries.Submit)]
     public async Task<PaymentEntryDto> SubmitAsync(Guid id)
     {
-        var pe = await _repository.GetAsync(id);
+        var pe = (await _repository.WithDetailsAsync(p => p.References, p => p.Taxes))
+            .FirstOrDefault(x => x.Id == id) ?? await _repository.GetAsync(id);
         await ValidateEnabledModeOfPaymentAsync(pe.ModeOfPaymentId, pe.ModeOfPayment);
         await ValidateDunningDeductionsAsync(pe);
+        await ValidateCumulativeReferencesAsync(pe);
         pe.Submit();
         await _repository.UpdateAsync(pe, autoSave: true);
         return ObjectMapper.Map<PaymentEntry, PaymentEntryDto>(pe);
@@ -465,9 +468,11 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
     [Authorize(MyERPPermissions.PaymentEntries.Submit)]
     public async Task<PaymentEntryDto> PostAsync(Guid id)
     {
-        var pe = await _repository.GetAsync(id);
+        var pe = (await _repository.WithDetailsAsync(p => p.References, p => p.Taxes))
+            .FirstOrDefault(x => x.Id == id) ?? await _repository.GetAsync(id);
         await ValidateEnabledModeOfPaymentAsync(pe.ModeOfPaymentId, pe.ModeOfPayment);
         await ValidateDunningDeductionsAsync(pe);
+        await ValidateCumulativeReferencesAsync(pe);
         await ValidatePartyDetailsAsync(
             pe.PartyType,
             pe.PartyId,
@@ -1440,7 +1445,8 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
     [Authorize(MyERPPermissions.PaymentEntries.Edit)]
     public async Task<PaymentEntryDto> UpdateAsync(Guid id, CreatePaymentEntryDto input)
     {
-        var entry = await _repository.GetAsync(id);
+        var entry = (await _repository.WithDetailsAsync(p => p.References, p => p.Taxes))
+            .FirstOrDefault(x => x.Id == id) ?? await _repository.GetAsync(id);
         if (entry.Status != Core.DocumentStatus.Draft)
             throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
                 .WithData("detail", "Only Draft payment entries can be edited");
@@ -1489,6 +1495,39 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             entry.PaidFromAccountId,
             entry.PaidToAccountId,
             entry.CompanyId);
+
+        if (input.References != null)
+        {
+            var duplicateRef = input.References
+                .GroupBy(r => (r.ReferenceType, r.ReferenceId, r.PaymentTermId))
+                .FirstOrDefault(g => g.Count() > 1);
+            if (duplicateRef != null)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", $"Duplicate reference entry: {duplicateRef.Key.ReferenceType} {duplicateRef.Key.ReferenceId} appears more than once.");
+            }
+
+            entry.References.Clear();
+            foreach (var refDto in input.References)
+            {
+                if (string.IsNullOrWhiteSpace(refDto.ReferenceType) || refDto.ReferenceId == Guid.Empty)
+                    continue;
+
+                var reference = new PaymentEntryReference(
+                    GuidGenerator.Create(),
+                    entry.Id,
+                    refDto.ReferenceType,
+                    refDto.ReferenceId,
+                    totalAmount: refDto.AllocatedAmount,
+                    outstandingAmount: refDto.AllocatedAmount,
+                    allocatedAmount: refDto.AllocatedAmount)
+                {
+                    ExchangeRate = refDto.ExchangeRate,
+                    PaymentTermId = refDto.PaymentTermId
+                };
+                entry.References.Add(reference);
+            }
+        }
 
         if (input.Taxes != null)
         {
@@ -2406,6 +2445,93 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Row #{idx}: Dunning charges must have a negative deduction amount.");
             }
+        }
+    }
+
+    private async Task ValidateCumulativeReferencesAsync(PaymentEntry pe)
+    {
+        if (pe.References == null || pe.References.Count == 0)
+            return;
+
+        var scheduleQuery = await _scheduleRepository.GetQueryableAsync();
+        var refIds = pe.References
+            .Where(r => r.ReferenceId != Guid.Empty)
+            .Select(r => r.ReferenceId)
+            .Distinct()
+            .ToList();
+
+        var schedulesByInvoice = refIds.Count > 0
+            ? scheduleQuery
+                .Where(s => refIds.Contains(s.ParentId))
+                .ToList()
+                .GroupBy(s => s.ParentId)
+                .ToDictionary(g => g.Key, g => g.ToList())
+            : new Dictionary<Guid, List<PaymentScheduleEntry>>();
+
+        var snapshots = new List<MyERP.Accounting.DomainServices.ReferenceAllocationSnapshot>(pe.References.Count);
+
+        foreach (var refRow in pe.References)
+        {
+            if (string.IsNullOrWhiteSpace(refRow.ReferenceType) || refRow.ReferenceId == Guid.Empty)
+                continue;
+
+            if (refRow.ReferenceType == "SalesInvoice")
+            {
+                var si = await _salesInvoiceRepository.FindAsync(refRow.ReferenceId);
+                if (si == null) continue;
+
+                var allocatedInInvCurrency = ConvertAllocatedToInvoiceCurrency(
+                    refRow.AllocatedAmount, pe.CurrencyCode, pe.ExchangeRate, si.CurrencyCode, si.ExchangeRate);
+
+                PaymentScheduleEntry? termRow = null;
+                if (refRow.PaymentTermId.HasValue && refRow.PaymentTermId.Value != Guid.Empty
+                    && schedulesByInvoice.TryGetValue(si.Id, out var siSchedules))
+                {
+                    termRow = siSchedules.FirstOrDefault(s => s.Id == refRow.PaymentTermId.Value);
+                }
+
+                snapshots.Add(new MyERP.Accounting.DomainServices.ReferenceAllocationSnapshot(
+                    VoucherType: "SalesInvoice",
+                    VoucherId: si.Id,
+                    ReferenceName: si.InvoiceNumber,
+                    AllocatedAmount: allocatedInInvCurrency,
+                    InvoiceOutstandingAmount: si.OutstandingAmount,
+                    IsTermBasedAllocation: refRow.PaymentTermId.HasValue && refRow.PaymentTermId.Value != Guid.Empty,
+                    PaymentTermId: refRow.PaymentTermId,
+                    TermOutstandingAmount: termRow?.Outstanding,
+                    PaymentTermDescription: termRow?.Description));
+            }
+            else if (refRow.ReferenceType == "PurchaseInvoice")
+            {
+                var pi = await _purchaseInvoiceRepository.FindAsync(refRow.ReferenceId);
+                if (pi == null) continue;
+
+                var allocatedInInvCurrency = ConvertAllocatedToInvoiceCurrency(
+                    refRow.AllocatedAmount, pe.CurrencyCode, pe.ExchangeRate, pi.CurrencyCode, pi.ExchangeRate);
+
+                PaymentScheduleEntry? termRow = null;
+                if (refRow.PaymentTermId.HasValue && refRow.PaymentTermId.Value != Guid.Empty
+                    && schedulesByInvoice.TryGetValue(pi.Id, out var piSchedules))
+                {
+                    termRow = piSchedules.FirstOrDefault(s => s.Id == refRow.PaymentTermId.Value);
+                }
+
+                snapshots.Add(new MyERP.Accounting.DomainServices.ReferenceAllocationSnapshot(
+                    VoucherType: "PurchaseInvoice",
+                    VoucherId: pi.Id,
+                    ReferenceName: pi.InvoiceNumber,
+                    AllocatedAmount: allocatedInInvCurrency,
+                    InvoiceOutstandingAmount: pi.OutstandingAmount,
+                    IsTermBasedAllocation: refRow.PaymentTermId.HasValue && refRow.PaymentTermId.Value != Guid.Empty,
+                    PaymentTermId: refRow.PaymentTermId,
+                    TermOutstandingAmount: termRow?.Outstanding,
+                    PaymentTermDescription: termRow?.Description));
+            }
+        }
+
+        if (snapshots.Count > 0)
+        {
+            MyERP.Accounting.DomainServices.PaymentEntryManager.ValidateCumulativeReferenceAllocations(snapshots);
         }
     }
 

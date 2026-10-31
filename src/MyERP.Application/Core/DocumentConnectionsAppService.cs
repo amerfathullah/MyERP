@@ -694,8 +694,46 @@ public class DocumentConnectionsAppService : ApplicationService, IDocumentConnec
 
     private async Task<DocumentConnectionsDto> GetPaymentEntryConnectionsAsync(Guid id)
     {
-        // PE already shows its references in the detail view
-        return new DocumentConnectionsDto();
+        // Per ERPNext PR #62486 / commit d21ffbde86 (payment_entry_dashboard.py):
+        // Expose Journal Entries (including Exchange Gain/Loss JEs and GL postings) referencing this Payment Entry.
+        var result = new DocumentConnectionsDto();
+        var jeRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<JournalEntry, Guid>>();
+        var jeQuery = await jeRepo.WithDetailsAsync(j => j.Lines);
+
+        var journals = jeQuery
+            .Where(j => (j.ReferenceType == "PaymentEntry" && j.ReferenceId == id)
+                     || j.Lines.Any(l => l.AgainstVoucherType == "PaymentEntry" && l.AgainstVoucherId == id))
+            .OrderByDescending(j => j.PostingDate)
+            .Select(j => new ConnectionDocumentDto
+            {
+                Id = j.Id,
+                DocumentNumber = j.EntryNumber ?? string.Empty,
+                Status = j.Status.ToString(),
+                Amount = j.TotalDebit,
+                Date = j.PostingDate,
+                Route = "/accounting/journal-entries/" + j.Id
+            })
+            .ToList();
+
+        if (journals.Any())
+        {
+            result.Groups.Add(new ConnectionGroupDto
+            {
+                Label = "Accounting",
+                Items = new()
+                {
+                    new ConnectionItemDto
+                    {
+                        DocumentType = "Journal Entry",
+                        Count = journals.Count,
+                        Route = "/accounting/journal-entries",
+                        Documents = journals
+                    }
+                }
+            });
+        }
+
+        return result;
     }
 
     private async Task<DocumentConnectionsDto> GetStockEntryConnectionsAsync(Guid id)

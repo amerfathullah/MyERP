@@ -107,6 +107,10 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
             Quantity = input.Quantity,
             Uom = input.Uom,
             IsDefault = input.IsDefault,
+            WithOperations = input.WithOperations || input.Operations.Count > 0,
+            IsPhantomBom = input.IsPhantomBom,
+            FgBasedOperatingCost = input.FgBasedOperatingCost,
+            OperatingCostPerBomQuantity = input.OperatingCostPerBomQuantity,
             SourceWarehouseId = input.SourceWarehouseId,
             TargetWarehouseId = input.TargetWarehouseId,
             RoutingId = input.RoutingId,
@@ -235,6 +239,9 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         bom.Quantity = input.Quantity;
         bom.Uom = input.Uom;
         bom.IsDefault = input.IsDefault;
+        bom.IsPhantomBom = input.IsPhantomBom;
+        bom.FgBasedOperatingCost = input.FgBasedOperatingCost;
+        bom.OperatingCostPerBomQuantity = input.OperatingCostPerBomQuantity;
         bom.SourceWarehouseId = input.SourceWarehouseId;
         bom.TargetWarehouseId = input.TargetWarehouseId;
         bom.RoutingId = input.RoutingId;
@@ -268,6 +275,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         }
 
         bom.Operations.Clear();
+        bom.WithOperations = input.WithOperations || input.Operations.Count > 0;
         foreach (var op in input.Operations.OrderBy(o => o.SequenceId))
         {
             var bomOp = new BomOperation(GuidGenerator.Create(), bom.Id, op.OperationId,

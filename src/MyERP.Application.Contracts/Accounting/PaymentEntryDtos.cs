@@ -114,8 +114,9 @@ public class PaymentReferenceDto
 {
     [Required] public string ReferenceType { get; set; } = null!;
     [Required] public Guid ReferenceId { get; set; }
-    [Required][Range(0.01, double.MaxValue)] public decimal AllocatedAmount { get; set; }
+    [Required] public decimal AllocatedAmount { get; set; }
     public decimal ExchangeRate { get; set; } = 1m;
+    public Guid? PaymentTermId { get; set; }
 }
 
 /// <summary>Outstanding invoice available for payment allocation.</summary>

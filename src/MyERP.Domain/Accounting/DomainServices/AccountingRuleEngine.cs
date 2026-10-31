@@ -234,7 +234,7 @@ public class AccountingRuleEngine : DomainService
         // Per gotcha #550: distribution happens before journal posting
         if (document.CostCenterId.HasValue)
         {
-            await ApplyCostCenterAllocationAsync(journal, document.CostCenterId.Value, document.PostingDate);
+            await ApplyCostCenterAllocationAsync(journal, document.CostCenterId.Value, document.PostingDate, company.CurrencyCode);
         }
 
         // Auto round-off small imbalances from independently-rounded tax/item lines, rather than
@@ -315,13 +315,15 @@ public class AccountingRuleEngine : DomainService
     /// If no allocation exists, assigns the cost center directly to all lines.
     /// Per ERPNext gotcha #418: distributes debit/credit amounts only. Round-off to FIRST sub-CC.
     /// </summary>
-    private async Task ApplyCostCenterAllocationAsync(JournalEntry journal, Guid costCenterId, DateTime postingDate)
+    private async Task ApplyCostCenterAllocationAsync(
+        JournalEntry journal,
+        Guid costCenterId,
+        DateTime postingDate,
+        string? companyDefaultCurrency = null)
     {
-        var distribution = await _allocationService.DistributeGlAmountsAsync(costCenterId, 1m, 1m, postingDate);
-
-        if (distribution == null)
+        var allocation = await _allocationService.GetActiveAllocationAsync(costCenterId, postingDate);
+        if (allocation == null || allocation.Entries.Count == 0)
         {
-            // No allocation — assign cost center directly to all lines
             foreach (var line in journal.Lines)
             {
                 line.CostCenterId = costCenterId;
@@ -329,61 +331,70 @@ public class AccountingRuleEngine : DomainService
             return;
         }
 
-        // Distribution needed — expand each existing line into N lines per allocation entry
-        // We need to collect original lines, then add distributed copies.
-        // Since JournalEntry._lines is a List and AddLine enforces Draft status,
-        // we set CostCenterId on existing lines and add new ones for the remaining entries.
+        var entries = allocation.Entries
+            .OrderBy(e => e.ChildCostCenterId)
+            .Select(e => (e.ChildCostCenterId, e.Percentage))
+            .ToList();
 
+        var defaultBasePrecision = CostCenterAllocationService.GetCurrencyPrecision(companyDefaultCurrency, 2);
         var originalLines = journal.Lines.ToList();
 
         foreach (var originalLine in originalLines)
         {
-            // Calculate proportional amounts per child CC
-            var lineDebit = originalLine.IsDebit ? originalLine.Amount : 0m;
-            var lineCredit = originalLine.IsDebit ? 0m : originalLine.Amount;
+            var basePrecision = Math.Max(defaultBasePrecision, GetDecimalScale(originalLine.Amount));
+            var txnCurrency = string.IsNullOrWhiteSpace(originalLine.AccountCurrency)
+                ? companyDefaultCurrency
+                : originalLine.AccountCurrency;
+            var txnPrecision = Math.Max(
+                CostCenterAllocationService.GetCurrencyPrecision(txnCurrency, 2),
+                GetDecimalScale(originalLine.AmountInAccountCurrency));
 
-            decimal totalDistributed = 0m;
+            var baseSlices = CostCenterAllocationService.DistributeAmountByPercentages(
+                originalLine.Amount, entries, basePrecision);
+            var txnSlices = CostCenterAllocationService.DistributeAmountByPercentages(
+                originalLine.AmountInAccountCurrency, entries, txnPrecision);
 
-            for (int i = 0; i < distribution.Count; i++)
+            // Update first slice BEFORE adding child lines so RecalculateTotals() reflects exact totals
+            originalLine.CostCenterId = entries[0].ChildCostCenterId;
+            originalLine.Amount = baseSlices[0].Amount;
+            originalLine.AmountInAccountCurrency = txnSlices[0].Amount;
+
+            for (int i = 1; i < entries.Count; i++)
             {
-                var (childCcId, pctDebit, pctCredit) = distribution[i];
-                // Use the distribution ratios: pctDebit/pctCredit are already scaled to total=1
-                var distAmount = originalLine.IsDebit
-                    ? Math.Round(originalLine.Amount * pctDebit, 4)
-                    : Math.Round(originalLine.Amount * pctCredit, 4);
+                var baseAmt = baseSlices[i].Amount;
+                var txnAmt = txnSlices[i].Amount;
+                if (baseAmt == 0m && txnAmt == 0m)
+                    continue;
 
-                if (i == 0)
+                var newLine = new JournalEntryLine(
+                    Guid.NewGuid(),
+                    journal.Id,
+                    originalLine.AccountId,
+                    baseAmt,
+                    originalLine.IsDebit,
+                    originalLine.Description)
                 {
-                    // Reuse the original line for the first child CC
-                    originalLine.CostCenterId = childCcId;
-                    // Amount stays the same for now — will be adjusted for remainder below
-                    totalDistributed += distAmount;
-                }
-                else if (distAmount > 0)
-                {
-                    // Add new distributed lines for remaining child CCs
-                    journal.AddLine(originalLine.AccountId, distAmount, originalLine.IsDebit, originalLine.Description);
-                    var newLine = journal.Lines[^1];
-                    newLine.CostCenterId = childCcId;
-                    newLine.AccountCurrency = originalLine.AccountCurrency;
-                    newLine.ExchangeRate = originalLine.ExchangeRate;
-                    newLine.FinanceBook = originalLine.FinanceBook;
-
-                    totalDistributed += distAmount;
-                }
-            }
-
-            // Adjust first line amount — absorbs rounding remainder per gotcha #418
-            if (distribution.Count > 1)
-            {
-                var firstPortion = originalLine.IsDebit
-                    ? Math.Round(originalLine.Amount * distribution[0].Debit, 4)
-                    : Math.Round(originalLine.Amount * distribution[0].Credit, 4);
-                var remainder = originalLine.Amount - totalDistributed;
-                // First CC line gets its proportional share + any rounding remainder
-                originalLine.Amount = firstPortion + remainder;
+                    CostCenterId = entries[i].ChildCostCenterId,
+                    AccountCurrency = originalLine.AccountCurrency,
+                    AmountInAccountCurrency = txnAmt,
+                    ExchangeRate = originalLine.ExchangeRate,
+                    FinanceBook = originalLine.FinanceBook,
+                    PartyId = originalLine.PartyId,
+                    PartyType = originalLine.PartyType,
+                    ProjectId = originalLine.ProjectId,
+                    AgainstVoucherType = originalLine.AgainstVoucherType,
+                    AgainstVoucherId = originalLine.AgainstVoucherId,
+                    IsAdvance = originalLine.IsAdvance,
+                };
+                journal.AddLine(newLine);
             }
         }
+    }
+
+    private static int GetDecimalScale(decimal value)
+    {
+        var bits = decimal.GetBits(value / 1.0000000000000000000000000000m);
+        return (bits[3] >> 16) & 0x7F;
     }
 
     /// <summary>

@@ -19,5 +19,6 @@ public interface IStockEntryAppService : IApplicationService
     Task<StockEntryDto> AutoPickBatchesAsync(Guid id);
     Task<MaterialRequestItemsForSeDto> GetItemsFromMaterialRequestAsync(Guid materialRequestId);
     Task<StockEntryFgMappingDto> GetFinishedGoodMappingAsync(Guid stockEntryId);
+    Task<ManufactureItemsDto> GetManufactureItemsAsync(Guid workOrderId, decimal produceQty);
     Task<StockEntryFgMappingDto> MapRawMaterialsToFinishedGoodsAsync(Guid stockEntryId, MapRawMaterialsToFinishedGoodsInput input);
 }

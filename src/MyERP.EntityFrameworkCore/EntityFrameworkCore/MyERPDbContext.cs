@@ -3207,6 +3207,7 @@ public class MyERPDbContext :
             b.Property(x => x.Quantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.TotalMaterialCost).HasColumnType("decimal(18,2)");
             b.Property(x => x.OperatingCost).HasColumnType("decimal(18,2)");
+            b.Property(x => x.OperatingCostPerBomQuantity).HasColumnType("decimal(18,4)");
             b.Property(x => x.ProcessLossPercentage).HasColumnType("decimal(18,4)");
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.BomId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();

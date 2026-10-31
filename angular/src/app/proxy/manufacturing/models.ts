@@ -638,6 +638,10 @@ export interface BomDto extends AuditedEntityDto<string> {
   companyId?: string;
   isActive?: boolean;
   isDefault?: boolean;
+  withOperations?: boolean;
+  isPhantomBom?: boolean;
+  fgBasedOperatingCost?: boolean;
+  operatingCostPerBomQuantity?: number;
   totalMaterialCost?: number;
   operatingCost?: number;
   totalCost?: number;
@@ -711,6 +715,10 @@ export interface CreateBomDto {
   uom?: string | null;
   companyId: string;
   isDefault?: boolean;
+  withOperations?: boolean;
+  isPhantomBom?: boolean;
+  fgBasedOperatingCost?: boolean;
+  operatingCostPerBomQuantity?: number;
   sourceWarehouseId?: string | null;
   targetWarehouseId?: string | null;
   routingId?: string | null;
