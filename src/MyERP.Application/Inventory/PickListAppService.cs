@@ -170,7 +170,8 @@ public class PickListAppService : ApplicationService, IPickListAppService
                 item.SourceDocumentItemId,
                 item.ProductBundleItemId,
                 orderedConversionFactors,
-                itemMasterFactor);
+                itemMasterFactor,
+                savedConversionFactor: item.ConversionFactor > 0 ? item.ConversionFactor : null);
 
             pl.AddItem(
                 item.ItemId,

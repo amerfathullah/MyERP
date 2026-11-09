@@ -1078,11 +1078,12 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
         foreach (var mrItem in itemsNeedingMr)
         {
-            if (!mrItem.WarehouseId.HasValue && !plan.ForWarehouseId.HasValue)
+            if (!mrItem.WarehouseId.HasValue)
             {
-                mrItem.WarehouseId = itemDefaultsService != null
+                var defaultWh = itemDefaultsService != null
                     ? await itemDefaultsService.ResolveWarehouseAsync(mrItem.ItemId, plan.CompanyId)
                     : null;
+                mrItem.WarehouseId = defaultWh ?? plan.ForWarehouseId;
             }
         }
 

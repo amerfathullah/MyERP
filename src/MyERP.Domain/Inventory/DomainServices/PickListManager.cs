@@ -441,7 +441,8 @@ public class PickListManager : DomainService
         Guid? sourceDocumentItemId,
         Guid? productBundleItemId,
         IReadOnlyDictionary<(Guid RowId, Guid ItemId, string Uom), decimal>? orderedConversionFactors,
-        decimal itemMasterConversionFactor = 1m)
+        decimal itemMasterConversionFactor = 1m,
+        decimal? savedConversionFactor = null)
     {
         var effectiveUom = !string.IsNullOrWhiteSpace(rowUom) ? rowUom.Trim() : (stockUom ?? "Unit");
         decimal factor;
@@ -457,6 +458,11 @@ public class PickListManager : DomainService
             && orderedFactor > 0)
         {
             factor = orderedFactor;
+        }
+        else if (savedConversionFactor.HasValue && savedConversionFactor.Value > 0)
+        {
+            // Per ERPNext PR #64938 / commit 4305cb27f5: keep saved conversion factor when loading/updating draft pick list
+            factor = savedConversionFactor.Value;
         }
         else
         {

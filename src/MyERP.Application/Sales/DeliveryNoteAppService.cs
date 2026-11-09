@@ -672,9 +672,11 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                                 var origQty = origDnItem?.Quantity ?? (origSoItem?.Quantity ?? 1m);
                                 if (matchingPicks != null && matchingPicks.Count > 0 && origQty > 0)
                                 {
-                                    componentStockQtyPerUnit = matchingPicks.ToDictionary(
-                                        p => p.ItemId,
-                                        p => Math.Round((p.StockQty > 0 ? p.StockQty : p.Qty) / origQty, 4));
+                                    componentStockQtyPerUnit = matchingPicks
+                                        .GroupBy(p => p.ItemId)
+                                        .ToDictionary(
+                                            g => g.Key,
+                                            g => Math.Round(g.Sum(p => p.StockQty > 0 ? p.StockQty : p.Qty) / origQty, 4));
                                 }
                             }
                         }
@@ -932,9 +934,11 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                                 var matchingPicks = pl?.Items.Where(p => p.SourceDocumentItemId == item.SalesOrderItemId.Value).ToList();
                                 if (matchingPicks != null && matchingPicks.Count > 0 && soItem != null && soItem.Quantity > 0)
                                 {
-                                    componentStockQtyPerUnit = matchingPicks.ToDictionary(
-                                        p => p.ItemId,
-                                        p => Math.Round((p.StockQty > 0 ? p.StockQty : p.Qty) / soItem.Quantity, 4));
+                                    componentStockQtyPerUnit = matchingPicks
+                                        .GroupBy(p => p.ItemId)
+                                        .ToDictionary(
+                                            g => g.Key,
+                                            g => Math.Round(g.Sum(p => p.StockQty > 0 ? p.StockQty : p.Qty) / soItem.Quantity, 4));
                                 }
                             }
                         }
@@ -955,9 +959,11 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                                     var matchingPicks = matchingPl.Items.Where(p => p.SourceDocumentItemId == item.SalesOrderItemId.Value).ToList();
                                     if (matchingPicks.Count > 0 && soItem != null && soItem.Quantity > 0)
                                     {
-                                        componentStockQtyPerUnit = matchingPicks.ToDictionary(
-                                            p => p.ItemId,
-                                            p => Math.Round((p.StockQty > 0 ? p.StockQty : p.Qty) / soItem.Quantity, 4));
+                                        componentStockQtyPerUnit = matchingPicks
+                                            .GroupBy(p => p.ItemId)
+                                            .ToDictionary(
+                                                g => g.Key,
+                                                g => Math.Round(g.Sum(p => p.StockQty > 0 ? p.StockQty : p.Qty) / soItem.Quantity, 4));
                                     }
                                 }
                             }
