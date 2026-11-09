@@ -63,7 +63,10 @@ public class MasterProductionScheduleWorkflowTests
 
         _mpsRepo.GetAsync(scheduleId, includeDetails: true).Returns(Task.FromResult(schedule));
 
-        var boms = new List<BillOfMaterials>();
+        var bom = new BillOfMaterials(_bomId, _companyId, "BOM-001", _itemId);
+        _bomRepo.FindAsync(_bomId).Returns(Task.FromResult<BillOfMaterials?>(bom));
+
+        var boms = new List<BillOfMaterials> { bom };
         _bomRepo.GetQueryableAsync().Returns(Task.FromResult(boms.AsQueryable()));
 
         ProductionPlan? savedPlan = null;
