@@ -1713,7 +1713,9 @@ public class MyERPDbContext :
             b.Property(x => x.OutstandingAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.AllocatedAmount).HasColumnType("decimal(18,4)");
             b.Property(x => x.ExchangeRate).HasColumnType("decimal(18,6)");
+            b.Property(x => x.AdvanceVoucherType).HasMaxLength(50);
             b.HasIndex(x => x.PaymentEntryId);
+            b.HasIndex(x => new { x.TenantId, x.PaymentRequestId });
         });
 
         // Payment Entry Tax
@@ -2222,6 +2224,7 @@ public class MyERPDbContext :
             b.Property(x => x.SecondaryItemType).HasMaxLength(50);
             b.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).IsRequired();
             b.HasIndex(x => x.BomSecondaryItemId);
+            b.HasIndex(x => new { x.TenantId, x.ProjectId });
         });
 
         builder.Entity<StockLedgerEntry>(b =>
@@ -2247,6 +2250,7 @@ public class MyERPDbContext :
                 .HasFilter("\"IsCancelled\" = false");
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.PostingDateTime });
             b.HasIndex(x => new { x.TenantId, x.VoucherType, x.VoucherId });
+            b.HasIndex(x => new { x.TenantId, x.ProjectId });
         });
 
         builder.Entity<Bin>(b =>

@@ -66,7 +66,8 @@ public class StockValuationService : DomainService
         Guid? tenantId = null,
         Guid? batchId = null,
         bool? isAdjustmentEntry = null,
-        Guid? serialAndBatchBundleId = null)
+        Guid? serialAndBatchBundleId = null,
+        Guid? projectId = null)
     {
         var item = await _itemRepository.GetAsync(itemId);
         var previousSle = await GetPreviousSleAsync(itemId, warehouseId, postingDate);
@@ -230,6 +231,7 @@ public class StockValuationService : DomainService
             StockQueue = stockQueue,
             BatchId = batchId,
             SerialAndBatchBundleId = serialAndBatchBundleId,
+            ProjectId = projectId,
             IsAdjustmentEntry = isAdjustment,
             StockValueDifference = Math.Round(newBalanceValue - (previousSle?.BalanceValue ?? 0), 2),
             IncomingRate = quantityChange > 0 ? incomingRate : 0m,

@@ -33,6 +33,7 @@ public class PaymentEntryDto : EntityDto<Guid>
     public string? PartyName { get; set; }
     public string? Remarks { get; set; }
     public List<PaymentEntryTaxDto> Taxes { get; set; } = [];
+    public List<PaymentReferenceDto> References { get; set; } = [];
 }
 
 /// <summary>Payment Entry tax/charge row — "On Paid Amount" or "Actual", per ERPNext
@@ -112,11 +113,18 @@ public class CreatePaymentEntryDto
 /// <summary>Individual allocation of a payment against an invoice or order.</summary>
 public class PaymentReferenceDto
 {
+    public Guid Id { get; set; }
     [Required] public string ReferenceType { get; set; } = null!;
     [Required] public Guid ReferenceId { get; set; }
+    public string? ReferenceNumber { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal OutstandingAmount { get; set; }
     [Required] public decimal AllocatedAmount { get; set; }
     public decimal ExchangeRate { get; set; } = 1m;
     public Guid? PaymentTermId { get; set; }
+    public Guid? PaymentRequestId { get; set; }
+    public string? AdvanceVoucherType { get; set; }
+    public Guid? AdvanceVoucherId { get; set; }
 }
 
 /// <summary>Outstanding invoice available for payment allocation.</summary>

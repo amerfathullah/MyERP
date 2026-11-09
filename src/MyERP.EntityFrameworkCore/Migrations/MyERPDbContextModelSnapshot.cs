@@ -4092,6 +4092,13 @@ namespace MyERP.Migrations
                     b.Property<decimal>("AllocatedAmount")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<Guid?>("AdvanceVoucherId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AdvanceVoucherType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<DateTime>("CreationTime")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("CreationTime");
@@ -4107,6 +4114,9 @@ namespace MyERP.Migrations
                         .HasColumnType("decimal(18,4)");
 
                     b.Property<Guid>("PaymentEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("PaymentRequestId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("PaymentTermId")
@@ -4137,6 +4147,8 @@ namespace MyERP.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("PaymentEntryId");
+
+                    b.HasIndex("TenantId", "PaymentRequestId");
 
                     b.ToTable("Acc_PaymentEntryReferences", (string)null);
                 });
@@ -18681,6 +18693,8 @@ namespace MyERP.Migrations
 
                     b.HasIndex("StockEntryId");
 
+                    b.HasIndex("TenantId", "ProjectId");
+
                     b.ToTable("Inv_StockEntryItems", (string)null);
                 });
 
@@ -18742,6 +18756,9 @@ namespace MyERP.Migrations
 
                     b.Property<TimeSpan>("PostingTime")
                         .HasColumnType("interval");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid");
 
                     b.Property<decimal>("QuantityChange")
                         .HasColumnType("decimal(18,4)");
@@ -18805,6 +18822,8 @@ namespace MyERP.Migrations
 
                     b.HasIndex("TenantId", "ItemId", "WarehouseId", "PostingDateTime", "CreationTime")
                         .HasFilter("\"IsCancelled\" = false");
+
+                    b.HasIndex("TenantId", "ProjectId");
 
                     b.ToTable("Inv_StockLedgerEntries", (string)null);
                 });

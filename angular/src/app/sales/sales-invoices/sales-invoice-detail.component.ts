@@ -102,7 +102,16 @@ export class SalesInvoiceDetailComponent implements OnInit {
   hasOverduePayment(): boolean {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return this.paymentSchedule().some((row: any) => row.dueDate && new Date(row.dueDate) < today && (row.outstanding ?? 1) > 0);
+    const hasOverdueSchedule = this.paymentSchedule().some(
+      (row: any) => row.dueDate && new Date(row.dueDate) < today && (row.outstanding ?? 1) > 0
+    );
+    // Per ERPNext PR #64508 / commit 1b149f03fb: opening invoices may not have payment schedule
+    const isOverdueOpening =
+      Boolean((this.invoice as any)?.isOpening) &&
+      Boolean(this.invoice?.dueDate) &&
+      new Date(this.invoice!.dueDate) < today &&
+      ((this.invoice as any).outstandingAmount ?? 1) > 0;
+    return hasOverdueSchedule || isOverdueOpening;
   }
 
   get workflowActions(): DetailWorkflowAction[] {

@@ -99,7 +99,7 @@ public class DunningManager : DomainService
     /// <summary>
     /// Computes per-schedule remaining outstanding after deducting unallocated invoice-level payments
     /// oldest-due-first, optionally converted into the receivable account currency.
-    /// Per ERPNext commits 7ca8bc3290 &amp; 8a09633536 (get_payment_schedule_outstanding).
+    /// Per ERPNext commits 7ca8bc3290 &amp; 8a09633536, and PR #64509 / commit 6838a4c395 (inAccountCurrency deducts unallocated payments in account currency).
     /// </summary>
     public static Dictionary<Guid, decimal> GetPaymentScheduleOutstanding(
         SalesInvoice invoice,
@@ -107,30 +107,32 @@ public class DunningManager : DomainService
         string partyAccountCurrency,
         bool inAccountCurrency = false)
     {
-        var result = schedules.ToDictionary(s => s.Id, s => s.Outstanding);
         if (schedules.Count == 0)
-            return result;
-
-        var unallocatedInTxnCurrency = Math.Max(0m, result.Values.Sum() - invoice.OutstandingAmount);
-        if (unallocatedInTxnCurrency > 0m)
-        {
-            foreach (var row in schedules.OrderBy(s => s.DueDate.Date).ThenBy(s => s.CreationTime))
-            {
-                var paid = Math.Min(result[row.Id], unallocatedInTxnCurrency);
-                unallocatedInTxnCurrency -= paid;
-                result[row.Id] -= paid;
-            }
-        }
+            return new Dictionary<Guid, decimal>();
 
         var isCrossCurrencyAccount = !string.IsNullOrWhiteSpace(partyAccountCurrency)
             && !string.Equals(invoice.CurrencyCode, partyAccountCurrency, StringComparison.OrdinalIgnoreCase);
+        var rate = (inAccountCurrency && isCrossCurrencyAccount && invoice.ExchangeRate > 0)
+            ? invoice.ExchangeRate
+            : 1m;
 
-        if (inAccountCurrency && isCrossCurrencyAccount)
+        // When inAccountCurrency is requested for a cross-currency account, convert each schedule to account currency first (PR #64509 / commit 6838a4c395)
+        var result = schedules.ToDictionary(
+            s => s.Id,
+            s => inAccountCurrency && isCrossCurrencyAccount ? Math.Round(s.Outstanding * rate, 2) : s.Outstanding);
+
+        var invoiceOutstanding = inAccountCurrency && isCrossCurrencyAccount
+            ? Math.Round(invoice.OutstandingAmount * rate, 2)
+            : invoice.OutstandingAmount;
+
+        var unallocated = Math.Max(0m, result.Values.Sum() - invoiceOutstanding);
+        if (unallocated > 0m)
         {
-            var rate = invoice.ExchangeRate > 0 ? invoice.ExchangeRate : 1m;
-            foreach (var key in result.Keys.ToList())
+            foreach (var row in schedules.OrderBy(s => s.DueDate.Date).ThenBy(s => s.CreationTime))
             {
-                result[key] = Math.Round(result[key] * rate, 2);
+                var paid = Math.Min(result[row.Id], unallocated);
+                unallocated -= paid;
+                result[row.Id] -= paid;
             }
         }
 

@@ -77,6 +77,12 @@ public class StockLedgerEntry : CreationAuditedEntity<Guid>, IMultiTenant
     public Guid? SerialAndBatchBundleId { get; set; }
 
     /// <summary>
+    /// Project reference for project-level inventory accounting and costing.
+    /// Maps to ERPNext Stock Ledger Entry project field (search indexed per PR #64652 / commit 6b9f2c01d6).
+    /// </summary>
+    public Guid? ProjectId { get; set; }
+
+    /// <summary>
     /// Rate-only entry (no physical stock movement). Per gotcha #224:
     /// is_adjustment_entry=1 or via_landed_cost_voucher=1 → skip bundle validation.
     /// </summary>

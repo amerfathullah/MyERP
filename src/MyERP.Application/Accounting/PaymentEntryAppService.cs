@@ -431,6 +431,9 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     allocatedAmount: refDto.AllocatedAmount);
                 reference.ExchangeRate = refDto.ExchangeRate;
                 reference.PaymentTermId = refDto.PaymentTermId;
+                reference.PaymentRequestId = refDto.PaymentRequestId;
+                reference.AdvanceVoucherType = refDto.AdvanceVoucherType;
+                reference.AdvanceVoucherId = refDto.AdvanceVoucherId;
                 pe.References.Add(reference);
             }
         }
@@ -1545,7 +1548,10 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     allocatedAmount: refDto.AllocatedAmount)
                 {
                     ExchangeRate = refDto.ExchangeRate,
-                    PaymentTermId = refDto.PaymentTermId
+                    PaymentTermId = refDto.PaymentTermId,
+                    PaymentRequestId = refDto.PaymentRequestId,
+                    AdvanceVoucherType = refDto.AdvanceVoucherType,
+                    AdvanceVoucherId = refDto.AdvanceVoucherId
                 };
                 entry.References.Add(reference);
             }
@@ -1700,7 +1706,10 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 refRow.ReferenceNumber)
             {
                 ExchangeRate = refRow.ExchangeRate,
-                PaymentTermId = refRow.PaymentTermId
+                PaymentTermId = refRow.PaymentTermId,
+                PaymentRequestId = refRow.PaymentRequestId,
+                AdvanceVoucherType = refRow.AdvanceVoucherType,
+                AdvanceVoucherId = refRow.AdvanceVoucherId
             };
             amended.References.Add(refCopy);
         }

@@ -41,6 +41,15 @@ public class PaymentEntryReference : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Date when reconciliation effect is applied (per ERPNext commit 19f1ffbdc2).</summary>
     public DateTime? ReconcileEffectOn { get; set; }
 
+    /// <summary>Linked Payment Request when this payment reference fulfills a payment request (PR #64511 / commit 97de257a13).</summary>
+    public Guid? PaymentRequestId { get; set; }
+
+    /// <summary>Original advance voucher type (e.g., "SalesOrder", "PurchaseOrder") when allocated to an invoice (PR #64511 / commit 97de257a13).</summary>
+    public string? AdvanceVoucherType { get; set; }
+
+    /// <summary>Original advance voucher ID when allocated to an invoice (PR #64511 / commit 97de257a13).</summary>
+    public Guid? AdvanceVoucherId { get; set; }
+
     protected PaymentEntryReference() { }
 
     public PaymentEntryReference(
