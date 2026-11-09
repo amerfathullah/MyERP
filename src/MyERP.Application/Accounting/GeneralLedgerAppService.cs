@@ -16,13 +16,25 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
 {
     private readonly IRepository<JournalEntry, Guid> _journalRepository;
     private readonly IRepository<Account, Guid> _accountRepository;
+    private readonly IRepository<Core.Entities.Company, Guid>? _companyRepository;
+    private readonly IRepository<FiscalYear, Guid>? _fiscalYearRepository;
+    private readonly IRepository<CostCenter, Guid>? _costCenterRepository;
+    private readonly CurrencyExchangeService? _currencyExchangeService;
 
     public GeneralLedgerAppService(
         IRepository<JournalEntry, Guid> journalRepository,
-        IRepository<Account, Guid> accountRepository)
+        IRepository<Account, Guid> accountRepository,
+        IRepository<Core.Entities.Company, Guid>? companyRepository = null,
+        IRepository<FiscalYear, Guid>? fiscalYearRepository = null,
+        IRepository<CostCenter, Guid>? costCenterRepository = null,
+        CurrencyExchangeService? currencyExchangeService = null)
     {
         _journalRepository = journalRepository;
         _accountRepository = accountRepository;
+        _companyRepository = companyRepository;
+        _fiscalYearRepository = fiscalYearRepository;
+        _costCenterRepository = costCenterRepository;
+        _currencyExchangeService = currencyExchangeService;
     }
 
     public async Task<GeneralLedgerReportDto> GetReportAsync(GeneralLedgerFilterDto input)
@@ -54,14 +66,17 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
 
         // Per ERPNext PR #65016 (commit e8ae93e729):
         // Resolve reporting date exchange rate for foreign currency accounts if ConvertAtReportingDateRate is enabled
-        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
-        var company = await companyRepo.GetAsync(input.CompanyId);
-        var companyCurrency = company.CurrencyCode;
+        var companyRepo = _companyRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Core.Entities.Company, Guid>>();
+        var company = companyRepo != null ? await companyRepo.FindAsync(input.CompanyId) : null;
+        var companyCurrency = company?.CurrencyCode ?? "MYR";
 
         string? targetPresentationCurrency = input.PresentationCurrency;
-        if (input.ConvertAtReportingDateRate && input.AccountId.HasValue && accounts.TryGetValue(input.AccountId.Value, out var acctForCurrency))
+        if (string.IsNullOrWhiteSpace(targetPresentationCurrency)
+            && input.AccountId.HasValue
+            && accounts.TryGetValue(input.AccountId.Value, out var acctForCurrency))
         {
-            if (!string.IsNullOrWhiteSpace(acctForCurrency.AccountCurrency) && !string.Equals(acctForCurrency.AccountCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(acctForCurrency.AccountCurrency)
+                && !string.Equals(acctForCurrency.AccountCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
             {
                 targetPresentationCurrency = acctForCurrency.AccountCurrency;
             }
@@ -74,13 +89,16 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
 
         if (useReportingDateRate)
         {
-            var exchangeService = LazyServiceProvider.LazyGetRequiredService<CurrencyExchangeService>();
-            reportingRate = await exchangeService.GetExchangeRateAsync(targetPresentationCurrency!, companyCurrency, to);
+            var exchangeService = _currencyExchangeService ?? LazyServiceProvider?.LazyGetService<CurrencyExchangeService>();
+            if (exchangeService != null)
+            {
+                reportingRate = await exchangeService.GetExchangeRateAsync(targetPresentationCurrency!, companyCurrency, to);
+            }
         }
 
         // Per ERPNext PR #60251: compute opening balance before fromDate; exclude previous fiscal years for P&L accounts
         DateTime? fiscalYearStart = null;
-        var fyRepo = LazyServiceProvider.LazyGetService<IRepository<FiscalYear, Guid>>();
+        var fyRepo = _fiscalYearRepository ?? LazyServiceProvider?.LazyGetService<IRepository<FiscalYear, Guid>>();
         if (fyRepo != null)
         {
             var fyQuery = await fyRepo.GetQueryableAsync();
@@ -114,6 +132,13 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
                 {
                     lineAmount = Math.Round(line.Amount / reportingRate, 2);
                 }
+                else if (!string.IsNullOrWhiteSpace(targetPresentationCurrency)
+                    && acctInfo != null
+                    && string.Equals(targetPresentationCurrency, acctInfo.AccountCurrency, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(acctInfo.AccountCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+                {
+                    lineAmount = line.AmountInAccountCurrency != 0m ? line.AmountInAccountCurrency : line.Amount;
+                }
 
                 openingBalance += line.IsDebit ? lineAmount : -lineAmount;
             }
@@ -123,11 +148,14 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
         var costCenters = new Dictionary<Guid, string>();
         if (journals.Any(je => je.Lines.Any(l => l.CostCenterId.HasValue)))
         {
-            var ccRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<CostCenter, Guid>>();
-            var ccQuery = await ccRepo.GetQueryableAsync();
-            costCenters = ccQuery
-                .Where(cc => cc.CompanyId == input.CompanyId)
-                .ToDictionary(cc => cc.Id, cc => cc.Name);
+            var ccRepo = _costCenterRepository ?? LazyServiceProvider?.LazyGetService<IRepository<CostCenter, Guid>>();
+            if (ccRepo != null)
+            {
+                var ccQuery = await ccRepo.GetQueryableAsync();
+                costCenters = ccQuery
+                    .Where(cc => cc.CompanyId == input.CompanyId)
+                    .ToDictionary(cc => cc.Id, cc => cc.Name);
+            }
         }
 
         var entries = new List<GeneralLedgerLineDto>();
@@ -156,6 +184,15 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
                 {
                     debit = Math.Round(debit / reportingRate, 2);
                     credit = Math.Round(credit / reportingRate, 2);
+                }
+                else if (!string.IsNullOrWhiteSpace(targetPresentationCurrency)
+                    && acct != null
+                    && string.Equals(targetPresentationCurrency, acct.AccountCurrency, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(acct.AccountCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+                {
+                    var acctAmount = line.AmountInAccountCurrency != 0m ? line.AmountInAccountCurrency : line.Amount;
+                    debit = line.IsDebit ? acctAmount : 0m;
+                    credit = !line.IsDebit ? acctAmount : 0m;
                 }
                 runningBalance += debit - credit;
 

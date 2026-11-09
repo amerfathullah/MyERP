@@ -259,4 +259,53 @@ public class SerialBatchBundleValidationService : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Updates available batch quantities by adjusting reservation quantities.
+    /// Per ERPNext PR #64860 (commits 6caabeb477, 73c5f3a6b4):
+    /// A reservation of a batch that is not available (e.g. expired or not present in warehouse) has nothing
+    /// to reduce. When addMissing is false, missing batches are skipped and not added to the pool.
+    /// </summary>
+    public static void UpdateAvailableBatches(
+        IDictionary<Guid, decimal> availableBatches,
+        IEnumerable<KeyValuePair<Guid, decimal>> batchAdjustments,
+        bool addMissing = true,
+        int precision = 4)
+    {
+        foreach (var (batchId, qty) in batchAdjustments)
+        {
+            if (availableBatches.TryGetValue(batchId, out var currentQty))
+            {
+                availableBatches[batchId] = Math.Round(currentQty + qty, precision);
+            }
+            else if (addMissing)
+            {
+                availableBatches[batchId] = Math.Round(qty, precision);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Updates available batch quantities by batch number.
+    /// Per ERPNext PR #64860 (commits 6caabeb477, 73c5f3a6b4):
+    /// When addMissing is false, reservations of batches that are not available are skipped.
+    /// </summary>
+    public static void UpdateAvailableBatches(
+        IDictionary<string, decimal> availableBatches,
+        IEnumerable<KeyValuePair<string, decimal>> batchAdjustments,
+        bool addMissing = true,
+        int precision = 4)
+    {
+        foreach (var (batchNo, qty) in batchAdjustments)
+        {
+            if (availableBatches.TryGetValue(batchNo, out var currentQty))
+            {
+                availableBatches[batchNo] = Math.Round(currentQty + qty, precision);
+            }
+            else if (addMissing)
+            {
+                availableBatches[batchNo] = Math.Round(qty, precision);
+            }
+        }
+    }
 }
