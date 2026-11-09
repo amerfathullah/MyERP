@@ -266,6 +266,25 @@ public class SubcontractingManager : DomainService
     {
         return IsReturnedSuppliedItem(sle.VoucherType, sle.QuantityChange, sle.DependantSleVoucherDetailNo);
     }
+
+    /// <summary>
+    /// Resolves item, warehouse, and transaction type for supplied item serial/batch bundle handling.
+    /// Per ERPNext PR #64867 (commits 1bcdf9c96f and 7b124a874c):
+    /// Supplied-item rows keep the raw material item in `rm_item_code` and the warehouse on the parent's `supplier_warehouse`.
+    /// On standard receipt, supplied items are Outward (consumed from subcontractor warehouse);
+    /// on return receipt (isReturn = true), supplied items are Inward (returned to subcontractor warehouse).
+    /// </summary>
+    public static (Guid ItemId, Guid WarehouseId, string TransactionType) ResolveSuppliedItemBundleParameters(
+        Guid suppliedItemId,
+        Guid supplierWarehouseId,
+        bool isReturn)
+    {
+        return (
+            ItemId: suppliedItemId,
+            WarehouseId: supplierWarehouseId,
+            TransactionType: isReturn ? "Inward" : "Outward"
+        );
+    }
 }
 
 public class SubcontractingRmConsumption

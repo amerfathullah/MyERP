@@ -93,6 +93,8 @@ public class SubcontractingReceiptDto : AuditedEntityDto<Guid>
     public DateTime PostingDate { get; set; }
     public Guid SupplierId { get; set; }
     public Guid SubcontractingOrderId { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public Guid? SupplierWarehouseId { get; set; }
     public decimal NetTotal { get; set; }
     public SubcontractingReceiptStatus Status { get; set; }
     public bool IsReturn { get; set; }
@@ -129,6 +131,7 @@ public class CreateSubcontractingReceiptDto
     [Required] public Guid SubcontractingOrderId { get; set; }
     [Required] public DateTime PostingDate { get; set; }
     public Guid? WarehouseId { get; set; }
+    public Guid? SupplierWarehouseId { get; set; }
     public Guid? ProjectId { get; set; }
     public List<CreateScrItemDto> Items { get; set; } = new();
 }
@@ -156,6 +159,8 @@ public class CreateSubcontractingReceiptReturnDto
 {
     [Required] public Guid ReturnAgainstReceiptId { get; set; }
     [Required] public DateTime PostingDate { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public Guid? SupplierWarehouseId { get; set; }
     public List<CreateScrReturnItemDto> Items { get; set; } = new();
 }
 

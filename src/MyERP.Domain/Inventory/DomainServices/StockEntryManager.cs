@@ -1798,4 +1798,23 @@ public class StockEntryManager : DomainService
 
         return allocations;
     }
+
+    /// <summary>
+    /// Calculates signed row quantity for transactions and serial/batch bundles.
+    /// Per ERPNext PR #64866 (commits f841624ed7 and bb5656ba05 / get_sbie_signed_qty):
+    /// Bundle totals are positive; return rows store negative quantity, EXCEPT Stock Entry rows
+    /// (subcontracting and work order return Stock Entries set is_return but keep positive row qty,
+    /// where movement direction is governed by source and target warehouses).
+    /// </summary>
+    public static decimal GetSignedReturnRowQty(string? documentType, bool isReturn, decimal qty)
+    {
+        if (isReturn && !string.Equals(documentType, "Stock Entry", StringComparison.OrdinalIgnoreCase)
+                     && !string.Equals(documentType, "StockEntry", StringComparison.OrdinalIgnoreCase)
+                     && qty != 0m)
+        {
+            return -Math.Abs(qty);
+        }
+
+        return qty;
+    }
 }

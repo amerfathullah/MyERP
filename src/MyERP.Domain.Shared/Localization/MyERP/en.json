@@ -826,6 +826,7 @@
     "AcceptedQty": "Accepted Qty",
     "RejectedQty": "Rejected Qty",
     "RejectedWarehouse": "Rejected Warehouse",
+    "SupplierWarehouse": "Supplier Warehouse",
     "BilledQty": "Billed Qty",
     "PendingQty": "Pending Qty",
     "DeliverQty": "Deliver Qty",

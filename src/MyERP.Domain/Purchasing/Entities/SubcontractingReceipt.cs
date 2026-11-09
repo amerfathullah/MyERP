@@ -27,6 +27,9 @@ public class SubcontractingReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenan
 
     public Guid? WarehouseId { get; set; }
 
+    /// <summary>Warehouse where raw materials are held by the subcontractor. Per ERPNext PR #64867 (commit 1bcdf9c96f).</summary>
+    public Guid? SupplierWarehouseId { get; set; }
+
     public decimal NetTotal { get; set; }
 
     // IAccountableDocument implementation

@@ -299,12 +299,16 @@ export interface CreateSubcontractingReceiptDto {
   subcontractingOrderId: string;
   postingDate: string;
   warehouseId?: string | null;
+  supplierWarehouseId?: string | null;
+  projectId?: string | null;
   items?: CreateScrItemDto[];
 }
 
 export interface CreateSubcontractingReceiptReturnDto {
   returnAgainstReceiptId: string;
   postingDate: string;
+  warehouseId?: string | null;
+  supplierWarehouseId?: string | null;
   items?: CreateScrReturnItemDto[];
 }
 
@@ -938,6 +942,9 @@ export interface SubcontractingReceiptDto extends AuditedEntityDto<string> {
   postingDate?: string;
   supplierId?: string;
   subcontractingOrderId?: string;
+  warehouseId?: string | null;
+  supplierWarehouseId?: string | null;
+  projectId?: string | null;
   netTotal?: number;
   status?: SubcontractingReceiptStatus;
   isReturn?: boolean;

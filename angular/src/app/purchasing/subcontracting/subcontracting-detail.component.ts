@@ -379,6 +379,7 @@ export class SubcontractingDetailComponent implements OnInit {
       subcontractingOrderId: o.id!,
       postingDate: new Date().toISOString().split('T')[0],
       warehouseId: this.receiptWarehouseId,
+      supplierWarehouseId: o.supplierWarehouseId || undefined,
       items: items.map(i => ({
         itemId: i.itemId, itemName: i.itemName, qty: i.receiveQty, rate: i.rate,
         warehouseId: this.receiptWarehouseId,

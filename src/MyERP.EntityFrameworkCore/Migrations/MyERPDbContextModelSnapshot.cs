@@ -26015,6 +26015,9 @@ namespace MyERP.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");
 
+                    b.Property<Guid?>("SupplierWarehouseId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("WarehouseId")
                         .HasColumnType("uuid");
 
@@ -26023,6 +26026,8 @@ namespace MyERP.Migrations
                     b.HasIndex("CompanyId");
 
                     b.HasIndex("ProjectId");
+
+                    b.HasIndex("SupplierWarehouseId");
 
                     b.HasIndex("TenantId", "ReceiptNumber")
                         .IsUnique();
@@ -37732,6 +37737,11 @@ namespace MyERP.Migrations
                         .HasForeignKey("CompanyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("MyERP.Inventory.Entities.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("MyERP.Purchasing.Entities.SubcontractingReceiptItem", b =>

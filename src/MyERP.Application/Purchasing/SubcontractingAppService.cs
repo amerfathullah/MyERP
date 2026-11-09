@@ -523,9 +523,12 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 .WithData("detail", "Subcontracting Receipt Project cannot differ from Subcontracting Order Project.");
         }
 
+        var supplierWarehouseId = input.SupplierWarehouseId ?? sco?.SupplierWarehouseId;
+
         var receiptWarehouseIds = input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value)
             .Concat(input.Items.Where(i => i.RejectedWarehouseId.HasValue).Select(i => i.RejectedWarehouseId!.Value))
             .Concat(input.WarehouseId.HasValue ? new[] { input.WarehouseId.Value } : Array.Empty<Guid>())
+            .Concat(supplierWarehouseId.HasValue ? new[] { supplierWarehouseId.Value } : Array.Empty<Guid>())
             .Distinct()
             .ToList();
         if (receiptWarehouseIds.Count > 0)
@@ -597,6 +600,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             input.PostingDate, input.SupplierId, input.SubcontractingOrderId, CurrentTenant.Id)
         {
             WarehouseId = input.WarehouseId,
+            SupplierWarehouseId = supplierWarehouseId,
             ProjectId = projectId
         };
 
@@ -951,7 +955,8 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         {
             IsReturn = true,
             ReturnAgainstReceiptId = original.Id,
-            WarehouseId = original.WarehouseId,
+            WarehouseId = input.WarehouseId ?? original.WarehouseId,
+            SupplierWarehouseId = input.SupplierWarehouseId ?? original.SupplierWarehouseId,
             ProjectId = original.ProjectId
         };
 
@@ -1002,6 +1007,9 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             PostingDate = returnReceipt.PostingDate,
             SupplierId = returnReceipt.SupplierId,
             SubcontractingOrderId = returnReceipt.SubcontractingOrderId,
+            WarehouseId = returnReceipt.WarehouseId,
+            SupplierWarehouseId = returnReceipt.SupplierWarehouseId,
+            ProjectId = returnReceipt.ProjectId,
             NetTotal = returnReceipt.NetTotal,
             Status = returnReceipt.Status,
             IsReturn = returnReceipt.IsReturn,
@@ -1049,6 +1057,9 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             PostingDate = scr.PostingDate,
             SupplierId = scr.SupplierId,
             SubcontractingOrderId = scr.SubcontractingOrderId,
+            WarehouseId = scr.WarehouseId,
+            SupplierWarehouseId = scr.SupplierWarehouseId,
+            ProjectId = scr.ProjectId,
             NetTotal = scr.NetTotal,
             Status = scr.Status,
             IsReturn = scr.IsReturn,

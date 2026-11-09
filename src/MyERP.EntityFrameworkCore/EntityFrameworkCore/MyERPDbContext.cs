@@ -1562,10 +1562,12 @@ public class MyERPDbContext :
             b.Property(x => x.ReceiptNumber).IsRequired().HasMaxLength(50);
             b.Property(x => x.NetTotal).HasColumnType("decimal(18,4)");
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
+            b.HasOne<Warehouse>().WithMany().HasForeignKey(x => x.SupplierWarehouseId).OnDelete(DeleteBehavior.Restrict);
             b.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.SubcontractingReceiptId).IsRequired();
             b.Navigation(x => x.Items).AutoInclude();
             b.HasIndex(x => new { x.TenantId, x.ReceiptNumber }).IsUnique();
             b.HasIndex(x => x.ProjectId);
+            b.HasIndex(x => x.SupplierWarehouseId);
         });
 
         builder.Entity<SubcontractingReceiptItem>(b =>
