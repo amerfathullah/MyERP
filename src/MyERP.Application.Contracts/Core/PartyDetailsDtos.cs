@@ -50,6 +50,8 @@ public class PartyDetailsDto
     public Guid? TerritoryId { get; set; }
     public string? TerritoryName { get; set; }
     public string? CompanyCurrency { get; set; }
+    public string? PartyCurrency { get; set; }
+    public string? PartyAccountCurrency { get; set; }
 
     // Price list (per ERPNext party.py set_price_list / PR #58893)
     public Guid? PriceListId { get; set; }

@@ -125,10 +125,16 @@
             <label class="form-label" for="defaultPayableAccountId">{{ '::DefaultPayableAccount' | abpLocalization }}</label>
             <select id="defaultPayableAccountId" class="form-select" formControlName="defaultPayableAccountId">
               <option [ngValue]="null">— {{ '::DefaultCompanyAccount' | abpLocalization }} —</option>
-              @for (acc of accounts(); track acc.id) {
+              @for (acc of filteredAccounts(); track acc.id) {
                 <option [value]="acc.id">{{ acc.accountCode ? (acc.accountCode + ' - ') : '' }}{{ acc.accountName }}</option>
               }
             </select>
+          </div>
+
+          <div class="col-12 col-md-6 mb-3">
+            <label class="form-label" for="defaultCurrency">{{ '::BillingCurrency' | abpLocalization }}</label>
+            <input id="defaultCurrency" type="text" maxlength="3" class="form-control text-uppercase font-monospace" formControlName="defaultCurrency" placeholder="e.g. USD" />
+            <small class="text-muted">{{ '::DefaultCurrency' | abpLocalization }}</small>
           </div>
 
           <div class="col-12 col-md-6 mb-3">

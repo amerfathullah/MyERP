@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -52,6 +52,25 @@ export class CustomerFormComponent implements OnInit {
   priceLists = signal<any[]>([]);
   searchingTaxpayer = signal(false);
 
+  filteredAccounts = computed(() => {
+    const companyId = this.form.get('companyId')?.value;
+    const billingCurrency = (this.form.get('defaultCurrency')?.value || '').trim();
+    const selectedCompany = this.companies().find((c: any) => c.id === companyId);
+    const companyCurrency = selectedCompany?.currencyCode || 'MYR';
+    const targetCurrency = billingCurrency || companyCurrency;
+
+    return this.accounts().filter((acc: AccountDto) => {
+      if (companyId && acc.companyId && acc.companyId !== companyId) return false;
+      if (acc.isGroup) return false;
+      if (acc.isActive === false) return false;
+      if (acc.accountType !== undefined && acc.accountType !== null && acc.accountType !== 0) return false;
+      const accCurrency = (acc.currency || companyCurrency).trim();
+      return !targetCurrency
+        || accCurrency.toLowerCase() === targetCurrency.toLowerCase()
+        || accCurrency.toLowerCase() === companyCurrency.toLowerCase();
+    });
+  });
+
   form = this.fb.group({
     companyId: ['', Validators.required],
     name: ['', [Validators.required, Validators.maxLength(200)]],
@@ -63,6 +82,7 @@ export class CustomerFormComponent implements OnInit {
     defaultPaymentTermsTemplateId: [null as string | null],
     defaultPriceListId: [null as string | null],
     defaultReceivableAccountId: [null as string | null],
+    defaultCurrency: ['', Validators.maxLength(3)],
     tin: [''],
     registrationNumber: [''],
     sstRegistrationNumber: [''],

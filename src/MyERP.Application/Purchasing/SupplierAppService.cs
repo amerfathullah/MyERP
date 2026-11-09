@@ -153,6 +153,17 @@ public class SupplierAppService :
             if (!account.IsActive)
                 throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                     .WithData("detail", $"Account {account.AccountName} is disabled.");
+
+            // PR #64936 / gotchas #1004, #1130: party account currency validation
+            var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+            var company = await companyRepo.GetAsync(input.CompanyId);
+            var companyCurrency = company.CurrencyCode ?? "MYR";
+            var partyValidation = LazyServiceProvider.LazyGetRequiredService<Core.DomainServices.PartyValidationService>();
+            partyValidation.ValidatePartyAccountCurrency(
+                account.Currency ?? companyCurrency,
+                null,
+                input.DefaultCurrency,
+                companyCurrency);
         }
 
         var groupRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Core.Entities.SupplierGroup, Guid>>();
@@ -204,6 +215,7 @@ public class SupplierAppService :
         entity.PostalCode = input.PostalCode;
         entity.Country = input.Country;
         entity.DefaultPayableAccountId = input.DefaultPayableAccountId;
+        entity.DefaultCurrency = input.DefaultCurrency;
         entity.IsActive = input.IsActive;
         entity.HoldType = input.HoldType;
         entity.PreventPurchaseOrders = input.PreventPurchaseOrders;

@@ -114,21 +114,29 @@ public class PartyValidationService : DomainService
     public void ValidatePartyAccountCurrency(
         string partyAccountCurrency,
         string? advanceAccountCurrency,
-        string partyBillingCurrency,
+        string? partyBillingCurrency,
         string companyCurrency)
     {
-        var validCurrencies = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        var validCurrencies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(partyBillingCurrency))
         {
-            partyBillingCurrency,
-            companyCurrency
-        };
+            validCurrencies.Add(partyBillingCurrency.Trim());
+        }
+        if (!string.IsNullOrWhiteSpace(companyCurrency))
+        {
+            validCurrencies.Add(companyCurrency.Trim());
+        }
+
+        var effectivePartyCurrency = !string.IsNullOrWhiteSpace(partyBillingCurrency)
+            ? partyBillingCurrency.Trim()
+            : companyCurrency;
 
         if (!validCurrencies.Contains(partyAccountCurrency))
         {
             throw new BusinessException(MyERPDomainErrorCodes.PartyAccountCurrencyMismatch)
                 .WithData("accountCurrency", partyAccountCurrency)
                 .WithData("advanceCurrency", advanceAccountCurrency ?? "")
-                .WithData("partyCurrency", partyBillingCurrency);
+                .WithData("partyCurrency", effectivePartyCurrency);
         }
 
         if (!string.IsNullOrWhiteSpace(advanceAccountCurrency))
@@ -138,7 +146,7 @@ public class PartyValidationService : DomainService
                 throw new BusinessException(MyERPDomainErrorCodes.PartyAccountCurrencyMismatch)
                     .WithData("accountCurrency", partyAccountCurrency)
                     .WithData("advanceCurrency", advanceAccountCurrency)
-                    .WithData("partyCurrency", partyBillingCurrency);
+                    .WithData("partyCurrency", effectivePartyCurrency);
             }
 
             if (!string.Equals(partyAccountCurrency, advanceAccountCurrency, StringComparison.OrdinalIgnoreCase))
@@ -146,7 +154,7 @@ public class PartyValidationService : DomainService
                 throw new BusinessException(MyERPDomainErrorCodes.PartyAccountCurrencyMismatch)
                     .WithData("accountCurrency", partyAccountCurrency)
                     .WithData("advanceCurrency", advanceAccountCurrency)
-                    .WithData("partyCurrency", partyBillingCurrency);
+                    .WithData("partyCurrency", effectivePartyCurrency);
             }
         }
     }

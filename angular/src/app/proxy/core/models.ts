@@ -757,6 +757,8 @@ export interface PartyDetailsDto {
   territoryId?: string | null;
   territoryName?: string | null;
   companyCurrency?: string | null;
+  partyCurrency?: string | null;
+  partyAccountCurrency?: string | null;
   priceListId?: string | null;
   priceListName?: string | null;
   priceListCurrency?: string | null;

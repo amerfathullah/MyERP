@@ -858,6 +858,7 @@ public class MyERPDbContext :
             b.Property(x => x.State).HasMaxLength(CustomerConsts.MaxStateLength);
             b.Property(x => x.PostalCode).HasMaxLength(CustomerConsts.MaxPostalCodeLength);
             b.Property(x => x.Country).HasMaxLength(CustomerConsts.MaxCountryLength);
+            b.Property(x => x.DefaultCurrency).HasMaxLength(CustomerConsts.MaxCurrencyLength);
             b.Property(x => x.OnHold).HasDefaultValue(false);
             b.Property(x => x.ReleaseDate);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
@@ -885,6 +886,7 @@ public class MyERPDbContext :
             b.Property(x => x.State).HasMaxLength(SupplierConsts.MaxStateLength);
             b.Property(x => x.PostalCode).HasMaxLength(SupplierConsts.MaxPostalCodeLength);
             b.Property(x => x.Country).HasMaxLength(SupplierConsts.MaxCountryLength);
+            b.Property(x => x.DefaultCurrency).HasMaxLength(SupplierConsts.MaxCurrencyLength);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.SupplierCode }).IsUnique().HasFilter("\"SupplierCode\" IS NOT NULL");
         });

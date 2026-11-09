@@ -23,6 +23,7 @@ public class SupplierDto : FullAuditedEntityDto<Guid>
     public string? PostalCode { get; set; }
     public string? Country { get; set; }
     public Guid? DefaultPayableAccountId { get; set; }
+    public string? DefaultCurrency { get; set; }
     public bool IsActive { get; set; }
     public SupplierHoldType HoldType { get; set; }
     public bool PreventPurchaseOrders { get; set; }

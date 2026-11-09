@@ -61,6 +61,9 @@ public class CreateUpdateCustomerDto
 
     public Guid? DefaultReceivableAccountId { get; set; }
 
+    [StringLength(CustomerConsts.MaxCurrencyLength)]
+    public string? DefaultCurrency { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     [Range(0, double.MaxValue)]

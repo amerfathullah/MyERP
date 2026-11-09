@@ -354,6 +354,7 @@ export interface CreateUpdateSupplierDto {
   postalCode?: string | null;
   country?: string | null;
   defaultPayableAccountId?: string | null;
+  defaultCurrency?: string | null;
   isActive?: boolean;
   holdType?: SupplierHoldType;
   preventPurchaseOrders?: boolean;
@@ -1006,6 +1007,7 @@ export interface SupplierDto extends FullAuditedEntityDto<string> {
   postalCode?: string | null;
   country?: string | null;
   defaultPayableAccountId?: string | null;
+  defaultCurrency?: string | null;
   isActive?: boolean;
   holdType?: SupplierHoldType;
   preventPurchaseOrders?: boolean;

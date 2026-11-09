@@ -129,9 +129,27 @@ public class PartyDetailsAppService : ApplicationService, IPartyDetailsAppServic
         }
 
         // Resolve company currency for currency defaulting
+        var companyCurrency = company?.CurrencyCode ?? "MYR";
         if (company != null)
         {
-            result.CompanyCurrency = company.CurrencyCode ?? "MYR";
+            result.CompanyCurrency = companyCurrency;
+        }
+
+        var receivableAccountId = customer.DefaultReceivableAccountId ?? company?.DefaultReceivableAccountId;
+        if (receivableAccountId.HasValue)
+        {
+            var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+            var account = await accountRepo.FindAsync(receivableAccountId.Value);
+            result.PartyAccountCurrency = account?.Currency;
+        }
+
+        result.PartyCurrency = !string.IsNullOrWhiteSpace(customer.DefaultCurrency)
+            ? customer.DefaultCurrency
+            : companyCurrency;
+
+        if (string.IsNullOrWhiteSpace(result.PartyAccountCurrency))
+        {
+            result.PartyAccountCurrency = result.PartyCurrency;
         }
 
         // Calculate current outstanding for credit display
@@ -206,9 +224,27 @@ public class PartyDetailsAppService : ApplicationService, IPartyDetailsAppServic
         }
 
         // Resolve company currency
+        var supplierCompanyCurrency = company?.CurrencyCode ?? "MYR";
         if (company != null)
         {
-            result.CompanyCurrency = company.CurrencyCode ?? "MYR";
+            result.CompanyCurrency = supplierCompanyCurrency;
+        }
+
+        var payableAccountId = supplier.DefaultPayableAccountId ?? company?.DefaultPayableAccountId;
+        if (payableAccountId.HasValue)
+        {
+            var accountRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+            var account = await accountRepo.FindAsync(payableAccountId.Value);
+            result.PartyAccountCurrency = account?.Currency;
+        }
+
+        result.PartyCurrency = !string.IsNullOrWhiteSpace(supplier.DefaultCurrency)
+            ? supplier.DefaultCurrency
+            : supplierCompanyCurrency;
+
+        if (string.IsNullOrWhiteSpace(result.PartyAccountCurrency))
+        {
+            result.PartyAccountCurrency = result.PartyCurrency;
         }
 
         // Resolve buying price list (per ERPNext party.py set_price_list / PR #58893)

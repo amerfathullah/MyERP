@@ -23,6 +23,7 @@ public class CustomerDto : FullAuditedEntityDto<Guid>
     public string? PostalCode { get; set; }
     public string? Country { get; set; }
     public Guid? DefaultReceivableAccountId { get; set; }
+    public string? DefaultCurrency { get; set; }
     public bool IsActive { get; set; }
     public decimal CreditLimit { get; set; }
     public Guid? RepresentsCompanyId { get; set; }

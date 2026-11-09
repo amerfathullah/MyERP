@@ -48,6 +48,9 @@ public class Customer : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Default receivable account for this customer.</summary>
     public Guid? DefaultReceivableAccountId { get; set; }
 
+    /// <summary>Default billing currency for this customer (e.g., "USD", "MYR").</summary>
+    public string? DefaultCurrency { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     /// <summary>Credit limit in company currency. 0 = no limit.</summary>

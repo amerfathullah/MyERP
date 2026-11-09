@@ -317,7 +317,9 @@ public class QuotationAppService : ApplicationService, IQuotationAppService
         }
 
         quotation.ValidUntil = input.ValidUntil;
-        quotation.CurrencyCode = input.CurrencyCode;
+        quotation.CurrencyCode = !string.IsNullOrWhiteSpace(input.CurrencyCode) && input.CurrencyCode != "MYR"
+            ? input.CurrencyCode
+            : (partyCustomer?.DefaultCurrency ?? input.CurrencyCode ?? "MYR");
         var termsResolution = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.TermsResolutionService>();
         var (sellingTermsId, sellingTerms) = await termsResolution.ResolveSellingTermsAsync(
             quotation.Status, quotation.CompanyId, input.TermsAndConditionsId, input.Terms);

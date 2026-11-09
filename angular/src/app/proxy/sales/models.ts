@@ -548,6 +548,7 @@ export interface CreateUpdateCustomerDto {
   postalCode?: string | null;
   country?: string | null;
   defaultReceivableAccountId?: string | null;
+  defaultCurrency?: string | null;
   isActive?: boolean;
   creditLimit?: number;
   representsCompanyId?: string | null;
@@ -664,6 +665,7 @@ export interface CustomerDto extends FullAuditedEntityDto<string> {
   postalCode?: string | null;
   country?: string | null;
   defaultReceivableAccountId?: string | null;
+  defaultCurrency?: string | null;
   isActive?: boolean;
   creditLimit?: number;
   representsCompanyId?: string | null;

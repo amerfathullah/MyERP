@@ -61,6 +61,9 @@ public class CreateUpdateSupplierDto
 
     public Guid? DefaultPayableAccountId { get; set; }
 
+    [StringLength(SupplierConsts.MaxCurrencyLength)]
+    public string? DefaultCurrency { get; set; }
+
     public bool IsActive { get; set; } = true;
     public SupplierHoldType HoldType { get; set; } = SupplierHoldType.None;
     public bool PreventPurchaseOrders { get; set; }

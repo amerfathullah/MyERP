@@ -18,4 +18,5 @@ public static class CustomerConsts
     public const int MaxContactPersonLength = 256;
     public const int MaxIdTypeLength = 20;
     public const int MaxIdValueLength = 50;
+    public const int MaxCurrencyLength = 3;
 }
