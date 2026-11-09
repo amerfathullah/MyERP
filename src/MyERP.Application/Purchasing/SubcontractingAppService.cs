@@ -907,7 +907,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             if (isRejectedReturn)
             {
                 var priorReturned = priorReturnedRejectedByItem.GetValueOrDefault(retItem.ItemId, 0m);
-                var origRejQty = origItem.RejectedQty > 0 ? origItem.RejectedQty : origItem.Qty;
+                var origRejQty = origItem.RejectedQty;
                 var maxReturnable = origRejQty - priorReturned;
                 if (retItem.Qty > maxReturnable)
                 {

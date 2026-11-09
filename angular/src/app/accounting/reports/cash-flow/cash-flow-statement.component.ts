@@ -18,20 +18,35 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
       <div class="card mb-4">
         <div class="card-body">
           <div class="row g-3 align-items-end">
-            <div class="col-md-3">
+            <div class="col-md-2">
               <label class="form-label">{{ 'From' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="fromDate" />
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
               <label class="form-label">{{ 'To' | abpLocalization }}</label>
               <input type="date" class="form-control" [(ngModel)]="toDate" />
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
+              <label class="form-label">{{ 'Periodicity' | abpLocalization }}</label>
+              <select class="form-select" [(ngModel)]="periodicity">
+                <option value="">{{ 'SinglePeriod' | abpLocalization }}</option>
+                <option value="Monthly">{{ 'Monthly' | abpLocalization }}</option>
+                <option value="Quarterly">{{ 'Quarterly' | abpLocalization }}</option>
+                <option value="Yearly">{{ 'Yearly' | abpLocalization }}</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="cfAccumulated" [(ngModel)]="accumulatedValues" />
+                <label class="form-check-label" for="cfAccumulated">{{ 'AccumulatedValues' | abpLocalization }}</label>
+              </div>
+            </div>
+            <div class="col-md-2">
               <button class="btn btn-primary" (click)="loadReport()" [disabled]="loading()">
                 <i class="fa fa-sync me-1"></i>{{ 'GenerateReport' | abpLocalization }}
               </button>
             </div>
-            <div class="col-md-3 text-end">
+            <div class="col-md-2 text-end">
               @if (report()) {
                 <button class="btn btn-outline-secondary btn-sm" (click)="exportReport()">
                   <i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}
@@ -165,6 +180,61 @@ import type { CashFlowStatementDto } from '../../../proxy/accounting/models';
                 </tr>
               </tbody>
             </table>
+
+            @if ((report()!.periods ?? []).length > 1) {
+              <hr />
+              <h6 class="fw-bold text-secondary mb-3">{{ 'PeriodBreakdown' | abpLocalization }}</h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered">
+                  <thead class="table-light">
+                    <tr>
+                      <th>{{ 'Section' | abpLocalization }}</th>
+                      @for (p of (report()!.periods ?? []); track p.key) {
+                        <th class="text-end">{{ p.label }}</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>{{ 'NetCashFromOperations' | abpLocalization }}</td>
+                      @for (p of (report()!.periods ?? []); track p.key) {
+                        <td class="text-end">{{ p.operatingTotal | number:'1.2-2' }}</td>
+                      }
+                    </tr>
+                    <tr>
+                      <td>{{ 'NetCashFromInvesting' | abpLocalization }}</td>
+                      @for (p of (report()!.periods ?? []); track p.key) {
+                        <td class="text-end">{{ p.investingTotal | number:'1.2-2' }}</td>
+                      }
+                    </tr>
+                    <tr>
+                      <td>{{ 'NetCashFromFinancing' | abpLocalization }}</td>
+                      @for (p of (report()!.periods ?? []); track p.key) {
+                        <td class="text-end">{{ p.financingTotal | number:'1.2-2' }}</td>
+                      }
+                    </tr>
+                    <tr class="fw-bold">
+                      <td>{{ 'NetCashChange' | abpLocalization }}</td>
+                      @for (p of (report()!.periods ?? []); track p.key) {
+                        <td class="text-end">{{ p.netCashChange | number:'1.2-2' }}</td>
+                      }
+                    </tr>
+                    <tr>
+                      <td>{{ 'OpeningBalance' | abpLocalization }}</td>
+                      @for (p of (report()!.periods ?? []); track p.key) {
+                        <td class="text-end">{{ p.openingCashBalance | number:'1.2-2' }}</td>
+                      }
+                    </tr>
+                    <tr class="table-dark fw-bold">
+                      <td>{{ 'ClosingBalance' | abpLocalization }}</td>
+                      @for (p of (report()!.periods ?? []); track p.key) {
+                        <td class="text-end">{{ p.closingCashBalance | number:'1.2-2' }}</td>
+                      }
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            }
           </div>
         </div>
       }
@@ -177,6 +247,8 @@ export class CashFlowStatementComponent implements OnInit {
 
   fromDate = '';
   toDate = '';
+  periodicity = '';
+  accumulatedValues = false;
   loading = signal(false);
   report = signal<CashFlowStatementDto | null>(null);
 
@@ -196,7 +268,10 @@ export class CashFlowStatementComponent implements OnInit {
     this.cashFlowStatementService.getCashFlowStatement({
       companyId,
       fromDate: this.fromDate,
-      toDate: this.toDate
+      toDate: this.toDate,
+      periodicity: this.periodicity || null,
+      accumulatedValues: this.accumulatedValues,
+      showOpeningAndClosingBalance: true
     }).subscribe({
       next: (res) => {
         this.report.set(res);

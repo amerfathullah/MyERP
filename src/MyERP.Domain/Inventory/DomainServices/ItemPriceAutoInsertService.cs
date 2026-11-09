@@ -88,6 +88,122 @@ public class ItemPriceAutoInsertService : DomainService
             await _itemPriceRepository.InsertAsync(itemPrice, autoSave: true);
         }
     }
+
+    private static readonly System.Collections.Generic.HashSet<string> ZeroDecimalCurrencies = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "BIF", "CLP", "DJF", "GNF", "ISK", "JPY", "KMF", "KRW", "MGA",
+        "PYG", "RWF", "TWD", "UGX", "VND", "VUV", "XAF", "XOF", "XPF"
+    };
+
+    private static readonly System.Collections.Generic.HashSet<string> ThreeDecimalCurrencies = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "BHD", "IQD", "JOD", "KWD", "LYD", "OMR", "TND", "TPT"
+    };
+
+    /// <summary>
+    /// Returns the standard decimal precision for a given currency code.
+    /// </summary>
+    public static int GetCurrencyPrecision(string? currencyCode)
+    {
+        if (string.IsNullOrWhiteSpace(currencyCode))
+            return 2;
+
+        var normalized = currencyCode.Trim();
+        if (ZeroDecimalCurrencies.Contains(normalized))
+            return 0;
+        if (ThreeDecimalCurrencies.Contains(normalized))
+            return 3;
+        return 2;
+    }
+
+    /// <summary>
+    /// Converts an item's StandardSellingPrice (in the company's default currency) to the target
+    /// price list currency and rounds to the target currency's precision.
+    /// Per ERPNext commits e8a8b0b260 & 1853ef83ea (item.py::add_price):
+    /// - If target currency differs from default currency and no valid exchange rate is provided, returns null.
+    /// - Divides standardSellingRate by exchangeRate (1 unit of priceListCurrency = exchangeRate units of defaultCurrency)
+    ///   and rounds to the price list currency's precision.
+    /// </summary>
+    public static decimal? CalculateStandardRateItemPrice(
+        decimal standardSellingRate,
+        string? defaultCurrencyCode,
+        string? priceListCurrencyCode,
+        decimal? exchangeRate,
+        int? currencyPrecision = null)
+    {
+        if (standardSellingRate <= 0m)
+            return null;
+
+        var defaultCurrency = string.IsNullOrWhiteSpace(defaultCurrencyCode) ? "MYR" : defaultCurrencyCode.Trim();
+        var targetCurrency = string.IsNullOrWhiteSpace(priceListCurrencyCode) ? defaultCurrency : priceListCurrencyCode.Trim();
+        var precision = currencyPrecision ?? GetCurrencyPrecision(targetCurrency);
+
+        if (!string.Equals(targetCurrency, defaultCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!exchangeRate.HasValue || exchangeRate.Value <= 0m)
+                return null;
+
+            return Math.Round(standardSellingRate / exchangeRate.Value, precision, MidpointRounding.AwayFromZero);
+        }
+
+        return Math.Round(standardSellingRate, precision, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Creates an ItemPrice from an Item's StandardSellingPrice on a selling PriceList if not already present,
+    /// converting and rounding to the price list currency's precision (ERPNext e8a8b0b260 & 1853ef83ea).
+    /// </summary>
+    public async Task<ItemPrice?> EnsureStandardSellingPriceAsync(
+        Item item,
+        string? defaultCurrencyCode,
+        PriceList priceList,
+        decimal? exchangeRate = null,
+        int? currencyPrecision = null)
+    {
+        if (item.HasVariants || (item.StandardSellingPrice ?? 0m) <= 0m || !priceList.IsSelling)
+            return null;
+
+        var uom = string.IsNullOrWhiteSpace(item.Uom) ? "Unit" : item.Uom;
+        var existingQuery = await _itemPriceRepository.GetQueryableAsync();
+        var alreadyExists = existingQuery.Any(p =>
+            p.ItemId == item.Id &&
+            p.PriceListId == priceList.Id &&
+            p.Uom == uom &&
+            p.CustomerId == null &&
+            p.SupplierId == null);
+
+        if (alreadyExists)
+            return null;
+
+        var convertedRate = CalculateStandardRateItemPrice(
+            item.StandardSellingPrice!.Value,
+            defaultCurrencyCode,
+            priceList.CurrencyCode,
+            exchangeRate,
+            currencyPrecision);
+
+        if (!convertedRate.HasValue || convertedRate.Value <= 0m)
+            return null;
+
+        var targetCurrency = string.IsNullOrWhiteSpace(priceList.CurrencyCode)
+            ? (string.IsNullOrWhiteSpace(defaultCurrencyCode) ? "MYR" : defaultCurrencyCode.Trim())
+            : priceList.CurrencyCode.Trim();
+
+        var itemPrice = new ItemPrice(
+            _guidGenerator.Create(),
+            item.Id,
+            priceList.Id,
+            convertedRate.Value,
+            uom,
+            targetCurrency,
+            item.TenantId)
+        {
+            IsAutoInserted = true,
+        };
+
+        await _itemPriceRepository.InsertAsync(itemPrice, autoSave: true);
+        return itemPrice;
+    }
 }
 
 /// <summary>Context for auto-inserting item prices from a transaction.</summary>

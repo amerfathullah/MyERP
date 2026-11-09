@@ -65,4 +65,108 @@ public class SerialBatchBundleValidationService : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Filters batches from a source document row for a return transaction.
+    /// Per ERPNext commits dd07d12215 & c9257731eb (filter_serial_batches):
+    /// When a purchase/subcontracting return row had multiple batches on the source document and one or more
+    /// of those batches are no longer in the warehouse, skip unavailable batches if the remaining batches
+    /// cover the return quantity, and throw only when NO batch is available in the warehouse.
+    /// </summary>
+    public static Dictionary<Guid, decimal> FilterReturnBatches(
+        IReadOnlyDictionary<Guid, decimal> sourceBatches,
+        decimal requiredReturnQty,
+        Guid warehouseId,
+        IReadOnlyDictionary<Guid, decimal> availableBatchQuantitiesInWarehouse,
+        bool isPurchaseReturn = true,
+        bool isInternalCustomer = false)
+    {
+        var filteredBatches = new Dictionary<Guid, decimal>();
+        var qty = Math.Abs(requiredReturnQty);
+        if (qty <= 0 || sourceBatches == null || sourceBatches.Count == 0)
+        {
+            return filteredBatches;
+        }
+
+        Guid? unavailableBatchId = null;
+
+        foreach (var (batchId, rawBatchQty) in sourceBatches)
+        {
+            if (qty <= 0)
+            {
+                break;
+            }
+
+            var batchQty = isInternalCustomer ? -rawBatchQty : Math.Abs(rawBatchQty);
+
+            if (isPurchaseReturn)
+            {
+                var availableInWh = availableBatchQuantitiesInWarehouse.GetValueOrDefault(batchId, 0m);
+                batchQty = Math.Min(batchQty, availableInWh);
+
+                if (batchQty <= 0)
+                {
+                    unavailableBatchId ??= batchId;
+                    continue;
+                }
+            }
+
+            if (batchQty > qty)
+            {
+                filteredBatches[batchId] = qty;
+                qty = 0m;
+            }
+            else
+            {
+                filteredBatches[batchId] = filteredBatches.GetValueOrDefault(batchId, 0m) + batchQty;
+                qty -= batchQty;
+            }
+        }
+
+        if (unavailableBatchId.HasValue && filteredBatches.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InsufficientStock)
+                .WithData("batchId", unavailableBatchId.Value)
+                .WithData("warehouseId", warehouseId)
+                .WithData("detail", $"Batch {unavailableBatchId.Value} is not available in warehouse {warehouseId}.");
+        }
+
+        return filteredBatches;
+    }
+
+    /// <summary>
+    /// Resolves current warehouse batch balances from the Stock Ledger and filters source return batches.
+    /// </summary>
+    public async Task<Dictionary<Guid, decimal>> FilterReturnBatchesAsync(
+        IReadOnlyDictionary<Guid, decimal> sourceBatches,
+        decimal requiredReturnQty,
+        Guid warehouseId,
+        IRepository<StockLedgerEntry, Guid> sleRepository,
+        bool isPurchaseReturn = true,
+        bool isInternalCustomer = false)
+    {
+        if (sourceBatches == null || sourceBatches.Count == 0 || Math.Abs(requiredReturnQty) <= 0)
+        {
+            return new Dictionary<Guid, decimal>();
+        }
+
+        var batchIds = sourceBatches.Keys.ToList();
+        var sleQuery = await sleRepository.GetQueryableAsync();
+        var availableMap = sleQuery
+            .Where(s => !s.IsCancelled
+                     && s.WarehouseId == warehouseId
+                     && s.BatchId.HasValue
+                     && batchIds.Contains(s.BatchId.Value))
+            .GroupBy(s => s.BatchId!.Value)
+            .Select(g => new { BatchId = g.Key, Qty = g.Sum(s => s.QuantityChange) })
+            .ToDictionary(x => x.BatchId, x => x.Qty);
+
+        return FilterReturnBatches(
+            sourceBatches,
+            requiredReturnQty,
+            warehouseId,
+            availableMap,
+            isPurchaseReturn,
+            isInternalCustomer);
+    }
 }

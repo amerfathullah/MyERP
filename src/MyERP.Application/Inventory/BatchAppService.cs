@@ -608,11 +608,15 @@ public class BatchAppService : ApplicationService, IBatchAppService
 
         if (!batchBalances.Any()) return new List<AvailableBatchItemDto>();
 
+        var today = (input.ToDate ?? DateTime.UtcNow).Date;
         var batchIds = batchBalances.Select(b => b.BatchId!.Value).Distinct().ToList();
         var batches = batchQuery.Where(b => batchIds.Contains(b.Id))
             .Select(b => new { b.Id, b.BatchNo, b.ExpiryDate, b.IsDisabled, b.IsCancelled })
-            .Where(b => !b.IsDisabled && !b.IsCancelled)
+            .Where(b => !b.IsDisabled && !b.IsCancelled && (!b.ExpiryDate.HasValue || b.ExpiryDate.Value.Date >= today))
             .ToDictionary(b => b.Id);
+
+        if (batches.Count == 0) return new List<AvailableBatchItemDto>();
+        var availableBatchIds = batches.Keys.ToHashSet();
 
         var warehouseIds = batchBalances.Select(b => b.WarehouseId).Distinct().ToList();
         var warehouses = warehouseQuery.Where(w => warehouseIds.Contains(w.Id))
@@ -651,8 +655,8 @@ public class BatchAppService : ApplicationService, IBatchAppService
 
                 var sres = sreQuery.ToList();
 
-                // 1) Direct BatchId reservations
-                foreach (var sre in sres.Where(s => s.BatchId.HasValue && batchIds.Contains(s.BatchId!.Value)))
+                // 1) Direct BatchId reservations (only for available, non-expired batches per ERPNext 6caabeb477 / 73c5f3a6b4)
+                foreach (var sre in sres.Where(s => s.BatchId.HasValue && availableBatchIds.Contains(s.BatchId!.Value)))
                 {
                     var key = (sre.WarehouseId, sre.BatchId!.Value);
                     var activeReserved = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
@@ -683,7 +687,7 @@ public class BatchAppService : ApplicationService, IBatchAppService
                                 var unfulfilledSre = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
                                 var ratio = totalBundleQty > 0 ? Math.Min(1m, unfulfilledSre / totalBundleQty) : 1m;
 
-                                foreach (var entry in bundle.Entries.Where(e => e.BatchId.HasValue && batchIds.Contains(e.BatchId!.Value)))
+                                foreach (var entry in bundle.Entries.Where(e => e.BatchId.HasValue && availableBatchIds.Contains(e.BatchId!.Value)))
                                 {
                                     var whId = entry.WarehouseId ?? sre.WarehouseId;
                                     var key = (whId, entry.BatchId!.Value);
@@ -697,7 +701,6 @@ public class BatchAppService : ApplicationService, IBatchAppService
             }
         }
 
-        var today = DateTime.UtcNow.Date;
         var list = batchBalances
             .Where(b => batches.ContainsKey(b.BatchId!.Value))
             .Select(b =>

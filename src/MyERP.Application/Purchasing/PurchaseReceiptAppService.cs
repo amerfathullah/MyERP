@@ -349,6 +349,11 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         var prManagerCreate = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseReceiptManager>();
         prManagerCreate.ValidateDuplicateItems(receipt, allowMultiple);
 
+        if (receipt.IsReturn && returnAgainstPr != null)
+        {
+            await ValidateReturnQuantitiesAsync(receipt, returnAgainstPr);
+        }
+
         await _repository.InsertAsync(receipt, autoSave: true);
         return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
     }
@@ -520,6 +525,15 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
         var prManagerUpdate = LazyServiceProvider.LazyGetRequiredService<MyERP.Purchasing.DomainServices.PurchaseReceiptManager>();
         prManagerUpdate.ValidateDuplicateItems(receipt, allowMultipleUpdate);
 
+        if (receipt.IsReturn && receipt.ReturnAgainstId.HasValue)
+        {
+            var originalPr = await _repository.FindAsync(receipt.ReturnAgainstId.Value);
+            if (originalPr != null)
+            {
+                await ValidateReturnQuantitiesAsync(receipt, originalPr);
+            }
+        }
+
         await _repository.UpdateAsync(receipt, autoSave: true);
         return ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(receipt);
     }
@@ -657,39 +671,7 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             if (receipt.ReturnAgainstId.HasValue)
             {
                 originalPr = await _repository.GetAsync(receipt.ReturnAgainstId.Value);
-                foreach (var returnItem in receipt.Items)
-                {
-                    var originalItem = originalPr.Items
-                        .FirstOrDefault(i => i.ItemId == returnItem.ItemId);
-                    if (originalItem != null)
-                    {
-                        if (returnItem.Quantity < 0)
-                        {
-                            var maxReturnQty = originalItem.Quantity;
-                            var returnQty = Math.Abs(returnItem.Quantity);
-                            if (returnQty > maxReturnQty)
-                            {
-                                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
-                                    .WithData("item", returnItem.Description)
-                                    .WithData("originalQty", maxReturnQty)
-                                    .WithData("returnQty", returnQty);
-                            }
-                        }
-
-                        if (returnItem.RejectedQty < 0)
-                        {
-                            var maxRejectedQty = originalItem.RejectedQty;
-                            var returnRejectedQty = Math.Abs(returnItem.RejectedQty);
-                            if (returnRejectedQty > maxRejectedQty)
-                            {
-                                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
-                                    .WithData("item", returnItem.Description)
-                                    .WithData("originalQty", maxRejectedQty)
-                                    .WithData("returnQty", returnRejectedQty);
-                            }
-                        }
-                    }
-                }
+                await ValidateReturnQuantitiesAsync(receipt, originalPr);
             }
 
             // RETURN TO SUPPLIER: Stock goes OUT (negative SLE, negative Bin)
@@ -1447,6 +1429,86 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             }
         }
         return results;
+    }
+
+    /// <summary>
+    /// Validates return quantities (accepted and rejected) against the source Purchase Receipt
+    /// and any prior non-cancelled return receipts.
+    /// Per ERPNext commits 92e535f68a & ed481acfe9: caps a return column even when the source row
+    /// had 0 of that column (e.g. returning rejected qty from a row with 0 rejected qty).
+    /// </summary>
+    private async Task ValidateReturnQuantitiesAsync(PurchaseReceipt receipt, PurchaseReceipt originalPr)
+    {
+        var priorReturns = new List<PurchaseReceipt>();
+        try
+        {
+            var prQuery = await _repository.GetQueryableAsync();
+            if (prQuery != null)
+            {
+                priorReturns = prQuery
+                    .Where(r => r.IsReturn
+                             && r.ReturnAgainstId == originalPr.Id
+                             && r.Id != receipt.Id
+                             && r.Status != Core.DocumentStatus.Cancelled)
+                    .ToList();
+            }
+        }
+        catch
+        {
+            // Unit tests where _repository.GetQueryableAsync() is not configured
+        }
+
+        var priorAcceptedByItem = priorReturns
+            .SelectMany(r => r.Items)
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity)));
+
+        var priorRejectedByItem = priorReturns
+            .SelectMany(r => r.Items)
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.RejectedQty)));
+
+        foreach (var returnItem in receipt.Items)
+        {
+            if (returnItem.Quantity > 0 || returnItem.RejectedQty > 0)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Quantity and Rejected Quantity must be negative in a return document.");
+            }
+
+            var originalItem = originalPr.Items
+                .FirstOrDefault(i => i.ItemId == returnItem.ItemId);
+            if (originalItem == null)
+                continue;
+
+            if (originalItem.Quantity != 0 || returnItem.Quantity != 0)
+            {
+                var priorAccepted = priorAcceptedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+                var maxReturnQty = Math.Max(0m, originalItem.Quantity - priorAccepted);
+                var returnQty = Math.Abs(returnItem.Quantity);
+                if (returnQty > maxReturnQty)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
+                        .WithData("item", returnItem.Description)
+                        .WithData("originalQty", maxReturnQty)
+                        .WithData("returnQty", returnQty);
+                }
+            }
+
+            if (originalItem.RejectedQty != 0 || returnItem.RejectedQty != 0)
+            {
+                var priorRejected = priorRejectedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
+                var maxRejectedQty = Math.Max(0m, originalItem.RejectedQty - priorRejected);
+                var returnRejectedQty = Math.Abs(returnItem.RejectedQty);
+                if (returnRejectedQty > maxRejectedQty)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
+                        .WithData("item", returnItem.Description)
+                        .WithData("originalQty", maxRejectedQty)
+                        .WithData("returnQty", returnRejectedQty);
+                }
+            }
+        }
     }
 
     /// <summary>

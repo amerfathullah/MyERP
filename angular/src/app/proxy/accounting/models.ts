@@ -680,6 +680,23 @@ export interface CashFlowRequestDto {
   companyId?: string;
   fromDate?: string;
   toDate?: string;
+  periodicity?: string | null;
+  accumulatedValues?: boolean;
+  showOpeningAndClosingBalance?: boolean;
+}
+
+export interface CashFlowPeriodColumnDto {
+  key?: string;
+  label?: string;
+  fromDate?: string;
+  toDate?: string;
+  effectiveStartDate?: string;
+  operatingTotal?: number;
+  investingTotal?: number;
+  financingTotal?: number;
+  netCashChange?: number;
+  openingCashBalance?: number;
+  closingCashBalance?: number;
 }
 
 export interface CashFlowStatementDto {
@@ -695,6 +712,7 @@ export interface CashFlowStatementDto {
   netCashChange?: number;
   openingCashBalance?: number;
   closingCashBalance?: number;
+  periods?: CashFlowPeriodColumnDto[];
 }
 
 export interface CashierClosingDto extends FullAuditedEntityDto<string> {

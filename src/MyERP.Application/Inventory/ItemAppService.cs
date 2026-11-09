@@ -43,7 +43,12 @@ public class ItemAppService :
     public override async Task<ItemDto> CreateAsync(CreateUpdateItemDto input)
     {
         await ValidateDefaultUomsAsync(Guid.Empty, input);
-        return await base.CreateAsync(input);
+        var created = await base.CreateAsync(input);
+        if (input.StandardSellingPrice > 0)
+        {
+            await TryCreateStandardSellingItemPriceAsync(created.Id, input.CompanyId);
+        }
+        return created;
     }
 
     /// <summary>
@@ -107,7 +112,91 @@ public class ItemAppService :
             existing.SetValuationMethod(input.ValuationMethod, hasStockLedgerEntries);
         }
 
-        return await base.UpdateAsync(id, input);
+        var updated = await base.UpdateAsync(id, input);
+        if (input.StandardSellingPrice > 0)
+        {
+            await TryCreateStandardSellingItemPriceAsync(id, input.CompanyId);
+        }
+        return updated;
+    }
+
+    private async Task TryCreateStandardSellingItemPriceAsync(Guid itemId, Guid companyId)
+    {
+        var autoInsertService = LazyServiceProvider?.LazyGetService<DomainServices.ItemPriceAutoInsertService>();
+        var priceListRepo = LazyServiceProvider?.LazyGetService<IRepository<PriceList, Guid>>();
+        var companyRepo = LazyServiceProvider?.LazyGetService<IRepository<Company, Guid>>();
+        if (autoInsertService == null || priceListRepo == null || companyRepo == null)
+            return;
+
+        var item = await Repository.FindAsync(itemId);
+        if (item == null || item.HasVariants || (item.StandardSellingPrice ?? 0m) <= 0m)
+            return;
+
+        var company = await companyRepo.FindAsync(companyId);
+        var defaultCurrency = company?.CurrencyCode ?? "MYR";
+
+        Guid? defaultPriceListId = null;
+        var itemDefaultRepo = LazyServiceProvider?.LazyGetService<IRepository<ItemDefault, Guid>>();
+        if (itemDefaultRepo != null)
+        {
+            var idQuery = await itemDefaultRepo.GetQueryableAsync();
+            defaultPriceListId = idQuery
+                .Where(d => d.ItemId == itemId && d.CompanyId == companyId && d.DefaultPriceListId.HasValue)
+                .Select(d => d.DefaultPriceListId)
+                .FirstOrDefault();
+        }
+
+        var plQuery = await priceListRepo.GetQueryableAsync();
+        PriceList? priceList = null;
+        if (defaultPriceListId.HasValue)
+        {
+            var candidate = plQuery.FirstOrDefault(pl => pl.Id == defaultPriceListId.Value && pl.IsSelling && pl.IsActive);
+            if (candidate != null)
+                priceList = candidate;
+        }
+
+        priceList ??= plQuery
+            .Where(pl => pl.IsSelling && pl.IsActive && (!pl.CompanyId.HasValue || pl.CompanyId == companyId))
+            .OrderByDescending(pl => pl.CompanyId == companyId)
+            .ThenByDescending(pl => pl.IsDefault)
+            .ThenByDescending(pl => pl.Name == "Standard Selling")
+            .FirstOrDefault();
+
+        if (priceList == null)
+            return;
+
+        decimal? exchangeRate = 1m;
+        if (!string.Equals(priceList.CurrencyCode, defaultCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            exchangeRate = null;
+            var fxRepo = LazyServiceProvider?.LazyGetService<IRepository<Accounting.Entities.CurrencyExchange, Guid>>();
+            if (fxRepo != null)
+            {
+                var fxQuery = await fxRepo.GetQueryableAsync();
+                var today = DateTime.UtcNow.Date;
+                var direct = fxQuery
+                    .Where(e => e.FromCurrency == priceList.CurrencyCode && e.ToCurrency == defaultCurrency && e.Date <= today)
+                    .OrderByDescending(e => e.Date)
+                    .FirstOrDefault();
+                if (direct != null && direct.ExchangeRate > 0m)
+                {
+                    exchangeRate = direct.ExchangeRate;
+                }
+                else
+                {
+                    var reverse = fxQuery
+                        .Where(e => e.FromCurrency == defaultCurrency && e.ToCurrency == priceList.CurrencyCode && e.Date <= today)
+                        .OrderByDescending(e => e.Date)
+                        .FirstOrDefault();
+                    if (reverse != null && reverse.ExchangeRate > 0m)
+                    {
+                        exchangeRate = 1m / reverse.ExchangeRate;
+                    }
+                }
+            }
+        }
+
+        await autoInsertService.EnsureStandardSellingPriceAsync(item, defaultCurrency, priceList, exchangeRate);
     }
 
     private async Task ValidateCanDeactivateAsync(Guid itemId)

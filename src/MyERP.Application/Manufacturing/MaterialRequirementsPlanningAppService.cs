@@ -161,6 +161,7 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
         var activeBoms = bomQuery
             .Where(b => b.CompanyId == input.CompanyId && b.IsActive)
             .ToList();
+        var activeBomById = activeBoms.ToDictionary(b => b.Id);
         var itemBomMap = activeBoms
             .GroupBy(b => b.ItemId)
             .ToDictionary(g => g.Key, g => g.FirstOrDefault(b => b.IsDefault) ?? g.First());
@@ -175,7 +176,7 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                      && s.Status != DocumentStatus.Completed)
             .ToList();
 
-        var demandList = new List<(Guid ItemId, DateTime Date, decimal Qty)>();
+        var demandList = new List<(Guid ItemId, DateTime Date, decimal Qty, Guid? ExplicitBomId)>();
 
         foreach (var so in salesOrders)
         {
@@ -187,36 +188,59 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                     var reqDate = (line.DeliveryDate ?? so.OrderDate).Date;
                     if (reqDate >= minDate && reqDate <= maxDate)
                     {
-                        demandList.Add((line.ItemId, reqDate, remaining));
+                        demandList.Add((line.ItemId, reqDate, remaining, null));
                     }
                 }
             }
         }
 
-        // b. Master Production Schedule demand
+        // b. Master Production Schedule demand (ERPNext commit 038d82c65c: filter by child delivery_date and warehouse)
         var mpsQuery = await _mpsRepository.GetQueryableAsync();
         var mpsList = mpsQuery
             .Where(m => m.CompanyId == input.CompanyId
                      && (m.Status == DocumentStatus.Submitted || m.Status == DocumentStatus.Draft))
+            .WhereIf(input.WarehouseId.HasValue, m => !m.ParentWarehouseId.HasValue || m.ParentWarehouseId == input.WarehouseId!.Value)
             .ToList();
 
         foreach (var mps in mpsList)
         {
-            foreach (var item in mps.Items.Where(i => itemIds.Contains(i.ItemId)))
+            foreach (var item in mps.Items
+                .Where(i => itemIds.Contains(i.ItemId))
+                .OrderBy(i => i.DeliveryDate))
             {
+                if (input.WarehouseId.HasValue
+                    && mps.ParentWarehouseId != input.WarehouseId.Value
+                    && item.WarehouseId.HasValue
+                    && item.WarehouseId.Value != input.WarehouseId.Value)
+                {
+                    continue;
+                }
+
                 var reqDate = item.DeliveryDate.Date;
                 if (reqDate >= minDate && reqDate <= maxDate && item.PlannedQty > 0)
                 {
-                    demandList.Add((item.ItemId, reqDate, item.PlannedQty));
+                    demandList.Add((item.ItemId, reqDate, item.PlannedQty, item.BomId));
                 }
             }
         }
 
-        // c. Explode BOM requirements for raw materials
-        var explodedDemand = new List<(Guid ItemId, DateTime Date, decimal Qty)>();
+        // c. Explode BOM requirements for raw materials (using item's own BOM per ERPNext a2172d476a)
+        var explodedDemand = new List<(Guid ItemId, DateTime Date, decimal Qty, Guid? ExplicitBomId)>();
         foreach (var d in demandList)
         {
-            if (itemBomMap.TryGetValue(d.ItemId, out var bom))
+            BillOfMaterials? bom = null;
+            if (d.ExplicitBomId.HasValue
+                && activeBomById.TryGetValue(d.ExplicitBomId.Value, out var explicitBom)
+                && explicitBom.ItemId == d.ItemId)
+            {
+                bom = explicitBom;
+            }
+            else
+            {
+                itemBomMap.TryGetValue(d.ItemId, out bom);
+            }
+
+            if (bom != null)
             {
                 var baseQty = bom.Quantity > 0 ? bom.Quantity : 1m;
                 var scale = d.Qty / baseQty;
@@ -224,7 +248,7 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                 {
                     if (itemIds.Contains(bomItem.ItemId))
                     {
-                        explodedDemand.Add((bomItem.ItemId, d.Date, bomItem.Quantity * scale));
+                        explodedDemand.Add((bomItem.ItemId, d.Date, bomItem.Quantity * scale, null));
                     }
                 }
             }
@@ -478,11 +502,15 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
             .Where(b => b.CompanyId == input.CompanyId && b.IsActive)
             .ToList();
 
-        // PR #58510 & #58511: prompt/throw when manufactured item has no BOM
+        // PR #58510 & #58511 & commit a2172d476a: ensure each manufactured item uses its own BOM
         var missingBoms = new List<string>();
         foreach (var row in manufactureRows)
         {
-            if (!row.BomId.HasValue || row.BomId.Value == Guid.Empty)
+            var matchedBom = row.BomId.HasValue && row.BomId.Value != Guid.Empty
+                ? activeBoms.FirstOrDefault(b => b.Id == row.BomId.Value && b.ItemId == row.ItemId)
+                : null;
+
+            if (matchedBom == null)
             {
                 var defaultBom = activeBoms.FirstOrDefault(b => b.ItemId == row.ItemId && b.IsDefault)
                     ?? activeBoms.FirstOrDefault(b => b.ItemId == row.ItemId);
