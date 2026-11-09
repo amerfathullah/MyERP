@@ -18124,6 +18124,9 @@ namespace MyERP.Migrations
 
                     b.HasIndex("SerialAndBatchBundleId");
 
+                    b.HasIndex("TenantId", "BatchId")
+                        .HasFilter("\"BatchId\" IS NOT NULL");
+
                     b.HasIndex("TenantId", "SerialNo")
                         .HasFilter("\"SerialNo\" IS NOT NULL");
 

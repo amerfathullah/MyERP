@@ -1650,6 +1650,7 @@ public class MyERPDbContext :
             b.Property(x => x.IncomingRate).HasColumnType("decimal(18,4)");
             b.Property(x => x.StockQueue).HasMaxLength(4000);
             b.HasIndex(x => new { x.TenantId, x.SerialNo }).HasFilter("\"SerialNo\" IS NOT NULL");
+            b.HasIndex(x => new { x.TenantId, x.BatchId }).HasFilter("\"BatchId\" IS NOT NULL");
         });
 
         // Item Standard Cost

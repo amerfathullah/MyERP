@@ -179,6 +179,23 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
                         await _invoiceRepository.UpdateAsync(sourceInvoice);
                     }
                 }
+
+                // Link Serial and Batch bundles from source POS invoices to the consolidated Sales Invoice (PR #64756 / commit e553c17711)
+                var bundleRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.SerialAndBatchBundle, Guid>>();
+                if (bundleRepo != null)
+                {
+                    var bundleQuery = await bundleRepo.GetQueryableAsync();
+                    var sourceBundles = bundleQuery
+                        .Where(b => (b.VoucherType == "SalesInvoice" || b.VoucherType == "POS Invoice") && invoiceIds.Contains(b.VoucherId))
+                        .ToList();
+
+                    foreach (var b in sourceBundles)
+                    {
+                        b.VoucherType = "SalesInvoice";
+                        b.VoucherId = consolidatedSi.Id;
+                        await bundleRepo.UpdateAsync(b);
+                    }
+                }
             }
         }
 
@@ -265,7 +282,7 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
             {
                 var bundleQuery = await bundleRepo.GetQueryableAsync();
                 var consolidatedBundles = bundleQuery
-                    .Where(b => b.VoucherType == "SalesInvoice" && b.VoucherId == consolidatedSiId)
+                    .Where(b => (b.VoucherType == "SalesInvoice" || b.VoucherType == "POS Invoice") && b.VoucherId == consolidatedSiId)
                     .ToList();
 
                 foreach (var bundle in consolidatedBundles)

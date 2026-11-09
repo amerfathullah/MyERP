@@ -122,10 +122,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         foreach (var item in input.Items)
         {
             var rate = item.Rate;
-            if (item.SubBomId.HasValue && item.SetRateOfSubAssemblyItemBasedOnBom && rate == 0)
+            if (item.SubBomId.HasValue && item.SubBomId.Value != Guid.Empty)
             {
-                var subBom = await _bomRepository.FindAsync(item.SubBomId.Value);
-                if (subBom != null)
+                // PR #64463 / commit 4ab6adb935: BOM row sub-BOM must produce the row item
+                var bomValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.DomainServices.BomValidationService>();
+                var subBom = await bomValidation.ValidateProductionBomAsync(item.ItemId, item.SubBomId.Value, bom.CompanyId != Guid.Empty ? bom.CompanyId : input.CompanyId);
+
+                if (item.SetRateOfSubAssemblyItemBasedOnBom && rate == 0)
                 {
                     rate = subBom.UnitCost;
                 }
@@ -253,10 +256,13 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         foreach (var item in input.Items)
         {
             var rate = item.Rate;
-            if (item.SubBomId.HasValue && item.SetRateOfSubAssemblyItemBasedOnBom && rate == 0)
+            if (item.SubBomId.HasValue && item.SubBomId.Value != Guid.Empty)
             {
-                var subBom = await _bomRepository.FindAsync(item.SubBomId.Value);
-                if (subBom != null)
+                // PR #64463 / commit 4ab6adb935: BOM row sub-BOM must produce the row item
+                var bomValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.DomainServices.BomValidationService>();
+                var subBom = await bomValidation.ValidateProductionBomAsync(item.ItemId, item.SubBomId.Value, bom.CompanyId != Guid.Empty ? bom.CompanyId : input.CompanyId);
+
+                if (item.SetRateOfSubAssemblyItemBasedOnBom && rate == 0)
                 {
                     rate = subBom.UnitCost;
                 }
