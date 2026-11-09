@@ -27,6 +27,7 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
     private readonly IRepository<BillOfMaterials, Guid> _bomRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly MasterProductionScheduleService _leadTimeService;
+    private readonly BomValidationService? _bomValidationService;
 
     public MasterProductionScheduleAppService(
         IRepository<MasterProductionSchedule, Guid> repository,
@@ -35,7 +36,8 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         IRepository<ProductionPlan, Guid> productionPlanRepository,
         IRepository<BillOfMaterials, Guid> bomRepository,
         IDocumentNumberGenerator numberGenerator,
-        MasterProductionScheduleService leadTimeService)
+        MasterProductionScheduleService leadTimeService,
+        BomValidationService? bomValidationService = null)
     {
         _repository = repository;
         _salesOrderRepository = salesOrderRepository;
@@ -44,6 +46,14 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         _bomRepository = bomRepository;
         _numberGenerator = numberGenerator;
         _leadTimeService = leadTimeService;
+        _bomValidationService = bomValidationService;
+    }
+
+    private BomValidationService GetBomValidationService()
+    {
+        return _bomValidationService
+            ?? LazyServiceProvider?.LazyGetService<BomValidationService>()
+            ?? new BomValidationService(_bomRepository);
     }
 
     private static readonly DocumentStatus[] OpenSalesOrderStatuses =
@@ -153,7 +163,7 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
 
         if (input.Items.Count > 0)
         {
-            var bomValidationService = LazyServiceProvider.LazyGetRequiredService<BomValidationService>();
+            var bomValidationService = GetBomValidationService();
             var byId = schedule.Items.ToDictionary(i => i.Id);
             var updatedItems = schedule.Items.ToList();
             var validatedUomPairs = new HashSet<(Guid ItemId, string Uom)>();
@@ -409,7 +419,7 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
 
         // Validate that any BOM assigned on MPS rows belongs to the item and is active (ERPNext b8e3c8d8f2)
         // and that any non-stock UOM has a valid conversion factor (ERPNext 7754616e80, 65a1498c04)
-        var bomValidationService = LazyServiceProvider.LazyGetRequiredService<BomValidationService>();
+        var bomValidationService = GetBomValidationService();
         var validatedBoms = new HashSet<(Guid ItemId, Guid BomId)>();
         var validatedUoms = new HashSet<(Guid ItemId, string Uom)>();
 
@@ -457,7 +467,8 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         var ids = itemIds.ToList();
         if (ids.Count == 0) return (new Dictionary<Guid, string>(), new Dictionary<Guid, string>());
 
-        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var itemRepo = LazyServiceProvider?.LazyGetService<IRepository<Inventory.Entities.Item, Guid>>();
+        if (itemRepo == null) return (new Dictionary<Guid, string>(), new Dictionary<Guid, string>());
         var query = await itemRepo.GetQueryableAsync();
         var items = query.Where(i => ids.Contains(i.Id)).Select(i => new { i.Id, i.ItemName, i.Uom }).ToList();
         return (
@@ -471,8 +482,8 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         if (itemId == Guid.Empty || string.IsNullOrWhiteSpace(uom))
             return;
 
-        var itemRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.Item, Guid>>();
-        var uomService = LazyServiceProvider.LazyGetService<Inventory.DomainServices.UomConversionService>();
+        var itemRepo = LazyServiceProvider?.LazyGetService<IRepository<Inventory.Entities.Item, Guid>>();
+        var uomService = LazyServiceProvider?.LazyGetService<Inventory.DomainServices.UomConversionService>();
         if (itemRepo == null || uomService == null)
             return;
 
@@ -505,7 +516,7 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
             CombineItems = input?.CombineItems ?? false
         };
 
-        var bomValidationService = LazyServiceProvider.LazyGetRequiredService<BomValidationService>();
+        var bomValidationService = GetBomValidationService();
         var bomQuery = await _bomRepository.GetQueryableAsync();
         var activeBoms = bomQuery
             .Where(b => b.CompanyId == schedule.CompanyId && b.IsActive)
