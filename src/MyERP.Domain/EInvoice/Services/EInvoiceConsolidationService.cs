@@ -45,7 +45,7 @@ public class EInvoiceConsolidationService : DomainService
         if (invoiceIds == null || invoiceIds.Count < 2)
             throw new BusinessException("EInvoice:002", "Please select at least two Sales Invoices to merge.");
 
-        var invoices = (await _salesInvoiceRepository.GetQueryableAsync())
+        var invoices = (await _salesInvoiceRepository.WithDetailsAsync(i => i.Items))
             .Where(i => invoiceIds.Contains(i.Id) && i.CompanyId == companyId)
             .ToList();
 
@@ -93,11 +93,12 @@ public class EInvoiceConsolidationService : DomainService
         )
         {
             CurrencyCode = baseInvoice.CurrencyCode,
-            Notes = $"Merged from {invoices.Count} invoices"
+            Notes = $"Merged from {invoices.Count} invoices",
+            BuyerTin = EInvoiceConsts.GenericBuyerTin,
+            IsConsolidated = true,
+            EInvoiceDocType = EInvoiceDocumentType.Invoice,
+            EInvoiceStatus = EInvoiceStatus.NotSubmitted
         };
-        // Flags needed for e-invoice module
-        // We set EInvoiceDocType to 01 (Invoice) and mark it ready
-        consolidatedInvoice.EInvoiceDocType = (EInvoiceDocumentType)1;
 
         var consolidatedItems = new Dictionary<string, SalesInvoiceItem>();
 
@@ -120,7 +121,10 @@ public class EInvoiceConsolidationService : DomainService
                     {
                         CurrencyCode = inv.CurrencyCode,
                         Notes = $"Auto-created from item exceeding 10,000 in original invoice",
-                        EInvoiceDocType = (EInvoiceDocumentType)1
+                        BuyerTin = !string.IsNullOrWhiteSpace(inv.BuyerTin) ? inv.BuyerTin : EInvoiceConsts.GenericBuyerTin,
+                        IsConsolidated = false,
+                        EInvoiceDocType = EInvoiceDocumentType.Invoice,
+                        EInvoiceStatus = EInvoiceStatus.NotSubmitted
                     };
                     
                     singleInvoice.AddItem(

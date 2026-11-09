@@ -1804,6 +1804,8 @@
     "BomReplaceSuccess": "Replaced {0} sub-assembly reference(s) and recosted {1} BOM(s).",
     "SelectBom": "Select BOM...",
     "GeneralLedger": "General Ledger",
+    "ConvertAtReportingDateRate": "Convert at Reporting Date Exchange Rate",
+    "ConvertAtReportingDateRateDesc": "Convert company currency amounts to account currency at the exchange rate on To Date",
     "Menu:GeneralLedger": "General Ledger",
     "AllAccounts": "All Accounts",
     "Voucher": "Voucher",

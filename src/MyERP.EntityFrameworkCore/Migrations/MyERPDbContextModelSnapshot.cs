@@ -18798,6 +18798,9 @@ namespace MyERP.Migrations
                     b.Property<bool>("ViaLandedCostVoucher")
                         .HasColumnType("boolean");
 
+                    b.Property<Guid?>("DependantSleVoucherDetailNo")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("VoucherDetailNo")
                         .HasColumnType("uuid");
 
@@ -18827,6 +18830,9 @@ namespace MyERP.Migrations
                         .HasFilter("\"IsCancelled\" = false");
 
                     b.HasIndex("TenantId", "ProjectId");
+
+                    b.HasIndex("TenantId", "DependantSleVoucherDetailNo")
+                        .HasFilter("\"DependantSleVoucherDetailNo\" IS NOT NULL");
 
                     b.ToTable("Inv_StockLedgerEntries", (string)null);
                 });

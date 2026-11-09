@@ -2252,6 +2252,7 @@ public class MyERPDbContext :
             b.HasIndex(x => new { x.TenantId, x.CompanyId, x.PostingDateTime });
             b.HasIndex(x => new { x.TenantId, x.VoucherType, x.VoucherId });
             b.HasIndex(x => new { x.TenantId, x.ProjectId });
+            b.HasIndex(x => new { x.TenantId, x.DependantSleVoucherDetailNo }).HasFilter("\"DependantSleVoucherDetailNo\" IS NOT NULL");
         });
 
         builder.Entity<Bin>(b =>

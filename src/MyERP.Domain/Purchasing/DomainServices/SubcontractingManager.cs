@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core;
+using MyERP.Inventory.Entities;
 using MyERP.Purchasing.Entities;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -242,6 +243,28 @@ public class SubcontractingManager : DomainService
         }
 
         return originalAcceptedWarehouseId;
+    }
+
+    /// <summary>
+    /// Checks whether a Stock Ledger Entry represents raw material brought back by a Subcontracting Receipt return.
+    /// Per ERPNext PR #64797 / commit 51e5ba7ec9: spots returned supplied items without extra database queries
+    /// by verifying voucher type, positive incoming quantity, and presence of DependantSleVoucherDetailNo.
+    /// </summary>
+    public static bool IsReturnedSuppliedItem(string? voucherType, decimal actualQty, Guid? dependantSleVoucherDetailNo)
+    {
+        return (string.Equals(voucherType, "SubcontractingReceipt", StringComparison.OrdinalIgnoreCase)
+             || string.Equals(voucherType, "Subcontracting Receipt", StringComparison.OrdinalIgnoreCase))
+            && actualQty > 0
+            && dependantSleVoucherDetailNo.HasValue
+            && dependantSleVoucherDetailNo.Value != Guid.Empty;
+    }
+
+    /// <summary>
+    /// Overload for StockLedgerEntry entity.
+    /// </summary>
+    public static bool IsReturnedSuppliedItem(StockLedgerEntry sle)
+    {
+        return IsReturnedSuppliedItem(sle.VoucherType, sle.QuantityChange, sle.DependantSleVoucherDetailNo);
     }
 }
 

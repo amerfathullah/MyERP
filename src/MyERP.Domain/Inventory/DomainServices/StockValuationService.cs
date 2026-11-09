@@ -67,7 +67,9 @@ public class StockValuationService : DomainService
         Guid? batchId = null,
         bool? isAdjustmentEntry = null,
         Guid? serialAndBatchBundleId = null,
-        Guid? projectId = null)
+        Guid? projectId = null,
+        Guid? voucherDetailNo = null,
+        Guid? dependantSleVoucherDetailNo = null)
     {
         var item = await _itemRepository.GetAsync(itemId);
         var previousSle = await GetPreviousSleAsync(itemId, warehouseId, postingDate);
@@ -228,6 +230,8 @@ public class StockValuationService : DomainService
         {
             VoucherType = voucherType,
             VoucherId = voucherId,
+            VoucherDetailNo = voucherDetailNo,
+            DependantSleVoucherDetailNo = dependantSleVoucherDetailNo,
             StockQueue = stockQueue,
             BatchId = batchId,
             SerialAndBatchBundleId = serialAndBatchBundleId,

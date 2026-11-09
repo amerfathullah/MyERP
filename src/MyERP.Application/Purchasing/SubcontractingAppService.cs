@@ -750,9 +750,16 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             }
 
             // Create SLE for RM consumption (stock-out from supplier warehouse if positive, stock-in if negative)
+            // Per ERPNext PR #64797 / commit 51e5ba7ec9: return entries carry DependantSleVoucherDetailNo
+            var dependantDetailNo = scr.IsReturn
+                ? (scr.Items.FirstOrDefault()?.Id ?? suppliedItem?.Id)
+                : null;
+
             await _stockValuationService.CreateLedgerEntryAsync(
                 scr.CompanyId, rm.ItemId, rm.WarehouseId.Value, scr.PostingDate,
-                -rm.ConsumedQty, 0, "SubcontractingReceipt", scr.Id, scr.TenantId);
+                -rm.ConsumedQty, 0, "SubcontractingReceipt", scr.Id, scr.TenantId,
+                voucherDetailNo: suppliedItem?.Id,
+                dependantSleVoucherDetailNo: dependantDetailNo);
 
             await _binService.ApplyStockMovementAsync(rm.ItemId, rm.WarehouseId.Value, -rm.ConsumedQty, 0);
         }

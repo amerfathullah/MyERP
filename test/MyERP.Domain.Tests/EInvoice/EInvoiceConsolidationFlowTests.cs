@@ -148,6 +148,8 @@ public class EInvoiceConsolidationFlowTests
 
         var invoices = new List<SalesInvoice> { inv1, inv2 };
         invoiceRepo.GetQueryableAsync().Returns(Task.FromResult(invoices.AsQueryable()));
+        invoiceRepo.WithDetailsAsync(NSubstitute.Arg.Any<System.Linq.Expressions.Expression<Func<SalesInvoice, object>>[]>())
+            .Returns(Task.FromResult(invoices.AsQueryable()));
         customerRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Customer>().AsQueryable()));
         consolRepo.GetListAsync(NSubstitute.Arg.Any<System.Linq.Expressions.Expression<Func<EInvoiceConsolidation, bool>>>())
             .Returns(Task.FromResult(new List<EInvoiceConsolidation>()));

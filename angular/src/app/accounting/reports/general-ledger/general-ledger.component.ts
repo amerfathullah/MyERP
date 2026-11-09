@@ -32,6 +32,7 @@ export class GeneralLedgerComponent implements OnInit {
     fromDate: [new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]],
     toDate: [new Date().toISOString().split('T')[0]],
     voucherNumber: [''],
+    convertAtReportingDateRate: [false],
   });
 
   companies = signal<CompanyDto[]>([]);
@@ -60,15 +61,35 @@ export class GeneralLedgerComponent implements OnInit {
       this.accountService.getList({ skipCount: 0, maxResultCount: 500, sorting: 'accountCode asc' })
         .subscribe(res => this.accounts.set(res.items ?? []));
     }
+    this.onAccountChange();
+  }
+
+  onAccountChange(): void {
+    if (!this.isForeignAccountSelected() && this.filters.get('convertAtReportingDateRate')?.value) {
+      this.filters.patchValue({ convertAtReportingDateRate: false });
+    }
+  }
+
+  isForeignAccountSelected(): boolean {
+    const accountId = this.filters.get('accountId')?.value;
+    const companyId = this.filters.get('companyId')?.value;
+    if (!accountId || !companyId) return false;
+    const company = this.companies().find(c => c.id === companyId);
+    const account = this.accounts().find(a => a.id === accountId);
+    if (!company || !account || !account.currency) return false;
+    return !!(company.currencyCode && account.currency !== company.currencyCode);
   }
 
   generate(): void {
     if (this.filters.invalid) { this.filters.markAllAsTouched(); return; }
     this.isLoading.set(true);
-    const { companyId, accountId, fromDate, toDate, voucherNumber } = this.filters.getRawValue();
+    const { companyId, accountId, fromDate, toDate, voucherNumber, convertAtReportingDateRate } = this.filters.getRawValue();
     const params: any = { companyId, fromDate, toDate };
     if (accountId) params.accountId = accountId;
     if (voucherNumber) params.voucherNumber = voucherNumber;
+    if (this.isForeignAccountSelected() && convertAtReportingDateRate) {
+      params.convertAtReportingDateRate = true;
+    }
 
     this.generalLedgerService.getReport(params)
       .subscribe({

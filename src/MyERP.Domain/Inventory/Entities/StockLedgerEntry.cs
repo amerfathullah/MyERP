@@ -67,6 +67,12 @@ public class StockLedgerEntry : CreationAuditedEntity<Guid>, IMultiTenant
     /// </summary>
     public Guid? VoucherDetailNo { get; set; }
 
+    /// <summary>
+    /// Links to dependent child item row of the source document (e.g. finished good item row or returned supplied item row).
+    /// Per ERPNext PR #64797 / commit 51e5ba7ec9: allows spotting returned supplied items without expensive database queries.
+    /// </summary>
+    public Guid? DependantSleVoucherDetailNo { get; set; }
+
     /// <summary>Batch reference for batch-tracked items.</summary>
     public Guid? BatchId { get; set; }
 
