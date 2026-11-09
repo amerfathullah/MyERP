@@ -199,6 +199,24 @@ public class PooledBinDetailsDto
     public decimal ProjectedQty { get; set; }
 }
 
+public class ProductionPlanMaterialDownloadRowDto
+{
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string StockUom { get; set; } = string.Empty;
+    public string Warehouse { get; set; } = string.Empty;
+    public decimal RequiredBomQty { get; set; }
+    public decimal ProjectedQty { get; set; }
+    public decimal ActualQty { get; set; }
+    public decimal OrderedQty { get; set; }
+    public decimal PlannedQty { get; set; }
+    public decimal ReservedQtyForProduction { get; set; }
+    public decimal SafetyStock { get; set; }
+    public decimal RequiredQty { get; set; }
+    public string Uom { get; set; } = string.Empty;
+}
+
 // === Interface ===
 
 public interface IProductionPlanAppService : IApplicationService
@@ -233,4 +251,7 @@ public interface IProductionPlanAppService : IApplicationService
 
     /// <summary>Fetch pooled bin details for an item and warehouse, aggregating child warehouse stock if group warehouse (ERPNext PR #60718 / commit 4f7f2aabc3).</summary>
     Task<PooledBinDetailsDto> GetPooledBinDetailsAsync(Guid companyId, Guid itemId, Guid warehouseId);
+
+    /// <summary>Download Required Materials rows with UOM and merged transfer/purchase quantities (ERPNext PR #65049 / commits 243fff334d, fd4fbcf7ff, 5eabaab431, 872632bf14).</summary>
+    Task<List<ProductionPlanMaterialDownloadRowDto>> DownloadRawMaterialsAsync(Guid id, List<Guid>? warehouseIds = null);
 }

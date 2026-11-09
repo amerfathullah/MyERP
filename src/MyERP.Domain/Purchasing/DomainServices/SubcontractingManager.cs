@@ -321,6 +321,104 @@ public class SubcontractingManager : DomainService
         var totalValue = validReturned.Sum(x => x.Rate * x.Qty);
         return Math.Round(totalValue / totalQty, precision);
     }
+
+    /// <summary>
+    /// Computes the quantity-weighted rate that the returned Subcontracting Receipt consumed the row's serial nos or batches at (by batch number).
+    /// Per ERPNext PR #64861 (commits eb0ee73b9d, c28d1f5bc6):
+    /// Returns the weighted average rate across the consumed batches/serials, or null if no matching consumed items.
+    /// </summary>
+    public static decimal? GetSerialBatchReturnRate(
+        IEnumerable<(string? BatchNo, string? SerialNo, decimal Qty)> returnedEntries,
+        IReadOnlyDictionary<(string? BatchNo, string? SerialNo), decimal> consumedRates,
+        int precision = 4)
+    {
+        var validReturned = new List<(decimal Rate, decimal Qty)>();
+        foreach (var entry in returnedEntries)
+        {
+            var sn = entry.SerialNo?.Trim();
+            var bn = entry.BatchNo?.Trim();
+            var key = (bn, sn?.ToUpperInvariant());
+            if (consumedRates.TryGetValue(key, out var rate))
+            {
+                validReturned.Add((rate, Math.Abs(entry.Qty)));
+            }
+            else if (!string.IsNullOrEmpty(bn) && consumedRates.TryGetValue((bn, null), out var batchRate))
+            {
+                validReturned.Add((batchRate, Math.Abs(entry.Qty)));
+            }
+            else if (!string.IsNullOrWhiteSpace(sn) &&
+                     consumedRates.TryGetValue((null, sn.ToUpperInvariant()), out var serialRate))
+            {
+                validReturned.Add((serialRate, Math.Abs(entry.Qty)));
+            }
+        }
+
+        var totalQty = validReturned.Sum(x => x.Qty);
+        if (totalQty <= 0) return null;
+
+        var totalValue = validReturned.Sum(x => x.Rate * x.Qty);
+        return Math.Round(totalValue / totalQty, precision);
+    }
+
+    /// <summary>
+    /// Computes the return rate for a supplied item row that directly specifies batch_no or serial_no strings.
+    /// Per ERPNext PR #64861 (commits eb0ee73b9d, c28d1f5bc6):
+    /// Matches serial numbers case-insensitively, or matches batch.
+    /// </summary>
+    public static decimal? GetSerialBatchReturnRate(
+        string? batchNo,
+        string? serialNos,
+        decimal qty,
+        IReadOnlyDictionary<(string? BatchNo, string? SerialNo), decimal> consumedRates,
+        int precision = 4)
+    {
+        var entries = new List<(string? BatchNo, string? SerialNo, decimal Qty)>();
+        if (!string.IsNullOrWhiteSpace(serialNos))
+        {
+            var sns = serialNos.Split(new[] { '\n', ',', '\r' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var sn in sns)
+            {
+                entries.Add((batchNo, sn, 1m));
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(batchNo))
+        {
+            entries.Add((batchNo, null, Math.Abs(qty)));
+        }
+
+        return GetSerialBatchReturnRate(entries, consumedRates, precision);
+    }
+
+    /// <summary>
+    /// Resolves the valuation rate for a supplied item on return or standard subcontracting receipt.
+    /// Per ERPNext PR #64861 (commits eb0ee73b9d, c28d1f5bc6):
+    /// - If isReturn is true: returns the qty-weighted consumed rate of the picked serial/batches in its bundle,
+    ///   falling back to original receipt's consumed rate. It is NOT overwritten by current item standard cost.
+    /// - If isReturn is false: uses the incoming standard valuation rate.
+    /// </summary>
+    public static decimal CalculateSuppliedItemRate(
+        bool isReturn,
+        decimal? serialBatchConsumedRate,
+        decimal? originalConsumedRate,
+        decimal standardCostRate)
+    {
+        if (!isReturn)
+        {
+            return standardCostRate;
+        }
+
+        if (serialBatchConsumedRate.HasValue && serialBatchConsumedRate.Value > 0)
+        {
+            return serialBatchConsumedRate.Value;
+        }
+
+        if (originalConsumedRate.HasValue && originalConsumedRate.Value > 0)
+        {
+            return originalConsumedRate.Value;
+        }
+
+        return standardCostRate;
+    }
 }
 
 public class SubcontractingRmConsumption

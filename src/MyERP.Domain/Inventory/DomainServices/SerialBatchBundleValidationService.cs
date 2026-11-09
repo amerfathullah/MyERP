@@ -135,6 +135,72 @@ public class SerialBatchBundleValidationService : DomainService
     }
 
     /// <summary>
+    /// Filters batches by batch number from a source document row for a return transaction.
+    /// Per ERPNext PR #64590 (commits c919eeb108 & c4b462c136):
+    /// Capped by available batch quantity in warehouse; skips unavailable batches if other batches cover the return.
+    /// </summary>
+    public static Dictionary<string, decimal> FilterReturnBatches(
+        IReadOnlyDictionary<string, decimal> sourceBatches,
+        decimal requiredReturnQty,
+        Guid warehouseId,
+        IReadOnlyDictionary<string, decimal> availableBatchQuantitiesInWarehouse,
+        bool isPurchaseReturn = true,
+        bool isInternalCustomer = false)
+    {
+        var filteredBatches = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var qty = Math.Abs(requiredReturnQty);
+        if (qty <= 0 || sourceBatches == null || sourceBatches.Count == 0)
+        {
+            return filteredBatches;
+        }
+
+        string? unavailableBatchNo = null;
+
+        foreach (var (batchNo, rawBatchQty) in sourceBatches)
+        {
+            if (qty <= 0)
+            {
+                break;
+            }
+
+            var batchQty = isInternalCustomer ? -rawBatchQty : Math.Abs(rawBatchQty);
+
+            if (isPurchaseReturn)
+            {
+                var availableInWh = availableBatchQuantitiesInWarehouse.GetValueOrDefault(batchNo, 0m);
+                batchQty = Math.Min(batchQty, availableInWh);
+
+                if (batchQty <= 0)
+                {
+                    unavailableBatchNo ??= batchNo;
+                    continue;
+                }
+            }
+
+            if (batchQty > qty)
+            {
+                filteredBatches[batchNo] = qty;
+                qty = 0m;
+            }
+            else
+            {
+                filteredBatches[batchNo] = filteredBatches.GetValueOrDefault(batchNo, 0m) + batchQty;
+                qty -= batchQty;
+            }
+        }
+
+        if (unavailableBatchNo != null && filteredBatches.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InsufficientStock)
+                .WithData("batchNo", unavailableBatchNo)
+                .WithData("warehouseId", warehouseId)
+                .WithData("detail", $"Batch {unavailableBatchNo} is not available in warehouse {warehouseId}.");
+        }
+
+        return filteredBatches;
+    }
+
+    /// <summary>
     /// Resolves current warehouse batch balances from the Stock Ledger and filters source return batches.
     /// </summary>
     public async Task<Dictionary<Guid, decimal>> FilterReturnBatchesAsync(
@@ -261,6 +327,123 @@ public class SerialBatchBundleValidationService : DomainService
     }
 
     /// <summary>
+    /// Drops picked serial numbers and deducts picked batch quantities by batch number so subsequent return rows against the same
+    /// source row do not pick them again.
+    /// Per ERPNext PR #64590 (commits 9403e3df8d, c919eeb108, c4b462c136).
+    /// </summary>
+    public static void RemovePickedSerialBatches(
+        ISet<string> availableSerialNos,
+        IDictionary<string, decimal> availableBatches,
+        IEnumerable<string> pickedSerialNos,
+        IReadOnlyDictionary<string, decimal> pickedBatches,
+        bool isInternalCustomer = false,
+        int precision = 4)
+    {
+        foreach (var sn in pickedSerialNos)
+        {
+            availableSerialNos.Remove(sn);
+        }
+
+        var sign = isInternalCustomer ? -1m : 1m;
+        foreach (var (batchNo, pickedQty) in pickedBatches)
+        {
+            if (availableBatches.TryGetValue(batchNo, out var currentQty))
+            {
+                var remaining = Math.Round(currentQty - (sign * pickedQty), precision);
+                if (remaining <= 0)
+                {
+                    availableBatches.Remove(batchNo);
+                }
+                else
+                {
+                    availableBatches[batchNo] = remaining;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sequentially picks serial numbers and batch quantities for a return line from an available pool,
+    /// depleting the pool so subsequent return lines against the same original line pick different serials
+    /// and the remaining batch quantity.
+    /// Per ERPNext PR #64590 (commits 9403e3df8d, c919eeb108, c4b462c136).
+    /// </summary>
+    public static PickedSerialBatchResult PickSerialBatchesForReturn(
+        ReturnSerialBatchPool pool,
+        decimal requiredQty,
+        Guid warehouseId,
+        IReadOnlyDictionary<Guid, decimal>? availableBatchQtyInWh = null,
+        IReadOnlyDictionary<string, decimal>? availableBatchQtyByNoInWh = null,
+        bool isPurchaseReturn = true,
+        bool isInternalCustomer = false,
+        int precision = 4)
+    {
+        var result = new PickedSerialBatchResult();
+        var qty = Math.Abs(requiredQty);
+        if (qty <= 0) return result;
+
+        // Serialized items: pick distinct serial numbers up to requiredQty
+        if (pool.SerialNos.Count > 0)
+        {
+            var countToPick = (int)Math.Min(qty, pool.SerialNos.Count);
+            result.SerialNos.AddRange(pool.SerialNos.Take(countToPick));
+        }
+
+        // Batched items by Guid:
+        if (pool.Batches.Count > 0)
+        {
+            var filtered = FilterReturnBatches(
+                pool.Batches,
+                qty,
+                warehouseId,
+                availableBatchQtyInWh ?? new Dictionary<Guid, decimal>(),
+                isPurchaseReturn,
+                isInternalCustomer);
+
+            foreach (var (bId, bQty) in filtered)
+            {
+                result.Batches[bId] = bQty;
+            }
+        }
+
+        // Batched items by string batch number:
+        if (pool.BatchesByNo.Count > 0)
+        {
+            var filtered = FilterReturnBatches(
+                pool.BatchesByNo,
+                qty,
+                warehouseId,
+                availableBatchQtyByNoInWh ?? new Dictionary<string, decimal>(),
+                isPurchaseReturn,
+                isInternalCustomer);
+
+            foreach (var (bNo, bQty) in filtered)
+            {
+                result.BatchesByNo[bNo] = bQty;
+            }
+        }
+
+        // Deduct picked serials and batches from pool
+        RemovePickedSerialBatches(
+            pool.SerialNos,
+            pool.Batches,
+            result.SerialNos,
+            result.Batches,
+            isInternalCustomer,
+            precision);
+
+        RemovePickedSerialBatches(
+            pool.SerialNos,
+            pool.BatchesByNo,
+            result.SerialNos,
+            result.BatchesByNo,
+            isInternalCustomer,
+            precision);
+
+        return result;
+    }
+
+    /// <summary>
     /// Updates available batch quantities by adjusting reservation quantities.
     /// Per ERPNext PR #64860 (commits 6caabeb477, 73c5f3a6b4):
     /// A reservation of a batch that is not available (e.g. expired or not present in warehouse) has nothing
@@ -308,4 +491,53 @@ public class SerialBatchBundleValidationService : DomainService
             }
         }
     }
+}
+
+/// <summary>
+/// Pool of available serial numbers and batches available on an original transaction line for return allocation.
+/// </summary>
+public class ReturnSerialBatchPool
+{
+    public HashSet<string> SerialNos { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<Guid, decimal> Batches { get; set; } = new();
+    public Dictionary<string, decimal> BatchesByNo { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public ReturnSerialBatchPool() { }
+
+    public ReturnSerialBatchPool(
+        IEnumerable<string>? serialNos = null,
+        IDictionary<Guid, decimal>? batches = null,
+        IDictionary<string, decimal>? batchesByNo = null)
+    {
+        if (serialNos != null)
+        {
+            foreach (var sn in serialNos)
+            {
+                if (!string.IsNullOrWhiteSpace(sn))
+                    SerialNos.Add(sn.Trim());
+            }
+        }
+
+        if (batches != null)
+        {
+            foreach (var (bId, qty) in batches)
+                Batches[bId] = qty;
+        }
+
+        if (batchesByNo != null)
+        {
+            foreach (var (bNo, qty) in batchesByNo)
+                BatchesByNo[bNo] = qty;
+        }
+    }
+}
+
+/// <summary>
+/// Result of serial numbers and batches picked for a single return row.
+/// </summary>
+public class PickedSerialBatchResult
+{
+    public List<string> SerialNos { get; set; } = new();
+    public Dictionary<Guid, decimal> Batches { get; set; } = new();
+    public Dictionary<string, decimal> BatchesByNo { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }

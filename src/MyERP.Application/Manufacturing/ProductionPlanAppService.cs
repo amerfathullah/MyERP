@@ -1887,6 +1887,86 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var incomingInTargetUom = incomingStockQty / targetFactor;
         return Math.Round(targetRowQty + incomingInTargetUom, precision);
     }
+
+    /// <summary>
+    /// Downloads raw materials required for the plan with UOM and merged transfer/purchase quantities.
+    /// Per ERPNext PR #65049 (commits 243fff334d, fd4fbcf7ff, 5eabaab431, 872632bf14).
+    /// </summary>
+    public async Task<List<ProductionPlanMaterialDownloadRowDto>> DownloadRawMaterialsAsync(Guid id, List<Guid>? warehouseIds = null)
+    {
+        var plan = await _planRepository.GetAsync(id, includeDetails: true);
+
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+        var whRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Warehouse, Guid>>();
+        var uomConversionService = LazyServiceProvider.LazyGetService<UomConversionService>();
+
+        var itemIds = plan.MaterialRequirements.Select(m => m.ItemId).Distinct().ToList();
+        var whIds = plan.MaterialRequirements.Where(m => m.WarehouseId.HasValue).Select(m => m.WarehouseId!.Value).Distinct().ToList();
+
+        var itemQuery = await itemRepo.GetQueryableAsync();
+        var items = itemQuery.Where(i => itemIds.Contains(i.Id)).ToDictionary(i => i.Id);
+
+        var whQuery = await whRepo.GetQueryableAsync();
+        var warehouses = whQuery.Where(w => whIds.Contains(w.Id)).ToDictionary(w => w.Id);
+
+        var rawRows = new List<RawMaterialPlanRow>();
+        foreach (var mr in plan.MaterialRequirements)
+        {
+            if (warehouseIds != null && warehouseIds.Count > 0 && mr.WarehouseId.HasValue && !warehouseIds.Contains(mr.WarehouseId.Value))
+            {
+                continue;
+            }
+
+            var item = items.GetValueOrDefault(mr.ItemId);
+            var wh = mr.WarehouseId.HasValue ? warehouses.GetValueOrDefault(mr.WarehouseId.Value) : null;
+
+            var conversionFactor = 1m;
+            if (item != null && !string.IsNullOrWhiteSpace(mr.Uom) && !string.Equals(mr.Uom, item.Uom, StringComparison.OrdinalIgnoreCase) && uomConversionService != null)
+            {
+                conversionFactor = await uomConversionService.GetConversionFactorAsync(item.Id, mr.Uom, item.Uom, item.VariantOfId);
+            }
+
+            rawRows.Add(new RawMaterialPlanRow
+            {
+                ItemCode = item?.ItemCode ?? mr.ItemName,
+                ItemName = mr.ItemName,
+                Description = item?.Description,
+                StockUom = item?.Uom ?? mr.Uom ?? "Unit",
+                Warehouse = wh?.Name ?? string.Empty,
+                ItemId = mr.ItemId,
+                WarehouseId = mr.WarehouseId,
+                RequiredBomQty = mr.RequiredQty,
+                ProjectedQty = 0m,
+                ActualQty = mr.AvailableQty,
+                OrderedQty = mr.OrderedQty,
+                PlannedQty = mr.PlannedQty,
+                ReservedQtyForProduction = 0m,
+                SafetyStock = mr.SafetyStock,
+                Quantity = mr.PlannedQty > 0 ? mr.PlannedQty : mr.RequiredQty,
+                Uom = mr.Uom ?? item?.Uom ?? "Unit",
+                ConversionFactor = conversionFactor
+            });
+        }
+
+        var downloadRows = ProductionPlanMaterialPlanningService.BuildDownloadRows(rawRows);
+        return downloadRows.Select(r => new ProductionPlanMaterialDownloadRowDto
+        {
+            ItemCode = r.ItemCode,
+            ItemName = r.ItemName,
+            Description = r.Description,
+            StockUom = r.StockUom,
+            Warehouse = r.Warehouse,
+            RequiredBomQty = r.RequiredBomQty,
+            ProjectedQty = r.ProjectedQty,
+            ActualQty = r.ActualQty,
+            OrderedQty = r.OrderedQty,
+            PlannedQty = r.PlannedQty,
+            ReservedQtyForProduction = r.ReservedQtyForProduction,
+            SafetyStock = r.SafetyStock,
+            RequiredQty = r.RequiredQty,
+            Uom = r.Uom
+        }).ToList();
+    }
 }
 
 
