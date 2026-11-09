@@ -155,11 +155,32 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         {
             var bomValidationService = LazyServiceProvider.LazyGetRequiredService<BomValidationService>();
             var byId = schedule.Items.ToDictionary(i => i.Id);
+            var updatedItems = schedule.Items.ToList();
+            var validatedUomPairs = new HashSet<(Guid ItemId, string Uom)>();
+
             foreach (var itemInput in input.Items)
             {
                 if (byId.TryGetValue(itemInput.Id, out var item))
                 {
                     item.PlannedQty = itemInput.PlannedQty;
+                    if (!string.IsNullOrWhiteSpace(itemInput.Uom))
+                    {
+                        item.Uom = itemInput.Uom;
+                    }
+                    if (itemInput.DeliveryDate != default)
+                    {
+                        item.DeliveryDate = itemInput.DeliveryDate;
+                    }
+                    if (itemInput.WarehouseId.HasValue)
+                    {
+                        item.WarehouseId = itemInput.WarehouseId;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(item.Uom) && validatedUomPairs.Add((item.ItemId, item.Uom)))
+                    {
+                        await ValidateMpsItemUomConversionAsync(item.ItemId, item.Uom);
+                    }
+
                     if (itemInput.BomId.HasValue && itemInput.BomId.Value != Guid.Empty)
                     {
                         await bomValidationService.ValidateProductionBomAsync(item.ItemId, itemInput.BomId.Value, schedule.CompanyId);
@@ -170,6 +191,43 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
                         item.BomId = null;
                     }
                 }
+                else if (itemInput.ItemId != Guid.Empty)
+                {
+                    var uom = string.IsNullOrWhiteSpace(itemInput.Uom) ? "Unit" : itemInput.Uom;
+                    if (validatedUomPairs.Add((itemInput.ItemId, uom)))
+                    {
+                        await ValidateMpsItemUomConversionAsync(itemInput.ItemId, uom);
+                    }
+
+                    if (itemInput.BomId.HasValue && itemInput.BomId.Value != Guid.Empty)
+                    {
+                        await bomValidationService.ValidateProductionBomAsync(itemInput.ItemId, itemInput.BomId.Value, schedule.CompanyId);
+                    }
+
+                    var newRow = new MasterProductionScheduleItem(
+                        itemInput.Id != Guid.Empty ? itemInput.Id : GuidGenerator.Create(),
+                        schedule.Id,
+                        itemInput.ItemId,
+                        string.IsNullOrWhiteSpace(itemInput.ItemName) ? "Item" : itemInput.ItemName,
+                        itemInput.DeliveryDate != default ? itemInput.DeliveryDate : schedule.FromDate,
+                        itemInput.PlannedQty,
+                        itemInput.CumulativeLeadTimeDays)
+                    {
+                        Uom = uom,
+                        BomId = itemInput.BomId.HasValue && itemInput.BomId.Value != Guid.Empty ? itemInput.BomId.Value : null,
+                        WarehouseId = itemInput.WarehouseId ?? schedule.ParentWarehouseId
+                    };
+                    updatedItems.Add(newRow);
+                }
+            }
+
+            if (updatedItems.Count != schedule.Items.Count)
+            {
+                schedule.SetItems(updatedItems.OrderBy(i => i.DeliveryDate));
+            }
+            else
+            {
+                schedule.ExtendToDate(schedule.ToDate);
             }
         }
 
@@ -323,7 +381,7 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
             }
         }
 
-        var itemNames = await ResolveItemNamesAsync(demand.Keys.Select(k => k.ItemId).Distinct());
+        var (itemNames, itemUoms) = await ResolveItemMetadataAsync(demand.Keys.Select(k => k.ItemId).Distinct());
 
         var scheduleItems = new List<MasterProductionScheduleItem>();
         foreach (var (key, value) in demand)
@@ -333,6 +391,7 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
                 GuidGenerator.Create(), schedule.Id, key.ItemId,
                 itemNames.GetValueOrDefault(key.ItemId, value.ItemName), key.DeliveryDate, value.Qty, leadTimeDays)
             {
+                Uom = itemUoms.GetValueOrDefault(key.ItemId, "Unit"),
                 WarehouseId = value.WarehouseId,
             });
         }
@@ -349,12 +408,25 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         var schedule = await _repository.GetAsync(id, includeDetails: true);
 
         // Validate that any BOM assigned on MPS rows belongs to the item and is active (ERPNext b8e3c8d8f2)
+        // and that any non-stock UOM has a valid conversion factor (ERPNext 7754616e80, 65a1498c04)
         var bomValidationService = LazyServiceProvider.LazyGetRequiredService<BomValidationService>();
-        foreach (var item in schedule.Items.Where(i => i.BomId.HasValue && i.BomId.Value != Guid.Empty))
+        var validatedBoms = new HashSet<(Guid ItemId, Guid BomId)>();
+        var validatedUoms = new HashSet<(Guid ItemId, string Uom)>();
+
+        foreach (var item in schedule.Items)
         {
-            await bomValidationService.ValidateProductionBomAsync(item.ItemId, item.BomId!.Value, schedule.CompanyId);
+            if (!string.IsNullOrWhiteSpace(item.Uom) && validatedUoms.Add((item.ItemId, item.Uom)))
+            {
+                await ValidateMpsItemUomConversionAsync(item.ItemId, item.Uom);
+            }
+
+            if (item.BomId.HasValue && item.BomId.Value != Guid.Empty && validatedBoms.Add((item.ItemId, item.BomId.Value)))
+            {
+                await bomValidationService.ValidateProductionBomAsync(item.ItemId, item.BomId!.Value, schedule.CompanyId);
+            }
         }
 
+        schedule.ExtendToDate(schedule.ToDate);
         schedule.Submit();
         await _repository.UpdateAsync(schedule);
         return ObjectMapper.Map<MasterProductionSchedule, MasterProductionScheduleDto>(schedule);
@@ -380,14 +452,38 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
             demand[key] = (string.Empty, qty, warehouseId);
     }
 
-    private async Task<Dictionary<Guid, string>> ResolveItemNamesAsync(IEnumerable<Guid> itemIds)
+    private async Task<(Dictionary<Guid, string> Names, Dictionary<Guid, string> Uoms)> ResolveItemMetadataAsync(IEnumerable<Guid> itemIds)
     {
         var ids = itemIds.ToList();
-        if (ids.Count == 0) return new Dictionary<Guid, string>();
+        if (ids.Count == 0) return (new Dictionary<Guid, string>(), new Dictionary<Guid, string>());
 
         var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
         var query = await itemRepo.GetQueryableAsync();
-        return query.Where(i => ids.Contains(i.Id)).ToDictionary(i => i.Id, i => i.ItemName);
+        var items = query.Where(i => ids.Contains(i.Id)).Select(i => new { i.Id, i.ItemName, i.Uom }).ToList();
+        return (
+            items.ToDictionary(i => i.Id, i => i.ItemName),
+            items.ToDictionary(i => i.Id, i => string.IsNullOrWhiteSpace(i.Uom) ? "Unit" : i.Uom)
+        );
+    }
+
+    private async Task ValidateMpsItemUomConversionAsync(Guid itemId, string? uom)
+    {
+        if (itemId == Guid.Empty || string.IsNullOrWhiteSpace(uom))
+            return;
+
+        var itemRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.Item, Guid>>();
+        var uomService = LazyServiceProvider.LazyGetService<Inventory.DomainServices.UomConversionService>();
+        if (itemRepo == null || uomService == null)
+            return;
+
+        var item = await itemRepo.FindAsync(itemId);
+        if (item == null || string.IsNullOrWhiteSpace(item.Uom))
+            return;
+
+        if (string.Equals(uom, item.Uom, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        await uomService.GetRequiredConversionFactorAsync(item.Id, uom, item.Uom, item.VariantOfId);
     }
 
     /// <summary>

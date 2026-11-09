@@ -230,7 +230,17 @@ public class CashFlowStatementAppService : ApplicationService, ICashFlowStatemen
         }
     }
 
-    private static List<(string Key, string Label, DateTime FromDate, DateTime ToDate, DateTime EffectiveStartDate)> BuildPeriods(
+    /// <summary>
+    /// Generates period columns for Financial Statements / Cash Flow.
+    /// Per ERPNext commits 2548ec4047 and 8c517abc81:
+    /// - For Monthly periodicity, aligns the first period end to the end of the current month.
+    /// - For Quarterly / Half-Yearly / Yearly periodicity with date range, starts the period on fromDate
+    ///   and advances by monthsPerPeriod minus 1 day.
+    /// - When accumulatedValues is true, caps each period end at the current fiscal year's end date so
+    ///   accumulated periods never cross a fiscal year boundary.
+    /// - Disambiguates duplicate mmm_yyyy period keys by appending _{pEnd.Day}.
+    /// </summary>
+    public static List<(string Key, string Label, DateTime FromDate, DateTime ToDate, DateTime EffectiveStartDate)> BuildPeriods(
         DateTime fromDate,
         DateTime toDate,
         string? periodicity,
@@ -247,9 +257,14 @@ public class CashFlowStatementAppService : ApplicationService, ICashFlowStatemen
             _ => 0
         };
 
+        FiscalYear? ResolveFiscalYear(DateTime date)
+        {
+            return fiscalYears.FirstOrDefault(f => f.StartDate.Date <= date.Date && f.EndDate.Date >= date.Date);
+        }
+
         DateTime ResolveFiscalYearStart(DateTime date)
         {
-            var fy = fiscalYears.FirstOrDefault(f => f.StartDate.Date <= date.Date && f.EndDate.Date >= date.Date);
+            var fy = ResolveFiscalYear(date);
             return fy?.StartDate.Date ?? new DateTime(date.Year, 1, 1);
         }
 
@@ -262,24 +277,51 @@ public class CashFlowStatementAppService : ApplicationService, ICashFlowStatemen
             return result;
         }
 
-        var cursor = fromDate;
-        var idx = 1;
-        while (cursor <= toDate)
+        var usedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var cursor = fromDate.Date;
+        while (cursor <= toDate.Date)
         {
-            var nextStart = cursor.AddMonths(monthsPerPeriod);
-            var pEnd = nextStart.AddDays(-1);
-            if (pEnd > toDate)
+            DateTime pEnd;
+            if (monthsPerPeriod == 1)
             {
-                pEnd = toDate;
+                // Monthly: align period end to the last day of cursor's month (commit 2548ec4047)
+                pEnd = new DateTime(cursor.Year, cursor.Month, 1).AddMonths(1).AddDays(-1);
+            }
+            else
+            {
+                // Non-monthly: start from cursor and add monthsPerPeriod minus 1 day (commit 2548ec4047)
+                pEnd = cursor.AddMonths(monthsPerPeriod).AddDays(-1);
+            }
+
+            if (accumulatedValues)
+            {
+                // Split period at fiscal year boundary when accumulatedValues is enabled (commit 2548ec4047)
+                var cursorFy = ResolveFiscalYear(cursor);
+                if (cursorFy != null && cursorFy.EndDate.Date < pEnd)
+                {
+                    pEnd = cursorFy.EndDate.Date;
+                }
+            }
+
+            if (pEnd > toDate.Date)
+            {
+                pEnd = toDate.Date;
+            }
+
+            var baseKey = pEnd.ToString("MMM_yyyy", System.Globalization.CultureInfo.InvariantCulture).ToLowerInvariant();
+            var key = baseKey;
+            if (!usedKeys.Add(key))
+            {
+                key = $"{baseKey}_{pEnd.Day}";
+                usedKeys.Add(key);
             }
 
             var fyStart = ResolveFiscalYearStart(pEnd);
-            var yearStartDate = fyStart > fromDate ? fyStart : fromDate;
+            var yearStartDate = fyStart > fromDate.Date ? fyStart : fromDate.Date;
             var effectiveStart = GetEffectiveStartDate(cursor, yearStartDate, fyStart, accumulatedValues);
-            result.Add(($"period_{idx}", $"{cursor:MMM yyyy} - {pEnd:MMM yyyy}", cursor, pEnd, effectiveStart));
+            result.Add((key, $"{cursor:MMM yyyy} - {pEnd:MMM yyyy}", cursor, pEnd, effectiveStart));
 
             cursor = pEnd.AddDays(1);
-            idx++;
         }
 
         return result;

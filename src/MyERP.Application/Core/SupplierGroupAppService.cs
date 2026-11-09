@@ -54,7 +54,9 @@ public class SupplierGroupAppService : MyERPAppService, ISupplierGroupAppService
     [Authorize(MyERPPermissions.SupplierGroups.Create)]
     public async Task<SupplierGroupDto> CreateAsync(CreateUpdateSupplierGroupDto input)
     {
-        var entity = new SupplierGroup(GuidGenerator.Create(), input.Name, input.ParentId, input.IsGroup, CurrentTenant.Id)
+        var newId = GuidGenerator.Create();
+        var parentId = await ResolveDefaultRootParentAsync(input.ParentId, newId, input.Name);
+        var entity = new SupplierGroup(newId, input.Name, parentId, input.IsGroup, CurrentTenant.Id)
         {
             DefaultPaymentTermsTemplateId = input.DefaultPaymentTermsTemplateId,
         };
@@ -66,14 +68,41 @@ public class SupplierGroupAppService : MyERPAppService, ISupplierGroupAppService
     [Authorize(MyERPPermissions.SupplierGroups.Edit)]
     public async Task<SupplierGroupDto> UpdateAsync(Guid id, CreateUpdateSupplierGroupDto input)
     {
+        if (input.ParentId == id)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("reason", "A supplier group cannot be its own parent.");
+        }
+
         var entity = await _repository.GetAsync(id);
         entity.Name = input.Name;
-        entity.ParentId = input.ParentId;
+        entity.ParentId = await ResolveDefaultRootParentAsync(input.ParentId, id, input.Name);
         entity.IsGroup = input.IsGroup;
         entity.DefaultPaymentTermsTemplateId = input.DefaultPaymentTermsTemplateId;
 
         await _repository.UpdateAsync(entity);
         return new SupplierGroupMapper().Map(entity);
+    }
+
+    private async Task<Guid?> ResolveDefaultRootParentAsync(Guid? parentId, Guid currentId, string currentName)
+    {
+        if (parentId.HasValue && parentId.Value != Guid.Empty)
+        {
+            return parentId.Value == currentId ? null : parentId;
+        }
+
+        var query = await _repository.GetQueryableAsync();
+        var root = query
+            .Where(x => x.ParentId == null && x.IsGroup)
+            .OrderBy(x => x.CreationTime)
+            .FirstOrDefault();
+
+        if (root != null && root.Id != currentId && !string.Equals(root.Name, currentName, StringComparison.OrdinalIgnoreCase))
+        {
+            return root.Id;
+        }
+
+        return null;
     }
 
     [Authorize(MyERPPermissions.SupplierGroups.Delete)]

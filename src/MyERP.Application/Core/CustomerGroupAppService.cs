@@ -54,7 +54,9 @@ public class CustomerGroupAppService : MyERPAppService, ICustomerGroupAppService
     [Authorize(MyERPPermissions.CustomerGroups.Create)]
     public async Task<CustomerGroupDto> CreateAsync(CreateUpdateCustomerGroupDto input)
     {
-        var entity = new CustomerGroup(GuidGenerator.Create(), input.Name, input.ParentId, input.IsGroup, CurrentTenant.Id)
+        var newId = GuidGenerator.Create();
+        var parentId = await ResolveDefaultRootParentAsync(input.ParentId, newId, input.Name);
+        var entity = new CustomerGroup(newId, input.Name, parentId, input.IsGroup, CurrentTenant.Id)
         {
             DefaultPaymentTermsTemplateId = input.DefaultPaymentTermsTemplateId,
             DefaultPriceListId = input.DefaultPriceListId,
@@ -68,9 +70,15 @@ public class CustomerGroupAppService : MyERPAppService, ICustomerGroupAppService
     [Authorize(MyERPPermissions.CustomerGroups.Edit)]
     public async Task<CustomerGroupDto> UpdateAsync(Guid id, CreateUpdateCustomerGroupDto input)
     {
+        if (input.ParentId == id)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("reason", "A customer group cannot be its own parent.");
+        }
+
         var entity = await _repository.GetAsync(id);
         entity.Name = input.Name;
-        entity.ParentId = input.ParentId;
+        entity.ParentId = await ResolveDefaultRootParentAsync(input.ParentId, id, input.Name);
         entity.IsGroup = input.IsGroup;
         entity.DefaultPaymentTermsTemplateId = input.DefaultPaymentTermsTemplateId;
         entity.DefaultPriceListId = input.DefaultPriceListId;
@@ -78,6 +86,27 @@ public class CustomerGroupAppService : MyERPAppService, ICustomerGroupAppService
 
         await _repository.UpdateAsync(entity);
         return new CustomerGroupMapper().Map(entity);
+    }
+
+    private async Task<Guid?> ResolveDefaultRootParentAsync(Guid? parentId, Guid currentId, string currentName)
+    {
+        if (parentId.HasValue && parentId.Value != Guid.Empty)
+        {
+            return parentId.Value == currentId ? null : parentId;
+        }
+
+        var query = await _repository.GetQueryableAsync();
+        var root = query
+            .Where(x => x.ParentId == null && x.IsGroup)
+            .OrderBy(x => x.CreationTime)
+            .FirstOrDefault();
+
+        if (root != null && root.Id != currentId && !string.Equals(root.Name, currentName, StringComparison.OrdinalIgnoreCase))
+        {
+            return root.Id;
+        }
+
+        return null;
     }
 
     [Authorize(MyERPPermissions.CustomerGroups.Delete)]

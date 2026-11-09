@@ -31,7 +31,34 @@ public class UomConversionService : DomainService
     public async Task<decimal> GetConversionFactorAsync(
         Guid? itemId, string transactionUom, string stockUom, Guid? variantOfItemId = null)
     {
-        if (string.Equals(transactionUom, stockUom, StringComparison.OrdinalIgnoreCase))
+        var factor = await TryFindConversionFactorAsync(itemId, transactionUom, stockUom, variantOfItemId);
+        return factor ?? 1m;
+    }
+
+    /// <summary>
+    /// Gets the conversion factor from transactionUom to stockUom and throws if no conversion factor is defined
+    /// when transactionUom differs from stockUom (ERPNext get_conversion_factor(..., throw_if_missing=True), commit 7754616e80).
+    /// </summary>
+    public async Task<decimal> GetRequiredConversionFactorAsync(
+        Guid? itemId, string transactionUom, string stockUom, Guid? variantOfItemId = null)
+    {
+        var factor = await TryFindConversionFactorAsync(itemId, transactionUom, stockUom, variantOfItemId);
+        if (!factor.HasValue || factor.Value <= 0m)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.UomNotConfiguredForItem)
+                .WithData("uom", transactionUom)
+                .WithData("stockUom", stockUom)
+                .WithData("itemId", itemId?.ToString() ?? string.Empty);
+        }
+
+        return factor.Value;
+    }
+
+    private async Task<decimal?> TryFindConversionFactorAsync(
+        Guid? itemId, string transactionUom, string stockUom, Guid? variantOfItemId = null)
+    {
+        if (string.IsNullOrWhiteSpace(transactionUom)
+            || string.Equals(transactionUom, stockUom, StringComparison.OrdinalIgnoreCase))
             return 1m;
 
         var query = await _repository.GetQueryableAsync();
@@ -113,8 +140,7 @@ public class UomConversionService : DomainService
         if (sharedTarget != 0)
             return sharedTarget;
 
-        // Default: no conversion found (assume same UOM or factor = 1)
-        return 1m;
+        return null;
     }
 
     /// <summary>
@@ -147,6 +173,34 @@ public class UomConversionService : DomainService
         {
             var factor = (decimal)Math.Pow(10, precision);
             qty = Math.Ceiling((minOrderQty / conversionFactor) * factor) / factor;
+        }
+
+        return qty;
+    }
+
+    /// <summary>
+    /// Calculates the purchase order quantity from required stock quantity and minimum order quantity,
+    /// rounding up to a whole number when the UOM requires whole numbers and checking whole-pack coverage
+    /// at stock_qty precision so real shortages on large quantities are not treated as float noise
+    /// (ERPNext commit d172ca0198 / PR #64310).
+    /// </summary>
+    public static decimal CalculateWholePackPurchaseOrderQty(
+        decimal requiredStockQty,
+        decimal minOrderQty,
+        decimal conversionFactor,
+        bool mustBeWholeNumber,
+        int stockQtyPrecision = 4)
+    {
+        var factor = conversionFactor > 0m ? conversionFactor : 1m;
+        var stockQty = Math.Max(requiredStockQty, minOrderQty);
+        var qty = stockQty / factor;
+        if (mustBeWholeNumber)
+        {
+            qty = Math.Ceiling(qty);
+            if (Math.Round((qty - 1m) * factor - stockQty, stockQtyPrecision, MidpointRounding.AwayFromZero) >= 0m)
+            {
+                qty -= 1m;
+            }
         }
 
         return qty;

@@ -167,34 +167,11 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
             .ToDictionary(g => g.Key, g => g.FirstOrDefault(b => b.IsDefault) ?? g.First());
 
         // 4. Gross Requirements: Demand
-        // a. Open Sales Orders
-        var soQuery = await _salesOrderRepository.GetQueryableAsync();
-        var salesOrders = soQuery
-            .Where(s => s.CompanyId == input.CompanyId
-                     && s.Status != DocumentStatus.Draft
-                     && s.Status != DocumentStatus.Cancelled
-                     && s.Status != DocumentStatus.Completed)
-            .ToList();
-
         var demandList = new List<(Guid ItemId, DateTime Date, decimal Qty, Guid? ExplicitBomId)>();
+        var uomConversionService = LazyServiceProvider.LazyGetService<MyERP.Inventory.DomainServices.UomConversionService>();
 
-        foreach (var so in salesOrders)
-        {
-            foreach (var line in so.Items.Where(i => itemIds.Contains(i.ItemId)))
-            {
-                var remaining = line.Quantity - line.DeliveredQty;
-                if (remaining > 0)
-                {
-                    var reqDate = (line.DeliveryDate ?? so.OrderDate).Date;
-                    if (reqDate >= minDate && reqDate <= maxDate)
-                    {
-                        demandList.Add((line.ItemId, reqDate, remaining, null));
-                    }
-                }
-            }
-        }
-
-        // b. Master Production Schedule demand (ERPNext commit 038d82c65c: filter by child delivery_date and warehouse)
+        // a. Master Production Schedule demand (ERPNext commit 038d82c65c: filter by child delivery_date and warehouse;
+        //    commit 11ea4f022a: convert MPS quantities to stock UOM; commit 2e6a5cd8e6: track MPS items so their SOs aren't double-counted)
         var mpsQuery = await _mpsRepository.GetQueryableAsync();
         var mpsList = mpsQuery
             .Where(m => m.CompanyId == input.CompanyId
@@ -202,6 +179,7 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
             .WhereIf(input.WarehouseId.HasValue, m => !m.ParentWarehouseId.HasValue || m.ParentWarehouseId == input.WarehouseId!.Value)
             .ToList();
 
+        var mpsPlannedItemIds = new HashSet<Guid>();
         foreach (var mps in mpsList)
         {
             foreach (var item in mps.Items
@@ -219,7 +197,85 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                 var reqDate = item.DeliveryDate.Date;
                 if (reqDate >= minDate && reqDate <= maxDate && item.PlannedQty > 0)
                 {
-                    demandList.Add((item.ItemId, reqDate, item.PlannedQty, item.BomId));
+                    var factor = 1m;
+                    if (uomConversionService != null
+                        && itemMap.TryGetValue(item.ItemId, out var mpsItemEntity)
+                        && !string.IsNullOrWhiteSpace(item.Uom)
+                        && !string.Equals(item.Uom, mpsItemEntity.Uom, StringComparison.OrdinalIgnoreCase))
+                    {
+                        factor = await uomConversionService.GetConversionFactorAsync(
+                            item.ItemId, item.Uom, mpsItemEntity.Uom, mpsItemEntity.VariantOfId);
+                    }
+
+                    mpsPlannedItemIds.Add(item.ItemId);
+                    demandList.Add((item.ItemId, reqDate, item.PlannedQty * factor, item.BomId));
+                }
+            }
+        }
+
+        // b. Open Sales Orders (ERPNext commit 2e6a5cd8e6: count Sales Orders of an MPS item once;
+        //    commit b7fa9539a2 / PR #64317: net delivered Product Bundle demand in MRP)
+        var productBundleRepo = LazyServiceProvider.LazyGetService<IRepository<ProductBundle, Guid>>();
+        var bundleByParentItem = new Dictionary<Guid, ProductBundle>();
+        if (productBundleRepo != null)
+        {
+            var pbQuery = await productBundleRepo.WithDetailsAsync(pb => pb.Items);
+            bundleByParentItem = pbQuery
+                .Where(pb => pb.IsActive && !pb.IsDisabled)
+                .ToList()
+                .GroupBy(pb => pb.ItemId)
+                .ToDictionary(g => g.Key, g => g.First());
+        }
+
+        var soQuery = await _salesOrderRepository.GetQueryableAsync();
+        var salesOrders = soQuery
+            .Where(s => s.CompanyId == input.CompanyId
+                     && s.Status != DocumentStatus.Draft
+                     && s.Status != DocumentStatus.Cancelled
+                     && s.Status != DocumentStatus.Completed
+                     && s.Status != DocumentStatus.Closed)
+            .ToList();
+
+        foreach (var so in salesOrders)
+        {
+            foreach (var line in so.Items)
+            {
+                if (input.WarehouseId.HasValue
+                    && line.WarehouseId.HasValue
+                    && line.WarehouseId.Value != input.WarehouseId.Value)
+                {
+                    continue;
+                }
+
+                var remaining = line.Quantity - line.DeliveredQty;
+                if (remaining <= 0)
+                    continue;
+
+                var reqDate = (line.DeliveryDate ?? so.OrderDate).Date;
+                if (reqDate < minDate || reqDate > maxDate)
+                    continue;
+
+                var convFactor = line.ConversionFactor > 0 ? line.ConversionFactor : 1m;
+                var remainingStockQty = remaining * convFactor;
+
+                // Product Bundle decomposition (ERPNext PR #64317 / commit b7fa9539a2):
+                // Only undelivered bundle component quantities count toward MRP demand.
+                if (bundleByParentItem.TryGetValue(line.ItemId, out var productBundle))
+                {
+                    foreach (var comp in productBundle.Items)
+                    {
+                        if (itemIds.Contains(comp.ComponentItemId) && !mpsPlannedItemIds.Contains(comp.ComponentItemId))
+                        {
+                            demandList.Add((comp.ComponentItemId, reqDate, comp.Qty * remainingStockQty, null));
+                        }
+                    }
+                    continue;
+                }
+
+                // Sales Orders of MPS items are already in their MPS rows (ERPNext commit 2e6a5cd8e6)
+                if (itemIds.Contains(line.ItemId) && !mpsPlannedItemIds.Contains(line.ItemId))
+                {
+                    demandList.Add((line.ItemId, reqDate, remainingStockQty, null));
                 }
             }
         }
@@ -619,6 +675,18 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                 return (SupplierId: r.DefaultSupplierId!.Value, ReleaseDate: releaseDate);
             });
 
+            var uomConversionService = LazyServiceProvider.LazyGetService<MyERP.Inventory.DomainServices.UomConversionService>();
+            var uomRepo = LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
+            var uomMustBeWholeMap = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            if (uomRepo != null)
+            {
+                var uoms = await uomRepo.GetListAsync();
+                foreach (var u in uoms)
+                {
+                    uomMustBeWholeMap[u.Name] = u.MustBeWholeNumber;
+                }
+            }
+
             foreach (var grp in groupedPurchases)
             {
 
@@ -636,16 +704,37 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                 foreach (var row in grp)
                 {
                     var itemEntity = itemMap.GetValueOrDefault(row.ItemId);
-                    var uom = itemEntity?.Uom ?? "Nos";
+                    var stockUom = itemEntity?.Uom ?? "Nos";
+                    // Per ERPNext commit 11ea4f022a: prefer Item.PurchaseUom, falling back to row.Uom or stockUom
+                    var uom = !string.IsNullOrWhiteSpace(itemEntity?.PurchaseUom)
+                        ? itemEntity.PurchaseUom!
+                        : (!string.IsNullOrWhiteSpace(row.Uom) ? row.Uom! : stockUom);
+
+                    var conversionFactor = 1m;
+                    if (uomConversionService != null && !string.Equals(uom, stockUom, StringComparison.OrdinalIgnoreCase))
+                    {
+                        conversionFactor = await uomConversionService.GetConversionFactorAsync(
+                            row.ItemId, uom, stockUom, itemEntity?.VariantOfId);
+                    }
+
+                    var mustBeWhole = uomMustBeWholeMap.GetValueOrDefault(uom, false);
+                    var poQty = MyERP.Inventory.DomainServices.UomConversionService.CalculateWholePackPurchaseOrderQty(
+                        row.Quantity,
+                        itemEntity?.MinOrderQty ?? 0m,
+                        conversionFactor,
+                        mustBeWhole);
+
                     var warehouse = row.WarehouseId ?? input.WarehouseId;
-                    po.AddItem(
+                    var poItem = po.AddItem(
                         row.ItemId,
                         row.ItemName ?? itemEntity?.ItemName ?? row.ItemCode,
-                        row.Quantity,
+                        poQty,
                         itemEntity?.StandardBuyingPrice ?? 0m,
                         0m,
                         uom,
                         warehouse);
+                    poItem.StockUom = stockUom;
+                    poItem.ConversionFactor = conversionFactor > 0m ? conversionFactor : 1m;
                 }
 
                 await _purchaseOrderRepository.InsertAsync(po);

@@ -135,10 +135,13 @@ public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
             throw new BusinessException(MyERPDomainErrorCodes.InvalidDiscountPercentage);
         }
 
+        var newId = GuidGenerator.Create();
+        var parentId = await ResolveDefaultRootParentAsync(input.ParentSalesPersonId, newId, input.Name);
+
         var sp = new SalesPerson(
-            GuidGenerator.Create(),
+            newId,
             input.Name,
-            input.ParentSalesPersonId,
+            parentId,
             CurrentTenant.Id);
 
         sp.IsGroup = input.IsGroup;
@@ -176,7 +179,7 @@ public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
         sp.SetCommissionRate(input.CommissionRate);
         sp.IsGroup = input.IsGroup;
         sp.EmployeeId = input.EmployeeId;
-        sp.ParentSalesPersonId = input.ParentSalesPersonId;
+        sp.ParentSalesPersonId = await ResolveDefaultRootParentAsync(input.ParentSalesPersonId, id, sp.Name);
         await _repository.UpdateAsync(sp);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
@@ -188,6 +191,31 @@ public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
             $"Sales person '{sp.Name}' updated", CurrentTenant.Id));
 
         return ObjectMapper.Map<SalesPerson, SalesPersonDto>(sp);
+    }
+
+    /// <summary>
+    /// Defaults an empty tree parent to the root Sales Person group unless the record itself is the root
+    /// (ERPNext commit 0e78d62389: set_root_as_default_parent).
+    /// </summary>
+    private async Task<Guid?> ResolveDefaultRootParentAsync(Guid? parentId, Guid currentId, string currentName)
+    {
+        if (parentId.HasValue && parentId.Value != Guid.Empty)
+        {
+            return parentId.Value == currentId ? null : parentId;
+        }
+
+        var query = await _repository.GetQueryableAsync();
+        var root = query
+            .Where(x => x.ParentSalesPersonId == null && x.IsGroup)
+            .OrderBy(x => x.CreationTime)
+            .FirstOrDefault();
+
+        if (root != null && root.Id != currentId && !string.Equals(root.Name, currentName, StringComparison.OrdinalIgnoreCase))
+        {
+            return root.Id;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -239,14 +267,17 @@ public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
             if (dnIds.Count > 0)
             {
                 var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
-                var dnQuery = await dnRepo.GetQueryableAsync();
+                var dnQuery = await dnRepo.WithDetailsAsync(d => d.Items);
                 var dnList = dnQuery.Where(dn =>
                     dnIds.Contains(dn.Id)
                     && dn.Status != Core.DocumentStatus.Draft
                     && dn.Status != Core.DocumentStatus.Cancelled
                     && dn.Status != Core.DocumentStatus.Closed).ToList();
 
-                var unfinishedDn = dnList.FirstOrDefault(dn => dn.PerBilled < 100m);
+                // Per ERPNext commit 9fa7b05e44: a returned or fully returned Delivery Note keeps PerBilled < 100,
+                // so check BillingStatus in ("To Bill", "Partially Billed") rather than PerBilled < 100.
+                var unfinishedDn = dnList.FirstOrDefault(dn =>
+                    dn.BillingStatus == "To Bill" || dn.BillingStatus == "Partially Billed");
                 if (unfinishedDn != null)
                 {
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)

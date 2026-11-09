@@ -1131,7 +1131,7 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
 
         await _repository.UpdateAsync(pe, autoSave: true);
 
-        // Reopen any Payment Request that was settled by this Payment Entry (ERPNext commit 389206f2dc)
+        // Reopen any Payment Request that was settled by this Payment Entry (ERPNext commits 389206f2dc, 97de257a13)
         var prRepo = LazyServiceProvider?.LazyGetService<IRepository<PaymentRequest, Guid>>();
         if (prRepo != null)
         {
@@ -1141,10 +1141,32 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 var paidRequests = prQuery
                     .Where(p => p.PaymentEntryId == pe.Id && p.Status == PaymentRequestStatus.Paid)
                     .ToList();
+                var poRepo = LazyServiceProvider?.LazyGetService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
                 foreach (var pr in paidRequests)
                 {
                     pr.ReopenOnPaymentCancelled();
                     await prRepo.UpdateAsync(pr);
+
+                    if (poRepo != null && string.Equals(pr.ReferenceDoctype, "PurchaseOrder", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var po = await poRepo.FindAsync(pr.ReferenceId);
+                        if (po != null)
+                        {
+                            if (po.AdvancePaid >= po.GrandTotal && po.GrandTotal > 0)
+                            {
+                                po.SetAdvancePaymentStatus("Fully Paid");
+                            }
+                            else if (po.AdvancePaid > 0)
+                            {
+                                po.SetAdvancePaymentStatus("Partially Paid");
+                            }
+                            else
+                            {
+                                po.SetAdvancePaymentStatus("Initiated");
+                            }
+                            await poRepo.UpdateAsync(po);
+                        }
+                    }
                 }
             }
         }

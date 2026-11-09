@@ -169,4 +169,58 @@ public class SerialBatchBundleValidationService : DomainService
             isPurchaseReturn,
             isInternalCustomer);
     }
+
+    /// <summary>
+    /// Determines whether a return row needs an accepted-qty Serial and Batch Bundle lookup.
+    /// Per ERPNext commits 2f2d383015 and 889b5fa479:
+    /// Return rows with zero accepted qty (e.g. returning only rejected qty from a fully-rejected receipt)
+    /// or with ReturnQtyFromRejectedWarehouse = true must be excluded from accepted-qty bundle lookup
+    /// so they do not fail with "No Serial / Batches are available for return" before the rejected bundle loop.
+    /// </summary>
+    public static bool NeedsAcceptedReturnBundle(
+        decimal acceptedQty,
+        bool returnQtyFromRejectedWarehouse,
+        Guid? existingAcceptedBundleId = null,
+        bool useSerialBatchFields = false)
+    {
+        if (useSerialBatchFields || returnQtyFromRejectedWarehouse)
+        {
+            return false;
+        }
+
+        return Math.Abs(acceptedQty) > 0m
+            && (!existingAcceptedBundleId.HasValue || existingAcceptedBundleId.Value == Guid.Empty);
+    }
+
+    /// <summary>
+    /// Determines whether a return row needs a rejected-qty Serial and Batch Bundle lookup.
+    /// Per ERPNext commit b96fbf92df (needs_rejected_bundle):
+    /// - If ReturnQtyFromRejectedWarehouse is true, the rejected return bundle lives in SerialAndBatchBundleId
+    ///   (existingAcceptedBundleId), so it only needs one if existingAcceptedBundleId is not set.
+    /// - Otherwise, it needs one only when RejectedWarehouseId is set, RejectedQty != 0, and
+    ///   RejectedSerialAndBatchBundleId (existingRejectedBundleId) is not yet set.
+    /// </summary>
+    public static bool NeedsRejectedReturnBundle(
+        decimal rejectedQty,
+        Guid? rejectedWarehouseId,
+        bool returnQtyFromRejectedWarehouse,
+        Guid? existingAcceptedBundleId = null,
+        Guid? existingRejectedBundleId = null,
+        bool useSerialBatchFields = false)
+    {
+        if (useSerialBatchFields)
+        {
+            return false;
+        }
+
+        if (returnQtyFromRejectedWarehouse)
+        {
+            return !existingAcceptedBundleId.HasValue || existingAcceptedBundleId.Value == Guid.Empty;
+        }
+
+        return rejectedWarehouseId.HasValue
+            && rejectedWarehouseId.Value != Guid.Empty
+            && Math.Abs(rejectedQty) > 0m
+            && (!existingRejectedBundleId.HasValue || existingRejectedBundleId.Value == Guid.Empty);
+    }
 }

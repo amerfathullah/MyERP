@@ -76,7 +76,35 @@ public class MasterProductionSchedule : FullAuditedAggregateRoot<Guid>, IMultiTe
         _items.Clear();
         _items.AddRange(items);
 
-        ToDate = _items.Count > 0 ? _items.Max(i => i.DeliveryDate) : null;
+        ExtendToDate(ToDate);
+    }
+
+    /// <summary>
+    /// Extends ToDate so it always covers the latest row DeliveryDate, explicit ToDate, or Sales Forecast dates.
+    /// Per ERPNext commit 38b9280852 (set_to_date):
+    /// - Always includes all child row delivery_dates.
+    /// - If ToDate is already set (or explicitToDate is provided), includes it in the candidate dates;
+    ///   otherwise includes forecastDeliveryDates.
+    /// - Sets ToDate = max(dates).
+    /// </summary>
+    public void ExtendToDate(DateTime? explicitToDate = null, IEnumerable<DateTime>? forecastDeliveryDates = null)
+    {
+        var dates = _items
+            .Where(i => i.DeliveryDate != default)
+            .Select(i => i.DeliveryDate.Date)
+            .ToList();
+
+        var currentToDate = explicitToDate ?? ToDate;
+        if (currentToDate.HasValue && currentToDate.Value != default)
+        {
+            dates.Add(currentToDate.Value.Date);
+        }
+        else if (forecastDeliveryDates != null)
+        {
+            dates.AddRange(forecastDeliveryDates.Where(d => d != default).Select(d => d.Date));
+        }
+
+        ToDate = dates.Count > 0 ? dates.Max() : null;
     }
 
     public void Submit()

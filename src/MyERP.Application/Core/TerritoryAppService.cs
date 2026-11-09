@@ -54,7 +54,9 @@ public class TerritoryAppService : MyERPAppService, ITerritoryAppService
     [Authorize(MyERPPermissions.Territories.Create)]
     public async Task<TerritoryDto> CreateAsync(CreateUpdateTerritoryDto input)
     {
-        var entity = new Territory(GuidGenerator.Create(), input.Name, input.ParentId, input.IsGroup, CurrentTenant.Id)
+        var newId = GuidGenerator.Create();
+        var parentId = await ResolveDefaultRootParentAsync(input.ParentId, newId, input.Name);
+        var entity = new Territory(newId, input.Name, parentId, input.IsGroup, CurrentTenant.Id)
         {
             TerritoryManagerId = input.TerritoryManagerId,
         };
@@ -66,14 +68,41 @@ public class TerritoryAppService : MyERPAppService, ITerritoryAppService
     [Authorize(MyERPPermissions.Territories.Edit)]
     public async Task<TerritoryDto> UpdateAsync(Guid id, CreateUpdateTerritoryDto input)
     {
+        if (input.ParentId == id)
+        {
+            throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("reason", "A territory cannot be its own parent.");
+        }
+
         var entity = await _repository.GetAsync(id);
         entity.Name = input.Name;
-        entity.ParentId = input.ParentId;
+        entity.ParentId = await ResolveDefaultRootParentAsync(input.ParentId, id, input.Name);
         entity.IsGroup = input.IsGroup;
         entity.TerritoryManagerId = input.TerritoryManagerId;
 
         await _repository.UpdateAsync(entity);
         return new TerritoryMapper().Map(entity);
+    }
+
+    private async Task<Guid?> ResolveDefaultRootParentAsync(Guid? parentId, Guid currentId, string currentName)
+    {
+        if (parentId.HasValue && parentId.Value != Guid.Empty)
+        {
+            return parentId.Value == currentId ? null : parentId;
+        }
+
+        var query = await _repository.GetQueryableAsync();
+        var root = query
+            .Where(x => x.ParentId == null && x.IsGroup)
+            .OrderBy(x => x.CreationTime)
+            .FirstOrDefault();
+
+        if (root != null && root.Id != currentId && !string.Equals(root.Name, currentName, StringComparison.OrdinalIgnoreCase))
+        {
+            return root.Id;
+        }
+
+        return null;
     }
 
     [Authorize(MyERPPermissions.Territories.Delete)]

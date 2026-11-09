@@ -1240,6 +1240,7 @@ export interface MrpOrderRowInputDto {
   typeOfMaterial: string;
   bomId?: string | null;
   quantity: number;
+  uom?: string | null;
   deliveryDate: string;
   releaseDate?: string | null;
   defaultSupplierId?: string | null;

@@ -763,13 +763,24 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
             }
 
             // GL: reverse of normal receipt (DR SRBNB, CR Stock)
-            var warehouseAccountService = LazyServiceProvider
-                .LazyGetRequiredService<WarehouseAccountService>();
-            var returnStockAccountId = await warehouseAccountService
-                .ResolveStockAccountAsync(receipt.WarehouseId, receipt.CompanyId);
-            var returnStockSplit = await ResolveStockAccountSplitAsync(receipt, stockValueByWarehouse);
-            await _postingOrchestrator.PostPurchaseReceiptAsync(
-                receipt, returnStockAccountId, srbnbAccountId: null, warehouseStockSplit: returnStockSplit);
+            // Skip GL creation when accepted qty and stock value are zero (e.g., rejected-only return when SetValuationRateForRejectedMaterials is disabled)
+            var hasReturnGlImpact = receipt.PurchaseExpenseTotal != 0m
+                || receipt.GrandTotal != 0m
+                || stockValueByWarehouse.Values.Any(v => v != 0m);
+            if (hasReturnGlImpact)
+            {
+                var warehouseAccountService = LazyServiceProvider
+                    .LazyGetRequiredService<WarehouseAccountService>();
+                var returnStockAccountId = await warehouseAccountService
+                    .ResolveStockAccountAsync(receipt.WarehouseId, receipt.CompanyId);
+                var returnStockSplit = await ResolveStockAccountSplitAsync(receipt, stockValueByWarehouse);
+                await _postingOrchestrator.PostPurchaseReceiptAsync(
+                    receipt, returnStockAccountId, srbnbAccountId: null, warehouseStockSplit: returnStockSplit);
+            }
+            else
+            {
+                await _postingOrchestrator.ValidatePostingPeriodAsync(receipt.CompanyId, receipt.PostingDate, "PurchaseReceipt");
+            }
 
             // Reduce linked PO ReceivedQty (with concurrency retry)
             if (receipt.PurchaseOrderId.HasValue)
@@ -866,13 +877,24 @@ public class PurchaseReceiptAppService : ApplicationService, IPurchaseReceiptApp
 
             // GL posting (perpetual inventory): DR Stock, CR SRBNB
             // Per ERPNext BaseStockGLComposer: uses warehouse-specific stock account for DR
-            var warehouseAccountService = LazyServiceProvider
-                .LazyGetRequiredService<WarehouseAccountService>();
-            var stockAccountId = await warehouseAccountService
-                .ResolveStockAccountAsync(receipt.WarehouseId, receipt.CompanyId);
-            var stockSplit = await ResolveStockAccountSplitAsync(receipt, stockValueByWarehouse);
-            await _postingOrchestrator.PostPurchaseReceiptAsync(
-                receipt, stockAccountId, srbnbAccountId: null, warehouseStockSplit: stockSplit);
+            // Skip GL creation when accepted qty and stock value are zero (e.g., rejected-only receipt when SetValuationRateForRejectedMaterials is disabled)
+            var hasGlImpact = receipt.PurchaseExpenseTotal != 0m
+                || receipt.GrandTotal != 0m
+                || stockValueByWarehouse.Values.Any(v => v != 0m);
+            if (hasGlImpact)
+            {
+                var warehouseAccountService = LazyServiceProvider
+                    .LazyGetRequiredService<WarehouseAccountService>();
+                var stockAccountId = await warehouseAccountService
+                    .ResolveStockAccountAsync(receipt.WarehouseId, receipt.CompanyId);
+                var stockSplit = await ResolveStockAccountSplitAsync(receipt, stockValueByWarehouse);
+                await _postingOrchestrator.PostPurchaseReceiptAsync(
+                    receipt, stockAccountId, srbnbAccountId: null, warehouseStockSplit: stockSplit);
+            }
+            else
+            {
+                await _postingOrchestrator.ValidatePostingPeriodAsync(receipt.CompanyId, receipt.PostingDate, "PurchaseReceipt");
+            }
 
             // Update linked Purchase Order fulfillment tracking
             // Update linked PO fulfillment (with concurrency retry)

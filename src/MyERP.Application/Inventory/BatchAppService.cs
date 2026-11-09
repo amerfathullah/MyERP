@@ -142,20 +142,15 @@ public class BatchAppService : ApplicationService, IBatchAppService
                     && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0)
                 .ToList();
 
-            // 1) Direct batch reservations
-            foreach (var sre in activeSres.Where(s => s.BatchId == batchId))
-            {
-                var unfulfilled = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
-                reservedByWarehouse[sre.WarehouseId] = reservedByWarehouse.GetValueOrDefault(sre.WarehouseId, 0m) + unfulfilled;
-            }
-
-            // 2) Bundle-based reservations
+            // Resolve active non-cancelled bundles first so SREs carrying both BatchId and SerialAndBatchBundleId
+            // are not double-counted (ERPNext commit 8cf7652623).
             var bundleIds = activeSres
                 .Where(s => s.SerialAndBatchBundleId.HasValue)
                 .Select(s => s.SerialAndBatchBundleId!.Value)
                 .Distinct()
                 .ToList();
 
+            var bundleLookup = new Dictionary<Guid, SerialAndBatchBundle>();
             if (bundleIds.Count > 0)
             {
                 var bundleRepo = LazyServiceProvider.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
@@ -163,22 +158,34 @@ public class BatchAppService : ApplicationService, IBatchAppService
                 {
                     var bundleQuery = await bundleRepo.GetQueryableAsync();
                     var bundles = bundleQuery.Where(b => bundleIds.Contains(b.Id) && !b.IsCancelled).ToList();
-                    var bundleLookup = bundles.ToDictionary(b => b.Id);
+                    bundleLookup = bundles.ToDictionary(b => b.Id);
+                }
+            }
 
-                    foreach (var sre in activeSres.Where(s => s.SerialAndBatchBundleId.HasValue))
+            // 1) Direct batch reservations (skip SREs already represented by a SerialAndBatchBundle)
+            foreach (var sre in activeSres.Where(s => s.BatchId == batchId
+                && (!s.SerialAndBatchBundleId.HasValue || !bundleLookup.ContainsKey(s.SerialAndBatchBundleId.Value))))
+            {
+                var unfulfilled = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
+                reservedByWarehouse[sre.WarehouseId] = reservedByWarehouse.GetValueOrDefault(sre.WarehouseId, 0m) + unfulfilled;
+            }
+
+            // 2) Bundle-based reservations
+            if (bundleLookup.Count > 0)
+            {
+                foreach (var sre in activeSres.Where(s => s.SerialAndBatchBundleId.HasValue))
+                {
+                    if (bundleLookup.TryGetValue(sre.SerialAndBatchBundleId!.Value, out var bundle))
                     {
-                        if (bundleLookup.TryGetValue(sre.SerialAndBatchBundleId!.Value, out var bundle))
-                        {
-                            var totalBundleQty = Math.Abs(bundle.TotalQty) > 0 ? Math.Abs(bundle.TotalQty) : bundle.Entries.Sum(e => e.Qty);
-                            var unfulfilledSre = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
-                            var ratio = totalBundleQty > 0 ? Math.Min(1m, unfulfilledSre / totalBundleQty) : 1m;
+                        var totalBundleQty = Math.Abs(bundle.TotalQty) > 0 ? Math.Abs(bundle.TotalQty) : bundle.Entries.Sum(e => e.Qty);
+                        var unfulfilledSre = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
+                        var ratio = totalBundleQty > 0 ? Math.Min(1m, unfulfilledSre / totalBundleQty) : 1m;
 
-                            foreach (var entry in bundle.Entries.Where(e => e.BatchId == batchId))
-                            {
-                                var whId = entry.WarehouseId ?? sre.WarehouseId;
-                                var entryReserved = entry.Qty * ratio;
-                                reservedByWarehouse[whId] = reservedByWarehouse.GetValueOrDefault(whId, 0m) + entryReserved;
-                            }
+                        foreach (var entry in bundle.Entries.Where(e => e.BatchId == batchId))
+                        {
+                            var whId = entry.WarehouseId ?? sre.WarehouseId;
+                            var entryReserved = entry.Qty * ratio;
+                            reservedByWarehouse[whId] = reservedByWarehouse.GetValueOrDefault(whId, 0m) + entryReserved;
                         }
                     }
                 }
@@ -655,21 +662,15 @@ public class BatchAppService : ApplicationService, IBatchAppService
 
                 var sres = sreQuery.ToList();
 
-                // 1) Direct BatchId reservations (only for available, non-expired batches per ERPNext 6caabeb477 / 73c5f3a6b4)
-                foreach (var sre in sres.Where(s => s.BatchId.HasValue && availableBatchIds.Contains(s.BatchId!.Value)))
-                {
-                    var key = (sre.WarehouseId, sre.BatchId!.Value);
-                    var activeReserved = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
-                    reservedMap[key] = reservedMap.GetValueOrDefault(key, 0m) + activeReserved;
-                }
-
-                // 2) Bundle-based reservations
+                // Resolve active non-cancelled bundles first so SREs carrying both BatchId and SerialAndBatchBundleId
+                // are not double-counted (ERPNext commit 8cf7652623).
                 var bundleIds = sres
                     .Where(s => s.SerialAndBatchBundleId.HasValue)
                     .Select(s => s.SerialAndBatchBundleId!.Value)
                     .Distinct()
                     .ToList();
 
+                var bundleLookup = new Dictionary<Guid, SerialAndBatchBundle>();
                 if (bundleIds.Count > 0)
                 {
                     var bundleRepo = LazyServiceProvider.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
@@ -677,23 +678,38 @@ public class BatchAppService : ApplicationService, IBatchAppService
                     {
                         var bundleQuery = await bundleRepo.GetQueryableAsync();
                         var bundles = bundleQuery.Where(b => bundleIds.Contains(b.Id) && !b.IsCancelled).ToList();
-                        var bundleLookup = bundles.ToDictionary(b => b.Id);
+                        bundleLookup = bundles.ToDictionary(b => b.Id);
+                    }
+                }
 
-                        foreach (var sre in sres.Where(s => s.SerialAndBatchBundleId.HasValue))
+                // 1) Direct BatchId reservations (only for available, non-expired batches per ERPNext 6caabeb477 / 73c5f3a6b4;
+                // skip SREs already represented by a SerialAndBatchBundle per commit 8cf7652623)
+                foreach (var sre in sres.Where(s => s.BatchId.HasValue
+                    && availableBatchIds.Contains(s.BatchId!.Value)
+                    && (!s.SerialAndBatchBundleId.HasValue || !bundleLookup.ContainsKey(s.SerialAndBatchBundleId.Value))))
+                {
+                    var key = (sre.WarehouseId, sre.BatchId!.Value);
+                    var activeReserved = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
+                    reservedMap[key] = reservedMap.GetValueOrDefault(key, 0m) + activeReserved;
+                }
+
+                // 2) Bundle-based reservations
+                if (bundleLookup.Count > 0)
+                {
+                    foreach (var sre in sres.Where(s => s.SerialAndBatchBundleId.HasValue))
+                    {
+                        if (bundleLookup.TryGetValue(sre.SerialAndBatchBundleId!.Value, out var bundle))
                         {
-                            if (bundleLookup.TryGetValue(sre.SerialAndBatchBundleId!.Value, out var bundle))
-                            {
-                                var totalBundleQty = Math.Abs(bundle.TotalQty) > 0 ? Math.Abs(bundle.TotalQty) : bundle.Entries.Sum(e => e.Qty);
-                                var unfulfilledSre = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
-                                var ratio = totalBundleQty > 0 ? Math.Min(1m, unfulfilledSre / totalBundleQty) : 1m;
+                            var totalBundleQty = Math.Abs(bundle.TotalQty) > 0 ? Math.Abs(bundle.TotalQty) : bundle.Entries.Sum(e => e.Qty);
+                            var unfulfilledSre = Math.Max(0m, sre.ReservedQty - sre.DeliveredQty - sre.TransferredQty - sre.ConsumedQty);
+                            var ratio = totalBundleQty > 0 ? Math.Min(1m, unfulfilledSre / totalBundleQty) : 1m;
 
-                                foreach (var entry in bundle.Entries.Where(e => e.BatchId.HasValue && availableBatchIds.Contains(e.BatchId!.Value)))
-                                {
-                                    var whId = entry.WarehouseId ?? sre.WarehouseId;
-                                    var key = (whId, entry.BatchId!.Value);
-                                    var entryReserved = entry.Qty * ratio;
-                                    reservedMap[key] = reservedMap.GetValueOrDefault(key, 0m) + entryReserved;
-                                }
+                            foreach (var entry in bundle.Entries.Where(e => e.BatchId.HasValue && availableBatchIds.Contains(e.BatchId!.Value)))
+                            {
+                                var whId = entry.WarehouseId ?? sre.WarehouseId;
+                                var key = (whId, entry.BatchId!.Value);
+                                var entryReserved = entry.Qty * ratio;
+                                reservedMap[key] = reservedMap.GetValueOrDefault(key, 0m) + entryReserved;
                             }
                         }
                     }

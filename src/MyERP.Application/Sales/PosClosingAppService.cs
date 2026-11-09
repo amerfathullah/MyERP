@@ -205,6 +205,95 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
                 .WithData("posProfileId", entry.PosProfileId);
         }
 
+        // Per ERPNext PR #62171 / commit e553c17711:
+        // When cancelling a POS Closing Entry, cancel the consolidated Sales Invoice, reverse GL/PLE,
+        // cancel any Stock Ledger Entries created by the consolidated invoice, restore Serial & Batch
+        // Bundles back to their source POS Invoices, and clear ConsolidatedSalesInvoiceId on source invoices.
+        if (entry.ConsolidatedSalesInvoiceId.HasValue)
+        {
+            var consolidatedSiId = entry.ConsolidatedSalesInvoiceId.Value;
+            var consolidatedSi = await _invoiceRepository.FindAsync(consolidatedSiId);
+            if (consolidatedSi != null && consolidatedSi.Status != Core.DocumentStatus.Cancelled)
+            {
+                consolidatedSi.Cancel();
+                await _invoiceRepository.UpdateAsync(consolidatedSi);
+            }
+
+            var postingOrchestrator = LazyServiceProvider.LazyGetService<Accounting.DomainServices.DocumentPostingOrchestrator>();
+            if (postingOrchestrator != null)
+            {
+                await postingOrchestrator.ReverseGlForDocumentAsync("SalesInvoice", consolidatedSiId);
+                await postingOrchestrator.ReverseGlForDocumentAsync("PosClosingEntry", entry.Id);
+            }
+
+            var pleService = LazyServiceProvider.LazyGetService<Accounting.DomainServices.PaymentLedgerService>();
+            if (pleService != null)
+            {
+                await pleService.UnreconcileAsync("PosClosingEntry", entry.Id, "SalesInvoice", consolidatedSiId);
+            }
+
+            // Cancel any active Stock Ledger Entries belonging to the consolidated Sales Invoice and restore Bin
+            var sleRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
+            var binService = LazyServiceProvider.LazyGetService<Inventory.DomainServices.BinService>();
+            if (sleRepo != null)
+            {
+                var sleQuery = await sleRepo.GetQueryableAsync();
+                var consolidatedSles = sleQuery
+                    .Where(s => s.VoucherType == "SalesInvoice" && s.VoucherId == consolidatedSiId && !s.IsCancelled)
+                    .ToList();
+                foreach (var sle in consolidatedSles)
+                {
+                    sle.IsCancelled = true;
+                    await sleRepo.UpdateAsync(sle);
+                    if (binService != null)
+                    {
+                        await binService.ApplyStockMovementAsync(
+                            sle.ItemId, sle.WarehouseId, -sle.QuantityChange, -sle.StockValue, entry.TenantId);
+                    }
+                }
+            }
+
+            // Restore SerialAndBatchBundle references back to source POS Invoice and clear ConsolidatedSalesInvoiceId
+            var sourcePosIds = entry.Invoices.Select(i => i.PosInvoiceId).Distinct().ToList();
+            var invoiceQuery = await _invoiceRepository.GetQueryableAsync();
+            var sourceInvoices = invoiceQuery
+                .Where(si => si.ConsolidatedSalesInvoiceId == consolidatedSiId || sourcePosIds.Contains(si.Id))
+                .ToList();
+
+            var bundleRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.SerialAndBatchBundle, Guid>>();
+            if (bundleRepo != null)
+            {
+                var bundleQuery = await bundleRepo.GetQueryableAsync();
+                var consolidatedBundles = bundleQuery
+                    .Where(b => b.VoucherType == "SalesInvoice" && b.VoucherId == consolidatedSiId)
+                    .ToList();
+
+                foreach (var bundle in consolidatedBundles)
+                {
+                    var matchingSource = sourceInvoices.FirstOrDefault(si => si.Items.Any(i => i.ItemId == bundle.ItemId))
+                        ?? sourceInvoices.FirstOrDefault();
+                    if (matchingSource != null)
+                    {
+                        bundle.VoucherType = "SalesInvoice";
+                        bundle.VoucherId = matchingSource.Id;
+                        bundle.IsCancelled = false;
+                        await bundleRepo.UpdateAsync(bundle);
+                    }
+                }
+            }
+
+            foreach (var srcInv in sourceInvoices)
+            {
+                if (srcInv.ConsolidatedSalesInvoiceId == consolidatedSiId)
+                {
+                    srcInv.ConsolidatedSalesInvoiceId = null;
+                    await _invoiceRepository.UpdateAsync(srcInv);
+                }
+            }
+
+            entry.ConsolidatedSalesInvoiceId = null;
+        }
+
         entry.Cancel();
         await _repository.UpdateAsync(entry, autoSave: true);
         return ObjectMapper.Map<PosClosingEntry, PosClosingDto>(entry);
@@ -247,6 +336,11 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
             dueDate: consolidatedSi.DueDate,
             accountCurrency: consolidatedSi.CurrencyCode,
             exchangeRate: consolidatedSi.ExchangeRate);
+
+        if (CurrentUnitOfWork != null)
+        {
+            await CurrentUnitOfWork.SaveChangesAsync();
+        }
 
         // Payment JE: one DR/CR pair per payment mode with a positive expected amount.
         var paidModes = entry.Payments.Where(p => p.ExpectedAmount > 0).ToList();

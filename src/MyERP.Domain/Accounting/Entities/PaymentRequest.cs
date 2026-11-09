@@ -67,6 +67,11 @@ public class PaymentRequest : FullAuditedAggregateRoot<Guid>, IMultiTenant
         ReferenceId = referenceId;
         PartyId = partyId;
         PartyType = partyType;
+        PaymentRequestType = string.Equals(partyType, "Supplier", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(referenceDoctype, "PurchaseOrder", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(referenceDoctype, "PurchaseInvoice", StringComparison.OrdinalIgnoreCase)
+            ? "Outward"
+            : "Inward";
         GrandTotal = grandTotal;
         OutstandingAmount = grandTotal;
         TenantId = tenantId;

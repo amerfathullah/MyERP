@@ -109,6 +109,7 @@ public class MrpOrderRowInputDto
     public string? ItemName { get; set; }
     public string TypeOfMaterial { get; set; } = "Purchase";
     public Guid? BomId { get; set; }
+    public string? Uom { get; set; }
     public decimal Quantity { get; set; }
     public DateTime DeliveryDate { get; set; }
     public DateTime? ReleaseDate { get; set; }
