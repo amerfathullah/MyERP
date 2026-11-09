@@ -6,6 +6,8 @@ public static class SalesPartnerConsts
     public const int MaxPartnerTypeLength = 50;
     public const int MaxTerritoryLength = 100;
     public const int MaxWebsiteLength = 500;
+    public const int MaxLogoUrlLength = 500;
+    public const int MaxIntroductionLength = 2000;
 }
 
 /// <summary>Sales partner type classification.</summary>

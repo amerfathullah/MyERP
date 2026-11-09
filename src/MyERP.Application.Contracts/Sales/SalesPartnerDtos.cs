@@ -12,10 +12,28 @@ public class SalesPartnerDto : EntityDto<Guid>
     public decimal CommissionRate { get; set; }
     public Guid? TerritoryId { get; set; }
     public string? Website { get; set; }
+    public bool ShowInWebsite { get; set; }
+    public string? LogoUrl { get; set; }
+    public string? Introduction { get; set; }
     public string? Description { get; set; }
     public bool IsEnabled { get; set; }
     public string? ReferralCode { get; set; }
     public List<SalesPartnerTargetDto> Targets { get; set; } = new();
+}
+
+/// <summary>
+/// Public-facing Sales Partner DTO for website visitors (/partners).
+/// Per ERPNext PR #64708 / commit ec0e080942: excludes internal commission rates, referral codes, and targets.
+/// </summary>
+public class PublicSalesPartnerDto : EntityDto<Guid>
+{
+    public string Name { get; set; } = null!;
+    public int PartnerType { get; set; }
+    public Guid? TerritoryId { get; set; }
+    public string? Website { get; set; }
+    public string? LogoUrl { get; set; }
+    public string? Introduction { get; set; }
+    public string? Description { get; set; }
 }
 
 public class SalesPartnerTargetDto
@@ -51,6 +69,11 @@ public class CreateSalesPartnerDto
 
     public Guid? TerritoryId { get; set; }
     public string? Website { get; set; }
+    public bool ShowInWebsite { get; set; }
+    [StringLength(SalesPartnerConsts.MaxLogoUrlLength)]
+    public string? LogoUrl { get; set; }
+    [StringLength(SalesPartnerConsts.MaxIntroductionLength)]
+    public string? Introduction { get; set; }
     public string? Description { get; set; }
     public string? ReferralCode { get; set; }
 }

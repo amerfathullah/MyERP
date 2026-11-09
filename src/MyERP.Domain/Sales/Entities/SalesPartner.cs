@@ -30,6 +30,18 @@ public class SalesPartner : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>Partner's website URL.</summary>
     public string? Website { get; set; }
 
+    /// <summary>
+    /// Whether this partner is displayed on the public website list (/partners).
+    /// Maps to ERPNext Sales Partner show_in_website.
+    /// </summary>
+    public bool ShowInWebsite { get; set; } = false;
+
+    /// <summary>Logo image URL for website display.</summary>
+    public string? LogoUrl { get; set; }
+
+    /// <summary>Introduction text for website display.</summary>
+    public string? Introduction { get; set; }
+
     /// <summary>Description of the partnership arrangement.</summary>
     public string? Description { get; set; }
 
@@ -75,6 +87,17 @@ public class SalesPartner : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public void Disable() => IsEnabled = false;
     public void Enable() => IsEnabled = true;
+
+    /// <summary>
+    /// Configures website publishing visibility and public-facing content.
+    /// Per ERPNext PR #64708 / commit ec0e080942: published partners are visible to guests.
+    /// </summary>
+    public void SetWebsitePublishing(bool showInWebsite, string? logoUrl = null, string? introduction = null)
+    {
+        ShowInWebsite = showInWebsite;
+        LogoUrl = logoUrl;
+        Introduction = introduction;
+    }
 
     /// <summary>Sales targets for this partner (PR #62324).</summary>
     public ICollection<SalesPartnerTarget> Targets { get; private set; }

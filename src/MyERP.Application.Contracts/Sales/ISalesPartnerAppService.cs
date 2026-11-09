@@ -15,4 +15,10 @@ public interface ISalesPartnerAppService : IApplicationService
     Task ToggleAsync(Guid id);
     Task<SalesPartnerDto> AddTargetAsync(Guid id, CreateSalesPartnerTargetDto input);
     Task<SalesPartnerDto> RemoveTargetAsync(Guid id, Guid targetId);
+
+    /// <summary>
+    /// Gets public list of published sales partners for website visitors (/partners).
+    /// Per ERPNext PR #64708 / commit ec0e080942: allows guest access and excludes internal commission/target data.
+    /// </summary>
+    Task<PagedResultDto<PublicSalesPartnerDto>> GetPublishedPartnersAsync(PagedAndSortedResultRequestDto input);
 }

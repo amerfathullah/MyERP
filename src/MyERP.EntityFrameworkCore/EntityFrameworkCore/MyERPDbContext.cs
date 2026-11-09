@@ -3672,6 +3672,8 @@ public class MyERPDbContext :
             b.Property(x => x.Name).IsRequired().HasMaxLength(SalesPartnerConsts.MaxNameLength);
             b.Property(x => x.CommissionRate).HasColumnType("decimal(5,2)");
             b.Property(x => x.Website).HasMaxLength(SalesPartnerConsts.MaxWebsiteLength);
+            b.Property(x => x.LogoUrl).HasMaxLength(SalesPartnerConsts.MaxLogoUrlLength);
+            b.Property(x => x.Introduction).HasMaxLength(SalesPartnerConsts.MaxIntroductionLength);
             b.Property(x => x.ReferralCode).HasMaxLength(50);
             b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
             b.HasMany(x => x.Targets).WithOne().HasForeignKey(x => x.SalesPartnerId).IsRequired();

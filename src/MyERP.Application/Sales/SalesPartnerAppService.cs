@@ -85,6 +85,9 @@ public class SalesPartnerAppService : ApplicationService, ISalesPartnerAppServic
 
         entity.TerritoryId = input.TerritoryId;
         entity.Website = input.Website;
+        entity.ShowInWebsite = input.ShowInWebsite;
+        entity.LogoUrl = input.LogoUrl;
+        entity.Introduction = input.Introduction;
         entity.Description = input.Description;
         entity.ReferralCode = input.ReferralCode;
 
@@ -114,6 +117,9 @@ public class SalesPartnerAppService : ApplicationService, ISalesPartnerAppServic
         entity.SetCommissionRate(input.CommissionRate);
         entity.TerritoryId = input.TerritoryId;
         entity.Website = input.Website;
+        entity.ShowInWebsite = input.ShowInWebsite;
+        entity.LogoUrl = input.LogoUrl;
+        entity.Introduction = input.Introduction;
         entity.Description = input.Description;
         entity.ReferralCode = input.ReferralCode;
 
@@ -133,6 +139,37 @@ public class SalesPartnerAppService : ApplicationService, ISalesPartnerAppServic
     public async Task DeleteAsync(Guid id)
     {
         await _repository.DeleteAsync(id);
+    }
+
+    /// <summary>
+    /// Gets public list of published sales partners for website visitors (/partners).
+    /// Per ERPNext PR #64708 / commit ec0e080942: allows guest access and excludes internal commission/target data.
+    /// </summary>
+    [AllowAnonymous]
+    public async Task<PagedResultDto<PublicSalesPartnerDto>> GetPublishedPartnersAsync(PagedAndSortedResultRequestDto input)
+    {
+        var queryable = await _repository.GetQueryableAsync();
+        var filtered = queryable.Where(x => x.IsEnabled && x.ShowInWebsite);
+
+        var totalCount = filtered.Count();
+        var items = filtered
+            .OrderBy(x => x.Name)
+            .Skip(input.SkipCount)
+            .Take(input.MaxResultCount)
+            .Select(x => new PublicSalesPartnerDto
+            {
+                Id = x.Id,
+                Name = x.Name,
+                PartnerType = (int)x.PartnerType,
+                TerritoryId = x.TerritoryId,
+                Website = x.Website,
+                LogoUrl = x.LogoUrl,
+                Introduction = x.Introduction,
+                Description = x.Description
+            })
+            .ToList();
+
+        return new PagedResultDto<PublicSalesPartnerDto>(totalCount, items);
     }
 
     [Authorize(MyERPPermissions.SalesPartners.Edit)]
@@ -159,6 +196,9 @@ public class SalesPartnerAppService : ApplicationService, ISalesPartnerAppServic
         CommissionRate = e.CommissionRate,
         TerritoryId = e.TerritoryId,
         Website = e.Website,
+        ShowInWebsite = e.ShowInWebsite,
+        LogoUrl = e.LogoUrl,
+        Introduction = e.Introduction,
         Description = e.Description,
         IsEnabled = e.IsEnabled,
         ReferralCode = e.ReferralCode,
