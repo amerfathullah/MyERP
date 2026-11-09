@@ -19,6 +19,9 @@ public class GeneralLedgerLineDto
     public string? PartyName { get; set; }
     public string? CostCenterName { get; set; }
     public string? Description { get; set; }
+    public string? PresentationCurrency { get; set; }
+    public decimal? AmountInAccountCurrency { get; set; }
+    public string? AccountCurrency { get; set; }
 }
 
 public class GeneralLedgerReportDto
@@ -29,6 +32,7 @@ public class GeneralLedgerReportDto
     public decimal TotalCredit { get; set; }
     public decimal Balance { get; set; }
     public int Count { get; set; }
+    public string? PresentationCurrency { get; set; }
 }
 
 public class GeneralLedgerFilterDto
@@ -41,6 +45,11 @@ public class GeneralLedgerFilterDto
     public Guid? PartyId { get; set; }
     public string? VoucherNumber { get; set; }
     public Guid? CostCenterId { get; set; }
+    /// <summary>
+    /// Convert company currency amounts to account currency at the exchange rate on ToDate (ERPNext PR #65016 / commit e8ae93e729).
+    /// </summary>
+    public bool ConvertAtReportingDateRate { get; set; }
+    public string? PresentationCurrency { get; set; }
 }
 
 public class VoucherLedgerEntryDto

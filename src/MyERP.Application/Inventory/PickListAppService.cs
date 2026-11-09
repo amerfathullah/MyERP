@@ -218,7 +218,9 @@ public class PickListAppService : ApplicationService, IPickListAppService
     private async Task<Dictionary<Guid, decimal>> BuildBundleComponentStockQtyMapAsync(
         MyERP.Sales.Entities.ProductBundle bundle,
         IRepository<Inventory.Entities.Item, Guid> itemRepo,
-        Inventory.DomainServices.UomConversionService? uomService)
+        Inventory.DomainServices.UomConversionService? uomService,
+        IEnumerable<PickListItem>? existingPickRows = null,
+        decimal soStockQty = 0m)
     {
         var componentStockQtyMap = new Dictionary<Guid, decimal>();
         var compIds = bundle.Items.Select(x => x.ComponentItemId).Distinct().ToList();
@@ -226,8 +228,22 @@ public class PickListAppService : ApplicationService, IPickListAppService
             .Where(i => compIds.Contains(i.Id))
             .ToDictionary(i => i.Id);
 
+        var pickRowList = existingPickRows?.ToList();
+
         foreach (var comp in bundle.Items)
         {
+            // Per ERPNext PR #65001 / commit 710a59f031:
+            // If the pick list already has packed rows for the order row, use the ordered packed qty per unit
+            if (pickRowList != null && soStockQty > 0)
+            {
+                var matchingPick = pickRowList.FirstOrDefault(p => p.ItemId == comp.ComponentItemId);
+                if (matchingPick != null && matchingPick.StockQty > 0)
+                {
+                    componentStockQtyMap[comp.ComponentItemId] = Math.Round(matchingPick.StockQty / soStockQty, 4);
+                    continue;
+                }
+            }
+
             var factor = 1m;
             if (compItems.TryGetValue(comp.ComponentItemId, out var compItem)
                 && !string.IsNullOrWhiteSpace(comp.Uom)
@@ -287,7 +303,8 @@ public class PickListAppService : ApplicationService, IPickListAppService
 
             if (bundle != null && bundle.Items.Count > 0)
             {
-                var componentStockQtyMap = await BuildBundleComponentStockQtyMapAsync(bundle, itemRepo, uomService);
+                var componentStockQtyMap = await BuildBundleComponentStockQtyMapAsync(
+                    bundle, itemRepo, uomService, pickRows, soItem.StockQty);
                 var bundlePickedCount = PickListManager.ComputePickedQtyForBundle(
                     pickRows, soItem.Id, componentStockQtyMap);
 
@@ -484,7 +501,8 @@ public class PickListAppService : ApplicationService, IPickListAppService
                 if (bundle != null && bundle.Items.Count > 0)
                 {
                     // Per ERPNext commit e3c6082498: count picked minus delivered per component row and skip bundles with nothing left
-                    var componentStockQtyMap = await BuildBundleComponentStockQtyMapAsync(bundle, itemRepo, uomService);
+                    var componentStockQtyMap = await BuildBundleComponentStockQtyMapAsync(
+                    bundle, itemRepo, uomService, pickRows, soItem.StockQty);
                     var pendingBundles = PickListManager.ComputePickedQtyForBundle(
                         pickRows, soItem.Id, componentStockQtyMap, pendingOnly: true);
 

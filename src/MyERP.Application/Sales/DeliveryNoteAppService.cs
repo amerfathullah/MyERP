@@ -646,16 +646,36 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 {
                     // Decompose returned product bundle into components (allowing disabled bundles per PR #62149 / commit ffcf97c223)
                     Guid? returnBundleVersionId = null;
+                    Dictionary<Guid, decimal>? componentStockQtyPerUnit = null;
                     if (origDnForRates?.SalesOrderId.HasValue == true && item.SalesOrderItemId.HasValue)
                     {
                         var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
                         var origSo = await soRepo.FindAsync(origDnForRates.SalesOrderId.Value);
-                        returnBundleVersionId = origSo?.Items.FirstOrDefault(i => i.Id == item.SalesOrderItemId.Value)?.ProductBundleId;
+                        var origSoItem = origSo?.Items.FirstOrDefault(i => i.Id == item.SalesOrderItemId.Value);
+                        returnBundleVersionId = origSoItem?.ProductBundleId;
+
+                        // Per ERPNext PR #65000 / commit ea7e451bcf: check returned bundle components at the qty the Sales Order packed
+                        if (origDnForRates.PickListId.HasValue)
+                        {
+                            var plRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.PickList, Guid>>();
+                            if (plRepo != null)
+                            {
+                                var pl = await plRepo.FindAsync(origDnForRates.PickListId.Value);
+                                var matchingPicks = pl?.Items.Where(p => p.SourceDocumentItemId == item.SalesOrderItemId.Value).ToList();
+                                if (matchingPicks != null && matchingPicks.Count > 0 && origSoItem != null && origSoItem.Quantity > 0)
+                                {
+                                    componentStockQtyPerUnit = matchingPicks.ToDictionary(
+                                        p => p.ItemId,
+                                        p => Math.Round((p.StockQty > 0 ? p.StockQty : p.Qty) / origSoItem.Quantity, 4));
+                                }
+                            }
+                        }
                     }
 
                     var components = await returnBundleService.DecomposeAsync(
                         item.ItemId, item.Quantity, item.UnitPrice, isReturn: true,
-                        productBundleId: returnBundleVersionId);
+                        productBundleId: returnBundleVersionId,
+                        componentStockQtyPerUnit: componentStockQtyPerUnit);
                     foreach (var comp in components)
                     {
                         var compEntity = await returnItemRepo.FindAsync(comp.ComponentItemId);
@@ -860,16 +880,36 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                 {
                     // Bundle item: decompose into components and deliver each component
                     Guid? bundleVersionId = null;
+                    Dictionary<Guid, decimal>? componentStockQtyPerUnit = null;
                     if (dn.SalesOrderId.HasValue && item.SalesOrderItemId.HasValue)
                     {
                         var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<SalesOrder, Guid>>();
                         var so = await soRepo.FindAsync(dn.SalesOrderId.Value);
-                        bundleVersionId = so?.Items.FirstOrDefault(i => i.Id == item.SalesOrderItemId.Value)?.ProductBundleId;
+                        var soItem = so?.Items.FirstOrDefault(i => i.Id == item.SalesOrderItemId.Value);
+                        bundleVersionId = soItem?.ProductBundleId;
+
+                        // Per ERPNext PR #65001 / commit 710a59f031: deliver product bundle components at the qty the Sales Order packed
+                        if (dn.PickListId.HasValue)
+                        {
+                            var plRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.PickList, Guid>>();
+                            if (plRepo != null)
+                            {
+                                var pl = await plRepo.FindAsync(dn.PickListId.Value);
+                                var matchingPicks = pl?.Items.Where(p => p.SourceDocumentItemId == item.SalesOrderItemId.Value).ToList();
+                                if (matchingPicks != null && matchingPicks.Count > 0 && soItem != null && soItem.Quantity > 0)
+                                {
+                                    componentStockQtyPerUnit = matchingPicks.ToDictionary(
+                                        p => p.ItemId,
+                                        p => Math.Round((p.StockQty > 0 ? p.StockQty : p.Qty) / soItem.Quantity, 4));
+                                }
+                            }
+                        }
                     }
 
                     var components = await bundleService.DecomposeAsync(
                         item.ItemId, item.Quantity, item.UnitPrice,
-                        productBundleId: bundleVersionId);
+                        productBundleId: bundleVersionId,
+                        componentStockQtyPerUnit: componentStockQtyPerUnit);
 
                     // Capture component valuation rates BEFORE stock removal (Bug #4 fix)
                     decimal bundleCostTotal = 0;

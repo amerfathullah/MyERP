@@ -28,7 +28,7 @@ public class UomConversionService : DomainService
     /// Returns the factor to multiply transaction qty by to get stock qty.
     /// Priority: item-specific → global → 1.0 (if same UOM or no conversion found).
     /// </summary>
-    public async Task<decimal> GetConversionFactorAsync(
+    public virtual async Task<decimal> GetConversionFactorAsync(
         Guid? itemId, string transactionUom, string stockUom, Guid? variantOfItemId = null)
     {
         var factor = await TryFindConversionFactorAsync(itemId, transactionUom, stockUom, variantOfItemId);

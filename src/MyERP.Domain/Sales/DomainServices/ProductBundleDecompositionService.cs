@@ -73,6 +73,7 @@ public class ProductBundleDecompositionService : DomainService
     /// Decomposes a single bundle item into its components, scaling by the transaction qty.
     /// Returns the list of component items with their scaled quantities and proportional rates.
     /// Converts component UOM to stock UOM per ERPNext PR #62149 / commit 80590d5e40.
+    /// Preserves the Sales Order's original packed component quantity per unit per PR #65001 / commit 710a59f031 and PR #65000 / commit ea7e451bcf.
     /// Allows now-disabled bundles for return transactions per PR #62149 / commit ffcf97c223.
     /// </summary>
     /// <param name="itemId">The bundle parent item ID</param>
@@ -82,12 +83,15 @@ public class ProductBundleDecompositionService : DomainService
     /// <param name="parentDetailId">Optional row ID of the parent bundle transaction item (for exact packed item matching per PR #60745)</param>
     /// <param name="parentIndex">Optional row index of the parent bundle transaction item (for exact packed item matching per PR #60745)</param>
     /// <param name="isReturn">Whether this transaction is a return document (allows disabled bundles)</param>
+    /// <param name="productBundleId">Optional bundle version</param>
+    /// <param name="componentStockQtyPerUnit">Optional component stock qty per bundle unit as packed by Sales Order</param>
     /// <returns>List of decomposed component items with qty and proportional rate</returns>
     public async Task<List<DecomposedItem>> DecomposeAsync(
         Guid itemId, decimal transactionQty, decimal parentRate,
         Guid? warehouseId = null, Guid? parentDetailId = null, int? parentIndex = null,
         bool isReturn = false,
-        Guid? productBundleId = null)
+        Guid? productBundleId = null,
+        IReadOnlyDictionary<Guid, decimal>? componentStockQtyPerUnit = null)
     {
         var queryable = await _bundleRepository.GetQueryableAsync();
         ProductBundle? bundle = null;
@@ -134,8 +138,19 @@ public class ProductBundleDecompositionService : DomainService
                 }
             }
 
-            // Scale qty: component_qty × componentFactor × parent_transaction_qty
-            var scaledQty = component.Qty * componentFactor * transactionQty;
+            // Component stock qty per bundle unit: if order had packed components, keep the ordered ratio (PR #65001 / PR #65000)
+            decimal componentQtyPerUnit;
+            if (componentStockQtyPerUnit != null && componentStockQtyPerUnit.TryGetValue(component.ComponentItemId, out var orderedRatio) && orderedRatio > 0)
+            {
+                componentQtyPerUnit = orderedRatio;
+            }
+            else
+            {
+                componentQtyPerUnit = component.Qty * componentFactor;
+            }
+
+            // Scale qty: componentQtyPerUnit × parent_transaction_qty
+            var scaledQty = Math.Round(componentQtyPerUnit * transactionQty, 4);
 
             // Proportional rate: parent_rate × (component_qty / total_bundle_qty)
             // This distributes the selling price across components proportionally

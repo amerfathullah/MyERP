@@ -262,6 +262,7 @@ public abstract class UpstreamBatch4IntegrationTests<TStartupModule> : MyERPAppl
             });
             peId = created.Id;
 
+            await peAppService.SubmitAsync(peId);
             await peAppService.PostAsync(peId);
         });
 

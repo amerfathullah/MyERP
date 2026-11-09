@@ -257,7 +257,11 @@ public class WorkOrderDto : AuditedEntityDto<Guid>
     public DateTime? ActualEndDate { get; set; }
     public decimal? LeadTime { get; set; }
     public decimal BatchSize { get; set; }
+    public decimal PlannedOperatingCost { get; set; }
+    public decimal ActualOperatingCost { get; set; }
     public decimal AdditionalOperatingCost { get; set; }
+    public decimal CorrectiveOperationCost { get; set; }
+    public decimal TotalOperatingCost { get; set; }
     public Guid? SourceWarehouseId { get; set; }
     public Guid? WipWarehouseId { get; set; }
     public Guid? FgWarehouseId { get; set; }
@@ -291,7 +295,11 @@ public class CreateWorkOrderDto
     [Required] [Range(0.01, double.MaxValue)] public decimal Quantity { get; set; }
     [Required] public Guid CompanyId { get; set; }
     public decimal BatchSize { get; set; }
+    public decimal PlannedOperatingCost { get; set; }
+    public decimal ActualOperatingCost { get; set; }
     public decimal AdditionalOperatingCost { get; set; }
+    public decimal CorrectiveOperationCost { get; set; }
+    public decimal TotalOperatingCost { get; set; }
     public Guid? SalesOrderId { get; set; }
     public Guid? SalesOrderItemId { get; set; }
     public Guid? ProductionPlanId { get; set; }

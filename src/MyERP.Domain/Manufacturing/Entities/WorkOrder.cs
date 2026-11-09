@@ -90,10 +90,34 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public decimal BatchSize { get; set; } = 0m;
 
     /// <summary>
+    /// Planned operating cost calculated from operations.
+    /// Maps to ERPNext manufacturing/doctype/work_order/work_order.json (planned_operating_cost).
+    /// </summary>
+    public decimal PlannedOperatingCost { get; set; } = 0m;
+
+    /// <summary>
+    /// Actual operating cost recorded from Job Cards.
+    /// Maps to ERPNext manufacturing/doctype/work_order/work_order.json (actual_operating_cost).
+    /// </summary>
+    public decimal ActualOperatingCost { get; set; } = 0m;
+
+    /// <summary>
     /// Additional operating cost for the work order, distributed to finished goods stock entry.
     /// Maps to ERPNext manufacturing/doctype/work_order/work_order.json (additional_operating_cost).
     /// </summary>
     public decimal AdditionalOperatingCost { get; set; } = 0m;
+
+    /// <summary>
+    /// Corrective operation cost from corrective Job Cards.
+    /// Maps to ERPNext manufacturing/doctype/work_order/work_order.json (corrective_operation_cost).
+    /// </summary>
+    public decimal CorrectiveOperationCost { get; set; } = 0m;
+
+    /// <summary>
+    /// Total operating cost = AdditionalOperatingCost + (ActualOperatingCost != 0 ? ActualOperatingCost : PlannedOperatingCost) + CorrectiveOperationCost.
+    /// Maps to ERPNext manufacturing/doctype/work_order/work_order.json (total_operating_cost).
+    /// </summary>
+    public decimal TotalOperatingCost { get; set; } = 0m;
 
     public List<WorkOrderItem> RequiredItems { get; private set; } = new();
 
@@ -124,6 +148,18 @@ public class WorkOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (Status != WorkOrderStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         RequiredItems.Clear();
+    }
+
+    /// <summary>
+    /// Recalculates planned and total operating costs.
+    /// Maps to ERPNext OperationsService.calculate_operating_cost.
+    /// Resets operating costs when draft Work Order changes to a BOM without operations (PR #64987 / commit 00a1268b74).
+    /// </summary>
+    public void CalculateOperatingCost(decimal plannedOperatingCostFromOperations = 0m)
+    {
+        PlannedOperatingCost = Math.Max(0m, Math.Round(plannedOperatingCostFromOperations, 4));
+        var variableCost = ActualOperatingCost != 0m ? ActualOperatingCost : PlannedOperatingCost;
+        TotalOperatingCost = Math.Round(AdditionalOperatingCost + variableCost + CorrectiveOperationCost, 4);
     }
 
     /// <summary>

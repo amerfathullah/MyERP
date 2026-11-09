@@ -542,7 +542,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var itemQuery = await itemRepo.GetQueryableAsync();
         var itemMap = itemQuery.Where(i => i.CompanyId == plan.CompanyId).ToList().ToDictionary(i => i.Id);
 
-        var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
+        var itemDefaultsService = LazyServiceProvider.LazyGetService<ItemDefaultsResolutionService>();
 
         var targetSubAssemblyWh = plan.SubAssemblyWarehouseId ?? plan.ForWarehouseId;
         var targetRawMaterialWh = plan.RawMaterialGroupWarehouseId ?? plan.ForWarehouseId;
@@ -623,7 +623,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                         // Per ERPNext commit ae0cfde014: fallback to item default warehouse for requested sub-assemblies
                         var targetWh = targetSubAssemblyWh
                             ?? currentBom.SourceWarehouseId
-                            ?? await itemDefaultsService.ResolveWarehouseAsync(bomItem.ItemId, plan.CompanyId);
+                            ?? (itemDefaultsService != null ? await itemDefaultsService.ResolveWarehouseAsync(bomItem.ItemId, plan.CompanyId) : null);
                         var requiredQty = multiplier;
 
                         if (!subAssemblyPool.TryGetValue(bomItem.ItemId, out var pool))
@@ -684,7 +684,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                         // Raw material leaf — fallback to item default warehouse when plan/BOM warehouses are unset (ERPNext f820b711cc)
                         var targetWh = targetRawMaterialWh
                             ?? currentBom.SourceWarehouseId
-                            ?? await itemDefaultsService.ResolveWarehouseAsync(bomItem.ItemId, plan.CompanyId);
+                            ?? (itemDefaultsService != null ? await itemDefaultsService.ResolveWarehouseAsync(bomItem.ItemId, plan.CompanyId) : null);
                         var (actualQty, _) = GetAggregatedBin(bomItem.ItemId, targetWh);
 
                         var rmRow = new ProductionPlanMrItem(
@@ -931,7 +931,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             }
         }
 
-        var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
+        var itemDefaultsService = LazyServiceProvider.LazyGetService<ItemDefaultsResolutionService>();
         var woManager = LazyServiceProvider.LazyGetRequiredService<MyERP.Manufacturing.DomainServices.WorkOrderManager>();
         var sreManager = LazyServiceProvider.LazyGetService<MyERP.Inventory.DomainServices.StockReservationManager>();
 
@@ -962,7 +962,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             {
                 var rawWarehouseId = req.SourceWarehouseId
                     ?? bom.SourceWarehouseId
-                    ?? await itemDefaultsService.ResolveWarehouseAsync(req.ItemId, plan.CompanyId);
+                    ?? (itemDefaultsService != null ? await itemDefaultsService.ResolveWarehouseAsync(req.ItemId, plan.CompanyId) : null);
 
                 wo.RequiredItems.Add(new WorkOrderItem(
                     GuidGenerator.Create(), wo.Id, req.ItemId, req.ItemName, req.RequiredQty)
@@ -1013,7 +1013,7 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             {
                 var rawWarehouseId = req.SourceWarehouseId
                     ?? bom.SourceWarehouseId
-                    ?? await itemDefaultsService.ResolveWarehouseAsync(req.ItemId, plan.CompanyId);
+                    ?? (itemDefaultsService != null ? await itemDefaultsService.ResolveWarehouseAsync(req.ItemId, plan.CompanyId) : null);
 
                 wo.RequiredItems.Add(new WorkOrderItem(
                     GuidGenerator.Create(), wo.Id, req.ItemId, req.ItemName, req.RequiredQty)
@@ -1067,18 +1067,22 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
 
         // Resolve default suppliers and fallback default warehouses (ERPNext PR #59349 & commit f820b711cc)
-        var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
+        var itemDefaultsService = LazyServiceProvider.LazyGetService<ItemDefaultsResolutionService>();
         var supplierMap = new Dictionary<Guid, Guid?>();
         foreach (var itemId in itemsNeedingMr.Select(m => m.ItemId).Distinct())
         {
-            supplierMap[itemId] = await itemDefaultsService.ResolveDefaultSupplierAsync(itemId, plan.CompanyId);
+            supplierMap[itemId] = itemDefaultsService != null
+                ? await itemDefaultsService.ResolveDefaultSupplierAsync(itemId, plan.CompanyId)
+                : null;
         }
 
         foreach (var mrItem in itemsNeedingMr)
         {
             if (!mrItem.WarehouseId.HasValue && !plan.ForWarehouseId.HasValue)
             {
-                mrItem.WarehouseId = await itemDefaultsService.ResolveWarehouseAsync(mrItem.ItemId, plan.CompanyId);
+                mrItem.WarehouseId = itemDefaultsService != null
+                    ? await itemDefaultsService.ResolveWarehouseAsync(mrItem.ItemId, plan.CompanyId)
+                    : null;
             }
         }
 

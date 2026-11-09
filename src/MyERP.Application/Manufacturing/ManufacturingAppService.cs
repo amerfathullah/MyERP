@@ -1301,6 +1301,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         };
         wo.ValidateBatchSize();
         wo.SetPlannedDates(plannedStartDate, plannedEndDate);
+        RecalculateWorkOrderOperatingCost(wo, bom);
 
         // Populate required items from BOM (with recursive phantom explosion per PR #59445)
         var itemGroupRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.ItemGroup, Guid>>();
@@ -1433,6 +1434,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         wo.Notes = input.Notes;
         wo.ValidateBatchSize();
         wo.SetPlannedDates(plannedStartDate, plannedEndDate);
+        RecalculateWorkOrderOperatingCost(wo, bom);
 
         // Repopulate required items (with recursive phantom explosion per PR #59445)
         wo.ClearRequiredItems();
@@ -4054,6 +4056,38 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         6 => "dark", 7 => "secondary", 8 => "primary",
         9 => "warning", _ => "secondary"
     };
+
+    /// <summary>
+    /// Recalculates planned and total operating cost on Work Order from BOM operations or FG-based rate.
+    /// Resets operating costs when a draft Work Order changes to a BOM without operations (PR #64987 / commit 00a1268b74).
+    /// </summary>
+    private static void RecalculateWorkOrderOperatingCost(WorkOrder wo, BillOfMaterials bom)
+    {
+        decimal plannedOperatingCost = 0m;
+        if (bom.WithOperations || (bom.Operations != null && bom.Operations.Any()))
+        {
+            var bomQty = bom.Quantity > 0 ? bom.Quantity : 1m;
+            foreach (var op in bom.Operations ?? Enumerable.Empty<BomOperation>())
+            {
+                var opTimeInMins = op.FixedTime > 0 ? op.FixedTime : (op.TimeInMins * (wo.Quantity / bomQty));
+                var hourRate = op.OperatingCost > 0 && op.TimeInMins > 0 ? (op.OperatingCost / (op.TimeInMins / 60m)) : 0m;
+                if (hourRate == 0m && op.OperatingCost > 0)
+                {
+                    plannedOperatingCost += Math.Round(op.OperatingCost * (wo.Quantity / bomQty), 4);
+                }
+                else
+                {
+                    plannedOperatingCost += Math.Round(hourRate * (opTimeInMins / 60m), 4);
+                }
+            }
+        }
+        else if (bom.FgBasedOperatingCost && !bom.IsPhantomBom)
+        {
+            plannedOperatingCost = Math.Round(wo.Quantity * bom.OperatingCostPerBomQuantity, 4);
+        }
+
+        wo.CalculateOperatingCost(plannedOperatingCost);
+    }
 
     /// <summary>
     /// Validates that fixed asset items are not used in BOMs.

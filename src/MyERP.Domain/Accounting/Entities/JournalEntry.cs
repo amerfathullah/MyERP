@@ -454,8 +454,8 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     private void RecalculateTotals()
     {
-        TotalDebit = Math.Round(_lines.Where(l => l.IsDebit).Sum(l => l.Amount), 2);
-        TotalCredit = Math.Round(_lines.Where(l => !l.IsDebit).Sum(l => l.Amount), 2);
+        TotalDebit = Math.Round(_lines.Where(l => l.IsDebit).Sum(l => l.Amount), 4);
+        TotalCredit = Math.Round(_lines.Where(l => !l.IsDebit).Sum(l => l.Amount), 4);
     }
 }
 

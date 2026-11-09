@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
@@ -49,7 +50,33 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
         var accountQuery = await _accountRepository.GetQueryableAsync();
         var accounts = accountQuery
             .Where(a => a.CompanyId == input.CompanyId)
-            .ToDictionary(a => a.Id, a => new { a.AccountCode, a.AccountName, a.AccountType });
+            .ToDictionary(a => a.Id, a => new { a.AccountCode, a.AccountName, a.AccountType, AccountCurrency = a.Currency });
+
+        // Per ERPNext PR #65016 (commit e8ae93e729):
+        // Resolve reporting date exchange rate for foreign currency accounts if ConvertAtReportingDateRate is enabled
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.Company, Guid>>();
+        var company = await companyRepo.GetAsync(input.CompanyId);
+        var companyCurrency = company.CurrencyCode;
+
+        string? targetPresentationCurrency = input.PresentationCurrency;
+        if (input.ConvertAtReportingDateRate && input.AccountId.HasValue && accounts.TryGetValue(input.AccountId.Value, out var acctForCurrency))
+        {
+            if (!string.IsNullOrWhiteSpace(acctForCurrency.AccountCurrency) && !string.Equals(acctForCurrency.AccountCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+            {
+                targetPresentationCurrency = acctForCurrency.AccountCurrency;
+            }
+        }
+
+        decimal reportingRate = 1m;
+        bool useReportingDateRate = input.ConvertAtReportingDateRate
+            && !string.IsNullOrWhiteSpace(targetPresentationCurrency)
+            && !string.Equals(targetPresentationCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase);
+
+        if (useReportingDateRate)
+        {
+            var exchangeService = LazyServiceProvider.LazyGetRequiredService<CurrencyExchangeService>();
+            reportingRate = await exchangeService.GetExchangeRateAsync(targetPresentationCurrency!, companyCurrency, to);
+        }
 
         // Per ERPNext PR #60251: compute opening balance before fromDate; exclude previous fiscal years for P&L accounts
         DateTime? fiscalYearStart = null;
@@ -82,7 +109,13 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
                 if (isPlAccount && fiscalYearStart.HasValue && je.PostingDate < fiscalYearStart.Value)
                     continue;
 
-                openingBalance += line.IsDebit ? line.Amount : -line.Amount;
+                var lineAmount = line.Amount;
+                if (useReportingDateRate && reportingRate > 0)
+                {
+                    lineAmount = Math.Round(line.Amount / reportingRate, 2);
+                }
+
+                openingBalance += line.IsDebit ? lineAmount : -lineAmount;
             }
         }
 
@@ -117,8 +150,13 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
                 if (line.CostCenterId.HasValue)
                     costCenters.TryGetValue(line.CostCenterId.Value, out costCenterName);
 
-                var debit = line.IsDebit ? line.Amount : 0;
-                var credit = !line.IsDebit ? line.Amount : 0;
+                var debit = line.IsDebit ? line.Amount : 0m;
+                var credit = !line.IsDebit ? line.Amount : 0m;
+                if (useReportingDateRate && reportingRate > 0)
+                {
+                    debit = Math.Round(debit / reportingRate, 2);
+                    credit = Math.Round(credit / reportingRate, 2);
+                }
                 runningBalance += debit - credit;
 
                 entries.Add(new GeneralLedgerLineDto
@@ -137,6 +175,9 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
                     PartyName = null, // Party name resolution requires separate lookup
                     CostCenterName = costCenterName,
                     Description = line.Description,
+                    PresentationCurrency = targetPresentationCurrency,
+                    AmountInAccountCurrency = line.AmountInAccountCurrency,
+                    AccountCurrency = line.AccountCurrency ?? acct?.AccountCurrency,
                 });
             }
         }
@@ -149,6 +190,7 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
             TotalCredit = entries.Sum(e => e.CreditAmount),
             Balance = entries.LastOrDefault()?.Balance ?? openingBalance,
             Count = entries.Count,
+            PresentationCurrency = targetPresentationCurrency,
         };
     }
 

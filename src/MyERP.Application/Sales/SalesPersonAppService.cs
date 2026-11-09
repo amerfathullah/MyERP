@@ -267,7 +267,7 @@ public class SalesPersonAppService : ApplicationService, ISalesPersonAppService
             if (dnIds.Count > 0)
             {
                 var dnRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DeliveryNote, Guid>>();
-                var dnQuery = await dnRepo.WithDetailsAsync(d => d.Items);
+                var dnQuery = await dnRepo.GetQueryableAsync();
                 var dnList = dnQuery.Where(dn =>
                     dnIds.Contains(dn.Id)
                     && dn.Status != Core.DocumentStatus.Draft
