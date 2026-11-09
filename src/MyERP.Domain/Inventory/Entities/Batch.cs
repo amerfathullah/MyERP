@@ -90,6 +90,19 @@ public class Batch : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Validates that ManufacturingDate is not greater than ExpiryDate.
+    /// Per ERPNext commit de7f4dfd77 / ecdb045ab3 (validate_from_to_dates).
+    /// </summary>
+    public void ValidateDates()
+    {
+        if (ManufacturingDate.HasValue && ExpiryDate.HasValue && ManufacturingDate.Value.Date > ExpiryDate.Value.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidDateRange)
+                .WithData("detail", "Manufacturing date cannot be greater than expiry date");
+        }
+    }
+
+    /// <summary>
     /// Auto-derives ManufacturingDate from reference doc posting date if unset, then computes ExpiryDate from shelf life (gotcha #242).
     /// </summary>
     public void DeriveManufacturingDateAndExpiry(DateTime? referenceDocPostingDate)

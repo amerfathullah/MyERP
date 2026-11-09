@@ -60,11 +60,19 @@ public class WorkOrderProductionService : DomainService
             }
             else // BOM-based
             {
-                // Per gotcha #453: MIN-capped formula
-                var unconsumed = item.RequiredQuantity - item.ConsumedQuantity;
+                // Per gotcha #453 and ERPNext _append_unconsumed_item (commits 57fb18aa0a, a438387bd7, 51ea86e625):
+                // Pull unconsumed raw materials into Manufacture after a consumption entry:
+                // wo_item_qty = flt(item.transferred_qty) or flt(item.required_qty)
+                // wo_qty_unconsumed = wo_item_qty - flt(item.consumed_qty)
+                // wo_qty_to_produce = (flt(wo.material_transferred_for_manufacturing) or flt(wo.qty)) - flt(wo.produced_qty)
+                // req_qty_each = min(wo_qty_unconsumed / (wo_qty_to_produce or 1), bom_qty_per_unit)
+                var woItemQty = item.TransferredQuantity > 0 ? item.TransferredQuantity : item.RequiredQuantity;
+                var unconsumed = woItemQty - item.ConsumedQuantity;
                 var perUnit = item.RequiredQuantity / workOrder.Quantity;
+                var workOrderQty = workOrder.MaterialTransferred > 0 ? workOrder.MaterialTransferred : workOrder.Quantity;
+                var woQtyToProduce = workOrderQty - workOrder.ProducedQuantity;
                 var reqQtyEach = Math.Min(
-                    workOrder.Quantity > 0 ? unconsumed / workOrder.Quantity : 0,
+                    unconsumed / (woQtyToProduce > 0 ? woQtyToProduce : 1m),
                     perUnit);
                 consumeQty = reqQtyEach * fgCompletedQty;
             }

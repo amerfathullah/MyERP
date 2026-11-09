@@ -119,11 +119,13 @@ public class ItemLeadTime : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
-    /// Computes lead time in days per ERPNext PR #59007 / commit 2ad4a8c4a4 (rounded up to nearest day).
+    /// Computes lead time in days per ERPNext PR #59007 / commit 2ad4a8c4a4 and commit 3f7f8877c9
+    /// (rounds fractional days to 4 decimal places before ceiling to prevent floating-point overshoot).
     /// </summary>
     public int CalculateLeadTimeDays(decimal qty = 1, bool isManufacture = true)
     {
-        return (int)Math.Ceiling(GetLeadTimeInDays(qty, isManufacture));
+        var days = Math.Round((decimal)GetLeadTimeInDays(qty, isManufacture), 4);
+        return (int)Math.Ceiling(days);
     }
 }
 

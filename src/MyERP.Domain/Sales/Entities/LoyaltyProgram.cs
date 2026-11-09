@@ -72,11 +72,12 @@ public class LoyaltyProgram : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>
     /// Add a tier to the program. Lowest tier must have minSpent = 0.
+    /// Per ERPNext commit db4196a0b1: treats empty/null minSpent as 0.
     /// </summary>
-    public void AddTier(string tierName, decimal minSpent, decimal collectionFactor, decimal redemptionFactor)
+    public void AddTier(string tierName, decimal? minSpent, decimal collectionFactor, decimal redemptionFactor)
     {
         Tiers.Add(new LoyaltyProgramTier(
-            Guid.NewGuid(), Id, tierName, minSpent, collectionFactor, redemptionFactor));
+            Guid.NewGuid(), Id, tierName, minSpent ?? 0m, collectionFactor, redemptionFactor));
     }
 
     /// <summary>

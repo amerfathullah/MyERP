@@ -181,22 +181,36 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>
     /// Completes open time logs and allocates completed quantity (ERPNext PR #60595 / commit da8343617a).
+    /// Per ERPNext commits 09f429f616, ad669c8f48, and 21685f5bc1:
+    /// Picks the cycle's time log (the open log started last by (FromTime, Idx)) before closing open logs,
+    /// so the cycle's completed quantity goes on exactly that latest row.
+    /// When toTime is default (no end time), updates only the latest time log's completed quantity.
     /// </summary>
     public void CompleteTimeLogs(DateTime toTime, decimal completedQty)
     {
         if (Status is JobCardStatus.Completed or JobCardStatus.Cancelled)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
 
-        var pendingQty = completedQty;
+        if (completedQty < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(completedQty));
+
+        if (toTime == default)
+        {
+            UpdateCycleTimeLogQty(completedQty);
+            return;
+        }
+
+        // Pick the cycle's time log before any row is closed: the one started last among open logs
         var openLogs = _timeLogs.Where(tl => tl.ToTime == default).ToList();
         if (openLogs.Count > 0)
         {
+            var cycleLog = GetCycleTimeLog(closing: true);
             foreach (var row in openLogs)
             {
                 row.ToTime = toTime;
-                row.CompletedQty = pendingQty;
+                row.CompletedQty = ReferenceEquals(row, cycleLog) ? completedQty : 0m;
                 row.TimeInMins = Math.Max(0m, (decimal)(toTime - row.FromTime).TotalMinutes);
-                pendingQty = 0m;
             }
         }
         else
@@ -211,6 +225,41 @@ public class JobCard : FullAuditedAggregateRoot<Guid>, IMultiTenant
         CompletedQty = _timeLogs.Sum(t => t.CompletedQty);
 
         ReleaseHoldIfNoQtyLeft();
+    }
+
+    /// <summary>
+    /// Updates the current cycle's time log quantity without closing the time log (ERPNext commit 09f429f616).
+    /// </summary>
+    public void UpdateCycleTimeLogQty(decimal completedQty)
+    {
+        if (completedQty < 0)
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", nameof(completedQty));
+
+        var cycleLog = GetCycleTimeLog(closing: false);
+        if (cycleLog == null)
+            return;
+
+        cycleLog.CompletedQty = completedQty;
+        CompletedQty = _timeLogs.Sum(t => t.CompletedQty);
+        ReleaseHoldIfNoQtyLeft();
+    }
+
+    private JobCardTimeLog? GetCycleTimeLog(bool closing)
+    {
+        var candidates = _timeLogs
+            .Select((row, idx) => (row, idx))
+            .Where(x => !(closing && x.row.ToTime != default))
+            .ToList();
+
+        if (candidates.Count == 0)
+            return null;
+
+        return candidates
+            .OrderBy(x => x.row.FromTime)
+            .ThenBy(x => x.idx)
+            .Last()
+            .row;
     }
 
     /// <summary>

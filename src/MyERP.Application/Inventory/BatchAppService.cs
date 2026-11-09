@@ -93,6 +93,8 @@ public class BatchAppService : ApplicationService, IBatchAppService
         if (batch.ManufacturingDate.HasValue && batch.ShelfLifeInDays.HasValue && !batch.ExpiryDate.HasValue)
             batch.SetExpiryFromShelfLife();
 
+        batch.ValidateDates();
+
         await _repository.InsertAsync(batch);
         return ObjectMapper.Map<Batch, BatchDto>(batch);
     }
@@ -707,10 +709,54 @@ public class BatchAppService : ApplicationService, IBatchAppService
                             foreach (var entry in bundle.Entries.Where(e => e.BatchId.HasValue && availableBatchIds.Contains(e.BatchId!.Value)))
                             {
                                 var whId = entry.WarehouseId ?? sre.WarehouseId;
+                                if (input.WarehouseId.HasValue && whId != input.WarehouseId.Value)
+                                    continue;
                                 var key = (whId, entry.BatchId!.Value);
                                 var entryReserved = entry.Qty * ratio;
                                 reservedMap[key] = reservedMap.GetValueOrDefault(key, 0m) + entryReserved;
                             }
+                        }
+                    }
+                }
+            }
+
+            // 3) Unconsolidated POS Invoice batch reservations filtered by warehouse and batch (ERPNext commit 39e0571409 / 1cf758a36f)
+            var siRepo = LazyServiceProvider.LazyGetService<IRepository<SalesInvoice, Guid>>();
+            var posBundleRepo = LazyServiceProvider.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
+            if (siRepo != null && posBundleRepo != null)
+            {
+                var siQuery = await siRepo.GetQueryableAsync();
+                siQuery = siQuery.Where(si => si.IsPos
+                    && !si.ConsolidatedSalesInvoiceId.HasValue
+                    && !si.UpdateStock
+                    && (si.Status == DocumentStatus.Submitted || si.Status == DocumentStatus.Posted));
+
+                if (input.CompanyId.HasValue)
+                    siQuery = siQuery.Where(si => si.CompanyId == input.CompanyId.Value);
+
+                var posInvoiceIds = siQuery.Select(si => si.Id).ToList();
+                if (posInvoiceIds.Count > 0)
+                {
+                    var posBundleQuery = await posBundleRepo.GetQueryableAsync();
+                    var posBundles = posBundleQuery
+                        .Where(b => !b.IsCancelled
+                            && posInvoiceIds.Contains(b.VoucherId)
+                            && (b.VoucherType == "PosInvoice" || b.VoucherType == "SalesInvoice"))
+                        .WhereIf(input.ItemId.HasValue, b => b.ItemId == input.ItemId!.Value)
+                        .ToList();
+
+                    foreach (var posBundle in posBundles)
+                    {
+                        foreach (var entry in posBundle.Entries.Where(e => e.BatchId.HasValue && availableBatchIds.Contains(e.BatchId!.Value)))
+                        {
+                            var whId = entry.WarehouseId ?? posBundle.WarehouseId;
+                            if (whId == Guid.Empty)
+                                continue;
+                            if (input.WarehouseId.HasValue && whId != input.WarehouseId.Value)
+                                continue;
+
+                            var key = (whId, entry.BatchId!.Value);
+                            reservedMap[key] = reservedMap.GetValueOrDefault(key, 0m) + Math.Abs(entry.Qty);
                         }
                     }
                 }

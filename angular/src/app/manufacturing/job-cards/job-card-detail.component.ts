@@ -88,21 +88,25 @@ import { DocumentConnectionsComponent } from '../../shared/components/document-c
           @if (d.status !== 3 && d.status !== 5) {
             <div class="card mb-3"><div class="card-body">
               <div class="d-flex gap-2 flex-wrap">
-                @if (d.status === 0 || d.status === 2 || d.status === 6) {
+                @if ((d.status === 0 || d.status === 2 || d.status === 6) && hasRemainingQty()) {
                   <button class="btn btn-primary" (click)="startTimer()">
                     <i class="fa fa-play me-1"></i>{{ '::Start' | abpLocalization }}
                   </button>
                 }
                 @if (d.status === 1) {
-                  <button class="btn btn-primary" (click)="startTimer()">
-                    <i class="fa fa-stopwatch me-1"></i>{{ '::StartTimer' | abpLocalization }}
-                  </button>
+                  @if (hasRemainingQty()) {
+                    <button class="btn btn-primary" (click)="startTimer()">
+                      <i class="fa fa-stopwatch me-1"></i>{{ '::StartTimer' | abpLocalization }}
+                    </button>
+                  }
                   <button class="btn btn-success" (click)="stopTimerAndComplete()">
                     <i class="fa fa-check me-1"></i>{{ '::Complete' | abpLocalization }}
                   </button>
-                  <button class="btn btn-warning" (click)="action('hold')">
-                    <i class="fa fa-pause me-1"></i>{{ '::Hold' | abpLocalization }}
-                  </button>
+                  @if (hasRemainingQty()) {
+                    <button class="btn btn-warning" (click)="action('hold')">
+                      <i class="fa fa-pause me-1"></i>{{ '::Hold' | abpLocalization }}
+                    </button>
+                  }
                   <button class="btn btn-outline-danger" (click)="action('cancel')">
                     <i class="fa fa-ban me-1"></i>{{ '::Cancel' | abpLocalization }}
                   </button>
@@ -221,6 +225,13 @@ export class JobCardDetailComponent implements OnInit, OnDestroy {
   load() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.service.get(id).subscribe({ next: (r) => this.d = r, error: () => {} });
+  }
+
+  /** True while completed + process loss quantity is still below quantity to manufacture (ERPNext commit de98c513af). */
+  hasRemainingQty(): boolean {
+    if (!this.d) return false;
+    const accountedQty = Math.round(((this.d.completedQty ?? 0) + (this.d.processLossQty ?? 0)) * 10000) / 10000;
+    return (this.d.forQuantity ?? 0) > accountedQty;
   }
 
   /** Start the live timer (begins tracking elapsed time client-side) */

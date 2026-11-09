@@ -20,8 +20,8 @@ public class BomItem : FullAuditedEntity<Guid>
     /// <summary>Conversion factor: transaction UOM → stock UOM.</summary>
     public decimal ConversionFactor { get; set; } = 1m;
 
-    /// <summary>Quantity in stock UOM = Quantity × ConversionFactor.</summary>
-    public decimal StockQty => Quantity * ConversionFactor;
+    /// <summary>Quantity in stock UOM = Round(Quantity × ConversionFactor, 4) per ERPNext commits e20967e15e and 8ae5e72ea6.</summary>
+    public decimal StockQty => Math.Round(Quantity * ConversionFactor, 4);
 
     /// <summary>
     /// Gets quantity consumed per unit of finished good based on the parent BOM quantity.

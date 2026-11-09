@@ -304,7 +304,7 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                 {
                     if (itemIds.Contains(bomItem.ItemId))
                     {
-                        explodedDemand.Add((bomItem.ItemId, d.Date, bomItem.Quantity * scale, null));
+                        explodedDemand.Add((bomItem.ItemId, d.Date, bomItem.StockQty * scale, null));
                     }
                 }
             }
@@ -558,18 +558,32 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
             .Where(b => b.CompanyId == input.CompanyId && b.IsActive)
             .ToList();
 
-        // PR #58510 & #58511 & commit a2172d476a: ensure each manufactured item uses its own BOM
+        var mfgItemIds = manufactureRows.Select(r => r.ItemId).Distinct().ToList();
+        var mfgItems = mfgItemIds.Count > 0
+            ? await _itemRepository.GetListAsync(i => mfgItemIds.Contains(i.Id))
+            : new List<Item>();
+        var mfgItemMap = mfgItems.ToDictionary(i => i.Id);
+
+        // PR #58510 & #58511 & commit a2172d476a: ensure each manufactured item uses its own BOM (or its template's BOM for variants)
         var missingBoms = new List<string>();
         foreach (var row in manufactureRows)
         {
+            mfgItemMap.TryGetValue(row.ItemId, out var rowItem);
+            var templateId = rowItem?.VariantOfId;
+
             var matchedBom = row.BomId.HasValue && row.BomId.Value != Guid.Empty
-                ? activeBoms.FirstOrDefault(b => b.Id == row.BomId.Value && b.ItemId == row.ItemId)
+                ? activeBoms.FirstOrDefault(b => b.Id == row.BomId.Value &&
+                    (b.ItemId == row.ItemId || (templateId.HasValue && b.ItemId == templateId.Value)))
                 : null;
 
             if (matchedBom == null)
             {
                 var defaultBom = activeBoms.FirstOrDefault(b => b.ItemId == row.ItemId && b.IsDefault)
-                    ?? activeBoms.FirstOrDefault(b => b.ItemId == row.ItemId);
+                    ?? activeBoms.FirstOrDefault(b => b.ItemId == row.ItemId)
+                    ?? (templateId.HasValue
+                        ? (activeBoms.FirstOrDefault(b => b.ItemId == templateId.Value && b.IsDefault)
+                            ?? activeBoms.FirstOrDefault(b => b.ItemId == templateId.Value))
+                        : null);
                 if (defaultBom != null)
                 {
                     row.BomId = defaultBom.Id;
@@ -587,9 +601,27 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                 .WithData("detail", $"Default BOM for {string.Join(", ", missingBoms.Distinct())} not found");
         }
 
+        var uomRepo = LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
+        var uomMustBeWholeMap = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        if (uomRepo != null)
+        {
+            var uoms = await uomRepo.GetListAsync();
+            foreach (var u in uoms)
+            {
+                uomMustBeWholeMap[u.Name] = u.MustBeWholeNumber;
+            }
+        }
+
         var createdWorkOrderIds = new List<Guid>();
         foreach (var row in manufactureRows)
         {
+            mfgItemMap.TryGetValue(row.ItemId, out var fgItemEntity);
+            fgItemEntity ??= await _itemRepository.FindAsync(row.ItemId);
+            var fgStockUom = fgItemEntity?.Uom ?? row.Uom ?? "Nos";
+            var fgMustBeWhole = uomMustBeWholeMap.GetValueOrDefault(fgStockUom, false);
+            // Per ERPNext commit 3c4b17dbc9: round work order qty to precision (4 decimals) before rounding up to whole units
+            var woQty = fgMustBeWhole ? Math.Ceiling(Math.Round(row.Quantity, 4)) : Math.Round(row.Quantity, 4);
+
             var woNumber = await _numberGenerator.GenerateAsync("WO", input.CompanyId);
             var plannedStart = row.ReleaseDate ?? row.DeliveryDate;
             var plannedEnd = row.DeliveryDate;
@@ -601,7 +633,7 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                 woNumber,
                 row.ItemId,
                 row.BomId!.Value,
-                row.Quantity,
+                woQty,
                 CurrentTenant.Id)
             {
                 FgWarehouseId = row.WarehouseId ?? input.WarehouseId,
@@ -612,7 +644,7 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
             var bom = activeBoms.FirstOrDefault(b => b.Id == row.BomId.Value);
             if (bom != null)
             {
-                var multiplier = bom.Quantity > 0 ? row.Quantity / bom.Quantity : row.Quantity;
+                var multiplier = bom.Quantity > 0 ? woQty / bom.Quantity : woQty;
                 foreach (var bi in bom.Items)
                 {
                     var rawWarehouse = bi.SourceWarehouseId ?? row.WarehouseId ?? input.WarehouseId;
@@ -623,7 +655,7 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
                         wo.Id,
                         bi.ItemId,
                         itemName,
-                        bi.Quantity * multiplier)
+                        Math.Round(bi.StockQty * multiplier, 4))
                     {
                         SourceWarehouseId = rawWarehouse
                     };
@@ -676,16 +708,6 @@ public class MaterialRequirementsPlanningAppService : ApplicationService, IMater
             });
 
             var uomConversionService = LazyServiceProvider.LazyGetService<MyERP.Inventory.DomainServices.UomConversionService>();
-            var uomRepo = LazyServiceProvider.LazyGetService<IRepository<Uom, Guid>>();
-            var uomMustBeWholeMap = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-            if (uomRepo != null)
-            {
-                var uoms = await uomRepo.GetListAsync();
-                foreach (var u in uoms)
-                {
-                    uomMustBeWholeMap[u.Name] = u.MustBeWholeNumber;
-                }
-            }
 
             foreach (var grp in groupedPurchases)
             {

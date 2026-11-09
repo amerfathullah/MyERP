@@ -161,12 +161,18 @@ public class WorkOrderManager : DomainService
                     ?? item?.DefaultWarehouseId
                     ?? group?.DefaultWarehouseId;
 
+                // Per ERPNext commits e20967e15e and 8ae5e72ea6:
+                // BOM rows are costed per row UOM; Work Order rows require stock qty and rate per stock UOM.
+                var convFactor = i.ConversionFactor > 0 ? i.ConversionFactor : 1m;
+                var rowStockQty = Math.Round(i.Quantity * convFactor, 4);
+                var rowStockRate = Math.Round(i.Rate / convFactor, 4);
+
                 collected.Add(new WorkOrderMaterialRequirement
                 {
                     ItemId = i.ItemId,
                     ItemName = i.ItemName,
-                    RequiredQty = (i.Quantity / bomOutputQty) * produceQty,
-                    Rate = i.Rate,
+                    RequiredQty = (rowStockQty / bomOutputQty) * produceQty,
+                    Rate = rowStockRate,
                     SourceWarehouseId = sourceWarehouseId
                 });
             }

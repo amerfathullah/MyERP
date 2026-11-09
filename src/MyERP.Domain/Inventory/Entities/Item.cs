@@ -340,6 +340,27 @@ public class Item : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     /// <summary>
+    /// Validates that deferred revenue/expense month counts are non-negative.
+    /// Per ERPNext commits 67cbeeee42 and b1dd2aff0a.
+    /// </summary>
+    public void ValidateDeferredMonths(int? noOfMonthsRevenue = null, int? noOfMonthsExpense = null)
+    {
+        if (noOfMonthsRevenue.HasValue && noOfMonthsRevenue.Value < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "NoOfMonths")
+                .WithData("detail", "No of Months (Revenue) cannot be negative");
+        }
+
+        if (noOfMonthsExpense.HasValue && noOfMonthsExpense.Value < 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.AmountMustBePositive)
+                .WithData("field", "NoOfMonthsExp")
+                .WithData("detail", "No of Months (Expense) cannot be negative");
+        }
+    }
+
+    /// <summary>
     /// Validates serial and batch settings when creating a stock item with positive opening stock.
     /// Maps to ERPNext stock/doctype/item/item.py: validate_opening_stock (PR #60319 / commit 19c81cec44).
     /// </summary>

@@ -101,13 +101,16 @@ public class DeliveryScheduleService : DomainService
 
     /// <summary>
     /// Rescale and refresh an item's delivery schedules after its quantity changes.
-    /// Per ERPNext PR #62127 (commit 15dce72d1d):
+    /// Per ERPNext PR #62127 (commit 15dce72d1d) and commit 93362b6785:
+    /// Reuses delivery schedule rows only from the same Sales Order and Sales Order Item.
     /// Capped by remaining item quantity in order of scheduled date.
     /// Excess schedule entries with 0 remaining quantity are removed.
     /// </summary>
     public List<DeliveryScheduleEntry> SyncScheduleWithItem(
         List<DeliveryScheduleEntry> existingEntries,
-        decimal newItemQty)
+        decimal newItemQty,
+        Guid? salesOrderId = null,
+        Guid? salesOrderItemId = null)
     {
         if (existingEntries == null || existingEntries.Count == 0)
             return new List<DeliveryScheduleEntry>();
@@ -115,7 +118,12 @@ public class DeliveryScheduleService : DomainService
         var remaining = newItemQty;
         var keptEntries = new List<DeliveryScheduleEntry>();
 
-        foreach (var entry in existingEntries.OrderBy(e => e.ScheduledDate))
+        var matchingEntries = existingEntries
+            .Where(e => (!salesOrderId.HasValue || e.SalesOrderId == salesOrderId.Value)
+                     && (!salesOrderItemId.HasValue || e.SalesOrderItemId == salesOrderItemId.Value))
+            .OrderBy(e => e.ScheduledDate);
+
+        foreach (var entry in matchingEntries)
         {
             var keptQty = remaining > 0 ? Math.Min(entry.ScheduledQty, remaining) : 0m;
             if (keptQty <= 0)

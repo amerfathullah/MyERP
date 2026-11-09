@@ -148,7 +148,7 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
             input.AccountsReceivableCreditAccountId, input.AccountsReceivableDiscountedAccountId,
             input.AccountsReceivableUnpaidAccountId);
 
-        await ValidateInvoicesEligibleAsync(input.Invoices, excludeInvoiceDiscountingId: null);
+        await ValidateInvoicesEligibleAsync(input.CompanyId, input.Invoices, excludeInvoiceDiscountingId: null);
 
         var doc = new InvoiceDiscounting(
             GuidGenerator.Create(), input.CompanyId, input.PostingDate,
@@ -173,6 +173,7 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
         // Re-validate eligibility at submit time too — the invoice's outstanding amount or
         // discounted-elsewhere status may have changed since this document was drafted.
         await ValidateInvoicesEligibleAsync(
+            doc.CompanyId,
             doc.Invoices.Select(i => new CreateInvoiceDiscountingInvoiceDto { SalesInvoiceId = i.SalesInvoiceId, OutstandingAmount = i.OutstandingAmount }).ToList(),
             excludeInvoiceDiscountingId: doc.Id);
 
@@ -296,7 +297,7 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
         return active.SelectMany(x => x.Invoices).Select(i => i.SalesInvoiceId).ToHashSet();
     }
 
-    private async Task ValidateInvoicesEligibleAsync(List<CreateInvoiceDiscountingInvoiceDto> requested, Guid? excludeInvoiceDiscountingId)
+    private async Task ValidateInvoicesEligibleAsync(Guid companyId, List<CreateInvoiceDiscountingInvoiceDto> requested, Guid? excludeInvoiceDiscountingId)
     {
         var pledgedInvoiceIds = await GetPledgedInvoiceIdsAsync(excludeInvoiceDiscountingId);
         var salesInvoices = await LoadSalesInvoicesAsync(requested.Select(i => i.SalesInvoiceId));
@@ -304,6 +305,15 @@ public class InvoiceDiscountingAppService : ApplicationService, IInvoiceDiscount
         var checks = requested.Select(i =>
         {
             var si = salesInvoices[i.SalesInvoiceId];
+            // Per ERPNext commit 5da098a712: invoices in Invoice Discounting must belong to the discounting company
+            if (si.CompanyId != companyId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("invoiceNumber", si.InvoiceNumber)
+                    .WithData("invoiceCompanyId", si.CompanyId)
+                    .WithData("companyId", companyId);
+            }
+
             return new InvoiceForDiscounting
             {
                 InvoiceId = i.SalesInvoiceId,
