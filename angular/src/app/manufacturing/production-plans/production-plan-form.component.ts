@@ -39,10 +39,11 @@ export class ProductionPlanFormComponent implements OnInit {
   allBoms = signal<any[]>([]);
   warehouses = signal<any[]>([]);
 
-  /** Returns BOMs filtered by currently selected item in row */
+  /** Returns active BOMs filtered by currently selected item in row (ERPNext d08131b6e8) */
   getFilteredBoms(itemId: string): any[] {
-    if (!itemId) return this.allBoms();
-    return this.allBoms().filter((b: any) => b.itemId === itemId);
+    const activeBoms = this.allBoms().filter((b: any) => b.isActive !== false);
+    if (!itemId) return activeBoms;
+    return activeBoms.filter((b: any) => b.itemId === itemId);
   }
 
   form = this.fb.group({

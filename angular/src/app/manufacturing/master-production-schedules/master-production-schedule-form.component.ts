@@ -8,6 +8,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { MasterProductionScheduleService } from '../../proxy/manufacturing/master-production-schedule.service';
 import type { MasterProductionScheduleDto } from '../../proxy/manufacturing/models';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
+import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 
 @Component({
@@ -123,6 +124,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
             <table class="table table-sm mb-0">
               <thead><tr>
                 <th>{{ 'Item' | abpLocalization }}</th>
+                <th>{{ 'BOM' | abpLocalization }}</th>
                 <th>{{ 'DeliveryDate' | abpLocalization }}</th>
                 <th class="text-end">{{ 'PlannedQty' | abpLocalization }}</th>
                 <th class="text-end">{{ 'LeadTimeDays' | abpLocalization }}</th>
@@ -132,6 +134,14 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
                 @for (item of schedule?.items; track item.id) {
                   <tr>
                     <td>{{ item.itemName }}</td>
+                    <td>
+                      <select class="form-select form-select-sm" [(ngModel)]="item.bomId" [disabled]="status !== 0">
+                        <option [ngValue]="null">-- {{ 'Default' | abpLocalization }} --</option>
+                        @for (bom of getFilteredBoms(item.itemId); track bom.id) {
+                          <option [ngValue]="bom.id">{{ bom.bomNumber }}</option>
+                        }
+                      </select>
+                    </td>
                     <td>{{ item.deliveryDate | date:'dd/MM/yyyy' }}</td>
                     <td class="text-end" style="max-width:120px">
                       <input type="number" class="form-control form-control-sm text-end" [(ngModel)]="item.plannedQty" [disabled]="status !== 0" />
@@ -158,6 +168,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 export class MasterProductionScheduleFormComponent implements OnInit {
   private service = inject(MasterProductionScheduleService);
   private warehouseService = inject(WarehouseService);
+  private mfgService = inject(ManufacturingService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private toaster = inject(ToasterService);
@@ -170,6 +181,11 @@ export class MasterProductionScheduleFormComponent implements OnInit {
   schedule: MasterProductionScheduleDto | null = null;
 
   warehouses = signal<{ id: string; warehouseName: string }[]>([]);
+  allBoms = signal<any[]>([]);
+
+  getFilteredBoms(itemId: string): any[] {
+    return this.allBoms().filter((b: any) => b.itemId === itemId && b.isActive !== false);
+  }
 
   form: { postingDate: string; fromDate: string; parentWarehouseId: string } = {
     postingDate: new Date().toISOString().substring(0, 10),
@@ -180,6 +196,9 @@ export class MasterProductionScheduleFormComponent implements OnInit {
   ngOnInit(): void {
     this.warehouseService.getList({ maxResultCount: 500 } as any).subscribe(r =>
       this.warehouses.set((r.items ?? []).map((w: any) => ({ id: w.id, warehouseName: w.warehouseName ?? w.name }))));
+
+    this.mfgService.getBomList({ skipCount: 0, maxResultCount: 500, sorting: '' })
+      .subscribe(r => this.allBoms.set(r.items ?? []));
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {

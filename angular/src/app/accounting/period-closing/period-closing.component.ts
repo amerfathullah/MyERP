@@ -80,7 +80,10 @@ export class PeriodClosingComponent implements OnInit {
     this.accountService.getList({ companyId, skipCount: 0, maxResultCount: 500, sorting: '' } as any).subscribe({
       next: (res: any) => {
         const accts = (res.items ?? []).filter((a: any) =>
-          a.rootType === 'Liability' || a.rootType === 'Equity');
+          (a.rootType === 'Liability' || a.rootType === 'Equity') &&
+          !a.isGroup &&
+          a.isActive !== false &&
+          !a.isFrozen);
         this.accounts.set(accts);
         // Build name lookup for list display
         const map: Record<string, string> = {};

@@ -25,6 +25,56 @@ public class BomValidationService : DomainService
         _itemRepository = itemRepository;
     }
 
+    private IRepository<Inventory.Entities.Item, Guid>? GetItemRepository()
+        => _itemRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Inventory.Entities.Item, Guid>>();
+
+    /// <summary>
+    /// Validates that a BOM exists, belongs to the specified company, is active,
+    /// and produces the specified item (or its template item for variants).
+    /// Per ERPNext commits d08131b6e8 and b8e3c8d8f2.
+    /// </summary>
+    public async Task<BillOfMaterials> ValidateProductionBomAsync(Guid itemId, Guid bomId, Guid companyId)
+    {
+        var bom = await _bomRepository.FindAsync(bomId);
+        if (bom == null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.BomNotFound)
+                .WithData("bomId", bomId)
+                .WithData("detail", $"BOM {bomId} does not exist.");
+        }
+
+        if (bom.CompanyId != companyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("bomCompany", bom.CompanyId)
+                .WithData("productionPlanCompany", companyId)
+                .WithData("detail", $"BOM {bom.BomNumber} does not belong to the selected Company.");
+        }
+
+        if (!bom.IsActive)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("bomNumber", bom.BomNumber)
+                .WithData("detail", $"BOM {bom.BomNumber} is not active and cannot be used.");
+        }
+
+        if (bom.ItemId != itemId)
+        {
+            var itemRepo = GetItemRepository();
+            var item = itemRepo != null ? await itemRepo.FindAsync(itemId) : null;
+            if (item == null || item.VariantOfId != bom.ItemId)
+            {
+                var itemDisplay = item?.ItemName ?? itemId.ToString();
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("bomNumber", bom.BomNumber)
+                    .WithData("itemId", itemId)
+                    .WithData("detail", $"BOM {bom.BomNumber} does not belong to Item {itemDisplay}.");
+            }
+        }
+
+        return bom;
+    }
+
     /// <summary>
     /// Validates that no disabled (inactive) items are used in the BOM hierarchy.
     /// Covers finished good item, raw materials, secondary items, and operation finished goods.

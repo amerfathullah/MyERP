@@ -61,15 +61,43 @@ public class PeriodClosingPostingService : DomainService
     }
 
     /// <summary>
-    /// Validates PCV configuration before submission.
-    /// Per gotchas #317-318: closing account must be Liability/Equity type and in company currency.
-    /// Per gotcha #256: blocks if a future PCV exists for the same company.
-    /// Per ERPNext PR #60170: validates stock closing entry and stock accounts balance with 1% tolerance.
+    /// Validates the closing account belongs to the company, is not a group/disabled/frozen account,
+    /// has Liability or Equity root type, and matches the company currency.
+    /// Per ERPNext commits b5cdfa2c13 and gotchas #317-318.
     /// </summary>
-    public async Task ValidateForSubmitAsync(PeriodClosingVoucher pcv, decimal? acceptedDifference = null)
+    public async Task ValidateClosingAccountAsync(PeriodClosingVoucher pcv)
     {
-        // 1. Closing account root_type must be Liability or Equity
         var closingAccount = await _accountRepository.GetAsync(pcv.ClosingAccountId);
+
+        if (closingAccount.CompanyId != pcv.CompanyId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                .WithData("accountName", closingAccount.AccountName)
+                .WithData("detail", $"Closing Account {closingAccount.AccountName} does not belong to Company.");
+        }
+
+        if (closingAccount.IsGroup)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("accountName", closingAccount.AccountName)
+                .WithData("detail", $"Closing Account {closingAccount.AccountName} cannot be a group account.");
+        }
+
+        if (!closingAccount.IsActive)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("accountName", closingAccount.AccountName)
+                .WithData("detail", $"Closing Account {closingAccount.AccountName} is disabled.");
+        }
+
+        if (closingAccount.IsFrozen)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("accountName", closingAccount.AccountName)
+                .WithData("detail", $"Closing Account {closingAccount.AccountName} is frozen.");
+        }
+
+        // 1. Closing account root_type must be Liability or Equity
         if (closingAccount.AccountType != AccountType.Liability &&
             closingAccount.AccountType != AccountType.Equity)
         {
@@ -87,6 +115,20 @@ public class PeriodClosingPostingService : DomainService
                 .WithData("accountCurrency", closingAccount.Currency)
                 .WithData("companyCurrency", company.CurrencyCode);
         }
+    }
+
+    /// <summary>
+    /// Validates PCV configuration before submission.
+    /// Per gotchas #317-318 &amp; commit b5cdfa2c13: closing account must belong to company, not be group/disabled/frozen,
+    /// be Liability/Equity type and in company currency.
+    /// Per gotcha #256: blocks if a future PCV exists for the same company.
+    /// Per ERPNext PR #60170: validates stock closing entry and stock accounts balance with 1% tolerance.
+    /// </summary>
+    public async Task ValidateForSubmitAsync(PeriodClosingVoucher pcv, decimal? acceptedDifference = null)
+    {
+        await ValidateClosingAccountAsync(pcv);
+
+        var company = await _companyRepository.GetAsync(pcv.CompanyId);
 
         // 3. Accounts must not be frozen for the PCV posting date (PR #b3c2ba5381)
         if (company.AccountsFrozenTillDate.HasValue && pcv.PostingDate <= company.AccountsFrozenTillDate.Value)

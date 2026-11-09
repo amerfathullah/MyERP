@@ -25,13 +25,93 @@ public class CostCenterAllocationService : DomainService
 {
     private readonly IRepository<CostCenterAllocation, Guid> _allocationRepository;
     private readonly IRepository<JournalEntry, Guid> _journalEntryRepository;
+    private readonly IRepository<CostCenter, Guid>? _costCenterRepository;
 
     public CostCenterAllocationService(
         IRepository<CostCenterAllocation, Guid> allocationRepository,
-        IRepository<JournalEntry, Guid> journalEntryRepository)
+        IRepository<JournalEntry, Guid> journalEntryRepository,
+        IRepository<CostCenter, Guid>? costCenterRepository = null)
     {
         _allocationRepository = allocationRepository;
         _journalEntryRepository = journalEntryRepository;
+        _costCenterRepository = costCenterRepository;
+    }
+
+    private IRepository<CostCenter, Guid>? GetCostCenterRepository()
+        => _costCenterRepository ?? LazyServiceProvider?.LazyGetService<IRepository<CostCenter, Guid>>();
+
+    /// <summary>
+    /// Validates main and child cost centers belong to the company, are not group cost centers,
+    /// and are not disabled. Per ERPNext commit 674a548db7.
+    /// </summary>
+    public async Task ValidateCostCentersAsync(
+        Guid companyId,
+        Guid mainCostCenterId,
+        IEnumerable<Guid> childCostCenterIds)
+    {
+        var ccRepo = GetCostCenterRepository();
+        if (ccRepo == null) return;
+
+        var allIds = new List<Guid> { mainCostCenterId };
+        allIds.AddRange(childCostCenterIds);
+        var distinctIds = allIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (distinctIds.Count == 0) return;
+
+        var query = await ccRepo.GetQueryableAsync();
+        var costCenters = query.Where(c => distinctIds.Contains(c.Id)).ToDictionary(c => c.Id);
+
+        foreach (var ccId in distinctIds)
+        {
+            if (!costCenters.TryGetValue(ccId, out var cc) || cc.CompanyId != companyId)
+            {
+                var ccName = costCenters.TryGetValue(ccId, out var found) ? found.Name : ccId.ToString();
+                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
+                    .WithData("costCenter", ccName)
+                    .WithData("detail", $"Cost Center {ccName} does not belong to Company.");
+            }
+
+            if (cc.IsGroup)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("costCenter", cc.Name)
+                    .WithData("detail", $"Cost Center {cc.Name} is a group cost center and cannot be used in a Cost Center Allocation.");
+            }
+
+            if (!cc.IsActive)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("costCenter", cc.Name)
+                    .WithData("detail", $"Cost Center {cc.Name} is disabled and cannot be used in a Cost Center Allocation.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Rejects duplicate active Cost Center Allocations with the same MainCostCenterId and ValidFrom date.
+    /// Per ERPNext commit 2683d487a6.
+    /// </summary>
+    public async Task ValidateNoDuplicateAllocationAsync(
+        Guid mainCostCenterId,
+        DateTime validFrom,
+        Guid? excludeAllocationId = null)
+    {
+        var queryable = await _allocationRepository.GetQueryableAsync();
+        if (excludeAllocationId.HasValue)
+            queryable = queryable.Where(a => a.Id != excludeAllocationId.Value);
+
+        var targetDate = validFrom.Date;
+        var existing = queryable
+            .Where(a => a.MainCostCenterId == mainCostCenterId && a.IsActive)
+            .ToList()
+            .FirstOrDefault(a => a.ValidFrom.Date == targetDate);
+
+        if (existing != null)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("mainCostCenterId", mainCostCenterId.ToString())
+                .WithData("validFrom", targetDate.ToString("yyyy-MM-dd"))
+                .WithData("detail", $"An active Cost Center Allocation already exists for this Main Cost Center with Valid From date {targetDate:yyyy-MM-dd}.");
+        }
     }
 
     /// <summary>
@@ -116,6 +196,7 @@ public class CostCenterAllocationService : DomainService
                      && a.IsActive
                      && a.ValidFrom <= asOfDate)
             .OrderByDescending(a => a.ValidFrom)
+            .ThenByDescending(a => a.CreationTime)
             .FirstOrDefault();
     }
 

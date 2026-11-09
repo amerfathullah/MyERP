@@ -56,8 +56,15 @@ public class CostCenterAllocationAppService : ApplicationService, ICostCenterAll
     [Authorize(MyERPPermissions.Accounts.Create)]
     public async Task<CostCenterAllocationDto> CreateAsync(CreateCostCenterAllocationDto input)
     {
-        // DAG cycle validation
         var childIds = input.Entries.Select(e => e.ChildCostCenterId).ToList();
+
+        // Validate company, non-group, and active state for main and child cost centers (ERPNext 674a548db7)
+        await _allocationService.ValidateCostCentersAsync(input.CompanyId, input.MainCostCenterId, childIds);
+
+        // Validate no duplicate active allocation for same main cost center and valid_from date (ERPNext 2683d487a6)
+        await _allocationService.ValidateNoDuplicateAllocationAsync(input.MainCostCenterId, input.ValidFrom);
+
+        // DAG cycle validation
         await _allocationService.ValidateNoCycleAsync(input.MainCostCenterId, childIds);
 
         // valid_from date validation
@@ -83,6 +90,13 @@ public class CostCenterAllocationAppService : ApplicationService, ICostCenterAll
     public async Task ToggleActiveAsync(Guid id)
     {
         var entity = await _repository.GetAsync(id);
+        if (!entity.IsActive)
+        {
+            var childIds = entity.Entries.Select(e => e.ChildCostCenterId).ToList();
+            await _allocationService.ValidateCostCentersAsync(entity.CompanyId, entity.MainCostCenterId, childIds);
+            await _allocationService.ValidateNoDuplicateAllocationAsync(entity.MainCostCenterId, entity.ValidFrom, entity.Id);
+            await _allocationService.ValidateNoCycleAsync(entity.MainCostCenterId, childIds, entity.Id);
+        }
         entity.IsActive = !entity.IsActive;
         await _repository.UpdateAsync(entity);
     }

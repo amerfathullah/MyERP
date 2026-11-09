@@ -153,11 +153,23 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
 
         if (input.Items.Count > 0)
         {
+            var bomValidationService = LazyServiceProvider.LazyGetRequiredService<BomValidationService>();
             var byId = schedule.Items.ToDictionary(i => i.Id);
             foreach (var itemInput in input.Items)
             {
                 if (byId.TryGetValue(itemInput.Id, out var item))
+                {
                     item.PlannedQty = itemInput.PlannedQty;
+                    if (itemInput.BomId.HasValue && itemInput.BomId.Value != Guid.Empty)
+                    {
+                        await bomValidationService.ValidateProductionBomAsync(item.ItemId, itemInput.BomId.Value, schedule.CompanyId);
+                        item.BomId = itemInput.BomId.Value;
+                    }
+                    else
+                    {
+                        item.BomId = null;
+                    }
+                }
             }
         }
 
@@ -335,6 +347,14 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
     public async Task<MasterProductionScheduleDto> SubmitAsync(Guid id)
     {
         var schedule = await _repository.GetAsync(id, includeDetails: true);
+
+        // Validate that any BOM assigned on MPS rows belongs to the item and is active (ERPNext b8e3c8d8f2)
+        var bomValidationService = LazyServiceProvider.LazyGetRequiredService<BomValidationService>();
+        foreach (var item in schedule.Items.Where(i => i.BomId.HasValue && i.BomId.Value != Guid.Empty))
+        {
+            await bomValidationService.ValidateProductionBomAsync(item.ItemId, item.BomId!.Value, schedule.CompanyId);
+        }
+
         schedule.Submit();
         await _repository.UpdateAsync(schedule);
         return ObjectMapper.Map<MasterProductionSchedule, MasterProductionScheduleDto>(schedule);
@@ -389,6 +409,7 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
             CombineItems = input?.CombineItems ?? false
         };
 
+        var bomValidationService = LazyServiceProvider.LazyGetRequiredService<BomValidationService>();
         var bomQuery = await _bomRepository.GetQueryableAsync();
         var activeBoms = bomQuery
             .Where(b => b.CompanyId == schedule.CompanyId && b.IsActive)
@@ -397,7 +418,11 @@ public class MasterProductionScheduleAppService : ApplicationService, IMasterPro
         foreach (var item in schedule.Items.Where(i => Math.Round(i.PlannedQty, 4) > 0))
         {
             var bomId = item.BomId;
-            if (!bomId.HasValue || bomId.Value == Guid.Empty)
+            if (bomId.HasValue && bomId.Value != Guid.Empty)
+            {
+                await bomValidationService.ValidateProductionBomAsync(item.ItemId, bomId.Value, schedule.CompanyId);
+            }
+            else
             {
                 var defaultBom = activeBoms.FirstOrDefault(b => b.ItemId == item.ItemId && b.IsDefault)
                     ?? activeBoms.FirstOrDefault(b => b.ItemId == item.ItemId);

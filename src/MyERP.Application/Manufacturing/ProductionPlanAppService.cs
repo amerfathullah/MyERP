@@ -105,18 +105,10 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
 
-        // Validate BOMs belong to company
-        var bomIds = input.Items.Select(i => i.BomId).Distinct().ToList();
-        var bomQuery = await _bomRepository.GetQueryableAsync();
-        var boms = bomQuery.Where(b => bomIds.Contains(b.Id)).ToList();
-        foreach (var bom in boms)
+        // Validate BOMs belong to company, are active, and match the planned item (ERPNext d08131b6e8)
+        foreach (var item in input.Items.Where(i => i.BomId != Guid.Empty))
         {
-            if (bom.CompanyId != input.CompanyId)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                    .WithData("bomCompany", bom.CompanyId)
-                    .WithData("productionPlanCompany", input.CompanyId);
-            }
+            await _bomValidationService.ValidateProductionBomAsync(item.ItemId, item.BomId, input.CompanyId);
         }
 
         // Validate Sales Orders belong to company (if referenced)
@@ -247,18 +239,10 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var itemValidation = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemTransactionValidationService>();
         await itemValidation.ValidateItemsForTransactionAsync(input.Items.Select(i => i.ItemId).ToArray());
 
-        // Validate BOMs belong to company
-        var bomIds = input.Items.Select(i => i.BomId).Distinct().ToList();
-        var bomQuery = await _bomRepository.GetQueryableAsync();
-        var boms = bomQuery.Where(b => bomIds.Contains(b.Id)).ToList();
-        foreach (var bom in boms)
+        // Validate BOMs belong to company, are active, and match the planned item (ERPNext d08131b6e8)
+        foreach (var item in input.Items.Where(i => i.BomId != Guid.Empty))
         {
-            if (bom.CompanyId != input.CompanyId)
-            {
-                throw new BusinessException(MyERPDomainErrorCodes.CompanyMismatch)
-                    .WithData("bomCompany", bom.CompanyId)
-                    .WithData("productionPlanCompany", input.CompanyId);
-            }
+            await _bomValidationService.ValidateProductionBomAsync(item.ItemId, item.BomId, input.CompanyId);
         }
 
         // Validate Sales Orders belong to company (if referenced)
@@ -558,6 +542,8 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var itemQuery = await itemRepo.GetQueryableAsync();
         var itemMap = itemQuery.Where(i => i.CompanyId == plan.CompanyId).ToList().ToDictionary(i => i.Id);
 
+        var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
+
         var targetSubAssemblyWh = plan.SubAssemblyWarehouseId ?? plan.ForWarehouseId;
         var targetRawMaterialWh = plan.RawMaterialGroupWarehouseId ?? plan.ForWarehouseId;
 
@@ -584,6 +570,9 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
                 if (!bomItem.DoNotExplode && bomItem.IsPhantom && bomItem.SubBomId.HasValue)
                 {
+                    // Validate sub-BOM belongs to company, is active, and matches item (ERPNext d08131b6e8)
+                    await _bomValidationService.ValidateProductionBomAsync(bomItem.ItemId, bomItem.SubBomId.Value, plan.CompanyId);
+
                     // Phantom: explode sub-BOM directly into components
                     if (!bomsById.TryGetValue(bomItem.SubBomId.Value, out var phantomBom))
                     {
@@ -603,6 +592,9 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                     {
                         if (bomItem.SubBomId.HasValue)
                         {
+                            // Validate sub-assembly BOM belongs to company, is active, and matches item (ERPNext d08131b6e8)
+                            await _bomValidationService.ValidateProductionBomAsync(bomItem.ItemId, bomItem.SubBomId.Value, plan.CompanyId);
+
                             if (!bomsById.TryGetValue(bomItem.SubBomId.Value, out subBom))
                             {
                                 subBom = await _bomRepository.FindAsync(bomItem.SubBomId.Value);
@@ -686,8 +678,10 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                     }
                     else
                     {
-                        // Raw material leaf
-                        var targetWh = targetRawMaterialWh ?? currentBom.SourceWarehouseId;
+                        // Raw material leaf — fallback to item default warehouse when plan/BOM warehouses are unset (ERPNext f820b711cc)
+                        var targetWh = targetRawMaterialWh
+                            ?? currentBom.SourceWarehouseId
+                            ?? await itemDefaultsService.ResolveWarehouseAsync(bomItem.ItemId, plan.CompanyId);
                         var (actualQty, _) = GetAggregatedBin(bomItem.ItemId, targetWh);
 
                         var rmRow = new ProductionPlanMrItem(
@@ -1069,13 +1063,20 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         if (!itemsNeedingMr.Any())
             return ObjectMapper.Map<ProductionPlan, ProductionPlanDto>(plan);
 
-        // Resolve default suppliers with fallback chain: ItemDefault -> Item.Suppliers -> ItemGroup hierarchy -> null
-        // Per ERPNext PR #59349 / commit 43913d5c2a
+        // Resolve default suppliers and fallback default warehouses (ERPNext PR #59349 & commit f820b711cc)
         var itemDefaultsService = LazyServiceProvider.LazyGetRequiredService<MyERP.Inventory.DomainServices.ItemDefaultsResolutionService>();
         var supplierMap = new Dictionary<Guid, Guid?>();
         foreach (var itemId in itemsNeedingMr.Select(m => m.ItemId).Distinct())
         {
             supplierMap[itemId] = await itemDefaultsService.ResolveDefaultSupplierAsync(itemId, plan.CompanyId);
+        }
+
+        foreach (var mrItem in itemsNeedingMr)
+        {
+            if (!mrItem.WarehouseId.HasValue && !plan.ForWarehouseId.HasValue)
+            {
+                mrItem.WarehouseId = await itemDefaultsService.ResolveWarehouseAsync(mrItem.ItemId, plan.CompanyId);
+            }
         }
 
         // Group items by (supplier, warehouse) — items without supplier go to a "general" MR

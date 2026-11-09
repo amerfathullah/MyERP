@@ -26,6 +26,7 @@ interface CostCenter {
   id?: string;
   name?: string;
   isGroup?: boolean;
+  isActive?: boolean;
 }
 
 @Component({
@@ -55,7 +56,7 @@ interface CostCenter {
                 <select class="form-select form-select-sm" [(ngModel)]="newAllocation.mainCostCenterId">
                   <option value="">-- {{ '::Select' | abpLocalization }} --</option>
                   @for (cc of costCenters(); track cc.id) {
-                    @if (!cc.isGroup) {
+                    @if (!cc.isGroup && cc.isActive !== false) {
                       <option [value]="cc.id">{{ cc.name }}</option>
                     }
                   }
@@ -83,7 +84,7 @@ interface CostCenter {
                       <select class="form-select form-select-sm" [(ngModel)]="entry.childCostCenterId">
                         <option value="">-- {{ '::Select' | abpLocalization }} --</option>
                         @for (cc of costCenters(); track cc.id) {
-                          @if (!cc.isGroup && cc.id !== newAllocation.mainCostCenterId) {
+                          @if (!cc.isGroup && cc.isActive !== false && cc.id !== newAllocation.mainCostCenterId) {
                             <option [value]="cc.id">{{ cc.name }}</option>
                           }
                         }
@@ -178,7 +179,8 @@ export class CostCenterAllocationListComponent implements OnInit {
   };
 
   get totalPercentage(): number {
-    return this.newAllocation.entries.reduce((sum, e) => sum + (e.percentage || 0), 0);
+    const sum = this.newAllocation.entries.reduce((acc, e) => acc + (Number(e.percentage) || 0), 0);
+    return Math.round(sum * 10000) / 10000;
   }
 
   ngOnInit() {
