@@ -1669,6 +1669,7 @@ export interface SalesOrderDto extends FullAuditedEntityDto<string> {
   perBilled?: number;
   advancePaid?: number;
   perAdvancePaid?: number;
+  advancePaymentStatus?: string;
   firstDeliveryDate?: string | null;
   lastDeliveryDate?: string | null;
   firstBilledDate?: string | null;

@@ -125,7 +125,18 @@
                   <td>{{ row.customerName }}</td>
                   <td>{{ row.orderDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-end font-monospace">{{ row.grandTotal | number:'1.2-2' }}</td>
-                  <td><app-status-badge [status]="row.status ?? ''" /></td>
+                  <td>
+                    <app-status-badge [status]="row.status ?? ''" />
+                    @if (row.advancePaymentStatus && row.advancePaymentStatus !== 'Not Requested') {
+                      <div class="mt-1">
+                        <span class="badge" [ngClass]="{
+                          'bg-info': row.advancePaymentStatus === 'Requested',
+                          'bg-warning': row.advancePaymentStatus === 'Partially Paid',
+                          'bg-success': row.advancePaymentStatus === 'Fully Paid'
+                        }" style="font-size: 0.65rem">{{ row.advancePaymentStatus }}</span>
+                      </div>
+                    }
+                  </td>
                   <td>
                     @if (row.status !== 'Draft' && row.status !== 'Cancelled') {
                       <div class="d-flex align-items-center gap-1">

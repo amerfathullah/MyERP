@@ -162,7 +162,16 @@ public class DunningAppService : ApplicationService, IDunningAppService
                             .WithData("detail", "Due Date must match the Payment Schedule.");
                     }
 
-                    if (p.OutstandingAmount > sched.Outstanding)
+                    // PR #64585 / commits d38249cba3 & 0c2c14c3ab:
+                    // Use live recalculated installment balance after partial payments
+                    var allInvoiceScheds = (await schedRepo.GetQueryableAsync())
+                        .Where(s => s.ParentType == "SalesInvoice" && s.ParentId == p.SalesInvoiceId)
+                        .ToList();
+                    var schedMap = DomainServices.DunningManager.GetPaymentScheduleOutstanding(
+                        invoice, allInvoiceScheds, invoice.CurrencyCode);
+                    var liveSchedOutstanding = schedMap.GetValueOrDefault(p.PaymentScheduleId.Value, sched.Outstanding);
+
+                    if (p.OutstandingAmount > liveSchedOutstanding + 0.01m)
                     {
                         throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                             .WithData("detail", $"Row for invoice {invoice.InvoiceNumber}: Outstanding must be positive and cannot exceed the unpaid invoice or installment amount.");

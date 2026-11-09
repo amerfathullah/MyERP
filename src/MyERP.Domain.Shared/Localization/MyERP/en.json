@@ -5646,7 +5646,11 @@
     "FinishedGoodsBasedOperatingCost": "Finished Goods Based Operating Cost",
     "OperatingCostPerBomQuantity": "Operating Cost Per BOM Quantity",
     "IsPhantomBom": "Is Phantom BOM",
-    "LoadBom": "Load BOM"
+    "LoadBom": "Load BOM",
+    "AdvancePaymentStatus": "Advance Payment Status",
+    "NotRequested": "Not Requested",
+    "PartiallyPaid": "Partially Paid",
+    "FullyPaid": "Fully Paid"
   }
 }
 

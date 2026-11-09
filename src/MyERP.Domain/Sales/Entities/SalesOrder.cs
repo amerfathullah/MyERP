@@ -76,6 +76,11 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
     /// <summary>Percentage of advance paid: (AdvancePaid / GrandTotal) × 100.</summary>
     public decimal PerAdvancePaid => GrandTotal > 0 ? Math.Round(AdvancePaid / GrandTotal * 100m, 2) : 0;
 
+    /// <summary>
+    /// Advance payment status: Not Requested, Requested, Partially Paid, Fully Paid (per ERPNext PR #64511 / commit 97de257a13).
+    /// </summary>
+    public string AdvancePaymentStatus { get; set; } = "Not Requested";
+
     public Guid? TermsAndConditionsId { get; set; }
     public string? Terms { get; set; }
     public string? Notes { get; set; }
@@ -335,6 +340,11 @@ public class SalesOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAmendab
             Status = DocumentStatus.ToDeliver;
         else
             Status = DocumentStatus.ToDeliverAndBill;
+    }
+
+    public void SetAdvancePaymentStatus(string status)
+    {
+        AdvancePaymentStatus = status;
     }
 
     public void RecalculateTotals()

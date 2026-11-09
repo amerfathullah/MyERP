@@ -233,7 +233,10 @@ public class PaymentReconciliationEngine : DomainService
     /// <summary>
     /// Updates PaymentEntryReference reconcile effect date and allocated amount upon reconciliation.
     /// Uses company.ReconciliationTakesEffectOn ("Advance Payment Date", "Oldest Of Invoice Or Advance", "Reconciliation Date").
-    /// Per ERPNext commit 19f1ffbdc2.
+    /// Per ERPNext PR #64511 / commit 97de257a13 &amp; commit 19f1ffbdc2:
+    /// When an advance payment reference (e.g. SalesOrder, PurchaseOrder) is allocated against an invoice,
+    /// reduces the advance reference's allocated amount and propagates AdvanceVoucherType, AdvanceVoucherId,
+    /// and PaymentRequestId to the invoice reference row.
     /// </summary>
     private async Task UpdatePaymentEntryReferenceReconciliationAsync(
         Company company,
@@ -242,7 +245,8 @@ public class PaymentReconciliationEngine : DomainService
     {
         if (alloc.PaymentVoucherType != "PaymentEntry") return;
 
-        var pe = await _paymentEntryRepository.FindAsync(alloc.PaymentVoucherId);
+        var pe = (await _paymentEntryRepository.WithDetailsAsync(p => p.References))
+            .FirstOrDefault(p => p.Id == alloc.PaymentVoucherId);
         if (pe == null) return;
 
         var refEntry = pe.References.FirstOrDefault(r =>
@@ -255,10 +259,26 @@ public class PaymentReconciliationEngine : DomainService
             _ => invoicePostingDate < pe.PostingDate ? pe.PostingDate : invoicePostingDate // "Oldest Of Invoice Or Advance"
         };
 
+        // Advance payment handover (ERPNext commit 97de257a13 / update_reference_in_payment_entry)
+        var advanceRef = pe.References.FirstOrDefault(r =>
+            (r.ReferenceType == "SalesOrder" || r.ReferenceType == "PurchaseOrder") && r.AllocatedAmount > 0);
+
+        if (advanceRef != null)
+        {
+            var deduction = Math.Min(advanceRef.AllocatedAmount, alloc.AllocatedAmount);
+            advanceRef.AllocatedAmount -= deduction;
+        }
+
         if (refEntry != null)
         {
             refEntry.AllocatedAmount += alloc.AllocatedAmount;
             refEntry.ReconcileEffectOn = reconcileEffectOn;
+            if (advanceRef != null)
+            {
+                refEntry.PaymentRequestId ??= advanceRef.PaymentRequestId;
+                refEntry.AdvanceVoucherType ??= advanceRef.ReferenceType;
+                refEntry.AdvanceVoucherId ??= advanceRef.ReferenceId;
+            }
         }
         else
         {
@@ -266,9 +286,17 @@ public class PaymentReconciliationEngine : DomainService
                 GuidGenerator.Create(), pe.Id, alloc.InvoiceVoucherType, alloc.InvoiceVoucherId,
                 totalAmount: alloc.AllocatedAmount, outstandingAmount: 0, allocatedAmount: alloc.AllocatedAmount)
             {
-                ReconcileEffectOn = reconcileEffectOn
+                ReconcileEffectOn = reconcileEffectOn,
+                PaymentRequestId = advanceRef?.PaymentRequestId,
+                AdvanceVoucherType = advanceRef?.ReferenceType,
+                AdvanceVoucherId = advanceRef?.ReferenceId
             };
             pe.References.Add(newRef);
+        }
+
+        if (advanceRef != null && advanceRef.AllocatedAmount <= 0)
+        {
+            pe.References.Remove(advanceRef);
         }
 
         await _paymentEntryRepository.UpdateAsync(pe);

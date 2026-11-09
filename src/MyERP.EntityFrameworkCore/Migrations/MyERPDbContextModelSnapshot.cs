@@ -30161,6 +30161,13 @@ namespace MyERP.Migrations
                     b.Property<decimal>("AdvancePaid")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("AdvancePaymentStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("Not Requested");
+
                     b.Property<Guid?>("AmendedFromId")
                         .HasColumnType("uuid");
 

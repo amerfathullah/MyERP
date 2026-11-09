@@ -705,6 +705,14 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 var so = await LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>()
                     .GetAsync(pe.AgainstOrderId.Value);
                 so.AdvancePaid += pe.PaidAmount;
+                if (so.AdvancePaid >= so.GrandTotal && so.GrandTotal > 0)
+                {
+                    so.SetAdvancePaymentStatus("Fully Paid");
+                }
+                else if (so.AdvancePaid > 0)
+                {
+                    so.SetAdvancePaymentStatus("Partially Paid");
+                }
                 await LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>()
                     .UpdateAsync(so);
             }
@@ -713,6 +721,14 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 var po = await LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>()
                     .GetAsync(pe.AgainstOrderId.Value);
                 po.AdvancePaid += pe.PaidAmount;
+                if (po.AdvancePaid >= po.GrandTotal && po.GrandTotal > 0)
+                {
+                    po.SetAdvancePaymentStatus("Fully Paid");
+                }
+                else if (po.AdvancePaid > 0)
+                {
+                    po.SetAdvancePaymentStatus("Partially Paid");
+                }
                 await LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>()
                     .UpdateAsync(po);
             }
@@ -780,6 +796,42 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     });
 
                     await AllocateToPaymentScheduleAsync(refRow.ReferenceType, refRow.ReferenceId, allocatedInInvCurrency);
+                }
+                else if (refRow.ReferenceType == "SalesOrder")
+                {
+                    var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+                    var so = await soRepo.FindAsync(refRow.ReferenceId);
+                    if (so != null)
+                    {
+                        so.AdvancePaid += refRow.AllocatedAmount;
+                        if (so.AdvancePaid >= so.GrandTotal && so.GrandTotal > 0)
+                        {
+                            so.SetAdvancePaymentStatus("Fully Paid");
+                        }
+                        else if (so.AdvancePaid > 0)
+                        {
+                            so.SetAdvancePaymentStatus("Partially Paid");
+                        }
+                        await soRepo.UpdateAsync(so);
+                    }
+                }
+                else if (refRow.ReferenceType == "PurchaseOrder")
+                {
+                    var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+                    var po = await poRepo.FindAsync(refRow.ReferenceId);
+                    if (po != null)
+                    {
+                        po.AdvancePaid += refRow.AllocatedAmount;
+                        if (po.AdvancePaid >= po.GrandTotal && po.GrandTotal > 0)
+                        {
+                            po.SetAdvancePaymentStatus("Fully Paid");
+                        }
+                        else if (po.AdvancePaid > 0)
+                        {
+                            po.SetAdvancePaymentStatus("Partially Paid");
+                        }
+                        await poRepo.UpdateAsync(po);
+                    }
                 }
             }
 
@@ -1095,6 +1147,18 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 var so = await LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>()
                     .GetAsync(pe.AgainstOrderId.Value);
                 so.AdvancePaid = Math.Max(0, so.AdvancePaid - pe.PaidAmount);
+                if (so.AdvancePaid >= so.GrandTotal && so.GrandTotal > 0)
+                {
+                    so.SetAdvancePaymentStatus("Fully Paid");
+                }
+                else if (so.AdvancePaid > 0)
+                {
+                    so.SetAdvancePaymentStatus("Partially Paid");
+                }
+                else
+                {
+                    so.SetAdvancePaymentStatus("Not Requested");
+                }
                 await LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>()
                     .UpdateAsync(so);
             }
@@ -1103,6 +1167,18 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                 var po = await LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>()
                     .GetAsync(pe.AgainstOrderId.Value);
                 po.AdvancePaid = Math.Max(0, po.AdvancePaid - pe.PaidAmount);
+                if (po.AdvancePaid >= po.GrandTotal && po.GrandTotal > 0)
+                {
+                    po.SetAdvancePaymentStatus("Fully Paid");
+                }
+                else if (po.AdvancePaid > 0)
+                {
+                    po.SetAdvancePaymentStatus("Partially Paid");
+                }
+                else
+                {
+                    po.SetAdvancePaymentStatus("Not Initiated");
+                }
                 await LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>()
                     .UpdateAsync(po);
             }
@@ -1129,6 +1205,50 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                     await UpdateInvoiceAmountPaidAsync(refRow.ReferenceType, refRow.ReferenceId, -allocatedInInvCurrency);
                     await ReversePaymentScheduleAllocationAsync(refRow.ReferenceType, refRow.ReferenceId, allocatedInInvCurrency);
                 }
+                else if (refRow.ReferenceType == "SalesOrder")
+                {
+                    var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+                    var so = await soRepo.FindAsync(refRow.ReferenceId);
+                    if (so != null)
+                    {
+                        so.AdvancePaid = Math.Max(0, so.AdvancePaid - refRow.AllocatedAmount);
+                        if (so.AdvancePaid >= so.GrandTotal && so.GrandTotal > 0)
+                        {
+                            so.SetAdvancePaymentStatus("Fully Paid");
+                        }
+                        else if (so.AdvancePaid > 0)
+                        {
+                            so.SetAdvancePaymentStatus("Partially Paid");
+                        }
+                        else
+                        {
+                            so.SetAdvancePaymentStatus("Not Requested");
+                        }
+                        await soRepo.UpdateAsync(so);
+                    }
+                }
+                else if (refRow.ReferenceType == "PurchaseOrder")
+                {
+                    var poRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+                    var po = await poRepo.FindAsync(refRow.ReferenceId);
+                    if (po != null)
+                    {
+                        po.AdvancePaid = Math.Max(0, po.AdvancePaid - refRow.AllocatedAmount);
+                        if (po.AdvancePaid >= po.GrandTotal && po.GrandTotal > 0)
+                        {
+                            po.SetAdvancePaymentStatus("Fully Paid");
+                        }
+                        else if (po.AdvancePaid > 0)
+                        {
+                            po.SetAdvancePaymentStatus("Partially Paid");
+                        }
+                        else
+                        {
+                            po.SetAdvancePaymentStatus("Not Initiated");
+                        }
+                        await poRepo.UpdateAsync(po);
+                    }
+                }
             }
         }
 
@@ -1141,10 +1261,16 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
             var prQuery = await prRepo.GetQueryableAsync();
             if (prQuery != null)
             {
+                var refPrIds = (pe.References ?? Array.Empty<PaymentEntryReference>())
+                    .Where(r => r.PaymentRequestId.HasValue)
+                    .Select(r => r.PaymentRequestId!.Value)
+                    .ToHashSet();
+
                 var paidRequests = prQuery
-                    .Where(p => p.PaymentEntryId == pe.Id && p.Status == PaymentRequestStatus.Paid)
+                    .Where(p => (p.PaymentEntryId == pe.Id || refPrIds.Contains(p.Id)) && p.Status == PaymentRequestStatus.Paid)
                     .ToList();
                 var poRepo = LazyServiceProvider?.LazyGetService<IRepository<MyERP.Purchasing.Entities.PurchaseOrder, Guid>>();
+                var soRepo = LazyServiceProvider?.LazyGetService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
                 foreach (var pr in paidRequests)
                 {
                     pr.ReopenOnPaymentCancelled();
@@ -1168,6 +1294,26 @@ public class PaymentEntryAppService : ApplicationService, IPaymentEntryAppServic
                                 po.SetAdvancePaymentStatus("Initiated");
                             }
                             await poRepo.UpdateAsync(po);
+                        }
+                    }
+                    else if (soRepo != null && string.Equals(pr.ReferenceDoctype, "SalesOrder", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var so = await soRepo.FindAsync(pr.ReferenceId);
+                        if (so != null)
+                        {
+                            if (so.AdvancePaid >= so.GrandTotal && so.GrandTotal > 0)
+                            {
+                                so.SetAdvancePaymentStatus("Fully Paid");
+                            }
+                            else if (so.AdvancePaid > 0)
+                            {
+                                so.SetAdvancePaymentStatus("Partially Paid");
+                            }
+                            else
+                            {
+                                so.SetAdvancePaymentStatus("Requested");
+                            }
+                            await soRepo.UpdateAsync(so);
                         }
                     }
                 }

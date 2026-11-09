@@ -503,5 +503,46 @@ public class PaymentRequestAppService : ApplicationService, IPaymentRequestAppSe
                 await poRepo.UpdateAsync(po);
             }
         }
+        else if (string.Equals(pr.ReferenceDoctype, "SalesOrder", StringComparison.OrdinalIgnoreCase))
+        {
+            var soRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Sales.Entities.SalesOrder, Guid>>();
+            var so = await soRepo.FindAsync(pr.ReferenceId);
+            if (so != null)
+            {
+                // Per ERPNext PR #64511 / commit 97de257a13 & test_sales_order_advance_payment_status:
+                // Tracks SO advance payment status: Not Requested, Requested, Partially Paid, Fully Paid
+                if (so.AdvancePaid >= so.GrandTotal && so.GrandTotal > 0)
+                {
+                    so.SetAdvancePaymentStatus("Fully Paid");
+                }
+                else if (explicitStatus != null)
+                {
+                    so.SetAdvancePaymentStatus(
+                        explicitStatus == "Fully Paid" && so.GrandTotal > 0 && Math.Max(so.AdvancePaid, pr.GrandTotal) < so.GrandTotal
+                            ? "Partially Paid"
+                            : explicitStatus);
+                }
+                else if (so.AdvancePaid > 0)
+                {
+                    so.SetAdvancePaymentStatus("Partially Paid");
+                }
+                else if (isCancel)
+                {
+                    var prQuery = await _repository.GetQueryableAsync();
+                    var hasOtherInitiated = prQuery.Any(p => p.Id != pr.Id
+                        && p.ReferenceDoctype == pr.ReferenceDoctype
+                        && p.ReferenceId == pr.ReferenceId
+                        && (p.Status == PaymentRequestStatus.Initiated || p.Status == PaymentRequestStatus.Paid));
+
+                    so.SetAdvancePaymentStatus(hasOtherInitiated ? "Requested" : "Not Requested");
+                }
+                else
+                {
+                    so.SetAdvancePaymentStatus("Requested");
+                }
+
+                await soRepo.UpdateAsync(so);
+            }
+        }
     }
 }

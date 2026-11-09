@@ -50,6 +50,15 @@
             <small class="text-muted d-block">{{ '::Status' | abpLocalization }}</small>
             <app-status-badge [status]="order.status!" />
           </div>
+          <div class="col-6 col-md-3 mb-3">
+            <small class="text-muted d-block">{{ '::AdvancePaymentStatus' | abpLocalization }}</small>
+            <span class="badge" [ngClass]="{
+              'bg-secondary': order.advancePaymentStatus === 'Not Requested',
+              'bg-info': order.advancePaymentStatus === 'Requested',
+              'bg-warning': order.advancePaymentStatus === 'Partially Paid',
+              'bg-success': order.advancePaymentStatus === 'Fully Paid'
+            }">{{ order.advancePaymentStatus || 'Not Requested' }}</span>
+          </div>
         </div>
         @if (order.customerPoNumber) {
           <div class="mt-2">

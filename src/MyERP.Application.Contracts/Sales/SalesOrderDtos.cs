@@ -35,6 +35,7 @@ public class SalesOrderDto : FullAuditedEntityDto<Guid>
     public decimal PerBilled { get; set; }
     public decimal AdvancePaid { get; set; }
     public decimal PerAdvancePaid { get; set; }
+    public string AdvancePaymentStatus { get; set; } = "Not Requested";
 
     /// <summary>Date of first delivery note against this order (null if none yet).</summary>
     public DateTime? FirstDeliveryDate { get; set; }

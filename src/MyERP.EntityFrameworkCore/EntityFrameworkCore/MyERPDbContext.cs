@@ -1218,6 +1218,7 @@ public class MyERPDbContext :
             b.Property(x => x.SalesPartnerId);
             b.Property(x => x.CommissionRate).HasColumnType("decimal(5,2)");
             b.Property(x => x.TotalCommission).HasColumnType("decimal(18,2)");
+            b.Property(x => x.AdvancePaymentStatus).HasMaxLength(50).HasDefaultValue("Not Requested");
             b.HasIndex(x => new { x.TenantId, x.SalesPartnerId });
 
             // Optimistic concurrency — protects DeliveredQty/BilledQty from concurrent DN/SI submission
