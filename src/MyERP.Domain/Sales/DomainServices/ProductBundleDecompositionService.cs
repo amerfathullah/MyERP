@@ -193,7 +193,7 @@ public class ProductBundleDecompositionService : DomainService
             if (bundleItemIds.Contains(item.ItemId))
             {
                 var components = await DecomposeAsync(
-                    item.ItemId, item.Qty, item.Rate, item.WarehouseId, item.DetailId, item.Index, isReturn, item.ProductBundleId);
+                    item.ItemId, item.Qty, item.Rate, item.WarehouseId, item.DetailId, item.Index, isReturn, item.ProductBundleId, item.ComponentStockQtyPerUnit);
                 packedItems.AddRange(components);
             }
             else
@@ -246,7 +246,8 @@ public record BundleTransactionItem(
     Guid? WarehouseId = null,
     Guid? DetailId = null,
     int? Index = null,
-    Guid? ProductBundleId = null
+    Guid? ProductBundleId = null,
+    IReadOnlyDictionary<Guid, decimal>? ComponentStockQtyPerUnit = null
 );
 
 /// <summary>

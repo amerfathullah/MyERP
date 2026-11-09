@@ -65,9 +65,8 @@ export class CustomerFormComponent implements OnInit {
       if (acc.isActive === false) return false;
       if (acc.accountType !== undefined && acc.accountType !== null && acc.accountType !== 0) return false;
       const accCurrency = (acc.currency || companyCurrency).trim();
-      return !targetCurrency
-        || accCurrency.toLowerCase() === targetCurrency.toLowerCase()
-        || accCurrency.toLowerCase() === companyCurrency.toLowerCase();
+      // Per ERPNext PR #64936 (commit 9ecfac159f): offer only accounts matching the party's billing currency (or company currency without one)
+      return !targetCurrency || accCurrency.toLowerCase() === targetCurrency.toLowerCase();
     });
   });
 
