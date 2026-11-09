@@ -91,9 +91,12 @@ public class SubcontractingReceiptItem : Entity<Guid>
     public Guid ItemId { get; set; }
     public string ItemName { get; set; } = null!;
     public decimal Qty { get; set; }
+    public decimal RejectedQty { get; set; }
     public decimal Rate { get; set; }
     public decimal Amount => Qty * Rate;
     public Guid? WarehouseId { get; set; }
+    public Guid? RejectedWarehouseId { get; set; }
+    public bool ReturnQtyFromRejectedWarehouse { get; set; }
     public Guid? ExpenseAccountId { get; set; }
     public Guid? ServiceExpenseAccountId { get; set; }
     public Guid? CostCenterId { get; set; }

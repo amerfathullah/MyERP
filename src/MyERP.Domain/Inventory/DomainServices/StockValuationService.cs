@@ -156,9 +156,10 @@ public class StockValuationService : DomainService
             }
         }
 
-        // Per ERPNext stock_ledger.py get_valuation_rate:
+        // Per ERPNext stock_ledger.py get_valuation_rate & commits bc7701bad1, 838c54142c:
         // When stock-out is against a bundle or batch with batchwise valuation, use the specific valuation rate
-        if (quantityChange < 0 && incomingRate <= 0)
+        // EXCEPT for Standard Cost items, which always use their fixed standard rate.
+        if (quantityChange < 0 && incomingRate <= 0 && item.ValuationMethod != ValuationMethod.StandardCost)
         {
             if (serialAndBatchBundleId.HasValue)
             {
@@ -288,6 +289,14 @@ public class StockValuationService : DomainService
         DateTime? postingDateTime = null,
         DateTime? creationTime = null)
     {
+        // 0. Standard Cost valuation always takes priority over serial/batch/SLE rates
+        // Per ERPNext commits fe05246e80, bc7701bad1, 838c54142c
+        var item = await _itemRepository.FindAsync(itemId);
+        if (item?.ValuationMethod == ValuationMethod.StandardCost)
+        {
+            return item.StandardBuyingPrice ?? 0m;
+        }
+
         // 1. Batch-wise valuation
         if (batchId.HasValue)
         {
@@ -418,7 +427,6 @@ public class StockValuationService : DomainService
         if (lastSle != null && lastSle.ValuationRate >= 0)
             return lastSle.ValuationRate;
 
-        var item = await _itemRepository.FindAsync(itemId);
         return item?.StandardBuyingPrice ?? 0m;
     }
 
@@ -632,6 +640,9 @@ public class StockValuationService : DomainService
             case ValuationMethod.FIFO:
             case ValuationMethod.LIFO:
                 RevaluateFifoLifo(entries, priorEntry, item.ValuationMethod == ValuationMethod.LIFO);
+                break;
+            case ValuationMethod.StandardCost:
+                RevaluateStandardCost(entries, priorEntry, item.StandardBuyingPrice ?? 0m);
                 break;
             case ValuationMethod.WeightedAverage:
             default:
@@ -944,6 +955,33 @@ public class StockValuationService : DomainService
 
             entry.BalanceQuantity = Math.Round(runningQty, 4);
             entry.BalanceValue = Math.Max(0, Math.Round(runningValue, 2));
+            entry.StockValueDifference = Math.Round(entry.BalanceValue - valueBefore, 2);
+        }
+    }
+
+    private static void RevaluateStandardCost(List<StockLedgerEntry> entries, StockLedgerEntry? priorEntry, decimal standardRate)
+    {
+        var runningQty = priorEntry?.BalanceQuantity ?? 0m;
+        var runningValue = priorEntry?.BalanceValue ?? 0m;
+
+        foreach (var entry in entries)
+        {
+            var valueBefore = runningValue;
+            runningQty += entry.QuantityChange;
+            if (Math.Round(runningQty, 4) == 0m)
+            {
+                runningQty = 0m;
+                runningValue = 0m;
+            }
+            else
+            {
+                runningValue = Math.Max(0m, runningQty * standardRate);
+            }
+
+            entry.ValuationRate = Math.Round(standardRate, 4);
+            entry.StockValue = entry.QuantityChange * standardRate;
+            entry.BalanceQuantity = Math.Round(runningQty, 4);
+            entry.BalanceValue = Math.Round(runningValue, 2);
             entry.StockValueDifference = Math.Round(entry.BalanceValue - valueBefore, 2);
         }
     }

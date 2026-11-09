@@ -235,7 +235,7 @@ export class SubcontractingDetailComponent implements OnInit {
   receipts = signal<any[]>([]);
   showReturnDialog = signal(false);
   returnAgainst = signal<any>(null);
-  returnItems = signal<{ itemId: string; itemName: string; qty: number; rate: number; returnQty: number }[]>([]);
+  returnItems = signal<{ itemId: string; itemName: string; qty: number; rejectedQty: number; rate: number; returnQty: number; warehouseId?: string; rejectedWarehouseId?: string; returnQtyFromRejectedWarehouse?: boolean }[]>([]);
   isReturning = signal(false);
 
   ngOnInit(): void {
@@ -260,7 +260,15 @@ export class SubcontractingDetailComponent implements OnInit {
   openReturnDialog(receipt: any): void {
     this.returnAgainst.set(receipt);
     this.returnItems.set((receipt.items ?? []).map((i: any) => ({
-      itemId: i.itemId, itemName: i.itemName, qty: i.qty, rate: i.rate, returnQty: i.qty,
+      itemId: i.itemId,
+      itemName: i.itemName,
+      qty: i.qty,
+      rejectedQty: i.rejectedQty ?? 0,
+      rate: i.rate,
+      returnQty: i.qty,
+      warehouseId: i.warehouseId ?? '',
+      rejectedWarehouseId: i.rejectedWarehouseId ?? '',
+      returnQtyFromRejectedWarehouse: false,
     })));
     this.showReturnDialog.set(true);
   }
@@ -277,7 +285,14 @@ export class SubcontractingDetailComponent implements OnInit {
     this.service.createReceiptReturn({
       returnAgainstReceiptId: against.id,
       postingDate: new Date().toISOString().split('T')[0],
-      items: items.map(i => ({ itemId: i.itemId, itemName: i.itemName, qty: i.returnQty, rate: i.rate })),
+      items: items.map(i => ({
+        itemId: i.itemId,
+        itemName: i.itemName,
+        qty: i.returnQty,
+        rate: i.rate,
+        warehouseId: i.warehouseId || undefined,
+        returnQtyFromRejectedWarehouse: !!i.returnQtyFromRejectedWarehouse,
+      })),
     }).subscribe({
       next: (returnReceipt: any) => {
         this.service.submitReceipt(returnReceipt.id).subscribe({

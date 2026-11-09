@@ -134,6 +134,15 @@ public class SubcontractingManager : DomainService
 
         foreach (var receiptItem in receipt.Items)
         {
+            if (receipt.IsReturn && IsRejectedSubcontractingReturn(
+                receiptItem.ReturnQtyFromRejectedWarehouse,
+                receiptItem.WarehouseId,
+                receiptItem.RejectedWarehouseId))
+            {
+                // Per ERPNext commit aeb5278994: return rows sending back rejected qty do not reduce accepted received qty on SCO
+                continue;
+            }
+
             var scoItem = sco.Items.FirstOrDefault(i => i.ItemId == receiptItem.ItemId);
             if (scoItem == null) continue;
 
@@ -196,6 +205,43 @@ public class SubcontractingManager : DomainService
                 };
             })
             .ToArray();
+    }
+
+    /// <summary>
+    /// Determines whether a Subcontracting Receipt return row sends back rejected qty.
+    /// Per ERPNext commit aeb5278994:
+    /// A Subcontracting Receipt return row sends back rejected qty ONLY while it is flagged
+    /// (ReturnQtyFromRejectedWarehouse = true) AND its warehouse matches the original row's RejectedWarehouseId.
+    /// </summary>
+    public static bool IsRejectedSubcontractingReturn(
+        bool returnQtyFromRejectedWarehouse,
+        Guid? returnWarehouseId,
+        Guid? originalRejectedWarehouseId)
+    {
+        return returnQtyFromRejectedWarehouse
+            && returnWarehouseId.HasValue
+            && originalRejectedWarehouseId.HasValue
+            && returnWarehouseId.Value == originalRejectedWarehouseId.Value;
+    }
+
+    /// <summary>
+    /// Resolves the original entry's warehouse that a Subcontracting Receipt return row goes back at.
+    /// Per ERPNext commit 7a711015db (get_subcontracting_return_warehouse):
+    /// If IsRejectedSubcontractingReturn is true, returns originalRejectedWarehouseId;
+    /// otherwise returns originalAcceptedWarehouseId.
+    /// </summary>
+    public static Guid? GetSubcontractingReturnWarehouse(
+        bool returnQtyFromRejectedWarehouse,
+        Guid? returnWarehouseId,
+        Guid? originalAcceptedWarehouseId,
+        Guid? originalRejectedWarehouseId)
+    {
+        if (IsRejectedSubcontractingReturn(returnQtyFromRejectedWarehouse, returnWarehouseId, originalRejectedWarehouseId))
+        {
+            return originalRejectedWarehouseId;
+        }
+
+        return originalAcceptedWarehouseId;
     }
 }
 

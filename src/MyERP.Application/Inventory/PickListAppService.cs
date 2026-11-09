@@ -85,6 +85,55 @@ public class PickListAppService : ApplicationService, IPickListAppService
             }
         }
 
+        var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var uomService = LazyServiceProvider.LazyGetService<UomConversionService>();
+        var itemsById = (await itemRepo.GetQueryableAsync())
+            .Where(i => itemIds.Contains(i.Id))
+            .ToDictionary(i => i.Id);
+
+        // Per ERPNext commits d0796ff33b & 0de4680ea9:
+        // Build ordered conversion factor lookup keyed by (SourceDocumentItemId, ItemId, UOM)
+        // from Sales Order Item and Material Request Item rows.
+        var orderedConversionFactors = new Dictionary<(Guid RowId, Guid ItemId, string Uom), decimal>();
+        if (input.SalesOrderId.HasValue)
+        {
+            var soRepo = LazyServiceProvider.LazyGetService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+            if (soRepo != null)
+            {
+                var so = await soRepo.FindAsync(input.SalesOrderId.Value, includeDetails: true);
+                if (so != null)
+                {
+                    foreach (var soRow in so.Items)
+                    {
+                        if (!string.IsNullOrWhiteSpace(soRow.Uom))
+                        {
+                            orderedConversionFactors[(soRow.Id, soRow.ItemId, soRow.Uom.Trim().ToUpperInvariant())] =
+                                soRow.ConversionFactor > 0 ? soRow.ConversionFactor : 1m;
+                        }
+                    }
+                }
+            }
+        }
+        if (input.MaterialRequestId.HasValue)
+        {
+            var mrRepo = LazyServiceProvider.LazyGetService<IRepository<MyERP.Purchasing.Entities.MaterialRequest, Guid>>();
+            if (mrRepo != null)
+            {
+                var mr = await mrRepo.FindAsync(input.MaterialRequestId.Value, includeDetails: true);
+                if (mr != null)
+                {
+                    foreach (var mrRow in mr.Items)
+                    {
+                        if (!string.IsNullOrWhiteSpace(mrRow.Uom))
+                        {
+                            orderedConversionFactors[(mrRow.Id, mrRow.ItemId, mrRow.Uom.Trim().ToUpperInvariant())] =
+                                mrRow.ConversionFactor > 0 ? mrRow.ConversionFactor : 1m;
+                        }
+                    }
+                }
+            }
+        }
+
         var pl = new PickList(GuidGenerator.Create(), input.CompanyId, input.Purpose, CurrentTenant.Id)
         {
             SalesOrderId = input.SalesOrderId,
@@ -94,9 +143,48 @@ public class PickListAppService : ApplicationService, IPickListAppService
             PickManually = input.PickManually,
         };
         foreach (var item in input.Items)
-            pl.AddItem(item.ItemId, item.WarehouseId, item.Qty, itemName: item.ItemName, batchId: item.BatchId,
-                productBundleItemId: item.ProductBundleItemId, sourceDocumentItemId: item.SourceDocumentItemId,
-                serialAndBatchBundleId: item.SerialAndBatchBundleId);
+        {
+            itemsById.TryGetValue(item.ItemId, out var itemEntity);
+            var stockUom = itemEntity?.Uom ?? "Unit";
+            var requestedUom = !string.IsNullOrWhiteSpace(item.Uom) ? item.Uom.Trim() : stockUom;
+            var itemMasterFactor = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+
+            if (!string.Equals(requestedUom, stockUom, StringComparison.OrdinalIgnoreCase) && uomService != null && itemEntity != null)
+            {
+                try
+                {
+                    itemMasterFactor = await uomService.GetConversionFactorAsync(
+                        itemEntity.Id, requestedUom, stockUom, itemEntity.VariantOfId);
+                }
+                catch
+                {
+                    // Fallback to provided factor or 1m if UOM conversion table does not have the entry
+                }
+            }
+
+            var (resolvedUom, resolvedFactor, resolvedStockQty) = PickListManager.ResolveRowUomAndStockQty(
+                item.ItemId,
+                stockUom,
+                requestedUom,
+                item.Qty,
+                item.SourceDocumentItemId,
+                item.ProductBundleItemId,
+                orderedConversionFactors,
+                itemMasterFactor);
+
+            pl.AddItem(
+                item.ItemId,
+                item.WarehouseId,
+                item.Qty,
+                stockQty: item.StockQty > 0 ? item.StockQty : resolvedStockQty,
+                itemName: item.ItemName ?? itemEntity?.ItemName,
+                batchId: item.BatchId,
+                productBundleItemId: item.ProductBundleItemId,
+                sourceDocumentItemId: item.SourceDocumentItemId,
+                serialAndBatchBundleId: item.SerialAndBatchBundleId,
+                uom: resolvedUom,
+                conversionFactor: resolvedFactor);
+        }
         await _repository.InsertAsync(pl);
         return ObjectMapper.Map<PickList, PickListDto>(pl);
     }
@@ -207,7 +295,7 @@ public class PickListAppService : ApplicationService, IPickListAppService
             }
             else
             {
-                var standardPickedQty = pickRows.Sum(r => r.Qty);
+                var standardPickedQty = pickRows.Sum(r => r.StockQty > 0 ? r.StockQty : r.Qty);
                 soItem.UpdatePickedQty(direction * standardPickedQty);
             }
         }

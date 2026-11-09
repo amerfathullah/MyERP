@@ -58,11 +58,11 @@ public class PickList : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void AddItem(Guid itemId, Guid warehouseId, decimal qty,
         decimal stockQty = 0, string? itemName = null, Guid? batchId = null,
         Guid? productBundleItemId = null, Guid? sourceDocumentItemId = null,
-        Guid? serialAndBatchBundleId = null)
+        Guid? serialAndBatchBundleId = null, string? uom = null, decimal conversionFactor = 1m)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        var item = new PickListItem(Guid.NewGuid(), Id, itemId, warehouseId, qty, stockQty, itemName, batchId, productBundleItemId, serialAndBatchBundleId);
+        var item = new PickListItem(Guid.NewGuid(), Id, itemId, warehouseId, qty, stockQty, itemName, batchId, productBundleItemId, serialAndBatchBundleId, uom, conversionFactor);
         if (sourceDocumentItemId.HasValue)
             item.SourceDocumentItemId = sourceDocumentItemId.Value;
         _items.Add(item);
@@ -117,6 +117,8 @@ public class PickListItem : FullAuditedEntity<Guid>
     public Guid? BatchId { get; set; }
 
     public decimal Qty { get; set; }
+    public string? Uom { get; set; }
+    public decimal ConversionFactor { get; set; } = 1m;
     public decimal StockQty { get; set; }
 
     /// <summary>Qty already transferred to Stock Entry (supports partial).</summary>
@@ -144,13 +146,15 @@ public class PickListItem : FullAuditedEntity<Guid>
 
     public PickListItem(Guid id, Guid pickListId, Guid itemId, Guid warehouseId,
         decimal qty, decimal stockQty, string? itemName, Guid? batchId, Guid? productBundleItemId = null,
-        Guid? serialAndBatchBundleId = null) : base(id)
+        Guid? serialAndBatchBundleId = null, string? uom = null, decimal conversionFactor = 1m) : base(id)
     {
         PickListId = pickListId;
         ItemId = itemId;
         WarehouseId = warehouseId;
         Qty = qty;
-        StockQty = stockQty > 0 ? stockQty : qty;
+        Uom = uom;
+        ConversionFactor = conversionFactor > 0 ? conversionFactor : 1m;
+        StockQty = stockQty > 0 ? stockQty : Math.Round(qty * ConversionFactor, 4);
         ItemName = itemName;
         BatchId = batchId;
         ProductBundleItemId = productBundleItemId;

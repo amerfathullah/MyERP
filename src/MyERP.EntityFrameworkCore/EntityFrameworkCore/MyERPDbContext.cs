@@ -1572,6 +1572,7 @@ public class MyERPDbContext :
             b.ConfigureByConvention();
             b.Property(x => x.ItemName).IsRequired().HasMaxLength(200);
             b.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+            b.Property(x => x.RejectedQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.Rate).HasColumnType("decimal(18,4)");
             b.Property(x => x.SecondaryItemType).HasMaxLength(50);
             b.Property(x => x.CostAllocationPercentage).HasColumnType("decimal(18,4)");
@@ -4204,6 +4205,8 @@ public class MyERPDbContext :
             b.ToTable("Inv_PickListItems", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.Property(x => x.ItemName).HasMaxLength(200);
+            b.Property(x => x.Uom).HasMaxLength(50);
+            b.Property(x => x.ConversionFactor).HasColumnType("decimal(18,6)").HasDefaultValue(1m);
             b.Property(x => x.Qty).HasColumnType("decimal(18,4)");
             b.Property(x => x.StockQty).HasColumnType("decimal(18,4)");
             b.Property(x => x.TransferredQty).HasColumnType("decimal(18,4)");

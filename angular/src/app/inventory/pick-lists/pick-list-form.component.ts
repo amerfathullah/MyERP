@@ -222,7 +222,9 @@ export class PickListFormComponent implements OnInit {
           this.itemsArray.push(this.fb.group({
             itemId: [row.itemId, Validators.required],
             warehouseId: [row.warehouseId || defaultWh, Validators.required],
-            quantity: [stockQty, [Validators.required, Validators.min(0.01)]],
+            quantity: [remainingOrderQty, [Validators.required, Validators.min(0.01)]],
+            uom: [row.uom || ''],
+            conversionFactor: [factor],
             sourceDocumentItemId: [row.id || ''],
           }));
         }
@@ -242,6 +244,8 @@ export class PickListFormComponent implements OnInit {
       itemId: ['', Validators.required],
       warehouseId: ['', Validators.required],
       quantity: [1, [Validators.required, Validators.min(0.01)]],
+      uom: [''],
+      conversionFactor: [1],
       sourceDocumentItemId: [''],
     }));
   }
@@ -263,6 +267,8 @@ export class PickListFormComponent implements OnInit {
         itemId: i.itemId,
         warehouseId: i.warehouseId,
         qty: Number(i.quantity),
+        uom: i.uom || undefined,
+        conversionFactor: Number(i.conversionFactor) > 0 ? Number(i.conversionFactor) : 1,
         sourceDocumentItemId: i.sourceDocumentItemId || undefined,
       })),
     };

@@ -307,6 +307,9 @@ export interface CreatePickListItemDto {
   itemName?: string | null;
   warehouseId?: string;
   qty?: number;
+  uom?: string | null;
+  conversionFactor?: number;
+  stockQty?: number;
   batchId?: string | null;
   productBundleItemId?: string | null;
   sourceDocumentItemId?: string | null;
@@ -1492,6 +1495,9 @@ export interface PickListItemDto {
   itemName?: string | null;
   warehouseId?: string;
   qty?: number;
+  uom?: string | null;
+  conversionFactor?: number;
+  stockQty?: number;
   transferredQty?: number;
   deliveredQty?: number;
   pendingQty?: number;

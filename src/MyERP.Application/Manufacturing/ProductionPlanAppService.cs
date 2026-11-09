@@ -620,7 +620,10 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
 
                     if (isSubAssembly)
                     {
-                        var targetWh = targetSubAssemblyWh ?? currentBom.SourceWarehouseId;
+                        // Per ERPNext commit ae0cfde014: fallback to item default warehouse for requested sub-assemblies
+                        var targetWh = targetSubAssemblyWh
+                            ?? currentBom.SourceWarehouseId
+                            ?? await itemDefaultsService.ResolveWarehouseAsync(bomItem.ItemId, plan.CompanyId);
                         var requiredQty = multiplier;
 
                         if (!subAssemblyPool.TryGetValue(bomItem.ItemId, out var pool))

@@ -419,6 +419,51 @@ public class PickListManager : DomainService
     }
 
     /// <summary>
+    /// Resolves UOM, conversion factor, and stock quantity for a Pick List item row.
+    /// Per ERPNext commits d0796ff33b and 0de4680ea9:
+    /// - Defaults row UOM to the item's stock UOM.
+    /// - If row UOM == stock UOM, conversion factor = 1.
+    /// - Else if the row is NOT a product bundle component (!productBundleItemId.HasValue) and references an ordered row
+    ///   (Sales Order Item or Material Request Item) whose (SourceDocumentItemId, ItemId, Uom) matches,
+    ///   preserves the ordered row's conversion factor even if the item master UOM conversion changed.
+    /// - Else uses the item's current UOM conversion factor (or fallback 1).
+    /// - Computes StockQty = Round(Qty * ConversionFactor, 4).
+    /// </summary>
+    public static (string Uom, decimal ConversionFactor, decimal StockQty) ResolveRowUomAndStockQty(
+        Guid itemId,
+        string stockUom,
+        string? rowUom,
+        decimal qty,
+        Guid? sourceDocumentItemId,
+        Guid? productBundleItemId,
+        IReadOnlyDictionary<(Guid RowId, Guid ItemId, string Uom), decimal>? orderedConversionFactors,
+        decimal itemMasterConversionFactor = 1m)
+    {
+        var effectiveUom = !string.IsNullOrWhiteSpace(rowUom) ? rowUom.Trim() : (stockUom ?? "Unit");
+        decimal factor;
+
+        if (string.Equals(effectiveUom, stockUom, StringComparison.OrdinalIgnoreCase))
+        {
+            factor = 1m;
+        }
+        else if (!productBundleItemId.HasValue
+            && sourceDocumentItemId.HasValue
+            && orderedConversionFactors != null
+            && orderedConversionFactors.TryGetValue((sourceDocumentItemId.Value, itemId, effectiveUom.ToUpperInvariant()), out var orderedFactor)
+            && orderedFactor > 0)
+        {
+            factor = orderedFactor;
+        }
+        else
+        {
+            factor = itemMasterConversionFactor > 0 ? itemMasterConversionFactor : 1m;
+        }
+
+        var stockQty = Math.Round(qty * factor, 4);
+        return (effectiveUom, factor, stockQty);
+    }
+
+    /// <summary>
     /// Aggregates picked batch quantities from bundles, correctly splitting across multiple batches in a bundle.
     /// Per ERPNext PR #60301 (commit ead0229375b): handles multiple batches in pick list bundles without KeyError/loss.
     /// </summary>

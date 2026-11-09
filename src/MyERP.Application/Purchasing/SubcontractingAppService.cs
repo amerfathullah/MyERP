@@ -524,6 +524,7 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         }
 
         var receiptWarehouseIds = input.Items.Where(i => i.WarehouseId.HasValue).Select(i => i.WarehouseId!.Value)
+            .Concat(input.Items.Where(i => i.RejectedWarehouseId.HasValue).Select(i => i.RejectedWarehouseId!.Value))
             .Concat(input.WarehouseId.HasValue ? new[] { input.WarehouseId.Value } : Array.Empty<Guid>())
             .Distinct()
             .ToList();
@@ -622,10 +623,24 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                     .WithData("detail", "Subcontracting Receipt Item Project cannot differ from Purchase Order Item Project.");
             }
 
+            if (item.RejectedQty != 0 && !item.RejectedWarehouseId.HasValue)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.MissingWarehouse)
+                    .WithData("detail", $"Rejected Warehouse is mandatory for rejected Item {item.ItemName}.");
+            }
+            var effectiveAcceptedWh = item.WarehouseId ?? input.WarehouseId;
+            if (item.RejectedWarehouseId.HasValue && effectiveAcceptedWh.HasValue && item.RejectedWarehouseId.Value == effectiveAcceptedWh.Value)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                    .WithData("detail", "Accepted Warehouse and Rejected Warehouse cannot be same.");
+            }
+
             scr.AddItem(new SubcontractingReceiptItem(
                 GuidGenerator.Create(), scr.Id, item.ItemId, item.ItemName, item.Qty, item.Rate, itemProjectId)
             {
+                RejectedQty = item.RejectedQty,
                 WarehouseId = item.WarehouseId,
+                RejectedWarehouseId = item.RejectedWarehouseId,
                 CostCenterId = item.CostCenterId,
                 ExpenseAccountId = item.ExpenseAccountId,
                 ServiceExpenseAccountId = item.ServiceExpenseAccountId,
@@ -662,6 +677,15 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 item.Qty, item.Rate, "SubcontractingReceipt", scr.Id, scr.TenantId);
 
             await _binService.ApplyStockMovementAsync(item.ItemId, warehouseId, item.Qty, item.Qty * item.Rate);
+
+            if (!scr.IsReturn && item.RejectedQty > 0 && item.RejectedWarehouseId.HasValue)
+            {
+                await _stockValuationService.CreateLedgerEntryAsync(
+                    scr.CompanyId, item.ItemId, item.RejectedWarehouseId.Value, scr.PostingDate,
+                    item.RejectedQty, 0m, "SubcontractingReceipt", scr.Id, scr.TenantId);
+
+                await _binService.ApplyStockMovementAsync(item.ItemId, item.RejectedWarehouseId.Value, item.RejectedQty, 0m);
+            }
         }
 
         // Update linked SCO fulfillment via domain service (replaces inline logic)
@@ -670,7 +694,11 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         // RM consumption: calculate and track consumed quantities
         // Per ERPNext subcontracting_controller: RM consumed proportional to received FG qty
         // Per ERPNext PR #46892 / commit 7479e1ec32: backflush setting is ignored on returns
-        var totalReceivedFgQty = scr.Items.Sum(i => i.Qty);
+        // Per ERPNext commit aeb5278994: return rows sending back rejected qty do not reverse RM consumption
+        var totalReceivedFgQty = scr.Items
+            .Where(i => !scr.IsReturn || !MyERP.Purchasing.DomainServices.SubcontractingManager.IsRejectedSubcontractingReturn(
+                i.ReturnQtyFromRejectedWarehouse, i.WarehouseId, i.RejectedWarehouseId))
+            .Sum(i => i.Qty);
         var sco = await _scoRepository.GetAsync(scr.SubcontractingOrderId);
         var backflushSetting = await SettingProvider.GetOrNullAsync(
             MyERPSettings.Buying.BackflushSubcontractBasedOn) ?? "BOM";
@@ -732,8 +760,11 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         await _scoRepository.UpdateAsync(sco);
 
         // GL posting: DR Stock, CR Stock Received But Not Billed (perpetual inventory)
-        var postingOrchestrator = LazyServiceProvider.LazyGetRequiredService<MyERP.Accounting.DomainServices.DocumentPostingOrchestrator>();
-        await postingOrchestrator.PostPurchaseReceiptAsync(scr);
+        if (scr.NetTotal != 0m)
+        {
+            var postingOrchestrator = LazyServiceProvider.LazyGetRequiredService<MyERP.Accounting.DomainServices.DocumentPostingOrchestrator>();
+            await postingOrchestrator.PostPurchaseReceiptAsync(scr);
+        }
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Core.Entities.DocumentActivityLog, Guid>>();
         await activityLogRepo.InsertAsync(new Core.Entities.DocumentActivityLog(
@@ -841,8 +872,17 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             .Where(r => r.ReturnAgainstReceiptId == original.Id && r.Status != SubcontractingReceiptStatus.Cancelled)
             .ToList();
 
-        var priorReturnedByItem = priorReturns
+        var priorReturnedAcceptedByItem = priorReturns
             .SelectMany(r => r.Items)
+            .Where(i => !MyERP.Purchasing.DomainServices.SubcontractingManager.IsRejectedSubcontractingReturn(
+                i.ReturnQtyFromRejectedWarehouse, i.WarehouseId, i.RejectedWarehouseId))
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Qty)));
+
+        var priorReturnedRejectedByItem = priorReturns
+            .SelectMany(r => r.Items)
+            .Where(i => MyERP.Purchasing.DomainServices.SubcontractingManager.IsRejectedSubcontractingReturn(
+                i.ReturnQtyFromRejectedWarehouse, i.WarehouseId, i.RejectedWarehouseId))
             .GroupBy(i => i.ItemId)
             .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Qty)));
 
@@ -856,15 +896,39 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                     .WithData("detail", $"Item {retItem.ItemId} does not exist in original receipt.");
             }
 
-            var priorReturned = priorReturnedByItem.GetValueOrDefault(retItem.ItemId, 0m);
-            var maxReturnable = origItem.Qty - priorReturned;
+            var candidateWarehouseId = retItem.WarehouseId
+                ?? (retItem.ReturnQtyFromRejectedWarehouse ? origItem.RejectedWarehouseId : (origItem.WarehouseId ?? original.WarehouseId));
 
-            if (retItem.Qty > maxReturnable)
+            var isRejectedReturn = MyERP.Purchasing.DomainServices.SubcontractingManager.IsRejectedSubcontractingReturn(
+                retItem.ReturnQtyFromRejectedWarehouse,
+                candidateWarehouseId,
+                origItem.RejectedWarehouseId);
+
+            if (isRejectedReturn)
             {
-                throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
-                    .WithData("itemId", retItem.ItemId)
-                    .WithData("returnQty", retItem.Qty)
-                    .WithData("maxReturnable", maxReturnable);
+                var priorReturned = priorReturnedRejectedByItem.GetValueOrDefault(retItem.ItemId, 0m);
+                var origRejQty = origItem.RejectedQty > 0 ? origItem.RejectedQty : origItem.Qty;
+                var maxReturnable = origRejQty - priorReturned;
+                if (retItem.Qty > maxReturnable)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
+                        .WithData("itemId", retItem.ItemId)
+                        .WithData("returnQty", retItem.Qty)
+                        .WithData("maxReturnable", maxReturnable);
+                }
+            }
+            else
+            {
+                var priorReturned = priorReturnedAcceptedByItem.GetValueOrDefault(retItem.ItemId, 0m);
+                var maxReturnable = origItem.Qty - priorReturned;
+
+                if (retItem.Qty > maxReturnable)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal)
+                        .WithData("itemId", retItem.ItemId)
+                        .WithData("returnQty", retItem.Qty)
+                        .WithData("maxReturnable", maxReturnable);
+                }
             }
         }
 
@@ -888,17 +952,31 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
         {
             var origItem = originalItemsByItem[retItem.ItemId];
             var negativeQty = -Math.Abs(retItem.Qty);
+            var candidateWarehouseId = retItem.WarehouseId
+                ?? (retItem.ReturnQtyFromRejectedWarehouse ? origItem.RejectedWarehouseId : (origItem.WarehouseId ?? original.WarehouseId));
+
+            // Per ERPNext commits aeb5278994, 0146c3b6d3, 7a711015db:
+            // Treat a return row as rejected ONLY while flagged AND in the original rejected warehouse.
+            // Rejected return rows have 0 service/RM cost (already in accepted qty); accepted returns use origItem.Rate.
+            var isRejectedReturn = MyERP.Purchasing.DomainServices.SubcontractingManager.IsRejectedSubcontractingReturn(
+                retItem.ReturnQtyFromRejectedWarehouse,
+                candidateWarehouseId,
+                origItem.RejectedWarehouseId);
+
+            var returnRate = isRejectedReturn ? 0m : origItem.Rate;
+
             returnReceipt.AddItem(new SubcontractingReceiptItem(
                 Guid.NewGuid(),
                 returnReceipt.Id,
                 retItem.ItemId,
                 retItem.ItemName,
                 negativeQty,
-                // Per ERPNext PR #59597 / commit c7917bfc3e: value returns strictly at original receipt rate
-                origItem.Rate,
+                returnRate,
                 origItem.ProjectId)
             {
-                WarehouseId = retItem.WarehouseId ?? origItem.WarehouseId ?? original.WarehouseId,
+                WarehouseId = candidateWarehouseId,
+                RejectedWarehouseId = origItem.RejectedWarehouseId,
+                ReturnQtyFromRejectedWarehouse = retItem.ReturnQtyFromRejectedWarehouse,
                 CostCenterId = origItem.CostCenterId,
                 ExpenseAccountId = origItem.ExpenseAccountId,
                 ServiceExpenseAccountId = origItem.ServiceExpenseAccountId,
@@ -927,9 +1005,12 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 ItemId = i.ItemId,
                 ItemName = i.ItemName,
                 Qty = i.Qty,
+                RejectedQty = i.RejectedQty,
                 Rate = i.Rate,
                 Amount = i.Amount,
                 WarehouseId = i.WarehouseId,
+                RejectedWarehouseId = i.RejectedWarehouseId,
+                ReturnQtyFromRejectedWarehouse = i.ReturnQtyFromRejectedWarehouse,
                 ExpenseAccountId = i.ExpenseAccountId,
                 ServiceExpenseAccountId = i.ServiceExpenseAccountId,
                 CostCenterId = i.CostCenterId,

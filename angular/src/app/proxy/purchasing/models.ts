@@ -240,8 +240,10 @@ export interface CreateScrItemDto {
   itemId: string;
   itemName: string;
   qty?: number;
+  rejectedQty?: number;
   rate?: number;
   warehouseId?: string | null;
+  rejectedWarehouseId?: string | null;
   expenseAccountId?: string | null;
   serviceExpenseAccountId?: string | null;
   costCenterId?: string | null;
@@ -257,6 +259,7 @@ export interface CreateScrReturnItemDto {
   qty?: number;
   rate?: number;
   warehouseId?: string | null;
+  returnQtyFromRejectedWarehouse?: boolean;
 }
 
 export interface CreateStandingDto {
@@ -945,9 +948,12 @@ export interface SubcontractingReceiptItemDto extends EntityDto<string> {
   itemId?: string;
   itemName?: string;
   qty?: number;
+  rejectedQty?: number;
   rate?: number;
   amount?: number;
   warehouseId?: string | null;
+  rejectedWarehouseId?: string | null;
+  returnQtyFromRejectedWarehouse?: boolean;
   expenseAccountId?: string | null;
   serviceExpenseAccountId?: string | null;
   costCenterId?: string | null;
