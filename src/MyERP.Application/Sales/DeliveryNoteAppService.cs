@@ -654,19 +654,25 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                         var origSoItem = origSo?.Items.FirstOrDefault(i => i.Id == item.SalesOrderItemId.Value);
                         returnBundleVersionId = origSoItem?.ProductBundleId;
 
-                        // Per ERPNext PR #65000 / commit ea7e451bcf: check returned bundle components at the qty the Sales Order packed
+                        // Per ERPNext PR #65053 (commit 7edd914d84) & PR #65000:
+                        // evaluate returned bundle components at the qty the returned document packed
                         if (origDnForRates.PickListId.HasValue)
                         {
                             var plRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.PickList, Guid>>();
                             if (plRepo != null)
                             {
                                 var pl = await plRepo.FindAsync(origDnForRates.PickListId.Value);
-                                var matchingPicks = pl?.Items.Where(p => p.SourceDocumentItemId == item.SalesOrderItemId.Value).ToList();
-                                if (matchingPicks != null && matchingPicks.Count > 0 && origSoItem != null && origSoItem.Quantity > 0)
+                                var origDnItem = origDnForRates.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                                var sourceRowId = origDnItem?.SalesOrderItemId ?? item.SalesOrderItemId;
+                                var matchingPicks = pl?.Items.Where(p =>
+                                    (sourceRowId.HasValue && p.SourceDocumentItemId == sourceRowId.Value) ||
+                                    (origDnItem?.PickListItemId.HasValue == true && p.Id == origDnItem.PickListItemId.Value)).ToList();
+                                var origQty = origDnItem?.Quantity ?? (origSoItem?.Quantity ?? 1m);
+                                if (matchingPicks != null && matchingPicks.Count > 0 && origQty > 0)
                                 {
                                     componentStockQtyPerUnit = matchingPicks.ToDictionary(
                                         p => p.ItemId,
-                                        p => Math.Round((p.StockQty > 0 ? p.StockQty : p.Qty) / origSoItem.Quantity, 4));
+                                        p => Math.Round((p.StockQty > 0 ? p.StockQty : p.Qty) / origQty, 4));
                                 }
                             }
                         }

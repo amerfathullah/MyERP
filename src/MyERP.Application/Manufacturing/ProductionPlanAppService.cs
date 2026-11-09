@@ -1867,6 +1867,26 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             ProjectedQty = matchingBins.Sum(b => b.ProjectedQty)
         };
     }
+
+    /// <summary>
+    /// Merges multiple material requirement rows for the same item/warehouse into the primary row's UOM.
+    /// Per ERPNext PR #65049 (commits fd4fbcf7ff, 1182e4a8f4, 5eabaab431):
+    /// Transfer rows are in stock UOM and purchase rows in purchase UOM, so merge in the row's UOM
+    /// and round once at precision.
+    /// </summary>
+    public static decimal MergeRequiredQuantities(
+        decimal targetRowQty,
+        decimal targetConversionFactor,
+        decimal incomingQty,
+        decimal incomingConversionFactor,
+        int precision = 4)
+    {
+        var targetFactor = targetConversionFactor > 0 ? targetConversionFactor : 1m;
+        var incomingFactor = incomingConversionFactor > 0 ? incomingConversionFactor : 1m;
+        var incomingStockQty = incomingQty * incomingFactor;
+        var incomingInTargetUom = incomingStockQty / targetFactor;
+        return Math.Round(targetRowQty + incomingInTargetUom, precision);
+    }
 }
 
 

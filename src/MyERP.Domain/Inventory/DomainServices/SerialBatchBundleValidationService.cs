@@ -223,4 +223,40 @@ public class SerialBatchBundleValidationService : DomainService
             && Math.Abs(rejectedQty) > 0m
             && (!existingRejectedBundleId.HasValue || existingRejectedBundleId.Value == Guid.Empty);
     }
+
+    /// <summary>
+    /// Drops picked serial numbers and deducts picked batch quantities so subsequent return rows against the same
+    /// source row do not pick them again.
+    /// Per ERPNext PR #64590 (commits 9403e3df8d, c919eeb108, c4b462c136).
+    /// </summary>
+    public static void RemovePickedSerialBatches(
+        ISet<string> availableSerialNos,
+        IDictionary<Guid, decimal> availableBatches,
+        IEnumerable<string> pickedSerialNos,
+        IReadOnlyDictionary<Guid, decimal> pickedBatches,
+        bool isInternalCustomer = false,
+        int precision = 4)
+    {
+        foreach (var sn in pickedSerialNos)
+        {
+            availableSerialNos.Remove(sn);
+        }
+
+        var sign = isInternalCustomer ? -1m : 1m;
+        foreach (var (batchId, pickedQty) in pickedBatches)
+        {
+            if (availableBatches.TryGetValue(batchId, out var currentQty))
+            {
+                var remaining = Math.Round(currentQty - (sign * pickedQty), precision);
+                if (remaining <= 0)
+                {
+                    availableBatches.Remove(batchId);
+                }
+                else
+                {
+                    availableBatches[batchId] = remaining;
+                }
+            }
+        }
+    }
 }

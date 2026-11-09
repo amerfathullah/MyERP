@@ -383,9 +383,11 @@ public class PickListManager : DomainService
 
     /// <summary>
     /// Computes how many full bundles can be created from picked items.
-    /// Per ERPNext PR #62149 / commit 05bc9ce0fe:
+    /// Per ERPNext PR #62149 / commit 05bc9ce0fe and PR #65051 (commits 740575ad27, 3750ba894b, fe42da0c74):
     /// - Counts picked product bundles against the bundle version recorded on the order row (not active version).
     /// - Component bundle quantities must be expressed in component stock UOM (with conversion factor applied).
+    /// - Groups by component ItemId (not ProductBundleItemId) and aggregates picked quantities across repeated rows,
+    ///   so bundles with repeated component items are picked and delivered accurately.
     /// </summary>
     public static int ComputePickedQtyForBundle(
         IEnumerable<PickListItem> pickItems,
@@ -403,7 +405,9 @@ public class PickListManager : DomainService
             if (componentRequiredStockQuantities.TryGetValue(item.ItemId, out var requiredQty) && requiredQty > 0)
             {
                 var effectiveQty = pendingOnly ? Math.Max(0m, item.Qty - item.DeliveredQty) : item.Qty;
-                var bundleKey = item.ProductBundleItemId ?? item.ItemId;
+                // PR #65051: Group by ItemId (component item), not ProductBundleItemId,
+                // so multiple packed rows with the same component accumulate their picked qty towards the item total.
+                var bundleKey = item.ItemId;
                 if (!possibleBundles.ContainsKey(bundleKey))
                 {
                     possibleBundles[bundleKey] = 0;

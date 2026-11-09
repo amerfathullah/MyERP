@@ -285,6 +285,42 @@ public class SubcontractingManager : DomainService
             TransactionType: isReturn ? "Inward" : "Outward"
         );
     }
+
+    /// <summary>
+    /// Computes the quantity-weighted rate that the returned Subcontracting Receipt consumed the row's serial nos or batches at.
+    /// Per ERPNext PR #64861 (commits c28d1f5bc6, 7b7bfac7f8, c3ece0832e, 1dfb128847, eb0ee73b9d):
+    /// Returns the weighted average rate across the consumed batches/serials, or null if no matching consumed items.
+    /// </summary>
+    public static decimal? GetSerialBatchReturnRate(
+        IEnumerable<(Guid? BatchId, string? SerialNo, decimal Qty)> returnedEntries,
+        IReadOnlyDictionary<(Guid? BatchId, string? SerialNo), decimal> consumedRates,
+        int precision = 4)
+    {
+        var validReturned = new List<(decimal Rate, decimal Qty)>();
+        foreach (var entry in returnedEntries)
+        {
+            var key = (entry.BatchId, entry.SerialNo?.Trim().ToUpperInvariant());
+            if (consumedRates.TryGetValue(key, out var rate))
+            {
+                validReturned.Add((rate, Math.Abs(entry.Qty)));
+            }
+            else if (entry.BatchId.HasValue && consumedRates.TryGetValue((entry.BatchId, null), out var batchRate))
+            {
+                validReturned.Add((batchRate, Math.Abs(entry.Qty)));
+            }
+            else if (!string.IsNullOrWhiteSpace(entry.SerialNo) &&
+                     consumedRates.TryGetValue((null, entry.SerialNo.Trim().ToUpperInvariant()), out var serialRate))
+            {
+                validReturned.Add((serialRate, Math.Abs(entry.Qty)));
+            }
+        }
+
+        var totalQty = validReturned.Sum(x => x.Qty);
+        if (totalQty <= 0) return null;
+
+        var totalValue = validReturned.Sum(x => x.Rate * x.Qty);
+        return Math.Round(totalValue / totalQty, precision);
+    }
 }
 
 public class SubcontractingRmConsumption

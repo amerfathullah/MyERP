@@ -138,7 +138,7 @@ public class ProductBundleDecompositionService : DomainService
                 }
             }
 
-            // Component stock qty per bundle unit: if order had packed components, keep the ordered ratio (PR #65001 / PR #65000)
+            // Component stock qty per bundle unit: if order had packed components, keep the ordered ratio (PR #65001 / PR #65000 / PR #65052)
             decimal componentQtyPerUnit;
             if (componentStockQtyPerUnit != null && componentStockQtyPerUnit.TryGetValue(component.ComponentItemId, out var orderedRatio) && orderedRatio > 0)
             {
@@ -146,7 +146,7 @@ public class ProductBundleDecompositionService : DomainService
             }
             else
             {
-                componentQtyPerUnit = component.Qty * componentFactor;
+                componentQtyPerUnit = GetComponentStockQtyPerUnit(component.Qty, componentFactor);
             }
 
             // Scale qty: componentQtyPerUnit × parent_transaction_qty
@@ -217,6 +217,40 @@ public class ProductBundleDecompositionService : DomainService
         return packedItems.Where(p =>
             (p.ParentDetailId.HasValue && p.ParentDetailId.Value == parentDetailId) ||
             (!p.ParentDetailId.HasValue && parentIndex.HasValue && p.ParentIndex.HasValue && p.ParentIndex.Value == parentIndex.Value));
+    }
+
+    /// <summary>
+    /// Computes component stock qty per bundle unit.
+    /// Per ERPNext PR #65052 (commits 80fe289cd6 and 1af1ab99de):
+    /// - An order's packed ratio is derived from its rounded packed qty.
+    /// - If the conversion factor has not changed (expectedPackedQty == originalPackedQty),
+    ///   use the exact conversion factor directly so that an increase in order quantity does NOT
+    ///   scale the rounding error.
+    /// - Only if the conversion factor has changed from what was originally packed, preserve the original ordered ratio.
+    /// </summary>
+    public static decimal GetComponentStockQtyPerUnit(
+        decimal bundleComponentQty,
+        decimal conversionFactor,
+        decimal? soPackedQtyPerUnit = null,
+        decimal? originalPackedQty = null,
+        decimal? originalOrderStockQty = null,
+        int precision = 4)
+    {
+        var exactQtyPerUnit = bundleComponentQty * (conversionFactor > 0 ? conversionFactor : 1m);
+        if (soPackedQtyPerUnit.HasValue && soPackedQtyPerUnit.Value > 0)
+        {
+            if (originalPackedQty.HasValue && originalOrderStockQty.HasValue && originalOrderStockQty.Value > 0)
+            {
+                var expectedPackedQty = Math.Round(exactQtyPerUnit * originalOrderStockQty.Value, precision);
+                if (expectedPackedQty != Math.Round(originalPackedQty.Value, precision))
+                {
+                    return soPackedQtyPerUnit.Value;
+                }
+                return exactQtyPerUnit;
+            }
+            return soPackedQtyPerUnit.Value;
+        }
+        return exactQtyPerUnit;
     }
 }
 
