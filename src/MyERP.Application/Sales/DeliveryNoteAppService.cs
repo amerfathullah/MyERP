@@ -662,7 +662,9 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                             if (plRepo != null)
                             {
                                 var pl = await plRepo.FindAsync(origDnForRates.PickListId.Value);
-                                var origDnItem = origDnForRates.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                                var origDnItem = origDnForRates.Items.FirstOrDefault(i =>
+                                    (item.SalesOrderItemId.HasValue && i.SalesOrderItemId == item.SalesOrderItemId.Value)
+                                    || i.ItemId == item.ItemId);
                                 var sourceRowId = origDnItem?.SalesOrderItemId ?? item.SalesOrderItemId;
                                 var matchingPicks = pl?.Items.Where(p =>
                                     (sourceRowId.HasValue && p.SourceDocumentItemId == sourceRowId.Value) ||
@@ -691,7 +693,9 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                             var origSles = sleQuery
                                 .Where(s => s.VoucherType == "DeliveryNote" && s.VoucherId == origDnForRates.Id && !s.IsCancelled)
                                 .ToList();
-                            var origDnItem = origDnForRates.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                            var origDnItem = origDnForRates.Items.FirstOrDefault(i =>
+                                (item.SalesOrderItemId.HasValue && i.SalesOrderItemId == item.SalesOrderItemId.Value)
+                                || i.ItemId == item.ItemId);
                             var origQty = origDnItem?.Quantity ?? 1m;
                             if (origSles.Count > 0 && origQty > 0)
                             {
