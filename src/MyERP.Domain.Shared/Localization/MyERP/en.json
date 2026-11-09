@@ -2487,6 +2487,7 @@
     "MyERP:05059": "Case numbers {fromCaseNo}-{toCaseNo} overlap with an existing Packing Slip.",
     "MyERP:05060": "Item '{itemDescription}' is not fully packed ({packedQty} of {qty}). Once packing starts, all items must be fully packed before the Delivery Note can be submitted.",
     "MyERP:05103": "Stock Reservation Entry {reservationId} is already used by Work Order {voucherNo}. Close the Work Order to release the unused stock.",
+    "MyERP:05104": "User does not have permission to access warehouse {warehouseId}.",
     "MyERP:10013": "All required materials have already been transferred for this Work Order.",
     "MyERP:10030": "BOM has no routing configured — cannot create job cards.",
     "MyERP:02066": "Period Closing account '{accountName}' must be a Liability or Equity account (found: {accountType}).",

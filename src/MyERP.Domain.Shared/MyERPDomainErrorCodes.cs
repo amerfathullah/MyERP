@@ -677,6 +677,9 @@ public static class MyERPDomainErrorCodes
 
     // Job Card Review Guards (ERPNext PR #60650)
     public const string SubmitJobCardBeforeManufacture = "MyERP:10050";
+
+    // Batch Warehouse Permissions (ERPNext PR #64314)
+    public const string WarehouseAccessRestricted = "MyERP:05104";
 }
 
 

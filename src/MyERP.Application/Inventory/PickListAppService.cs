@@ -232,14 +232,20 @@ public class PickListAppService : ApplicationService, IPickListAppService
 
         foreach (var comp in bundle.Items)
         {
-            // Per ERPNext PR #65001 / commit 710a59f031:
-            // If the pick list already has packed rows for the order row, use the ordered packed qty per unit
+            // Per ERPNext PR #65001 / PR #65051 (commits 710a59f031, fe42da0c74):
+            // If the pick list already has packed rows for the order row, sum component stock qty across all rows
             if (pickRowList != null && soStockQty > 0)
             {
-                var matchingPick = pickRowList.FirstOrDefault(p => p.ItemId == comp.ComponentItemId);
-                if (matchingPick != null && matchingPick.StockQty > 0)
+                if (componentStockQtyMap.ContainsKey(comp.ComponentItemId))
                 {
-                    componentStockQtyMap[comp.ComponentItemId] = Math.Round(matchingPick.StockQty / soStockQty, 4);
+                    continue;
+                }
+
+                var matchingPicks = pickRowList.Where(p => p.ItemId == comp.ComponentItemId).ToList();
+                if (matchingPicks.Count > 0)
+                {
+                    var totalStockQty = matchingPicks.Sum(p => p.StockQty > 0 ? p.StockQty : p.Qty);
+                    componentStockQtyMap[comp.ComponentItemId] = Math.Round(totalStockQty / soStockQty, 4);
                     continue;
                 }
             }
@@ -251,7 +257,9 @@ public class PickListAppService : ApplicationService, IPickListAppService
             {
                 factor = await uomService.GetConversionFactorAsync(compItem.Id, comp.Uom, compItem.Uom, compItem.VariantOfId);
             }
-            componentStockQtyMap[comp.ComponentItemId] = comp.Qty * factor;
+
+            // Per ERPNext PR #65051: Product bundles with repeated component items accumulate total required qty
+            componentStockQtyMap[comp.ComponentItemId] = componentStockQtyMap.GetValueOrDefault(comp.ComponentItemId, 0m) + (comp.Qty * factor);
         }
 
         return componentStockQtyMap;
