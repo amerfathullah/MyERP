@@ -143,9 +143,8 @@ public class PartyDetailsAppService : ApplicationService, IPartyDetailsAppServic
             result.PartyAccountCurrency = account?.Currency;
         }
 
-        result.PartyCurrency = !string.IsNullOrWhiteSpace(customer.DefaultCurrency)
-            ? customer.DefaultCurrency
-            : companyCurrency;
+        result.PartyCurrency = Core.DomainServices.PartyValidationService.GetPartyAccountCurrency(
+            customer.DefaultCurrency, companyCurrency);
 
         if (string.IsNullOrWhiteSpace(result.PartyAccountCurrency))
         {
@@ -238,9 +237,8 @@ public class PartyDetailsAppService : ApplicationService, IPartyDetailsAppServic
             result.PartyAccountCurrency = account?.Currency;
         }
 
-        result.PartyCurrency = !string.IsNullOrWhiteSpace(supplier.DefaultCurrency)
-            ? supplier.DefaultCurrency
-            : supplierCompanyCurrency;
+        result.PartyCurrency = Core.DomainServices.PartyValidationService.GetPartyAccountCurrency(
+            supplier.DefaultCurrency, supplierCompanyCurrency);
 
         if (string.IsNullOrWhiteSpace(result.PartyAccountCurrency))
         {

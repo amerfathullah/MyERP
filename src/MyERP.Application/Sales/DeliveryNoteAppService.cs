@@ -678,6 +678,30 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                         }
                     }
 
+                    // Per ERPNext PR #65005 (commit ea7e451bcf):
+                    // When returned bundle components are returned against an original Delivery Note without a pick list,
+                    // fallback to the original Delivery Note's posted StockLedgerEntries so that component stock qty per unit
+                    // matches the delivered quantities even if component conversion factors changed afterwards.
+                    if (componentStockQtyPerUnit == null && origDnForRates != null)
+                    {
+                        var sleRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
+                        if (sleRepo != null)
+                        {
+                            var sleQuery = await sleRepo.GetQueryableAsync();
+                            var origSles = sleQuery
+                                .Where(s => s.VoucherType == "DeliveryNote" && s.VoucherId == origDnForRates.Id && !s.IsCancelled)
+                                .ToList();
+                            var origDnItem = origDnForRates.Items.FirstOrDefault(i => i.ItemId == item.ItemId);
+                            var origQty = origDnItem?.Quantity ?? 1m;
+                            if (origSles.Count > 0 && origQty > 0)
+                            {
+                                componentStockQtyPerUnit = origSles
+                                    .GroupBy(s => s.ItemId)
+                                    .ToDictionary(g => g.Key, g => Math.Round(g.Sum(s => Math.Abs(s.QuantityChange)) / origQty, 4));
+                            }
+                        }
+                    }
+
                     var components = await returnBundleService.DecomposeAsync(
                         item.ItemId, item.Quantity, item.UnitPrice, isReturn: true,
                         productBundleId: returnBundleVersionId,
@@ -907,6 +931,30 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                                     componentStockQtyPerUnit = matchingPicks.ToDictionary(
                                         p => p.ItemId,
                                         p => Math.Round((p.StockQty > 0 ? p.StockQty : p.Qty) / soItem.Quantity, 4));
+                                }
+                            }
+                        }
+
+                        // Fallback to latest pick list matching order line if PickListId was not directly set on DN
+                        if (componentStockQtyPerUnit == null)
+                        {
+                            var plRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.PickList, Guid>>();
+                            if (plRepo != null)
+                            {
+                                var plQuery = await plRepo.GetQueryableAsync();
+                                var matchingPl = plQuery
+                                    .Where(pl => pl.Items.Any(p => p.SourceDocumentItemId == item.SalesOrderItemId.Value && p.StockQty > 0))
+                                    .OrderByDescending(pl => pl.CreationTime)
+                                    .FirstOrDefault();
+                                if (matchingPl != null)
+                                {
+                                    var matchingPicks = matchingPl.Items.Where(p => p.SourceDocumentItemId == item.SalesOrderItemId.Value).ToList();
+                                    if (matchingPicks.Count > 0 && soItem != null && soItem.Quantity > 0)
+                                    {
+                                        componentStockQtyPerUnit = matchingPicks.ToDictionary(
+                                            p => p.ItemId,
+                                            p => Math.Round((p.StockQty > 0 ? p.StockQty : p.Qty) / soItem.Quantity, 4));
+                                    }
                                 }
                             }
                         }

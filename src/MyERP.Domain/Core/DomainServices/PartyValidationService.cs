@@ -105,6 +105,18 @@ public class PartyValidationService : DomainService
     }
 
     /// <summary>
+    /// Gets the account currency the server accepts for the party's billing currency.
+    /// Per ERPNext PR #64936 / commit 9ecfac159f:
+    /// The server allows only accounts in the party's billing currency, or in the company currency if no billing currency is specified.
+    /// </summary>
+    public static string GetPartyAccountCurrency(string? partyBillingCurrency, string companyCurrency)
+    {
+        return !string.IsNullOrWhiteSpace(partyBillingCurrency)
+            ? partyBillingCurrency.Trim()
+            : (companyCurrency ?? string.Empty).Trim();
+    }
+
+    /// <summary>
     /// Enforces 3-way mutual constraint between party account, advance account, and party currency.
     /// Per gotchas #1004, #1130:
     /// - Party account currency must match either party billing currency or company default currency.

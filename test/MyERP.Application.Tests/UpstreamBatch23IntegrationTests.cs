@@ -6,6 +6,7 @@ using MyERP.Accounting;
 using MyERP.Accounting.Entities;
 using MyERP.Core;
 using MyERP.Core.Entities;
+using MyERP.Inventory;
 using MyERP.Inventory.Entities;
 using MyERP.Sales;
 using MyERP.Sales.Entities;
@@ -57,10 +58,14 @@ public abstract class UpstreamBatch23IntegrationTests<TStartupModule> : MyERPApp
             var today = DateTime.UtcNow.Date;
             var postingDate = today.AddDays(-10);
 
-            var je = new JournalEntry(Guid.NewGuid(), company.Id, "JV-USD-01", postingDate);
-            je.AddLine(new JournalEntryLine(Guid.NewGuid(), je.Id, usdAccount.Id, true, 450m, 100m, "Deposit USD"));
-            je.AddLine(new JournalEntryLine(Guid.NewGuid(), je.Id, cashAccount.Id, false, 450m, 450m, "Cash Outflow"));
-            je.Submit();
+            var fiscalYearRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var fiscalYear = await fiscalYearRepo.InsertAsync(
+                new FiscalYear(Guid.NewGuid(), company.Id, "2026", new DateTime(2026, 1, 1), new DateTime(2026, 12, 31)),
+                autoSave: true);
+
+            var je = new JournalEntry(Guid.NewGuid(), company.Id, fiscalYear.Id, postingDate);
+            je.AddLine(new JournalEntryLine(Guid.NewGuid(), je.Id, usdAccount.Id, 450m, true, "USD", 100m, 4.5m, "Deposit USD"));
+            je.AddLine(new JournalEntryLine(Guid.NewGuid(), je.Id, cashAccount.Id, 450m, false, "Cash Outflow"));
             je.Post();
             await journalRepo.InsertAsync(je, autoSave: true);
 
@@ -111,10 +116,14 @@ public abstract class UpstreamBatch23IntegrationTests<TStartupModule> : MyERPApp
             var today = DateTime.UtcNow.Date;
             var postingDate = today.AddDays(-10);
 
-            var je = new JournalEntry(Guid.NewGuid(), company.Id, "JV-USD-RR-01", postingDate);
-            je.AddLine(new JournalEntryLine(Guid.NewGuid(), je.Id, usdAccount.Id, true, 450m, 100m, "Deposit USD"));
-            je.AddLine(new JournalEntryLine(Guid.NewGuid(), je.Id, cashAccount.Id, false, 450m, 450m, "Cash Outflow"));
-            je.Submit();
+            var fiscalYearRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            var fiscalYear = await fiscalYearRepo.InsertAsync(
+                new FiscalYear(Guid.NewGuid(), company.Id, "2026", new DateTime(2026, 1, 1), new DateTime(2026, 12, 31)),
+                autoSave: true);
+
+            var je = new JournalEntry(Guid.NewGuid(), company.Id, fiscalYear.Id, postingDate);
+            je.AddLine(new JournalEntryLine(Guid.NewGuid(), je.Id, usdAccount.Id, 450m, true, "USD", 100m, 4.5m, "Deposit USD"));
+            je.AddLine(new JournalEntryLine(Guid.NewGuid(), je.Id, cashAccount.Id, 450m, false, "Cash Outflow"));
             je.Post();
             await journalRepo.InsertAsync(je, autoSave: true);
 
@@ -154,6 +163,24 @@ public abstract class UpstreamBatch23IntegrationTests<TStartupModule> : MyERPApp
             var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
 
             var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "POS Closing Co B23") { CurrencyCode = "MYR" }, autoSave: true);
+
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var ccRepo = GetRequiredService<IRepository<CostCenter, Guid>>();
+            var costCenter = await ccRepo.InsertAsync(new CostCenter(Guid.NewGuid(), company.Id, "Main CC POS"), autoSave: true);
+            var receivable = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1310-REC-B23", "Receivable B23", AccountType.Asset), autoSave: true);
+            var income = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "4110-INC-B23", "Sales Revenue B23", AccountType.Revenue), autoSave: true);
+            company.DefaultReceivableAccountId = receivable.Id;
+            company.DefaultIncomeAccountId = income.Id;
+            company.DefaultCostCenterId = costCenter.Id;
+            await companyRepo.UpdateAsync(company, autoSave: true);
+
+            var fyRepo = GetRequiredService<IRepository<FiscalYear, Guid>>();
+            await fyRepo.InsertAsync(new FiscalYear(Guid.NewGuid(), company.Id, "FY2026-POS", DateTime.UtcNow.Date.AddYears(-1), DateTime.UtcNow.Date.AddYears(1)), autoSave: true);
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "JournalEntry", "JournalEntry", "JV-POS-"), autoSave: true);
+
+            var ruleRepo = GetRequiredService<IRepository<AccountingRule, Guid>>();
+            await ruleRepo.InsertAsync(new AccountingRule(Guid.NewGuid(), company.Id, "SI DR Rec", "SalesInvoice", true, AccountSource.CustomerReceivable, AmountSource.GrandTotal) { SortOrder = 1 }, autoSave: true);
+            await ruleRepo.InsertAsync(new AccountingRule(Guid.NewGuid(), company.Id, "SI CR Inc", "SalesInvoice", false, AccountSource.FixedAccount, AmountSource.GrandTotal) { SortOrder = 2, FixedAccountId = income.Id }, autoSave: true);
             var customer = await customerRepo.InsertAsync(new Customer(Guid.NewGuid(), company.Id, "POS Customer B23"), autoSave: true);
             var warehouse = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "POS Store B23"), autoSave: true);
             var profile = await profileRepo.InsertAsync(new PosProfile(Guid.NewGuid(), company.Id, "Main POS Profile B23", warehouse.Id), autoSave: true);
@@ -178,14 +205,20 @@ public abstract class UpstreamBatch23IntegrationTests<TStartupModule> : MyERPApp
             var bundle = new SerialAndBatchBundle(
                 Guid.NewGuid(), company.Id, item.Id, warehouse.Id,
                 BundleTransactionType.Outward, "SalesInvoice", posInvoice.Id, DateTime.UtcNow.Date);
-            bundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), bundle.Id, null, null, 2m, 50m));
+            bundle.AddEntry(new SerialAndBatchEntry(Guid.NewGuid(), bundle.Id, 2m, 50m));
             await bundleRepo.InsertAsync(bundle, autoSave: true);
+
+            var mopRepo = GetRequiredService<IRepository<ModeOfPayment, Guid>>();
+            var mop = await mopRepo.InsertAsync(new ModeOfPayment(Guid.NewGuid(), "Cash", "Cash") { DefaultAccountId = receivable.Id }, autoSave: true);
 
             // Create POS Closing Entry
             var closingEntry = new PosClosingEntry(Guid.NewGuid(), company.Id, profile.Id, opening.Id, userId);
             closingEntry.AddInvoice(posInvoice.Id, posInvoice.InvoiceNumber, posInvoice.GrandTotal);
-            closingEntry.AddPayment(Guid.NewGuid(), "Cash", 100m, 100m);
+            closingEntry.AddPayment(mop.Id, "Cash", 100m, 100m);
             await closingRepo.InsertAsync(closingEntry, autoSave: true);
+
+            opening.Close(closingEntry.Id);
+            await openingRepo.UpdateAsync(opening, autoSave: true);
 
             // Submit closing entry (creates consolidated SI and updates bundle voucher)
             await closingAppService.SubmitAsync(closingEntry.Id);
@@ -239,18 +272,16 @@ public abstract class UpstreamBatch23IntegrationTests<TStartupModule> : MyERPApp
             var equityAccount = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "3100-CF", "Capital Stock", AccountType.Equity), autoSave: true);
 
             // Entry 1: 2026-01-05 (outside range if range starts 2026-04-01)
-            var je1 = new JournalEntry(Guid.NewGuid(), company.Id, "JV-CF-01", new DateTime(2026, 1, 5));
-            je1.AddLine(new JournalEntryLine(Guid.NewGuid(), je1.Id, cashAccount.Id, true, 1000m, 1000m, "Capital Q1"));
-            je1.AddLine(new JournalEntryLine(Guid.NewGuid(), je1.Id, equityAccount.Id, false, 1000m, 1000m, "Equity Q1"));
-            je1.Submit();
+            var je1 = new JournalEntry(Guid.NewGuid(), company.Id, fy.Id, new DateTime(2026, 1, 5));
+            je1.AddLine(new JournalEntryLine(Guid.NewGuid(), je1.Id, cashAccount.Id, 1000m, true, "Capital Q1"));
+            je1.AddLine(new JournalEntryLine(Guid.NewGuid(), je1.Id, equityAccount.Id, 1000m, false, "Equity Q1"));
             je1.Post();
             await journalRepo.InsertAsync(je1, autoSave: true);
 
             // Entry 2: 2026-04-10 (inside range 2026-04-01 to 2026-12-31)
-            var je2 = new JournalEntry(Guid.NewGuid(), company.Id, "JV-CF-02", new DateTime(2026, 4, 10));
-            je2.AddLine(new JournalEntryLine(Guid.NewGuid(), je2.Id, cashAccount.Id, true, 500m, 500m, "Capital Q2"));
-            je2.AddLine(new JournalEntryLine(Guid.NewGuid(), je2.Id, equityAccount.Id, false, 500m, 500m, "Equity Q2"));
-            je2.Submit();
+            var je2 = new JournalEntry(Guid.NewGuid(), company.Id, fy.Id, new DateTime(2026, 4, 10));
+            je2.AddLine(new JournalEntryLine(Guid.NewGuid(), je2.Id, cashAccount.Id, 500m, true, "Capital Q2"));
+            je2.AddLine(new JournalEntryLine(Guid.NewGuid(), je2.Id, equityAccount.Id, 500m, false, "Equity Q2"));
             je2.Post();
             await journalRepo.InsertAsync(je2, autoSave: true);
 
