@@ -1,5 +1,20 @@
 <abp-page [title]="'::CreatePurchaseInvoice' | abpLocalization">
   <form [formGroup]="form" (ngSubmit)="save()" (appSaveShortcut)="save()">
+    @if (form.get('isReturn')?.value) {
+      <div class="alert alert-warning d-flex align-items-center mb-4">
+        <i class="fa fa-rotate-left me-2"></i>
+        <span>
+          {{ '::DebitNote' | abpLocalization }}
+          @if (form.get('returnAgainstId')?.value) {
+            &mdash; {{ '::DebitNoteAgainst' | abpLocalization }}:
+            <a [routerLink]="['/purchasing/invoices', form.get('returnAgainstId')?.value]">{{ form.get('returnAgainstId')?.value }}</a>
+          } @else if (form.get('originalInvoiceNumber')?.value) {
+            &mdash; {{ '::OriginalInvoiceNumber' | abpLocalization }}:
+            <strong>{{ form.get('originalInvoiceNumber')?.value }}</strong>
+          }
+        </span>
+      </div>
+    }
     <!-- Header fields -->
     <div class="card mb-4">
       <div class="card-header">
@@ -64,6 +79,24 @@
               </div>
             }
           </div>
+          <div class="col-12 col-md-4 mb-3 d-flex align-items-center">
+            <div class="form-check mt-3">
+              <input type="checkbox" class="form-check-input" formControlName="isReturn" id="isReturn" />
+              <label class="form-check-label" for="isReturn">{{ '::IsReturn' | abpLocalization }}</label>
+            </div>
+          </div>
+          @if (form.get('isReturn')?.value && !form.get('returnAgainstId')?.value) {
+            <div class="col-12 col-md-4 mb-3">
+              <label class="form-label">{{ '::OriginalInvoiceNumber' | abpLocalization }}</label>
+              <input type="text" class="form-control" formControlName="originalInvoiceNumber" [placeholder]="'::OriginalInvoiceNumberPlaceholder' | abpLocalization" />
+              <small class="form-text text-muted">{{ '::OriginalInvoiceNumberHelp' | abpLocalization }}</small>
+            </div>
+            <div class="col-12 col-md-4 mb-3">
+              <label class="form-label">{{ '::OriginalInvoiceUuid' | abpLocalization }}</label>
+              <input type="text" class="form-control" formControlName="originalInvoiceUuid" [placeholder]="'::OriginalInvoiceUuidPlaceholder' | abpLocalization" />
+              <small class="form-text text-muted">{{ '::OriginalInvoiceUuidHelp' | abpLocalization }}</small>
+            </div>
+          }
         </div>
       </div>
     </div>

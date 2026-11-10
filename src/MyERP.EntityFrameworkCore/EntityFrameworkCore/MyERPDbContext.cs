@@ -1273,6 +1273,8 @@ public class MyERPDbContext :
             b.Property(x => x.BaseRoundingAdjustment).HasColumnType("decimal(18,4)");
             b.Property(x => x.Notes).HasMaxLength(SalesInvoiceConsts.MaxNoteLength);
             b.Property(x => x.Terms).HasMaxLength(SalesInvoiceConsts.MaxTermsLength);
+            b.Property(x => x.OriginalInvoiceNumber).HasMaxLength(100);
+            b.Property(x => x.OriginalInvoiceUuid).HasMaxLength(50);
             b.Property(x => x.LhdnUuid).HasMaxLength(50);
             b.Property(x => x.LhdnLongId).HasMaxLength(100);
             b.Property(x => x.QrCodeUrl).HasMaxLength(512);
@@ -1417,6 +1419,8 @@ public class MyERPDbContext :
             b.Property(x => x.BaseRoundingAdjustment).HasColumnType("decimal(18,4)");
             b.Property(x => x.Notes).HasMaxLength(PurchaseInvoiceConsts.MaxNoteLength);
             b.Property(x => x.Terms).HasMaxLength(PurchaseInvoiceConsts.MaxTermsLength);
+            b.Property(x => x.OriginalInvoiceNumber).HasMaxLength(100);
+            b.Property(x => x.OriginalInvoiceUuid).HasMaxLength(50);
             b.Property(x => x.LhdnUuid).HasMaxLength(50);
             b.Property(x => x.UpdateBilledAmountInPurchaseOrder).HasDefaultValue(true);
             b.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).IsRequired();

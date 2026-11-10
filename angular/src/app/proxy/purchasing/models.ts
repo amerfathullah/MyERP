@@ -71,6 +71,8 @@ export interface CreatePurchaseInvoiceDto {
   isReturnRefund?: boolean;
   isSubcontracted?: boolean;
   returnAgainstId?: string | null;
+  originalInvoiceNumber?: string | null;
+  originalInvoiceUuid?: string | null;
   updateBilledAmountInPurchaseOrder?: boolean;
   eInvoiceDocType?: EInvoiceDocumentType | null;
   updateStock?: boolean;
@@ -150,6 +152,8 @@ export interface CreatePurchaseReceiptDto {
   supplierDeliveryNote?: string | null;
   isReturn?: boolean;
   returnAgainstId?: string | null;
+  originalInvoiceNumber?: string | null;
+  originalInvoiceUuid?: string | null;
   notes?: string | null;
   currencyCode?: string;
   exchangeRate?: number;
@@ -518,6 +522,8 @@ export interface PurchaseInvoiceDto extends EntityDto<string> {
   isReturnRefund?: boolean;
   isSubcontracted?: boolean;
   returnAgainstId?: string | null;
+  originalInvoiceNumber?: string | null;
+  originalInvoiceUuid?: string | null;
   amendedFromId?: string | null;
   amendmentIndex?: number;
   creditToAccountId?: string;
@@ -657,6 +663,8 @@ export interface PurchaseReceiptDto extends EntityDto<string> {
   grandTotal?: number;
   isReturn?: boolean;
   returnAgainstId?: string | null;
+  originalInvoiceNumber?: string | null;
+  originalInvoiceUuid?: string | null;
   status?: string;
   perBilled?: number;
   billingStatus?: string | null;

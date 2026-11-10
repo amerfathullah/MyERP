@@ -140,6 +140,15 @@
             <small class="text-muted d-block">{{ '::EInvoiceStatus' | abpLocalization }}</small>
             <app-lhdn-status-badge [status]="invoice.eInvoiceStatus!" />
           </div>
+          @if (invoice.originalInvoiceNumber) {
+            <div class="col-6 col-md-3 mb-3">
+              <small class="text-muted d-block">{{ '::OriginalInvoiceNumber' | abpLocalization }}</small>
+              <span class="fw-semibold">{{ invoice.originalInvoiceNumber }}</span>
+              @if (invoice.originalInvoiceUuid) {
+                <small class="d-block font-monospace text-muted">{{ invoice.originalInvoiceUuid }}</small>
+              }
+            </div>
+          }
         </div>
         @if (invoice.supplierInvoiceNumber) {
           <div class="mt-2">
@@ -160,6 +169,15 @@
             <span class="badge bg-secondary-subtle text-secondary-emphasis me-2">
               <i class="fa fa-rotate-left me-1"></i>{{ '::Return' | abpLocalization }}
             </span>
+            @if (invoice.returnAgainstId) {
+              <span class="badge bg-light text-dark me-2">
+                {{ '::ReturnAgainst' | abpLocalization }}: {{ invoice.returnAgainstId }}
+              </span>
+            } @else if (invoice.originalInvoiceNumber) {
+              <span class="badge bg-light text-dark me-2">
+                {{ '::OriginalInvoiceNumber' | abpLocalization }}: {{ invoice.originalInvoiceNumber }}
+              </span>
+            }
             @if (invoice.updateBilledAmountInPurchaseOrder) {
               <span class="badge bg-success-subtle text-success-emphasis">
                 <i class="fa fa-check me-1"></i>{{ '::UpdateBilledAmountInPurchaseOrder' | abpLocalization }}

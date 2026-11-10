@@ -93,6 +93,8 @@ public class SalesInvoiceDto : FullAuditedEntityDto<Guid>
     public bool IsReturnRefund { get; set; }
     public bool UpdateBilledAmountInSalesOrder { get; set; } = true;
     public Guid? ReturnAgainstId { get; set; }
+    public string? OriginalInvoiceNumber { get; set; }
+    public string? OriginalInvoiceUuid { get; set; }
     public Guid? AmendedFromId { get; set; }
     public int AmendmentIndex { get; set; }
     public Guid DebitToAccountId { get; set; }
@@ -193,6 +195,8 @@ public class CreateSalesInvoiceDto
     public bool IsReturnRefund { get; set; }
     public bool UpdateBilledAmountInSalesOrder { get; set; } = true;
     public Guid? ReturnAgainstId { get; set; }
+    public string? OriginalInvoiceNumber { get; set; }
+    public string? OriginalInvoiceUuid { get; set; }
 
     /// <summary>Mark as opening balance invoice (data migration). Blocks update_stock, clears payment terms.</summary>
     public bool IsOpening { get; set; }

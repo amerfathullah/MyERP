@@ -599,6 +599,8 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         invoice.IsReturnRefund = input.IsReturnRefund;
         invoice.UpdateBilledAmountInSalesOrder = input.UpdateBilledAmountInSalesOrder;
         invoice.ReturnAgainstId = input.ReturnAgainstId;
+        invoice.OriginalInvoiceNumber = input.OriginalInvoiceNumber;
+        invoice.OriginalInvoiceUuid = input.OriginalInvoiceUuid;
         if (invoice.IsReturn)
         {
             // Per ERPNext PR #59612 / commit 8260d62362: Keep the original invoice's advances out of the return.

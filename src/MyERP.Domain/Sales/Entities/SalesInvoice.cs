@@ -129,6 +129,18 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     public Guid? ReturnAgainstId { get; set; }
 
     /// <summary>
+    /// For Credit/Debit Notes when the original invoice was created outside the system
+    /// (e.g. legacy system or pre-e-invoice migration). Maps to LHDN BillingReference cbc:ID.
+    /// </summary>
+    public string? OriginalInvoiceNumber { get; set; }
+
+    /// <summary>
+    /// For Credit/Debit Notes when the original invoice was created outside the system.
+    /// Maps to LHDN BillingReference cbc:UUID.
+    /// </summary>
+    public string? OriginalInvoiceUuid { get; set; }
+
+    /// <summary>
     /// Reciprocal of PurchaseInvoice.InterCompanyInvoiceId — the Purchase Invoice auto-created
     /// in the target company from this Sales Invoice (or vice versa). Enables the cancellation
     /// cascade: cancelling either side cancels the other.

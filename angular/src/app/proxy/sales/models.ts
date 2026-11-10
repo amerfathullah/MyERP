@@ -138,6 +138,8 @@ export interface CreateDeliveryNoteDto {
   trackingNumber?: string | null;
   isReturn?: boolean;
   returnAgainstId?: string | null;
+  originalInvoiceNumber?: string | null;
+  originalInvoiceUuid?: string | null;
   notes?: string | null;
   items: CreateDeliveryNoteItemDto[];
   salesTeam?: SalesTeamAllocationInputDto[] | null;
@@ -399,6 +401,8 @@ export interface CreateSalesInvoiceDto {
   isDebitNote?: boolean;
   isReturnRefund?: boolean;
   returnAgainstId?: string | null;
+  originalInvoiceNumber?: string | null;
+  originalInvoiceUuid?: string | null;
   isOpening?: boolean;
   costCenterId?: string | null;
   projectId?: string | null;
@@ -730,6 +734,8 @@ export interface DeliveryNoteDto extends EntityDto<string> {
   grandTotal?: number;
   isReturn?: boolean;
   returnAgainstId?: string | null;
+  originalInvoiceNumber?: string | null;
+  originalInvoiceUuid?: string | null;
   status?: string;
   perBilled?: number;
   perReturned?: number;
@@ -1597,6 +1603,8 @@ export interface SalesInvoiceDto extends FullAuditedEntityDto<string> {
   isDebitNote?: boolean;
   isReturnRefund?: boolean;
   returnAgainstId?: string | null;
+  originalInvoiceNumber?: string | null;
+  originalInvoiceUuid?: string | null;
   amendedFromId?: string | null;
   amendmentIndex?: number;
   debitToAccountId?: string;

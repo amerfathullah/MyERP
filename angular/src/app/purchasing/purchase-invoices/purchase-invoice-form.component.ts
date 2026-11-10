@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TaxChargesTemplateService } from '../../proxy/tax/tax-charges-template.service';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -37,7 +37,8 @@ import { debounceTime, distinctUntilChanged, filter, switchMap } from 'rxjs/oper
     LocalizationPipe,
     InvoiceItemGridComponent,
     AutoValidationDirective,
-    SaveShortcutDirective],
+    SaveShortcutDirective,
+    RouterLink],
   templateUrl: './purchase-invoice-form.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./purchase-invoice-form.component.scss'],
@@ -101,6 +102,8 @@ export class PurchaseInvoiceFormComponent implements OnInit {
     notes: [''],
     isReturn: [false],
     returnAgainstId: [null as string | null],
+    originalInvoiceNumber: [''],
+    originalInvoiceUuid: [''],
     updateBilledAmountInPurchaseOrder: [true],
     updateStock: [false],
     warehouseId: [''],
@@ -211,6 +214,8 @@ export class PurchaseInvoiceFormComponent implements OnInit {
           useTransactionDateExchangeRate: invoice.useTransactionDateExchangeRate ?? false,
           isReturn: invoice.isReturn ?? false,
           returnAgainstId: invoice.returnAgainstId ?? null,
+          originalInvoiceNumber: invoice.originalInvoiceNumber ?? '',
+          originalInvoiceUuid: invoice.originalInvoiceUuid ?? '',
           updateBilledAmountInPurchaseOrder: invoice.updateBilledAmountInPurchaseOrder ?? true,
         });
         if (invoice.currencyCode && invoice.currencyCode !== 'MYR') {
@@ -446,6 +451,8 @@ export class PurchaseInvoiceFormComponent implements OnInit {
       dueDate: raw.dueDate || undefined,
       warehouseId: raw.warehouseId || undefined,
       returnAgainstId: raw.returnAgainstId || undefined,
+      originalInvoiceNumber: raw.originalInvoiceNumber || undefined,
+      originalInvoiceUuid: raw.originalInvoiceUuid || undefined,
       updateBilledAmountInPurchaseOrder: raw.updateBilledAmountInPurchaseOrder ?? true,
       discountAmount: this.discountAmount() > 0 ? this.discountAmount() : undefined,
       applyDiscountOn: this.discountAmount() > 0 ? this.discountOn : undefined,

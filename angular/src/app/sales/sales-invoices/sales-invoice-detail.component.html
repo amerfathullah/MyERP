@@ -109,10 +109,22 @@
         <span>{{ '::AmendedFrom' | abpLocalization }}: Amendment #{{ invoice.amendmentIndex }}</span>
       </div>
     }
-    @if (invoice.isReturn && invoice.returnAgainstId) {
+    @if (invoice.isReturn) {
       <div class="alert alert-warning py-2 d-flex align-items-center gap-2 mb-3">
         <i class="fa fa-rotate-left"></i>
-        <span>{{ '::CreditNoteReturn' | abpLocalization }}</span>
+        <span>
+          {{ '::CreditNoteReturn' | abpLocalization }}
+          @if (invoice.returnAgainstId) {
+            &mdash; {{ '::ReturnAgainst' | abpLocalization }}:
+            <a [routerLink]="['/sales/invoices', invoice.returnAgainstId]">{{ invoice.returnAgainstId }}</a>
+          } @else if (invoice.originalInvoiceNumber) {
+            &mdash; {{ '::OriginalInvoiceNumber' | abpLocalization }}:
+            <strong>{{ invoice.originalInvoiceNumber }}</strong>
+            @if (invoice.originalInvoiceUuid) {
+              <small class="ms-1 font-monospace text-muted">({{ invoice.originalInvoiceUuid }})</small>
+            }
+          }
+        </span>
       </div>
     }
 
@@ -142,6 +154,15 @@
             <small class="text-muted d-block">{{ '::Customer' | abpLocalization }}</small>
             <span class="fw-semibold">{{ invoice.customerName }}</span>
           </div>
+          @if (invoice.originalInvoiceNumber) {
+            <div class="col-12 col-md-4 mb-3">
+              <small class="text-muted d-block">{{ '::OriginalInvoiceNumber' | abpLocalization }}</small>
+              <span class="fw-semibold">{{ invoice.originalInvoiceNumber }}</span>
+              @if (invoice.originalInvoiceUuid) {
+                <small class="d-block font-monospace text-muted">{{ invoice.originalInvoiceUuid }}</small>
+              }
+            </div>
+          }
           @if (invoice.interCompanyPurchaseInvoiceId) {
             <div class="col-12">
               <span class="badge bg-info-subtle text-info-emphasis">

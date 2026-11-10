@@ -8,6 +8,9 @@
           @if (form.get('returnAgainstId')?.value) {
             &mdash; {{ '::ReturnAgainst' | abpLocalization }}:
             <a [routerLink]="['/sales/invoices', $safeNavigationMigration(form.get('returnAgainstId')?.value)]">{{ returnAgainstNumber() || form.get('returnAgainstId')?.value }}</a>
+          } @else if (form.get('originalInvoiceNumber')?.value) {
+            &mdash; {{ '::OriginalInvoiceNumber' | abpLocalization }}:
+            <strong>{{ form.get('originalInvoiceNumber')?.value }}</strong>
           }
         </span>
       </div>
@@ -74,15 +77,31 @@
           <div class="col-12 col-md-4 mb-3">
             <label class="form-label">{{ '::EInvoiceDocType' | abpLocalization }}</label>
             <select class="form-select" formControlName="eInvoiceDocType">
-              @if (form.get('isReturn')?.value) {
+              @if (form.get('returnAgainstId')?.value) {
                 <option [ngValue]="2">{{ '::EInvoiceTypeCreditNote' | abpLocalization }} (02)</option>
                 <option [ngValue]="4">{{ '::EInvoiceTypeRefundNote' | abpLocalization }} (04)</option>
               } @else {
                 <option [ngValue]="1">{{ '::EInvoiceTypeInvoice' | abpLocalization }} (01)</option>
+                <option [ngValue]="2">{{ '::EInvoiceTypeCreditNote' | abpLocalization }} (02)</option>
                 <option [ngValue]="3">{{ '::EInvoiceTypeDebitNote' | abpLocalization }} (03)</option>
+                <option [ngValue]="4">{{ '::EInvoiceTypeRefundNote' | abpLocalization }} (04)</option>
               }
             </select>
           </div>
+          @if (!form.get('returnAgainstId')?.value) {
+            @if (form.get('isReturn')?.value || form.get('eInvoiceDocType')?.value === 2 || form.get('eInvoiceDocType')?.value === 3 || form.get('eInvoiceDocType')?.value === 4) {
+              <div class="col-12 col-md-4 mb-3">
+                <label class="form-label">{{ '::OriginalInvoiceNumber' | abpLocalization }}</label>
+                <input type="text" class="form-control" formControlName="originalInvoiceNumber" [placeholder]="'::OriginalInvoiceNumberPlaceholder' | abpLocalization" />
+                <small class="form-text text-muted">{{ '::OriginalInvoiceNumberHelp' | abpLocalization }}</small>
+              </div>
+              <div class="col-12 col-md-4 mb-3">
+                <label class="form-label">{{ '::OriginalInvoiceUuid' | abpLocalization }}</label>
+                <input type="text" class="form-control" formControlName="originalInvoiceUuid" [placeholder]="'::OriginalInvoiceUuidPlaceholder' | abpLocalization" />
+                <small class="form-text text-muted">{{ '::OriginalInvoiceUuidHelp' | abpLocalization }}</small>
+              </div>
+            }
+          }
         </div>
       </div>
     </div>

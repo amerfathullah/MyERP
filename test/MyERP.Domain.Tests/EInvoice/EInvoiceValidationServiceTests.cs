@@ -665,4 +665,156 @@ public class EInvoiceValidationServiceTests
         var ex = Assert.Throws<Volo.Abp.BusinessException>(() => invoice.ValidateDebitNote());
         Assert.Contains("A document cannot be both a Return and a Debit Note", ex.Message);
     }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_ReturnWithoutOriginalInvoice_WhenAllowWithoutOriginalTrue_AndOriginalInvoiceNumberProvided_Passes()
+    {
+        var company = new Company(_companyId, "Test Corp")
+        {
+            TaxId = "C1234567890",
+            MsicCode = "62010",
+            RegistrationNumber = "202001012345",
+            Address = "123 Tech Park, Cyberjaya",
+            Country = "MYS",
+            EnableLhdnInvoice = true,
+            AllowCreditNoteWithoutOriginalInvoice = true
+        };
+        _companyRepository.GetAsync(_companyId).Returns(company);
+
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "CRN-EXT-001", DateTime.UtcNow);
+        invoice.IsReturn = true;
+        invoice.AddItem(_itemId, "Refund item", -1, 50m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.CreditNote;
+        invoice.ReturnAgainstId = null;
+        invoice.OriginalInvoiceNumber = "LEGACY-INV-1001";
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_ReturnWithoutOriginalInvoice_WhenAllowWithoutOriginalTrue_AndMissingNumberAndUuid_ReturnsError()
+    {
+        var company = new Company(_companyId, "Test Corp")
+        {
+            TaxId = "C1234567890",
+            MsicCode = "62010",
+            RegistrationNumber = "202001012345",
+            Address = "123 Tech Park, Cyberjaya",
+            Country = "MYS",
+            EnableLhdnInvoice = true,
+            AllowCreditNoteWithoutOriginalInvoice = true
+        };
+        _companyRepository.GetAsync(_companyId).Returns(company);
+
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "CRN-EXT-002", DateTime.UtcNow);
+        invoice.IsReturn = true;
+        invoice.AddItem(_itemId, "Refund item", -1, 50m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.CreditNote;
+        invoice.ReturnAgainstId = null;
+        invoice.OriginalInvoiceNumber = null;
+        invoice.OriginalInvoiceUuid = null;
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("must have OriginalInvoiceNumber or OriginalInvoiceUuid specified for LHDN BillingReference"));
+    }
+
+    [Fact]
+    public async Task ValidateSalesInvoice_DebitNote_WhenAllowWithoutOriginalTrue_AndOriginalInvoiceUuidProvided_Passes()
+    {
+        var company = new Company(_companyId, "Test Corp")
+        {
+            TaxId = "C1234567890",
+            MsicCode = "62010",
+            RegistrationNumber = "202001012345",
+            Address = "123 Tech Park, Cyberjaya",
+            Country = "MYS",
+            EnableLhdnInvoice = true,
+            AllowCreditNoteWithoutOriginalInvoice = true
+        };
+        _companyRepository.GetAsync(_companyId).Returns(company);
+
+        var invoice = new SalesInvoice(Guid.NewGuid(), _companyId, _customerId, "DN-EXT-001", DateTime.UtcNow);
+        invoice.IsDebitNote = true;
+        invoice.AddItem(_itemId, "Price adjustment", 1, 30m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.BuyerTin = "C9876543210";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.DebitNote;
+        invoice.ReturnAgainstId = null;
+        invoice.OriginalInvoiceUuid = "EINV1234567890UUID";
+
+        var errors = await _validator.ValidateForSubmissionAsync(invoice, _companyId);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public async Task ValidatePurchaseInvoice_SelfBilledCreditNote_WhenAllowWithoutOriginalTrue_AndOriginalInvoiceNumberProvided_Passes()
+    {
+        var company = new Company(_companyId, "Test Corp")
+        {
+            TaxId = "C1234567890",
+            MsicCode = "62010",
+            RegistrationNumber = "202001012345",
+            Address = "123 Tech Park, Cyberjaya",
+            Country = "MYS",
+            EnableLhdnInvoice = true,
+            AllowCreditNoteWithoutOriginalInvoice = true
+        };
+        _companyRepository.GetAsync(_companyId).Returns(company);
+
+        var invoice = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "SBCN-EXT-001", DateTime.UtcNow);
+        invoice.IsReturn = true;
+        invoice.AddItem(_itemId, "Returned raw material", -1, 40m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.SupplierTin = "C1122334455";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.SelfBilledCreditNote;
+        invoice.ReturnAgainstId = null;
+        invoice.OriginalInvoiceNumber = "SUPP-EXT-999";
+
+        var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public async Task ValidatePurchaseInvoice_SelfBilledCreditNote_WhenAllowWithoutOriginalTrue_AndMissingNumberAndUuid_ReturnsError()
+    {
+        var company = new Company(_companyId, "Test Corp")
+        {
+            TaxId = "C1234567890",
+            MsicCode = "62010",
+            RegistrationNumber = "202001012345",
+            Address = "123 Tech Park, Cyberjaya",
+            Country = "MYS",
+            EnableLhdnInvoice = true,
+            AllowCreditNoteWithoutOriginalInvoice = true
+        };
+        _companyRepository.GetAsync(_companyId).Returns(company);
+
+        var invoice = new PurchaseInvoice(Guid.NewGuid(), _companyId, _supplierId, "SBCN-EXT-002", DateTime.UtcNow);
+        invoice.IsReturn = true;
+        invoice.AddItem(_itemId, "Returned raw material", -1, 40m, 0m);
+        invoice.Submit();
+        invoice.CurrencyCode = "MYR";
+        invoice.ExchangeRate = 1m;
+        invoice.SupplierTin = "C1122334455";
+        invoice.EInvoiceDocType = EInvoiceDocumentType.SelfBilledCreditNote;
+        invoice.ReturnAgainstId = null;
+        invoice.OriginalInvoiceNumber = null;
+        invoice.OriginalInvoiceUuid = null;
+
+        var errors = await _validator.ValidatePurchaseInvoiceForSubmissionAsync(invoice, _companyId);
+        Assert.Contains(errors, e => e.Contains("must have OriginalInvoiceNumber or OriginalInvoiceUuid specified for LHDN BillingReference"));
+    }
 }

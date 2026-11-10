@@ -41,6 +41,8 @@ public class PurchaseInvoiceDto : EntityDto<Guid>
     public bool IsReturnRefund { get; set; }
     public bool IsSubcontracted { get; set; }
     public Guid? ReturnAgainstId { get; set; }
+    public string? OriginalInvoiceNumber { get; set; }
+    public string? OriginalInvoiceUuid { get; set; }
     public Guid? AmendedFromId { get; set; }
     public int AmendmentIndex { get; set; }
     public Guid CreditToAccountId { get; set; }
@@ -203,6 +205,8 @@ public class CreatePurchaseInvoiceDto
 
     /// <summary>Original invoice this return is against.</summary>
     public Guid? ReturnAgainstId { get; set; }
+    public string? OriginalInvoiceNumber { get; set; }
+    public string? OriginalInvoiceUuid { get; set; }
 
     /// <summary>LHDN self-billed e-Invoice document type (SelfBilledInvoice=11, SelfBilledCreditNote=12, SelfBilledDebitNote=13, SelfBilledRefundNote=14). When omitted, auto-derived from IsReturn.</summary>
     public EInvoiceDocumentType? EInvoiceDocType { get; set; }

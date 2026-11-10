@@ -155,6 +155,13 @@ public class EInvoiceValidationService : ITransientDependency
                         errors.Add("The original invoice must have a valid LHDN submission (LhdnUuid) before its Debit Note can be submitted.");
                 }
             }
+            else
+            {
+                if (!invoice.ReturnAgainstId.HasValue && string.IsNullOrWhiteSpace(invoice.OriginalInvoiceNumber) && string.IsNullOrWhiteSpace(invoice.OriginalInvoiceUuid))
+                {
+                    errors.Add("Debit Note without an internal original invoice must have OriginalInvoiceNumber or OriginalInvoiceUuid specified for LHDN BillingReference.");
+                }
+            }
         }
         // Original invoice reference validation for Credit Notes / Returns
         else if (invoice.IsReturn || typeCode is "02" or "04")
@@ -171,6 +178,13 @@ public class EInvoiceValidationService : ITransientDependency
                     var originalInvoice = await _salesInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
                     if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
                         errors.Add("The original invoice must have a valid LHDN submission (LhdnUuid) before its Credit Note can be submitted.");
+                }
+            }
+            else
+            {
+                if (!invoice.ReturnAgainstId.HasValue && string.IsNullOrWhiteSpace(invoice.OriginalInvoiceNumber) && string.IsNullOrWhiteSpace(invoice.OriginalInvoiceUuid))
+                {
+                    errors.Add("Credit Note / Return Invoice without an internal original invoice must have OriginalInvoiceNumber or OriginalInvoiceUuid specified for LHDN BillingReference.");
                 }
             }
         }
@@ -305,6 +319,13 @@ public class EInvoiceValidationService : ITransientDependency
                         errors.Add("The original purchase invoice must have a valid LHDN submission (LhdnUuid) before its Debit Note can be submitted.");
                 }
             }
+            else
+            {
+                if (!invoice.ReturnAgainstId.HasValue && string.IsNullOrWhiteSpace(invoice.OriginalInvoiceNumber) && string.IsNullOrWhiteSpace(invoice.OriginalInvoiceUuid))
+                {
+                    errors.Add("Self-billed Debit Note without an internal original purchase invoice must have OriginalInvoiceNumber or OriginalInvoiceUuid specified for LHDN BillingReference.");
+                }
+            }
         }
         // Original invoice reference validation for Credit Notes / Returns
         else if (invoice.IsReturn || typeCode is "12" or "14")
@@ -318,6 +339,13 @@ public class EInvoiceValidationService : ITransientDependency
                     var originalInvoice = await _purchaseInvoiceRepository.FindAsync(invoice.ReturnAgainstId.Value);
                     if (string.IsNullOrWhiteSpace(originalInvoice?.LhdnUuid))
                         errors.Add("The original purchase invoice must have a valid LHDN submission (LhdnUuid) before its Credit Note can be submitted.");
+                }
+            }
+            else
+            {
+                if (!invoice.ReturnAgainstId.HasValue && string.IsNullOrWhiteSpace(invoice.OriginalInvoiceNumber) && string.IsNullOrWhiteSpace(invoice.OriginalInvoiceUuid))
+                {
+                    errors.Add("Self-billed Credit Note / Return without an internal original purchase invoice must have OriginalInvoiceNumber or OriginalInvoiceUuid specified for LHDN BillingReference.");
                 }
             }
         }

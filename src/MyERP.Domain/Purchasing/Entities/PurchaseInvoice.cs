@@ -147,6 +147,18 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// <summary>Original invoice this return is against.</summary>
     public Guid? ReturnAgainstId { get; set; }
 
+    /// <summary>
+    /// For Debit Notes/returns when the original invoice was created outside the system
+    /// (e.g. supplier's external invoice or pre-e-invoice migration). Maps to LHDN BillingReference cbc:ID.
+    /// </summary>
+    public string? OriginalInvoiceNumber { get; set; }
+
+    /// <summary>
+    /// For Debit Notes/returns when the original invoice was created outside the system.
+    /// Maps to LHDN BillingReference cbc:UUID.
+    /// </summary>
+    public string? OriginalInvoiceUuid { get; set; }
+
     /// <summary>Linked Sales Invoice ID from inter-company transaction.</summary>
     public Guid? InterCompanyInvoiceId { get; set; }
 

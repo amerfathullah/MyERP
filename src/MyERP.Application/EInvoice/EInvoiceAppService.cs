@@ -199,6 +199,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             billingReferenceNumber = originalInvoice?.InvoiceNumber;
             billingReferenceUuid = originalInvoice?.LhdnUuid;
         }
+        billingReferenceNumber ??= invoice.OriginalInvoiceNumber;
+        billingReferenceUuid ??= invoice.OriginalInvoiceUuid;
 
         var isForeignCustomer = !string.IsNullOrWhiteSpace(customer.Country) &&
             !customer.Country.Equals("MYS", StringComparison.OrdinalIgnoreCase) &&
@@ -281,6 +283,8 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             billingReferenceNumber = originalInvoice?.InvoiceNumber;
             billingReferenceUuid = originalInvoice?.LhdnUuid;
         }
+        billingReferenceNumber ??= invoice.OriginalInvoiceNumber;
+        billingReferenceUuid ??= invoice.OriginalInvoiceUuid;
 
         var isForeignSupplier = !string.IsNullOrWhiteSpace(supplier.Country) &&
             !supplier.Country.Equals("MYS", StringComparison.OrdinalIgnoreCase) &&

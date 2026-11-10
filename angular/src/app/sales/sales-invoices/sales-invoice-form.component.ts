@@ -112,6 +112,8 @@ export class SalesInvoiceFormComponent implements OnInit {
     isReturn: [false],
     eInvoiceDocType: [null as number | null],
     returnAgainstId: [null as string | null],
+    originalInvoiceNumber: [''],
+    originalInvoiceUuid: [''],
     updateStock: [false],
     warehouseId: [''],
     couponCode: [''],
@@ -154,6 +156,14 @@ export class SalesInvoiceFormComponent implements OnInit {
         if (current !== 1 && current !== 3) {
           this.form.patchValue({ eInvoiceDocType: 1 });
         }
+      }
+    });
+
+    this.form.get('eInvoiceDocType')?.valueChanges.subscribe((docType) => {
+      const numType = docType ? Number(docType) : null;
+      const isRet = numType === 2 || numType === 4;
+      if (this.form.get('isReturn')?.value !== isRet) {
+        this.form.patchValue({ isReturn: isRet });
       }
     });
 
@@ -206,6 +216,8 @@ export class SalesInvoiceFormComponent implements OnInit {
           priceListId: invoice.priceListId ?? '',
           isReturn: invoice.isReturn ?? false,
           returnAgainstId: invoice.returnAgainstId ?? null,
+          originalInvoiceNumber: invoice.originalInvoiceNumber ?? '',
+          originalInvoiceUuid: invoice.originalInvoiceUuid ?? '',
         });
         // Rebuild child FormArray from loaded items
         invoice.items?.forEach((item) => this.addItemRow(item));
@@ -658,6 +670,8 @@ export class SalesInvoiceFormComponent implements OnInit {
       dueDate: raw.dueDate || undefined,
       warehouseId: raw.warehouseId || undefined,
       returnAgainstId: raw.returnAgainstId || undefined,
+      originalInvoiceNumber: raw.originalInvoiceNumber || undefined,
+      originalInvoiceUuid: raw.originalInvoiceUuid || undefined,
       discountAmount: this.discountAmount() > 0 ? this.discountAmount() : undefined,
       applyDiscountOn: this.discountAmount() > 0 ? this.discountOn : undefined,
       items: (raw.items ?? []).map((item: any) => ({
