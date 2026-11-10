@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -13,6 +13,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   selector: 'app-blanket-order-list',
   standalone: true,
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'BlanketOrders' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">

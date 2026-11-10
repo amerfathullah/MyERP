@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -12,6 +12,7 @@ import type { RepostItemValuationDto } from '../../proxy/inventory/models';
   selector: 'app-repost-item-valuation-list',
   standalone: true,
   imports: [CommonModule, PageModule, LocalizationPipe, PaginationComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'RepostItemValuation' | abpLocalization">
       <div class="card">

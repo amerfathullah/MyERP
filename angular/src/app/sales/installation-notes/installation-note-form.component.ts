@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -15,6 +15,7 @@ import type { CreateInstallationNoteDto, InstallationNoteItemDto } from '../../p
   selector: 'app-installation-note-form',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, BreadcrumbComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     @if (isLoading) { <app-loading-overlay /> }
@@ -28,7 +29,7 @@ import type { CreateInstallationNoteDto, InstallationNoteItemDto } from '../../p
             </div>
             <div class="col-md-4">
               <label class="form-label">{{ 'DeliveryNote' | abpLocalization }}</label>
-              <input class="form-control" [value]="deliveryNote?.deliveryNumber" disabled />
+              <input class="form-control" [value]="$safeNavigationMigration(deliveryNote?.deliveryNumber)" disabled />
             </div>
             <div class="col-md-4">
               <label class="form-label">Installation Date</label>

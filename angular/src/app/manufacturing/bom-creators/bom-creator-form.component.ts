@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -12,6 +12,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 @Component({
   selector: 'app-bom-creator-form', standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="(isEdit() ? 'Edit' : 'NewBomCreator') | abpLocalization">
       <div class="card mb-3"><div class="card-body">

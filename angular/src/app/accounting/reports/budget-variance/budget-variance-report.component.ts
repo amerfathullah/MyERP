@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -13,6 +13,7 @@ import type { BudgetVarianceReportDto } from '../../../proxy/accounting/models';
   selector: 'app-budget-variance-report',
   standalone: true,
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'BudgetVarianceReport' | abpLocalization">
       <div class="card mb-4">

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { ItemTaxTemplateService } from '../../proxy/tax/item-tax-template.service';
@@ -33,6 +33,7 @@ interface ItemTaxTemplateDetailRow {
   selector: 'app-item-tax-template-list',
   standalone: true,
   imports: [CommonModule, FormsModule, ReactiveFormsModule, LocalizationPipe, BreadcrumbComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <div class="container-fluid my-3">

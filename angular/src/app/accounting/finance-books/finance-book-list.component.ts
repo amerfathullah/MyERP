@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -11,6 +11,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   selector: 'app-finance-book-list',
   standalone: true,
   imports: [CommonModule, FormsModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid py-3">
       <div class="card">

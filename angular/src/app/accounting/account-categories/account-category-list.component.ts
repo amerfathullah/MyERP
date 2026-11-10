@@ -1,21 +1,16 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
 import { AccountCategoryService } from '../../proxy/accounting/account-category.service';
+import type { AccountCategoryDto } from '../../proxy/accounting/models';
 import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme.shared';
-
-interface AccountCategoryDto {
-  id?: string;
-  name?: string;
-  rootType?: string;
-  description?: string;
-}
 
 @Component({
   selector: 'app-account-category-list',
   standalone: true,
   imports: [CommonModule, FormsModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid">
       <div class="card">
@@ -133,7 +128,7 @@ export class AccountCategoryListComponent implements OnInit {
 
   remove(cat: AccountCategoryDto) {
     this.confirmation.warn('::DeleteConfirmation', '::AreYouSure').subscribe(status => {
-      if (status !== Confirmation.Status.confirm) return;
+      if (status !== Confirmation.Status.confirm || !cat.id) return;
       this.accountCategoryService.delete(cat.id).subscribe({
         next: () => { this.toaster.success('::SuccessfullyDeleted'); this.loadData(); },
         error: (err: any) => this.toaster.error(err?.error?.error?.message || '::OperationFailed')

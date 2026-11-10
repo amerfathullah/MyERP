@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -13,6 +13,7 @@ import { PackingSlipService } from '../../proxy/sales/packing-slip.service';
   selector: 'app-packing-slip-detail',
   standalone: true,
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <abp-page [title]="'PackingSlip' | abpLocalization">

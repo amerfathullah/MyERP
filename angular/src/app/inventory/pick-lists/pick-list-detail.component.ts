@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -14,6 +14,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
   selector: 'app-pick-list-detail',
   standalone: true,
   imports: [CommonModule, RouterLink, LocalizationPipe, FormsModule, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <div class="container-fluid py-3">

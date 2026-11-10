@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -8,6 +8,7 @@ import { LocalizationPipe } from '@abp/ng.core';
   selector: 'app-settings-overview',
   standalone: true,
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'Settings' | abpLocalization">
       <div class="row g-3">

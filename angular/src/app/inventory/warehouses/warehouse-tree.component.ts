@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { WarehouseService } from '../../proxy/inventory/warehouse.service';
@@ -112,6 +112,7 @@ interface WarehouseNode {
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .warehouse-tree { font-size: 0.9rem; }
     .tree-row:hover { background: rgba(0,0,0,0.02); }

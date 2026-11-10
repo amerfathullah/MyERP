@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -22,6 +22,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
     StatusBadgeComponent,
     PaginationComponent],
   templateUrl: './item-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./item-list.component.scss'],
 })
 export class ItemListComponent implements OnInit {

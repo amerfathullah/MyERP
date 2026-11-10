@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -14,6 +14,7 @@ import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe
   selector: 'app-supplier-payment-summary',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, CompanyCurrencyPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::SupplierPaymentSummary' | abpLocalization">
       <!-- Filters -->

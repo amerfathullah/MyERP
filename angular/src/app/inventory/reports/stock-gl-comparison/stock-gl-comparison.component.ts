@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -15,6 +15,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
   selector: 'app-stock-gl-comparison',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe, CompanyCurrencyPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::StockGlComparison' | abpLocalization">
       <div class="card mb-3">

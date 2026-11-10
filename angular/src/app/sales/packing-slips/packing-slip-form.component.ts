@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -14,6 +14,7 @@ import type { CreatePackingSlipDto, CreatePackingSlipItemDto } from '../../proxy
   selector: 'app-packing-slip-form',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, BreadcrumbComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     @if (isLoading) {
@@ -24,7 +25,7 @@ import type { CreatePackingSlipDto, CreatePackingSlipItemDto } from '../../proxy
           <div class="row g-3">
             <div class="col-md-4">
               <label class="form-label">{{ 'DeliveryNote' | abpLocalization }}</label>
-              <input class="form-control" [value]="deliveryNote?.deliveryNumber" disabled />
+              <input class="form-control" [value]="$safeNavigationMigration(deliveryNote?.deliveryNumber)" disabled />
             </div>
             <div class="col-md-2">
               <label class="form-label">{{ 'CaseNumbers' | abpLocalization }} From</label>

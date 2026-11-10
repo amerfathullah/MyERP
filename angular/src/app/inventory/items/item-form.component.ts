@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -26,6 +26,7 @@ import { CompanyRestrictionComponent } from '../../shared/components/company-res
   imports: [
     AutoValidationDirective, SaveShortcutDirective, CompanyRestrictionComponent, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule, RouterModule],
   templateUrl: './item-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./item-form.component.scss'],
 })
 export class ItemFormComponent implements OnInit {

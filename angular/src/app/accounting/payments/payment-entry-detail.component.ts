@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -20,6 +20,7 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
   selector: 'app-payment-entry-detail',
   standalone: true,
   imports: [CommonModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, DocumentWorkflowComponent, ActivityLogComponent, DocumentConnectionsComponent, VoucherLedgerComponent, RouterLink, PaymentEntryPrintLayoutComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <abp-page [title]="entry()?.paymentNumber || ('PaymentEntry' | abpLocalization)">

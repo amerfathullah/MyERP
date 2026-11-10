@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -18,6 +18,7 @@ import type { StockReservationEntryDto } from '../../proxy/inventory/models';
   standalone: true,
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, FormsModule,
     PaginationComponent, StatusBadgeComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'StockReservations' | abpLocalization">
       <div class="card">

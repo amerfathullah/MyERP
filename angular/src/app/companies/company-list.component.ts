@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { ListService, PagedResultDto, LocalizationPipe } from '@abp/ng.core';
@@ -20,6 +20,7 @@ import { PaginationComponent, type PageEvent } from '../shared/components/pagina
     PaginationComponent],
   providers: [ListService],
   templateUrl: './company-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./company-list.component.scss'],
 })
 export class CompanyListComponent implements OnInit {

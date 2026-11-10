@@ -1,5 +1,5 @@
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -27,6 +27,7 @@ interface OutstandingInvoice {
   standalone: true,
   imports: [CompanyCurrencyPipe, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './outstanding-invoices.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./outstanding-invoices.component.scss'],
 })
 export class OutstandingInvoicesComponent implements OnInit {

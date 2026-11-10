@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -14,6 +14,7 @@ import type { AssetDto } from '../../proxy/assets/models';
   selector: 'app-asset-value-adjustment-form',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'NewAssetValueAdjustment' | abpLocalization">
       <div class="card">

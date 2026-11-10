@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -15,6 +15,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   standalone: true,
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
   templateUrl: './opportunity-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./opportunity-list.component.scss'],
 })
 export class OpportunityListComponent implements OnInit {

@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -22,6 +22,7 @@ interface ReorderItem {
   standalone: true,
   imports: [CommonModule, RouterLink, LocalizationPipe],
   selector: 'app-stock-reorder',
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">

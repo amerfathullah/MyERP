@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -47,6 +47,7 @@ const ENUM_TO_ENTRY_TYPE: Record<number, string> = Object.entries(ENTRY_TYPE_TO_
   imports: [
     AutoValidationDirective, SaveShortcutDirective, BarcodeScannerComponent, ItemPickerComponent, CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './stock-entry-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./stock-entry-form.component.scss'],
 })
 export class StockEntryFormComponent implements OnInit {

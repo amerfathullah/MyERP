@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -19,6 +19,7 @@ interface CostCenterLookup {
   standalone: true,
   imports: [DatePipe, DecimalPipe, RouterModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent],
   templateUrl: './cost-center-allocation-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./cost-center-allocation-detail.component.scss'],
 })
 export class CostCenterAllocationDetailComponent implements OnInit {

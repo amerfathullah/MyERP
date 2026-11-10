@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -10,6 +10,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   selector: 'app-notification-log-list',
   standalone: true,
   imports: [PaginationComponent, CommonModule, FormsModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'NotificationLogs' | abpLocalization">
       <div class="row mb-3 g-2">

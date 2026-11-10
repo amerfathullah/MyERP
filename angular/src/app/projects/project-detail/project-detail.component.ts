@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -380,6 +380,7 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
       <app-activity-log documentType="Project" [documentId]="project()!.id!" />
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .progress-bar { transition: width 0.3s; }
   `]

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -19,6 +19,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
     CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe,
     StatusBadgeComponent, PaginationComponent, SortableHeaderComponent],
   templateUrl: './payment-entry-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./payment-entry-list.component.scss'],
 })
 export class PaymentEntryListComponent implements OnInit {

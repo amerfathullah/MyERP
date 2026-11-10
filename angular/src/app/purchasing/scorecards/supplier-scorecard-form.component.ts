@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -14,6 +14,7 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
   selector: 'app-supplier-scorecard-form',
   standalone: true,
   imports: [CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe, AutoValidationDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'NewScorecard' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()">

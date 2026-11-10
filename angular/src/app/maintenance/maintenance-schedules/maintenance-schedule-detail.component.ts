@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -15,6 +15,7 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
   selector: 'app-maintenance-schedule-detail',
   standalone: true,
   imports: [CommonModule, RouterModule, LocalizationPipe, StatusBadgeComponent, ActivityLogComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './maintenance-schedule-detail.component.html',
 })
 export class MaintenanceScheduleDetailComponent implements OnInit {

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
@@ -16,6 +16,7 @@ import type { CreateSalarySlipDto, SalarySlipComponentInputDto } from '../../pro
   selector: 'app-salary-slip-form',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, BreadcrumbComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './salary-slip-form.component.html',
 })
 export class SalarySlipFormComponent implements OnInit {

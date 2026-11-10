@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -161,6 +161,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .timeline-row { transition: background-color 0.2s; }
     .timeline-row:hover { background-color: rgba(0,0,0,0.03); }

@@ -1,5 +1,5 @@
 import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe';
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -17,6 +17,7 @@ import type { CompanyDto } from '../../../proxy/core/models';
   imports: [CompanyCurrencyPipe, 
     CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './profit-loss.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./profit-loss.component.scss'],
 })
 export class ProfitLossComponent implements OnInit {

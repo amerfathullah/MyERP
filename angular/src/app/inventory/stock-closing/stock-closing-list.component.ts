@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -17,6 +17,7 @@ const STATUS = ['Draft', 'Submitted', 'Cancelled'] as const;
   selector: 'app-stock-closing-list',
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, LoadingOverlayComponent, StatusBadgeComponent, PaginationComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'StockClosing' | abpLocalization">
       <div class="d-flex justify-content-between align-items-center mb-3">

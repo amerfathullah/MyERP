@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -13,6 +13,7 @@ import type { JournalEntryTemplateDto } from '../../proxy/accounting/models';
   selector: 'app-journal-entry-template-list',
   standalone: true,
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'JournalEntryTemplates' | abpLocalization">
       <div class="card">

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -8,6 +8,7 @@ import { QualityInspectionTemplateService } from '../../proxy/inventory/quality-
   standalone: true,
   selector: 'app-qi-template-list',
   imports: [CommonModule, RouterModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid">
       <div class="card">

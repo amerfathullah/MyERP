@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -15,6 +15,7 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
   imports: [
     AutoValidationDirective, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule],
   templateUrl: './automation-rule-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./automation-rule-form.component.scss'],
 })
 export class AutomationRuleFormComponent {

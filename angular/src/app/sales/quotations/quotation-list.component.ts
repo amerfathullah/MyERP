@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -16,6 +16,7 @@ import type { QuotationDto } from '../../proxy/sales/models';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, PaginationComponent, SortableHeaderComponent],
   templateUrl: './quotation-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./quotation-list.component.scss'],
 })
 export class QuotationListComponent implements OnInit {

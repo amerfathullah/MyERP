@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -27,6 +27,7 @@ import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
     PaginationComponent,
     SortableHeaderComponent],
   templateUrl: './delivery-note-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./delivery-note-list.component.scss'],
 })
 export class DeliveryNoteListComponent implements OnInit {

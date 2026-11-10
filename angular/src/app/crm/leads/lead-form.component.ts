@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -15,6 +15,7 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
   standalone: true,
   imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './lead-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./lead-form.component.scss'],
 })
 export class LeadFormComponent implements OnInit {

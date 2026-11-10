@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, inject } from '@angular/core';
+import { Component, Input, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LocalizationPipe } from '@abp/ng.core';
 import { DocumentActivityLogService } from '../../../proxy/core/document-activity-log.service';
@@ -19,6 +19,7 @@ const ACTIVITY_ICONS: Record<string, string> = {
   standalone: true,
   imports: [CommonModule, LocalizationPipe],
   templateUrl: './activity-log.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './activity-log.component.scss',
 })
 export class ActivityLogComponent implements OnInit {

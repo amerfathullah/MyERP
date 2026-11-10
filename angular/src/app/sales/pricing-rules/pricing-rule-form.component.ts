@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -9,6 +9,7 @@ import { PricingRuleService } from '../../proxy/sales/pricing-rule.service';
 @Component({
   selector: 'app-pricing-rule-form', standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'NewPricingRule' | abpLocalization">
       <div class="card"><div class="card-body">

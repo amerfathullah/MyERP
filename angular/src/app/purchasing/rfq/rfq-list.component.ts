@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -12,6 +12,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   selector: 'app-rfq-list',
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, PaginationComponent, StatusBadgeComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'RequestForQuotations' | abpLocalization">
       <div class="card">

@@ -1,5 +1,5 @@
 import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -15,6 +15,7 @@ import type { CustomerRevenueLineDto } from '../../../proxy/sales/models';
   standalone: true,
   imports: [CompanyCurrencyPipe, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './customer-revenue-report.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./customer-revenue-report.component.scss'],
 })
 export class CustomerRevenueReportComponent implements OnInit {

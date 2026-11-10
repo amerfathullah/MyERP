@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -11,6 +11,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   selector: 'app-workstation-detail',
   standalone: true,
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, BreadcrumbComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <abp-page [title]="ws?.name ?? 'Workstation'">

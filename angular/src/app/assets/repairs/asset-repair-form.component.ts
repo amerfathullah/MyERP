@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
@@ -19,6 +19,7 @@ import type { ProjectDto } from '../../proxy/projects/models';
   selector: 'app-asset-repair-form',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="(isEdit() ? 'EditAssetRepair' : 'NewRepair') | abpLocalization">
       <div class="card">

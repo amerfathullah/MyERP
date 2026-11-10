@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -12,6 +12,7 @@ import { ExchangeRateRevaluationService } from '../../proxy/accounting/exchange-
   selector: 'app-exchange-rate-revaluation',
   standalone: true,
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'ExchangeRateRevaluation' | abpLocalization">
       <div class="card mb-3"><div class="card-body">

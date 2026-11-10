@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -15,6 +15,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
   selector: 'app-loan-form',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe, AutoValidationDirective, SaveShortcutDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'NewLoan' | abpLocalization">
       <form [formGroup]="form" (appSaveShortcut)="save()">

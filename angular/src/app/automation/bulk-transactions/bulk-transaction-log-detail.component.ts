@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -10,6 +10,7 @@ import { BulkTransactionStatus } from '../../proxy/automation/bulk-transaction-s
   selector: 'app-bulk-transaction-log-detail',
   standalone: true,
   imports: [CommonModule, RouterModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (log) {
       <div class="card mb-4">

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -15,6 +15,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
   standalone: true,
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent],
   templateUrl: './stock-balance.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./stock-balance.component.scss'],
 })
 export class StockBalanceComponent implements OnInit {

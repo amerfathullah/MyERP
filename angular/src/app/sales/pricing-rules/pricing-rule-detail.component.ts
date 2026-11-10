@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -9,6 +9,7 @@ import { PricingRuleService } from '../../proxy/sales/pricing-rule.service';
   selector: 'app-pricing-rule-detail',
   standalone: true,
   imports: [CommonModule, RouterModule, PageModule, BreadcrumbComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <abp-page [title]="rule?.title ?? 'Pricing Rule'">

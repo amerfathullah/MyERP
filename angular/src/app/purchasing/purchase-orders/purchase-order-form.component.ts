@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators, FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -35,6 +35,7 @@ import { map, Observable } from 'rxjs';
   imports: [
     CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe, AutoValidationDirective, SaveShortcutDirective, ItemPickerComponent, LinkPickerComponent],
   templateUrl: './purchase-order-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./purchase-order-form.component.scss'],
 })
 export class PurchaseOrderFormComponent implements OnInit {

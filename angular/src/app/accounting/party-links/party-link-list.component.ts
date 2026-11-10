@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -13,6 +13,7 @@ import { SupplierService } from '../../proxy/purchasing/supplier.service';
   selector: 'app-party-link-list',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::PartyLinks' | abpLocalization">
       <div class="card mb-3"><div class="card-body">

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -14,6 +14,7 @@ import type { ApprovalRuleDto } from '../../proxy/workflow/dtos/models';
   imports: [
     CommonModule, PageModule, LocalizationPipe, RouterModule, PaginationComponent],
   templateUrl: './approval-rules-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./approval-rules-list.component.scss'],
 })
 export class ApprovalRulesListComponent implements OnInit {

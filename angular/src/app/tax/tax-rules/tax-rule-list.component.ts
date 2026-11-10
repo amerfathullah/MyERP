@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { TaxRuleService } from '../../proxy/tax/tax-rule.service';
@@ -17,6 +17,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   selector: 'app-tax-rule-list',
   standalone: true,
   imports: [CommonModule, FormsModule, ReactiveFormsModule, LocalizationPipe, BreadcrumbComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <div class="container-fluid my-3">

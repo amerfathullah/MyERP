@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -12,6 +12,7 @@ import type { FinancialRatiosReportDto, FinancialRatioRowDto } from '../../../pr
   selector: 'app-financial-ratios',
   standalone: true,
   imports: [CommonModule, FormsModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid">
       <div class="card">

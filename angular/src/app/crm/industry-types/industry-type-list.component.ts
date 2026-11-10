@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -12,6 +12,7 @@ import type { IndustryTypeDto } from '../../proxy/crm/models';
   selector: 'app-industry-type-list',
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::IndustryTypes' | abpLocalization">
       <div class="d-flex justify-content-between gap-2 mb-3">

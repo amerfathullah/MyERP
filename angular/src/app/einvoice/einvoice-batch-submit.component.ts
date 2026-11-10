@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -14,6 +14,7 @@ import type { BatchSubmitResultDto } from '../proxy/einvoice/models';
   selector: 'app-einvoice-batch-submit',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'BatchSubmitEInvoice' | abpLocalization">
       <div class="card mb-4">

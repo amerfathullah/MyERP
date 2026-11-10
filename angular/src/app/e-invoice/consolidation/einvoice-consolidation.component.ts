@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -22,6 +22,7 @@ import type { ConsolidationCandidateDto, EInvoiceConsolidationDto } from '../../
     PaginationComponent
   ],
   templateUrl: './einvoice-consolidation.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./einvoice-consolidation.component.scss']
 })
 export class EinvoiceConsolidationComponent implements OnInit {

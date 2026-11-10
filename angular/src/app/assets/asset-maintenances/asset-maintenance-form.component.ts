@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
@@ -16,6 +16,7 @@ import type { AssetDto, AssetMaintenanceTeamDto } from '../../proxy/assets/model
   selector: 'app-asset-maintenance-form',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="(isEdit() ? 'EditAssetMaintenance' : 'NewAssetMaintenance') | abpLocalization">
       <div class="card">

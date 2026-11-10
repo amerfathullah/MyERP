@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface PageEvent {
@@ -10,6 +10,7 @@ export interface PageEvent {
   selector: 'app-pagination',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (totalCount > pageSize) {
       <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Pagination">

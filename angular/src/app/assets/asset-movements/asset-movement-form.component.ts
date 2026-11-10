@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
@@ -15,6 +15,7 @@ import type { AssetDto, LocationDto } from '../../proxy/assets/models';
   selector: 'app-asset-movement-form',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'NewAssetMovement' | abpLocalization">
       <div class="card">

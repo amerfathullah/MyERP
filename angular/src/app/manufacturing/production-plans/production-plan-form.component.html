@@ -121,7 +121,7 @@
                   <td>
                     <select class="form-select form-select-sm" formControlName="bomId">
                       <option value="">{{ 'SelectBOM' | abpLocalization }}</option>
-                      @for (b of getFilteredBoms(items.at(i).get('itemId')?.value); track b.id) {
+                      @for (b of getFilteredBoms($safeNavigationMigration(items.at(i).get('itemId')?.value)); track b.id) {
                         <option [value]="b.id">{{ b.bomNumber || b.id }}</option>
                       }
                     </select>

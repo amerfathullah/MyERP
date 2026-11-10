@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -20,6 +20,7 @@ const INTEREST_METHOD = ['Diminishing Balance', 'Flat Rate'] as const;
   selector: 'app-loan-detail',
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, LoadingOverlayComponent, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     @if (isLoading) { <app-loading-overlay /> }

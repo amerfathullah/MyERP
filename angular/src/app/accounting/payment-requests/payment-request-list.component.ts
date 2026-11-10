@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -10,6 +10,7 @@ import { RouterModule } from '@angular/router';
   standalone: true,
   selector: 'app-payment-request-list',
   imports: [CommonModule, FormsModule, LocalizationPipe, RouterModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid my-3">
       <div class="card">

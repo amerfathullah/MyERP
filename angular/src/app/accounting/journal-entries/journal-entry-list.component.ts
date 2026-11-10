@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -34,6 +34,7 @@ const VOUCHER_TYPE_LABELS: Record<number, string> = {
     SortableHeaderComponent,
     DatePresetsComponent],
   templateUrl: './journal-entry-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./journal-entry-list.component.scss'],
 })
 export class JournalEntryListComponent implements OnInit {

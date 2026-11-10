@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -15,6 +15,7 @@ import type { AssetCapitalizationDto } from '../../proxy/assets/models';
   selector: 'app-asset-capitalization-detail',
   standalone: true,
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent, VoucherLedgerComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <div class="container-fluid">

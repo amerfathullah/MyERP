@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, signal, ElementRef, ViewChild, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal, ElementRef, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BarcodeScanService } from '../../../proxy/inventory/barcode-scan.service';
@@ -97,6 +97,7 @@ export interface ScanEvent {
       </div>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .barcode-scanner { max-width: 500px; }
     .barcode-scanner input { font-family: monospace; }

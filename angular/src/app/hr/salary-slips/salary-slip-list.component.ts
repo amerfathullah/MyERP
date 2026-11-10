@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -12,6 +12,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   selector: 'app-salary-slip-list',
   standalone: true,
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'SalarySlips' | abpLocalization">
       <div class="d-flex justify-content-end mb-3">

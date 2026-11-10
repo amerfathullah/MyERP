@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -14,6 +14,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   selector: 'app-payment-order-form',
   standalone: true,
   imports: [CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::New' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()">

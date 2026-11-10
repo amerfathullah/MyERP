@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
@@ -11,6 +11,7 @@ import { IncotermService } from '../../proxy/purchasing/incoterm.service';
   selector: 'app-incoterm-form',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="(isEdit() ? 'EditIncoterm' : 'NewIncoterm') | abpLocalization">
       <div class="card">

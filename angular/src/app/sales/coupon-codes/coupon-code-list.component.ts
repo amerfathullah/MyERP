@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -28,6 +28,7 @@ interface CouponCodeDto {
   selector: 'app-coupon-code-list',
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule, LocalizationPipe, PaginationComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid">
       <div class="card">

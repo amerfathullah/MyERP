@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -12,6 +12,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   selector: 'app-product-bundle-list',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, LocalizationPipe, PaginationComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid py-3">
       <div class="card shadow-sm">

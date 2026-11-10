@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -16,6 +16,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './profit-loss-by-cost-center.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./profit-loss-by-cost-center.component.scss'],
 })
 export class ProfitLossByCostCenterComponent implements OnInit {

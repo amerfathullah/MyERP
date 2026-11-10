@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -17,6 +17,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
     CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe,
     StatusBadgeComponent, PaginationComponent],
   templateUrl: './employee-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./employee-list.component.scss'],
 })
 export class EmployeeListComponent implements OnInit {

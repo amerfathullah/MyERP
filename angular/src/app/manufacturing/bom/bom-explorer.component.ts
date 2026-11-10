@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -117,6 +117,7 @@ interface BomTreeNode {
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .bom-tree-table tr.table-success { background: rgba(25, 135, 84, 0.05) !important; }
     .bom-tree-table .btn-link { text-decoration: none; }

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -11,6 +11,7 @@ import { Confirmation, ConfirmationService } from '@abp/ng.theme.shared';
   standalone: true,
   selector: 'app-shipment-list',
   imports: [CommonModule, FormsModule, RouterModule, LocalizationPipe, PaginationComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid">
       <div class="card">

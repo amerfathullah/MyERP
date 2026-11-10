@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -11,6 +11,7 @@ import type { AccountingDimensionDto } from '../../proxy/accounting/models';
   selector: 'app-accounting-dimensions',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'AccountingDimensions' | abpLocalization">
       <!-- Create form -->

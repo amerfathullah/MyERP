@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { OpportunityService } from '../../proxy/crm/opportunity.service';
@@ -128,6 +128,7 @@ interface KanbanColumn {
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .kanban-board { min-height: 70vh; }
     .kanban-column { min-width: 280px; max-width: 320px; flex: 0 0 auto; background: #f8f9fa; border-radius: 8px; display: flex; flex-direction: column; }

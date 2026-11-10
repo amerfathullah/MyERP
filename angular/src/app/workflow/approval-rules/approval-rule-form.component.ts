@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -15,6 +15,7 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
   standalone: true,
   imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, LocalizationPipe, PageModule],
   templateUrl: './approval-rule-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./approval-rule-form.component.scss'],
 })
 export class ApprovalRuleFormComponent implements OnInit {

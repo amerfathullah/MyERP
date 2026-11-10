@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators, FormArray } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -9,6 +9,7 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
   standalone: true,
   selector: 'app-payment-terms-template-list',
   imports: [CommonModule, FormsModule, ReactiveFormsModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid my-3">
       <div class="card">

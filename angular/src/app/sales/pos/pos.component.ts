@@ -1,5 +1,5 @@
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -39,6 +39,7 @@ interface HeldOrder {
   standalone: true,
   imports: [CompanyCurrencyPipe, CommonModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './pos.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./pos.component.scss'],
 })
 export class PosComponent implements OnInit {

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -167,6 +167,7 @@ import type { AutoRepeatDto, CreateAutoRepeatDto } from '../../proxy/core/models
       </app-pagination>
     </abp-page>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .badge { font-weight: 500; }
   `]

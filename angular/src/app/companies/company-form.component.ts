@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -15,6 +15,7 @@ import { AutoValidationDirective } from '../shared/directives/auto-validation.di
   imports: [
     AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './company-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./company-form.component.scss'],
 })
 export class CompanyFormComponent implements OnInit {

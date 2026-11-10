@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -12,6 +12,7 @@ import type { EInvoiceConnectionStatusDto } from '../proxy/einvoice/models';
   selector: 'app-einvoice-settings',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'EInvoiceSettings' | abpLocalization">
       <!-- Connection status card -->

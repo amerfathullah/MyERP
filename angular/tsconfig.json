@@ -14,7 +14,10 @@
     "module": "ES2022",
     "lib": ["ES2022", "dom", "esnext.disposable"],
     "paths": {},
-    "useDefineForClassFields": false
+    "useDefineForClassFields": false,
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,

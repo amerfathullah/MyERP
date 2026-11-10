@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { StatusBadgeComponent, DocumentStatus } from '../status-badge/status-badge.component';
 
@@ -14,6 +14,7 @@ export interface WorkflowAction {
   standalone: true,
   imports: [CommonModule, StatusBadgeComponent],
   templateUrl: './document-workflow.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./document-workflow.component.scss'],
 })
 export class DocumentWorkflowComponent {

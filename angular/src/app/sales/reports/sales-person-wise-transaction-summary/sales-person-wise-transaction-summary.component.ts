@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -17,6 +17,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
   selector: 'app-sales-person-wise-transaction-summary',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid py-3">
       <!-- Header -->

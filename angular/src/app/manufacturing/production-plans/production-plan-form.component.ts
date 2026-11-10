@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -20,6 +20,7 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
   standalone: true,
   imports: [AutoValidationDirective, CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './production-plan-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./production-plan-form.component.scss'],
 })
 export class ProductionPlanFormComponent implements OnInit {

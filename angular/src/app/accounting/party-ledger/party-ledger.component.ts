@@ -1,5 +1,5 @@
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -32,6 +32,7 @@ interface PartyOption {
   standalone: true,
   imports: [CompanyCurrencyPipe, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './party-ledger.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./party-ledger.component.scss'],
 })
 export class PartyLedgerComponent implements OnInit {

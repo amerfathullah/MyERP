@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, signal, inject, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { DraftLinkGuardService } from '../../../proxy/core/draft-link-guard.service';
@@ -23,6 +23,7 @@ import { LocalizationPipe } from '@abp/ng.core';
   selector: 'app-draft-link-guard',
   standalone: true,
   imports: [CommonModule, RouterModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (isChecking()) {
       <div class="text-center py-2">

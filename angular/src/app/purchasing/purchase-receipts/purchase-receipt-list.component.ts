@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -27,6 +27,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
     PaginationComponent,
     SortableHeaderComponent],
   templateUrl: './purchase-receipt-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./purchase-receipt-list.component.scss'],
 })
 export class PurchaseReceiptListComponent implements OnInit {

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -21,6 +21,7 @@ const STATUS_LABELS = ['Draft', 'Submitted', 'Cancelled'] as const;
     StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent, VoucherLedgerComponent,
   ],
   templateUrl: './stock-closing-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./stock-closing-detail.component.scss'],
 })
 export class StockClosingDetailComponent implements OnInit {

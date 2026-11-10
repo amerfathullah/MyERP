@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -26,6 +26,7 @@ import { WarehouseService } from '../../proxy/inventory/warehouse.service';
   imports: [
     BreadcrumbComponent, CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, ActivityLogComponent, VoucherLedgerComponent, PurchaseReceiptPrintLayoutComponent, DocumentConnectionsComponent],
   templateUrl: './purchase-receipt-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./purchase-receipt-detail.component.scss'],
 })
 export class PurchaseReceiptDetailComponent implements OnInit {

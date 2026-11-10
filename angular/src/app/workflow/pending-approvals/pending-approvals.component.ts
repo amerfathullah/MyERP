@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -11,6 +11,7 @@ import { ApprovalWorkflowStore } from '../store/approval-workflow.store';
   imports: [
     CommonModule, PageModule, LocalizationPipe, RouterModule],
   templateUrl: './pending-approvals.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./pending-approvals.component.scss'],
 })
 export class PendingApprovalsComponent implements OnInit {

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -12,6 +12,7 @@ import type { AppNotificationDto } from '../../../proxy/notification/dtos/models
     CommonModule, RouterModule, LocalizationPipe
   ],
   templateUrl: './notification-bell.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./notification-bell.component.scss'],
 })
 export class NotificationBellComponent implements OnInit {

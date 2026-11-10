@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -15,6 +15,7 @@ import type { ItemStandardCostDto } from '../../proxy/inventory/models';
   standalone: true,
   imports: [CommonModule, PageModule, LocalizationPipe, FormsModule,
     PaginationComponent, StatusBadgeComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'ItemStandardCosts' | abpLocalization">
       <div class="card">

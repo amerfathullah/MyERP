@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AuthService, LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -13,6 +13,7 @@ import { CompanyCurrencyPipe } from '../shared/pipes/company-currency.pipe';
   standalone: true,
   imports: [CommonModule, RouterModule, LocalizationPipe, CompanyCurrencyPipe],
   templateUrl: './home.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./home.component.scss'],
 })
 export class HomeComponent implements OnInit {

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -18,6 +18,7 @@ import { SubcontractingInwardOrderService } from '../../proxy/purchasing/subcont
   selector: 'app-subcontracting-inward-detail',
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, VoucherLedgerComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <abp-page [title]="order()?.orderNumber || ('SubcontractingInwardOrder' | abpLocalization)">

@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -40,6 +40,7 @@ interface Sst02FilingData {
   standalone: true,
   imports: [CommonModule, FormsModule, LocalizationPipe],
   selector: 'app-sst02-filing',
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">

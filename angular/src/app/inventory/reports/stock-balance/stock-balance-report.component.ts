@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { StockBalanceService } from '../../../proxy/inventory/stock-balance.service';
@@ -198,6 +198,7 @@ interface StockBalanceRow {
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .sortable { cursor: pointer; user-select: none; }
     .sortable:hover { background: rgba(255,255,255,0.1); }

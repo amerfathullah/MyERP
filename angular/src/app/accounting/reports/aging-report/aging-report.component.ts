@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -17,6 +17,7 @@ import type { AgingReportDto, AgingDetailEntryDto } from '../../../proxy/account
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './aging-report.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./aging-report.component.scss'],
 })
 export class AgingReportComponent implements OnInit {

@@ -1,5 +1,5 @@
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -21,6 +21,7 @@ interface CustomerOption {
   standalone: true,
   imports: [CompanyCurrencyPipe, CommonModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './timesheet-billing.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./timesheet-billing.component.scss'],
 })
 export class TimesheetBillingComponent implements OnInit {

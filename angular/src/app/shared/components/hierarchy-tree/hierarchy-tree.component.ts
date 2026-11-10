@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, Input } from '@angular/core';
+import { Component, inject, OnInit, signal, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HierarchyMasterDataService } from '../../../proxy/core/hierarchy-master-data.service';
@@ -106,6 +106,7 @@ type HierarchyType = 'CustomerGroup' | 'SupplierGroup' | 'Territory';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`.d-flex:hover { background-color: #f8f9fa; }`],
 })
 export class HierarchyTreeComponent implements OnInit {

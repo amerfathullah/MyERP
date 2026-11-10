@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { TaxWithholdingCategoryService } from '../../proxy/tax/tax-withholding-category.service';
@@ -44,6 +44,7 @@ interface TaxWithholdingCategoryRow {
   selector: 'app-tax-withholding-category-list',
   standalone: true,
   imports: [CommonModule, FormsModule, ReactiveFormsModule, LocalizationPipe, BreadcrumbComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <div class="container-fluid my-3">

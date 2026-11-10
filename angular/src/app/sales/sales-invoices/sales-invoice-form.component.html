@@ -7,7 +7,7 @@
           {{ '::CreditNote' | abpLocalization }}
           @if (form.get('returnAgainstId')?.value) {
             &mdash; {{ '::ReturnAgainst' | abpLocalization }}:
-            <a [routerLink]="['/sales/invoices', form.get('returnAgainstId')?.value]">{{ returnAgainstNumber() || form.get('returnAgainstId')?.value }}</a>
+            <a [routerLink]="['/sales/invoices', $safeNavigationMigration(form.get('returnAgainstId')?.value)]">{{ returnAgainstNumber() || form.get('returnAgainstId')?.value }}</a>
           }
         </span>
       </div>

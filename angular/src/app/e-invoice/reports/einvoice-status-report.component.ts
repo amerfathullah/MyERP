@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -12,6 +12,7 @@ import type { LhdnStatusReportItemDto, LhdnVatReportDto } from '../../proxy/einv
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, PageModule, LhdnStatusBadgeComponent, LocalizationPipe],
   templateUrl: './einvoice-status-report.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./einvoice-status-report.component.scss'],
 })
 export class EinvoiceStatusReportComponent implements OnInit {

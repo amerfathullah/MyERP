@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormArray, FormGroup } from '@angular/forms';
 
@@ -16,6 +16,7 @@ export interface ColumnDef {
     CommonModule,
     ReactiveFormsModule],
   templateUrl: './child-table.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./child-table.component.scss'],
 })
 export class ChildTableComponent {

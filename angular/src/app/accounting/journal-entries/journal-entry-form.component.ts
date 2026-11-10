@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -52,6 +52,7 @@ const VOUCHER_TYPES: { value: number; key: string; label: string }[] = [
     SaveShortcutDirective,
     LinkPickerComponent],
   templateUrl: './journal-entry-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./journal-entry-form.component.scss'],
 })
 export class JournalEntryFormComponent implements OnInit {

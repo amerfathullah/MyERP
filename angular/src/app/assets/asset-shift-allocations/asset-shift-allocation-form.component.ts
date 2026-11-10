@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -14,6 +14,7 @@ import type { AssetDto, AssetShiftFactorDto, DepreciationScheduleDto } from '../
   selector: 'app-asset-shift-allocation-form',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'NewAssetShiftAllocation' | abpLocalization">
       <div class="card mb-3">

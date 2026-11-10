@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -39,6 +39,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
     AutoValidationDirective,
     SaveShortcutDirective],
   templateUrl: './sales-invoice-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./sales-invoice-form.component.scss'],
 })
 export class SalesInvoiceFormComponent implements OnInit {

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AccountClosingBalanceService } from '../../proxy/accounting/account-closing-balance.service';
@@ -30,6 +30,7 @@ interface ClosingBalanceStatus {
   selector: 'app-account-closing-balance',
   standalone: true,
   imports: [CommonModule, FormsModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid mt-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
@@ -54,7 +55,7 @@ interface ClosingBalanceStatus {
             </div>
             <div class="col-md-2">
               <div class="text-muted small">{{ 'ClosingDate' | abpLocalization }}</div>
-              <div class="fw-bold">{{ status()?.latestClosingDate | date:'dd/MM/yyyy' }}</div>
+              <div class="fw-bold">{{ $safeNavigationMigration(status()?.latestClosingDate) | date:'dd/MM/yyyy' }}</div>
             </div>
             <div class="col-md-2">
               <div class="text-muted small">{{ 'TotalAccounts' | abpLocalization }}</div>
@@ -62,11 +63,11 @@ interface ClosingBalanceStatus {
             </div>
             <div class="col-md-3">
               <div class="text-muted small">{{ 'TotalDebit' | abpLocalization }}</div>
-              <div class="fw-bold text-success">{{ status()?.totalDebit | number:'1.2-2' }}</div>
+              <div class="fw-bold text-success">{{ $safeNavigationMigration(status()?.totalDebit) | number:'1.2-2' }}</div>
             </div>
             <div class="col-md-3">
               <div class="text-muted small">{{ 'TotalCredit' | abpLocalization }}</div>
-              <div class="fw-bold text-danger">{{ status()?.totalCredit | number:'1.2-2' }}</div>
+              <div class="fw-bold text-danger">{{ $safeNavigationMigration(status()?.totalCredit) | number:'1.2-2' }}</div>
             </div>
           </div>
           @if (status()?.isBalanced) {

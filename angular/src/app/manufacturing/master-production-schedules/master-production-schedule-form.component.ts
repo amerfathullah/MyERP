@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -14,8 +14,9 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 @Component({
   selector: 'app-master-production-schedule-form', standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? schedule?.scheduleNumber : 'NewMasterProductionSchedule') | abpLocalization">
+    <abp-page [title]="(isEdit() ? $safeNavigationMigration(schedule?.scheduleNumber) : 'NewMasterProductionSchedule') | abpLocalization">
       <div class="card mb-3"><div class="card-body">
         @if (isEdit() && status !== 0) {
           <div class="alert" [class.alert-success]="status===1" [class.alert-secondary]="status===4">
@@ -34,7 +35,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
           </div>
           <div class="col-md-3">
             <label class="form-label">{{ 'ToDate' | abpLocalization }}</label>
-            <input type="text" class="form-control" [value]="schedule?.toDate ? (schedule?.toDate | date:'dd/MM/yyyy') : '—'" disabled />
+            <input type="text" class="form-control" [value]="schedule?.toDate ? ($safeNavigationMigration(schedule?.toDate) | date:'dd/MM/yyyy') : '—'" disabled />
           </div>
           <div class="col-md-3">
             <label class="form-label">{{ 'ParentWarehouse' | abpLocalization }}</label>

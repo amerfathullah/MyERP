@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -28,6 +28,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   imports: [
     CommonModule, ReactiveFormsModule, FormsModule, PageModule, AutoValidationDirective, SaveShortcutDirective, LocalizationPipe],
   templateUrl: './payment-entry-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./payment-entry-form.component.scss'],
 })
 export class PaymentEntryFormComponent implements OnInit {

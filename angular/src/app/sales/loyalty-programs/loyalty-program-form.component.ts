@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -13,6 +13,7 @@ import { LoyaltyProgramService } from '../../proxy/sales/loyalty-program.service
   selector: 'app-loyalty-program-form',
   standalone: true,
   imports: [CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe, AutoValidationDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'NewLoyaltyProgram' | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()">

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -11,6 +11,7 @@ import type { BisectAccountingStatementsDto, BisectNodeDto } from '../../proxy/a
   selector: 'app-bisect-accounting-statements',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card mb-4">
       <div class="card-header bg-light">

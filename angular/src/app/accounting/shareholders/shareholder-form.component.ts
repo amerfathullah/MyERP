@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -12,13 +12,14 @@ import type { ShareholderDto } from '../../proxy/accounting/models';
 @Component({
   selector: 'app-shareholder-form', standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="(isEdit() ? 'Edit' : 'NewShareholder') | abpLocalization">
       <div class="card mb-3"><div class="card-body">
         <div class="row mb-3">
           <div class="col-md-6">
             <label class="form-label">{{ 'Title' | abpLocalization }}</label>
-            <input class="form-control" [(ngModel)]="form.title" [disabled]="detail?.isCompany" />
+            <input class="form-control" [(ngModel)]="form.title" [disabled]="$safeNavigationMigration(detail?.isCompany)" />
           </div>
           <div class="col-md-6">
             <label class="form-label">{{ 'FolioNo' | abpLocalization }}</label>

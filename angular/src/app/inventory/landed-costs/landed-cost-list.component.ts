@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -14,6 +14,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   selector: 'app-landed-cost-list',
   standalone: true,
   imports: [PaginationComponent, CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './landed-cost-list.component.html',
 })
 export class LandedCostListComponent implements OnInit {

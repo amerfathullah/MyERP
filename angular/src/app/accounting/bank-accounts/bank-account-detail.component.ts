@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -10,6 +10,7 @@ import { ToasterService, ConfirmationService, Confirmation } from '@abp/ng.theme
   selector: 'app-bank-account-detail',
   standalone: true,
   imports: [CommonModule, RouterModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (account()) {
       <div class="card">

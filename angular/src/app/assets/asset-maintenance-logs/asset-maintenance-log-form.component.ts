@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
@@ -13,6 +13,7 @@ import type { AssetMaintenanceLogDto } from '../../proxy/assets/models';
   selector: 'app-asset-maintenance-log-form',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'AssetMaintenanceLog' | abpLocalization">
       <div class="card">

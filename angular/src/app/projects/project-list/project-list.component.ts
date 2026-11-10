@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -14,6 +14,7 @@ import { LoadingOverlayComponent } from '../../shared/components/loading-overlay
   standalone: true,
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, PaginationComponent, LoadingOverlayComponent],
   templateUrl: './project-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./project-list.component.scss'],
 })
 export class ProjectListComponent implements OnInit {

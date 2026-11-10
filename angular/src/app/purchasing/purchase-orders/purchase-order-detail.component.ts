@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -29,6 +29,7 @@ import type { PurchaseOrderDto } from '../../proxy/purchasing/models';
   imports: [
     CommonModule, FormsModule, DocumentWorkflowComponent, LoadingOverlayComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, PurchaseOrderPrintLayoutComponent, StatusBadgeComponent, DocumentConnectionsComponent],
   templateUrl: './purchase-order-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./purchase-order-detail.component.scss'],
 })
 export class PurchaseOrderDetailComponent implements OnInit {

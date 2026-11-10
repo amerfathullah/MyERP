@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges, signal, inject } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { StockBalanceService } from '../../../proxy/inventory/stock-balance.service';
 
@@ -26,6 +26,7 @@ import { StockBalanceService } from '../../../proxy/inventory/stock-balance.serv
       </span>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host { display: inline-block; }
     .badge { font-size: 0.75rem; font-weight: 500; }

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -16,6 +16,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   selector: 'app-maintenance-schedule-list',
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule, LocalizationPipe, PaginationComponent, StatusBadgeComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './maintenance-schedule-list.component.html',
 })
 export class MaintenanceScheduleListComponent implements OnInit {

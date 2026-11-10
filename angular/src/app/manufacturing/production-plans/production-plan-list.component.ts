@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -14,6 +14,7 @@ import { SortableHeaderComponent, type SortEvent } from '../../shared/components
   standalone: true,
   imports: [PaginationComponent, SortableHeaderComponent, CommonModule, RouterModule, FormsModule, PageModule, LocalizationPipe, StatusBadgeComponent],
   templateUrl: './production-plan-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./production-plan-list.component.scss'],
 })
 export class ProductionPlanListComponent implements OnInit {

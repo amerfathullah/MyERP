@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -13,6 +13,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   selector: 'app-salary-slip-detail',
   standalone: true,
   imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'SalarySlip' | abpLocalization">
       @if (slip(); as s) {

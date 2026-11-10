@@ -1,4 +1,4 @@
-import { Component, inject, signal, HostListener, ViewChild, ElementRef } from '@angular/core';
+import { Component, inject, signal, HostListener, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -72,6 +72,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host { display: block; }
     .dropdown-item { cursor: pointer; }

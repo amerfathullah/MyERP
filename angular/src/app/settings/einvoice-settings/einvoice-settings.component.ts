@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -10,6 +10,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   selector: 'app-einvoice-settings',
   standalone: true,
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'EInvoiceSettings' | abpLocalization">
       <!-- Connection Status Card -->

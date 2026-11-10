@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface SortEvent {
@@ -10,6 +10,7 @@ export interface SortEvent {
   selector: 'app-sortable-header',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <span class="d-inline-flex align-items-center gap-1 cursor-pointer user-select-none"
       (click)="toggleSort()" [style.cursor]="'pointer'">

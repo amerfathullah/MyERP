@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -9,6 +9,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
   selector: 'app-material-shortage-summary',
   standalone: true,
   imports: [CommonModule, RouterModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card border-warning">
       <div class="card-header d-flex justify-content-between align-items-center bg-warning bg-opacity-10">

@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LocalizationPipe } from '@abp/ng.core';
 
@@ -79,6 +79,7 @@ import { LocalizationPipe } from '@abp/ng.core';
       .print-invoice { padding: 10mm; }
     }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (invoice) {
       <div class="print-invoice">

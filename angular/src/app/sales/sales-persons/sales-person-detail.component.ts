@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -11,6 +11,7 @@ import { SalesPersonService } from '../../proxy/sales/sales-person.service';
   selector: 'app-sales-person-detail',
   standalone: true,
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, BreadcrumbComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <abp-page [title]="person?.name ?? 'Sales Person'">

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { filter, map } from 'rxjs';
@@ -28,6 +28,7 @@ interface Breadcrumb {
       </nav>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`:host { display: block; } .breadcrumb { font-size: 0.85rem; }`],
 })
 export class BreadcrumbComponent {

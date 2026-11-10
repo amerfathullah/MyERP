@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -20,6 +20,7 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
     LocalizationPipe,
     PageModule],
   templateUrl: './account-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./account-form.component.scss'],
 })
 export class AccountFormComponent implements OnInit {

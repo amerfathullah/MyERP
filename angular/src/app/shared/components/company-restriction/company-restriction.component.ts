@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, signal, inject } from '@angular/core';
+import { Component, Input, OnInit, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CompanyRestrictionService } from '../../../proxy/core/company-restriction.service';import { CompanyService } from '../../../proxy/core/company.service';import { LocalizationPipe, PermissionService } from '@abp/ng.core';
@@ -14,6 +14,7 @@ import { CompanyRestrictionService } from '../../../proxy/core/company-restricti
   selector: 'app-company-restriction',
   standalone: true,
   imports: [CommonModule, FormsModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (hasManagePermission()) {
     <div class="card mt-3">

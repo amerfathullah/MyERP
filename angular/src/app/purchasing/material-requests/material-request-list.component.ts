@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -17,6 +17,7 @@ import type { MaterialRequestDto } from '../../proxy/purchasing/dtos/models';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, PaginationComponent, SortableHeaderComponent],
   templateUrl: './material-request-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./material-request-list.component.scss'],
 })
 export class MaterialRequestListComponent implements OnInit {

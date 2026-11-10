@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges, signal, inject } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GeneralLedgerService } from '../../../proxy/accounting/general-ledger.service';
 import { StockLedgerService } from '../../../proxy/inventory/stock-ledger.service';
@@ -136,6 +136,7 @@ import { LocalizationPipe } from '@abp/ng.core';
       </div>
     }
     `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host { display: block; }
     .table th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.02em; }

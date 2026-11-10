@@ -45,7 +45,7 @@
           <td><input type="number" class="form-control form-control-sm" formControlName="qty" (change)="recalculateRow($index)" min="0.01" step="1" /></td>
           <td><input type="number" class="form-control form-control-sm" formControlName="rate" (change)="recalculateRow($index)" min="0" step="0.01" /></td>
           <td><input type="number" class="form-control form-control-sm" formControlName="discountPercent" (change)="recalculateRow($index)" min="0" max="100" step="1" /></td>
-          <td><span class="font-monospace small">{{ row.get('amount')?.value | number:'1.2-2' }}</span></td>
+          <td><span class="font-monospace small">{{ $safeNavigationMigration(row.get('amount')?.value) | number:'1.2-2' }}</span></td>
           @if (transactionType === 'Selling') {
             <td class="text-center">
               @let margin = getMarginPercent($index);

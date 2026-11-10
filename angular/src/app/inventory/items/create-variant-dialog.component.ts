@@ -1,4 +1,4 @@
-import { Component, inject, Input, Output, EventEmitter, signal, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, inject, Input, Output, EventEmitter, signal, OnInit, OnChanges, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -18,6 +18,7 @@ interface AttributeInput {
   selector: 'app-create-variant-dialog',
   standalone: true,
   imports: [CommonModule, FormsModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (visible) {
       <div class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">

@@ -609,23 +609,23 @@
                 <div class="row g-2">
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">0-30</small>
-                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Receivables',minDays:0,maxDays:30}" class="fw-bold text-success text-decoration-none d-block">{{ agingSummary()!.receivables?.current | number:'1.0-0' }}</a>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Receivables',minDays:0,maxDays:30}" class="fw-bold text-success text-decoration-none d-block">{{ $safeNavigationMigration(agingSummary()!.receivables?.current) | number:'1.0-0' }}</a>
                   </div>
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">31-60</small>
-                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Receivables',minDays:31,maxDays:60}" class="fw-bold text-warning text-decoration-none d-block">{{ agingSummary()!.receivables?.thirtyOneToSixty | number:'1.0-0' }}</a>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Receivables',minDays:31,maxDays:60}" class="fw-bold text-warning text-decoration-none d-block">{{ $safeNavigationMigration(agingSummary()!.receivables?.thirtyOneToSixty) | number:'1.0-0' }}</a>
                   </div>
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">61-90</small>
-                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Receivables',minDays:61,maxDays:90}" class="fw-bold text-danger text-decoration-none d-block">{{ agingSummary()!.receivables?.sixtyOneToNinety | number:'1.0-0' }}</a>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Receivables',minDays:61,maxDays:90}" class="fw-bold text-danger text-decoration-none d-block">{{ $safeNavigationMigration(agingSummary()!.receivables?.sixtyOneToNinety) | number:'1.0-0' }}</a>
                   </div>
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">91+</small>
-                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Receivables',minDays:91}" class="fw-bold text-danger text-decoration-none d-block">{{ agingSummary()!.receivables?.ninetyPlus | number:'1.0-0' }}</a>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Receivables',minDays:91}" class="fw-bold text-danger text-decoration-none d-block">{{ $safeNavigationMigration(agingSummary()!.receivables?.ninetyPlus) | number:'1.0-0' }}</a>
                   </div>
                 </div>
                 <div class="text-end mt-1">
-                  <small class="text-muted">{{ '::Total' | abpLocalization }}: <strong>{{ agingSummary()!.receivables?.total | number:'1.0-0' }}</strong></small>
+                  <small class="text-muted">{{ '::Total' | abpLocalization }}: <strong>{{ $safeNavigationMigration(agingSummary()!.receivables?.total) | number:'1.0-0' }}</strong></small>
                 </div>
               </div>
               <!-- Payables -->
@@ -634,23 +634,23 @@
                 <div class="row g-2">
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">0-30</small>
-                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Payables',minDays:0,maxDays:30}" class="fw-bold text-success text-decoration-none d-block">{{ agingSummary()!.payables?.current | number:'1.0-0' }}</a>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Payables',minDays:0,maxDays:30}" class="fw-bold text-success text-decoration-none d-block">{{ $safeNavigationMigration(agingSummary()!.payables?.current) | number:'1.0-0' }}</a>
                   </div>
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">31-60</small>
-                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Payables',minDays:31,maxDays:60}" class="fw-bold text-warning text-decoration-none d-block">{{ agingSummary()!.payables?.thirtyOneToSixty | number:'1.0-0' }}</a>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Payables',minDays:31,maxDays:60}" class="fw-bold text-warning text-decoration-none d-block">{{ $safeNavigationMigration(agingSummary()!.payables?.thirtyOneToSixty) | number:'1.0-0' }}</a>
                   </div>
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">61-90</small>
-                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Payables',minDays:61,maxDays:90}" class="fw-bold text-danger text-decoration-none d-block">{{ agingSummary()!.payables?.sixtyOneToNinety | number:'1.0-0' }}</a>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Payables',minDays:61,maxDays:90}" class="fw-bold text-danger text-decoration-none d-block">{{ $safeNavigationMigration(agingSummary()!.payables?.sixtyOneToNinety) | number:'1.0-0' }}</a>
                   </div>
                   <div class="col-3 text-center">
                     <small class="text-muted d-block">91+</small>
-                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Payables',minDays:91}" class="fw-bold text-danger text-decoration-none d-block">{{ agingSummary()!.payables?.ninetyPlus | number:'1.0-0' }}</a>
+                    <a [routerLink]="['/accounting/reports/outstanding']" [queryParams]="{type:'Payables',minDays:91}" class="fw-bold text-danger text-decoration-none d-block">{{ $safeNavigationMigration(agingSummary()!.payables?.ninetyPlus) | number:'1.0-0' }}</a>
                   </div>
                 </div>
                 <div class="text-end mt-1">
-                  <small class="text-muted">{{ '::Total' | abpLocalization }}: <strong>{{ agingSummary()!.payables?.total | number:'1.0-0' }}</strong></small>
+                  <small class="text-muted">{{ '::Total' | abpLocalization }}: <strong>{{ $safeNavigationMigration(agingSummary()!.payables?.total) | number:'1.0-0' }}</strong></small>
                 </div>
               </div>
             </div>

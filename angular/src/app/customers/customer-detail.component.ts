@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -177,10 +177,10 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </div>
                   <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top small text-muted">
                     <span>{{ ov.position?.netSales?.count ?? 0 }} invoices</span>
-                    @if (ov.position?.netSales?.delta !== null && ov.position?.netSales?.delta !== undefined) {
+                    @if ($safeNavigationMigration(ov.position?.netSales?.delta) !== null && $safeNavigationMigration(ov.position?.netSales?.delta) !== undefined) {
                       <span class="badge" [class.bg-success]="(ov.position?.netSales?.delta ?? 0) >= 0" [class.bg-danger]="(ov.position?.netSales?.delta ?? 0) < 0">
                         <i class="fas" [class.fa-arrow-up]="(ov.position?.netSales?.delta ?? 0) >= 0" [class.fa-arrow-down]="(ov.position?.netSales?.delta ?? 0) < 0"></i>
-                        {{ ov.position?.netSales?.delta | number:'1.1-1' }}%
+                        {{ $safeNavigationMigration(ov.position?.netSales?.delta) | number:'1.1-1' }}%
                       </span>
                     }
                   </div>
@@ -198,7 +198,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </div>
                   <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top small text-muted">
                     <span>{{ ov.position?.outstanding?.unpaidCount ?? 0 }} unpaid</span>
-                    @if (ov.position?.outstanding?.daysToPay !== null && ov.position?.outstanding?.daysToPay !== undefined) {
+                    @if ($safeNavigationMigration(ov.position?.outstanding?.daysToPay) !== null && $safeNavigationMigration(ov.position?.outstanding?.daysToPay) !== undefined) {
                       <span class="badge bg-light text-dark border">
                         <i class="fas fa-clock me-1 text-info"></i>{{ ov.position?.outstanding?.daysToPay }}d DSO
                       </span>
@@ -218,10 +218,10 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </div>
                   <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top small text-muted">
                     <span>{{ ov.position?.overdue?.count ?? 0 }} overdue</span>
-                    @if (ov.position?.overdue?.delta !== null && ov.position?.overdue?.delta !== undefined) {
+                    @if ($safeNavigationMigration(ov.position?.overdue?.delta) !== null && $safeNavigationMigration(ov.position?.overdue?.delta) !== undefined) {
                       <span class="badge" [class.bg-success]="(ov.position?.overdue?.delta ?? 0) <= 0" [class.bg-danger]="(ov.position?.overdue?.delta ?? 0) > 0">
                         <i class="fas" [class.fa-arrow-down]="(ov.position?.overdue?.delta ?? 0) <= 0" [class.fa-arrow-up]="(ov.position?.overdue?.delta ?? 0) > 0"></i>
-                        {{ ov.position?.overdue?.delta | number:'1.1-1' }}%
+                        {{ $safeNavigationMigration(ov.position?.overdue?.delta) | number:'1.1-1' }}%
                       </span>
                     } @else if ((ov.position?.overdue?.value ?? 0) > 0) {
                       <span class="badge bg-danger">Action required</span>
@@ -266,7 +266,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   <div class="text-muted small mb-1">{{ '::CreditLimit' | abpLocalization }}</div>
                   <div class="fs-5 fw-bold text-dark">
                     @if ((ov.position?.credit?.limit ?? 0) > 0) {
-                      {{ ov.currency }} {{ ov.position?.credit?.limit | number:'1.2-2' }}
+                      {{ ov.currency }} {{ $safeNavigationMigration(ov.position?.credit?.limit) | number:'1.2-2' }}
                     } @else {
                       <span class="text-muted">{{ '::NoLimit' | abpLocalization }}</span>
                     }
@@ -276,7 +276,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                       <div class="d-flex justify-content-between small text-muted mb-1">
                         <span>{{ '::CreditUsage' | abpLocalization }}</span>
                         <span class="fw-semibold" [class.text-danger]="(ov.position?.credit?.usedPct ?? 0) > 100">
-                          {{ ov.position?.credit?.usedPct | number:'1.0-0' }}%
+                          {{ $safeNavigationMigration(ov.position?.credit?.usedPct) | number:'1.0-0' }}%
                         </span>
                       </div>
                       <div class="progress" style="height: 6px;">
@@ -313,7 +313,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
               </div>
               @if (ov.trend?.average && ov.trend!.average > 0) {
                 <span class="badge bg-light text-dark border">
-                  Monthly Avg: {{ ov.currency }} {{ ov.trend?.average | number:'1.0-0' }}
+                  Monthly Avg: {{ ov.currency }} {{ $safeNavigationMigration(ov.trend?.average) | number:'1.0-0' }}
                 </span>
               }
             </div>
@@ -367,7 +367,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </span>
                   @if ((ov.ageing?.overdue ?? 0) > 0) {
                     <span class="badge bg-danger">
-                      Overdue: {{ ov.currency }} {{ ov.ageing?.overdue | number:'1.2-2' }} ({{ ov.ageing?.overduePct | number:'1.0-0' }}% of unpaid invoices)
+                      Overdue: {{ ov.currency }} {{ $safeNavigationMigration(ov.ageing?.overdue) | number:'1.2-2' }} ({{ $safeNavigationMigration(ov.ageing?.overduePct) | number:'1.0-0' }}% of unpaid invoices)
                     </span>
                   } @else {
                     <span class="badge bg-success">No overdue</span>
@@ -828,6 +828,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
       }
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .w-40 { width: 40%; }
     .trend-chart-container {

@@ -1,4 +1,4 @@
-import { Component, inject, signal, HostListener } from '@angular/core';
+import { Component, inject, signal, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LocalizationPipe } from '@abp/ng.core';
 
@@ -11,6 +11,7 @@ interface ShortcutGroup {
   selector: 'app-keyboard-shortcuts-help',
   standalone: true,
   imports: [CommonModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (isOpen()) {
       <div class="modal d-block" tabindex="-1" (click)="close()" style="background: rgba(0,0,0,0.5)">

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
@@ -15,6 +15,7 @@ import type { TaxCategoryDto, TaxRuleDto } from '../../proxy/tax/models';
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './tax-categories.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./tax-categories.component.scss'],
 })
 export class TaxCategoriesComponent implements OnInit {

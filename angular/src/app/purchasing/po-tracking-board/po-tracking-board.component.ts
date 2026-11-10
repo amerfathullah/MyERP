@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -10,6 +10,7 @@ import type { PurchaseOrderTrackingBoardDto } from '../../proxy/purchasing/model
   selector: 'app-po-tracking-board',
   standalone: true,
   imports: [CommonModule, RouterModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid">
       <!-- Header + KPIs -->

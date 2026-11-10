@@ -1,4 +1,4 @@
-import { Component, signal, inject, OnInit } from '@angular/core';
+import { Component, signal, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -18,6 +18,7 @@ import { CompanyService } from '../../proxy/core/company.service';
   standalone: true,
   selector: 'app-period-closing',
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './period-closing.component.html',
 })
 export class PeriodClosingComponent implements OnInit {

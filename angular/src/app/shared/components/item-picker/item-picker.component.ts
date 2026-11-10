@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, forwardRef, inject, Input, Output, signal, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, forwardRef, inject, Input, Output, signal, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
@@ -26,6 +26,7 @@ import type { ItemDto } from '../../../proxy/inventory/models';
       multi: true,
     },
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="position-relative">
       <input

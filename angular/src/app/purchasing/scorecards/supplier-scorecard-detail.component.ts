@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
@@ -13,6 +13,7 @@ import { SupplierScorecardService } from '../../proxy/purchasing/supplier-scorec
   selector: 'app-supplier-scorecard-detail',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, BreadcrumbComponent, DocumentConnectionsComponent, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <abp-page [title]="scorecard?.supplierName ?? 'Supplier Scorecard'">

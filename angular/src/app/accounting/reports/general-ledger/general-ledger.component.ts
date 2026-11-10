@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -17,6 +17,7 @@ import type { AccountDto, GeneralLedgerReportDto, GeneralLedgerLineDto } from '.
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterModule, PageModule, LocalizationPipe],
   templateUrl: './general-ledger.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./general-ledger.component.scss'],
 })
 export class GeneralLedgerComponent implements OnInit {

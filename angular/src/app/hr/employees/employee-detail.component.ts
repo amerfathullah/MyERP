@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -15,6 +15,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   standalone: true,
   selector: 'app-employee-detail',
   imports: [CommonModule, FormsModule, LocalizationPipe, RouterLink, StatusBadgeComponent, BreadcrumbComponent, ActivityLogComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
 

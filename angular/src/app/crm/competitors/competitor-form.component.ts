@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -11,6 +11,7 @@ import { CompetitorService } from '../../proxy/crm/competitor.service';
   selector: 'app-competitor-form',
   standalone: true,
   imports: [CommonModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="(id ? '::Edit' : '::New') | abpLocalization">
       <form [formGroup]="form" (ngSubmit)="save()">

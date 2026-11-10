@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -24,6 +24,7 @@ import { ItemPickerComponent } from '../../shared/components/item-picker/item-pi
   standalone: true,
   imports: [AutoValidationDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe, ItemPickerComponent],
   templateUrl: './asset-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./asset-form.component.scss'],
 })
 export class AssetFormComponent implements OnInit {

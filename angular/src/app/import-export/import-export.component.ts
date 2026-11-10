@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -13,6 +13,7 @@ import type { ImportJobDto } from '../proxy/import-export/dtos/models';
   imports: [
     CommonModule, PageModule, LocalizationPipe, FormsModule, ReactiveFormsModule],
   templateUrl: './import-export.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./import-export.component.scss'],
 })
 export class ImportExportComponent implements OnInit {

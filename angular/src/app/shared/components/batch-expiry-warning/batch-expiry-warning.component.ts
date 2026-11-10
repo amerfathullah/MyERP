@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges, signal, inject } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DashboardService } from '../../../proxy/core/dashboard.service';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -12,6 +12,7 @@ import { LocalizationPipe } from '@abp/ng.core';
   selector: 'app-batch-expiry-warning',
   standalone: true,
   imports: [CommonModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (warnings().length > 0) {
       <div class="alert alert-danger d-flex align-items-start mb-3" role="alert">

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -26,6 +26,7 @@ import { BatchExpiryWarningComponent } from '../../shared/components/batch-expir
   imports: [
     AutoValidationDirective, SaveShortcutDirective, StockAvailabilityComponent, BatchExpiryWarningComponent, CommonModule, PageModule, LocalizationPipe, ReactiveFormsModule],
   templateUrl: './delivery-note-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./delivery-note-form.component.scss'],
 })
 export class DeliveryNoteFormComponent implements OnInit {

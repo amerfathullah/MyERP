@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -11,6 +11,7 @@ import type { SalaryStructureDto } from '../../proxy/human-resources/models';
   selector: 'app-salary-structure-list',
   standalone: true,
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'SalaryStructures' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">

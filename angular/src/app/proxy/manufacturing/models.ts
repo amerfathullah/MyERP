@@ -1271,7 +1271,7 @@ export interface BatchCreateWorkOrdersResultDto {
 export interface CreatedWorkOrderInfo {
   workOrderId?: string;
   workOrderNumber?: string;
-  itemName?: string;
+  itemName?: string | null;
   quantity?: number;
 }
 

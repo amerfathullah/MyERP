@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -20,6 +20,7 @@ import { LocalizationPipe } from '@abp/ng.core';
     BreadcrumbComponent, CommonModule, FormsModule, RouterModule, PageModule,
     DocumentWorkflowComponent, LoadingOverlayComponent, LocalizationPipe],
   templateUrl: './payroll-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./payroll-detail.component.scss'],
 })
 export class PayrollDetailComponent implements OnInit {

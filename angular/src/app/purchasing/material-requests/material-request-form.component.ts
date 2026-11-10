@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -22,6 +22,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
   standalone: true,
   imports: [AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './material-request-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./material-request-form.component.scss'],
 })
 export class MaterialRequestFormComponent implements OnInit {

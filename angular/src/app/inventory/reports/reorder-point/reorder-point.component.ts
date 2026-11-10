@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
 import { ToasterService } from '@abp/ng.theme.shared';
@@ -13,6 +13,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
   selector: 'app-reorder-point',
   standalone: true,
   imports: [CommonModule, LocalizationPipe, RouterLink, CompanyCurrencyPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid">
       <div class="d-flex justify-content-between align-items-center mb-4">

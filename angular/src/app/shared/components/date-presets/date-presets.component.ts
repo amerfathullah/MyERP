@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, Output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface DateRange {
@@ -10,6 +10,7 @@ export interface DateRange {
   selector: 'app-date-presets',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="btn-group btn-group-sm">
       <button type="button" class="btn btn-outline-secondary" (click)="setThisMonth()">This Month</button>

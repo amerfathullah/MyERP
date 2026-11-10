@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -20,6 +20,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
   standalone: true,
   imports: [AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, LocalizationPipe, PageModule],
   templateUrl: './work-order-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./work-order-form.component.scss'],
 })
 export class WorkOrderFormComponent implements OnInit {

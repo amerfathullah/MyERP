@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MonthEndCloseService } from '../../proxy/accounting/month-end-close.service';
@@ -31,6 +31,7 @@ interface CloseStatus {
   standalone: true,
   selector: 'app-month-end-close',
   imports: [CommonModule, FormsModule, LocalizationPipe, BreadcrumbComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <div class="container-fluid">

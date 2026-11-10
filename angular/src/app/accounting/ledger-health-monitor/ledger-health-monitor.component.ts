@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LedgerHealthMonitorService } from '../../proxy/accounting/ledger-health-monitor.service';
@@ -11,6 +11,7 @@ import type { LedgerHealthRecordDto } from '../../proxy/accounting/models';
   selector: 'app-ledger-health-monitor',
   standalone: true,
   imports: [CommonModule, FormsModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid mt-3">
       <div class="d-flex justify-content-between align-items-center mb-3">

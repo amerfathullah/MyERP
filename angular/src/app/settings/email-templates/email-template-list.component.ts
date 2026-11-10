@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -10,6 +10,7 @@ import { EmailTemplateService } from '../../proxy/core/email-template.service';
   selector: 'app-email-template-list',
   standalone: true,
   imports: [CommonModule, FormsModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'EmailTemplates' | abpLocalization">
       <!-- Create/Edit Form -->

@@ -1,5 +1,5 @@
 import { CompanyCurrencyPipe } from '../../../shared/pipes/company-currency.pipe';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -14,6 +14,7 @@ import type { ItemSalesLineDto } from '../../../proxy/sales/models';
   standalone: true,
   imports: [CompanyCurrencyPipe, CommonModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './item-sales-report.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./item-sales-report.component.scss'],
 })
 export class ItemSalesReportComponent implements OnInit {

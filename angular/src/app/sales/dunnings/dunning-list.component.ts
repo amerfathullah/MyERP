@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -16,6 +16,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   selector: 'app-dunning-list',
   standalone: true,
   imports: [PaginationComponent, CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'Dunnings' | abpLocalization">
       @if (isLoading) { <app-loading-overlay /> }

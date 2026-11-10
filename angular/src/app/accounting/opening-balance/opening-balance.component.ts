@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -16,6 +16,7 @@ import type { AccountDto, OpeningStatusDto } from '../../proxy/accounting/models
   selector: 'app-opening-balance',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'OpeningBalance' | abpLocalization">
       <!-- Status Card -->

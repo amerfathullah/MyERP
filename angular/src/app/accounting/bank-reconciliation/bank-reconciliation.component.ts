@@ -1,5 +1,5 @@
 import { CompanyCurrencyPipe } from '../../shared/pipes/company-currency.pipe';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -20,6 +20,7 @@ import { JournalEntryVoucherType, journalEntryVoucherTypeOptions } from '../../p
   imports: [CompanyCurrencyPipe, 
     CommonModule, FormsModule, PageModule, LocalizationPipe],
   templateUrl: './bank-reconciliation.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./bank-reconciliation.component.scss'],
 })
 export class BankReconciliationComponent implements OnInit {

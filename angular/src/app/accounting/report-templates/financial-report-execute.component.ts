@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe, DatePipe, NgClass } from '@angular/common';
 import { LocalizationPipe , LocalizationService } from '@abp/ng.core';
@@ -17,6 +17,7 @@ import type {
   selector: 'app-financial-report-execute',
   imports: [FormsModule, DecimalPipe, DatePipe, NgClass, LocalizationPipe],
   templateUrl: './financial-report-execute.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./financial-report-execute.component.scss'],
 })
 export class FinancialReportExecuteComponent implements OnInit {

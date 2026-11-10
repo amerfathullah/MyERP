@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -16,6 +16,7 @@ import { ValuationMethod } from '../../proxy/inventory/valuation-method.enum';
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe],
   templateUrl: './company-settings.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./company-settings.component.scss'],
 })
 export class CompanySettingsComponent implements OnInit {

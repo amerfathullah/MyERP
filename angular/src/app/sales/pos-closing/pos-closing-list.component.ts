@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -10,6 +10,7 @@ import { PosClosingService } from '../../proxy/sales/pos-closing.service';
   selector: 'app-pos-closing-list',
   standalone: true,
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'POSClosing' | abpLocalization">
       <div class="card">

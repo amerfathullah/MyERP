@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -15,6 +15,7 @@ const VOUCHER_TYPE_LABELS = ['Payment Entry', 'Journal Entry'];
   selector: 'app-unreconcile-payment-detail',
   standalone: true,
   imports: [BreadcrumbComponent, CommonModule, RouterModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'::UnreconcilePayments' | abpLocalization">
       <app-breadcrumb />

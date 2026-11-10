@@ -1,4 +1,4 @@
-import { Component, EventEmitter, forwardRef, Input, Output, signal } from '@angular/core';
+import { Component, EventEmitter, forwardRef, Input, Output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
@@ -25,6 +25,7 @@ import { catchError } from 'rxjs/operators';
       multi: true,
     },
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="position-relative">
       <input

@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 /**
@@ -151,6 +151,7 @@ import { CommonModule } from '@angular/common';
       </div>
     }
     `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .pr-print-layout { padding: 20mm; font-size: 12px; }
     @media screen { .pr-print-layout { display: none; } }

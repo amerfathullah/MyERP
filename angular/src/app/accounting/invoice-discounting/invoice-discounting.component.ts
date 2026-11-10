@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -22,6 +22,7 @@ interface PledgeRow extends InvoiceForDiscountingDto {
   selector: 'app-invoice-discounting',
   standalone: true,
   imports: [CommonModule, FormsModule, LocalizationPipe, BreadcrumbComponent, LoadingOverlayComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <div class="container-fluid my-3">

@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
+import { Component, OnInit, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FinancialReportTemplateService } from '../../proxy/accounting/financial-report-template.service';
@@ -12,6 +12,7 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
   standalone: true,
   selector: 'app-financial-report-template-list',
   imports: [CommonModule, FormsModule, LocalizationPipe, PaginationComponent, RouterLink],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid py-3">
       <div class="card">

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PageModule } from '@abp/ng.components/page';
@@ -18,6 +18,7 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
     CommonModule, FormsModule, PageModule, LocalizationPipe,
     RouterModule, StatusBadgeComponent, PaginationComponent, SortableHeaderComponent, DatePresetsComponent],
   templateUrl: './stock-entry-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./stock-entry-list.component.scss'],
 })
 export class StockEntryListComponent implements OnInit {

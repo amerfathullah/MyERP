@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -27,6 +27,7 @@ export interface AccountNode {
     LocalizationPipe,
     PageModule],
   templateUrl: './chart-of-accounts.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./chart-of-accounts.component.scss'],
 })
 export class ChartOfAccountsComponent implements OnInit {

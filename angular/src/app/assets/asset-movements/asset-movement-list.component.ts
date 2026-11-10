@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -17,6 +17,7 @@ const STATUS_LABELS: Record<number, string> = { 0: 'Draft', 1: 'Submitted', 2: '
   selector: 'app-asset-movement-list',
   standalone: true,
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'AssetMovements' | abpLocalization">
       <div class="card">

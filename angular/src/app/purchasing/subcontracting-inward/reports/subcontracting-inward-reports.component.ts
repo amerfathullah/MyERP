@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -23,6 +23,7 @@ type ReportTab = 'items' | 'materials' | 'summary';
   selector: 'app-subcontracting-inward-reports',
   standalone: true,
   imports: [CommonModule, RouterLink, FormsModule, PageModule, LocalizationPipe, BreadcrumbComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <abp-page [title]="'SubcontractingInwardReports' | abpLocalization">

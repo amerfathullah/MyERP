@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DocumentEmailService } from '../../proxy/sales/document-email.service';
@@ -31,6 +31,7 @@ import { downloadPdfFromResult } from '../../shared/utils/pdf-download.util';
   imports: [
     BreadcrumbComponent, CommonModule, FormsModule, RouterModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, ActivityLogComponent, QuotationPrintLayoutComponent, DocumentConnectionsComponent, CompanyCurrencyPipe],
   templateUrl: './quotation-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./quotation-detail.component.scss'],
 })
 export class QuotationDetailComponent implements OnInit {

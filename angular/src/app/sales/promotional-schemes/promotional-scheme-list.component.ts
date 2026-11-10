@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -14,6 +14,7 @@ import type { PromotionalSchemeDto } from '../../proxy/sales/models';
   selector: 'app-promotional-scheme-list',
   standalone: true,
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'PromotionalSchemes' | abpLocalization">
       <div class="d-flex justify-content-end gap-2 mb-3">

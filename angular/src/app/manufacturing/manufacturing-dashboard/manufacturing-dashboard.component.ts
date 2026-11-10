@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
@@ -293,6 +293,7 @@ interface MaterialReadiness {
 
     </abp-page>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .cursor-pointer { cursor: pointer; }
     .cursor-pointer:hover { background-color: rgba(0,0,0,0.02); }

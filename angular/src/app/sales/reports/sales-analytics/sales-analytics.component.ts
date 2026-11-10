@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SalesAnalyticsService } from '../../../proxy/sales/sales-analytics.service';
@@ -166,6 +166,7 @@ interface AnalyticsReport {
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .sticky-start { position: sticky; left: 0; background: inherit; z-index: 1; }
     thead .sticky-start { background: var(--bs-table-bg, #f8f9fa); }

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -14,6 +14,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   selector: 'app-serial-no-list',
   standalone: true,
   imports: [PaginationComponent, CommonModule, PageModule, LocalizationPipe, LoadingOverlayComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'SerialNumbers' | abpLocalization">
       @if (isLoading) { <app-loading-overlay /> }

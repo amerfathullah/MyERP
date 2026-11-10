@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
@@ -13,6 +13,7 @@ import { QualityReviewStatus } from '../../proxy/inventory/quality-review-status
   selector: 'app-quality-review-form',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="(isEdit ? '::ReviewDetails' : 'NewQualityReview') | abpLocalization">
       <div class="card">
@@ -39,8 +40,8 @@ import { QualityReviewStatus } from '../../proxy/inventory/quality-review-status
               <div class="col-md-6">
                 <label class="form-label">{{ '::Status' | abpLocalization }}</label>
                 <div>
-                  <span class="badge py-2 px-3" [ngClass]="getStatusBadgeClass(form.get('status')?.value)">
-                    {{ getStatusLabel(form.get('status')?.value) }}
+                  <span class="badge py-2 px-3" [ngClass]="getStatusBadgeClass($safeNavigationMigration(form.get('status')?.value))">
+                    {{ getStatusLabel($safeNavigationMigration(form.get('status')?.value)) }}
                   </span>
                 </div>
               </div>

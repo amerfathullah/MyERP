@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ItemService } from '../../proxy/inventory/item.service';
@@ -528,6 +528,7 @@ import { CreateVariantDialogComponent } from './create-variant-dialog.component'
       <app-activity-log [documentType]="'Item'" [documentId]="entityId" />
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .w-40 { width: 40%; }
   `],

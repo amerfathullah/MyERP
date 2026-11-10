@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -13,6 +13,7 @@ import { ToasterService } from '@abp/ng.theme.shared';
   selector: 'app-pick-list',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, LocalizationPipe, StatusBadgeComponent, PaginationComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid py-3">
       <div class="card shadow-sm">

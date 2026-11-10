@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -21,6 +21,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
     PaginationComponent, CommonModule, FormsModule, RouterModule, ReactiveFormsModule, PageModule, LocalizationPipe,
     StatusBadgeComponent],
   templateUrl: './payroll-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./payroll-list.component.scss'],
 })
 export class PayrollListComponent implements OnInit {

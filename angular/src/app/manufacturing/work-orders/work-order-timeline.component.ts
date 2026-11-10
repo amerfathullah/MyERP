@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -25,6 +25,7 @@ interface WoTimelineItem {
   standalone: true,
   imports: [CommonModule, RouterLink, LocalizationPipe, FormsModule, PageModule],
   templateUrl: './work-order-timeline.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './work-order-timeline.component.scss',
 })
 export class WorkOrderTimelineComponent implements OnInit {

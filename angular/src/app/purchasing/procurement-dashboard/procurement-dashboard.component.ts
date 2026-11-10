@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -12,6 +12,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   selector: 'app-procurement-dashboard',
   standalone: true,
   imports: [CommonModule, RouterModule, LocalizationPipe, StatusBadgeComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid">
       <div class="d-flex justify-content-between align-items-center mb-3">

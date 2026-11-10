@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export type LhdnStatus = 'Valid' | 'Invalid' | 'Submitted' | 'Cancelled' | 'Failed' | 'NotSubmitted' | 'Consolidated';
@@ -24,6 +24,7 @@ const LHDN_STATUS_MAP: Record<LhdnStatus, LhdnStatusConfig> = {
   standalone: true,
   imports: [CommonModule],
   templateUrl: './lhdn-status-badge.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./lhdn-status-badge.component.scss'],
 })
 export class LhdnStatusBadgeComponent {

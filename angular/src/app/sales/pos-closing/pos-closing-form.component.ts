@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -18,6 +18,7 @@ import type { ModeOfPaymentDto } from '../../proxy/accounting/models';
   selector: 'app-pos-closing-form',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, LocalizationPipe, SaveShortcutDirective, AutoValidationDirective, BreadcrumbComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <div class="container-fluid py-3">

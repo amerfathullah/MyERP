@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, inject, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -17,6 +17,7 @@ import type { ItemDto } from '../../../proxy/inventory/models';
     LocalizationPipe,
     ItemPickerComponent],
   templateUrl: './invoice-item-grid.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./invoice-item-grid.component.scss'],
 })
 export class InvoiceItemGridComponent {

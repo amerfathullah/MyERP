@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -19,6 +19,7 @@ import { ActivityLogComponent } from '../../shared/components/activity-log/activ
   standalone: true,
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, LoadingOverlayComponent, ActivityLogComponent, DocumentWorkflowComponent, DocumentConnectionsComponent],
   templateUrl: './production-plan-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./production-plan-detail.component.scss'],
 })
 export class ProductionPlanDetailComponent implements OnInit {

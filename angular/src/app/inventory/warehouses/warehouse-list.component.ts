@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -14,6 +14,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
   standalone: true,
   imports: [CommonModule, RouterModule, PageModule, LocalizationPipe, StatusBadgeComponent, PaginationComponent],
   templateUrl: './warehouse-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./warehouse-list.component.scss'],
 })
 export class WarehouseListComponent implements OnInit {

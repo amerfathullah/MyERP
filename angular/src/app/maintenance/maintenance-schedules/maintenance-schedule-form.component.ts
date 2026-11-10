@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -15,6 +15,7 @@ import { AutoValidationDirective } from '../../shared/directives/auto-validation
   selector: 'app-maintenance-schedule-form',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, LocalizationPipe, SaveShortcutDirective, AutoValidationDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './maintenance-schedule-form.component.html',
 })
 export class MaintenanceScheduleFormComponent implements OnInit {

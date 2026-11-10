@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DocumentPrintService } from '../../proxy/core/document-print.service';
@@ -50,6 +50,7 @@ import { downloadPdfFromResult } from '../../shared/utils/pdf-download.util';
     RouterLink,
     LocalizationPipe],
   templateUrl: './sales-invoice-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./sales-invoice-detail.component.scss'],
 })
 export class SalesInvoiceDetailComponent implements OnInit {

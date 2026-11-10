@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -30,6 +30,7 @@ import type { DeliveryNoteDto } from '../../proxy/sales/models';
   imports: [
     CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, DraftLinkGuardComponent, DeliveryNotePrintLayoutComponent, VoucherLedgerComponent, DocumentConnectionsComponent, CompanyCurrencyPipe, FormsModule],
   templateUrl: './delivery-note-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./delivery-note-detail.component.scss'],
 })
 export class DeliveryNoteDetailComponent implements OnInit {

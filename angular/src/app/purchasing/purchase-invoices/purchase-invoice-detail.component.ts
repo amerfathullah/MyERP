@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe, LocalizationService, PermissionService } from '@abp/ng.core';
@@ -30,6 +30,7 @@ import type { PurchaseInvoiceDto } from '../../proxy/purchasing/models';
     CommonModule, PageModule, LocalizationPipe, FormsModule, RouterLink,
     DocumentWorkflowComponent, LhdnStatusBadgeComponent, LoadingOverlayComponent, BreadcrumbComponent, ActivityLogComponent, VoucherLedgerComponent, PurchaseInvoicePrintLayoutComponent, DocumentConnectionsComponent, CompanyCurrencyPipe],
   templateUrl: './purchase-invoice-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./purchase-invoice-detail.component.scss'],
 })
 export class PurchaseInvoiceDetailComponent implements OnInit {

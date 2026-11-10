@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export type DocumentStatus = 'Draft' | 'Submitted' | 'Approved' | 'Posted' | 'Cancelled' | 'Rejected' | 'Overdue' | 'Paid' | 'PartiallyPaid' | 'Active' | 'Inactive' | 'ToDeliverAndBill' | 'ToDeliver' | 'ToBill' | 'Completed' | 'Closed' | 'NotApplicable' | 'Unfulfilled' | 'PartiallyFulfilled' | 'Fulfilled' | 'Lapsed' | 'Return' | 'ReturnIssued' | 'PartiallyBilled' | 'Ordered' | 'PartiallyOrdered' | 'Open' | 'Lost' | 'Converted' | 'Quotation' | 'ToPay';
@@ -47,6 +47,7 @@ const STATUS_MAP: Record<DocumentStatus, StatusConfig> = {
   standalone: true,
   imports: [CommonModule],
   templateUrl: './status-badge.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./status-badge.component.scss'],
 })
 export class StatusBadgeComponent {

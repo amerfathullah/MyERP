@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UpcomingPaymentsDueService } from '../../../proxy/accounting/upcoming-payments-due.service';
 import { FormsModule } from '@angular/forms';
@@ -35,6 +35,7 @@ interface UpcomingPaymentsDueReport {
   standalone: true,
   selector: 'app-upcoming-payments-due',
   imports: [CommonModule, FormsModule, RouterModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid">
       <div class="d-flex justify-content-between align-items-center mb-4">

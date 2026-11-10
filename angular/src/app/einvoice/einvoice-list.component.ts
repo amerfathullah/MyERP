@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -21,6 +21,7 @@ const STATUS_BADGE: Record<string, string> = {
   selector: 'app-einvoice-list',
   standalone: true,
   imports: [CommonModule, RouterLink, PageModule, LocalizationPipe, PaginationComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="'EInvoiceSubmissions' | abpLocalization">
       <!-- Summary strip -->

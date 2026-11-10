@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -20,8 +20,9 @@ import { CompanyContextService } from '../../shared/services/company-context.ser
 @Component({
   selector: 'app-sales-forecast-form', standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <abp-page [title]="(isEdit() ? forecast?.forecastNumber : 'NewSalesForecast') | abpLocalization">
+    <abp-page [title]="(isEdit() ? $safeNavigationMigration(forecast?.forecastNumber) : 'NewSalesForecast') | abpLocalization">
       <div class="card mb-3"><div class="card-body">
         @if (isEdit() && status !== 0) {
           <div class="alert" [class.alert-success]="status===1" [class.alert-secondary]="status===4">

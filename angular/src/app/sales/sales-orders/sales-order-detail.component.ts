@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ManufacturingService } from '../../proxy/controllers/manufacturing.service';
 import { DocumentEmailService } from '../../proxy/sales/document-email.service';
@@ -32,6 +32,7 @@ import type { SalesOrderDto, DeliveryScheduleEntryDto } from '../../proxy/sales/
   imports: [
     CommonModule, DocumentWorkflowComponent, LoadingOverlayComponent, StatusBadgeComponent, PageModule, LocalizationPipe, BreadcrumbComponent, ActivityLogComponent, RouterLink, DraftLinkGuardComponent, SalesOrderPrintLayoutComponent, FormsModule, DocumentConnectionsComponent, CompanyCurrencyPipe],
   templateUrl: './sales-order-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./sales-order-detail.component.scss'],
 })
 export class SalesOrderDetailComponent implements OnInit {

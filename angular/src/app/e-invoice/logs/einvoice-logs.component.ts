@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -20,6 +20,7 @@ import type { LhdnSuccessLogDto } from '../../proxy/einvoice/models';
     PaginationComponent
   ],
   templateUrl: './einvoice-logs.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./einvoice-logs.component.scss'],
 })
 export class EinvoiceLogsComponent implements OnInit {

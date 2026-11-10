@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormControl, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -21,6 +21,7 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
   imports: [
     AutoValidationDirective, SaveShortcutDirective, CommonModule, ReactiveFormsModule, PageModule, InvoiceItemGridComponent, LocalizationPipe],
   templateUrl: './quotation-form.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./quotation-form.component.scss'],
 })
 export class QuotationFormComponent implements OnInit {

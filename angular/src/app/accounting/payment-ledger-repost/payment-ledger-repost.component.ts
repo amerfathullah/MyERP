@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PaymentLedgerRepostService } from '../../proxy/accounting/payment-ledger-repost.service';
@@ -13,6 +13,7 @@ const ALLOWED_TYPES = ['SalesInvoice', 'PurchaseInvoice', 'PaymentEntry', 'Journ
   selector: 'app-payment-ledger-repost',
   standalone: true,
   imports: [CommonModule, FormsModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid mt-3">
       <div class="d-flex justify-content-between align-items-center mb-3">

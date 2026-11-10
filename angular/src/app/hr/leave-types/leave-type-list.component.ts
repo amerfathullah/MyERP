@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe , LocalizationService } from '@abp/ng.core';
@@ -9,6 +9,7 @@ import { Confirmation, ToasterService , ConfirmationService } from '@abp/ng.them
   standalone: true,
   selector: 'app-leave-type-list',
   imports: [CommonModule, FormsModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="container-fluid my-3">
       <div class="card">

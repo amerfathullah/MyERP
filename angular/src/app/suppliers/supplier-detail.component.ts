@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -183,10 +183,10 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </div>
                   <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top small text-muted">
                     <span>{{ ov.position?.netPurchases?.count ?? 0 }} bills</span>
-                    @if (ov.position?.netPurchases?.delta !== null && ov.position?.netPurchases?.delta !== undefined) {
+                    @if ($safeNavigationMigration(ov.position?.netPurchases?.delta) !== null && $safeNavigationMigration(ov.position?.netPurchases?.delta) !== undefined) {
                       <span class="badge" [class.bg-success]="(ov.position?.netPurchases?.delta ?? 0) >= 0" [class.bg-secondary]="(ov.position?.netPurchases?.delta ?? 0) < 0">
                         <i class="fas" [class.fa-arrow-up]="(ov.position?.netPurchases?.delta ?? 0) >= 0" [class.fa-arrow-down]="(ov.position?.netPurchases?.delta ?? 0) < 0"></i>
-                        {{ ov.position?.netPurchases?.delta | number:'1.1-1' }}%
+                        {{ $safeNavigationMigration(ov.position?.netPurchases?.delta) | number:'1.1-1' }}%
                       </span>
                     }
                   </div>
@@ -204,7 +204,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </div>
                   <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top small text-muted">
                     <span>{{ ov.position?.outstanding?.unpaidCount ?? 0 }} unpaid</span>
-                    @if (ov.position?.outstanding?.daysToPay !== null && ov.position?.outstanding?.daysToPay !== undefined) {
+                    @if ($safeNavigationMigration(ov.position?.outstanding?.daysToPay) !== null && $safeNavigationMigration(ov.position?.outstanding?.daysToPay) !== undefined) {
                       <span class="badge bg-light text-dark border">
                         <i class="fas fa-clock me-1 text-info"></i>{{ ov.position?.outstanding?.daysToPay }}d DPO
                       </span>
@@ -224,10 +224,10 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </div>
                   <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top small text-muted">
                     <span>{{ ov.position?.overdue?.count ?? 0 }} overdue</span>
-                    @if (ov.position?.overdue?.delta !== null && ov.position?.overdue?.delta !== undefined) {
+                    @if ($safeNavigationMigration(ov.position?.overdue?.delta) !== null && $safeNavigationMigration(ov.position?.overdue?.delta) !== undefined) {
                       <span class="badge" [class.bg-success]="(ov.position?.overdue?.delta ?? 0) <= 0" [class.bg-danger]="(ov.position?.overdue?.delta ?? 0) > 0">
                         <i class="fas" [class.fa-arrow-down]="(ov.position?.overdue?.delta ?? 0) <= 0" [class.fa-arrow-up]="(ov.position?.overdue?.delta ?? 0) > 0"></i>
-                        {{ ov.position?.overdue?.delta | number:'1.1-1' }}%
+                        {{ $safeNavigationMigration(ov.position?.overdue?.delta) | number:'1.1-1' }}%
                       </span>
                     } @else if ((ov.position?.overdue?.value ?? 0) > 0) {
                       <span class="badge bg-danger">Action required</span>
@@ -267,12 +267,12 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
 
             <!-- Delivery Performance -->
             <div class="col-sm-6 col-lg-4 col-xl">
-              <div class="card h-100 border-start border-4 shadow-sm" [class.border-success]="(ov.delivery?.onTimeRate ?? 0) >= 80" [class.border-warning]="(ov.delivery?.onTimeRate ?? 0) >= 50 && (ov.delivery?.onTimeRate ?? 0) < 80" [class.border-danger]="(ov.delivery?.onTimeRate !== null && ov.delivery?.onTimeRate !== undefined) && ov.delivery!.onTimeRate! < 50">
+              <div class="card h-100 border-start border-4 shadow-sm" [class.border-success]="(ov.delivery?.onTimeRate ?? 0) >= 80" [class.border-warning]="(ov.delivery?.onTimeRate ?? 0) >= 50 && (ov.delivery?.onTimeRate ?? 0) < 80" [class.border-danger]="($safeNavigationMigration(ov.delivery?.onTimeRate) !== null && $safeNavigationMigration(ov.delivery?.onTimeRate) !== undefined) && ov.delivery!.onTimeRate! < 50">
                 <div class="card-body">
                   <div class="text-muted small mb-1">{{ '::OnTimeDelivery' | abpLocalization }}</div>
                   <div class="fs-4 fw-bold text-dark">
-                    @if (ov.delivery?.onTimeRate !== null && ov.delivery?.onTimeRate !== undefined) {
-                      {{ ov.delivery?.onTimeRate | number:'1.0-1' }}%
+                    @if ($safeNavigationMigration(ov.delivery?.onTimeRate) !== null && $safeNavigationMigration(ov.delivery?.onTimeRate) !== undefined) {
+                      {{ $safeNavigationMigration(ov.delivery?.onTimeRate) | number:'1.0-1' }}%
                     } @else {
                       <span class="text-muted">—</span>
                     }
@@ -297,10 +297,10 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
               </div>
               <div class="d-flex gap-2">
                 <span class="badge bg-light text-dark border">
-                  Total Purchases: {{ ov.currency }} {{ ov.trend?.totalPurchased | number:'1.0-0' }}
+                  Total Purchases: {{ ov.currency }} {{ $safeNavigationMigration(ov.trend?.totalPurchased) | number:'1.0-0' }}
                 </span>
                 <span class="badge bg-light text-dark border">
-                  Total Payments: {{ ov.currency }} {{ ov.trend?.totalPaid | number:'1.0-0' }}
+                  Total Payments: {{ ov.currency }} {{ $safeNavigationMigration(ov.trend?.totalPaid) | number:'1.0-0' }}
                 </span>
               </div>
             </div>
@@ -354,7 +354,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                   </span>
                   @if ((ov.ageing?.overdue ?? 0) > 0) {
                     <span class="badge bg-danger">
-                      Overdue: {{ ov.currency }} {{ ov.ageing?.overdue | number:'1.2-2' }} ({{ ov.ageing?.overduePct | number:'1.0-0' }}% of unpaid bills)
+                      Overdue: {{ ov.currency }} {{ $safeNavigationMigration(ov.ageing?.overdue) | number:'1.2-2' }} ({{ $safeNavigationMigration(ov.ageing?.overduePct) | number:'1.0-0' }}% of unpaid bills)
                     </span>
                   } @else {
                     <span class="badge bg-success">No overdue</span>
@@ -418,7 +418,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
                         <div class="text-muted" style="font-size: 0.75rem;">
                           {{ ov.pipeline?.receipt?.count ?? 0 }} orders
                           @if (ov.pipeline?.receipt?.nextDue) {
-                            <span class="d-block text-truncate" style="font-size: 0.7rem;">Due: {{ ov.pipeline?.receipt?.nextDue | date:'shortDate' }}</span>
+                            <span class="d-block text-truncate" style="font-size: 0.7rem;">Due: {{ $safeNavigationMigration(ov.pipeline?.receipt?.nextDue) | date:'shortDate' }}</span>
                           }
                         </div>
                       </div>
@@ -752,6 +752,7 @@ import { ContactManagerComponent } from '../shared/components/contact-manager/co
       }
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .w-40 { width: 40%; }
     .trend-chart-container {

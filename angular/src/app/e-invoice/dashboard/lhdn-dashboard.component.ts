@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, AfterViewInit, ViewChild, ElementRef, effect } from '@angular/core';
+import { Component, inject, OnInit, AfterViewInit, ViewChild, ElementRef, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageModule } from '@abp/ng.components/page';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -22,6 +22,7 @@ interface StatCard {
     PageModule,
     LocalizationPipe],
   templateUrl: './lhdn-dashboard.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./lhdn-dashboard.component.scss'],
 })
 export class LhdnDashboardComponent implements OnInit, AfterViewInit {

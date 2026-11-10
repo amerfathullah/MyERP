@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
@@ -13,13 +13,14 @@ import { QualityMeetingStatus } from '../../proxy/inventory/quality-meeting-stat
   selector: 'app-quality-meeting-form',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, PageModule, LocalizationPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <abp-page [title]="(isEdit ? 'QualityMeeting' : 'NewQualityMeeting') | abpLocalization">
       <div class="card">
         <div class="card-body">
           @if (isEdit) {
             <div class="row g-3 mb-3">
-              <div class="col-md-4"><strong>{{ 'MeetingDate' | abpLocalization }}:</strong> {{ meeting?.meetingDate | date:'mediumDate' }}</div>
+              <div class="col-md-4"><strong>{{ 'MeetingDate' | abpLocalization }}:</strong> {{ $safeNavigationMigration(meeting?.meetingDate) | date:'mediumDate' }}</div>
               <div class="col-md-4"><strong>{{ 'Chairperson' | abpLocalization }}:</strong> {{ meeting?.chairperson ?? '-' }}</div>
               <div class="col-md-4">
                 <span class="badge" [ngClass]="meeting?.status === QualityMeetingStatus.Closed ? 'bg-secondary' : 'bg-success'">

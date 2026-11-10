@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PageModule } from '@abp/ng.components/page';
@@ -22,6 +22,7 @@ import type { SupplierQuotationDto } from '../../proxy/purchasing/models';
     CommonModule, RouterModule, PageModule, LocalizationPipe, BreadcrumbComponent,
     StatusBadgeComponent, LoadingOverlayComponent, DocumentWorkflowComponent,
     ActivityLogComponent, DocumentConnectionsComponent, CompanyCurrencyPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
     <abp-page [title]="sq?.quotationNumber ?? ('::SupplierQuotation' | abpLocalization)">

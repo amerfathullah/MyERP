@@ -1,4 +1,4 @@
-import { Component, signal, inject, OnInit } from '@angular/core';
+import { Component, signal, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -16,6 +16,7 @@ import { Confirmation, ConfirmationService, ToasterService } from '@abp/ng.theme
   standalone: true,
   selector: 'app-leave-allocation-list',
   imports: [CommonModule, FormsModule, RouterModule, PageModule, LocalizationPipe, LoadingOverlayComponent, PaginationComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './leave-allocation-list.component.html',
 })
 export class LeaveAllocationListComponent implements OnInit {

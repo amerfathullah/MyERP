@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe } from '@abp/ng.core';
@@ -13,6 +13,7 @@ import type { MonthlyProfitLossReportDto, MonthlyProfitLossRowDto } from '../../
   selector: 'app-monthly-profit-loss',
   standalone: true,
   imports: [CommonModule, FormsModule, LocalizationPipe, CompanyCurrencyPipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './monthly-profit-loss.component.html',
 })
 export class MonthlyProfitLossComponent implements OnInit {

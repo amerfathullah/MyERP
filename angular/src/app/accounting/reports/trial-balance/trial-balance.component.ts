@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -19,6 +19,7 @@ import type { CompanyDto } from '../../../proxy/core/models';
   imports: [
     CommonModule, ReactiveFormsModule, PageModule, LocalizationPipe, CompanyCurrencyPipe],
   templateUrl: './trial-balance.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./trial-balance.component.scss'],
 })
 export class TrialBalanceComponent implements OnInit {

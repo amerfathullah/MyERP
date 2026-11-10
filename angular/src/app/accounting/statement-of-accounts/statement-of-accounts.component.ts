@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LocalizationPipe, LocalizationService } from '@abp/ng.core';
@@ -271,9 +271,9 @@ import type { StatementOfAccountsDto, SupplierStatementDto } from '../../proxy/a
           <tfoot>
             <tr class="fw-bold">
               <td colspan="3">Closing Balance</td>
-              <td class="text-end">{{ getActiveResult()?.totalDebit | number:'1.2-2' }}</td>
-              <td class="text-end">{{ getActiveResult()?.totalCredit | number:'1.2-2' }}</td>
-              <td class="text-end">{{ getActiveResult()?.closingBalance | number:'1.2-2' }}</td>
+              <td class="text-end">{{ $safeNavigationMigration(getActiveResult()?.totalDebit) | number:'1.2-2' }}</td>
+              <td class="text-end">{{ $safeNavigationMigration(getActiveResult()?.totalCredit) | number:'1.2-2' }}</td>
+              <td class="text-end">{{ $safeNavigationMigration(getActiveResult()?.closingBalance) | number:'1.2-2' }}</td>
             </tr>
           </tfoot>
         </table>
@@ -281,6 +281,7 @@ import type { StatementOfAccountsDto, SupplierStatementDto } from '../../proxy/a
       </div>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     @media print {
       :host ::ng-deep .card { display: none !important; }

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -34,6 +34,7 @@ import { exportToCsv } from '../../shared/utils/csv-export';
     SortableHeaderComponent,
     DatePresetsComponent],
   templateUrl: './sales-invoice-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./sales-invoice-list.component.scss'],
 })
 export class SalesInvoiceListComponent implements OnInit {
