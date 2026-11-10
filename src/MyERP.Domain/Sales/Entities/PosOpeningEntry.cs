@@ -37,14 +37,16 @@ public class PosOpeningEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     protected PosOpeningEntry() { }
 
-    public PosOpeningEntry(Guid id, Guid companyId, Guid posProfileId, Guid userId, Guid? tenantId = null)
+    public PosOpeningEntry(Guid id, Guid companyId, Guid posProfileId, Guid userId, Guid? tenantId = null,
+        DateTime? openingDate = null, DateTime? openingTime = null)
         : base(id)
     {
         CompanyId = companyId;
         PosProfileId = posProfileId;
         UserId = userId;
-        OpeningDate = DateTime.UtcNow.Date;
-        OpeningTime = DateTime.UtcNow;
+        // Per ERPNext PR #63506 / commit fa940f8e71: allow backdated POS sessions
+        OpeningDate = (openingDate ?? DateTime.UtcNow).Date;
+        OpeningTime = openingTime ?? (openingDate ?? DateTime.UtcNow);
         TenantId = tenantId;
     }
 

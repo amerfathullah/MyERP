@@ -45,6 +45,10 @@ public class CreatePosInvoiceDto
     [StringLength(SalesInvoiceConsts.MaxCurrencyCodeLength)]
     public string? CurrencyCode { get; set; }
     public decimal? ExchangeRate { get; set; }
+    /// <summary>Optional posting date (defaults to UtcNow.Date). Allows backdated POS session per PR #63506 / commit fa940f8e71.</summary>
+    public DateTime? PostingDate { get; set; }
+    /// <summary>Optional posting time (defaults to UtcNow). Allows backdated POS session per PR #63506 / commit fa940f8e71.</summary>
+    public DateTime? PostingTime { get; set; }
 }
 
 public class PosLineItemDto

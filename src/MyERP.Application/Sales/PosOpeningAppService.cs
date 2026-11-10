@@ -102,7 +102,7 @@ public class PosOpeningAppService : ApplicationService, IPosOpeningAppService
 
         var entry = new PosOpeningEntry(
             GuidGenerator.Create(), input.CompanyId, input.PosProfileId,
-            input.UserId, CurrentTenant.Id);
+            input.UserId, CurrentTenant.Id, input.OpeningDate, input.OpeningTime);
 
         foreach (var pay in input.Payments)
             entry.AddOpeningBalance(pay.ModeOfPaymentId, pay.ModeName, pay.OpeningAmount);

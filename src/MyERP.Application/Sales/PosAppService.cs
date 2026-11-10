@@ -44,10 +44,15 @@ public class PosAppService : ApplicationService, IPosAppService
 
     public async Task<PosInvoiceDto> CompleteSaleAsync(CreatePosInvoiceDto input)
     {
+        // Per ERPNext PR #63506 / commit fa940f8e71: allow backdated POS sessions
+        var postingDate = input.PostingDate ?? DateTime.UtcNow.Date;
+        var postingTime = input.PostingTime ?? (input.PostingDate ?? DateTime.UtcNow);
+        var invoiceDateTime = postingDate.Date.Add(postingTime.TimeOfDay);
+
         // Validate posting period is not frozen/closed
         var postingOrchestrator = LazyServiceProvider
             .LazyGetRequiredService<Accounting.DomainServices.DocumentPostingOrchestrator>();
-        await postingOrchestrator.ValidatePostingPeriodAsync(input.CompanyId, DateTime.UtcNow, "POS Invoice");
+        await postingOrchestrator.ValidatePostingPeriodAsync(input.CompanyId, invoiceDateTime, "POS Invoice");
 
         var companyRestriction = LazyServiceProvider.LazyGetRequiredService<MyERP.Core.DomainServices.CompanyRestrictionValidationService>();
         await companyRestriction.ValidateTransactionCompanyAsync(
@@ -104,24 +109,45 @@ public class PosAppService : ApplicationService, IPosAppService
             }
 
             var openingEntry = openSessions[0];
-            var now = DateTime.UtcNow;
             var openingStart = openingEntry.OpeningDate.Date.Add(openingEntry.OpeningTime.TimeOfDay);
 
             // Per ERPNext PR #63506 / commit fa940f8e71: allow backdated POS sessions
-            if (now.Date != openingEntry.OpeningDate.Date || now < openingStart)
+            if (input.PostingDate.HasValue)
             {
-                if (now.Date < openingEntry.OpeningDate.Date || now < openingStart)
+                if (invoiceDateTime.Date != openingEntry.OpeningDate.Date || invoiceDateTime < openingStart)
                 {
                     throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PosPostingDateTimeBeforeOpening)
                         .WithData("openingStart", openingStart.ToString("yyyy-MM-dd HH:mm:ss"));
                 }
-            }
 
-            if (openingEntry.OpeningDate.Date != DateTime.UtcNow.Date)
+                if (invoiceDateTime.Date < DateTime.UtcNow.Date)
+                {
+                    // Backdated session permitted without throwing PosOutdatedOpeningSession
+                }
+                else if (openingEntry.OpeningDate.Date != DateTime.UtcNow.Date)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PosOutdatedOpeningSession)
+                        .WithData("openingDate", openingEntry.OpeningDate.ToString("yyyy-MM-dd"))
+                        .WithData("currentDate", DateTime.UtcNow.ToString("yyyy-MM-dd"));
+                }
+            }
+            else
             {
-                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PosOutdatedOpeningSession)
-                    .WithData("openingDate", openingEntry.OpeningDate.ToString("yyyy-MM-dd"))
-                    .WithData("currentDate", DateTime.UtcNow.ToString("yyyy-MM-dd"));
+                if (invoiceDateTime.Date != openingEntry.OpeningDate.Date || invoiceDateTime < openingStart)
+                {
+                    if (invoiceDateTime.Date < openingEntry.OpeningDate.Date || invoiceDateTime < openingStart)
+                    {
+                        throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PosPostingDateTimeBeforeOpening)
+                            .WithData("openingStart", openingStart.ToString("yyyy-MM-dd HH:mm:ss"));
+                    }
+                }
+
+                if (openingEntry.OpeningDate.Date != DateTime.UtcNow.Date)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PosOutdatedOpeningSession)
+                        .WithData("openingDate", openingEntry.OpeningDate.ToString("yyyy-MM-dd"))
+                        .WithData("currentDate", DateTime.UtcNow.ToString("yyyy-MM-dd"));
+                }
             }
         }
         else
@@ -173,7 +199,7 @@ public class PosAppService : ApplicationService, IPosAppService
         var customer = await customerRepo.GetAsync(customerId);
         var partyValidation = LazyServiceProvider.LazyGetRequiredService<PartyValidationService>();
         await partyValidation.ValidatePartyForTransactionAsync("Customer", isDisabled: !customer.IsActive, isFrozen: customer.IsFrozen, customer.Name, input.CompanyId);
-        partyValidation.ValidateCustomerNotBlocked(customer.OnHold, customer.ReleaseDate, customer.Name, DateTime.UtcNow);
+        partyValidation.ValidateCustomerNotBlocked(customer.OnHold, customer.ReleaseDate, customer.Name, invoiceDateTime);
 
         if (!string.IsNullOrWhiteSpace(input.PaymentMethod))
         {
@@ -194,7 +220,7 @@ public class PosAppService : ApplicationService, IPosAppService
             input.CompanyId,
             customerId,
             invoiceNumber,
-            DateTime.UtcNow,
+            invoiceDateTime,
             CurrentTenant.Id);
 
         // POS always deducts stock
@@ -270,7 +296,7 @@ public class PosAppService : ApplicationService, IPosAppService
 
                 await _stockValuationService.CreateLedgerEntryAsync(
                     input.CompanyId, item.ItemId, input.WarehouseId.Value,
-                    DateTime.UtcNow, -item.Quantity, item.UnitPrice,
+                    invoice.IssueDate, -item.Quantity, item.UnitPrice,
                     "SalesInvoice", invoice.Id, CurrentTenant.Id);
 
                 await _binService.ApplyStockMovementAsync(

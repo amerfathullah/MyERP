@@ -250,4 +250,48 @@ public class PosOpeningAndPaymentTaxTests
         Assert.Equal(1000m, closing.GrandTotal);
         Assert.Equal(10m, closing.TotalDifference);
     }
+
+    [Fact]
+    public void PosOpening_Create_WithCustomDateAndTime_AllowsBackdatedSession()
+    {
+        var profileId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var backdatedDate = new DateTime(2026, 8, 10, 0, 0, 0, DateTimeKind.Utc);
+        var backdatedTime = new DateTime(2026, 8, 10, 9, 30, 0, DateTimeKind.Utc);
+
+        var opening = new PosOpeningEntry(Guid.NewGuid(), companyId, profileId, userId,
+            openingDate: backdatedDate, openingTime: backdatedTime);
+
+        Assert.Equal(PosOpeningStatus.Open, opening.Status);
+        Assert.Equal(backdatedDate.Date, opening.OpeningDate);
+        Assert.Equal(backdatedTime, opening.OpeningTime);
+    }
+
+    [Fact]
+    public void PosLifecycle_BackdatedSession_OpeningAndClosingAlign()
+    {
+        var profileId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var backdatedDate = new DateTime(2026, 8, 10, 0, 0, 0, DateTimeKind.Utc);
+        var backdatedTime = new DateTime(2026, 8, 10, 9, 30, 0, DateTimeKind.Utc);
+
+        var opening = new PosOpeningEntry(Guid.NewGuid(), companyId, profileId, userId,
+            openingDate: backdatedDate, openingTime: backdatedTime);
+        opening.AddOpeningBalance(Guid.NewGuid(), "Cash", 300m);
+
+        var closingId = Guid.NewGuid();
+        opening.Close(closingId);
+
+        var closing = new PosClosingEntry(closingId, companyId, profileId, opening.Id, userId,
+            postingDate: backdatedDate, postingTime: backdatedTime.AddHours(8));
+        closing.AddPayment(Guid.NewGuid(), "Cash", 500m, 500m);
+        closing.AddInvoice(Guid.NewGuid(), "POS-B23-001", 200m);
+        closing.Submit();
+
+        Assert.Equal(backdatedDate.Date, closing.PostingDate);
+        Assert.Equal(200m, closing.GrandTotal);
+        Assert.Equal(PosClosingStatus.Submitted, closing.Status);
+    }
 }

@@ -286,12 +286,16 @@ export interface CreatePosInvoiceDto {
   amountReceived?: number;
   currencyCode?: string | null;
   exchangeRate?: number | null;
+  postingDate?: string | null;
+  postingTime?: string | null;
 }
 
 export interface CreatePosOpeningDto {
   companyId?: string;
   posProfileId?: string;
   userId?: string;
+  openingDate?: string | null;
+  openingTime?: string | null;
   payments?: CreatePosOpeningPaymentDto[];
 }
 

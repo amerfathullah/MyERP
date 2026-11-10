@@ -28,6 +28,10 @@ public class CreatePosOpeningDto
     public Guid CompanyId { get; set; }
     public Guid PosProfileId { get; set; }
     public Guid UserId { get; set; }
+    /// <summary>Optional opening date (defaults to UtcNow.Date). Allows backdated opening per PR #63506 / commit fa940f8e71.</summary>
+    public DateTime? OpeningDate { get; set; }
+    /// <summary>Optional opening time (defaults to UtcNow). Allows backdated opening per PR #63506 / commit fa940f8e71.</summary>
+    public DateTime? OpeningTime { get; set; }
     public List<CreatePosOpeningPaymentDto> Payments { get; set; } = new();
 }
 
