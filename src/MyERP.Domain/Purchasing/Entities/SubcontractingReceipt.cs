@@ -86,6 +86,21 @@ public class SubcontractingReceipt : FullAuditedAggregateRoot<Guid>, IMultiTenan
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
         Status = SubcontractingReceiptStatus.Cancelled;
     }
+
+    /// <summary>
+    /// Validates that a return Subcontracting Receipt keeps the original receipt's supplier warehouse.
+    /// Per ERPNext PR #65109 (commit d7feab165b).
+    /// </summary>
+    public void ValidateReturnSupplierWarehouse(Guid? originalSupplierWarehouseId, string originalReceiptNumber)
+    {
+        if (!IsReturn || !ReturnAgainstReceiptId.HasValue) return;
+
+        if (originalSupplierWarehouseId.HasValue && SupplierWarehouseId != originalSupplierWarehouseId)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"Supplier Warehouse must be {originalSupplierWarehouseId.Value}, the same as in {originalReceiptNumber}.");
+        }
+    }
 }
 
 public class SubcontractingReceiptItem : Entity<Guid>

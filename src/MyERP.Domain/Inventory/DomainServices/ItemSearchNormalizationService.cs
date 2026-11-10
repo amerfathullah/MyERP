@@ -8,9 +8,10 @@ namespace MyERP.Inventory.DomainServices;
 
 /// <summary>
 /// Normalizes and folds text for Item search indexing and candidate query matching.
-/// Per ERPNext PR #65020 (commits 77c5fd1722, 88fabb805e, 459174fa30):
+/// Per ERPNext PR #65020 (commits 77c5fd1722, 88fabb805e, 459174fa30) and PR #65117 (commit 6ad4805b44):
 /// Folds what MariaDB utf8mb4_unicode_ci and SQLite/PostgreSQL search treat as equivalent:
-/// accents, kana voicing marks, character width, small and full-size kana, and katakana with hiragana.
+/// accents, kana voicing marks, character width, small and full-size kana, katakana with hiragana,
+/// and digits of any script.
 /// </summary>
 public class ItemSearchNormalizationService : DomainService
 {
@@ -25,8 +26,9 @@ public class ItemSearchNormalizationService : DomainService
     };
 
     /// <summary>
-    /// Folds accents, kana voicing marks, character width, small and full-size kana, and katakana with hiragana.
-    /// Per ERPNext PR #65020 / commit 77c5fd1722 (fold_text).
+    /// Folds accents, kana voicing marks, character width, small and full-size kana, katakana with hiragana,
+    /// and digits of any script.
+    /// Per ERPNext PR #65020 / commit 77c5fd1722 and PR #65117 / commit 6ad4805b44 (fold_text).
     /// </summary>
     public static string FoldText(string? text)
     {
@@ -57,9 +59,33 @@ public class ItemSearchNormalizationService : DomainService
                 ch = fullSize;
             }
 
+            // 5) Fold digits of any script (PR #65117 / commit 6ad4805b44)
+            ch = FoldDigit(ch);
+
             sb.Append(ch);
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Folds digits of any script into standard ASCII '0'..'9'.
+    /// Per ERPNext PR #65117 (commit 6ad4805b44 / fold_digit).
+    /// </summary>
+    public static char FoldDigit(char c)
+    {
+        var digit = CharUnicodeInfo.GetDigitValue(c);
+        if (digit >= 0 && digit <= 9)
+        {
+            return (char)('0' + digit);
+        }
+
+        var dec = CharUnicodeInfo.GetDecimalDigitValue(c);
+        if (dec >= 0 && dec <= 9)
+        {
+            return (char)('0' + dec);
+        }
+
+        return c;
     }
 }

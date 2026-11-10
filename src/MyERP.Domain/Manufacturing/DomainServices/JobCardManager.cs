@@ -654,12 +654,13 @@ public class JobCardManager : DomainService
 
         if (!matchingItems.Any()) return;
 
-        // Per ERPNext PR #60650 (commit b2f37a6579): check expected qty per item for this job card
+        // Per ERPNext PR #60650 (commit b2f37a6579) & PR #65171 (commit e7870754ec):
+        // check expected qty per item for this job card using 4-decimal precision so fractional transfers (e.g. 1/3) succeed after full transfer
         var hasShortMaterial = false;
         foreach (var row in matchingItems)
         {
             var expected = (row.RequiredQuantity / wo.Quantity) * jobCard.ForQuantity;
-            if (row.TransferredQuantity < expected)
+            if (Math.Round(row.TransferredQuantity, 4) < Math.Round(expected, 4))
             {
                 hasShortMaterial = true;
                 break;

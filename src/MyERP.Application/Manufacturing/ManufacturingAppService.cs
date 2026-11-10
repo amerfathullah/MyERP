@@ -2094,14 +2094,14 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         var productionParams = productionService.ValidateAndGetProductionParams(
             wo, quantity, processLossQty, overproductionPct);
 
-        // Record production on the entity (uses produce_qty only for ProducedQuantity tracking, passes processLossQty)
-        wo.RecordProduction(quantity, overproductionPercentage: overproductionPct, processLoss: processLossQty);
-
-        // Calculate RM consumption using domain service (proper DDD delegation)
-        // Per gotcha #453: MIN-capped formula for BOM mode
+        // Calculate RM consumption using domain service before updating ProducedQuantity
+        // Per gotcha #453: MIN-capped formula for BOM mode uses remaining unproduced qty prior to this batch
         // Per gotcha #491: caps at available (transferred - consumed) for MaterialTransferred mode
         var consumptionItems = productionService.CalculateRawMaterialConsumption(
             wo, productionParams.TotalFgQty, backflushMethod);
+
+        // Record production on the entity (uses produce_qty only for ProducedQuantity tracking, passes processLossQty)
+        wo.RecordProduction(quantity, overproductionPercentage: overproductionPct, processLoss: processLossQty);
 
         // Load prior transfers and consumptions for Work Order (ERPNext PR #59600 & #60090)
         var seRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.StockEntry, Guid>>();
@@ -2737,7 +2737,7 @@ public class ManufacturingAppService : ApplicationService, IManufacturingAppServ
         await postingOrchestrator.PostStockEntryAsync(entry);
 
         await seRepo.InsertAsync(entry, autoSave: true);
-        await _workOrderRepository.UpdateAsync(wo);
+        await _workOrderRepository.UpdateAsync(wo, autoSave: true);
 
         return new MaterialConsumptionResultDto
         {

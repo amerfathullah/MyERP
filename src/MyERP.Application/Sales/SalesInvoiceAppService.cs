@@ -1422,10 +1422,28 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             {
                 // NORMAL SALES INVOICE WITH UPDATE STOCK:
                 // Batch expiry validation — block expired/disabled batches on stock-out
-                // Per DO-NOT: must block expired batch consumption in transactions
-                // Note: SI items don't have per-item BatchId; batch tracking is via Serial and Batch Bundle.
-                // When SABB integration is fully wired, batch validation will fire via the bundle path.
-                // For now, skip batch validation on SI (DN handles it in the standard delivery flow).
+                // Per ERPNext PR #65127 (commits 260f861238, 5fd78f5a90, b3c2658f7f):
+                // Invoices check batches only when UpdateStock is enabled and the invoice is NOT consolidated.
+                if (invoice.IsBatchCheckNeeded)
+                {
+                    var batchRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.Batch, Guid>>();
+                    if (batchRepo != null)
+                    {
+                        foreach (var item in invoice.Items)
+                        {
+                            if (item.BatchId.HasValue)
+                            {
+                                var batch = await batchRepo.FindAsync(item.BatchId.Value);
+                                if (batch != null)
+                                {
+                                    Inventory.DomainServices.SerialBatchBundleValidationService.ValidateBatchUsable(
+                                        batch.BatchNo, batch.ExpiryDate, batch.IsDisabled,
+                                        invoice.IssueDate, "Sales Invoice", invoice.UpdateStock, invoice.IsConsolidated);
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // Quality Inspection enforcement — block if items require QI but none submitted+accepted
                 var stockItemIds = new List<Guid>();

@@ -193,6 +193,15 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
     /// </summary>
     public bool IsConsolidated { get; set; }
 
+    /// <summary>
+    /// Checks whether batch validation is required for this sales invoice.
+    /// Per ERPNext PR #65127 (commits 260f861238, 5fd78f5a90, b3c2658f7f):
+    /// - An invoice without UpdateStock moves no stock, so its batches were checked when they moved (e.g. Delivery Note).
+    /// - A consolidated invoice repeats POS Invoices whose batches were already checked when sold; a batch disabled
+    ///   or expired before the closing must not block invoice submission.
+    /// </summary>
+    public bool IsBatchCheckNeeded => UpdateStock && !IsConsolidated;
+
     /// <summary>Linked POS Profile for POS invoices. Per ERPNext PR #46907 / commit 3de1b22480.</summary>
     public Guid? PosProfileId { get; set; }
 

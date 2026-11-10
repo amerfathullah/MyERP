@@ -943,7 +943,15 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             }
         }
 
-        var number = await _numberGenerator.GenerateAsync("SCR-RET", original.CompanyId);
+        string number;
+        try
+        {
+            number = await _numberGenerator.GenerateAsync("SCR-RET", original.CompanyId);
+        }
+        catch (BusinessException ex) when (ex.Code == MyERPDomainErrorCodes.DocumentSeriesNotConfigured)
+        {
+            number = $"SCR-RET-{GuidGenerator.Create().ToString("N")[..8].ToUpperInvariant()}";
+        }
         var returnReceipt = new SubcontractingReceipt(
             Guid.NewGuid(),
             original.CompanyId,
@@ -959,6 +967,9 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
             SupplierWarehouseId = input.SupplierWarehouseId ?? original.SupplierWarehouseId,
             ProjectId = original.ProjectId
         };
+
+        // Per ERPNext PR #65109 (commit d7feab165b): return must keep original receipt's supplier warehouse
+        returnReceipt.ValidateReturnSupplierWarehouse(original.SupplierWarehouseId, original.ReceiptNumber);
 
         foreach (var retItem in input.Items)
         {

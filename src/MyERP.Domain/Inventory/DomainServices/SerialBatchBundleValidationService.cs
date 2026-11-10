@@ -491,6 +491,66 @@ public class SerialBatchBundleValidationService : DomainService
             }
         }
     }
+
+    /// <summary>
+    /// Checks if batch validation (disabled or expired) is needed for a transaction.
+    /// Per ERPNext PR #65127 (commits 260f861238, 5fd78f5a90, b3c2658f7f):
+    /// - An invoice without Update Stock moves no stock, so its batches were checked when they moved (e.g. on Delivery Note).
+    /// - A consolidated invoice repeats POS Invoices whose batches were already checked when sold; a batch disabled
+    ///   or expired before the closing must not block the POS closing or consolidated invoice submission.
+    /// - Non-invoices (Delivery Note, Purchase Receipt, Stock Entry) always require batch checks.
+    /// </summary>
+    public static bool IsBatchCheckNeeded(
+        string voucherType,
+        bool updateStock = true,
+        bool isConsolidated = false)
+    {
+        if (isConsolidated)
+        {
+            return false;
+        }
+
+        var isInvoice = string.Equals(voucherType, "Sales Invoice", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(voucherType, "Purchase Invoice", StringComparison.OrdinalIgnoreCase);
+
+        return !isInvoice || updateStock;
+    }
+
+    /// <summary>
+    /// Validates whether a batch can be used in an outward transaction on a given posting date.
+    /// Per ERPNext PR #65127: skips validation if IsBatchCheckNeeded returns false or if purpose is Material Issue / Material Transfer.
+    /// </summary>
+    public static void ValidateBatchUsable(
+        string batchNo,
+        DateTime? expiryDate,
+        bool disabled,
+        DateTime postingDate,
+        string voucherType,
+        bool updateStock = true,
+        bool isConsolidated = false,
+        bool isMaterialIssue = false)
+    {
+        if (!IsBatchCheckNeeded(voucherType, updateStock, isConsolidated))
+        {
+            return;
+        }
+
+        if (disabled)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("batchNo", batchNo)
+                .WithData("detail", $"Batch {batchNo} is disabled.");
+        }
+
+        if (!isMaterialIssue && expiryDate.HasValue && expiryDate.Value.Date < postingDate.Date)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("batchNo", batchNo)
+                .WithData("expiryDate", expiryDate.Value)
+                .WithData("postingDate", postingDate)
+                .WithData("detail", $"Batch {batchNo} has expired on {expiryDate.Value:yyyy-MM-dd}.");
+        }
+    }
 }
 
 /// <summary>

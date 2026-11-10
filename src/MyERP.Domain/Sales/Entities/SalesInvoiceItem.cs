@@ -85,6 +85,14 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Linked fixed asset ID for asset disposal/sale.</summary>
     public Guid? AssetId { get; set; }
 
+    /// <summary>Batch ID reference for batch-tracked items on invoice.</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public Guid? BatchId { get; set; }
+
+    /// <summary>Serial and Batch Bundle ID for serialized/batched tracking.</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public Guid? SerialAndBatchBundleId { get; set; }
+
     /// <summary>
     /// Clears all deferred revenue fields when the user unchecks EnableDeferredRevenue.
     /// Per PR #57140: prevents orphaned account/date fields when deferred is disabled.

@@ -8,6 +8,7 @@ using MyERP.CRM;
 using MyERP.CRM.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Permissions;
+using MyERP.Sales.DomainServices;
 using MyERP.Sales.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
@@ -887,12 +888,6 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
             if (bundle != null && bundle.Items.Count > 0)
             {
-                // PickedQty on bundle SO item is recorded in bundle count (ERPNext update_packed_item_qty)
-                var pickedInOrderUom = soItem.PickedQty / rowFactor;
-                var pendingBundles = soItem.Quantity - Math.Max(pickedInOrderUom, soItem.DeliveredQty);
-                if (pendingBundles <= 0)
-                    continue;
-
                 if (!rowWarehouseId.HasValue)
                     throw new BusinessException("MyERP:01007")
                         .WithData("documentType", "Pick List — Warehouse is required");
@@ -900,6 +895,10 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                 var compIds = bundle.Items.Select(c => c.ComponentItemId).Distinct().ToList();
                 var compItems = itemQueryable.Where(i => compIds.Contains(i.Id)).ToDictionary(i => i.Id);
 
+                // Per ERPNext PR #65115 (commit 51954d883a) & PR #65116 (commit 3dedfaee04):
+                // Evaluate remaining quantity to pick for each component individually:
+                // Allows components of one bundle to be picked unevenly across separate pick lists,
+                // and repeated bundle components each receive their own pick list row with productBundleItemId.
                 foreach (var comp in bundle.Items)
                 {
                     if (comp.Qty <= 0) continue;
@@ -912,7 +911,15 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                             compItem.Id, comp.Uom, compItem.Uom, compItem.VariantOfId);
                     }
 
-                    var compStockQty = Math.Round(comp.Qty * compFactor * pendingBundles, 6);
+                    var totalComponentQty = comp.Qty * compFactor * soItem.Quantity;
+                    var compPickedQty = (soItem.PickedQty / rowFactor) * (comp.Qty * compFactor);
+                    var compStockQty = ProductBundleDecompositionService.GetPackedQtyToPick(
+                        totalComponentQty,
+                        compPickedQty,
+                        soItem.Quantity,
+                        soItem.DeliveredQty,
+                        precision: 6);
+
                     if (compStockQty <= 0) continue;
 
                     pickList.AddItem(

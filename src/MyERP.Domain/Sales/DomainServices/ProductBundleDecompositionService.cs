@@ -252,6 +252,26 @@ public class ProductBundleDecompositionService : DomainService
         }
         return exactQtyPerUnit;
     }
+
+    /// <summary>
+    /// Computes remaining quantity to pick on a Product Bundle component.
+    /// Per ERPNext PR #65115 (commit 51954d883a):
+    /// Evaluates remaining pick quantity for each component individually rather than assuming uniform bundle ratio:
+    /// delivered_qty = packed_qty * (parent.delivered_qty / parent.qty)
+    /// qty_to_pick = packed_qty - max(component_picked_qty, delivered_qty)
+    /// </summary>
+    public static decimal GetPackedQtyToPick(
+        decimal packedComponentQty,
+        decimal componentPickedQty,
+        decimal parentOrderQty,
+        decimal parentDeliveredQty,
+        int precision = 4)
+    {
+        if (parentOrderQty <= 0) return 0m;
+        var deliveredQty = Math.Round(packedComponentQty * (parentDeliveredQty / parentOrderQty), precision);
+        var remaining = packedComponentQty - Math.Max(componentPickedQty, deliveredQty);
+        return Math.Max(0m, Math.Round(remaining, precision));
+    }
 }
 
 /// <summary>
