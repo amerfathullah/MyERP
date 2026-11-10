@@ -864,6 +864,12 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         var bundleQueryable = await bundleRepo.GetQueryableAsync();
         var itemQueryable = await itemRepo.GetQueryableAsync();
 
+        var existingPicksQuery = await plRepo.GetQueryableAsync();
+        var existingPickRows = existingPicksQuery
+            .Where(p => p.SalesOrderId == salesOrder.Id && p.Status == Core.DocumentStatus.Submitted)
+            .SelectMany(p => p.Items)
+            .ToList();
+
         foreach (var soItem in salesOrder.Items)
         {
             // Per ERPNext commit 754475b51a (should_pick_order_item & should_pick_packed_item):
@@ -912,7 +918,15 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                     }
 
                     var totalComponentQty = comp.Qty * compFactor * soItem.Quantity;
-                    var compPickedQty = (soItem.PickedQty / rowFactor) * (comp.Qty * compFactor);
+                    var alreadyPickedForComp = existingPickRows
+                        .Where(pi => pi.SourceDocumentItemId == soItem.Id
+                                  && pi.ItemId == comp.ComponentItemId
+                                  && (pi.ProductBundleItemId == comp.Id || !pi.ProductBundleItemId.HasValue))
+                        .Sum(pi => pi.StockQty > 0 ? pi.StockQty : pi.Qty);
+                    var compPickedQty = alreadyPickedForComp > 0
+                        ? alreadyPickedForComp
+                        : (soItem.PickedQty / rowFactor) * (comp.Qty * compFactor);
+
                     var compStockQty = ProductBundleDecompositionService.GetPackedQtyToPick(
                         totalComponentQty,
                         compPickedQty,
