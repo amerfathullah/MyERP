@@ -313,11 +313,25 @@ public class DunningAppService : ApplicationService, IDunningAppService
             ConversionRate = si.ExchangeRate > 0 ? si.ExchangeRate : 1m,
         };
 
+        string? partyAccountCurrency = null;
+        if (si.DebitToAccountId != Guid.Empty)
+        {
+            var accRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Account, Guid>>();
+            var acc = await accRepo.FindAsync(si.DebitToAccountId);
+            partyAccountCurrency = acc?.Currency;
+        }
+        if (string.IsNullOrWhiteSpace(partyAccountCurrency))
+        {
+            var compRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+            var comp = await compRepo.FindAsync(si.CompanyId);
+            partyAccountCurrency = comp?.CurrencyCode ?? "MYR";
+        }
+
         if (schedules.Count > 0)
         {
             // Per ERPNext commits 18e651d89e & 8a09633536: apply payments without term allocations to oldest installments first.
             var scheduleOutstanding = DomainServices.DunningManager.GetPaymentScheduleOutstanding(
-                si, schedules, si.CurrencyCode, inAccountCurrency: false);
+                si, schedules, partyAccountCurrency, inAccountCurrency: false);
 
             var overdueSchedules = schedules
                 .Where(s => scheduleOutstanding[s.Id] > 0.01m && s.DueDate.Date < today)
@@ -344,12 +358,8 @@ public class DunningAppService : ApplicationService, IDunningAppService
         }
         else
         {
-            // Transaction-currency outstanding for non-schedule invoices (PR #63608 / commit 480a9faeb6)
-            var outstanding = si.OutstandingAmount > 0
-                ? ((!string.IsNullOrWhiteSpace(si.CurrencyCode) && si.CurrencyCode != "MYR" && si.ExchangeRate > 0)
-                    ? Math.Round(si.OutstandingAmount / si.ExchangeRate, 2)
-                    : si.OutstandingAmount)
-                : Math.Max(0m, si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance);
+            // Transaction-currency outstanding for non-schedule invoices (PR #63608 / commit 480a9faeb6 & PR #64585 / commit d38249cba3)
+            var outstanding = Math.Max(0m, si.OutstandingAmount);
             if (outstanding <= 0.01m)
                 throw new BusinessException(MyERPDomainErrorCodes.InvoiceAlreadySettled);
 
@@ -587,14 +597,13 @@ public class DunningAppService : ApplicationService, IDunningAppService
             .Where(si => si.CompanyId == input.CompanyId
                       && si.Status == DocumentStatus.Submitted
                       && !si.IsReturn
-                      && si.DueDate.HasValue
-                      && si.DueDate.Value < today
+                      && (si.DueDate.HasValue ? si.DueDate.Value < today : si.IssueDate < today)
                       && (si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance) > 0.01m)
             .Select(si => new
             {
                 si.Id,
                 si.CustomerId,
-                DueDate = si.DueDate!.Value,
+                DueDate = si.DueDate ?? si.IssueDate,
                 Outstanding = si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance
             })
             .ToList();
