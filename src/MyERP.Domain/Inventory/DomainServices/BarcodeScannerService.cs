@@ -202,6 +202,29 @@ public class BarcodeScannerService : DomainService
             WarehouseName = warehouse.Name
         };
     }
+
+    /// <summary>
+    /// Preloads barcodes for multiple items into a dictionary mapping ItemId -> concatenated barcode string.
+    /// Per ERPNext commit 09ba0cf166 (PR #64321):
+    /// Initializes dictionary for ALL requested item IDs (defaulting to empty string), so preloaded batch
+    /// answers for every item including items without barcodes, avoiding individual queries per item.
+    /// </summary>
+    public static System.Collections.Generic.Dictionary<Guid, string> PreloadBarcodesByItems(
+        System.Collections.Generic.IEnumerable<Guid> itemIds,
+        System.Collections.Generic.IEnumerable<(Guid ItemId, string Barcode)> itemBarcodes)
+    {
+        var result = itemIds.Distinct().ToDictionary(id => id, _ => string.Empty);
+        foreach (var (itemId, barcode) in itemBarcodes)
+        {
+            if (result.ContainsKey(itemId) && !string.IsNullOrWhiteSpace(barcode))
+            {
+                result[itemId] = string.IsNullOrWhiteSpace(result[itemId])
+                    ? barcode.Trim()
+                    : $"{result[itemId]} {barcode.Trim()}";
+            }
+        }
+        return result;
+    }
 }
 
 /// <summary>

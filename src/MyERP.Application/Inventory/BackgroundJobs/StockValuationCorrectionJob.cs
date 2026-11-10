@@ -68,12 +68,28 @@ public class StockValuationCorrectionJob : AsyncBackgroundJob<StockValuationCorr
 
         var sleQuery = await _sleRepository.GetQueryableAsync();
 
-        foreach (var repost in queuedReposts)
+        for (var i = 0; i < queuedReposts.Count; i++)
         {
+            var repost = queuedReposts[i];
+            if (repost.Status == RepostStatus.Skipped || repost.Status == RepostStatus.Cancelled)
+                continue;
+
             try
             {
                 repost.StartProcessing();
                 await _repostRepository.UpdateAsync(repost);
+
+                // Per ERPNext PR #63639 (commits 2944ee0c14, efa92667c0):
+                // Find subsequent queued reposts covered by this in-progress repost pass
+                var coveredLaterReposts = new List<RepostItemValuation>();
+                for (var j = i + 1; j < queuedReposts.Count; j++)
+                {
+                    var later = queuedReposts[j];
+                    if (later.Status == RepostStatus.Queued && later.IsCoveredBy(repost))
+                    {
+                        coveredLaterReposts.Add(later);
+                    }
+                }
 
                 var sles = sleQuery
                     .Where(s => s.CompanyId == args.CompanyId &&
@@ -181,6 +197,19 @@ public class StockValuationCorrectionJob : AsyncBackgroundJob<StockValuationCorr
 
                 repost.Complete(totalAffected);
                 await _repostRepository.UpdateAsync(repost);
+
+                // Per ERPNext PR #63639 (commits 2944ee0c14, efa92667c0):
+                // Mark covered queued reposts as Skipped
+                foreach (var covered in coveredLaterReposts)
+                {
+                    if (covered.Status == RepostStatus.Queued)
+                    {
+                        covered.MarkSkipped($"Covered by completed repost {repost.Id}");
+                        await _repostRepository.UpdateAsync(covered);
+                        _logger.LogInformation("StockValuationCorrectionJob: Skipped queued repost {LaterId} (covered by {RepostId})",
+                            covered.Id, repost.Id);
+                    }
+                }
 
                 _logger.LogInformation("StockValuationCorrectionJob: Completed repost {RepostId} ({Total} SLEs affected)",
                     repost.Id, totalAffected);

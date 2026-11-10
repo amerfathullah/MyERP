@@ -108,7 +108,9 @@ public class BankTransactionRuleAppService : ApplicationService, IBankTransactio
 
     /// <summary>
     /// Evaluate all rules against unmatched bank transactions for a company.
+    /// Per ERPNext commit 7e2507da56: requires write/edit permission to execute rule evaluation.
     /// </summary>
+    [Authorize(MyERPPermissions.PaymentEntries.Edit)]
     public async Task<AutoMatchResultDto> EvaluateRulesAsync(EvaluateRulesDto input)
     {
         var result = await _service.EvaluateRulesAsync(input.CompanyId, input.ForceReEvaluate);
