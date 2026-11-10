@@ -283,4 +283,65 @@ public abstract class PickListAppService_Tests<TStartupModule> : MyERPApplicatio
             pl.Items[0].Qty.ShouldBe(4m);
         });
     }
+
+    [Fact]
+    public async Task CreateDeliveryNoteFromPickList_BundleSoldInOtherUom_MapsToDeliveryNoteInOrderUom_cf712fd6d2()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var bundleRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.ProductBundle, Guid>>();
+            var soRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new MyERP.Core.Entities.Company(Guid.NewGuid(), "PL Bundle UOM Co"), autoSave: true);
+            var seriesRepo = GetRequiredService<IRepository<MyERP.Core.Entities.DocumentSeries, Guid>>();
+            await seriesRepo.InsertAsync(new MyERP.Core.Entities.DocumentSeries(Guid.NewGuid(), company.Id, "DNS", "DeliveryNote", "DN-"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "PL Bundle UOM Cust"), autoSave: true);
+            var warehouse = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "PL Bundle UOM WH"), autoSave: true);
+
+            var bundleItem = new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "BND-BOX-PARENT", "Bundle Box Parent", ItemType.Goods) { MaintainStock = false };
+            var compItem = new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "BND-COMP-BOX", "Component Box", ItemType.Goods);
+            await itemRepo.InsertAsync(bundleItem, autoSave: true);
+            await itemRepo.InsertAsync(compItem, autoSave: true);
+
+            var bundle = new MyERP.Sales.Entities.ProductBundle(Guid.NewGuid(), bundleItem.Id);
+            bundle.AddItem(compItem.Id, 1m, "Component Box", "Unit");
+            await bundleRepo.InsertAsync(bundle, autoSave: true);
+
+            var so = new MyERP.Sales.Entities.SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-PL-BND-UOM-1", DateTime.Today);
+            so.AddItem(bundleItem.Id, "Bundle Box Parent", 3m, 200m, 0m, "Box");
+            var soItem = so.Items.Single();
+            soItem.ConversionFactor = 2m; // 3 Boxes = 6 Units
+            soItem.WarehouseId = warehouse.Id;
+            soItem.ProductBundleId = bundle.Id;
+            so.Submit();
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var pl = new MyERP.Inventory.Entities.PickList(Guid.NewGuid(), company.Id, "Delivery", null)
+            {
+                SalesOrderId = so.Id,
+                CustomerId = customer.Id,
+                PickListNumber = "PL-BND-UOM-001"
+            };
+            // 6 units picked for component item in stock UOM
+            pl.AddItem(compItem.Id, warehouse.Id, 6m, 6m, "Component Box", productBundleItemId: bundle.Items[0].Id);
+            pl.Items[0].SourceDocumentItemId = soItem.Id;
+            pl.Submit();
+            await _pickListRepository.InsertAsync(pl, autoSave: true);
+
+            // Per ERPNext commit cf712fd6d2: map a picked bundle to the delivery note in the order row's UOM
+            var dnId = await _pickListAppService.CreateDeliveryNoteFromPickListAsync(pl.Id);
+            var dn = await _deliveryNoteRepository.GetAsync(dnId);
+
+            dn.Items.Count.ShouldBe(1);
+            dn.Items[0].ItemId.ShouldBe(bundleItem.Id);
+            dn.Items[0].Uom.ShouldBe("Box");
+            dn.Items[0].Quantity.ShouldBe(3m); // 6 picked components / 2 factor = 3 Boxes
+            dn.Items[0].ConversionFactor.ShouldBe(2m);
+            dn.Items[0].StockQty.ShouldBe(6m);
+        });
+    }
 }

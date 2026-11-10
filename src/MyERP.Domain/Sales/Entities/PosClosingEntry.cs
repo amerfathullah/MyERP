@@ -23,7 +23,7 @@ public class PosClosingEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public Guid PosOpeningEntryId { get; set; }
     public Guid UserId { get; set; }
 
-    /// <summary>Always set to now() — per DO-NOT: cannot backdate POS Closing.</summary>
+    /// <summary>Posting date (defaults to UtcNow.Date; supports backdated session closing per PR #63506 / fa940f8e71).</summary>
     public DateTime PostingDate { get; set; }
     public DateTime PostingTime { get; set; }
 
@@ -51,15 +51,15 @@ public class PosClosingEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
     protected PosClosingEntry() { }
 
     public PosClosingEntry(Guid id, Guid companyId, Guid posProfileId, Guid posOpeningEntryId,
-        Guid userId, Guid? tenantId = null) : base(id)
+        Guid userId, Guid? tenantId = null, DateTime? postingDate = null, DateTime? postingTime = null) : base(id)
     {
         CompanyId = companyId;
         PosProfileId = posProfileId;
         PosOpeningEntryId = posOpeningEntryId;
         UserId = userId;
-        // Per ERPNext: posting_date/time always overridden to now
-        PostingDate = DateTime.UtcNow.Date;
-        PostingTime = DateTime.UtcNow;
+        // Per ERPNext PR #63506 / commit fa940f8e71: allow backdated POS sessions
+        PostingDate = (postingDate ?? DateTime.UtcNow).Date;
+        PostingTime = postingTime ?? (postingDate ?? DateTime.UtcNow);
         TenantId = tenantId;
     }
 

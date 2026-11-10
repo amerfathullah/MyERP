@@ -72,7 +72,8 @@ public class PosClosingAppService : ApplicationService, IPosClosingAppService
     {
         var entry = new PosClosingEntry(
             GuidGenerator.Create(), input.CompanyId, input.PosProfileId,
-            input.PosOpeningEntryId, input.UserId, CurrentTenant.Id);
+            input.PosOpeningEntryId, input.UserId, CurrentTenant.Id,
+            input.PostingDate, input.PostingTime);
 
         foreach (var inv in input.Invoices)
             entry.AddInvoice(inv.PosInvoiceId, inv.InvoiceNumber, inv.GrandTotal);

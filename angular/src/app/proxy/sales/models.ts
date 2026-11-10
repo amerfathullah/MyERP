@@ -257,6 +257,8 @@ export interface CreatePosClosingDto {
   posProfileId?: string;
   posOpeningEntryId?: string;
   userId?: string;
+  postingDate?: string | null;
+  postingTime?: string | null;
   invoices?: CreatePosClosingInvoiceDto[];
   payments?: CreatePosClosingPaymentDto[];
 }

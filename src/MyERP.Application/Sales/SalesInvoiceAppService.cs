@@ -672,20 +672,20 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             invoice.SupplierTin = company?.TaxId;
         }
 
-        // Per ERPNext PR #46907 / commit 3de1b22480: validate if pos is opened before pos invoice creation
+        // Per ERPNext PR #46907 / commit 3de1b22480 & PR #63506 / commit fa940f8e71: validate if pos is opened before pos invoice creation
         if (input.IsPos && !input.IsConsolidated)
         {
             var posOpeningRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosOpeningEntry, Guid>>();
             var openingQuery = await posOpeningRepo.GetQueryableAsync();
 
-            bool hasOpenSession;
             if (input.PosProfileId.HasValue)
             {
-                hasOpenSession = openingQuery.Any(e =>
+                var openSessions = openingQuery.Where(e =>
                     e.CompanyId == input.CompanyId
                     && e.PosProfileId == input.PosProfileId.Value
-                    && e.Status == PosOpeningStatus.Open);
-                if (!hasOpenSession)
+                    && e.Status == PosOpeningStatus.Open).ToList();
+
+                if (!openSessions.Any())
                 {
                     var profileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
                     var profile = await profileRepo.FindAsync(input.PosProfileId.Value);
@@ -693,10 +693,40 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                     throw new BusinessException(MyERPDomainErrorCodes.NoPosOpeningEntry)
                         .WithData("posProfile", profileName);
                 }
+
+                if (openSessions.Count > 1)
+                {
+                    var profileRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<PosProfile, Guid>>();
+                    var profile = await profileRepo.FindAsync(input.PosProfileId.Value);
+                    var profileName = profile?.ProfileName ?? input.PosProfileId.Value.ToString();
+                    throw new BusinessException(MyERPDomainErrorCodes.PosMultipleOpenSessions)
+                        .WithData("posProfile", profileName);
+                }
+
+                var openingEntry = openSessions[0];
+                var invoicePostingDateTime = input.IssueDate;
+                var openingStart = openingEntry.OpeningDate.Date.Add(openingEntry.OpeningTime.TimeOfDay);
+
+                if (invoicePostingDateTime.Date != openingEntry.OpeningDate.Date || invoicePostingDateTime < openingStart)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.PosPostingDateTimeBeforeOpening)
+                        .WithData("openingStart", openingStart.ToString("yyyy-MM-dd HH:mm:ss"));
+                }
+
+                if (invoicePostingDateTime.Date < DateTime.UtcNow.Date)
+                {
+                    // Backdated session allowed
+                }
+                else if (openingEntry.OpeningDate.Date != DateTime.UtcNow.Date)
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.PosOutdatedOpeningSession)
+                        .WithData("openingDate", openingEntry.OpeningDate.ToString("yyyy-MM-dd"))
+                        .WithData("currentDate", DateTime.UtcNow.ToString("yyyy-MM-dd"));
+                }
             }
             else
             {
-                hasOpenSession = openingQuery.Any(e =>
+                var hasOpenSession = openingQuery.Any(e =>
                     e.CompanyId == input.CompanyId
                     && e.Status == PosOpeningStatus.Open);
                 if (!hasOpenSession)

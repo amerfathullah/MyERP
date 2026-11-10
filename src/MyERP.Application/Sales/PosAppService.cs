@@ -87,15 +87,41 @@ public class PosAppService : ApplicationService, IPosAppService
                     .WithData("posProfile", profile.ProfileName);
             }
 
-            var hasActiveSession = openingQuery.Any(
+            var openSessions = openingQuery.Where(
                 e => e.CompanyId == input.CompanyId
                     && e.PosProfileId == input.PosProfileId.Value
-                    && e.Status == PosOpeningStatus.Open);
-            if (!hasActiveSession)
+                    && e.Status == PosOpeningStatus.Open).ToList();
+            if (!openSessions.Any())
             {
                 var profileName = profile.ProfileName;
                 throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.NoPosOpeningEntry)
                     .WithData("posProfile", profileName);
+            }
+            if (openSessions.Count > 1)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PosMultipleOpenSessions)
+                    .WithData("posProfile", profile.ProfileName);
+            }
+
+            var openingEntry = openSessions[0];
+            var now = DateTime.UtcNow;
+            var openingStart = openingEntry.OpeningDate.Date.Add(openingEntry.OpeningTime.TimeOfDay);
+
+            // Per ERPNext PR #63506 / commit fa940f8e71: allow backdated POS sessions
+            if (now.Date != openingEntry.OpeningDate.Date || now < openingStart)
+            {
+                if (now.Date < openingEntry.OpeningDate.Date || now < openingStart)
+                {
+                    throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PosPostingDateTimeBeforeOpening)
+                        .WithData("openingStart", openingStart.ToString("yyyy-MM-dd HH:mm:ss"));
+                }
+            }
+
+            if (openingEntry.OpeningDate.Date != DateTime.UtcNow.Date)
+            {
+                throw new Volo.Abp.BusinessException(MyERPDomainErrorCodes.PosOutdatedOpeningSession)
+                    .WithData("openingDate", openingEntry.OpeningDate.ToString("yyyy-MM-dd"))
+                    .WithData("currentDate", DateTime.UtcNow.ToString("yyyy-MM-dd"));
             }
         }
         else

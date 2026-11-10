@@ -309,4 +309,40 @@ public class PosPickListBundleConversionTests
         pl.Items.First().RecordTransfer(5m);
         Assert.Throws<BusinessException>(() => pl.Cancel());
     }
+
+    [Fact]
+    public void PosClosing_BackdatedSession_SupportsCustomPostingDateAndTime_fa940f8e71()
+    {
+        var backdatedDate = DateTime.UtcNow.Date.AddDays(-5);
+        var backdatedTime = backdatedDate.AddHours(9);
+
+        var entry = new PosClosingEntry(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            postingDate: backdatedDate, postingTime: backdatedTime);
+
+        Assert.Equal(backdatedDate, entry.PostingDate);
+        Assert.Equal(backdatedTime, entry.PostingTime);
+    }
+
+    [Fact]
+    public void PickList_BundleComponentInOrderWithOtherUom_ResolveRowUomAndStockQty_4bc35c4698()
+    {
+        var itemId = Guid.NewGuid();
+        var soRowId = Guid.NewGuid();
+        var bundleItemId = Guid.NewGuid();
+
+        // When bundle component row has productBundleItemId, component stock qty is resolved with factor 1
+        var (uom, factor, stockQty) = MyERP.Inventory.DomainServices.PickListManager.ResolveRowUomAndStockQty(
+            itemId: itemId,
+            stockUom: "Unit",
+            rowUom: "Unit",
+            qty: 6m,
+            sourceDocumentItemId: soRowId,
+            productBundleItemId: bundleItemId,
+            orderedConversionFactors: null);
+
+        Assert.Equal("Unit", uom);
+        Assert.Equal(1m, factor);
+        Assert.Equal(6m, stockQty);
+    }
 }

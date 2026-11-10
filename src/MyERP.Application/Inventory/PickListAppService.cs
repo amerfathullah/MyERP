@@ -149,7 +149,14 @@ public class PickListAppService : ApplicationService, IPickListAppService
             var requestedUom = !string.IsNullOrWhiteSpace(item.Uom) ? item.Uom.Trim() : stockUom;
             var itemMasterFactor = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
 
-            if (!string.Equals(requestedUom, stockUom, StringComparison.OrdinalIgnoreCase) && uomService != null && itemEntity != null)
+            if (item.ProductBundleItemId.HasValue)
+            {
+                // Per ERPNext PR #65236 / commit 4bc35c4698 / dd2f8b9482:
+                // Packed qty is in the component's stock UOM, not the bundle row's UOM
+                requestedUom = stockUom;
+                itemMasterFactor = 1m;
+            }
+            else if (!string.Equals(requestedUom, stockUom, StringComparison.OrdinalIgnoreCase) && uomService != null && itemEntity != null)
             {
                 try
                 {
@@ -512,21 +519,27 @@ public class PickListAppService : ApplicationService, IPickListAppService
                 {
                     // Per ERPNext commit e3c6082498: count picked minus delivered per component row and skip bundles with nothing left
                     var componentStockQtyMap = await BuildBundleComponentStockQtyMapAsync(
-                    bundle, itemRepo, uomService, pickRows, soItem.StockQty);
+                        bundle, itemRepo, uomService, pickRows, soItem.StockQty);
                     var pendingBundles = PickListManager.ComputePickedQtyForBundle(
                         pickRows, soItem.Id, componentStockQtyMap, pendingOnly: true);
 
                     if (pendingBundles <= 0)
                         continue;
 
+                    // Per ERPNext commit cf712fd6d2: map a picked bundle to the delivery note in the order row's UOM
+                    var bundleConversionFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                    var pendingOrderQty = Math.Round(pendingBundles / bundleConversionFactor, 4);
+                    if (pendingOrderQty <= 0)
+                        continue;
+
                     var perBundleTax = soItem.Quantity != 0
-                        ? Math.Round(soItem.TaxAmount / soItem.Quantity * pendingBundles, 2)
+                        ? Math.Round(soItem.TaxAmount / soItem.Quantity * pendingOrderQty, 2)
                         : 0m;
 
                     dn.AddItem(
                         soItem.ItemId,
                         soItem.Description ?? string.Empty,
-                        pendingBundles,
+                        pendingOrderQty,
                         soItem.UnitPrice,
                         perBundleTax,
                         soItem.Uom ?? "Unit",
@@ -535,7 +548,7 @@ public class PickListAppService : ApplicationService, IPickListAppService
 
                     var addedBundleRow = dn.Items[^1];
                     addedBundleRow.StockUom = soItem.StockUom;
-                    addedBundleRow.ConversionFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                    addedBundleRow.ConversionFactor = bundleConversionFactor;
                     addedBundleRow.WarehouseId = soItem.WarehouseId ?? pickRows.First().WarehouseId;
                 }
                 else

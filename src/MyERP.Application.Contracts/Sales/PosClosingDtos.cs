@@ -39,6 +39,8 @@ public class CreatePosClosingDto
     public Guid PosProfileId { get; set; }
     public Guid PosOpeningEntryId { get; set; }
     public Guid UserId { get; set; }
+    public DateTime? PostingDate { get; set; }
+    public DateTime? PostingTime { get; set; }
     public List<CreatePosClosingInvoiceDto> Invoices { get; set; } = new();
     public List<CreatePosClosingPaymentDto> Payments { get; set; } = new();
 }
