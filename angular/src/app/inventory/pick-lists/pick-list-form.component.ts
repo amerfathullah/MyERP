@@ -198,35 +198,21 @@ export class PickListFormComponent implements OnInit {
   }
 
   private populateFromSalesOrder(salesOrderId: string) {
-    this.salesOrderProxyService.get(salesOrderId).subscribe({
-      next: (so: any) => {
-        if (so.customerId) this.form.patchValue({ customerId: so.customerId });
-        if (so.companyId) this.form.patchValue({ companyId: so.companyId });
-
-        const defaultWh = this.warehouses()[0]?.id ?? '';
-        // Per ERPNext commit 754475b51a: skip closed, drop-ship, skip-delivery, and already delivered rows
-        const pickableRows = (so.items || []).filter((row: any) =>
-          !row.isClosed
-          && !row.deliveredBySupplier
-          && !row.skipDelivery
-          && Math.abs(row.deliveredQty ?? 0) < Math.abs(row.quantity ?? 0)
-        );
+    this.service.getPickItemsFromSalesOrder(salesOrderId).subscribe({
+      next: (mapping) => {
+        if (mapping.customerId) this.form.patchValue({ customerId: mapping.customerId });
+        if (mapping.companyId) this.form.patchValue({ companyId: mapping.companyId });
 
         this.itemsArray.clear();
-        for (const row of pickableRows) {
-          const factor = row.conversionFactor > 0 ? row.conversionFactor : 1;
-          const pickedInOrderUom = (row.pickedQty ?? 0) / factor;
-          const remainingOrderQty = (row.quantity ?? 0) - Math.max(pickedInOrderUom, row.deliveredQty ?? 0);
-          const stockQty = Math.round(remainingOrderQty * factor * 10000) / 10000;
-          if (stockQty <= 0) continue;
-
+        for (const row of mapping.items || []) {
           this.itemsArray.push(this.fb.group({
             itemId: [row.itemId, Validators.required],
-            warehouseId: [row.warehouseId || defaultWh, Validators.required],
-            quantity: [remainingOrderQty, [Validators.required, Validators.min(0.01)]],
+            warehouseId: [row.warehouseId, Validators.required],
+            quantity: [row.qty, [Validators.required, Validators.min(0.0001)]],
             uom: [row.uom || ''],
-            conversionFactor: [factor],
-            sourceDocumentItemId: [row.id || ''],
+            conversionFactor: [row.conversionFactor || 1],
+            sourceDocumentItemId: [row.sourceDocumentItemId || ''],
+            productBundleItemId: [row.productBundleItemId || null],
           }));
         }
 
@@ -248,6 +234,7 @@ export class PickListFormComponent implements OnInit {
       uom: [''],
       conversionFactor: [1],
       sourceDocumentItemId: [''],
+      productBundleItemId: [null],
     }));
   }
 
@@ -271,6 +258,7 @@ export class PickListFormComponent implements OnInit {
         uom: i.uom || undefined,
         conversionFactor: Number(i.conversionFactor) > 0 ? Number(i.conversionFactor) : 1,
         sourceDocumentItemId: i.sourceDocumentItemId || undefined,
+        productBundleItemId: i.productBundleItemId || undefined,
       })),
     };
 

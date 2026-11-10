@@ -315,6 +315,13 @@ export interface CreatePickListItemDto {
   sourceDocumentItemId?: string | null;
 }
 
+export interface PickListOrderMappingDto {
+  companyId?: string;
+  customerId?: string;
+  salesOrderId?: string;
+  items?: CreatePickListItemDto[];
+}
+
 export interface CreateQiTemplateDto {
   name?: string;
   description?: string | null;

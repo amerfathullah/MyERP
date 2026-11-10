@@ -1,4 +1,4 @@
-import type { CreatePickListDto, PendingTransferDto, PickAllocationResultDto, PickListDto, StockAvailabilityInsightDto } from './models';
+import type { CreatePickListDto, PendingTransferDto, PickAllocationResultDto, PickListDto, PickListOrderMappingDto, StockAvailabilityInsightDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -67,6 +67,14 @@ export class PickListService {
     this.restService.request<any, PendingTransferDto[]>({
       method: 'GET',
       url: `/api/app/pick-list/${id}/pending-transfers`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  getPickItemsFromSalesOrder = (salesOrderId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PickListOrderMappingDto>({
+      method: 'GET',
+      url: `/api/app/pick-list/pick-items-from-sales-order/${salesOrderId}`,
     },
     { apiName: this.apiName,...config });
   

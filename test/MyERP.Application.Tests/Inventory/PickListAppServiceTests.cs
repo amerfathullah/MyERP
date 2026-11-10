@@ -344,4 +344,147 @@ public abstract class PickListAppService_Tests<TStartupModule> : MyERPApplicatio
             dn.Items[0].StockQty.ShouldBe(6m);
         });
     }
+
+    [Fact]
+    public async Task GetPickItemsFromSalesOrderAsync_DraftOrder_ThrowsInvalidStatusTransition()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var soRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new MyERP.Core.Entities.Company(Guid.NewGuid(), "PL Draft Co"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "PL Draft Cust"), autoSave: true);
+
+            var so = new MyERP.Sales.Entities.SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-PL-DRAFT-1", DateTime.Today);
+            so.AddItem(Guid.NewGuid(), "Item 1", 5m, 10m, 0m, "Unit");
+            // Still draft, not submitted
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(async () =>
+            {
+                await _pickListAppService.GetPickItemsFromSalesOrderAsync(so.Id);
+            });
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.InvalidStatusTransition);
+        });
+    }
+
+    [Fact]
+    public async Task GetPickItemsFromSalesOrderAsync_ActiveSre_ThrowsReservationConflict()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var soRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+            var sreRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.StockReservationEntry, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new MyERP.Core.Entities.Company(Guid.NewGuid(), "PL SRE Co"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "PL SRE Cust"), autoSave: true);
+            var warehouse = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "PL SRE WH"), autoSave: true);
+
+            var itemId = Guid.NewGuid();
+            var so = new MyERP.Sales.Entities.SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-PL-SRE-1", DateTime.Today);
+            so.AddItem(itemId, "Item 1", 5m, 10m, 0m, "Unit");
+            so.Submit();
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            var sre = new MyERP.Inventory.Entities.StockReservationEntry(
+                Guid.NewGuid(), company.Id, itemId, warehouse.Id, "SalesOrder", so.Id, 5m, 5m);
+            sre.Submit();
+            await sreRepo.InsertAsync(sre, autoSave: true);
+
+            var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(async () =>
+            {
+                await _pickListAppService.GetPickItemsFromSalesOrderAsync(so.Id);
+            });
+            ex.Code.ShouldBe("MyERP:13020");
+        });
+    }
+
+    [Fact]
+    public async Task GetPickItemsFromSalesOrderAsync_ProductBundle_MapsComponentsAndPicksRemaining()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<MyERP.Core.Entities.Company, Guid>>();
+            var customerRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.Customer, Guid>>();
+            var soRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+            var whRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Warehouse, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+            var bundleRepo = GetRequiredService<IRepository<MyERP.Sales.Entities.ProductBundle, Guid>>();
+
+            var company = await companyRepo.InsertAsync(new MyERP.Core.Entities.Company(Guid.NewGuid(), "PL Bnd Map Co"), autoSave: true);
+            var customer = await customerRepo.InsertAsync(new MyERP.Sales.Entities.Customer(Guid.NewGuid(), company.Id, "PL Bnd Map Cust"), autoSave: true);
+            var warehouse = await whRepo.InsertAsync(new MyERP.Inventory.Entities.Warehouse(Guid.NewGuid(), company.Id, "PL Bnd Map WH"), autoSave: true);
+
+            var bundleItem = new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "BND-MAP-PARENT", "Bundle Map Parent", ItemType.Goods) { MaintainStock = false };
+            var compItemA = new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "BND-COMP-A", "Component A", ItemType.Goods);
+            var compItemB = new MyERP.Inventory.Entities.Item(Guid.NewGuid(), company.Id, "BND-COMP-B", "Component B", ItemType.Goods);
+            await itemRepo.InsertAsync(bundleItem, autoSave: true);
+            await itemRepo.InsertAsync(compItemA, autoSave: true);
+            await itemRepo.InsertAsync(compItemB, autoSave: true);
+
+            var bundle = new MyERP.Sales.Entities.ProductBundle(Guid.NewGuid(), bundleItem.Id);
+            bundle.AddItem(compItemA.Id, 1m, "Component A", "Unit");
+            bundle.AddItem(compItemB.Id, 2m, "Component B", "Unit");
+            await bundleRepo.InsertAsync(bundle, autoSave: true);
+
+            var so = new MyERP.Sales.Entities.SalesOrder(Guid.NewGuid(), company.Id, customer.Id, "SO-PL-BND-MAP-1", DateTime.Today);
+            so.AddItem(bundleItem.Id, "Bundle Map Parent", 3m, 200m, 0m, "Box");
+            var soItem = so.Items.Single();
+            soItem.ConversionFactor = 2m; // 3 Boxes = 6 Units
+            soItem.WarehouseId = warehouse.Id;
+            soItem.ProductBundleId = bundle.Id;
+            so.Submit();
+            await soRepo.InsertAsync(so, autoSave: true);
+
+            // 1. Initial mapping should include Comp A (6 units) and Comp B (12 units)
+            var initialMapping = await _pickListAppService.GetPickItemsFromSalesOrderAsync(so.Id);
+            initialMapping.SalesOrderId.ShouldBe(so.Id);
+            initialMapping.CustomerId.ShouldBe(customer.Id);
+            initialMapping.Items.Count.ShouldBe(2);
+
+            var rowA = initialMapping.Items.Single(i => i.ItemId == compItemA.Id);
+            rowA.Qty.ShouldBe(6m);
+            rowA.StockQty.ShouldBe(6m);
+            rowA.ConversionFactor.ShouldBe(1m);
+            rowA.ProductBundleItemId.ShouldBe(bundle.Items[0].Id);
+            rowA.SourceDocumentItemId.ShouldBe(soItem.Id);
+
+            var rowB = initialMapping.Items.Single(i => i.ItemId == compItemB.Id);
+            rowB.Qty.ShouldBe(12m);
+            rowB.StockQty.ShouldBe(12m);
+            rowB.ConversionFactor.ShouldBe(1m);
+            rowB.ProductBundleItemId.ShouldBe(bundle.Items[1].Id);
+            rowB.SourceDocumentItemId.ShouldBe(soItem.Id);
+
+            // 2. Submit a partial Pick List picking 6 Comp A and 6 Comp B (PR #65115 / commit 51954d883a)
+            var pl1 = new MyERP.Inventory.Entities.PickList(Guid.NewGuid(), company.Id, "Delivery", null)
+            {
+                SalesOrderId = so.Id,
+                CustomerId = customer.Id,
+                PickListNumber = "PL-PARTIAL-001"
+            };
+            pl1.AddItem(compItemA.Id, warehouse.Id, 6m, 6m, "Component A", productBundleItemId: bundle.Items[0].Id);
+            pl1.Items[0].SourceDocumentItemId = soItem.Id;
+            pl1.AddItem(compItemB.Id, warehouse.Id, 6m, 6m, "Component B", productBundleItemId: bundle.Items[1].Id);
+            pl1.Items[1].SourceDocumentItemId = soItem.Id;
+            pl1.Submit();
+            await _pickListRepository.InsertAsync(pl1, autoSave: true);
+
+            // 3. Second mapping should omit Comp A (fully picked) and return only remaining 6 for Comp B
+            var secondMapping = await _pickListAppService.GetPickItemsFromSalesOrderAsync(so.Id);
+            secondMapping.Items.Count.ShouldBe(1);
+            var remainingB = secondMapping.Items.Single();
+            remainingB.ItemId.ShouldBe(compItemB.Id);
+            remainingB.Qty.ShouldBe(6m); // 12 total - 6 picked = 6 left
+            remainingB.StockQty.ShouldBe(6m);
+            remainingB.ConversionFactor.ShouldBe(1m);
+            remainingB.ProductBundleItemId.ShouldBe(bundle.Items[1].Id);
+            remainingB.SourceDocumentItemId.ShouldBe(soItem.Id);
+        });
+    }
 }

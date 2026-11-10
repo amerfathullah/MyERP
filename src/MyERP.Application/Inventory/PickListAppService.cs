@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
+using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
 
 namespace MyERP.Inventory;
@@ -20,8 +21,30 @@ namespace MyERP.Inventory;
 public class PickListAppService : ApplicationService, IPickListAppService
 {
     private readonly IRepository<PickList, Guid> _repository;
+    private readonly IRepository<MyERP.Sales.Entities.SalesOrder, Guid>? _salesOrderRepository;
+    private readonly IRepository<MyERP.Sales.Entities.ProductBundle, Guid>? _productBundleRepository;
+    private readonly IRepository<Item, Guid>? _itemRepository;
+    private readonly IRepository<StockReservationEntry, Guid>? _sreRepository;
+    private readonly IRepository<Warehouse, Guid>? _warehouseRepository;
+    private readonly UomConversionService? _uomConversionService;
 
-    public PickListAppService(IRepository<PickList, Guid> repository) => _repository = repository;
+    public PickListAppService(
+        IRepository<PickList, Guid> repository,
+        IRepository<MyERP.Sales.Entities.SalesOrder, Guid>? salesOrderRepository = null,
+        IRepository<MyERP.Sales.Entities.ProductBundle, Guid>? productBundleRepository = null,
+        IRepository<Item, Guid>? itemRepository = null,
+        IRepository<StockReservationEntry, Guid>? sreRepository = null,
+        IRepository<Warehouse, Guid>? warehouseRepository = null,
+        UomConversionService? uomConversionService = null)
+    {
+        _repository = repository;
+        _salesOrderRepository = salesOrderRepository;
+        _productBundleRepository = productBundleRepository;
+        _itemRepository = itemRepository;
+        _sreRepository = sreRepository;
+        _warehouseRepository = warehouseRepository;
+        _uomConversionService = uomConversionService;
+    }
 
     public async Task<PagedResultDto<PickListDto>> GetListAsync(CompanyFilteredPagedRequestDto input)
     {
@@ -415,6 +438,184 @@ public class PickListAppService : ApplicationService, IPickListAppService
             PendingQty = pt.PendingQty,
             BatchId = pt.BatchId,
         }).ToList();
+    }
+
+    /// <summary>
+    /// Gets pick list items for a Sales Order, mapping bundle components to packed item rows
+    /// with stock UOM (PR #65181), conversion factor = 1 (PR #65241), and calculating remaining
+    /// qty to pick per individual component (PR #65115 / commit 51954d883a).
+    /// </summary>
+    [Authorize(MyERPPermissions.StockEntries.Default)]
+    public async Task<PickListOrderMappingDto> GetPickItemsFromSalesOrderAsync(Guid salesOrderId)
+    {
+        var soRepo = _salesOrderRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.SalesOrder, Guid>>();
+        var so = await soRepo.FindAsync(salesOrderId, includeDetails: true);
+        if (so == null)
+        {
+            throw new EntityNotFoundException(typeof(MyERP.Sales.Entities.SalesOrder), salesOrderId);
+        }
+
+        if (so.Status is DocumentStatus.Draft
+            or DocumentStatus.Cancelled
+            or DocumentStatus.Closed)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition)
+                .WithData("detail", $"Cannot create Pick List from Sales Order in status '{so.Status}'.");
+        }
+
+        // SRE conflict check per gotcha #3533
+        var sreRepo = _sreRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<StockReservationEntry, Guid>>();
+        var activeSre = await sreRepo.FindAsync(s =>
+            s.VoucherType == "SalesOrder"
+            && s.VoucherId == salesOrderId
+            && s.Status == DocumentStatus.Submitted
+            && (s.ReservedQty - s.DeliveredQty - s.TransferredQty - s.ConsumedQty) > 0);
+
+        if (activeSre != null)
+        {
+            throw new BusinessException("MyERP:13020")
+                .WithData("reason", "Cannot create Pick List for Sales Order because stock has already been reserved via Stock Reservation Entries. Deliver directly against the reservation or cancel reservations first.");
+        }
+
+        var bundleRepo = _productBundleRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<MyERP.Sales.Entities.ProductBundle, Guid>>();
+        var bundleQueryable = await bundleRepo.GetQueryableAsync();
+        var itemRepo = _itemRepository ?? LazyServiceProvider.LazyGetRequiredService<IRepository<Item, Guid>>();
+        var uomService = _uomConversionService ?? LazyServiceProvider?.LazyGetService<UomConversionService>();
+
+        // Query existing submitted pick lists to find previously picked quantities per component or item
+        var existingPickLists = (await _repository.GetQueryableAsync())
+            .Where(p => p.SalesOrderId == salesOrderId && p.Status == DocumentStatus.Submitted)
+            .ToList();
+        var existingPickRows = existingPickLists.SelectMany(p => p.Items).ToList();
+
+        var defaultWarehouseId = so.Items.FirstOrDefault(i => i.WarehouseId.HasValue)?.WarehouseId;
+        if (!defaultWarehouseId.HasValue)
+        {
+            var whRepo = _warehouseRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Warehouse, Guid>>();
+            if (whRepo != null)
+            {
+                var wh = (await whRepo.GetQueryableAsync())
+                    .FirstOrDefault(w => w.CompanyId == so.CompanyId && !w.IsGroup && w.IsActive);
+                defaultWarehouseId = wh?.Id;
+            }
+        }
+
+        var result = new PickListOrderMappingDto
+        {
+            CompanyId = so.CompanyId,
+            CustomerId = so.CustomerId,
+            SalesOrderId = so.Id,
+        };
+
+        foreach (var soItem in so.Items)
+        {
+            // Per ERPNext commit 754475b51a: skip closed, drop-ship, skip-delivery, and already delivered rows
+            if (soItem.IsClosed || soItem.DeliveredBySupplier || soItem.SkipDelivery)
+                continue;
+
+            if (Math.Abs(soItem.DeliveredQty) >= Math.Abs(soItem.Quantity))
+                continue;
+
+            MyERP.Sales.Entities.ProductBundle? bundle = null;
+            if (soItem.ProductBundleId.HasValue)
+            {
+                bundle = bundleQueryable.FirstOrDefault(b => b.Id == soItem.ProductBundleId.Value);
+            }
+            bundle ??= bundleQueryable.FirstOrDefault(b => b.ItemId == soItem.ItemId && b.IsActive && !b.IsDisabled);
+
+            if (bundle != null && bundle.Items.Count > 0)
+            {
+                var compIds = bundle.Items.Select(c => c.ComponentItemId).Distinct().ToList();
+                var compItems = (await itemRepo.GetQueryableAsync())
+                    .Where(i => compIds.Contains(i.Id))
+                    .ToDictionary(i => i.Id);
+
+                var soOrderQty = Math.Abs(soItem.Quantity);
+                var soFactor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                var soStockQty = soOrderQty * soFactor;
+
+                foreach (var comp in bundle.Items)
+                {
+                    if (!compItems.TryGetValue(comp.ComponentItemId, out var compItem) || !compItem.MaintainStock)
+                        continue;
+
+                    var compFactor = 1m;
+                    if (!string.IsNullOrWhiteSpace(comp.Uom) && uomService != null)
+                    {
+                        try
+                        {
+                            compFactor = await uomService.GetConversionFactorAsync(
+                                compItem.Id, comp.Uom, compItem.Uom, compItem.VariantOfId);
+                        }
+                        catch { }
+                    }
+
+                    // Total required stock qty for this component across the whole SO order row
+                    var totalCompStockQty = comp.Qty * compFactor * soStockQty;
+
+                    // Component delivered qty proportional to parent bundle delivery
+                    var compDeliveredStockQty = soOrderQty != 0
+                        ? (totalCompStockQty * Math.Abs(soItem.DeliveredQty) / soOrderQty)
+                        : 0m;
+
+                    // Component picked stock qty across existing submitted pick lists
+                    var compPickedStockQty = existingPickRows
+                        .Where(p => p.SourceDocumentItemId == soItem.Id && (p.ProductBundleItemId == comp.Id || p.ItemId == comp.ComponentItemId))
+                        .Sum(p => p.StockQty > 0 ? p.StockQty : p.Qty);
+
+                    // Per ERPNext commit 51954d883a (get_packed_qty_to_pick):
+                    var remainingCompStockQty = Math.Round(Math.Max(0m, totalCompStockQty - Math.Max(compPickedStockQty, compDeliveredStockQty)), 4);
+                    if (remainingCompStockQty <= 0)
+                        continue;
+
+                    // Packed qty is in component's stock UOM, conversion factor = 1 (PR #65241 / #65181)
+                    var compStockUom = compItem.Uom ?? "Unit";
+                    result.Items.Add(new CreatePickListItemDto
+                    {
+                        ItemId = comp.ComponentItemId,
+                        ItemName = compItem.ItemName,
+                        WarehouseId = soItem.WarehouseId ?? defaultWarehouseId ?? Guid.Empty,
+                        Qty = remainingCompStockQty,
+                        StockQty = remainingCompStockQty,
+                        Uom = compStockUom,
+                        StockUom = compStockUom,
+                        ConversionFactor = 1m,
+                        ProductBundleItemId = comp.Id,
+                        SourceDocumentItemId = soItem.Id,
+                    });
+                }
+            }
+            else
+            {
+                var itemEntity = await itemRepo.FindAsync(soItem.ItemId);
+                if (itemEntity != null && !itemEntity.MaintainStock)
+                    continue;
+
+                var factor = soItem.ConversionFactor > 0 ? soItem.ConversionFactor : 1m;
+                var pickedInOrderUom = soItem.PickedQty / factor;
+                var remainingOrderQty = Math.Max(0m, soItem.Quantity - Math.Max(pickedInOrderUom, soItem.DeliveredQty));
+                var stockQty = Math.Round(remainingOrderQty * factor, 4);
+                if (stockQty <= 0)
+                    continue;
+
+                var stockUom = itemEntity?.Uom ?? soItem.StockUom ?? "Unit";
+                result.Items.Add(new CreatePickListItemDto
+                {
+                    ItemId = soItem.ItemId,
+                    ItemName = itemEntity?.ItemName ?? soItem.Description,
+                    WarehouseId = soItem.WarehouseId ?? defaultWarehouseId ?? Guid.Empty,
+                    Qty = remainingOrderQty,
+                    StockQty = stockQty,
+                    Uom = soItem.Uom,
+                    StockUom = stockUom,
+                    ConversionFactor = factor,
+                    ProductBundleItemId = null,
+                    SourceDocumentItemId = soItem.Id,
+                });
+            }
+        }
+
+        return result;
     }
 
     /// <summary>

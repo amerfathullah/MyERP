@@ -117,3 +117,11 @@ public class PendingTransferDto
     public decimal PendingQty { get; set; }
     public Guid? BatchId { get; set; }
 }
+
+public class PickListOrderMappingDto
+{
+    public Guid CompanyId { get; set; }
+    public Guid CustomerId { get; set; }
+    public Guid SalesOrderId { get; set; }
+    public List<CreatePickListItemDto> Items { get; set; } = new();
+}

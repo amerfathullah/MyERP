@@ -17,6 +17,7 @@ public interface IPickListAppService : IApplicationService
     Task<PickAllocationResultDto> AllocateStockAsync(Guid id);
     Task<List<StockAvailabilityInsightDto>> GetStockAvailabilityInsightAsync(Guid id);
     Task<List<PendingTransferDto>> GetPendingTransfersAsync(Guid id);
+    Task<PickListOrderMappingDto> GetPickItemsFromSalesOrderAsync(Guid salesOrderId);
     Task<Guid> CreateDeliveryNoteFromPickListAsync(Guid pickListId, Guid? salesOrderId = null);
     Task<PickListDto> CreateStockReservationEntriesAsync(Guid id);
     Task<PickListDto> CancelStockReservationEntriesAsync(Guid id);
