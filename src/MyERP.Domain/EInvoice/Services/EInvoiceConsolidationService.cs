@@ -43,14 +43,14 @@ public class EInvoiceConsolidationService : DomainService
     public async Task<List<Guid>> ConsolidateInvoicesAsync(List<Guid> invoiceIds, Guid companyId, Guid? tenantId = null)
     {
         if (invoiceIds == null || invoiceIds.Count < 2)
-            throw new BusinessException("EInvoice:002", "Please select at least two Sales Invoices to merge.");
+            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceConsolidationAtLeastTwoInvoices, "Please select at least two Sales Invoices to merge.");
 
         var invoices = (await _salesInvoiceRepository.WithDetailsAsync(i => i.Items))
             .Where(i => invoiceIds.Contains(i.Id) && i.CompanyId == companyId)
             .ToList();
 
         if (invoices.Count == 0)
-            throw new BusinessException("EInvoice:003", "No valid Sales Invoices found.");
+            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceConsolidationNoValidInvoices, "No valid Sales Invoices found.");
 
         // B2C consolidation only — reject any invoice whose buyer has a real registered TIN.
         // LHDN requires B2B invoices to carry the actual buyer TIN on their own individual
@@ -67,7 +67,7 @@ public class EInvoiceConsolidationService : DomainService
             .ToList();
         if (b2bInvoices.Count > 0)
         {
-            throw new BusinessException("EInvoice:005", "Cannot consolidate B2B invoices — invoices with a registered buyer TIN must be submitted individually.")
+            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceConsolidationB2BNotAllowed, "Cannot consolidate B2B invoices — invoices with a registered buyer TIN must be submitted individually.")
                 .WithData("invoiceNumbers", string.Join(", ", b2bInvoices.Select(i => i.InvoiceNumber)));
         }
 
@@ -76,11 +76,13 @@ public class EInvoiceConsolidationService : DomainService
         if (existingConsolidations.Any())
         {
             var alreadyMergedIds = existingConsolidations.Select(c => c.OriginalInvoiceId).ToList();
-            throw new BusinessException("EInvoice:004", $"Some invoices are already consolidated: {string.Join(", ", alreadyMergedIds)}");
+            throw new BusinessException(MyERPDomainErrorCodes.EInvoiceConsolidationAlreadyConsolidated, $"Some invoices are already consolidated: {string.Join(", ", alreadyMergedIds)}");
         }
 
         var createdInvoiceIds = new List<Guid>();
         var baseInvoice = invoices.First();
+        var earliestIssueDate = invoices.Min(i => i.IssueDate);
+        var latestDueDate = invoices.Max(i => i.DueDate ?? i.IssueDate);
 
         // Create the consolidated invoice
         var consolidatedInvoice = new SalesInvoice(
@@ -88,10 +90,11 @@ public class EInvoiceConsolidationService : DomainService
             baseInvoice.CompanyId,
             baseInvoice.CustomerId, // Should be General Public customer ideally
             _guidGenerator.Create().ToString("N"),
-            baseInvoice.IssueDate,
+            earliestIssueDate,
             tenantId
         )
         {
+            DueDate = latestDueDate,
             CurrencyCode = baseInvoice.CurrencyCode,
             Notes = $"Merged from {invoices.Count} invoices",
             BuyerTin = EInvoiceConsts.GenericBuyerTin,
@@ -101,6 +104,7 @@ public class EInvoiceConsolidationService : DomainService
         };
 
         var consolidatedItems = new Dictionary<string, SalesInvoiceItem>();
+        var singleInvoicesToCreate = new List<(SalesInvoice singleInvoice, Guid originalInvoiceId)>();
 
         foreach (var inv in invoices)
         {
@@ -119,8 +123,9 @@ public class EInvoiceConsolidationService : DomainService
                         inv.IssueDate,
                         tenantId)
                     {
+                        DueDate = inv.DueDate,
                         CurrencyCode = inv.CurrencyCode,
-                        Notes = $"Auto-created from item exceeding 10,000 in original invoice",
+                        Notes = "Auto-created from item exceeding 10,000 in original invoice",
                         BuyerTin = !string.IsNullOrWhiteSpace(inv.BuyerTin) ? inv.BuyerTin : EInvoiceConsts.GenericBuyerTin,
                         IsConsolidated = false,
                         EInvoiceDocType = EInvoiceDocumentType.Invoice,
@@ -136,17 +141,7 @@ public class EInvoiceConsolidationService : DomainService
                         item.Uom
                     );
                     
-                    await _salesInvoiceRepository.InsertAsync(singleInvoice);
-                    createdInvoiceIds.Add(singleInvoice.Id);
-                    
-                    await _consolidationRepository.InsertAsync(new EInvoiceConsolidation(
-                        _guidGenerator.Create(),
-                        companyId,
-                        singleInvoice.Id,
-                        inv.Id,
-                        tenantId
-                    ));
-                    
+                    singleInvoicesToCreate.Add((singleInvoice, inv.Id));
                     continue;
                 }
 
@@ -154,9 +149,6 @@ public class EInvoiceConsolidationService : DomainService
                 var key = $"{item.ItemId}_{item.UnitPrice}";
                 if (consolidatedItems.TryGetValue(key, out var existingItem))
                 {
-                    // Assuming we have a way to update quantity, but SalesInvoiceItem properties might be private setter.
-                    // If immutable, we recreate it or use internal methods. Here we assume we can add a new item or there's a Merge logic.
-                    // For now, just add as separate lines in consolidated invoice if we can't mutate.
                     consolidatedInvoice.AddItem(
                         item.ItemId,
                         item.Description,
@@ -176,36 +168,53 @@ public class EInvoiceConsolidationService : DomainService
                         item.TaxAmount,
                         item.Uom
                     );
-                    // Just adding it to dictionary to track, though we aren't merging quantities here due to DDD rules.
                     consolidatedItems[key] = item;
                 }
             }
         }
 
+        // Rule: if all items were excluded (>10,000), abort without saving (consolidate_invoice.py line 841)
+        if (!consolidatedInvoice.Items.Any())
+        {
+            throw new BusinessException(
+                MyERPDomainErrorCodes.EInvoiceAllItemsExceedConsolidationThreshold,
+                "All items were excluded because their amount exceeded 10,000. Consolidated invoice not created.");
+        }
+
         // Calculate totals for consolidated invoice (done automatically in AddItem)
         consolidatedInvoice.ApplyRounding();
 
-        // If it has items, save it
-        if (consolidatedInvoice.Items.Any())
+        await _salesInvoiceRepository.InsertAsync(consolidatedInvoice);
+        createdInvoiceIds.Add(consolidatedInvoice.Id);
+
+        foreach (var inv in invoices)
         {
-            await _salesInvoiceRepository.InsertAsync(consolidatedInvoice);
-            createdInvoiceIds.Add(consolidatedInvoice.Id);
+            inv.ConsolidatedSalesInvoiceId = consolidatedInvoice.Id;
+            await _salesInvoiceRepository.UpdateAsync(inv);
 
-            foreach (var inv in invoices)
-            {
-                inv.ConsolidatedSalesInvoiceId = consolidatedInvoice.Id;
-                await _salesInvoiceRepository.UpdateAsync(inv);
+            await _consolidationRepository.InsertAsync(new EInvoiceConsolidation(
+                _guidGenerator.Create(),
+                companyId,
+                consolidatedInvoice.Id,
+                inv.Id,
+                tenantId
+            ));
+        }
 
-                // Only link if items from this invoice actually went into the consolidated invoice.
-                // Simplified: link all original invoices to the main consolidated one.
-                await _consolidationRepository.InsertAsync(new EInvoiceConsolidation(
-                    _guidGenerator.Create(),
-                    companyId,
-                    consolidatedInvoice.Id,
-                    inv.Id,
-                    tenantId
-                ));
-            }
+        // Persist excluded single invoices (>10,000)
+        foreach (var (singleInvoice, originalInvId) in singleInvoicesToCreate)
+        {
+            singleInvoice.ApplyRounding();
+            await _salesInvoiceRepository.InsertAsync(singleInvoice);
+            createdInvoiceIds.Add(singleInvoice.Id);
+
+            await _consolidationRepository.InsertAsync(new EInvoiceConsolidation(
+                _guidGenerator.Create(),
+                companyId,
+                singleInvoice.Id,
+                originalInvId,
+                tenantId
+            ));
         }
 
         return createdInvoiceIds;

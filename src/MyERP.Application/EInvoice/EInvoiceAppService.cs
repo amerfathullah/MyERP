@@ -218,21 +218,33 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             BillingReferenceNumber = billingReferenceNumber ?? billingReferenceUuid,
             BillingReferenceUuid = billingReferenceUuid,
             Supplier = supplier,
-            Buyer = new EInvoicePartyData
-            {
-                Name = customer.Name,
-                Tin = buyerTin,
-                IdType = customer.IdType ?? (isForeignCustomer ? "PASSPORT" : "BRN"),
-                IdValue = customer.IdValue ?? customer.RegistrationNumber ?? (isForeignCustomer ? "NA" : ""),
-                SstRegistration = customer.SstRegistrationNumber,
-                Address = customer.Address,
-                City = customer.City,
-                State = customer.State,
-                PostalCode = customer.PostalCode,
-                CountryCode = customer.Country ?? "MYS",
-                Phone = customer.Phone,
-                Email = customer.Email,
-            },
+            Buyer = invoice.IsConsolidated
+                ? new EInvoicePartyData
+                {
+                    Name = "Consolidated - General Public",
+                    Tin = EInvoiceConsts.GenericBuyerTin,
+                    IdType = "BRN",
+                    IdValue = "NA",
+                    SstRegistration = "NA",
+                    TourismTaxNumber = "NA",
+                    Address = "NA",
+                    CountryCode = "MYS",
+                }
+                : new EInvoicePartyData
+                {
+                    Name = customer.Name,
+                    Tin = buyerTin,
+                    IdType = customer.IdType ?? (isForeignCustomer ? "PASSPORT" : "BRN"),
+                    IdValue = customer.IdValue ?? customer.RegistrationNumber ?? (isForeignCustomer ? "NA" : ""),
+                    SstRegistration = customer.SstRegistrationNumber,
+                    Address = customer.Address,
+                    City = customer.City,
+                    State = customer.State,
+                    PostalCode = customer.PostalCode,
+                    CountryCode = customer.Country ?? "MYS",
+                    Phone = customer.Phone,
+                    Email = customer.Email,
+                },
             NetTotal = invoice.NetTotal,
             TaxAmount = invoice.TaxAmount,
             GrandTotal = invoice.GrandTotal,
@@ -244,6 +256,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TaxAmount = item.TaxAmount,
+                ClassificationCode = invoice.IsConsolidated ? "004" : null,
             }).ToList(),
         };
     }
@@ -611,13 +624,16 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
             MsicCode = company.MsicCode,
         };
 
-        // Per myinvois: consolidated invoices use generic buyer "General Public"
+        // Per myinvois consolidate_invoice.py: consolidated invoices use generic buyer "General Public" with "NA" identifiers
         var buyer = new EInvoicePartyData
         {
             Name = "Consolidated - General Public",
             Tin = EInvoiceConsts.GenericBuyerTin, // LHDN generic TIN for walk-in customers
             IdType = "BRN",
-            IdValue = EInvoiceConsts.GenericBuyerTin,
+            IdValue = "NA",
+            SstRegistration = "NA",
+            TourismTaxNumber = "NA",
+            Address = "NA",
             CountryCode = "MYS",
         };
 
@@ -639,6 +655,7 @@ public class EInvoiceAppService : ApplicationService, IEInvoiceAppService
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TaxAmount = item.TaxAmount,
+                ClassificationCode = "004",
             }).ToList(),
         };
 

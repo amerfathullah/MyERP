@@ -233,6 +233,11 @@ public static class MyERPDomainErrorCodes
 
     // E-Invoice — Additional
     public const string EInvoiceValidationFailed = "MyERP:EInvoice:00010";
+    public const string EInvoiceConsolidationAtLeastTwoInvoices = "MyERP:EInvoice:00011";
+    public const string EInvoiceConsolidationNoValidInvoices = "MyERP:EInvoice:00012";
+    public const string EInvoiceConsolidationAlreadyConsolidated = "MyERP:EInvoice:00013";
+    public const string EInvoiceConsolidationB2BNotAllowed = "MyERP:EInvoice:00014";
+    public const string EInvoiceAllItemsExceedConsolidationThreshold = "MyERP:EInvoice:00015";
 
     // Purchasing — Buying Controller Validations
     public const string PostingDateBeforePODate = "MyERP:04011";

@@ -132,7 +132,7 @@ public class UpstreamBatch19ParityTests
         var ex = await Should.ThrowAsync<BusinessException>(async () =>
             await service.ConsolidateInvoicesAsync(new List<Guid> { inv1.Id, inv2.Id }, CompanyId));
 
-        ex.Code.ShouldBe("EInvoice:005");
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.EInvoiceConsolidationB2BNotAllowed);
     }
 
     // === 2) Subcontracting Receipt Return Dependant Detail Check (PR #64797 / 51e5ba7ec9) ===

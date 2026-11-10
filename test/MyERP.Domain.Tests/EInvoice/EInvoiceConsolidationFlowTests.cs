@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using NSubstitute;
+using Volo.Abp;
 using MyERP.EInvoice;
 using MyERP.EInvoice.Entities;
+using MyERP.EInvoice.Services;
 using MyERP.Sales;
 using MyERP.Sales.Entities;
 using Xunit;
@@ -162,5 +164,134 @@ public class EInvoiceConsolidationFlowTests
         Assert.NotNull(inv2.ConsolidatedSalesInvoiceId);
         Assert.Equal(result[0], inv1.ConsolidatedSalesInvoiceId);
         Assert.Equal(result[0], inv2.ConsolidatedSalesInvoiceId);
+    }
+
+    [Fact]
+    public async Task ConsolidateInvoicesAsync_SetsEarliestIssueDateAndLatestDueDate()
+    {
+        var invoiceRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<SalesInvoice, Guid>>();
+        var consolRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<EInvoiceConsolidation, Guid>>();
+        var customerRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Customer, Guid>>();
+        var guidGen = NSubstitute.Substitute.For<Volo.Abp.Guids.IGuidGenerator>();
+        guidGen.Create().Returns(_ => Guid.NewGuid());
+
+        var date1 = new DateTime(2026, 8, 5, 0, 0, 0, DateTimeKind.Utc);
+        var date2 = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var due1 = new DateTime(2026, 8, 20, 0, 0, 0, DateTimeKind.Utc);
+        var due2 = new DateTime(2026, 8, 25, 0, 0, 0, DateTimeKind.Utc);
+
+        var inv1 = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "SINV-001", date1) { DueDate = due1 };
+        inv1.AddItem(Guid.NewGuid(), "Item 1", 1, 100m, 0m);
+        var inv2 = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "SINV-002", date2) { DueDate = due2 };
+        inv2.AddItem(Guid.NewGuid(), "Item 2", 2, 50m, 0m);
+
+        var invoices = new List<SalesInvoice> { inv1, inv2 };
+        invoiceRepo.WithDetailsAsync(NSubstitute.Arg.Any<System.Linq.Expressions.Expression<Func<SalesInvoice, object>>[]>())
+            .Returns(Task.FromResult(invoices.AsQueryable()));
+        customerRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Customer>().AsQueryable()));
+        consolRepo.GetListAsync(NSubstitute.Arg.Any<System.Linq.Expressions.Expression<Func<EInvoiceConsolidation, bool>>>())
+            .Returns(Task.FromResult(new List<EInvoiceConsolidation>()));
+
+        SalesInvoice? capturedConsolidated = null;
+        await invoiceRepo.InsertAsync(NSubstitute.Arg.Do<SalesInvoice>(x =>
+        {
+            if (x.IsConsolidated) capturedConsolidated = x;
+        }));
+
+        var service = new EInvoiceConsolidationService(invoiceRepo, consolRepo, customerRepo, guidGen);
+        var result = await service.ConsolidateInvoicesAsync(new List<Guid> { inv1.Id, inv2.Id }, CompanyId);
+
+        Assert.NotEmpty(result);
+        Assert.NotNull(capturedConsolidated);
+        Assert.Equal(date2, capturedConsolidated.IssueDate);
+        Assert.Equal(due2, capturedConsolidated.DueDate);
+        Assert.True(capturedConsolidated.IsConsolidated);
+    }
+
+    [Fact]
+    public async Task ConsolidateInvoicesAsync_AllItemsExceedThreshold_ThrowsBusinessException()
+    {
+        var invoiceRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<SalesInvoice, Guid>>();
+        var consolRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<EInvoiceConsolidation, Guid>>();
+        var customerRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<Customer, Guid>>();
+        var guidGen = NSubstitute.Substitute.For<Volo.Abp.Guids.IGuidGenerator>();
+        guidGen.Create().Returns(_ => Guid.NewGuid());
+
+        var inv1 = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "SINV-001", DateTime.UtcNow);
+        inv1.AddItem(Guid.NewGuid(), "Luxury Item 1", 1, 15000m, 0m);
+        var inv2 = new SalesInvoice(Guid.NewGuid(), CompanyId, CustomerId, "SINV-002", DateTime.UtcNow);
+        inv2.AddItem(Guid.NewGuid(), "Luxury Item 2", 2, 8000m, 0m);
+
+        var invoices = new List<SalesInvoice> { inv1, inv2 };
+        invoiceRepo.WithDetailsAsync(NSubstitute.Arg.Any<System.Linq.Expressions.Expression<Func<SalesInvoice, object>>[]>())
+            .Returns(Task.FromResult(invoices.AsQueryable()));
+        customerRepo.GetQueryableAsync().Returns(Task.FromResult(new List<Customer>().AsQueryable()));
+        consolRepo.GetListAsync(NSubstitute.Arg.Any<System.Linq.Expressions.Expression<Func<EInvoiceConsolidation, bool>>>())
+            .Returns(Task.FromResult(new List<EInvoiceConsolidation>()));
+
+        var service = new EInvoiceConsolidationService(invoiceRepo, consolRepo, customerRepo, guidGen);
+
+        var ex = await Assert.ThrowsAsync<BusinessException>(() =>
+            service.ConsolidateInvoicesAsync(new List<Guid> { inv1.Id, inv2.Id }, CompanyId));
+
+        Assert.Equal(MyERPDomainErrorCodes.EInvoiceAllItemsExceedConsolidationThreshold, ex.Code);
+        await invoiceRepo.DidNotReceive().InsertAsync(NSubstitute.Arg.Any<SalesInvoice>());
+    }
+
+    [Fact]
+    public void ConsolidatedInvoice_BuildsXmlWithClassificationCode004AndNaBuyer()
+    {
+        var builder = new InvoiceDocumentBuilder();
+        var docData = new EInvoiceDocumentData
+        {
+            InvoiceNumber = "CONSOL-2026-001",
+            IssueDate = new DateTime(2026, 8, 1, 12, 0, 0, DateTimeKind.Utc),
+            DocumentTypeCode = "01",
+            CurrencyCode = "MYR",
+            Supplier = new EInvoicePartyData
+            {
+                Name = "MyCompany Sdn Bhd",
+                Tin = "C12345678900",
+                IdType = "BRN",
+                IdValue = "202001000001",
+                Address = "123 Jalan Ampang",
+                City = "Kuala Lumpur",
+                PostalCode = "50450",
+                CountryCode = "MYS"
+            },
+            Buyer = new EInvoicePartyData
+            {
+                Name = "Consolidated - General Public",
+                Tin = EInvoiceConsts.GenericBuyerTin,
+                IdType = "BRN",
+                IdValue = "NA",
+                SstRegistration = "NA",
+                TourismTaxNumber = "NA",
+                Address = "NA",
+                CountryCode = "MYS"
+            },
+            NetTotal = 150m,
+            TaxAmount = 0m,
+            GrandTotal = 150m,
+            Lines = new List<EInvoiceLineData>
+            {
+                new()
+                {
+                    Description = "Consolidated Item",
+                    Uom = "C62",
+                    Quantity = 3,
+                    UnitPrice = 50m,
+                    ClassificationCode = "004"
+                }
+            }
+        };
+
+        var xml = builder.Build(docData);
+
+        Assert.Contains("<cbc:ItemClassificationCode listID=\"CLASS\">004</cbc:ItemClassificationCode>", xml);
+        Assert.Contains("<cbc:ID schemeID=\"BRN\">NA</cbc:ID>", xml);
+        Assert.Contains("<cbc:ID schemeID=\"SST\">NA</cbc:ID>", xml);
+        Assert.Contains("<cbc:ID schemeID=\"TTX\">NA</cbc:ID>", xml);
+        Assert.Contains("<cbc:Line>NA</cbc:Line>", xml);
     }
 }
