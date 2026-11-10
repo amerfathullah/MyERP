@@ -1908,7 +1908,11 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
         var items = itemQuery.Where(i => itemIds.Contains(i.Id)).ToDictionary(i => i.Id);
 
         var whQuery = await whRepo.GetQueryableAsync();
-        var warehouses = whQuery.Where(w => whIds.Contains(w.Id)).ToDictionary(w => w.Id);
+        var allCompanyWhs = whQuery.Where(w => w.CompanyId == plan.CompanyId).ToDictionary(w => w.Id);
+
+        var binRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Bin, Guid>>();
+        var binQuery = await binRepo.GetQueryableAsync();
+        var allBins = binQuery.Where(b => itemIds.Contains(b.ItemId)).ToList();
 
         var rawRows = new List<RawMaterialPlanRow>();
         foreach (var mr in plan.MaterialRequirements)
@@ -1919,13 +1923,23 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
             }
 
             var item = items.GetValueOrDefault(mr.ItemId);
-            var wh = mr.WarehouseId.HasValue ? warehouses.GetValueOrDefault(mr.WarehouseId.Value) : null;
+            var wh = mr.WarehouseId.HasValue ? allCompanyWhs.GetValueOrDefault(mr.WarehouseId.Value) : null;
 
             var conversionFactor = 1m;
             if (item != null && !string.IsNullOrWhiteSpace(mr.Uom) && !string.Equals(mr.Uom, item.Uom, StringComparison.OrdinalIgnoreCase) && uomConversionService != null)
             {
                 conversionFactor = await uomConversionService.GetConversionFactorAsync(item.Id, mr.Uom, item.Uom, item.VariantOfId);
             }
+
+            var matchingBin = mr.WarehouseId.HasValue
+                ? allBins.FirstOrDefault(b => b.ItemId == mr.ItemId && b.WarehouseId == mr.WarehouseId.Value)
+                : null;
+
+            var actualQty = matchingBin?.ActualQty ?? mr.AvailableQty;
+            var projectedQty = matchingBin?.ProjectedQty ?? 0m;
+            var orderedQty = matchingBin?.OrderedQty ?? mr.OrderedQty;
+            var plannedQty = matchingBin?.PlannedQty ?? mr.PlannedQty;
+            var reservedQty = matchingBin?.ReservedQtyForProduction ?? 0m;
 
             rawRows.Add(new RawMaterialPlanRow
             {
@@ -1937,16 +1951,48 @@ public class ProductionPlanAppService : ApplicationService, IProductionPlanAppSe
                 ItemId = mr.ItemId,
                 WarehouseId = mr.WarehouseId,
                 RequiredBomQty = mr.RequiredQty,
-                ProjectedQty = 0m,
-                ActualQty = mr.AvailableQty,
-                OrderedQty = mr.OrderedQty,
-                PlannedQty = mr.PlannedQty,
-                ReservedQtyForProduction = 0m,
+                ProjectedQty = projectedQty,
+                ActualQty = actualQty,
+                OrderedQty = orderedQty,
+                PlannedQty = plannedQty,
+                ReservedQtyForProduction = reservedQty,
                 SafetyStock = mr.SafetyStock,
                 Quantity = mr.PlannedQty > 0 ? mr.PlannedQty : mr.RequiredQty,
                 Uom = mr.Uom ?? item?.Uom ?? "Unit",
                 ConversionFactor = conversionFactor
             });
+
+            // Per ERPNext PR #65124 (_append_other_warehouse_bins / commits 38d560b782 & ee7c458ab7):
+            // append other-warehouse rows under their columns including planned_qty
+            var otherBins = allBins
+                .Where(b => b.ItemId == mr.ItemId && (!mr.WarehouseId.HasValue || b.WarehouseId != mr.WarehouseId.Value))
+                .Where(b => b.ActualQty != 0m || b.ProjectedQty != 0m || b.OrderedQty != 0m || b.PlannedQty != 0m || b.ReservedQtyForProduction != 0m)
+                .ToList();
+
+            foreach (var otherBin in otherBins)
+            {
+                var otherWhName = allCompanyWhs.TryGetValue(otherBin.WarehouseId, out var oWh) ? oWh.Name : string.Empty;
+                rawRows.Add(new RawMaterialPlanRow
+                {
+                    ItemCode = string.Empty,
+                    ItemName = mr.ItemName,
+                    Description = string.Empty,
+                    StockUom = item?.Uom ?? mr.Uom ?? "Unit",
+                    Warehouse = otherWhName,
+                    ItemId = mr.ItemId,
+                    WarehouseId = otherBin.WarehouseId,
+                    RequiredBomQty = 0m,
+                    ProjectedQty = otherBin.ProjectedQty,
+                    ActualQty = otherBin.ActualQty,
+                    OrderedQty = otherBin.OrderedQty,
+                    PlannedQty = otherBin.PlannedQty,
+                    ReservedQtyForProduction = otherBin.ReservedQtyForProduction,
+                    SafetyStock = 0m,
+                    Quantity = 0m,
+                    Uom = mr.Uom ?? item?.Uom ?? "Unit",
+                    ConversionFactor = 1m
+                });
+            }
         }
 
         var downloadRows = ProductionPlanMaterialPlanningService.BuildDownloadRows(rawRows);

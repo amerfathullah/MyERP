@@ -90,11 +90,11 @@ public class ProductionPlanMaterialPlanningService : DomainService
         int precision = 4)
     {
         var result = new List<DownloadRawMaterialRow>();
-        var duplicateMap = new Dictionary<(string ItemCode, string Warehouse), (DownloadRawMaterialRow Row, decimal ConversionFactor, decimal Quantity)>();
+        var duplicateMap = new Dictionary<(Guid? ItemId, string ItemCode, string Warehouse), (DownloadRawMaterialRow Row, decimal ConversionFactor, decimal Quantity)>();
 
         foreach (var d in items)
         {
-            var key = (d.ItemCode.Trim(), d.Warehouse.Trim());
+            var key = (d.ItemId, d.ItemCode.Trim(), d.Warehouse.Trim());
             var convFactor = d.ConversionFactor > 0m ? d.ConversionFactor : 1m;
             var stockQty = d.Quantity * convFactor;
 

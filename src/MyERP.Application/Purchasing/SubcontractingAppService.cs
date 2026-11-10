@@ -759,13 +759,44 @@ public class SubcontractingAppService : ApplicationService, ISubcontractingAppSe
                 ? (scr.Items.FirstOrDefault()?.Id ?? suppliedItem?.Id)
                 : null;
 
-            await _stockValuationService.CreateLedgerEntryAsync(
-                scr.CompanyId, rm.ItemId, rm.WarehouseId.Value, scr.PostingDate,
-                -rm.ConsumedQty, 0, "SubcontractingReceipt", scr.Id, scr.TenantId,
-                voucherDetailNo: suppliedItem?.Id,
-                dependantSleVoucherDetailNo: dependantDetailNo);
+            // Per ERPNext PR #64951 (commit 5d5edb8ebc): return each batch / item at its consumed rate
+            decimal returnIncomingRate = 0m;
+            if (scr.IsReturn && scr.ReturnAgainstReceiptId.HasValue)
+            {
+                var sleRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<StockLedgerEntry, Guid>>();
+                var origSles = await sleRepo.GetListAsync(s =>
+                    s.VoucherType == "SubcontractingReceipt" &&
+                    s.VoucherId == scr.ReturnAgainstReceiptId.Value &&
+                    s.ItemId == rm.ItemId &&
+                    s.QuantityChange < 0);
 
-            await _binService.ApplyStockMovementAsync(rm.ItemId, rm.WarehouseId.Value, -rm.ConsumedQty, 0);
+                var origSle = (rm.BatchId.HasValue
+                    ? origSles.FirstOrDefault(s => s.BatchId == rm.BatchId)
+                    : null) ?? origSles.FirstOrDefault();
+
+                if (origSle != null)
+                {
+                    returnIncomingRate = origSle.OutgoingRate > 0
+                        ? origSle.OutgoingRate
+                        : (origSle.QuantityChange != 0
+                            ? Math.Abs(origSle.StockValueDifference / origSle.QuantityChange)
+                            : origSle.ValuationRate);
+                }
+            }
+
+            var qtyChange = -rm.ConsumedQty;
+            var sle = await _stockValuationService.CreateLedgerEntryAsync(
+                scr.CompanyId, rm.ItemId, rm.WarehouseId.Value, scr.PostingDate,
+                qtyChange, returnIncomingRate, "SubcontractingReceipt", scr.Id, scr.TenantId,
+                voucherDetailNo: suppliedItem?.Id,
+                dependantSleVoucherDetailNo: dependantDetailNo,
+                batchId: rm.BatchId);
+
+            var stockValueChange = qtyChange > 0 && returnIncomingRate > 0
+                ? qtyChange * returnIncomingRate
+                : (sle.StockValueDifference != 0 ? sle.StockValueDifference : 0m);
+
+            await _binService.ApplyStockMovementAsync(rm.ItemId, rm.WarehouseId.Value, qtyChange, stockValueChange);
         }
 
         await _scoRepository.UpdateAsync(sco);
