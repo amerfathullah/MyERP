@@ -820,11 +820,18 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
         var jobCardManager = LazyServiceProvider.LazyGetRequiredService<JobCardManager>();
         var matchingItems = await jobCardManager.GetRawMaterialsAsync(jc, woRepo);
 
-        var pendingItems = matchingItems
-            .Where(i => i.RequiredQuantity - i.TransferredQuantity > 0)
+        var mfgSettingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<ManufacturingSettings, Guid>>();
+        var mfgSettingsQ = await mfgSettingsRepo.GetQueryableAsync();
+        var mfgSettings = mfgSettingsQ.FirstOrDefault(s => s.CompanyId == wo.CompanyId);
+        var allowExcessTransfer = mfgSettings?.JobCardExcessTransfer ?? false;
+
+        // PR #63370 / commit 78eacb1c02, 2173bcc660, 922e915539:
+        // When excess transfer is allowed, items with 0 pending qty can still be requested.
+        var candidateItems = matchingItems
+            .Where(i => allowExcessTransfer || (i.RequiredQuantity - i.TransferredQuantity > 0))
             .ToList();
 
-        if (!pendingItems.Any())
+        if (!candidateItems.Any())
         {
             throw new BusinessException("MyERP:10013")
                 .WithData("reason", "All materials have already been transferred for this Job Card.");
@@ -845,13 +852,14 @@ public class JobCardAppService : ApplicationService, IJobCardAppService
             Notes = $"Material Request for Job Card {jc.Id} (WO {wo.WorkOrderNumber ?? wo.Id.ToString()})"
         };
 
-        foreach (var reqItem in pendingItems)
+        foreach (var reqItem in candidateItems)
         {
             var pendingQty = reqItem.RequiredQuantity - reqItem.TransferredQuantity;
+            var requestQty = pendingQty > 0 ? pendingQty : reqItem.RequiredQuantity;
             mr.AddItem(
                 itemId: reqItem.ItemId,
                 itemName: reqItem.ItemName,
-                quantity: pendingQty,
+                quantity: requestQty,
                 uom: reqItem.StockUom ?? "Unit",
                 warehouseId: targetWarehouseId,
                 jobCardItemId: reqItem.Id);

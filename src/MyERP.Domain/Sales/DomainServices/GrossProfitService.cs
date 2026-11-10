@@ -47,6 +47,8 @@ public class GrossProfitService : DomainService
         SalesInvoice invoice,
         IReadOnlyDictionary<Guid, decimal>? dropShipUnitBuyingRates = null)
     {
+        var exchangeRate = invoice.ExchangeRate > 0 ? invoice.ExchangeRate : 1m;
+
         var itemDetails = invoice.Items.Select(i =>
         {
             var costRate = i.ValuationRate;
@@ -62,8 +64,10 @@ public class GrossProfitService : DomainService
                 }
             }
 
-            var revenue = i.Quantity * i.UnitPrice;
-            var cost = i.Quantity * costRate;
+            // Per ERPNext PR #63122 (commit fe8b401332 / 766d130f6c): resolve gross profit in company base currency
+            var baseUnitPrice = Math.Round(i.UnitPrice * exchangeRate, 4);
+            var revenue = Math.Round(i.Quantity * baseUnitPrice, 2);
+            var cost = Math.Round(i.Quantity * costRate, 2);
             var profit = revenue - cost;
             var profitPercent = revenue > 0 ? (profit / revenue) * 100m : 0m;
 
@@ -72,7 +76,7 @@ public class GrossProfitService : DomainService
                 ItemId = i.ItemId,
                 Description = i.Description,
                 Quantity = i.Quantity,
-                SellingRate = i.UnitPrice,
+                SellingRate = baseUnitPrice,
                 ValuationRate = costRate,
                 DeliveryNoteItemId = i.DeliveryNoteItemId,
                 SalesOrderItemId = i.SalesOrderItemId,

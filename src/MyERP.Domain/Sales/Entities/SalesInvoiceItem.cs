@@ -73,8 +73,8 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Cost rate at time of billing (from stock valuation or last purchase rate).</summary>
     public decimal ValuationRate { get; set; }
 
-    /// <summary>Gross profit per unit: UnitPrice - ValuationRate.</summary>
-    public decimal GrossProfit => (UnitPrice - ValuationRate) * Quantity;
+    /// <summary>Gross profit per stock unit: (StockUomRate - ValuationRate) * StockQty (per ERPNext selling_controller.py / PR #63122).</summary>
+    public decimal GrossProfit => (StockUomRate - ValuationRate) * StockQty;
 
     /// <summary>Link to Delivery Note item (for DN billing status tracking, per ERPNext dn_detail).</summary>
     public Guid? DeliveryNoteItemId { get; set; }
