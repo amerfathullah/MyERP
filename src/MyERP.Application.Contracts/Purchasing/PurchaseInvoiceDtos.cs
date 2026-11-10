@@ -105,6 +105,8 @@ public class PurchaseInvoiceItemDto
     public Guid? FromWarehouseId { get; set; }
     public Guid? WarehouseId { get; set; }
     public bool DeliveredBySupplier { get; set; }
+    public Guid? BatchId { get; set; }
+    public Guid? SerialAndBatchBundleId { get; set; }
     public bool EnableDeferredExpense { get; set; }
     public Guid? DeferredExpenseAccountId { get; set; }
     public DateTime? ServiceStartDate { get; set; }
@@ -246,6 +248,8 @@ public class CreatePurchaseInvoiceItemDto
     public Guid? MaterialRequestItemId { get; set; }
     public Guid? FromWarehouseId { get; set; }
     public bool DeliveredBySupplier { get; set; }
+    public Guid? BatchId { get; set; }
+    public Guid? SerialAndBatchBundleId { get; set; }
 
     /// <summary>
     /// Item-level target warehouse for an update_stock invoice. Null falls back to the invoice's

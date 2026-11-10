@@ -818,6 +818,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             added.PurchaseReceiptItemId = item.PurchaseReceiptItemId;
             added.MaterialRequestItemId = item.MaterialRequestItemId;
             added.DeliveredBySupplier = item.DeliveredBySupplier;
+            added.BatchId = item.BatchId;
+            added.SerialAndBatchBundleId = item.SerialAndBatchBundleId;
             if (item.ConversionFactor.HasValue && item.ConversionFactor.Value > 0)
             {
                 added.ConversionFactor = item.ConversionFactor.Value;
@@ -1033,6 +1035,8 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
             added.PurchaseReceiptItemId = item.PurchaseReceiptItemId;
             added.MaterialRequestItemId = item.MaterialRequestItemId;
             added.DeliveredBySupplier = item.DeliveredBySupplier;
+            added.BatchId = item.BatchId;
+            added.SerialAndBatchBundleId = item.SerialAndBatchBundleId;
 
             if (item.EnableDeferredExpense)
             {
@@ -1374,6 +1378,30 @@ public class PurchaseInvoiceAppService : ApplicationService, IPurchaseInvoiceApp
                 linkedPurchaseInvoiceId: null,
                 invoice.Items.Select(i => (i.ItemId, i.UnitPrice, (string?)i.Description)),
                 CurrentUser.Roles);
+        }
+
+        // Batch validation — block expired/disabled batches on stock-out / update_stock
+        // Per ERPNext PR #65127 (commits 260f861238, 5fd78f5a90, b3c2658f7f):
+        // Invoices check batches only when UpdateStock is enabled.
+        if (invoice.IsBatchCheckNeeded)
+        {
+            var batchRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.Batch, Guid>>();
+            if (batchRepo != null)
+            {
+                foreach (var item in invoice.Items)
+                {
+                    if (item.BatchId.HasValue)
+                    {
+                        var batch = await batchRepo.FindAsync(item.BatchId.Value);
+                        if (batch != null)
+                        {
+                            Inventory.DomainServices.SerialBatchBundleValidationService.ValidateBatchUsable(
+                                batch.BatchNo, batch.ExpiryDate, batch.IsDisabled,
+                                invoice.IssueDate, "Purchase Invoice", invoice.UpdateStock, isConsolidated: false);
+                        }
+                    }
+                }
+            }
         }
 
         invoice.Submit();

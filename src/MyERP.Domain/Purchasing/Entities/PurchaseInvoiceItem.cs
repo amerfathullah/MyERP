@@ -69,6 +69,14 @@ public class PurchaseInvoiceItem : CreationAuditedEntity<Guid>
     /// <summary>Whether goods are drop-shipped (delivered directly to customer by supplier).</summary>
     public bool DeliveredBySupplier { get; set; }
 
+    /// <summary>Batch ID reference for batch-tracked items on invoice.</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public Guid? BatchId { get; set; }
+
+    /// <summary>Serial and Batch Bundle ID for serialized/batched tracking.</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public Guid? SerialAndBatchBundleId { get; set; }
+
     // --- Deferred Expense fields (mirrors SI deferred revenue) ---
     private bool _enableDeferredExpense;
     /// <summary>When true, expense is recognized over the service period (not at invoice post).</summary>

@@ -122,6 +122,24 @@ public class UpstreamBatch33ParityTests
         consolidatedInv.IsBatchCheckNeeded.ShouldBeFalse();
     }
 
+    [Fact]
+    public void PurchaseInvoice_IsBatchCheckNeeded_MatchesUpdateStock()
+    {
+        var piWithoutStock = new MyERP.Purchasing.Entities.PurchaseInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PI-001", DateTime.UtcNow)
+        {
+            UpdateStock = false
+        };
+        piWithoutStock.IsBatchCheckNeeded.ShouldBeFalse();
+
+        var piWithStock = new MyERP.Purchasing.Entities.PurchaseInvoice(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "PI-002", DateTime.UtcNow)
+        {
+            UpdateStock = true
+        };
+        piWithStock.IsBatchCheckNeeded.ShouldBeTrue();
+    }
+
     // === 4) PR #65171: Fractional Material Transfer on Job Card ===
 
     [Fact]

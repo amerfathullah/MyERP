@@ -273,4 +273,154 @@ public abstract class PurchaseInvoiceCompanyGuardTests<TStartupModule> : MyERPAp
             ex.Code.ShouldBe(MyERPDomainErrorCodes.LinkedPurchaseOrderClosed);
         });
     }
+
+    [Fact]
+    public async Task SubmitAsync_ExpiredBatchWithUpdateStock_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(
+                new Company(Guid.NewGuid(), "PI Batch Exp Co 1"), autoSave: true);
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            await seriesRepo.InsertAsync(
+                new DocumentSeries(Guid.NewGuid(), company.Id, "PI Batch Exp Series", "PurchaseInvoice", "PIEXP-"), autoSave: true);
+            var supplier = await GetRequiredService<IRepository<Supplier, Guid>>().InsertAsync(
+                new Supplier(Guid.NewGuid(), company.Id, "PI Batch Exp Supp 1"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "PI-ITEM-EXP", "PI Item Exp", ItemType.Goods), autoSave: true);
+            var warehouse = await GetRequiredService<IRepository<Warehouse, Guid>>().InsertAsync(
+                new Warehouse(Guid.NewGuid(), company.Id, "PI Batch Wh 1"), autoSave: true);
+
+            var expiredBatch = await GetRequiredService<IRepository<Batch, Guid>>().InsertAsync(
+                new Batch(Guid.NewGuid(), item.Id, "BATCH-EXP-01")
+                {
+                    ExpiryDate = DateTime.UtcNow.AddDays(-10)
+                }, autoSave: true);
+
+            var piAppService = GetRequiredService<IPurchaseInvoiceAppService>();
+            var piDto = await piAppService.CreateAsync(new CreatePurchaseInvoiceDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                IssueDate = DateTime.UtcNow.Date,
+                DueDate = DateTime.UtcNow.Date.AddDays(30),
+                UpdateStock = true,
+                WarehouseId = warehouse.Id,
+                Items = new List<CreatePurchaseInvoiceItemDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        Description = "Batch item",
+                        Quantity = 5,
+                        UnitPrice = 10,
+                        BatchId = expiredBatch.Id
+                    }
+                }
+            });
+
+            var ex = await Should.ThrowAsync<BusinessException>(() => piAppService.SubmitAsync(piDto.Id));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            (ex.Data["batchNo"]?.ToString() ?? string.Empty).ShouldBe("BATCH-EXP-01");
+        });
+    }
+
+    [Fact]
+    public async Task SubmitAsync_ExpiredBatchWithoutUpdateStock_Succeeds()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(
+                new Company(Guid.NewGuid(), "PI Batch Exp Skip Co 1"), autoSave: true);
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            await seriesRepo.InsertAsync(
+                new DocumentSeries(Guid.NewGuid(), company.Id, "PI Batch Exp Skip Series", "PurchaseInvoice", "PIEXPSKIP-"), autoSave: true);
+            var supplier = await GetRequiredService<IRepository<Supplier, Guid>>().InsertAsync(
+                new Supplier(Guid.NewGuid(), company.Id, "PI Batch Exp Skip Supp 1"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "PI-ITEM-EXP-SKIP", "PI Item Exp Skip", ItemType.Goods), autoSave: true);
+
+            var expiredBatch = await GetRequiredService<IRepository<Batch, Guid>>().InsertAsync(
+                new Batch(Guid.NewGuid(), item.Id, "BATCH-EXP-SKIP-01")
+                {
+                    ExpiryDate = DateTime.UtcNow.AddDays(-10)
+                }, autoSave: true);
+
+            var piAppService = GetRequiredService<IPurchaseInvoiceAppService>();
+            var piDto = await piAppService.CreateAsync(new CreatePurchaseInvoiceDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                IssueDate = DateTime.UtcNow.Date,
+                DueDate = DateTime.UtcNow.Date.AddDays(30),
+                UpdateStock = false,
+                Items = new List<CreatePurchaseInvoiceItemDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        Description = "Batch item",
+                        Quantity = 5,
+                        UnitPrice = 10,
+                        BatchId = expiredBatch.Id
+                    }
+                }
+            });
+
+            var submitted = await piAppService.SubmitAsync(piDto.Id);
+            submitted.Status.ShouldBe("Submitted");
+        });
+    }
+
+    [Fact]
+    public async Task SubmitAsync_DisabledBatchWithUpdateStock_Throws()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var company = await GetRequiredService<IRepository<Company, Guid>>().InsertAsync(
+                new Company(Guid.NewGuid(), "PI Batch Dis Co 1"), autoSave: true);
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            await seriesRepo.InsertAsync(
+                new DocumentSeries(Guid.NewGuid(), company.Id, "PI Batch Dis Series", "PurchaseInvoice", "PIDIS-"), autoSave: true);
+            var supplier = await GetRequiredService<IRepository<Supplier, Guid>>().InsertAsync(
+                new Supplier(Guid.NewGuid(), company.Id, "PI Batch Dis Supp 1"), autoSave: true);
+            var item = await GetRequiredService<IRepository<Item, Guid>>().InsertAsync(
+                new Item(Guid.NewGuid(), company.Id, "PI-ITEM-DIS", "PI Item Dis", ItemType.Goods), autoSave: true);
+            var warehouse = await GetRequiredService<IRepository<Warehouse, Guid>>().InsertAsync(
+                new Warehouse(Guid.NewGuid(), company.Id, "PI Batch Wh 2"), autoSave: true);
+
+            var disabledBatch = await GetRequiredService<IRepository<Batch, Guid>>().InsertAsync(
+                new Batch(Guid.NewGuid(), item.Id, "BATCH-DIS-01")
+                {
+                    IsDisabled = true,
+                    ExpiryDate = DateTime.UtcNow.AddDays(100)
+                }, autoSave: true);
+
+            var piAppService = GetRequiredService<IPurchaseInvoiceAppService>();
+            var piDto = await piAppService.CreateAsync(new CreatePurchaseInvoiceDto
+            {
+                CompanyId = company.Id,
+                SupplierId = supplier.Id,
+                IssueDate = DateTime.UtcNow.Date,
+                DueDate = DateTime.UtcNow.Date.AddDays(30),
+                UpdateStock = true,
+                WarehouseId = warehouse.Id,
+                Items = new List<CreatePurchaseInvoiceItemDto>
+                {
+                    new()
+                    {
+                        ItemId = item.Id,
+                        Description = "Batch item",
+                        Quantity = 5,
+                        UnitPrice = 10,
+                        BatchId = disabledBatch.Id
+                    }
+                }
+            });
+
+            var ex = await Should.ThrowAsync<BusinessException>(() => piAppService.SubmitAsync(piDto.Id));
+            ex.Code.ShouldBe(MyERPDomainErrorCodes.ValidationFailed);
+            (ex.Data["batchNo"]?.ToString() ?? string.Empty).ShouldBe("BATCH-DIS-01");
+        });
+    }
 }

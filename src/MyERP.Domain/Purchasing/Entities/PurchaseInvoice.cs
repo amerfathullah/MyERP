@@ -123,6 +123,13 @@ public class PurchaseInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAc
     /// </summary>
     public bool UpdateBilledAmountInPurchaseOrder { get; set; } = true;
 
+    /// <summary>
+    /// Indicates whether batch validation (expiry, disabled) is required for this invoice.
+    /// Per ERPNext PR #65127 (commits 260f861238, 5fd78f5a90, b3c2658f7f):
+    /// An invoice without Update Stock moves no stock, so its batches were checked when they moved.
+    /// </summary>
+    public bool IsBatchCheckNeeded => UpdateStock;
+
     /// <summary>Percentage of total qty received (0-100). Equals 100 when UpdateStock=true.</summary>
     public decimal PerReceived
     {
