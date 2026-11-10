@@ -186,7 +186,7 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
 
         var ts = new Timesheet(GuidGenerator.Create(), input.CompanyId, input.EmployeeId,
             input.StartDate, input.EndDate, CurrentTenant.Id)
-        { EmployeeName = input.EmployeeName, Note = input.Note };
+        { EmployeeName = input.EmployeeName, Title = input.Title, Note = input.Note };
 
         foreach (var d in input.Details)
         {
@@ -339,6 +339,7 @@ public class TimesheetAppService : ApplicationService, ITimesheetAppService
         ts.StartDate = input.StartDate;
         ts.EndDate = input.EndDate;
         ts.EmployeeName = input.EmployeeName;
+        ts.Title = input.Title;
         ts.Note = input.Note;
 
         var newDetails = new List<TimesheetDetail>();

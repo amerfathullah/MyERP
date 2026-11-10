@@ -251,4 +251,61 @@ public abstract class TimesheetCompanyGuardTests<TStartupModule> : MyERPApplicat
                 }));
         });
     }
+
+    [Fact]
+    public async Task CreateAsync_And_UpdateAsync_PreservesTitle()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var employeeRepo = GetRequiredService<IRepository<Employee, Guid>>();
+            var timesheetAppService = GetRequiredService<ITimesheetAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "TS Co Title"), autoSave: true);
+            var employee = await employeeRepo.InsertAsync(new Employee(Guid.NewGuid(), company.Id, "EMP-TITLE", "Title Emp"), autoSave: true);
+
+            var now = DateTime.UtcNow;
+            var created = await timesheetAppService.CreateAsync(new CreateTimesheetDto
+            {
+                CompanyId = company.Id,
+                EmployeeId = employee.Id,
+                Title = "Sprint 42 Development",
+                StartDate = now.Date,
+                EndDate = now.Date.AddDays(1),
+                Details = new List<CreateTimesheetDetailDto>
+                {
+                    new()
+                    {
+                        ActivityType = "Execution",
+                        FromTime = now,
+                        ToTime = now.AddHours(3),
+                        Hours = 3
+                    }
+                }
+            });
+
+            created.Title.ShouldBe("Sprint 42 Development");
+
+            var updated = await timesheetAppService.UpdateAsync(created.Id, new CreateTimesheetDto
+            {
+                CompanyId = company.Id,
+                EmployeeId = employee.Id,
+                Title = "Sprint 42 Development - Finalized",
+                StartDate = now.Date,
+                EndDate = now.Date.AddDays(1),
+                Details = new List<CreateTimesheetDetailDto>
+                {
+                    new()
+                    {
+                        ActivityType = "Execution",
+                        FromTime = now,
+                        ToTime = now.AddHours(3),
+                        Hours = 3
+                    }
+                }
+            });
+
+            updated.Title.ShouldBe("Sprint 42 Development - Finalized");
+        });
+    }
 }

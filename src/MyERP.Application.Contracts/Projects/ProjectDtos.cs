@@ -207,6 +207,7 @@ public class TimesheetDto : AuditedEntityDto<Guid>
     public Guid CompanyId { get; set; }
     public Guid EmployeeId { get; set; }
     public string? EmployeeName { get; set; }
+    public string? Title { get; set; }
     public TimesheetStatus Status { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
@@ -242,6 +243,7 @@ public class CreateTimesheetDto
     [Required] public Guid CompanyId { get; set; }
     [Required] public Guid EmployeeId { get; set; }
     public string? EmployeeName { get; set; }
+    public string? Title { get; set; }
     [Required] public DateTime StartDate { get; set; }
     [Required] public DateTime EndDate { get; set; }
     public string? Note { get; set; }

@@ -20,6 +20,7 @@ public class Timesheet : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public Guid EmployeeId { get; set; }
     public string? EmployeeName { get; set; }
+    public string? Title { get; set; }
 
     public TimesheetStatus Status { get; private set; } = TimesheetStatus.Draft;
 

@@ -3047,6 +3047,7 @@ public class MyERPDbContext :
             b.ToTable("Prj_Timesheets", MyERPConsts.DbSchema);
             b.ConfigureByConvention();
             b.Property(x => x.EmployeeName).HasMaxLength(200);
+            b.Property(x => x.Title).HasMaxLength(200);
             b.Property(x => x.TotalHours).HasColumnType("decimal(18,2)");
             b.Property(x => x.TotalBillableHours).HasColumnType("decimal(18,2)");
             b.Property(x => x.TotalBillingAmount).HasColumnType("decimal(18,2)");
