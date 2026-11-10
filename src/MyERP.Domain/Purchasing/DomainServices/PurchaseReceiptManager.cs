@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Assets;
 using MyERP.Assets.Entities;
 using MyERP.Purchasing.Entities;
 using Volo.Abp;
@@ -152,8 +153,11 @@ public class PurchaseReceiptManager : DomainService
     }
 
     /// <summary>
-    /// Validates that no submitted Assets exist on the original document before allowing return.
-    /// Per DO-NOT: "Allow purchase return (PR/PI) when submitted Assets exist on the original document"
+    /// Validates asset returns per ERPNext PR #63606 / commit bb1ef484dc:
+    /// Allows partial returns of asset purchases as long as the quantity of active (draft or submitted)
+    /// assets linked to each purchase row/item does not exceed the remaining quantity kept after this return.
+    /// Blocks returns if unlinked submitted assets exist on the original document, or if active asset count
+    /// exceeds the kept quantity.
     /// </summary>
     public async Task ValidateAssetReturnAsync(
         PurchaseReceipt returnReceipt,
@@ -161,17 +165,66 @@ public class PurchaseReceiptManager : DomainService
     {
         if (!returnReceipt.IsReturn || !returnReceipt.ReturnAgainstId.HasValue) return;
 
+        var originalId = returnReceipt.ReturnAgainstId.Value;
         var assetQuery = await assetRepository.GetQueryableAsync();
-        var hasSubmittedAssets = assetQuery.Any(a =>
-            a.PurchaseReceiptId == returnReceipt.ReturnAgainstId.Value
-            && a.Status != Assets.AssetStatus.Draft
-            && a.Status != Assets.AssetStatus.Cancelled);
+        var linkedAssets = assetQuery
+            .Where(a => a.PurchaseReceiptId == originalId && a.Status != AssetStatus.Cancelled)
+            .ToList();
 
-        if (hasSubmittedAssets)
+        if (linkedAssets.Count == 0) return;
+
+        var original = await _prRepository.FindAsync(originalId);
+        if (original == null) return;
+
+        // If any submitted asset is not linked to an ItemId that exists on original PR,
+        // it cannot be attributed to a specific retained quantity (ERPNext PR #63606).
+        var unlinkedSubmittedAssets = linkedAssets
+            .Where(a => a.Status != AssetStatus.Draft
+                && (!a.ItemId.HasValue || !original.Items.Any(oi => oi.ItemId == a.ItemId.Value)))
+            .ToList();
+
+        if (unlinkedSubmittedAssets.Count > 0)
         {
             throw new BusinessException(MyERPDomainErrorCodes.AssetExistsOnReturnDocument)
                 .WithData("documentType", "Purchase Receipt")
                 .WithData("returnAgainst", returnReceipt.ReturnAgainstId.Value);
+        }
+
+        // Query prior submitted/posted returns against this same original purchase receipt
+        var prQuery = await _prRepository.GetQueryableAsync();
+        var priorReturns = prQuery
+            .Where(pr => pr.ReturnAgainstId == originalId
+                && pr.Id != returnReceipt.Id
+                && (pr.Status == Core.DocumentStatus.Submitted || pr.Status == Core.DocumentStatus.Posted))
+            .SelectMany(pr => pr.Items)
+            .ToList();
+
+        var priorReturnedByItem = priorReturns
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity)));
+
+        var currentReturnedByItem = returnReceipt.Items
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity)));
+
+        foreach (var (itemId, returnQty) in currentReturnedByItem)
+        {
+            var originalQty = original.Items.Where(i => i.ItemId == itemId).Sum(i => i.Quantity);
+            var priorReturned = priorReturnedByItem.GetValueOrDefault(itemId, 0m);
+            var keptQty = originalQty - priorReturned - returnQty;
+
+            var activeAssetsForItem = linkedAssets
+                .Where(a => a.ItemId == itemId)
+                .Sum(a => a.AssetQuantity > 0 ? a.AssetQuantity : 1m);
+
+            if (activeAssetsForItem > keptQty)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.AssetExistsOnReturnDocument)
+                    .WithData("documentType", "Purchase Receipt")
+                    .WithData("returnAgainst", returnReceipt.ReturnAgainstId.Value)
+                    .WithData("keptQty", keptQty)
+                    .WithData("activeAssetCount", activeAssetsForItem);
+            }
         }
     }
 
