@@ -83,4 +83,21 @@ export class PurchaseConversionService {
       body: input,
     },
     { apiName: this.apiName,...config });
+  
+
+  makePurchaseReceiptReturn = (purchaseReceiptId: string, returnAgainstRejectedQty?: boolean, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseReceiptDto>({
+      method: 'POST',
+      url: `/api/app/purchase-conversion/make-purchase-receipt-return/${purchaseReceiptId}`,
+      params: { returnAgainstRejectedQty },
+    },
+    { apiName: this.apiName,...config });
+  
+
+  makePurchaseInvoiceReturn = (purchaseInvoiceId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseInvoiceDto>({
+      method: 'POST',
+      url: `/api/app/purchase-conversion/make-purchase-invoice-return/${purchaseInvoiceId}`,
+    },
+    { apiName: this.apiName,...config });
 }

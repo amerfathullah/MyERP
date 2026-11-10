@@ -157,8 +157,19 @@ export class PurchaseReceiptDetailComponent implements OnInit {
         });
         break;
       case 'return':
-        this.router.navigate(['/purchasing/receipts/new'], {
-          queryParams: { returnAgainst: id }
+        this.confirmation.warn('::ReturnConfirmation', '::AreYouSure').subscribe((status) => {
+          if (status === Confirmation.Status.confirm) {
+            this.conversionService.makePurchaseReceiptReturn(id).subscribe({
+              next: (ret) => {
+                this.toaster.success('::ReturnCreated');
+                this.router.navigate(['/purchasing/receipts', ret.id]);
+              },
+              error: (err: any) => {
+                const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+                this.toaster.error(reason || '::OperationFailed');
+              }
+            });
+          }
         });
         break;
       case 'close':

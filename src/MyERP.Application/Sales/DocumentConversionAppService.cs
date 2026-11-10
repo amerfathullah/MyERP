@@ -1229,4 +1229,228 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
 
         return ObjectMapper.Map<Quotation, QuotationDto>(quotation);
     }
+
+    [Authorize(MyERPPermissions.DeliveryNotes.Create)]
+    public async Task<DeliveryNoteDto> MakeDeliveryNoteReturnAsync(Guid deliveryNoteId)
+    {
+        var original = await _deliveryNoteRepository.GetAsync(deliveryNoteId, includeDetails: true);
+
+        if (original.Status != Core.DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        if (original.IsReturn)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot create a return against a return document.");
+
+        var returnedQtyMap = await GetReturnedQtyMapAsync(original);
+
+        var returnableItems = original.Items
+            .Where(i => (Math.Abs(i.Quantity) - returnedQtyMap.GetValueOrDefault(i.Id, 0m)) > 0.0000001m)
+            .ToList();
+
+        if (returnableItems.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"All items in Delivery Note {original.DeliveryNumber} have already been returned.");
+        }
+
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        var company = await companyRepo.FindAsync(original.CompanyId);
+        var returnWarehouseId = company?.DefaultWarehouseForSalesReturnId ?? original.WarehouseId;
+
+        var returnNumber = await _numberGenerator.GenerateAsync("DeliveryNote", original.CompanyId);
+
+        var returnDn = new DeliveryNote(
+            GuidGenerator.Create(),
+            original.CompanyId,
+            original.CustomerId,
+            returnWarehouseId,
+            returnNumber,
+            Clock.Now.Date >= original.PostingDate ? Clock.Now.Date : original.PostingDate,
+            original.TenantId);
+
+        returnDn.SalesOrderId = original.SalesOrderId;
+        returnDn.IsReturn = true;
+        returnDn.ReturnAgainstId = original.Id;
+        returnDn.Notes = $"Return against Delivery Note {original.DeliveryNumber}";
+
+        // Prior returned serial numbers
+        var dnQuery = await _deliveryNoteRepository.GetQueryableAsync();
+        var priorReturnDns = dnQuery
+            .Where(dn => dn.ReturnAgainstId == original.Id && dn.IsReturn
+                      && dn.Status != Core.DocumentStatus.Draft
+                      && dn.Status != Core.DocumentStatus.Cancelled)
+            .ToList();
+
+        var alreadyReturnedSerialIds = priorReturnDns
+            .SelectMany(dn => dn.Items)
+            .Where(i => i.SerialNoId.HasValue)
+            .Select(i => i.SerialNoId!.Value)
+            .ToHashSet();
+
+        var allocatedSerialIds = new HashSet<Guid>();
+
+        foreach (var origItem in returnableItems)
+        {
+            var alreadyReturned = returnedQtyMap.GetValueOrDefault(origItem.Id, 0m);
+            var remainingQty = Math.Abs(origItem.Quantity) - alreadyReturned;
+
+            Guid? assignedSerialId = null;
+            if (origItem.SerialNoId.HasValue && !alreadyReturnedSerialIds.Contains(origItem.SerialNoId.Value) && !allocatedSerialIds.Contains(origItem.SerialNoId.Value))
+            {
+                assignedSerialId = origItem.SerialNoId.Value;
+                allocatedSerialIds.Add(assignedSerialId.Value);
+            }
+
+            var itemWarehouse = company?.DefaultWarehouseForSalesReturnId ?? origItem.WarehouseId ?? returnWarehouseId;
+            var taxAmount = origItem.TaxAmount > 0 && Math.Abs(origItem.Quantity) > 0
+                ? -1m * (origItem.TaxAmount * (remainingQty / Math.Abs(origItem.Quantity)))
+                : 0m;
+
+            returnDn.AddItem(
+                origItem.ItemId,
+                origItem.Description,
+                -1m * remainingQty,
+                origItem.UnitPrice,
+                taxAmount,
+                origItem.Uom,
+                origItem.SalesOrderItemId);
+
+            var addedItem = returnDn.Items.Last();
+            addedItem.WarehouseId = itemWarehouse;
+            addedItem.ConversionFactor = origItem.ConversionFactor;
+            addedItem.StockUom = origItem.StockUom;
+            addedItem.BatchId = origItem.BatchId;
+            addedItem.SerialNoId = assignedSerialId;
+        }
+
+        await _deliveryNoteRepository.InsertAsync(returnDn, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("DeliveryNote", original.Id, original.CompanyId,
+            "DeliveryNote", returnDn.Id, original.DeliveryNumber, original.TenantId);
+
+        var dto = ObjectMapper.Map<DeliveryNote, DeliveryNoteDto>(returnDn);
+        dto.CustomerName = await ResolveCustomerNameAsync(returnDn.CustomerId);
+        return dto;
+    }
+
+    [Authorize(MyERPPermissions.SalesInvoices.Create)]
+    public async Task<SalesInvoiceDto> MakeSalesInvoiceReturnAsync(Guid salesInvoiceId)
+    {
+        var original = await _salesInvoiceRepository.GetAsync(salesInvoiceId, includeDetails: true);
+
+        if (original.Status != Core.DocumentStatus.Submitted && original.Status != Core.DocumentStatus.Posted)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        if (original.IsReturn)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot create a return against a return document.");
+
+        if (original.IsConsolidated && original.IsPos)
+            throw new BusinessException(MyERPDomainErrorCodes.ReturnConsolidatedPosNotAllowed)
+                .WithData("invoiceNumber", original.InvoiceNumber);
+
+        var siQuery = await _salesInvoiceRepository.WithDetailsAsync(si => si.Items);
+        var priorReturns = siQuery
+            .Where(si => si.ReturnAgainstId == original.Id
+                      && si.Id != original.Id
+                      && si.Status != Core.DocumentStatus.Draft
+                      && si.Status != Core.DocumentStatus.Cancelled)
+            .ToList();
+
+        var returnedQtyByItem = new Dictionary<Guid, decimal>();
+        foreach (var retSi in priorReturns)
+        {
+            foreach (var item in retSi.Items)
+            {
+                var origItem = original.Items.FirstOrDefault(i =>
+                    (item.SalesOrderItemId.HasValue && i.SalesOrderItemId == item.SalesOrderItemId) ||
+                    (item.DeliveryNoteItemId.HasValue && i.DeliveryNoteItemId == item.DeliveryNoteItemId) ||
+                    i.ItemId == item.ItemId);
+
+                if (origItem != null)
+                {
+                    var retFactor = item.ConversionFactor > 0 ? item.ConversionFactor : 1m;
+                    var origFactor = origItem.ConversionFactor > 0 ? origItem.ConversionFactor : 1m;
+                    var retInOrigUom = (Math.Abs(item.Quantity) * retFactor) / origFactor;
+                    returnedQtyByItem[origItem.Id] = returnedQtyByItem.GetValueOrDefault(origItem.Id, 0m) + retInOrigUom;
+                }
+            }
+        }
+
+        var returnableItems = original.Items
+            .Where(i => (Math.Abs(i.Quantity) - returnedQtyByItem.GetValueOrDefault(i.Id, 0m)) > 0.0000001m)
+            .ToList();
+
+        if (returnableItems.Count == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"All items in Sales Invoice {original.InvoiceNumber} have already been returned.");
+        }
+
+        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
+        var company = await companyRepo.FindAsync(original.CompanyId);
+        var returnWarehouseId = company?.DefaultWarehouseForSalesReturnId ?? original.WarehouseId;
+
+        var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", original.CompanyId);
+
+        var creditNote = new SalesInvoice(
+            GuidGenerator.Create(),
+            original.CompanyId,
+            original.CustomerId,
+            invoiceNumber,
+            Clock.Now.Date >= original.IssueDate ? Clock.Now.Date : original.IssueDate,
+            original.TenantId);
+
+        creditNote.IsReturn = true;
+        creditNote.ReturnAgainstId = original.Id;
+        creditNote.CurrencyCode = original.CurrencyCode;
+        creditNote.ExchangeRate = original.ExchangeRate;
+        creditNote.DebitToAccountId = original.DebitToAccountId;
+        creditNote.PriceListId = original.PriceListId;
+        creditNote.UpdateStock = original.UpdateStock;
+        creditNote.WarehouseId = returnWarehouseId;
+        creditNote.Terms = original.Terms;
+        creditNote.Notes = $"Credit Note against Sales Invoice {original.InvoiceNumber}";
+        creditNote.TotalAdvance = 0; // Per ERPNext PR #59612
+
+        foreach (var origItem in returnableItems)
+        {
+            var alreadyReturned = returnedQtyByItem.GetValueOrDefault(origItem.Id, 0m);
+            var remainingQty = Math.Abs(origItem.Quantity) - alreadyReturned;
+
+            var taxAmount = origItem.TaxAmount > 0 && Math.Abs(origItem.Quantity) > 0
+                ? -1m * (origItem.TaxAmount * (remainingQty / Math.Abs(origItem.Quantity)))
+                : 0m;
+
+            creditNote.AddItem(
+                origItem.ItemId,
+                origItem.Description,
+                -1m * remainingQty,
+                origItem.UnitPrice,
+                taxAmount,
+                origItem.Uom);
+
+            var addedItem = creditNote.Items.Last();
+            addedItem.ConversionFactor = origItem.ConversionFactor;
+            addedItem.StockUom = origItem.StockUom;
+            addedItem.SalesOrderItemId = origItem.SalesOrderItemId;
+            addedItem.DeliveryNoteItemId = origItem.DeliveryNoteItemId;
+            addedItem.BatchId = origItem.BatchId;
+        }
+
+        if (original.DiscountAmount > 0)
+        {
+            creditNote.DiscountAmount = -1m * original.DiscountAmount;
+        }
+
+        await _salesInvoiceRepository.InsertAsync(creditNote, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("SalesInvoice", original.Id, original.CompanyId,
+            "SalesInvoice", creditNote.Id, original.InvoiceNumber, original.TenantId);
+
+        var dto = ObjectMapper.Map<SalesInvoice, SalesInvoiceDto>(creditNote);
+        dto.CustomerName = await ResolveCustomerNameAsync(creditNote.CustomerId);
+        return dto;
+    }
 }

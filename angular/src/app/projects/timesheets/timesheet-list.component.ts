@@ -34,6 +34,7 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
           <table class="table table-hover align-middle">
             <thead>
               <tr>
+                <th>{{ 'Title' | abpLocalization }}</th>
                 <th>{{ 'Employee' | abpLocalization }}</th>
                 <th>{{ 'StartDate' | abpLocalization }}</th>
                 <th>{{ 'EndDate' | abpLocalization }}</th>
@@ -45,7 +46,8 @@ import { PaginationComponent, type PageEvent } from '../../shared/components/pag
             <tbody>
               @for (ts of items(); track ts.id) {
                 <tr>
-                  <td><a [routerLink]="['/projects/timesheets', ts.id]" class="text-decoration-none">{{ ts.employeeName ?? ts.employeeId }}</a></td>
+                  <td><a [routerLink]="['/projects/timesheets', ts.id]" class="text-decoration-none fw-medium">{{ ts.title || ('Timesheet' | abpLocalization) }}</a></td>
+                  <td>{{ ts.employeeName ?? ts.employeeId }}</td>
                   <td>{{ ts.startDate | date:'dd/MM/yyyy' }}</td>
                   <td>{{ ts.endDate | date:'dd/MM/yyyy' }}</td>
                   <td class="text-end">{{ ts.totalHours | number:'1.1-1' }}</td>

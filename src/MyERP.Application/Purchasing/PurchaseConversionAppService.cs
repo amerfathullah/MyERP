@@ -845,4 +845,224 @@ public class PurchaseConversionAppService : ApplicationService, IPurchaseConvers
 
         return (fallbackRate, true);
     }
+
+    [Authorize(MyERPPermissions.PurchaseReceipts.Create)]
+    public async Task<PurchaseReceiptDto> MakePurchaseReceiptReturnAsync(Guid purchaseReceiptId, bool returnAgainstRejectedQty = false)
+    {
+        var original = await _purchaseReceiptRepository.GetAsync(purchaseReceiptId, includeDetails: true);
+
+        if (original.Status != Core.DocumentStatus.Submitted)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        if (original.IsReturn)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot create a return against a return document.");
+
+        var prQuery = await _purchaseReceiptRepository.GetQueryableAsync();
+        var priorReturns = prQuery
+            .Where(pr => pr.ReturnAgainstId == original.Id
+                      && pr.Id != original.Id
+                      && pr.Status != Core.DocumentStatus.Draft
+                      && pr.Status != Core.DocumentStatus.Cancelled)
+            .SelectMany(pr => pr.Items)
+            .ToList();
+
+        var priorReturnedAccepted = priorReturns
+            .Where(i => !i.ReturnQtyFromRejectedWarehouse)
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m))));
+
+        var priorReturnedRejected = priorReturns
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => (Math.Abs(i.RejectedQty) + (i.ReturnQtyFromRejectedWarehouse ? Math.Abs(i.Quantity) : 0m)) * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m)));
+
+        var returnNumber = await _numberGenerator.GenerateAsync("PurchaseReceipt", original.CompanyId);
+
+        var returnPr = new PurchaseReceipt(
+            GuidGenerator.Create(),
+            original.CompanyId,
+            original.SupplierId,
+            original.WarehouseId,
+            returnNumber,
+            Clock.Now.Date >= original.PostingDate ? Clock.Now.Date : original.PostingDate,
+            original.TenantId);
+
+        returnPr.PurchaseOrderId = original.PurchaseOrderId;
+        returnPr.IsReturn = true;
+        returnPr.ReturnAgainstId = original.Id;
+        returnPr.CurrencyCode = original.CurrencyCode;
+        returnPr.ExchangeRate = original.ExchangeRate;
+        returnPr.Notes = $"Return against Purchase Receipt {original.ReceiptNumber}";
+
+        var returnableCount = 0;
+        foreach (var origItem in original.Items)
+        {
+            var factor = origItem.ConversionFactor > 0 ? origItem.ConversionFactor : 1m;
+
+            if (returnAgainstRejectedQty)
+            {
+                var origRejectedStock = origItem.RejectedQty * factor;
+                var alreadyReturned = priorReturnedRejected.GetValueOrDefault(origItem.ItemId, 0m);
+                var remainingRejected = Math.Max(0m, (origRejectedStock - alreadyReturned) / factor);
+
+                if (remainingRejected > 0.0000001m)
+                {
+                    returnableCount++;
+                    returnPr.AddItem(
+                        origItem.ItemId,
+                        origItem.Description,
+                        -1m * remainingRejected,
+                        origItem.UnitPrice,
+                        0m,
+                        origItem.Uom,
+                        origItem.PurchaseOrderItemId,
+                        origItem.RejectedWarehouseId ?? original.WarehouseId,
+                        rejectedQty: 0m,
+                        rejectedWarehouseId: null,
+                        receivedQty: -1m * remainingRejected,
+                        fromWarehouseId: origItem.FromWarehouseId,
+                        materialRequestItemId: origItem.MaterialRequestItemId,
+                        returnQtyFromRejectedWarehouse: true);
+                }
+            }
+            else
+            {
+                var origAcceptedStock = origItem.Quantity * factor;
+                var alreadyReturnedAccepted = priorReturnedAccepted.GetValueOrDefault(origItem.ItemId, 0m);
+                var remainingAccepted = Math.Max(0m, (origAcceptedStock - alreadyReturnedAccepted) / factor);
+
+                var origRejectedStock = origItem.RejectedQty * factor;
+                var alreadyReturnedRejected = priorReturnedRejected.GetValueOrDefault(origItem.ItemId, 0m);
+                var remainingRejected = Math.Max(0m, (origRejectedStock - alreadyReturnedRejected) / factor);
+
+                if (remainingAccepted > 0.0000001m || remainingRejected > 0.0000001m)
+                {
+                    returnableCount++;
+                    returnPr.AddItem(
+                        origItem.ItemId,
+                        origItem.Description,
+                        remainingAccepted > 0 ? -1m * remainingAccepted : 0m,
+                        origItem.UnitPrice,
+                        origItem.TaxAmount > 0 && origItem.Quantity > 0 ? -1m * (origItem.TaxAmount * (remainingAccepted / origItem.Quantity)) : 0m,
+                        origItem.Uom,
+                        origItem.PurchaseOrderItemId,
+                        origItem.WarehouseId,
+                        rejectedQty: remainingRejected > 0 ? -1m * remainingRejected : 0m,
+                        rejectedWarehouseId: origItem.RejectedWarehouseId,
+                        receivedQty: -1m * (remainingAccepted + remainingRejected),
+                        fromWarehouseId: origItem.FromWarehouseId,
+                        materialRequestItemId: origItem.MaterialRequestItemId,
+                        returnQtyFromRejectedWarehouse: false);
+                }
+            }
+        }
+
+        if (returnableCount == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"All items in Purchase Receipt {original.ReceiptNumber} have already been returned.");
+        }
+
+        await _purchaseReceiptRepository.InsertAsync(returnPr, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("PurchaseReceipt", original.Id, original.CompanyId,
+            "PurchaseReceipt", returnPr.Id, original.ReceiptNumber, original.TenantId);
+
+        var dto = ObjectMapper.Map<PurchaseReceipt, PurchaseReceiptDto>(returnPr);
+        var supplier = await _supplierRepository.FindAsync(returnPr.SupplierId);
+        dto.SupplierName = supplier?.Name;
+        return dto;
+    }
+
+    [Authorize(MyERPPermissions.PurchaseInvoices.Create)]
+    public async Task<PurchaseInvoiceDto> MakePurchaseInvoiceReturnAsync(Guid purchaseInvoiceId)
+    {
+        var original = await _purchaseInvoiceRepository.GetAsync(purchaseInvoiceId, includeDetails: true);
+
+        if (original.Status != Core.DocumentStatus.Submitted && original.Status != Core.DocumentStatus.Posted)
+            throw new BusinessException(MyERPDomainErrorCodes.DocumentMustBeSubmittedForConversion);
+
+        if (original.IsReturn)
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", "Cannot create a return against a return document.");
+
+        var piQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
+        var priorReturns = piQuery
+            .Where(pi => pi.ReturnAgainstId == original.Id
+                      && pi.Id != original.Id
+                      && pi.Status != Core.DocumentStatus.Draft
+                      && pi.Status != Core.DocumentStatus.Cancelled)
+            .SelectMany(pi => pi.Items)
+            .ToList();
+
+        var priorReturnedByItem = priorReturns
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m))));
+
+        var returnNumber = await _numberGenerator.GenerateAsync("PurchaseInvoice", original.CompanyId);
+
+        var debitNote = new PurchaseInvoice(
+            GuidGenerator.Create(),
+            original.CompanyId,
+            original.SupplierId,
+            returnNumber,
+            Clock.Now.Date >= original.IssueDate ? Clock.Now.Date : original.IssueDate,
+            original.TenantId);
+
+        debitNote.IsReturn = true;
+        debitNote.ReturnAgainstId = original.Id;
+        debitNote.CurrencyCode = original.CurrencyCode;
+        debitNote.ExchangeRate = original.ExchangeRate;
+        debitNote.CreditToAccountId = original.CreditToAccountId;
+        debitNote.PriceListId = original.PriceListId;
+        debitNote.UpdateStock = original.UpdateStock;
+        debitNote.Terms = original.Terms;
+        debitNote.Notes = $"Debit Note against Purchase Invoice {original.InvoiceNumber}";
+        debitNote.TotalAdvance = 0; // Per ERPNext PR #59612
+        debitNote.AmountPaid = -1m * original.AmountPaid;
+
+        var returnableCount = 0;
+        foreach (var origItem in original.Items)
+        {
+            var factor = origItem.ConversionFactor > 0 ? origItem.ConversionFactor : 1m;
+            var origStock = origItem.Quantity * factor;
+            var alreadyReturned = priorReturnedByItem.GetValueOrDefault(origItem.ItemId, 0m);
+            var remaining = Math.Max(0m, (origStock - alreadyReturned) / factor);
+
+            if (remaining > 0.0000001m)
+            {
+                returnableCount++;
+                debitNote.AddItem(
+                    origItem.ItemId,
+                    origItem.Description,
+                    -1m * remaining,
+                    origItem.UnitPrice,
+                    origItem.TaxAmount > 0 && origItem.Quantity > 0 ? -1m * (origItem.TaxAmount * (remaining / origItem.Quantity)) : 0m,
+                    origItem.Uom,
+                    origItem.WarehouseId,
+                    materialRequestItemId: origItem.MaterialRequestItemId);
+            }
+        }
+
+        if (returnableCount == 0)
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                .WithData("detail", $"All items in Purchase Invoice {original.InvoiceNumber} have already been returned.");
+        }
+
+        if (original.DiscountAmount > 0)
+        {
+            debitNote.DiscountAmount = -1m * original.DiscountAmount;
+        }
+
+        await _purchaseInvoiceRepository.InsertAsync(debitNote, autoSave: true);
+
+        await _activityLog.LogConvertedAsync("PurchaseInvoice", original.Id, original.CompanyId,
+            "PurchaseInvoice", debitNote.Id, original.InvoiceNumber, original.TenantId);
+
+        var dto = ObjectMapper.Map<PurchaseInvoice, PurchaseInvoiceDto>(debitNote);
+        var supplier = await _supplierRepository.FindAsync(debitNote.SupplierId);
+        dto.SupplierName = supplier?.Name;
+        return dto;
+    }
 }

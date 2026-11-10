@@ -22,6 +22,18 @@ public interface IPurchaseConversionAppService : IApplicationService
     /// <summary>Convert a submitted Purchase Invoice into a Purchase Receipt (excluding returned items, PR #50971).</summary>
     Task<PurchaseReceiptDto> ConvertPurchaseInvoiceToReceiptAsync(Guid purchaseInvoiceId);
 
+    /// <summary>
+    /// Creates a draft Return Purchase Receipt against a submitted Purchase Receipt.
+    /// Per ERPNext make_return_doc: negates remaining quantities, optionally returning against rejected qty.
+    /// </summary>
+    Task<PurchaseReceiptDto> MakePurchaseReceiptReturnAsync(Guid purchaseReceiptId, bool returnAgainstRejectedQty = false);
+
+    /// <summary>
+    /// Creates a draft Debit Note (Return Purchase Invoice) against a submitted Purchase Invoice.
+    /// Per ERPNext make_return_doc: negates remaining quantities, reverses paid amounts and actual taxes.
+    /// </summary>
+    Task<PurchaseInvoiceDto> MakePurchaseInvoiceReturnAsync(Guid purchaseInvoiceId);
+
     /// <summary>Convert a submitted RFQ into a Supplier Quotation for a specific supplier.</summary>
     Task<SupplierQuotationDto> ConvertRfqToSupplierQuotationAsync(Guid rfqId, Guid supplierId);
 

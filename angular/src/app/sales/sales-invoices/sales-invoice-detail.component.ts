@@ -14,6 +14,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
 import { SalesInvoiceService } from '../../proxy/sales/sales-invoice.service';
+import { DocumentConversionService } from '../../proxy/sales/document-conversion.service';
 import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
 import { SalesInvoiceStore } from '../store/sales-invoice.store';
 import type { SalesInvoiceDto } from '../../proxy/sales/models';
@@ -59,6 +60,7 @@ export class SalesInvoiceDetailComponent implements OnInit {
   private companyService = inject(CompanyService);
   private service = inject(SalesInvoiceService);
   private eInvoiceService = inject(EInvoiceService);
+  private conversionService = inject(DocumentConversionService);
   private store = inject(SalesInvoiceStore);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
@@ -232,8 +234,19 @@ export class SalesInvoiceDetailComponent implements OnInit {
         this.openQuickPayment();
         break;
       case 'return':
-        this.router.navigate(['/sales/invoices/new'], {
-          queryParams: { returnAgainst: id }
+        this.confirmation.warn('::ReturnConfirmation', '::AreYouSure').subscribe((status) => {
+          if (status === Confirmation.Status.confirm) {
+            this.conversionService.makeSalesInvoiceReturn(id).subscribe({
+              next: (ret) => {
+                this.toaster.success('::ReturnCreated');
+                this.router.navigate(['/sales/invoices', ret.id]);
+              },
+              error: (err: any) => {
+                const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+                this.toaster.error(reason || '::OperationFailed');
+              }
+            });
+          }
         });
         break;
       case 'submitLhdn':

@@ -157,8 +157,19 @@ export class DeliveryNoteDetailComponent implements OnInit {
         });
         break;
       case 'return':
-        this.router.navigate(['/sales/delivery-notes/new'], {
-          queryParams: { returnAgainst: id }
+        this.confirmation.warn('::ReturnConfirmation', '::AreYouSure').subscribe((status) => {
+          if (status === Confirmation.Status.confirm) {
+            this.conversionService.makeDeliveryNoteReturn(id).subscribe({
+              next: (ret) => {
+                this.toaster.success('::ReturnCreated');
+                this.router.navigate(['/sales/delivery-notes', ret.id]);
+              },
+              error: (err: any) => {
+                const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+                this.toaster.error(reason || '::OperationFailed');
+              }
+            });
+          }
         });
         break;
       case 'amend':

@@ -31,6 +31,19 @@ public interface IDocumentConversionAppService : IApplicationService
     /// <summary>Convert a submitted Delivery Note into a Sales Invoice.</summary>
     Task<SalesInvoiceDto> ConvertDeliveryNoteToSalesInvoiceAsync(Guid deliveryNoteId);
 
+    /// <summary>
+    /// Creates a draft Return Delivery Note against a submitted Delivery Note.
+    /// Per ERPNext make_return_doc: negates remaining quantities, applies default sales return warehouse if set,
+    /// and drops already returned serials and batches.
+    /// </summary>
+    Task<DeliveryNoteDto> MakeDeliveryNoteReturnAsync(Guid deliveryNoteId);
+
+    /// <summary>
+    /// Creates a draft Credit Note (Return Sales Invoice) against a submitted Sales Invoice.
+    /// Per ERPNext make_return_doc: negates remaining quantities, reverses payments and actual taxes.
+    /// </summary>
+    Task<SalesInvoiceDto> MakeSalesInvoiceReturnAsync(Guid salesInvoiceId);
+
     /// <summary>Convert an Open/Replied Opportunity into a Quotation.</summary>
     Task<QuotationDto> ConvertOpportunityToQuotationAsync(Guid opportunityId);
 

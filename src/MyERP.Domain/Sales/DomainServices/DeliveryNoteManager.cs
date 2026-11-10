@@ -178,6 +178,19 @@ public class DeliveryNoteManager : DomainService
             .GroupBy(i => (i.ItemId, i.BatchId!.Value))
             .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m))));
 
+        // Seed serial-level tracking: delivered serials vs prior returned serials (ERPNext PR #64590)
+        var originalDeliveredSerialIds = original.Items
+            .Where(i => i.SerialNoId.HasValue)
+            .GroupBy(i => i.ItemId)
+            .ToDictionary(g => g.Key, g => g.Select(i => i.SerialNoId!.Value).ToHashSet());
+
+        var priorReturnedSerialIds = priorReturns
+            .Where(i => i.SerialNoId.HasValue)
+            .Select(i => i.SerialNoId!.Value)
+            .ToHashSet();
+
+        var currentReturnSerialIds = new HashSet<Guid>();
+
         // Also check if SerialAndBatchBundle exists in LazyServiceProvider
         var bundleRepo = LazyServiceProvider?.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
         var originalBundleBatches = new Dictionary<(Guid ItemId, Guid BatchId), decimal>();
@@ -270,7 +283,34 @@ public class DeliveryNoteManager : DomainService
                         .WithData("deliveredQty", Math.Max(0m, remainingBatchStock / returnFactor));
                 }
 
-                accumulatedReturnedBatchStock[batchKey] = alreadyReturnedBatchStock + returnStockQty;
+                accumulatedReturnedBatchStock[batchKey] = Math.Round(alreadyReturnedBatchStock + returnStockQty, 6);
+            }
+
+            // Serial number validation: ensure serial was delivered on original, not already returned, and not duplicated across rows (ERPNext PR #64590)
+            if (returnItem.SerialNoId.HasValue)
+            {
+                var serialId = returnItem.SerialNoId.Value;
+                if (!currentReturnSerialIds.Add(serialId))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ReturnDuplicateSerialInDocument)
+                        .WithData("serialNo", serialId.ToString())
+                        .WithData("item", returnItem.Description);
+                }
+
+                var deliveredSerials = originalDeliveredSerialIds.GetValueOrDefault(returnItem.ItemId);
+                if (deliveredSerials == null || !deliveredSerials.Contains(serialId))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ReturnSerialNotFoundInOriginal)
+                        .WithData("serialNo", serialId.ToString())
+                        .WithData("referenceDoc", original.DeliveryNumber);
+                }
+
+                if (priorReturnedSerialIds.Contains(serialId))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ReturnSerialAlreadyReturned)
+                        .WithData("serialNo", serialId.ToString())
+                        .WithData("item", returnItem.Description);
+                }
             }
 
             // Return rate cannot exceed original sale rate — Moving Average items are exempt

@@ -444,4 +444,124 @@ public class ReturnValidationTests
         await manager.ValidateReturnAsync(returnInvoice);
         returnInvoice.TotalAdvance.ShouldBe(0m);
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task DeliveryNote_ValidateReturnAsync_Throws_WhenDuplicateSerialInSameReturnDoc()
+    {
+        // Per ERPNext PR #64590 (commit 9403e3df8d):
+        // Return rows that refer to the same original row must not pick the same serial no
+        var dnRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<DeliveryNote, Guid>>();
+        var soRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<SalesOrder, Guid>>();
+        var companyRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.Company, Guid>>();
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var manager = new MyERP.Sales.DomainServices.DeliveryNoteManager(dnRepo, soRepo, companyRepo, itemRepo);
+
+        var origId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var serialId1 = Guid.NewGuid();
+
+        var original = new DeliveryNote(origId, companyId, customerId, Guid.NewGuid(), "DN-ORIG", DateTime.UtcNow);
+        original.AddItem(itemId, "Serialized Item", 2m, 100m, 0m);
+        original.Items[0].SerialNoId = serialId1;
+        dnRepo.GetAsync(origId).Returns(System.Threading.Tasks.Task.FromResult(original));
+
+        var returnDn = new DeliveryNote(Guid.NewGuid(), companyId, customerId, Guid.NewGuid(), "DN-RET", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = origId
+        };
+        returnDn.AddItem(itemId, "Return Row 1", -1m, 100m, 0m);
+        returnDn.Items[0].SerialNoId = serialId1;
+        returnDn.AddItem(itemId, "Return Row 2", -1m, 100m, 0m);
+        returnDn.Items[1].SerialNoId = serialId1; // Duplicate serial!
+
+        dnRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new System.Collections.Generic.List<DeliveryNote> { original, returnDn }.AsQueryable()));
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => manager.ValidateReturnAsync(returnDn));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnDuplicateSerialInDocument);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task DeliveryNote_ValidateReturnAsync_Throws_WhenSerialNotFoundInOriginal()
+    {
+        var dnRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<DeliveryNote, Guid>>();
+        var soRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<SalesOrder, Guid>>();
+        var companyRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.Company, Guid>>();
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var manager = new MyERP.Sales.DomainServices.DeliveryNoteManager(dnRepo, soRepo, companyRepo, itemRepo);
+
+        var origId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var originalSerialId = Guid.NewGuid();
+        var unknownSerialId = Guid.NewGuid();
+
+        var original = new DeliveryNote(origId, companyId, customerId, Guid.NewGuid(), "DN-ORIG", DateTime.UtcNow);
+        original.AddItem(itemId, "Serialized Item", 1m, 100m, 0m);
+        original.Items[0].SerialNoId = originalSerialId;
+        dnRepo.GetAsync(origId).Returns(System.Threading.Tasks.Task.FromResult(original));
+
+        var returnDn = new DeliveryNote(Guid.NewGuid(), companyId, customerId, Guid.NewGuid(), "DN-RET", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = origId
+        };
+        returnDn.AddItem(itemId, "Return Row", -1m, 100m, 0m);
+        returnDn.Items[0].SerialNoId = unknownSerialId; // not in original
+
+        dnRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new System.Collections.Generic.List<DeliveryNote> { original, returnDn }.AsQueryable()));
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => manager.ValidateReturnAsync(returnDn));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnSerialNotFoundInOriginal);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task DeliveryNote_ValidateReturnAsync_Throws_WhenSerialAlreadyReturned()
+    {
+        var dnRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<DeliveryNote, Guid>>();
+        var soRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<SalesOrder, Guid>>();
+        var companyRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Core.Entities.Company, Guid>>();
+        var itemRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<MyERP.Inventory.Entities.Item, Guid>>();
+        var manager = new MyERP.Sales.DomainServices.DeliveryNoteManager(dnRepo, soRepo, companyRepo, itemRepo);
+
+        var origId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var serialId = Guid.NewGuid();
+
+        var original = new DeliveryNote(origId, companyId, customerId, Guid.NewGuid(), "DN-ORIG", DateTime.UtcNow);
+        original.AddItem(itemId, "Serialized Item", 2m, 100m, 0m);
+        original.Items[0].SerialNoId = serialId;
+        dnRepo.GetAsync(origId).Returns(System.Threading.Tasks.Task.FromResult(original));
+
+        // Prior submitted return already returned serialId
+        var priorReturn = new DeliveryNote(Guid.NewGuid(), companyId, customerId, Guid.NewGuid(), "DN-RET-1", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = origId
+        };
+        priorReturn.AddItem(itemId, "Prior Return", -1m, 100m, 0m);
+        priorReturn.Items[0].SerialNoId = serialId;
+        priorReturn.Submit();
+
+        var newReturn = new DeliveryNote(Guid.NewGuid(), companyId, customerId, Guid.NewGuid(), "DN-RET-2", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = origId
+        };
+        newReturn.AddItem(itemId, "New Return", -1m, 100m, 0m);
+        newReturn.Items[0].SerialNoId = serialId;
+
+        dnRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new System.Collections.Generic.List<DeliveryNote> { original, priorReturn, newReturn }.AsQueryable()));
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => manager.ValidateReturnAsync(newReturn));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnSerialAlreadyReturned);
+    }
 }

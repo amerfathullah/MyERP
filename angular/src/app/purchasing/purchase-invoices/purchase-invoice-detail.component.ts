@@ -14,6 +14,7 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
 import { LhdnStatusBadgeComponent } from '../../shared/components/lhdn-status-badge/lhdn-status-badge.component';
 import { LoadingOverlayComponent } from '../../shared/components/loading-overlay/loading-overlay.component';
 import { PurchaseInvoiceService } from '../../proxy/purchasing/purchase-invoice.service';
+import { PurchaseConversionService } from '../../proxy/purchasing/purchase-conversion.service';
 import { PurchaseInvoiceStore } from '../store/purchase-invoice.store';
 import { EInvoiceService } from '../../proxy/einvoice/einvoice.service';
 import { ActivityLogComponent } from '../../shared/components/activity-log/activity-log.component';
@@ -38,6 +39,7 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
   private router = inject(Router);
   private companyService = inject(CompanyService);
   private service = inject(PurchaseInvoiceService);
+  private conversionService = inject(PurchaseConversionService);
   private store = inject(PurchaseInvoiceStore);
   private confirmation = inject(ConfirmationService);
   private toaster = inject(ToasterService);
@@ -247,8 +249,19 @@ export class PurchaseInvoiceDetailComponent implements OnInit {
         this.openQuickPayment();
         break;
       case 'return':
-        this.router.navigate(['/purchasing/invoices/new'], {
-          queryParams: { returnAgainst: id }
+        this.confirmation.warn('::ReturnConfirmation', '::AreYouSure').subscribe((status) => {
+          if (status === Confirmation.Status.confirm) {
+            this.conversionService.makePurchaseInvoiceReturn(id).subscribe({
+              next: (ret) => {
+                this.toaster.success('::ReturnCreated');
+                this.router.navigate(['/purchasing/invoices', ret.id]);
+              },
+              error: (err: any) => {
+                const reason = err?.error?.error?.data?.detail || err?.error?.error?.message;
+                this.toaster.error(reason || '::OperationFailed');
+              }
+            });
+          }
         });
         break;
       case 'createSalesInvoice':

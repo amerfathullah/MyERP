@@ -317,6 +317,10 @@ public static class MyERPDomainErrorCodes
     public const string InvoiceOnHold = "MyERP:08012";
     public const string ReturnItemNotFoundInOriginal = "MyERP:08015";
     public const string ReturnBatchQtyExceedsDelivered = "MyERP:08016";
+    public const string ReturnSerialAlreadyReturned = "MyERP:08018";
+    public const string ReturnDuplicateSerialInDocument = "MyERP:08019";
+    public const string ReturnSerialNotFoundInOriginal = "MyERP:08020";
+    public const string ReturnConsolidatedPosNotAllowed = "MyERP:08021";
 
     // Payment Entry — Term Allocation
     public const string PaymentTermRequired = "MyERP:02061"; // was MyERP:02026 (collided with MandatoryDimensionMissing)

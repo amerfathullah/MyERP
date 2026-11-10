@@ -85,6 +85,7 @@ export interface CreateTimesheetDto {
   companyId: string;
   employeeId: string;
   employeeName?: string | null;
+  title?: string | null;
   startDate: string;
   endDate: string;
   note?: string | null;
@@ -293,6 +294,7 @@ export interface TimesheetDto extends AuditedEntityDto<string> {
   companyId?: string;
   employeeId?: string;
   employeeName?: string | null;
+  title?: string | null;
   status?: TimesheetStatus;
   startDate?: string;
   endDate?: string;

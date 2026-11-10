@@ -23,6 +23,10 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
           <div class="card-body">
             <div class="row g-3">
               <div class="col-md-4">
+                <label class="form-label">{{ 'Title' | abpLocalization }}</label>
+                <input type="text" class="form-control" formControlName="title">
+              </div>
+              <div class="col-md-4">
                 <label class="form-label">{{ 'Company' | abpLocalization }} *</label>
                 <input type="text" class="form-control" formControlName="companyId">
               </div>
@@ -30,12 +34,12 @@ import { SaveShortcutDirective } from '../../shared/directives/save-shortcut.dir
                 <label class="form-label">{{ 'Employee' | abpLocalization }} *</label>
                 <input type="text" class="form-control" formControlName="employeeId">
               </div>
+            </div>
+            <div class="row g-3 mt-2">
               <div class="col-md-4">
                 <label class="form-label">{{ 'EmployeeName' | abpLocalization }}</label>
                 <input type="text" class="form-control" formControlName="employeeName">
               </div>
-            </div>
-            <div class="row g-3 mt-2">
               <div class="col-md-4">
                 <label class="form-label">{{ 'StartDate' | abpLocalization }} *</label>
                 <input type="date" class="form-control" formControlName="startDate">
@@ -132,6 +136,7 @@ export class TimesheetFormComponent implements OnInit {
   private companyContext = inject(CompanyContextService);
 
   form = this.fb.group({
+    title: [''],
     companyId: ['', Validators.required],
     employeeId: ['', Validators.required],
     employeeName: [''],

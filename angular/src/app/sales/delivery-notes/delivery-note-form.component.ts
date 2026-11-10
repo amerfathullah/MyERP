@@ -133,7 +133,7 @@ export class DeliveryNoteFormComponent implements OnInit {
     this.items.push(this.fb.group({
       itemId: [item?.itemId ?? '', Validators.required],
       description: [item?.description ?? '', Validators.required],
-      quantity: [item?.quantity ?? 1, [Validators.required, Validators.min(0.01)]],
+      quantity: [item?.quantity ?? 1, [Validators.required, ...(this.isReturn ? [] : [Validators.min(0.01)])]],
       unitPrice: [item?.unitPrice ?? 0, [Validators.required, Validators.min(0)]],
       taxAmount: [item?.taxAmount ?? 0],
       uom: [item?.uom ?? 'Unit'],

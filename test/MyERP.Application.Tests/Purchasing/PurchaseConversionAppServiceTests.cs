@@ -362,4 +362,72 @@ public abstract class PurchaseConversionAppServiceTests<TStartupModule> : MyERPA
             piDto.Items[0].Quantity.ShouldBe(4m);
         });
     }
+
+    [Fact]
+    public async Task MakePurchaseReceiptReturnAsync_CreatesReturnWithNegativeQty_AndDropsAlreadyReturnedQty()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var warehouseRepo = GetRequiredService<IRepository<Warehouse, Guid>>();
+            var prRepo = GetRequiredService<IRepository<PurchaseReceipt, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var conversionService = GetRequiredService<IPurchaseConversionAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PR Return Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "PR Supplier", company.TenantId), autoSave: true);
+            var warehouse = await warehouseRepo.InsertAsync(new Warehouse(Guid.NewGuid(), company.Id, "PR Warehouse"), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "ITEM-PR-RET", "PR Return Item", ItemType.Goods) { MaintainStock = true }, autoSave: true);
+
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PRS1", "PurchaseReceipt", "PR-"), autoSave: true);
+
+            var pr = new PurchaseReceipt(Guid.NewGuid(), company.Id, supplier.Id, warehouse.Id, "PR-ORIG-100", DateTime.UtcNow.Date);
+            pr.AddItem(item.Id, "PR Item", 8m, 100m, 0m);
+            pr.Submit();
+            await prRepo.InsertAsync(pr, autoSave: true);
+
+            // Create return
+            var retPr = await conversionService.MakePurchaseReceiptReturnAsync(pr.Id);
+            retPr.ShouldNotBeNull();
+            retPr.IsReturn.ShouldBeTrue();
+            retPr.ReturnAgainstId.ShouldBe(pr.Id);
+            retPr.Items.Count.ShouldBe(1);
+            retPr.Items[0].Quantity.ShouldBe(-8m);
+        });
+    }
+
+    [Fact]
+    public async Task MakePurchaseInvoiceReturnAsync_CreatesDebitNoteWithNegativeQty()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var supplierRepo = GetRequiredService<IRepository<Supplier, Guid>>();
+            var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+            var piRepo = GetRequiredService<IRepository<PurchaseInvoice, Guid>>();
+            var seriesRepo = GetRequiredService<IRepository<DocumentSeries, Guid>>();
+            var conversionService = GetRequiredService<IPurchaseConversionAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "PI Return Co") { CurrencyCode = "MYR" }, autoSave: true);
+            var supplier = await supplierRepo.InsertAsync(new Supplier(Guid.NewGuid(), company.Id, "PI Supplier", company.TenantId), autoSave: true);
+            var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), company.Id, "ITEM-PI-RET", "PI Return Item", ItemType.Goods) { MaintainStock = false }, autoSave: true);
+
+            await seriesRepo.InsertAsync(new DocumentSeries(Guid.NewGuid(), company.Id, "PIS3", "PurchaseInvoice", "PI-"), autoSave: true);
+
+            var pi = new PurchaseInvoice(Guid.NewGuid(), company.Id, supplier.Id, "PI-ORIG-100", DateTime.UtcNow.Date);
+            pi.AddItem(item.Id, "PI Item", 6m, 50m, 0m);
+            pi.Submit();
+            await piRepo.InsertAsync(pi, autoSave: true);
+
+            var debitNote = await conversionService.MakePurchaseInvoiceReturnAsync(pi.Id);
+            debitNote.ShouldNotBeNull();
+            debitNote.IsReturn.ShouldBeTrue();
+            debitNote.ReturnAgainstId.ShouldBe(pi.Id);
+            debitNote.Items.Count.ShouldBe(1);
+            debitNote.Items[0].Quantity.ShouldBe(-6m);
+            debitNote.Items[0].UnitPrice.ShouldBe(50m);
+        });
+    }
 }

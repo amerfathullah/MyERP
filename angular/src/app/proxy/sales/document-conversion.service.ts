@@ -68,4 +68,20 @@ export class DocumentConversionService {
       url: `/api/app/document-conversion/convert-sales-order-to-sales-invoice/${salesOrderId}`,
     },
     { apiName: this.apiName,...config });
+  
+
+  makeDeliveryNoteReturn = (deliveryNoteId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, DeliveryNoteDto>({
+      method: 'POST',
+      url: `/api/app/document-conversion/make-delivery-note-return/${deliveryNoteId}`,
+    },
+    { apiName: this.apiName,...config });
+  
+
+  makeSalesInvoiceReturn = (salesInvoiceId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesInvoiceDto>({
+      method: 'POST',
+      url: `/api/app/document-conversion/make-sales-invoice-return/${salesInvoiceId}`,
+    },
+    { apiName: this.apiName,...config });
 }

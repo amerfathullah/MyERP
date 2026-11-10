@@ -17,7 +17,7 @@ import type { TimesheetDto } from '../../proxy/projects/models';
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-breadcrumb />
-    <abp-page [title]="ts()?.employeeName || ('Timesheet' | abpLocalization)">
+    <abp-page [title]="ts()?.title || ts()?.employeeName || ('Timesheet' | abpLocalization)">
       @if (!ts()) {
         <div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
       } @else {
@@ -56,6 +56,9 @@ import type { TimesheetDto } from '../../proxy/projects/models';
             <div class="row">
               <div class="col-md-6">
                 <table class="table table-borderless table-sm mb-0">
+                  @if (ts()!.title) {
+                    <tr><td class="text-muted">{{ 'Title' | abpLocalization }}</td><td class="fw-medium">{{ ts()!.title }}</td></tr>
+                  }
                   <tr><td class="text-muted">{{ 'Status' | abpLocalization }}</td><td><app-status-badge [status]="getStatusLabel(ts()!.status)" /></td></tr>
                   <tr><td class="text-muted">{{ 'Employee' | abpLocalization }}</td><td>{{ ts()!.employeeId }}</td></tr>
                 </table>

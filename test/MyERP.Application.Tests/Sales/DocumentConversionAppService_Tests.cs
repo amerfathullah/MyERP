@@ -733,4 +733,66 @@ public abstract class DocumentConversionAppService_Tests<TStartupModule> : MyERP
             _conversionService.ConvertQuotationToSalesInvoiceAsync(qtn.Id));
         (ex.Data["detail"]?.ToString() ?? string.Empty).ShouldContain("Lost");
     }
+
+    [Fact]
+    public async Task MakeDeliveryNoteReturnAsync_CreatesReturnWithNegativeQty_AndDropsAlreadyReturnedQty()
+    {
+        var (companyId, customerId, warehouseId) = await SeedDataAsync();
+        var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+        var dnRepo = GetRequiredService<IRepository<DeliveryNote, Guid>>();
+
+        var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), companyId, "ITEM-RET-1", "Return Test Item", ItemType.Goods) { MaintainStock = true }, autoSave: true);
+
+        var originalDn = new DeliveryNote(Guid.NewGuid(), companyId, customerId, warehouseId, "DN-ORIG-100", DateTime.UtcNow.Date);
+        originalDn.AddItem(item.Id, "Item 1", 10m, 50m, 0m);
+        originalDn.Submit();
+        await dnRepo.InsertAsync(originalDn, autoSave: true);
+
+        // First return: 10 units pending
+        var ret1 = await _conversionService.MakeDeliveryNoteReturnAsync(originalDn.Id);
+        ret1.ShouldNotBeNull();
+        ret1.IsReturn.ShouldBeTrue();
+        ret1.ReturnAgainstId.ShouldBe(originalDn.Id);
+        ret1.Items.Count.ShouldBe(1);
+        ret1.Items[0].Quantity.ShouldBe(-10m);
+
+        // Adjust ret1 to return only 4 and submit it
+        var ret1Entity = await dnRepo.GetAsync(ret1.Id, includeDetails: true);
+        var dnItemRepo = GetRequiredService<IRepository<DeliveryNoteItem, Guid>>();
+        var dnItem = ret1Entity.Items[0];
+        dnItem.Quantity = -4m;
+        await dnItemRepo.UpdateAsync(dnItem, autoSave: true);
+
+        ret1Entity.Submit();
+        await dnRepo.UpdateAsync(ret1Entity, autoSave: true);
+
+        // Second return: remaining should be -6 (10 - 4)
+        var ret2 = await _conversionService.MakeDeliveryNoteReturnAsync(originalDn.Id);
+        ret2.ShouldNotBeNull();
+        ret2.Items.Count.ShouldBe(1);
+        ret2.Items[0].Quantity.ShouldBe(-6m);
+    }
+
+    [Fact]
+    public async Task MakeSalesInvoiceReturnAsync_CreatesCreditNoteWithNegativeQty()
+    {
+        var (companyId, customerId, _) = await SeedDataAsync();
+        var itemRepo = GetRequiredService<IRepository<Item, Guid>>();
+        var siRepo = GetRequiredService<IRepository<SalesInvoice, Guid>>();
+
+        var item = await itemRepo.InsertAsync(new Item(Guid.NewGuid(), companyId, "ITEM-SI-RET", "Return SI Item", ItemType.Goods) { MaintainStock = false }, autoSave: true);
+
+        var originalSi = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-ORIG-100", DateTime.UtcNow.Date);
+        originalSi.AddItem(item.Id, "Item SI", 5m, 100m, 0m);
+        originalSi.Submit();
+        await siRepo.InsertAsync(originalSi, autoSave: true);
+
+        var creditNote = await _conversionService.MakeSalesInvoiceReturnAsync(originalSi.Id);
+        creditNote.ShouldNotBeNull();
+        creditNote.IsReturn.ShouldBeTrue();
+        creditNote.ReturnAgainstId.ShouldBe(originalSi.Id);
+        creditNote.Items.Count.ShouldBe(1);
+        creditNote.Items[0].Quantity.ShouldBe(-5m);
+        creditNote.Items[0].UnitPrice.ShouldBe(100m);
+    }
 }
