@@ -387,6 +387,7 @@ public static class MyERPDomainErrorCodes
     public const string ClearanceDateBeforePostingDate = "MyERP:02049";
     public const string ClearanceDateBeforeChequeDate = "MyERP:02095";
     public const string ExchangeRateMissing = "MyERP:02096";
+    public const string InvalidAccountMerge = "MyERP:02097";
 
     // POS
     public const string NoPosOpeningEntry = "MyERP:16003";

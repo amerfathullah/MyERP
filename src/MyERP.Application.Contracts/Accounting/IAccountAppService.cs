@@ -13,6 +13,12 @@ public class GetAccountListDto : PagedAndSortedResultRequestDto
     public bool? IsGroup { get; set; }
 }
 
+public class MergeAccountDto
+{
+    public Guid OldAccountId { get; set; }
+    public Guid NewAccountId { get; set; }
+}
+
 public interface IAccountAppService :
     ICrudAppService<
         AccountDto,
@@ -21,4 +27,12 @@ public interface IAccountAppService :
         CreateUpdateAccountDto>
 {
     Task<System.Collections.Generic.List<AccountTreeNodeDto>> GetTreeAsync(Guid companyId, bool includeDisabled = false);
+
+    /// <summary>
+    /// Merges an account into another account per ERPNext accounts/doctype/account/account.py merge_account.
+    /// Validates property compatibility (IsGroup, RootType, Company, Currency, AccountSubType),
+    /// circular hierarchy prevention with automatic reparenting, and BalanceMustBe constraints.
+    /// Reassigns GL/PLE/rule references and removes the merged account.
+    /// </summary>
+    Task<AccountDto> MergeAccountAsync(MergeAccountDto input);
 }
