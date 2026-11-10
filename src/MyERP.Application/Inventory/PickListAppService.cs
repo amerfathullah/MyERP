@@ -184,7 +184,8 @@ public class PickListAppService : ApplicationService, IPickListAppService
                 sourceDocumentItemId: item.SourceDocumentItemId,
                 serialAndBatchBundleId: item.SerialAndBatchBundleId,
                 uom: resolvedUom,
-                conversionFactor: resolvedFactor);
+                conversionFactor: resolvedFactor,
+                stockUom: stockUom);
         }
         await _repository.InsertAsync(pl);
         return ObjectMapper.Map<PickList, PickListDto>(pl);

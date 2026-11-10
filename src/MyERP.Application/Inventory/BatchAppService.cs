@@ -621,7 +621,8 @@ public class BatchAppService : ApplicationService, IBatchAppService
         var batchIds = batchBalances.Select(b => b.BatchId!.Value).Distinct().ToList();
         var batches = batchQuery.Where(b => batchIds.Contains(b.Id))
             .Select(b => new { b.Id, b.BatchNo, b.ExpiryDate, b.IsDisabled, b.IsCancelled })
-            .Where(b => !b.IsDisabled && !b.IsCancelled && (!b.ExpiryDate.HasValue || b.ExpiryDate.Value.Date >= today))
+            // Per ERPNext PR #65211 / commit 173ca23551: count disabled batches in stock-level batch queries
+            .Where(b => !b.IsCancelled && (input.ForStockLevels || (!b.IsDisabled && (!b.ExpiryDate.HasValue || b.ExpiryDate.Value.Date >= today))))
             .ToDictionary(b => b.Id);
 
         if (batches.Count == 0) return new List<AvailableBatchItemDto>();

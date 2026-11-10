@@ -654,13 +654,13 @@ public class JobCardManager : DomainService
 
         if (!matchingItems.Any()) return;
 
-        // Per ERPNext PR #60650 (commit b2f37a6579) & PR #65171 (commit e7870754ec):
-        // check expected qty per item for this job card using 4-decimal precision so fractional transfers (e.g. 1/3) succeed after full transfer
+        // Per ERPNext PR #60650 (commit b2f37a6579), PR #65171 (commit e7870754ec), and PR #65183 (commit 98e9ed6914, d15ae49fe4):
+        // check expected qty per item for this job card using precision so fractional transfers (e.g. 1/3) succeed after full transfer
         var hasShortMaterial = false;
         foreach (var row in matchingItems)
         {
-            var expected = (row.RequiredQuantity / wo.Quantity) * jobCard.ForQuantity;
-            if (Math.Round(row.TransferredQuantity, 4) < Math.Round(expected, 4))
+            var expected = CalculateJobCardItemRequiredQty(row.RequiredQuantity, jobCard.ForQuantity, wo.Quantity, 4);
+            if (Math.Round(row.TransferredQuantity, 4) < expected)
             {
                 hasShortMaterial = true;
                 break;
@@ -672,6 +672,22 @@ public class JobCardManager : DomainService
             throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                 .WithData("detail", $"Materials need to be transferred to the work in progress warehouse before starting or completing Job Card (sequence {jobCard.SequenceId}).");
         }
+    }
+
+    /// <summary>
+    /// Rounds the Job Card item's required quantity using the configured precision.
+    /// Per ERPNext PR #65183 (commits 98e9ed6914, d15ae49fe4):
+    /// Uses the Job Card's precision for item required qty calculation so full transfers
+    /// of fractional material quantities match the required quantity.
+    /// </summary>
+    public static decimal CalculateJobCardItemRequiredQty(
+        decimal itemRequiredQty,
+        decimal jobCardForQuantity,
+        decimal operationOrWoQty,
+        int precision = 4)
+    {
+        if (operationOrWoQty <= 0) return 0m;
+        return Math.Round((itemRequiredQty * jobCardForQuantity) / operationOrWoQty, precision);
     }
 
     /// <summary>

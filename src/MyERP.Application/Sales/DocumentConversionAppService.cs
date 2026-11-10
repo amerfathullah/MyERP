@@ -943,7 +943,10 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                         stockQty: compStockQty,
                         itemName: comp.ItemName ?? compItem?.ItemName,
                         productBundleItemId: comp.Id,
-                        sourceDocumentItemId: soItem.Id);
+                        sourceDocumentItemId: soItem.Id,
+                        uom: comp.Uom ?? compItem?.Uom ?? "Unit",
+                        conversionFactor: compFactor,
+                        stockUom: compItem?.Uom ?? "Unit");
                 }
             }
             else
@@ -965,10 +968,13 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                 pickList.AddItem(
                     soItem.ItemId,
                     rowWarehouseId.Value,
-                    stockQtyToPick,
+                    qtyToPick,
                     stockQty: stockQtyToPick,
                     itemName: soItem.Description ?? itemEntity?.ItemName,
-                    sourceDocumentItemId: soItem.Id);
+                    sourceDocumentItemId: soItem.Id,
+                    uom: soItem.Uom ?? itemEntity?.Uom ?? "Unit",
+                    conversionFactor: rowFactor,
+                    stockUom: itemEntity?.Uom ?? "Unit");
             }
         }
 

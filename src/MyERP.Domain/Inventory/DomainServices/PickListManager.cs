@@ -538,6 +538,86 @@ public class PickListManager : DomainService
 
         return filtered;
     }
+
+    /// <summary>
+    /// Allocates locations and serial numbers for a pick list item row.
+    /// Per ERPNext PR #65146 (commits 9d105dfa3b, cf4ff918e3):
+    /// When a location has more quantity than requested for the row, the remaining serial numbers
+    /// on the location are sliced starting from stock_qty offset (next serial numbers), NOT from the tail
+    /// (newest serial numbers). This ensures later pick list rows receive the next serial numbers in FIFO order.
+    /// </summary>
+    public static List<AllocatedLocationItem> AllocateItemLocations(
+        decimal itemQty,
+        decimal itemStockQty,
+        decimal conversionFactor,
+        List<PickLocationAllocation> availableLocations,
+        bool uomMustBeWholeNumber = false,
+        int precision = 4)
+    {
+        var locations = new List<AllocatedLocationItem>();
+        var remainingStockQty = itemStockQty > 0 ? itemStockQty : itemQty * conversionFactor;
+        var factor = conversionFactor > 0 ? conversionFactor : 1m;
+
+        while (Math.Round(remainingStockQty, precision) > 0 && availableLocations.Count > 0)
+        {
+            var itemLoc = availableLocations[0];
+            availableLocations.RemoveAt(0);
+
+            var stockQty = itemLoc.Qty >= remainingStockQty ? remainingStockQty : itemLoc.Qty;
+            var qty = stockQty / factor;
+
+            if (uomMustBeWholeNumber)
+            {
+                qty = Math.Floor(qty);
+                stockQty = qty * factor;
+                if (stockQty <= 0)
+                {
+                    continue;
+                }
+            }
+
+            var allocatedSerials = new List<string>();
+            if (itemLoc.SerialNumbers != null && itemLoc.SerialNumbers.Count > 0)
+            {
+                var takeCount = (int)Math.Min((long)itemLoc.SerialNumbers.Count, (long)Math.Ceiling(stockQty));
+                allocatedSerials = itemLoc.SerialNumbers.Take(takeCount).ToList();
+            }
+
+            locations.Add(new AllocatedLocationItem
+            {
+                Qty = qty,
+                StockQty = stockQty,
+                WarehouseId = itemLoc.WarehouseId,
+                BatchId = itemLoc.BatchId,
+                SerialNumbers = allocatedSerials,
+            });
+
+            remainingStockQty -= stockQty;
+            var qtyDiff = itemLoc.Qty - stockQty;
+
+            if (qtyDiff > 0)
+            {
+                itemLoc.Qty = qtyDiff;
+                if (itemLoc.SerialNumbers != null && itemLoc.SerialNumbers.Count > 0)
+                {
+                    // PR #65146 / commit 9d105dfa3b: give later rows the NEXT serial numbers, not the newest
+                    itemLoc.SerialNumbers = itemLoc.SerialNumbers.Skip((int)stockQty).ToList();
+                }
+                availableLocations.Insert(0, itemLoc);
+            }
+        }
+
+        return locations;
+    }
+}
+
+public class AllocatedLocationItem
+{
+    public decimal Qty { get; set; }
+    public decimal StockQty { get; set; }
+    public Guid WarehouseId { get; set; }
+    public Guid? BatchId { get; set; }
+    public List<string> SerialNumbers { get; set; } = new();
 }
 
 public class PickLocationAllocation

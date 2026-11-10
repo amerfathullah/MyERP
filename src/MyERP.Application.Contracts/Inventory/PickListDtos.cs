@@ -54,6 +54,7 @@ public class PickListItemDto
     public Guid WarehouseId { get; set; }
     public decimal Qty { get; set; }
     public string? Uom { get; set; }
+    public string? StockUom { get; set; }
     public decimal ConversionFactor { get; set; } = 1m;
     public decimal StockQty { get; set; }
     public decimal TransferredQty { get; set; }
@@ -84,6 +85,7 @@ public class CreatePickListItemDto
     public Guid WarehouseId { get; set; }
     public decimal Qty { get; set; }
     public string? Uom { get; set; }
+    public string? StockUom { get; set; }
     public decimal ConversionFactor { get; set; }
     public decimal StockQty { get; set; }
     public Guid? BatchId { get; set; }

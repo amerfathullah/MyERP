@@ -160,6 +160,12 @@ public class GetAvailableBatchesDto
     public bool IgnoreReservedStock { get; set; }
 
     /// <summary>
+    /// When true, counts disabled batches in stock levels (e.g. for returns or balance checks).
+    /// Per ERPNext PR #65211 / commit 173ca23551: count disabled batches in stock-level batch queries.
+    /// </summary>
+    public bool ForStockLevels { get; set; }
+
+    /// <summary>
     /// As-of date cutoff for available batches.
     /// Per ERPNext PR #60757 (commit 7485463837): apply batch report cutoff even for today.
     /// Excludes future-dated transactions when querying batch stock balances.

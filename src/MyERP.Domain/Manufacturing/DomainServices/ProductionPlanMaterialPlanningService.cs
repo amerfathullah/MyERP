@@ -133,6 +133,37 @@ public class ProductionPlanMaterialPlanningService : DomainService
     }
 
     /// <summary>
+    /// Calculates Material Request item quantities for Production Plan when transferring from other warehouses.
+    /// Per ERPNext PR #65145 (commits 1ca3aa000e, dbc1f9598c):
+    /// - Takes the transfer quantity off the unrounded shortage before rounding to Purchase UOM.
+    /// - For Material Transfer (isTransfer = true), the transfer quantity is NOT rounded to Purchase UOM whole numbers.
+    /// - Only the remaining shortage for Purchase is rounded to Purchase UOM whole numbers.
+    /// </summary>
+    public static (decimal TransferQty, decimal PurchaseQty) CalculateTransferAndPurchaseQuantities(
+        decimal totalShortage,
+        decimal availableInOtherWarehouses,
+        decimal purchaseConversionFactor = 1m,
+        decimal minOrderQty = 0m,
+        bool roundUpWholeUom = true)
+    {
+        var factor = purchaseConversionFactor > 0m ? purchaseConversionFactor : 1m;
+        var transferStockQty = Math.Min(Math.Max(0m, totalShortage), Math.Max(0m, availableInOtherWarehouses));
+        var remainingShortage = Math.Max(0m, totalShortage - transferStockQty);
+
+        var purchaseInUom = remainingShortage / factor;
+        if (minOrderQty > 0m && purchaseInUom > 0m && purchaseInUom < minOrderQty)
+        {
+            purchaseInUom = minOrderQty;
+        }
+        if (roundUpWholeUom)
+        {
+            purchaseInUom = Math.Ceiling(purchaseInUom);
+        }
+
+        return (transferStockQty, purchaseInUom);
+    }
+
+    /// <summary>
     /// Generates CSV content from download rows.
     /// </summary>
     public static string GenerateCsv(IEnumerable<DownloadRawMaterialRow> rows)

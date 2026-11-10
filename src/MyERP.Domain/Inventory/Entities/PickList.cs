@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using MyERP.Core;
 using Volo.Abp;
@@ -58,11 +59,12 @@ public class PickList : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void AddItem(Guid itemId, Guid warehouseId, decimal qty,
         decimal stockQty = 0, string? itemName = null, Guid? batchId = null,
         Guid? productBundleItemId = null, Guid? sourceDocumentItemId = null,
-        Guid? serialAndBatchBundleId = null, string? uom = null, decimal conversionFactor = 1m)
+        Guid? serialAndBatchBundleId = null, string? uom = null, decimal conversionFactor = 1m,
+        string? stockUom = null)
     {
         if (Status != DocumentStatus.Draft)
             throw new BusinessException(MyERPDomainErrorCodes.InvalidStatusTransition);
-        var item = new PickListItem(Guid.NewGuid(), Id, itemId, warehouseId, qty, stockQty, itemName, batchId, productBundleItemId, serialAndBatchBundleId, uom, conversionFactor);
+        var item = new PickListItem(Guid.NewGuid(), Id, itemId, warehouseId, qty, stockQty, itemName, batchId, productBundleItemId, serialAndBatchBundleId, uom, conversionFactor, stockUom);
         if (sourceDocumentItemId.HasValue)
             item.SourceDocumentItemId = sourceDocumentItemId.Value;
         _items.Add(item);
@@ -121,6 +123,10 @@ public class PickListItem : FullAuditedEntity<Guid>
     public decimal ConversionFactor { get; set; } = 1m;
     public decimal StockQty { get; set; }
 
+    /// <summary>Stock UOM of the item (per ERPNext PR #65210 / commit e8c9d1948f).</summary>
+    [NotMapped]
+    public string? StockUom { get; set; }
+
     /// <summary>Qty already transferred to Stock Entry (supports partial).</summary>
     public decimal TransferredQty { get; set; }
 
@@ -146,7 +152,8 @@ public class PickListItem : FullAuditedEntity<Guid>
 
     public PickListItem(Guid id, Guid pickListId, Guid itemId, Guid warehouseId,
         decimal qty, decimal stockQty, string? itemName, Guid? batchId, Guid? productBundleItemId = null,
-        Guid? serialAndBatchBundleId = null, string? uom = null, decimal conversionFactor = 1m) : base(id)
+        Guid? serialAndBatchBundleId = null, string? uom = null, decimal conversionFactor = 1m,
+        string? stockUom = null) : base(id)
     {
         PickListId = pickListId;
         ItemId = itemId;
@@ -159,6 +166,7 @@ public class PickListItem : FullAuditedEntity<Guid>
         BatchId = batchId;
         ProductBundleItemId = productBundleItemId;
         SerialAndBatchBundleId = serialAndBatchBundleId;
+        StockUom = stockUom ?? uom;
     }
 
     public void RecordTransfer(decimal qty)
