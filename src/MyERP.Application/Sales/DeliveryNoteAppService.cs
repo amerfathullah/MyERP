@@ -1718,9 +1718,11 @@ public class DeliveryNoteAppService : ApplicationService, IDeliveryNoteAppServic
                     foreach (var comp in components)
                     {
                         var remaining = Math.Abs(comp.Qty);
+                        // Per ERPNext PR #65116 (commit 3dedfaee04): match by ProductBundleItemId for repeated components in a bundle
                         var matchingRows = pl.Items
                             .Where(pi => pi.SourceDocumentItemId == bundleDnItem.SalesOrderItemId
-                                      && pi.ItemId == comp.ComponentItemId)
+                                      && pi.ItemId == comp.ComponentItemId
+                                      && (!comp.ProductBundleItemId.HasValue || !pi.ProductBundleItemId.HasValue || pi.ProductBundleItemId == comp.ProductBundleItemId))
                             .ToList();
                         if (matchingRows.Count == 0)
                             continue;

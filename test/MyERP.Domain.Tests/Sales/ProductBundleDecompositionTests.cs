@@ -343,6 +343,37 @@ public class ProductBundleDecompositionTests
         var decomposed = await service.DecomposeAsync(bundleItemId, 2m, 100m);
         decomposed.Count.ShouldBe(2);
         decomposed[0].Qty.ShouldBe(4m);
+        decomposed[0].ProductBundleItemId.ShouldBe(bundle.Items[0].Id);
         decomposed[1].Qty.ShouldBe(6m);
+        decomposed[1].ProductBundleItemId.ShouldBe(bundle.Items[1].Id);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ProductBundleDecomposition_CustomRatioByProductBundleItemId_PerPR65116()
+    {
+        var bundleItemId = Guid.NewGuid();
+        var compItemId = Guid.NewGuid();
+        var bundle = new ProductBundle(Guid.NewGuid(), bundleItemId);
+        bundle.AddItem(compItemId, 1m, "Widget 1");
+        bundle.AddItem(compItemId, 2m, "Widget 2");
+
+        var bundleRepo = NSubstitute.Substitute.For<Volo.Abp.Domain.Repositories.IRepository<ProductBundle, Guid>>();
+        bundleRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(new List<ProductBundle> { bundle }.AsQueryable()));
+
+        var service = new ProductBundleDecompositionService(bundleRepo);
+
+        // Custom ratio keyed by ProductBundleItemId (e.g. from Pick List / SO packed item)
+        var rowRatios = new Dictionary<Guid, decimal>
+        {
+            { bundle.Items[0].Id, 1.5m },
+            { bundle.Items[1].Id, 2.5m }
+        };
+
+        var decomposed = await service.DecomposeAsync(bundleItemId, 2m, 100m, componentStockQtyPerUnit: rowRatios);
+        decomposed.Count.ShouldBe(2);
+        decomposed[0].Qty.ShouldBe(3m); // 1.5 * 2
+        decomposed[0].ProductBundleItemId.ShouldBe(bundle.Items[0].Id);
+        decomposed[1].Qty.ShouldBe(5m); // 2.5 * 2
+        decomposed[1].ProductBundleItemId.ShouldBe(bundle.Items[1].Id);
     }
 }

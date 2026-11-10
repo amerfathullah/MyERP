@@ -138,9 +138,12 @@ public class ProductBundleDecompositionService : DomainService
                 }
             }
 
-            // Component stock qty per bundle unit: if order had packed components, keep the ordered ratio (PR #65001 / PR #65000 / PR #65052)
+            // Component stock qty per bundle unit: if order had packed components, keep the ordered ratio (PR #65001 / PR #65000 / PR #65052 / PR #65116)
             decimal componentQtyPerUnit;
-            if (componentStockQtyPerUnit != null && componentStockQtyPerUnit.TryGetValue(component.ComponentItemId, out var orderedRatio) && orderedRatio > 0)
+            if (componentStockQtyPerUnit != null &&
+                (componentStockQtyPerUnit.TryGetValue(component.Id, out var orderedRatio) ||
+                 componentStockQtyPerUnit.TryGetValue(component.ComponentItemId, out orderedRatio)) &&
+                orderedRatio > 0)
             {
                 componentQtyPerUnit = orderedRatio;
             }
@@ -166,7 +169,8 @@ public class ProductBundleDecompositionService : DomainService
                 ParentBundleId: bundle.Id,
                 WarehouseId: warehouseId,
                 ParentDetailId: parentDetailId,
-                ParentIndex: parentIndex
+                ParentIndex: parentIndex,
+                ProductBundleItemId: component.Id
             ));
         }
 
@@ -287,7 +291,8 @@ public record DecomposedItem(
     Guid ParentBundleId,
     Guid? WarehouseId = null,
     Guid? ParentDetailId = null,
-    int? ParentIndex = null
+    int? ParentIndex = null,
+    Guid? ProductBundleItemId = null
 );
 
 /// <summary>
