@@ -20,10 +20,14 @@ namespace MyERP.Inventory.DomainServices;
 public class SerialNoValidationService : DomainService
 {
     private readonly IRepository<SerialNo, Guid> _serialNoRepository;
+    private readonly IRepository<SerialAndBatchBundle, Guid>? _bundleRepository;
 
-    public SerialNoValidationService(IRepository<SerialNo, Guid> serialNoRepository)
+    public SerialNoValidationService(
+        IRepository<SerialNo, Guid> serialNoRepository,
+        IRepository<SerialAndBatchBundle, Guid>? bundleRepository = null)
     {
         _serialNoRepository = serialNoRepository;
+        _bundleRepository = bundleRepository;
     }
 
     /// <summary>
@@ -87,6 +91,71 @@ public class SerialNoValidationService : DomainService
                     .WithData("serialNo", serial.SerialNumber)
                     .WithData("expectedWarehouse", item.WarehouseId.Value)
                     .WithData("actualWarehouse", serial.WarehouseId?.ToString() ?? "None");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates customer ownership for standalone returns (no ReturnAgainstId).
+    /// Per ERPNext selling_controller.py validate_standalone_serial_nos_customer:
+    /// If a returned serial is assigned to a customer, it must match the document customer.
+    /// Prevents returning serials that belong to a different customer.
+    /// </summary>
+    public async Task ValidateStandaloneReturnCustomerAsync(
+        Guid customerId,
+        IEnumerable<Guid>? serialNoIds = null,
+        IEnumerable<string>? serialNumbers = null,
+        IEnumerable<Guid>? bundleIds = null)
+    {
+        var serialStrings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (serialNumbers != null)
+        {
+            foreach (var s in serialNumbers.Where(s => !string.IsNullOrWhiteSpace(s)))
+            {
+                serialStrings.Add(s.Trim());
+            }
+        }
+
+        var serialIds = serialNoIds?.Where(id => id != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
+
+        // If bundles provided, pull serial numbers from bundle entries
+        if (bundleIds != null)
+        {
+            var validBundleIds = bundleIds.Where(id => id != Guid.Empty).Distinct().ToList();
+            if (validBundleIds.Any())
+            {
+                var bundleRepo = _bundleRepository ?? LazyServiceProvider?.LazyGetService<IRepository<SerialAndBatchBundle, Guid>>();
+                if (bundleRepo != null)
+                {
+                    var bundleQuery = await bundleRepo.GetQueryableAsync();
+                    var bundles = bundleQuery.Where(b => validBundleIds.Contains(b.Id)).ToList();
+                    foreach (var bundle in bundles)
+                    {
+                        foreach (var entry in bundle.Entries.Where(e => !string.IsNullOrWhiteSpace(e.SerialNo)))
+                        {
+                            serialStrings.Add(entry.SerialNo!.Trim());
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!serialIds.Any() && !serialStrings.Any())
+            return;
+
+        var serialQuery = await _serialNoRepository.GetQueryableAsync();
+        var matchingSerials = serialQuery
+            .Where(s => s.CustomerId.HasValue && (serialIds.Contains(s.Id) || (s.SerialNumber != null && serialStrings.Contains(s.SerialNumber))))
+            .ToList();
+
+        foreach (var sn in matchingSerials)
+        {
+            if (sn.CustomerId.HasValue && sn.CustomerId.Value != customerId)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ReturnSerialCustomerMismatch)
+                    .WithData("serialNo", sn.SerialNumber)
+                    .WithData("assignedCustomer", sn.CustomerId.Value)
+                    .WithData("returnCustomer", customerId);
             }
         }
     }

@@ -71,7 +71,8 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
         var companyCurrency = company?.CurrencyCode ?? "MYR";
 
         string? targetPresentationCurrency = input.PresentationCurrency;
-        if (string.IsNullOrWhiteSpace(targetPresentationCurrency)
+        if (input.ConvertAtReportingDateRate
+            && string.IsNullOrWhiteSpace(targetPresentationCurrency)
             && input.AccountId.HasValue
             && accounts.TryGetValue(input.AccountId.Value, out var acctForCurrency))
         {

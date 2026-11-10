@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
 using MyERP.Inventory;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Sales.Entities;
 using Volo.Abp;
@@ -24,19 +25,22 @@ public class DeliveryNoteManager : DomainService
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly IRepository<Uom, Guid>? _uomRepository;
+    private readonly SerialNoValidationService? _serialNoValidationService;
 
     public DeliveryNoteManager(
         IRepository<DeliveryNote, Guid> dnRepository,
         IRepository<SalesOrder, Guid> orderRepository,
         IRepository<Company, Guid> companyRepository,
         IRepository<Item, Guid> itemRepository,
-        IRepository<Uom, Guid>? uomRepository = null)
+        IRepository<Uom, Guid>? uomRepository = null,
+        SerialNoValidationService? serialNoValidationService = null)
     {
         _dnRepository = dnRepository;
         _orderRepository = orderRepository;
         _companyRepository = companyRepository;
         _itemRepository = itemRepository;
         _uomRepository = uomRepository;
+        _serialNoValidationService = serialNoValidationService;
     }
 
     /// <summary>
@@ -119,17 +123,35 @@ public class DeliveryNoteManager : DomainService
     {
         if (!returnDN.IsReturn) return;
 
-        if (!returnDN.ReturnAgainstId.HasValue)
-        {
-            throw new BusinessException(MyERPDomainErrorCodes.ReturnMustReferenceOriginal)
-                .WithData("documentType", "Delivery Note");
-        }
-
         // Returns must have negative quantities and at least one item with negative quantity
         if (returnDN.Items.Any(i => i.Quantity > 0) || !returnDN.Items.Any(i => i.Quantity < 0))
         {
             throw new BusinessException(MyERPDomainErrorCodes.ReturnQtyMustBeNegative)
                 .WithData("documentType", "Delivery Note");
+        }
+
+        // Must reference an original delivery note or be an allowed external standalone return
+        if (!returnDN.ReturnAgainstId.HasValue)
+        {
+            var company = await _companyRepository.FindAsync(returnDN.CompanyId);
+            var isExternalAllowed = company?.AllowCreditNoteWithoutOriginalInvoice == true;
+
+            if (!isExternalAllowed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ReturnMustReferenceOriginal)
+                    .WithData("documentType", "Delivery Note");
+            }
+
+            // Validate standalone serial ownership against return customer (PR selling_controller validate_standalone_serial_nos_customer)
+            var serialValidation = _serialNoValidationService ?? LazyServiceProvider?.LazyGetService<SerialNoValidationService>();
+            if (serialValidation != null)
+            {
+                var serialIds = returnDN.Items.Where(i => i.SerialNoId.HasValue).Select(i => i.SerialNoId!.Value);
+                var bundleIds = returnDN.Items.Where(i => i.SerialAndBatchBundleId.HasValue).Select(i => i.SerialAndBatchBundleId!.Value);
+                await serialValidation.ValidateStandaloneReturnCustomerAsync(returnDN.CustomerId, serialIds, bundleIds: bundleIds);
+            }
+
+            return;
         }
 
         var original = await _dnRepository.GetAsync(returnDN.ReturnAgainstId.Value);

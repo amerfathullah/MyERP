@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MyERP.Core.Entities;
 using MyERP.Inventory;
+using MyERP.Inventory.DomainServices;
 using MyERP.Inventory.Entities;
 using MyERP.Sales.Entities;
 using Volo.Abp;
@@ -22,15 +24,21 @@ public class SalesInvoiceManager : DomainService
     private readonly IRepository<SalesInvoice, Guid> _invoiceRepository;
     private readonly IRepository<SalesOrder, Guid> _orderRepository;
     private readonly IRepository<Item, Guid> _itemRepository;
+    private readonly IRepository<Company, Guid>? _companyRepository;
+    private readonly SerialNoValidationService? _serialNoValidationService;
 
     public SalesInvoiceManager(
         IRepository<SalesInvoice, Guid> invoiceRepository,
         IRepository<SalesOrder, Guid> orderRepository,
-        IRepository<Item, Guid> itemRepository)
+        IRepository<Item, Guid> itemRepository,
+        IRepository<Company, Guid>? companyRepository = null,
+        SerialNoValidationService? serialNoValidationService = null)
     {
         _invoiceRepository = invoiceRepository;
         _orderRepository = orderRepository;
         _itemRepository = itemRepository;
+        _companyRepository = companyRepository;
+        _serialNoValidationService = serialNoValidationService;
     }
 
     /// <summary>
@@ -96,11 +104,34 @@ public class SalesInvoiceManager : DomainService
                 .WithData("documentType", "Sales Invoice");
         }
 
-        // Must reference an original invoice
+        // Must reference an original invoice or be an allowed external standalone return
         if (!returnInvoice.ReturnAgainstId.HasValue)
         {
-            throw new BusinessException(MyERPDomainErrorCodes.ReturnMustReferenceOriginal)
-                .WithData("documentType", "Sales Invoice");
+            var companyRepo = _companyRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Company, Guid>>();
+            var company = companyRepo != null ? await companyRepo.FindAsync(returnInvoice.CompanyId) : null;
+            var isExternalAllowed = company?.AllowCreditNoteWithoutOriginalInvoice == true
+                && (!string.IsNullOrWhiteSpace(returnInvoice.OriginalInvoiceNumber) || !string.IsNullOrWhiteSpace(returnInvoice.OriginalInvoiceUuid));
+
+            if (!isExternalAllowed)
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.ReturnMustReferenceOriginal)
+                    .WithData("documentType", "Sales Invoice");
+            }
+
+            // Standalone return: keep advances out of return
+            returnInvoice.TotalAdvance = 0;
+
+            // Validate standalone serial ownership against return customer (PR selling_controller validate_standalone_serial_nos_customer)
+            var serialValidation = _serialNoValidationService ?? LazyServiceProvider?.LazyGetService<SerialNoValidationService>();
+            if (serialValidation != null)
+            {
+                var serialIds = returnInvoice.Items.Where(i => i.SerialNoId.HasValue).Select(i => i.SerialNoId!.Value);
+                var serialStrings = returnInvoice.Items.Where(i => !string.IsNullOrWhiteSpace(i.SerialNo)).Select(i => i.SerialNo!);
+                var bundleIds = returnInvoice.Items.Where(i => i.SerialAndBatchBundleId.HasValue).Select(i => i.SerialAndBatchBundleId!.Value);
+                await serialValidation.ValidateStandaloneReturnCustomerAsync(returnInvoice.CustomerId, serialIds, serialStrings, bundleIds: bundleIds);
+            }
+
+            return;
         }
 
         // Per ERPNext PR #59612 / commit 8260d62362: Keep the original invoice's advances out of the return

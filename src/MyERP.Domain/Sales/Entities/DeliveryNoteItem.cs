@@ -43,6 +43,9 @@ public class DeliveryNoteItem : CreationAuditedEntity<Guid>
     /// <summary>Serial number reference for serialized items.</summary>
     public Guid? SerialNoId { get; set; }
 
+    /// <summary>Serial and batch bundle tracking.</summary>
+    public Guid? SerialAndBatchBundleId { get; set; }
+
     /// <summary>
     /// Per-item warehouse override. When set, stock is issued from this warehouse instead of DN header warehouse.
     /// Per ERPNext: each DN item can specify its own warehouse (multi-warehouse delivery).

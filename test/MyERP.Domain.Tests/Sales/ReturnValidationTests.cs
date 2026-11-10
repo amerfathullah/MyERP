@@ -1,9 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using MyERP.Core;
+using MyERP.Core.Entities;
+using MyERP.Inventory.DomainServices;
+using MyERP.Inventory.Entities;
+using MyERP.Purchasing.DomainServices;
+using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using NSubstitute;
 using Shouldly;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace MyERP.Tests.Sales;
@@ -563,5 +570,210 @@ public class ReturnValidationTests
 
         var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => manager.ValidateReturnAsync(newReturn));
         ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnSerialAlreadyReturned);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task SalesInvoice_ValidateReturnAsync_AllowsStandaloneReturn_WhenCompanyAllowsAndExternalRefGiven()
+    {
+        var siRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+
+        var companyId = Guid.NewGuid();
+        var company = new Company(companyId, "Test Company")
+        {
+            AllowCreditNoteWithoutOriginalInvoice = true
+        };
+        companyRepo.FindAsync(companyId).Returns(company);
+
+        var manager = new MyERP.Sales.DomainServices.SalesInvoiceManager(siRepo, soRepo, itemRepo, companyRepo);
+
+        var returnInvoice = new SalesInvoice(Guid.NewGuid(), companyId, Guid.NewGuid(), "CN-EXT-001", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = null,
+            OriginalInvoiceNumber = "LEGACY-INV-101",
+            TotalAdvance = 500m
+        };
+        returnInvoice.AddItem(Guid.NewGuid(), "Return Item", -1m, 100m, 0m);
+
+        await manager.ValidateReturnAsync(returnInvoice);
+        returnInvoice.TotalAdvance.ShouldBe(0m);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task SalesInvoice_ValidateReturnAsync_Throws_WhenStandaloneReturnAndCompanyDisallows()
+    {
+        var siRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+
+        var companyId = Guid.NewGuid();
+        var company = new Company(companyId, "Test Company")
+        {
+            AllowCreditNoteWithoutOriginalInvoice = false
+        };
+        companyRepo.FindAsync(companyId).Returns(company);
+
+        var manager = new MyERP.Sales.DomainServices.SalesInvoiceManager(siRepo, soRepo, itemRepo, companyRepo);
+
+        var returnInvoice = new SalesInvoice(Guid.NewGuid(), companyId, Guid.NewGuid(), "CN-EXT-002", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = null,
+            OriginalInvoiceNumber = "LEGACY-INV-102"
+        };
+        returnInvoice.AddItem(Guid.NewGuid(), "Return Item", -1m, 100m, 0m);
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => manager.ValidateReturnAsync(returnInvoice));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnMustReferenceOriginal);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task SalesInvoice_ValidateReturnAsync_Throws_WhenStandaloneReturnSerialBelongsToDifferentCustomer()
+    {
+        var siRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+        var serialRepo = Substitute.For<IRepository<SerialNo, Guid>>();
+
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var otherCustomerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var serialId = Guid.NewGuid();
+
+        var company = new Company(companyId, "Test Company")
+        {
+            AllowCreditNoteWithoutOriginalInvoice = true
+        };
+        companyRepo.FindAsync(companyId).Returns(company);
+
+        var serialNo = new SerialNo(serialId, itemId, "SN-OTHER-01", companyId)
+        {
+            CustomerId = otherCustomerId
+        };
+
+        serialRepo.GetQueryableAsync().Returns(new List<SerialNo> { serialNo }.AsQueryable());
+
+        var serialValidationService = new SerialNoValidationService(serialRepo);
+        var manager = new MyERP.Sales.DomainServices.SalesInvoiceManager(siRepo, soRepo, itemRepo, companyRepo, serialValidationService);
+
+        var returnInvoice = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "CN-EXT-003", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = null,
+            OriginalInvoiceNumber = "LEGACY-INV-103"
+        };
+        returnInvoice.AddItem(itemId, "Return Item", -1m, 100m, 0m);
+        returnInvoice.Items[0].SerialNoId = serialId;
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => manager.ValidateReturnAsync(returnInvoice));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnSerialCustomerMismatch);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task DeliveryNote_ValidateReturnAsync_Throws_WhenStandaloneReturnSerialBelongsToDifferentCustomer()
+    {
+        var dnRepo = Substitute.For<IRepository<DeliveryNote, Guid>>();
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var serialRepo = Substitute.For<IRepository<SerialNo, Guid>>();
+
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var otherCustomerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var serialId = Guid.NewGuid();
+
+        var company = new Company(companyId, "Test Company")
+        {
+            AllowCreditNoteWithoutOriginalInvoice = true
+        };
+        companyRepo.FindAsync(companyId).Returns(company);
+
+        var serialNo = new SerialNo(serialId, itemId, "SN-OTHER-DN-01", companyId)
+        {
+            CustomerId = otherCustomerId
+        };
+
+        serialRepo.GetQueryableAsync().Returns(new List<SerialNo> { serialNo }.AsQueryable());
+
+        var serialValidationService = new SerialNoValidationService(serialRepo);
+        var manager = new MyERP.Sales.DomainServices.DeliveryNoteManager(dnRepo, soRepo, companyRepo, itemRepo, serialNoValidationService: serialValidationService);
+
+        var returnDn = new DeliveryNote(Guid.NewGuid(), companyId, customerId, Guid.NewGuid(), "DN-RET-EXT-01", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = null
+        };
+        returnDn.AddItem(itemId, "Return Item", -1m, 100m, 0m);
+        returnDn.Items[0].SerialNoId = serialId;
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => manager.ValidateReturnAsync(returnDn));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnSerialCustomerMismatch);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task PurchaseInvoice_ValidateReturnAsync_AllowsStandaloneReturn_WhenCompanyAllowsAndExternalRefGiven()
+    {
+        var suppRepo = Substitute.For<IRepository<Supplier, Guid>>();
+        var piRepo = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
+        var poRepo = Substitute.For<IRepository<PurchaseOrder, Guid>>();
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+
+        var companyId = Guid.NewGuid();
+        var company = new Company(companyId, "Test Company")
+        {
+            AllowCreditNoteWithoutOriginalInvoice = true
+        };
+        companyRepo.FindAsync(companyId).Returns(company);
+
+        var manager = new PurchaseInvoiceManager(suppRepo, piRepo, poRepo, companyRepo);
+
+        var returnPi = new PurchaseInvoice(Guid.NewGuid(), companyId, Guid.NewGuid(), "DN-SUPP-EXT-001", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = null,
+            OriginalInvoiceNumber = "EXT-SUPP-INV-101",
+            TotalAdvance = 400m
+        };
+        returnPi.AddItem(Guid.NewGuid(), "Return Item", -1m, 50m, 0m);
+
+        await manager.ValidateReturnAsync(returnPi);
+        returnPi.TotalAdvance.ShouldBe(0m);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task PurchaseInvoice_ValidateReturnAsync_Throws_WhenStandaloneReturnAndCompanyDisallows()
+    {
+        var suppRepo = Substitute.For<IRepository<Supplier, Guid>>();
+        var piRepo = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
+        var poRepo = Substitute.For<IRepository<PurchaseOrder, Guid>>();
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+
+        var companyId = Guid.NewGuid();
+        var company = new Company(companyId, "Test Company")
+        {
+            AllowCreditNoteWithoutOriginalInvoice = false
+        };
+        companyRepo.FindAsync(companyId).Returns(company);
+
+        var manager = new PurchaseInvoiceManager(suppRepo, piRepo, poRepo, companyRepo);
+
+        var returnPi = new PurchaseInvoice(Guid.NewGuid(), companyId, Guid.NewGuid(), "DN-SUPP-EXT-002", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = null,
+            OriginalInvoiceNumber = "EXT-SUPP-INV-102"
+        };
+        returnPi.AddItem(Guid.NewGuid(), "Return Item", -1m, 50m, 0m);
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => manager.ValidateReturnAsync(returnPi));
+        ex.Code.ShouldBe("MyERP:08002");
     }
 }

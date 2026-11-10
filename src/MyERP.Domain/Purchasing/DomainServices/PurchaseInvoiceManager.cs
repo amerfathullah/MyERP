@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Assets;
 using MyERP.Assets.Entities;
+using MyERP.Core.Entities;
 using MyERP.Inventory.Entities;
 using MyERP.Purchasing.Entities;
 using Volo.Abp;
@@ -22,15 +23,18 @@ public class PurchaseInvoiceManager : DomainService
     private readonly IRepository<Supplier, Guid> _supplierRepository;
     private readonly IRepository<PurchaseInvoice, Guid> _invoiceRepository;
     private readonly IRepository<PurchaseOrder, Guid> _poRepository;
+    private readonly IRepository<Company, Guid>? _companyRepository;
 
     public PurchaseInvoiceManager(
         IRepository<Supplier, Guid> supplierRepository,
         IRepository<PurchaseInvoice, Guid> invoiceRepository,
-        IRepository<PurchaseOrder, Guid> poRepository)
+        IRepository<PurchaseOrder, Guid> poRepository,
+        IRepository<Company, Guid>? companyRepository = null)
     {
         _supplierRepository = supplierRepository;
         _invoiceRepository = invoiceRepository;
         _poRepository = poRepository;
+        _companyRepository = companyRepository;
     }
 
     /// <summary>
@@ -223,11 +227,23 @@ public class PurchaseInvoiceManager : DomainService
                 .WithData("documentType", "Purchase Invoice");
         }
 
-        // Must reference original invoice
+        // Must reference original invoice or be an allowed external standalone return
         if (!returnInvoice.ReturnAgainstId.HasValue)
         {
-            throw new BusinessException("MyERP:08002")
-                .WithData("documentType", "Purchase Invoice");
+            var companyRepo = _companyRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Company, Guid>>();
+            var company = companyRepo != null ? await companyRepo.FindAsync(returnInvoice.CompanyId) : null;
+            var isExternalAllowed = company?.AllowCreditNoteWithoutOriginalInvoice == true
+                && (!string.IsNullOrWhiteSpace(returnInvoice.OriginalInvoiceNumber) || !string.IsNullOrWhiteSpace(returnInvoice.OriginalInvoiceUuid));
+
+            if (!isExternalAllowed)
+            {
+                throw new BusinessException("MyERP:08002")
+                    .WithData("documentType", "Purchase Invoice");
+            }
+
+            // Standalone return: keep advances out of return
+            returnInvoice.TotalAdvance = 0;
+            return;
         }
 
         // Per ERPNext PR #59612 / commit 8260d62362: Keep the original invoice's advances out of the return

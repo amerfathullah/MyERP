@@ -89,6 +89,14 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public Guid? BatchId { get; set; }
 
+    /// <summary>Serial number reference for serialized items on invoice.</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public Guid? SerialNoId { get; set; }
+
+    /// <summary>Comma-separated or single serial number string.</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string? SerialNo { get; set; }
+
     /// <summary>Serial and Batch Bundle ID for serialized/batched tracking.</summary>
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public Guid? SerialAndBatchBundleId { get; set; }

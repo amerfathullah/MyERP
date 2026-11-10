@@ -154,6 +154,7 @@ export interface CreateDeliveryNoteItemDto {
   uom?: string;
   salesOrderItemId?: string | null;
   pickListItemId?: string | null;
+  serialAndBatchBundleId?: string | null;
   conversionFactor?: number | null;
 }
 
@@ -763,6 +764,7 @@ export interface DeliveryNoteItemDto {
   isClosed?: boolean;
   salesOrderItemId?: string | null;
   pickListItemId?: string | null;
+  serialAndBatchBundleId?: string | null;
 }
 
 export interface DeliveryScheduleEntryDto {

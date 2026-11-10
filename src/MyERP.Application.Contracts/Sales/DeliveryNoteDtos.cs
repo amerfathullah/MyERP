@@ -58,6 +58,7 @@ public class DeliveryNoteItemDto
     public bool IsClosed { get; set; }
     public Guid? SalesOrderItemId { get; set; }
     public Guid? PickListItemId { get; set; }
+    public Guid? SerialAndBatchBundleId { get; set; }
 }
 
 public class CreateDeliveryNoteDto
@@ -90,5 +91,6 @@ public class CreateDeliveryNoteItemDto
     [StringLength(50)] public string Uom { get; set; } = "Unit";
     public Guid? SalesOrderItemId { get; set; }
     public Guid? PickListItemId { get; set; }
+    public Guid? SerialAndBatchBundleId { get; set; }
     public decimal? ConversionFactor { get; set; }
 }

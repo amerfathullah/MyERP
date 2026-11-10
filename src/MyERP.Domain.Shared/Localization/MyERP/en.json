@@ -2307,6 +2307,7 @@
     "MyERP:08019": "Serial number '{serialNo}' cannot be returned multiple times in the same document.",
     "MyERP:08020": "Serial number '{serialNo}' does not belong to reference document {referenceDoc}.",
     "MyERP:08021": "Cannot create return for consolidated POS invoice {invoiceNumber}.",
+    "MyERP:08022": "Serial No {serialNo} is already assigned to another customer and cannot be returned against this customer.",
     "MyERP:05014": "Group warehouse {warehouseName} cannot receive stock. Use a leaf warehouse.",
     "MyERP:05011": "Batch {batchNo} has expired. Expired batches cannot be used in outward transactions.",
     "MyERP:02001": "Journal entry is unbalanced: total debits must equal total credits.",
