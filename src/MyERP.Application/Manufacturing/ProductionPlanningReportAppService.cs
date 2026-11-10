@@ -69,18 +69,21 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
 
         // Get open Purchase Orders for expected arrival tracking
         var poQuery = await _purchaseOrderRepository.WithDetailsAsync(p => p.Items);
-        var openPOs = poQuery
+        var openPOQuery = poQuery
             .Where(p => p.Status != DocumentStatus.Draft &&
                         p.Status != DocumentStatus.Cancelled &&
                         p.Status != DocumentStatus.Closed &&
-                        p.Status != DocumentStatus.Completed &&
-                        p.PerReceived < 100m)
-            .ToList();
+                        p.Status != DocumentStatus.Completed);
 
         if (input.CompanyId.HasValue)
         {
-            openPOs = openPOs.Where(p => p.CompanyId == input.CompanyId.Value).ToList();
+            openPOQuery = openPOQuery.Where(p => p.CompanyId == input.CompanyId.Value);
         }
+
+        var openPOs = openPOQuery
+            .ToList()
+            .Where(p => p.PerReceived < 100m)
+            .ToList();
 
         var rows = new List<ProductionPlanningReportRowDto>();
 
@@ -267,22 +270,25 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
         List<ProductionPlanningReportRowDto> rows)
     {
         var soQuery = await _salesOrderRepository.WithDetailsAsync(s => s.Items);
-        var salesOrders = soQuery
+        var salesOrderQuery = soQuery
             .Where(s => s.Status != DocumentStatus.Draft &&
                         s.Status != DocumentStatus.Cancelled &&
                         s.Status != DocumentStatus.Closed &&
-                        s.Status != DocumentStatus.Completed &&
-                        s.PerDelivered < 100m)
-            .OrderBy(s => s.OrderDate)
-            .ToList();
+                        s.Status != DocumentStatus.Completed)
+            .OrderBy(s => s.OrderDate);
 
         if (input.CompanyId.HasValue)
         {
-            salesOrders = salesOrders.Where(s => s.CompanyId == input.CompanyId.Value).ToList();
+            salesOrderQuery = salesOrderQuery.Where(s => s.CompanyId == input.CompanyId.Value).OrderBy(s => s.OrderDate);
         }
 
+        var salesOrders = salesOrderQuery
+            .ToList()
+            .Where(s => s.PerDelivered < 100m)
+            .ToList();
+
         var boms = await _bomRepository.WithDetailsAsync(b => b.Items);
-        var bomMap = boms.Where(b => b.IsActive).ToDictionary(b => b.ItemId);
+        var bomMap = boms.Where(b => b.IsActive).ToList().GroupBy(b => b.ItemId).ToDictionary(g => g.Key, g => g.First());
 
         foreach (var so in salesOrders)
         {
@@ -297,6 +303,67 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
 
                 if (!bomMap.TryGetValue(soItem.ItemId, out var bom))
                 {
+                    // Per ERPNext PR #64317 (commit 007b7f3162 / b7fa9539a2):
+                    // Net delivered Product Bundle demand in MRP.
+                    // If the item is a Product Bundle, compute undelivered component demand:
+                    // component.qty * pending_qty / so_item.qty
+                    var bundleRepo = LazyServiceProvider.LazyGetService<IRepository<ProductBundle, Guid>>();
+                    if (bundleRepo != null)
+                    {
+                        ProductBundle? bundle = null;
+                        if (soItem.ProductBundleId.HasValue)
+                        {
+                            bundle = await bundleRepo.FindAsync(soItem.ProductBundleId.Value);
+                        }
+                        if (bundle == null)
+                        {
+                            var bundleQ = await bundleRepo.GetQueryableAsync();
+                            bundle = bundleQ.FirstOrDefault(b => b.ItemId == soItem.ItemId && b.IsActive && !b.IsDisabled);
+                        }
+
+                        if (bundle != null && bundle.Items.Count > 0 && pendingQty > 0)
+                        {
+                            var bundleFgAvailable = AllotStock(soItem.ItemId, null, pendingQty, binTracker);
+
+                            foreach (var bItem in bundle.Items)
+                            {
+                                // In ProductBundle, bItem.Qty is the component quantity per bundle unit.
+                                // PR #64317 / commit 007b7f3162: pending demand = bItem.Qty * pendingQty (netting delivered bundles)
+                                var reqQty = Math.Round(bItem.Qty * pendingQty, 4);
+                                var rmWhId = input.RawMaterialWarehouseId;
+                                var rmWhName = GetWarehouseName(rmWhId, warehouseMap);
+
+                                var rawItem = itemMap.TryGetValue(bItem.ComponentItemId, out var ri) ? ri : null;
+                                var rawCode = rawItem?.ItemCode ?? string.Empty;
+                                var rawName = rawItem?.ItemName ?? bItem.ItemName;
+
+                                var allotted = AllotStock(bItem.ComponentItemId, rmWhId, reqQty, binTracker);
+                                var (arrivalDate, arrivalQty) = GetPoArrival(openPOs, bItem.ComponentItemId, rmWhId);
+
+                                rows.Add(new ProductionPlanningReportRowDto
+                                {
+                                    RowId = Guid.NewGuid(),
+                                    OrderNo = so.OrderNumber,
+                                    OrderType = "Sales Order",
+                                    ProductionItemCode = prodItemCode,
+                                    ProductionItemName = prodItemName,
+                                    ForWarehouse = string.Empty,
+                                    QtyToManufacture = pendingQty,
+                                    AvailableProductionQty = bundleFgAvailable,
+                                    PlannedDate = soItem.DeliveryDate ?? so.OrderDate,
+                                    RawMaterialCode = rawCode,
+                                    RawMaterialName = rawName ?? string.Empty,
+                                    RawMaterialWarehouse = rmWhName,
+                                    RequiredQty = reqQty,
+                                    AllottedQty = allotted,
+                                    ExpectedArrivalDate = arrivalDate,
+                                    ExpectedArrivalQty = arrivalQty
+                                });
+                            }
+                            continue;
+                        }
+                    }
+
                     continue;
                 }
 
@@ -352,23 +419,26 @@ public class ProductionPlanningReportAppService : ApplicationService, IProductio
         List<ProductionPlanningReportRowDto> rows)
     {
         var mrQuery = await _materialRequestRepository.WithDetailsAsync(m => m.Items);
-        var requests = mrQuery
+        var requestQuery = mrQuery
             .Where(m => m.Status != DocumentStatus.Draft &&
                         m.Status != DocumentStatus.Cancelled &&
                         m.Status != DocumentStatus.Closed &&
                         m.Status != DocumentStatus.Completed &&
-                        m.RequestType == MaterialRequestType.Manufacture &&
-                        m.PerOrdered < 100m)
-            .OrderBy(m => m.RequiredByDate ?? m.RequestDate)
-            .ToList();
+                        m.RequestType == MaterialRequestType.Manufacture)
+            .OrderBy(m => m.RequiredByDate ?? m.RequestDate);
 
         if (input.CompanyId.HasValue)
         {
-            requests = requests.Where(m => m.CompanyId == input.CompanyId.Value).ToList();
+            requestQuery = requestQuery.Where(m => m.CompanyId == input.CompanyId.Value).OrderBy(m => m.RequiredByDate ?? m.RequestDate);
         }
 
+        var requests = requestQuery
+            .ToList()
+            .Where(m => m.PerOrdered < 100m)
+            .ToList();
+
         var boms = await _bomRepository.WithDetailsAsync(b => b.Items);
-        var bomMap = boms.Where(b => b.IsActive).ToDictionary(b => b.ItemId);
+        var bomMap = boms.Where(b => b.IsActive).ToList().GroupBy(b => b.ItemId).ToDictionary(g => g.Key, g => g.First());
 
         foreach (var mr in requests)
         {
