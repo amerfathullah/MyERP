@@ -150,6 +150,7 @@ public class SalesInvoiceItemDto
     public DateTime? ServiceStopDate { get; set; }
     public bool IsFixedAsset { get; set; }
     public Guid? AssetId { get; set; }
+    public Guid? ProductBundleId { get; set; }
 }
 
 public class CreateSalesInvoiceDto
@@ -295,6 +296,7 @@ public class CreateSalesInvoiceItemDto
     public bool IsFixedAsset { get; set; }
     public Guid? AssetId { get; set; }
     public decimal? ConversionFactor { get; set; }
+    public Guid? ProductBundleId { get; set; }
 }
 
 /// <summary>

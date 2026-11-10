@@ -93,6 +93,10 @@ public class SalesInvoiceItem : CreationAuditedEntity<Guid>
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public Guid? SerialAndBatchBundleId { get; set; }
 
+    /// <summary>Product Bundle version ID for bundle items.</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public Guid? ProductBundleId { get; set; }
+
     /// <summary>
     /// Clears all deferred revenue fields when the user unchecks EnableDeferredRevenue.
     /// Per PR #57140: prevents orphaned account/date fields when deferred is disabled.

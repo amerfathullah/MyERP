@@ -52,6 +52,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
     private readonly SalesTeamService? _salesTeamService;
     private SalesTeamService SalesTeamService =>
         _salesTeamService ?? LazyServiceProvider.LazyGetRequiredService<SalesTeamService>();
+    private readonly ProductBundleDecompositionService? _bundleDecompositionService;
+    private ProductBundleDecompositionService BundleDecompositionService =>
+        _bundleDecompositionService ?? LazyServiceProvider.LazyGetRequiredService<ProductBundleDecompositionService>();
 
     public SalesInvoiceAppService(
         IRepository<SalesInvoice, Guid> repository,
@@ -72,8 +75,10 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         DocumentActivityLogService activityLog,
         ItemTransactionValidationService itemValidation,
         SalesInvoiceManager invoiceManager,
-        SalesTeamService? salesTeamService = null)
+        SalesTeamService? salesTeamService = null,
+        ProductBundleDecompositionService? bundleDecompositionService = null)
     {
+        _bundleDecompositionService = bundleDecompositionService;
         _salesTeamService = salesTeamService;
         _repository = repository;
         _customerRepository = customerRepository;
@@ -809,6 +814,7 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             var added = invoice.Items.Last();
             added.SalesOrderItemId = item.SalesOrderItemId;
             added.DeliveryNoteItemId = item.DeliveryNoteItemId;
+            added.ProductBundleId = item.ProductBundleId;
 
             if (originalInvoice != null)
             {
@@ -820,6 +826,29 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 {
                     added.SalesOrderItemId ??= origItem.SalesOrderItemId;
                     added.DeliveryNoteItemId ??= origItem.DeliveryNoteItemId;
+                    added.ProductBundleId ??= origItem.ProductBundleId;
+                }
+            }
+
+            if (!added.ProductBundleId.HasValue && added.SalesOrderItemId.HasValue)
+            {
+                var soQuery = await _salesOrderRepository.GetQueryableAsync();
+                var linkedSo = soQuery.FirstOrDefault(so => so.Items.Any(i => i.Id == added.SalesOrderItemId.Value));
+                var linkedSoItem = linkedSo?.Items.FirstOrDefault(i => i.Id == added.SalesOrderItemId.Value);
+                added.ProductBundleId = linkedSoItem?.ProductBundleId;
+            }
+
+            if (!added.ProductBundleId.HasValue)
+            {
+                var bundleRepo = LazyServiceProvider.LazyGetService<IRepository<ProductBundle, Guid>>();
+                if (bundleRepo != null)
+                {
+                    var bundleQuery = await bundleRepo.GetQueryableAsync();
+                    var activeBundle = bundleQuery.FirstOrDefault(b => b.ItemId == added.ItemId && b.IsActive && !b.IsDisabled);
+                    if (activeBundle != null)
+                    {
+                        added.ProductBundleId = activeBundle.Id;
+                    }
                 }
             }
 
@@ -1367,6 +1396,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         if (invoice.UpdateStock && invoice.WarehouseId.HasValue)
         {
             var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+            var bundleService = BundleDecompositionService;
+            var allItemIds = invoice.Items.Select(i => i.ItemId).Distinct();
+            var bundleItemIds = await bundleService.GetBundleItemIdsAsync(allItemIds, isReturn: invoice.IsReturn);
 
             if (invoice.IsReturn)
             {
@@ -1378,6 +1410,98 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
 
                 foreach (var item in invoice.Items)
                 {
+                    if (bundleItemIds.Contains(item.ItemId))
+                    {
+                        Guid? returnBundleVersionId = item.ProductBundleId;
+                        Dictionary<Guid, decimal>? componentStockQtyPerUnit = null;
+
+                        if (origSiForRates != null)
+                        {
+                            var origItem = origSiForRates.Items.FirstOrDefault(i =>
+                                (item.SalesOrderItemId.HasValue && i.SalesOrderItemId == item.SalesOrderItemId.Value)
+                                || i.ItemId == item.ItemId);
+                            returnBundleVersionId ??= origItem?.ProductBundleId;
+
+                            // Per ERPNext PR #65053 (commit 7edd914d84) & PR #65005 (commit ea7e451bcf):
+                            // Fallback to original Sales Invoice's posted StockLedgerEntries so that component stock qty per unit
+                            // matches the delivered quantities even if component conversion factors changed afterwards.
+                            var sleRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
+                            if (sleRepo != null)
+                            {
+                                var sleQuery = await sleRepo.GetQueryableAsync();
+                                var origSles = sleQuery
+                                    .Where(s => s.VoucherType == "SalesInvoice" && s.VoucherId == origSiForRates.Id && !s.IsCancelled && s.QuantityChange < 0)
+                                    .ToList();
+                                var origQty = origItem?.Quantity ?? 1m;
+                                if (origSles.Count > 0 && origQty > 0)
+                                {
+                                    componentStockQtyPerUnit = origSles
+                                        .GroupBy(s => s.ItemId)
+                                        .ToDictionary(g => g.Key, g => Math.Round(g.Sum(s => Math.Abs(s.QuantityChange)) / Math.Abs(origQty), 4));
+                                }
+                            }
+                        }
+
+                        var components = await bundleService.DecomposeAsync(
+                            item.ItemId, Math.Abs(item.Quantity), item.UnitPrice,
+                            warehouseId: invoice.WarehouseId.Value,
+                            isReturn: true,
+                            productBundleId: returnBundleVersionId,
+                            componentStockQtyPerUnit: componentStockQtyPerUnit);
+
+                        decimal bundleCostTotal = 0;
+                        foreach (var comp in components)
+                        {
+                            var compEntity = await itemRepo.FindAsync(comp.ComponentItemId);
+                            if (compEntity != null && !compEntity.MaintainStock)
+                                continue;
+
+                            var compWarehouseId = invoice.WarehouseId.Value;
+                            var compReturnStockQty = Math.Abs(comp.Qty);
+
+                            decimal compIncomingRate = 0m;
+                            if (origSiForRates != null)
+                            {
+                                var sleRepo = LazyServiceProvider.LazyGetService<IRepository<Inventory.Entities.StockLedgerEntry, Guid>>();
+                                if (sleRepo != null)
+                                {
+                                    var sleQuery = await sleRepo.GetQueryableAsync();
+                                    var origCompSle = sleQuery
+                                        .Where(s => s.VoucherType == "SalesInvoice" && s.VoucherId == origSiForRates.Id && s.ItemId == comp.ComponentItemId && !s.IsCancelled && s.QuantityChange < 0)
+                                        .OrderByDescending(s => s.CreationTime)
+                                        .FirstOrDefault();
+                                    if (origCompSle != null)
+                                    {
+                                        compIncomingRate = origCompSle.IncomingRate > 0 ? origCompSle.IncomingRate : origCompSle.ValuationRate;
+                                    }
+                                }
+                            }
+
+                            if (compIncomingRate <= 0)
+                            {
+                                var balance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, compWarehouseId);
+                                compIncomingRate = balance.ValuationRate > 0
+                                    ? balance.ValuationRate
+                                    : (compEntity?.StandardBuyingPrice ?? 0m);
+                            }
+
+                            bundleCostTotal += compIncomingRate * compReturnStockQty;
+
+                            await _valuationService.CreateLedgerEntryAsync(
+                                invoice.CompanyId, comp.ComponentItemId, compWarehouseId,
+                                invoice.IssueDate, compReturnStockQty, compIncomingRate,
+                                voucherType: "SalesInvoice", voucherId: invoice.Id,
+                                tenantId: invoice.TenantId);
+
+                            await _binService.ApplyStockMovementAsync(
+                                comp.ComponentItemId, compWarehouseId,
+                                compReturnStockQty, compReturnStockQty * compIncomingRate, invoice.TenantId);
+                        }
+
+                        item.ValuationRate = Math.Abs(item.Quantity) > 0 ? bundleCostTotal / Math.Abs(item.Quantity) : 0;
+                        continue;
+                    }
+
                     var itemEntity = await itemRepo.FindAsync(item.ItemId);
                     if (itemEntity != null && !itemEntity.MaintainStock)
                         continue;
@@ -1449,9 +1573,25 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 var stockItemIds = new List<Guid>();
                 foreach (var item in invoice.Items)
                 {
-                    var itemEntity = await itemRepo.FindAsync(item.ItemId);
-                    if (itemEntity != null && itemEntity.MaintainStock)
-                        stockItemIds.Add(item.ItemId);
+                    if (bundleItemIds.Contains(item.ItemId))
+                    {
+                        var components = await bundleService.DecomposeAsync(
+                            item.ItemId, item.Quantity, item.UnitPrice,
+                            warehouseId: invoice.WarehouseId.Value,
+                            productBundleId: item.ProductBundleId);
+                        foreach (var comp in components)
+                        {
+                            var compEntity = await itemRepo.FindAsync(comp.ComponentItemId);
+                            if (compEntity != null && compEntity.MaintainStock)
+                                stockItemIds.Add(comp.ComponentItemId);
+                        }
+                    }
+                    else
+                    {
+                        var itemEntity = await itemRepo.FindAsync(item.ItemId);
+                        if (itemEntity != null && itemEntity.MaintainStock)
+                            stockItemIds.Add(item.ItemId);
+                    }
                 }
                 if (stockItemIds.Any())
                 {
@@ -1459,8 +1599,48 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                     await qiEnforcement.ValidateForSalesInvoiceAsync(invoice.Id, stockItemIds.ToArray(), invoice.TenantId);
                 }
 
+                var autoReorder = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.AutoReorderService>();
                 foreach (var item in invoice.Items)
                 {
+                    if (bundleItemIds.Contains(item.ItemId))
+                    {
+                        var bundleVersionId = item.ProductBundleId;
+                        var components = await bundleService.DecomposeAsync(
+                            item.ItemId, item.Quantity, item.UnitPrice,
+                            warehouseId: invoice.WarehouseId.Value,
+                            productBundleId: bundleVersionId);
+
+                        decimal bundleCostTotal = 0;
+                        foreach (var comp in components)
+                        {
+                            var compEntity = await itemRepo.FindAsync(comp.ComponentItemId);
+                            if (compEntity != null && !compEntity.MaintainStock)
+                                continue;
+
+                            var compWarehouseId = invoice.WarehouseId.Value;
+                            var compBalance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, compWarehouseId);
+                            var compValuationRate = compBalance.ValuationRate;
+                            bundleCostTotal += compValuationRate * comp.Qty;
+
+                            await _valuationService.CreateLedgerEntryAsync(
+                                invoice.CompanyId, comp.ComponentItemId, compWarehouseId,
+                                invoice.IssueDate, -comp.Qty, compValuationRate,
+                                voucherType: "SalesInvoice", voucherId: invoice.Id,
+                                tenantId: invoice.TenantId);
+
+                            await _binService.ApplyStockMovementAsync(
+                                comp.ComponentItemId, compWarehouseId,
+                                -comp.Qty, -(comp.Qty * compValuationRate), invoice.TenantId);
+
+                            // Trigger auto-reorder check after stock-out
+                            await autoReorder.CheckSingleItemAsync(
+                                comp.ComponentItemId, compWarehouseId, invoice.CompanyId, invoice.TenantId);
+                        }
+
+                        item.ValuationRate = item.Quantity > 0 ? bundleCostTotal / item.Quantity : 0;
+                        continue;
+                    }
+
                     // Skip non-stock items (service items don't create SLE)
                     var itemEntity = await itemRepo.FindAsync(item.ItemId);
                     if (itemEntity != null && !itemEntity.MaintainStock)
@@ -1486,7 +1666,6 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                         -stockQty, -(stockQty * ratePerStockUnit), invoice.TenantId);
 
                     // Trigger auto-reorder check after stock-out
-                    var autoReorder = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.AutoReorderService>();
                     await autoReorder.CheckSingleItemAsync(
                         item.ItemId, invoice.WarehouseId.Value, invoice.CompanyId, invoice.TenantId);
                 }
@@ -1508,11 +1687,29 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
                 var sreManager = LazyServiceProvider.LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
                 foreach (var item in invoice.Items)
                 {
-                    var itemEntity = await itemRepo.FindAsync(item.ItemId);
-                    if (itemEntity == null || !itemEntity.MaintainStock) continue;
+                    if (bundleItemIds.Contains(item.ItemId))
+                    {
+                        var components = await bundleService.DecomposeAsync(
+                            item.ItemId, item.Quantity, item.UnitPrice,
+                            warehouseId: invoice.WarehouseId.Value,
+                            productBundleId: item.ProductBundleId);
+                        foreach (var comp in components)
+                        {
+                            var compEntity = await itemRepo.FindAsync(comp.ComponentItemId);
+                            if (compEntity == null || !compEntity.MaintainStock) continue;
 
-                    await sreManager.ConsumeOnDeliveryAsync(
-                        item.ItemId, invoice.WarehouseId.Value, item.StockQty);
+                            await sreManager.ConsumeOnDeliveryAsync(
+                                comp.ComponentItemId, invoice.WarehouseId.Value, comp.Qty);
+                        }
+                    }
+                    else
+                    {
+                        var itemEntity = await itemRepo.FindAsync(item.ItemId);
+                        if (itemEntity == null || !itemEntity.MaintainStock) continue;
+
+                        await sreManager.ConsumeOnDeliveryAsync(
+                            item.ItemId, invoice.WarehouseId.Value, item.StockQty);
+                    }
                 }
             }
         }
@@ -1817,8 +2014,51 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         if (invoice.UpdateStock && invoice.WarehouseId.HasValue)
         {
             var itemRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Inventory.Entities.Item, Guid>>();
+            var bundleService = BundleDecompositionService;
+            var bundleItemIds = await bundleService.GetBundleItemIdsAsync(invoice.Items.Select(i => i.ItemId).ToList(), isReturn: invoice.IsReturn);
+
             foreach (var item in invoice.Items)
             {
+                if (bundleItemIds.Contains(item.ItemId))
+                {
+                    var components = await bundleService.DecomposeAsync(
+                        item.ItemId, item.Quantity, item.UnitPrice,
+                        warehouseId: invoice.WarehouseId.Value,
+                        isReturn: invoice.IsReturn,
+                        productBundleId: item.ProductBundleId);
+
+                    foreach (var comp in components)
+                    {
+                        var compEntity = await itemRepo.FindAsync(comp.ComponentItemId);
+                        if (compEntity != null && !compEntity.MaintainStock)
+                            continue;
+
+                        var compWarehouseId = invoice.WarehouseId.Value;
+                        var compBalance = await _valuationService.GetCurrentBalanceAsync(comp.ComponentItemId, compWarehouseId);
+                        var compValuationRate = compBalance.ValuationRate;
+                        var compQtyChange = invoice.IsReturn ? -Math.Abs(comp.Qty) : Math.Abs(comp.Qty);
+
+                        await _valuationService.CreateLedgerEntryAsync(
+                            invoice.CompanyId, comp.ComponentItemId, compWarehouseId,
+                            invoice.IssueDate, compQtyChange, compValuationRate,
+                            voucherType: "SalesInvoice", voucherId: invoice.Id,
+                            tenantId: invoice.TenantId);
+
+                        await _binService.ApplyStockMovementAsync(
+                            comp.ComponentItemId, compWarehouseId,
+                            compQtyChange, compQtyChange * compValuationRate, invoice.TenantId);
+
+                        if (!invoice.IsReturn)
+                        {
+                            var sreManager = LazyServiceProvider
+                                .LazyGetRequiredService<Inventory.DomainServices.StockReservationManager>();
+                            await sreManager.RestoreOnCancelDeliveryAsync(
+                                comp.ComponentItemId, compWarehouseId, Math.Abs(comp.Qty));
+                        }
+                    }
+                    continue;
+                }
+
                 var itemEntity = await itemRepo.FindAsync(item.ItemId);
                 if (itemEntity != null && !itemEntity.MaintainStock)
                     continue;
