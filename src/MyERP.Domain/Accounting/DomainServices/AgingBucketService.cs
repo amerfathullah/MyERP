@@ -69,8 +69,9 @@ public class AgingBucketService : DomainService
         if (partyGroupId.HasValue)
         {
             var custQuery = await _customerRepository.GetQueryableAsync();
+            // Per ERPNext PR #58681 / commit c61629d6da: support blank/unassigned customer groups
             var customerIdsInGroup = custQuery
-                .Where(c => c.CompanyId == companyId && c.CustomerGroupId == partyGroupId.Value)
+                .Where(c => c.CompanyId == companyId && (partyGroupId.Value == Guid.Empty ? c.CustomerGroupId == null : c.CustomerGroupId == partyGroupId.Value))
                 .Select(c => c.Id)
                 .ToList();
             query = query.Where(si => customerIdsInGroup.Contains(si.CustomerId));
@@ -187,8 +188,9 @@ public class AgingBucketService : DomainService
         if (partyGroupId.HasValue)
         {
             var suppQuery = await _supplierRepository.GetQueryableAsync();
+            // Per ERPNext PR #58681 / commit c61629d6da: support blank/unassigned supplier groups
             var supplierIdsInGroup = suppQuery
-                .Where(s => s.CompanyId == companyId && s.SupplierGroupId == partyGroupId.Value)
+                .Where(s => s.CompanyId == companyId && (partyGroupId.Value == Guid.Empty ? s.SupplierGroupId == null : s.SupplierGroupId == partyGroupId.Value))
                 .Select(s => s.Id)
                 .ToList();
             query = query.Where(pi => supplierIdsInGroup.Contains(pi.SupplierId));

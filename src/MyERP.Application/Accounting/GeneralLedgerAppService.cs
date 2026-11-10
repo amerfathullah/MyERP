@@ -120,8 +120,30 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
             {
                 if (input.AccountId.HasValue && line.AccountId != input.AccountId.Value)
                     continue;
-                if (input.CostCenterId.HasValue && line.CostCenterId != input.CostCenterId.Value)
-                    continue;
+                if (input.CostCenterId.HasValue)
+                {
+                    if (input.CostCenterId.Value == Guid.Empty || input.IncludeUnassignedCostCenter)
+                    {
+                        if (line.CostCenterId.HasValue && line.CostCenterId.Value != Guid.Empty)
+                            continue;
+                    }
+                    else if (line.CostCenterId != input.CostCenterId.Value)
+                    {
+                        continue;
+                    }
+                }
+                if (input.ProjectId.HasValue)
+                {
+                    if (input.ProjectId.Value == Guid.Empty || input.IncludeUnassignedProject)
+                    {
+                        if (line.ProjectId.HasValue && line.ProjectId.Value != Guid.Empty)
+                            continue;
+                    }
+                    else if (line.ProjectId != input.ProjectId.Value)
+                    {
+                        continue;
+                    }
+                }
 
                 accounts.TryGetValue(line.AccountId, out var acctInfo);
                 var isPlAccount = acctInfo != null && (acctInfo.AccountType == AccountType.Revenue || acctInfo.AccountType == AccountType.Expense);
@@ -171,8 +193,32 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
                     continue;
 
                 // Apply cost center filter
-                if (input.CostCenterId.HasValue && line.CostCenterId != input.CostCenterId.Value)
-                    continue;
+                if (input.CostCenterId.HasValue)
+                {
+                    if (input.CostCenterId.Value == Guid.Empty || input.IncludeUnassignedCostCenter)
+                    {
+                        if (line.CostCenterId.HasValue && line.CostCenterId.Value != Guid.Empty)
+                            continue;
+                    }
+                    else if (line.CostCenterId != input.CostCenterId.Value)
+                    {
+                        continue;
+                    }
+                }
+
+                // Apply project filter
+                if (input.ProjectId.HasValue)
+                {
+                    if (input.ProjectId.Value == Guid.Empty || input.IncludeUnassignedProject)
+                    {
+                        if (line.ProjectId.HasValue && line.ProjectId.Value != Guid.Empty)
+                            continue;
+                    }
+                    else if (line.ProjectId != input.ProjectId.Value)
+                    {
+                        continue;
+                    }
+                }
 
                 accounts.TryGetValue(line.AccountId, out var acct);
                 string? costCenterName = null;

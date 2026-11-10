@@ -700,6 +700,78 @@ public class GrossProfitReportGroupingTests
         report.Items[0].GrossProfit.ShouldBe(110m);
     }
 
+    [Fact]
+    public async Task GrossProfitReportAppService_FilterByInvoiceId_And_UnassignedSalesPerson_046f96d387_c61629d6da()
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var invoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var warehouseRepo = Substitute.For<IRepository<Warehouse, Guid>>();
+        var salesTeamRepo = Substitute.For<IRepository<SalesTeamEntry, Guid>>();
+        var grossProfitService = new GrossProfitService(null!);
+
+        var customer = new Customer(customerId, companyId, "ACME Corp");
+        customerRepo.GetListAsync(Arg.Any<Expression<Func<Customer, bool>>>())
+            .Returns(new List<Customer> { customer });
+
+        var item = new Item(itemId, companyId, "BEAR-01", "Precision Ball Bearing", ItemType.Goods);
+        itemRepo.GetListAsync(Arg.Any<Expression<Func<Item, bool>>>())
+            .Returns(new List<Item> { item });
+
+        warehouseRepo.GetListAsync(Arg.Any<Expression<Func<Warehouse, bool>>>())
+            .Returns(new List<Warehouse>());
+
+        var si1 = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-2026-0001", new DateTime(2026, 6, 15));
+        si1.AddItem(itemId, "Bearing line 1", 10m, 100m, 0m);
+        si1.Items[0].ValuationRate = 60m;
+        si1.Submit();
+        si1.Post();
+
+        var si2 = new SalesInvoice(Guid.NewGuid(), companyId, customerId, "SI-2026-0002", new DateTime(2026, 6, 16));
+        si2.AddItem(itemId, "Bearing line 2", 5m, 100m, 0m);
+        si2.Items[0].ValuationRate = 60m;
+        si2.Submit();
+        si2.Post();
+
+        invoiceRepo.GetQueryableAsync().Returns(new List<SalesInvoice> { si1, si2 }.AsQueryable());
+
+        // si2 has sales person, si1 has no sales person
+        var spId = Guid.NewGuid();
+        var teamEntry = new SalesTeamEntry(Guid.NewGuid(), spId, "SalesInvoice", si2.Id, 100m, 500m, 5m);
+        salesTeamRepo.GetListAsync(Arg.Any<Expression<Func<SalesTeamEntry, bool>>>())
+            .Returns(new List<SalesTeamEntry> { teamEntry });
+
+        var appService = new GrossProfitReportAppService(
+            invoiceRepo, grossProfitService, customerRepo, itemRepo, warehouseRepo,
+            salesTeamRepository: salesTeamRepo);
+
+        // 1. Filter by specific invoice ID (PR #58681 commit 046f96d387)
+        var repByInv = await appService.GetReportAsync(new GrossProfitRequestDto
+        {
+            CompanyId = companyId,
+            FromDate = new DateTime(2026, 1, 1),
+            ToDate = new DateTime(2026, 12, 31),
+            InvoiceId = si1.Id
+        });
+        repByInv.Items.Count.ShouldBe(1);
+        repByInv.Items[0].InvoiceId.ShouldBe(si1.Id);
+
+        // 2. Filter by unassigned sales person (Guid.Empty per PR #58681 commit c61629d6da)
+        var repUnassigned = await appService.GetReportAsync(new GrossProfitRequestDto
+        {
+            CompanyId = companyId,
+            FromDate = new DateTime(2026, 1, 1),
+            ToDate = new DateTime(2026, 12, 31),
+            SalesPersonId = Guid.Empty
+        });
+        repUnassigned.Items.Count.ShouldBe(1);
+        repUnassigned.Items[0].InvoiceId.ShouldBe(si1.Id);
+    }
+
     [Theory]
     [InlineData("SellingRate")]
     [InlineData("AvgSellingRate")]

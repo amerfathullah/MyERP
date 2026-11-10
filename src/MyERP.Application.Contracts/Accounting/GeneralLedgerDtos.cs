@@ -45,6 +45,11 @@ public class GeneralLedgerFilterDto
     public Guid? PartyId { get; set; }
     public string? VoucherNumber { get; set; }
     public Guid? CostCenterId { get; set; }
+    public Guid? ProjectId { get; set; }
+    /// <summary>When true or CostCenterId == Guid.Empty, matches GL lines with unassigned cost center (ERPNext PR #58681 / commit 9b96b6d9d8).</summary>
+    public bool IncludeUnassignedCostCenter { get; set; }
+    /// <summary>When true or ProjectId == Guid.Empty, matches GL lines with unassigned project (ERPNext PR #58681 / commit 9b96b6d9d8).</summary>
+    public bool IncludeUnassignedProject { get; set; }
     /// <summary>
     /// Convert company currency amounts to account currency at the exchange rate on ToDate (ERPNext PR #65016 / commit e8ae93e729).
     /// </summary>

@@ -186,4 +186,36 @@ public class FinancialReportTemplateFilterTests
         result[0].AccountCode.ShouldBe("4001");
         result[0].AccountName.ShouldBe("Product Sales");
     }
+
+    [Fact]
+    public async Task GetFilteredAccounts_SupportsBlankDimensionFilter_d3b2f55a17()
+    {
+        var companyId = Guid.NewGuid();
+        var catId = Guid.NewGuid();
+        var accounts = new List<Account>
+        {
+            new(Guid.NewGuid(), companyId, "5001", "Direct Material", AccountType.Expense) { IsActive = true, IsGroup = false, AccountCategoryId = catId },
+            new(Guid.NewGuid(), companyId, "5002", "Uncategorized Expense", AccountType.Expense) { IsActive = true, IsGroup = false, AccountCategoryId = null }
+        };
+        var categories = new List<AccountCategory>
+        {
+            new(catId, "Materials", "Expense")
+        };
+        _accountRepo.GetQueryableAsync().Returns(Task.FromResult(accounts.AsQueryable()));
+        _categoryRepo.GetQueryableAsync().Returns(Task.FromResult(categories.AsQueryable()));
+
+        var result = await _service.GetFilteredAccountsAsync(new GetFilteredAccountsDto
+        {
+            CompanyId = companyId,
+            AccountRows = new List<AccountFilterRowDto>
+            {
+                new() { Field = "account_category", Operator = "=", Value = "__blank__>" }
+            }
+        });
+
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(1);
+        result[0].AccountCode.ShouldBe("5002");
+        result[0].AccountName.ShouldBe("Uncategorized Expense");
+    }
 }

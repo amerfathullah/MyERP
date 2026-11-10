@@ -54,4 +54,8 @@ public class GrossProfitRequestDto
     public Guid? CustomerId { get; set; }
     public Guid? ItemId { get; set; }
     public Guid? ProjectId { get; set; }
+    /// <summary>Filter by specific Sales Invoice (alias separated from potential accounting dimension per PR #58681 / commit 046f96d387).</summary>
+    public Guid? InvoiceId { get; set; }
+    /// <summary>Filter by Sales Person (supports Guid.Empty for unassigned per PR #58681 / commit c61629d6da).</summary>
+    public Guid? SalesPersonId { get; set; }
 }

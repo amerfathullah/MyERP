@@ -1546,6 +1546,9 @@ export interface GeneralLedgerFilterDto {
   partyId?: string | null;
   voucherNumber?: string | null;
   costCenterId?: string | null;
+  projectId?: string | null;
+  includeUnassignedCostCenter?: boolean;
+  includeUnassignedProject?: boolean;
   convertAtReportingDateRate?: boolean;
   presentationCurrency?: string | null;
 }

@@ -331,6 +331,13 @@ public class FinancialReportTemplateAppService : ApplicationService, IFinancialR
             if (normOp is "!=" or "<>") return !isIncome;
         }
 
+        // Per ERPNext PR #58681 / commit d3b2f55a17: support blank dimensions in report templates
+        if (value.Equals("__blank__>", StringComparison.OrdinalIgnoreCase))
+        {
+            if (normOp is "=" or "==") return string.IsNullOrEmpty(actualVal);
+            if (normOp is "!=" or "<>") return !string.IsNullOrEmpty(actualVal);
+        }
+
         switch (normOp)
         {
             case "=":
@@ -345,6 +352,9 @@ public class FinancialReportTemplateAppService : ApplicationService, IFinancialR
                     .Split(new[] { ',', '"' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(s => s.Trim())
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                bool includeBlank = candidates.Contains("__blank__>") || candidates.Contains("");
+                if (includeBlank && string.IsNullOrEmpty(actualVal))
+                    return true;
                 return candidates.Contains(actualVal);
             }
             case "not in":
@@ -353,6 +363,9 @@ public class FinancialReportTemplateAppService : ApplicationService, IFinancialR
                     .Split(new[] { ',', '"' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(s => s.Trim())
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                bool includeBlank = candidates.Contains("__blank__>") || candidates.Contains("");
+                if (includeBlank && string.IsNullOrEmpty(actualVal))
+                    return false;
                 return !candidates.Contains(actualVal);
             }
             case "like":

@@ -904,6 +904,8 @@ export interface GrossProfitRequestDto {
   customerId?: string | null;
   itemId?: string | null;
   projectId?: string | null;
+  invoiceId?: string | null;
+  salesPersonId?: string | null;
 }
 
 export interface InstallationNoteDto extends EntityDto<string> {

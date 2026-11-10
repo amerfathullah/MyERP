@@ -78,6 +78,20 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
             invoicesQ = invoicesQ.Where(si => si.CustomerId == input.CustomerId.Value);
         }
 
+        // Per ERPNext PR #58681 / commit 046f96d387: filter by specific sales invoice
+        if (input.InvoiceId.HasValue && input.InvoiceId.Value != Guid.Empty)
+        {
+            invoicesQ = invoicesQ.Where(si => si.Id == input.InvoiceId.Value);
+        }
+
+        // Per ERPNext PR #58681 / commit c61629d6da: support blank/unassigned project
+        if (input.ProjectId.HasValue)
+        {
+            invoicesQ = input.ProjectId.Value == Guid.Empty
+                ? invoicesQ.Where(si => si.ProjectId == null)
+                : invoicesQ.Where(si => si.ProjectId == input.ProjectId.Value);
+        }
+
         var invoices = invoicesQ
             .OrderByDescending(si => si.IssueDate)
             .ToList();
@@ -111,6 +125,23 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
             ? (await _salesPersonRepository.GetListAsync(sp => salesPersonIds.Contains(sp.Id)))
                 .ToDictionary(sp => sp.Id, sp => sp.Name)
             : new Dictionary<Guid, string>();
+
+        // Per ERPNext PR #58681 / commit c61629d6da: filter by sales person (supports Guid.Empty for unassigned)
+        if (input.SalesPersonId.HasValue)
+        {
+            if (input.SalesPersonId.Value == Guid.Empty)
+            {
+                invoices = invoices
+                    .Where(inv => !salesTeamEntries.TryGetValue(inv.Id, out var team) || team.Count == 0 || team.All(m => m.SalesPersonId == Guid.Empty))
+                    .ToList();
+            }
+            else
+            {
+                invoices = invoices
+                    .Where(inv => salesTeamEntries.TryGetValue(inv.Id, out var team) && team.Any(m => m.SalesPersonId == input.SalesPersonId.Value))
+                    .ToList();
+            }
+        }
 
         var paymentSchedules = _paymentScheduleRepository != null && invoiceIds.Any()
             ? (await _paymentScheduleRepository.GetListAsync(ps => ps.ParentType == "SalesInvoice" && invoiceIds.Contains(ps.ParentId)))
@@ -250,11 +281,21 @@ public class GrossProfitReportAppService : ApplicationService, IGrossProfitRepor
                 if (input.ItemId.HasValue && itemDetail.ItemId != input.ItemId.Value)
                     continue;
 
-                // Per ERPNext PR #59885 (commit 202c50d475):
-                // Filter and group by Project reads item/invoice project.
+                // Per ERPNext PR #59885 (commit 202c50d475) & PR #58681:
+                // Filter and group by Project reads item/invoice project (supports blank/unassigned project).
                 var effectiveProjectId = invoice.ProjectId;
-                if (input.ProjectId.HasValue && effectiveProjectId != input.ProjectId.Value)
-                    continue;
+                if (input.ProjectId.HasValue)
+                {
+                    if (input.ProjectId.Value == Guid.Empty)
+                    {
+                        if (effectiveProjectId.HasValue && effectiveProjectId.Value != Guid.Empty)
+                            continue;
+                    }
+                    else if (effectiveProjectId != input.ProjectId.Value)
+                    {
+                        continue;
+                    }
+                }
 
                 var itemEntity = items.GetValueOrDefault(itemDetail.ItemId);
                 var valuationRate = itemDetail.ValuationRate;
