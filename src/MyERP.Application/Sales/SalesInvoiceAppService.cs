@@ -1119,6 +1119,9 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             SalesInvoiceManager.ValidateReturnWithStockNoZeroQty(invoice);
         }
 
+        // Per ERPNext PR #63881 (commit be69fdba29): reject duplicate assets on non-return sales invoices
+        invoice.ValidateFixedAssets();
+
         // Fixed asset sales quantity validation: aggregated by AssetId (PR #51363 / commit 23b094f151)
         var fixedAssetItems = invoice.Items.Where(i => i.IsFixedAsset && i.AssetId.HasValue).ToList();
         if (fixedAssetItems.Any())

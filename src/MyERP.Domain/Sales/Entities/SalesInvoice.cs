@@ -384,11 +384,38 @@ public class SalesInvoice : FullAuditedAggregateRoot<Guid>, IMultiTenant, IAccou
                 .WithData("detail", "At least one item must be entered with negative quantity in a return document.");
         }
 
+        // Per ERPNext PR #63881 (commit be69fdba29): reject duplicate assets on non-return sales invoices
+        ValidateFixedAssets();
+
         ValidateDebitNote();
         ValidateEInvoiceDocumentType();
 
         Status = DocumentStatus.Submitted;
         AddLocalEvent(new SalesInvoiceSubmittedEvent(this));
+    }
+
+    /// <summary>
+    /// Validates fixed asset rows on the invoice.
+    /// Per ERPNext PR #63881 (commit be69fdba29): rejects duplicate assets on non-return sales invoices.
+    /// Returns can reference the same asset on multiple rows.
+    /// </summary>
+    public void ValidateFixedAssets()
+    {
+        if (IsReturn) return;
+
+        var seenAssets = new HashSet<Guid>();
+        for (var idx = 0; idx < _items.Count; idx++)
+        {
+            var item = _items[idx];
+            if (item.IsFixedAsset && item.AssetId.HasValue)
+            {
+                if (!seenAssets.Add(item.AssetId.Value))
+                {
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"Row #{idx + 1}: Asset {item.AssetId.Value} is already added in another row");
+                }
+            }
+        }
     }
 
     /// <summary>

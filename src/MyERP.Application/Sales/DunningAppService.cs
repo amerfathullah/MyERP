@@ -109,7 +109,7 @@ public class DunningAppService : ApplicationService, IDunningAppService
                 .Where(si => invoiceIds.Contains(si.Id))
                 .ToDictionary(si => si.Id);
 
-            var seenSchedules = new HashSet<Guid>();
+            var seenReferences = new HashSet<(Guid InvoiceId, Guid? ScheduleId)>();
             var invoiceOutstanding = new Dictionary<Guid, decimal>();
 
             foreach (var p in input.OverduePayments)
@@ -140,14 +140,17 @@ public class DunningAppService : ApplicationService, IDunningAppService
                     throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                         .WithData("detail", $"Payment for invoice {invoice.InvoiceNumber} must be overdue on the Dunning Posting Date.");
                 }
+
+                // PR #63608 / commit 480a9faeb6: prevent duplicate references across (InvoiceId, ScheduleId)
+                if (!seenReferences.Add((p.SalesInvoiceId, p.PaymentScheduleId)))
+                {
+                    var refType = p.PaymentScheduleId.HasValue ? "Payment Schedule" : "Sales Invoice";
+                    throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                        .WithData("detail", $"{refType} is already included in this Dunning.");
+                }
+
                 if (p.PaymentScheduleId.HasValue)
                 {
-                    if (!seenSchedules.Add(p.PaymentScheduleId.Value))
-                    {
-                        throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
-                            .WithData("detail", "Payment Schedule is already included in this Dunning.");
-                    }
-
                     var schedRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.PaymentScheduleEntry, Guid>>();
                     var sched = await schedRepo.FindAsync(p.PaymentScheduleId.Value);
                     if (sched == null || sched.ParentId != p.SalesInvoiceId || sched.ParentType != "SalesInvoice")
@@ -175,6 +178,18 @@ public class DunningAppService : ApplicationService, IDunningAppService
                     {
                         throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
                             .WithData("detail", $"Row for invoice {invoice.InvoiceNumber}: Outstanding must be positive and cannot exceed the unpaid invoice or installment amount.");
+                    }
+                }
+                else
+                {
+                    // PR #63608 / commit 480a9faeb6: allow dunning for opening invoices without payment schedule
+                    if (invoice.IsOpening)
+                    {
+                        if (invoice.DueDate.HasValue && p.DueDate.Date != invoice.DueDate.Value.Date)
+                        {
+                            throw new BusinessException(MyERPDomainErrorCodes.ValidationFailed)
+                                .WithData("detail", "Due Date must match the Sales Invoice.");
+                        }
                     }
                 }
 
@@ -240,7 +255,7 @@ public class DunningAppService : ApplicationService, IDunningAppService
             CostCenterId = costCenterId,
         };
         foreach (var p in input.OverduePayments)
-            d.AddOverduePayment(p.SalesInvoiceId, p.OutstandingAmount, p.DueDate, p.OverdueDays);
+            d.AddOverduePayment(p.SalesInvoiceId, p.OutstandingAmount, p.DueDate, p.OverdueDays, p.PaymentScheduleId);
         await _repository.InsertAsync(d);
 
         var activityLogRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<DocumentActivityLog, Guid>>();
@@ -250,7 +265,16 @@ public class DunningAppService : ApplicationService, IDunningAppService
             CurrentUser.Id,
             $"Dunning level {d.DunningLevel} created for customer {d.CustomerName}", d.TenantId));
 
-        return ObjectMapper.Map<Dunning, DunningDto>(d);
+        var dto = ObjectMapper.Map<Dunning, DunningDto>(d);
+        dto.OverduePayments = d.OverduePayments.Select(p => new DunningOverduePaymentDto
+        {
+            SalesInvoiceId = p.SalesInvoiceId,
+            PaymentScheduleId = p.PaymentScheduleId,
+            OutstandingAmount = p.OutstandingAmount,
+            DueDate = p.DueDate,
+            OverdueDays = p.OverdueDays,
+        }).ToList();
+        return dto;
     }
 
     /// <summary>
@@ -320,8 +344,12 @@ public class DunningAppService : ApplicationService, IDunningAppService
         }
         else
         {
-            // Transaction-currency outstanding for non-schedule invoices
-            var outstanding = si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance;
+            // Transaction-currency outstanding for non-schedule invoices (PR #63608 / commit 480a9faeb6)
+            var outstanding = si.OutstandingAmount > 0
+                ? ((!string.IsNullOrWhiteSpace(si.CurrencyCode) && si.CurrencyCode != "MYR" && si.ExchangeRate > 0)
+                    ? Math.Round(si.OutstandingAmount / si.ExchangeRate, 2)
+                    : si.OutstandingAmount)
+                : Math.Max(0m, si.GrandTotal - si.AmountPaid - si.WriteOffAmount - si.TotalAdvance);
             if (outstanding <= 0.01m)
                 throw new BusinessException(MyERPDomainErrorCodes.InvoiceAlreadySettled);
 
@@ -337,7 +365,16 @@ public class DunningAppService : ApplicationService, IDunningAppService
         }
 
         await _repository.InsertAsync(d);
-        return ObjectMapper.Map<Dunning, DunningDto>(d);
+        var dto = ObjectMapper.Map<Dunning, DunningDto>(d);
+        dto.OverduePayments = d.OverduePayments.Select(p => new DunningOverduePaymentDto
+        {
+            SalesInvoiceId = p.SalesInvoiceId,
+            PaymentScheduleId = p.PaymentScheduleId,
+            OutstandingAmount = p.OutstandingAmount,
+            DueDate = p.DueDate,
+            OverdueDays = p.OverdueDays,
+        }).ToList();
+        return dto;
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]
@@ -424,7 +461,16 @@ public class DunningAppService : ApplicationService, IDunningAppService
         catch { }
 
         await _repository.UpdateAsync(d);
-        return ObjectMapper.Map<Dunning, DunningDto>(d);
+        var dto = ObjectMapper.Map<Dunning, DunningDto>(d);
+        dto.OverduePayments = d.OverduePayments.Select(p => new DunningOverduePaymentDto
+        {
+            SalesInvoiceId = p.SalesInvoiceId,
+            PaymentScheduleId = p.PaymentScheduleId,
+            OutstandingAmount = p.OutstandingAmount,
+            DueDate = p.DueDate,
+            OverdueDays = p.OverdueDays,
+        }).ToList();
+        return dto;
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Submit)]
@@ -441,7 +487,16 @@ public class DunningAppService : ApplicationService, IDunningAppService
             CurrentUser.Id,
             $"Dunning level {d.DunningLevel} resolved for customer {d.CustomerName}", d.TenantId));
 
-        return ObjectMapper.Map<Dunning, DunningDto>(d);
+        var dto = ObjectMapper.Map<Dunning, DunningDto>(d);
+        dto.OverduePayments = d.OverduePayments.Select(p => new DunningOverduePaymentDto
+        {
+            SalesInvoiceId = p.SalesInvoiceId,
+            PaymentScheduleId = p.PaymentScheduleId,
+            OutstandingAmount = p.OutstandingAmount,
+            DueDate = p.DueDate,
+            OverdueDays = p.OverdueDays,
+        }).ToList();
+        return dto;
     }
 
     [Authorize(MyERPPermissions.SalesInvoices.Cancel)]
@@ -494,7 +549,16 @@ public class DunningAppService : ApplicationService, IDunningAppService
             CurrentUser.Id,
             $"Dunning level {d.DunningLevel} cancelled for customer {d.CustomerName}", d.TenantId));
 
-        return ObjectMapper.Map<Dunning, DunningDto>(d);
+        var dto = ObjectMapper.Map<Dunning, DunningDto>(d);
+        dto.OverduePayments = d.OverduePayments.Select(p => new DunningOverduePaymentDto
+        {
+            SalesInvoiceId = p.SalesInvoiceId,
+            PaymentScheduleId = p.PaymentScheduleId,
+            OutstandingAmount = p.OutstandingAmount,
+            DueDate = p.DueDate,
+            OverdueDays = p.OverdueDays,
+        }).ToList();
+        return dto;
     }
 
     /// <summary>
