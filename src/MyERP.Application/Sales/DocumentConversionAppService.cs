@@ -31,6 +31,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IDocumentNumberGenerator _numberGenerator;
     private readonly DocumentActivityLogService _activityLog;
+    private readonly IRepository<Company, Guid>? _companyRepository;
 
     public DocumentConversionAppService(
         IRepository<Quotation, Guid> quotationRepository,
@@ -39,7 +40,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
         IRepository<Customer, Guid> customerRepository,
         IDocumentNumberGenerator numberGenerator,
-        DocumentActivityLogService activityLog)
+        DocumentActivityLogService activityLog,
+        IRepository<Company, Guid>? companyRepository = null)
     {
         _quotationRepository = quotationRepository;
         _salesOrderRepository = salesOrderRepository;
@@ -48,6 +50,7 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
         _customerRepository = customerRepository;
         _numberGenerator = numberGenerator;
         _activityLog = activityLog;
+        _companyRepository = companyRepository;
     }
 
     private async Task<string?> ResolveCustomerNameAsync(Guid customerId)
@@ -1254,8 +1257,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                 .WithData("detail", $"All items in Delivery Note {original.DeliveryNumber} have already been returned.");
         }
 
-        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
-        var company = await companyRepo.FindAsync(original.CompanyId);
+        var companyRepo = _companyRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Company, Guid>>();
+        var company = companyRepo != null ? await companyRepo.FindAsync(original.CompanyId) : null;
         var returnWarehouseId = company?.DefaultWarehouseForSalesReturnId ?? original.WarehouseId;
 
         var returnNumber = await _numberGenerator.GenerateAsync("DeliveryNote", original.CompanyId);
@@ -1388,8 +1391,8 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
                 .WithData("detail", $"All items in Sales Invoice {original.InvoiceNumber} have already been returned.");
         }
 
-        var companyRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Company, Guid>>();
-        var company = await companyRepo.FindAsync(original.CompanyId);
+        var companyRepo = _companyRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Company, Guid>>();
+        var company = companyRepo != null ? await companyRepo.FindAsync(original.CompanyId) : null;
         var returnWarehouseId = company?.DefaultWarehouseForSalesReturnId ?? original.WarehouseId;
 
         var invoiceNumber = await _numberGenerator.GenerateAsync("SalesInvoice", original.CompanyId);

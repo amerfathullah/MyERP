@@ -26,19 +26,22 @@ public class SalesInvoiceManager : DomainService
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly IRepository<Company, Guid>? _companyRepository;
     private readonly SerialNoValidationService? _serialNoValidationService;
+    private readonly ProductBundleDecompositionService? _bundleDecompositionService;
 
     public SalesInvoiceManager(
         IRepository<SalesInvoice, Guid> invoiceRepository,
         IRepository<SalesOrder, Guid> orderRepository,
         IRepository<Item, Guid> itemRepository,
         IRepository<Company, Guid>? companyRepository = null,
-        SerialNoValidationService? serialNoValidationService = null)
+        SerialNoValidationService? serialNoValidationService = null,
+        ProductBundleDecompositionService? bundleDecompositionService = null)
     {
         _invoiceRepository = invoiceRepository;
         _orderRepository = orderRepository;
         _itemRepository = itemRepository;
         _companyRepository = companyRepository;
         _serialNoValidationService = serialNoValidationService;
+        _bundleDecompositionService = bundleDecompositionService;
     }
 
     /// <summary>
@@ -170,8 +173,27 @@ public class SalesInvoiceManager : DomainService
             .GroupBy(i => i.ItemId)
             .ToDictionary(g => g.Key, g => g.Sum(i => Math.Abs(i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m))));
 
-        // Validate that all return items exist in the original Sales Invoice (ERPNext PR #59820)
-        var validItemIds = original.Items.Select(i => i.ItemId).ToHashSet();
+        // Valid returnable items include original invoice items AND packed Product Bundle components
+        // Per ERPNext: individual components of a Product Bundle can be returned separately.
+        var bundleService = _bundleDecompositionService ?? LazyServiceProvider?.LazyGetService<ProductBundleDecompositionService>();
+        List<DecomposedItem> originalPackedComponents = new();
+        if (bundleService != null)
+        {
+            var origBundleItems = original.Items.Select(i => new BundleTransactionItem(
+                i.ItemId,
+                Math.Abs(i.Quantity) * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m),
+                i.UnitPrice,
+                original.WarehouseId,
+                i.Id
+            )).ToList();
+            var decomp = await bundleService.DecomposeTransactionItemsAsync(origBundleItems, isReturn: true);
+            originalPackedComponents = decomp.PackedItems;
+        }
+
+        var validItemIds = original.Items.Select(i => i.ItemId)
+            .Concat(originalPackedComponents.Select(p => p.ComponentItemId))
+            .ToHashSet();
+
         foreach (var returnItem in returnInvoice.Items)
         {
             if (!validItemIds.Contains(returnItem.ItemId))
@@ -186,6 +208,21 @@ public class SalesInvoiceManager : DomainService
         // rate (Moving Average valuation items are exempt — their rate legitimately fluctuates).
         // Uses stock qty comparison to support different UOM returns (ERPNext commit abf94bc72d).
         var accumulatedReturnedByItem = priorReturnedByItem.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        if (priorReturns.Count > 0 && bundleService != null)
+        {
+            var priorBundleItems = priorReturns.Select(i => new BundleTransactionItem(
+                i.ItemId,
+                Math.Abs(i.Quantity) * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m),
+                i.UnitPrice,
+                null,
+                i.Id
+            )).ToList();
+            var priorDecomp = await bundleService.DecomposeTransactionItemsAsync(priorBundleItems, isReturn: true);
+            foreach (var p in priorDecomp.PackedItems)
+            {
+                accumulatedReturnedByItem[p.ComponentItemId] = accumulatedReturnedByItem.GetValueOrDefault(p.ComponentItemId, 0m) + Math.Abs(p.Qty);
+            }
+        }
 
         foreach (var returnItem in returnInvoice.Items)
         {
@@ -194,9 +231,19 @@ public class SalesInvoiceManager : DomainService
             var returnStockQty = Math.Abs(returnItem.Quantity) * returnFactor;
 
             // Total invoiced stock qty for this item across all original rows (PR #59820)
-            var originalItemStockQty = original.Items
-                .Where(i => i.ItemId == returnItem.ItemId)
-                .Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+            // or from decomposed bundle components if returning bundle children individually
+            decimal originalItemStockQty;
+            var origMatchingRows = original.Items.Where(i => i.ItemId == returnItem.ItemId).ToList();
+            if (origMatchingRows.Count > 0)
+            {
+                originalItemStockQty = origMatchingRows.Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+            }
+            else
+            {
+                originalItemStockQty = originalPackedComponents
+                    .Where(p => p.ComponentItemId == returnItem.ItemId)
+                    .Sum(p => p.Qty);
+            }
 
             var alreadyReturnedStock = accumulatedReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
             var maxReturnableStock = originalItemStockQty - alreadyReturnedStock;
@@ -213,8 +260,19 @@ public class SalesInvoiceManager : DomainService
             // Accumulate returned qty for this item so multiple rows in this same return document are bounded (PR #59820)
             accumulatedReturnedByItem[returnItem.ItemId] = alreadyReturnedStock + returnStockQty;
 
+            // Rate ceiling: original row rate, or proportional component rate for bundle children
             var originalItem = original.Items.FirstOrDefault(i => i.ItemId == returnItem.ItemId);
-            if (originalItem != null && returnItem.UnitPrice > originalItem.UnitPrice)
+            decimal? maxAllowedRate = originalItem?.UnitPrice;
+            if (originalItem == null)
+            {
+                var componentRates = originalPackedComponents
+                    .Where(p => p.ComponentItemId == returnItem.ItemId)
+                    .Select(p => p.Rate)
+                    .ToList();
+                if (componentRates.Count > 0) maxAllowedRate = componentRates.Max();
+            }
+
+            if (maxAllowedRate.HasValue && returnItem.UnitPrice > maxAllowedRate.Value)
             {
                 var item = await _itemRepository.FindAsync(returnItem.ItemId);
                 if (item?.ValuationMethod != ValuationMethod.WeightedAverage)
@@ -222,7 +280,7 @@ public class SalesInvoiceManager : DomainService
                     throw new BusinessException(MyERPDomainErrorCodes.ReturnRateExceedsOriginal)
                         .WithData("item", returnItem.Description)
                         .WithData("returnRate", returnItem.UnitPrice)
-                        .WithData("originalRate", originalItem.UnitPrice);
+                        .WithData("originalRate", maxAllowedRate);
                 }
             }
         }

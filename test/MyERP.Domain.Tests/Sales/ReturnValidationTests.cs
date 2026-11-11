@@ -776,4 +776,175 @@ public class ReturnValidationTests
         var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => manager.ValidateReturnAsync(returnPi));
         ex.Code.ShouldBe("MyERP:08002");
     }
+
+    // ── Product Bundle component returns (ERPNext sales_and_purchase_return: packed items valid targets) ──
+
+    private static MyERP.Sales.DomainServices.ProductBundleDecompositionService CreateBundleService(
+        Guid bundleItemId, params (Guid ComponentId, decimal Qty)[] components)
+    {
+        var bundle = new ProductBundle(Guid.NewGuid(), bundleItemId);
+        foreach (var c in components) bundle.AddItem(c.ComponentId, c.Qty);
+        var bundleRepo = Substitute.For<IRepository<ProductBundle, Guid>>();
+        bundleRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<ProductBundle> { bundle }.AsQueryable()));
+        return new MyERP.Sales.DomainServices.ProductBundleDecompositionService(bundleRepo);
+    }
+
+    private static (MyERP.Sales.DomainServices.SalesInvoiceManager Manager, IRepository<SalesInvoice, Guid> Repo) CreateSiManagerWithBundle(
+        MyERP.Sales.DomainServices.ProductBundleDecompositionService bundleService)
+    {
+        var siRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var manager = new MyERP.Sales.DomainServices.SalesInvoiceManager(siRepo, soRepo, itemRepo,
+            bundleDecompositionService: bundleService);
+        return (manager, siRepo);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task SalesInvoice_ValidateReturnAsync_AllowsBundleComponentReturn()
+    {
+        var bundleItemId = Guid.NewGuid();
+        var compA = Guid.NewGuid();
+        var compB = Guid.NewGuid();
+        var (manager, siRepo) = CreateSiManagerWithBundle(CreateBundleService(bundleItemId, (compA, 2m), (compB, 1m)));
+
+        var origId = Guid.NewGuid();
+        var original = new SalesInvoice(origId, Guid.NewGuid(), Guid.NewGuid(), "INV-BUNDLE", DateTime.UtcNow);
+        original.AddItem(bundleItemId, "Gift Set", 3m, 90m, 0m);
+        siRepo.GetAsync(origId).Returns(System.Threading.Tasks.Task.FromResult(original));
+
+        // 3 bundles × 2 = 6 of component A delivered; returning 4 is allowed
+        var ret = new SalesInvoice(Guid.NewGuid(), original.CompanyId, original.CustomerId, "CN-COMP", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = origId
+        };
+        ret.AddItem(compA, "Component A", -4m, 10m, 0m);
+
+        siRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<SalesInvoice> { original, ret }.AsQueryable()));
+
+        await Should.NotThrowAsync(() => manager.ValidateReturnAsync(ret));
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task SalesInvoice_ValidateReturnAsync_Throws_WhenBundleComponentOverReturned()
+    {
+        var bundleItemId = Guid.NewGuid();
+        var compA = Guid.NewGuid();
+        var (manager, siRepo) = CreateSiManagerWithBundle(CreateBundleService(bundleItemId, (compA, 2m)));
+
+        var origId = Guid.NewGuid();
+        var original = new SalesInvoice(origId, Guid.NewGuid(), Guid.NewGuid(), "INV-BUNDLE", DateTime.UtcNow);
+        original.AddItem(bundleItemId, "Gift Set", 3m, 90m, 0m);
+        siRepo.GetAsync(origId).Returns(System.Threading.Tasks.Task.FromResult(original));
+
+        var ret = new SalesInvoice(Guid.NewGuid(), original.CompanyId, original.CustomerId, "CN-COMP", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = origId
+        };
+        ret.AddItem(compA, "Component A", -7m, 10m, 0m); // 7 > 6 packed
+
+        siRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<SalesInvoice> { original, ret }.AsQueryable()));
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => manager.ValidateReturnAsync(ret));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task SalesInvoice_ValidateReturnAsync_StillThrows_WhenItemNotBundleComponent()
+    {
+        var bundleItemId = Guid.NewGuid();
+        var (manager, siRepo) = CreateSiManagerWithBundle(CreateBundleService(bundleItemId, (Guid.NewGuid(), 1m)));
+
+        var origId = Guid.NewGuid();
+        var original = new SalesInvoice(origId, Guid.NewGuid(), Guid.NewGuid(), "INV-BUNDLE", DateTime.UtcNow);
+        original.AddItem(bundleItemId, "Gift Set", 1m, 90m, 0m);
+        siRepo.GetAsync(origId).Returns(System.Threading.Tasks.Task.FromResult(original));
+
+        var ret = new SalesInvoice(Guid.NewGuid(), original.CompanyId, original.CustomerId, "CN-X", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = origId
+        };
+        ret.AddItem(Guid.NewGuid(), "Unrelated", -1m, 10m, 0m);
+
+        siRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<SalesInvoice> { original, ret }.AsQueryable()));
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => manager.ValidateReturnAsync(ret));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnItemNotFoundInOriginal);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task DeliveryNote_ValidateReturnAsync_AllowsBundleComponentReturn()
+    {
+        var bundleItemId = Guid.NewGuid();
+        var compA = Guid.NewGuid();
+        var bundleService = CreateBundleService(bundleItemId, (compA, 2m));
+
+        var dnRepo = Substitute.For<IRepository<DeliveryNote, Guid>>();
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var manager = new MyERP.Sales.DomainServices.DeliveryNoteManager(dnRepo, soRepo, companyRepo, itemRepo,
+            bundleDecompositionService: bundleService);
+
+        var origId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var original = new DeliveryNote(origId, companyId, customerId, Guid.NewGuid(), "DN-BUNDLE", DateTime.UtcNow);
+        original.AddItem(bundleItemId, "Gift Set", 2m, 90m, 0m);
+        dnRepo.GetAsync(origId).Returns(System.Threading.Tasks.Task.FromResult(original));
+
+        var ret = new DeliveryNote(Guid.NewGuid(), companyId, customerId, Guid.NewGuid(), "DN-RET", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = origId
+        };
+        ret.AddItem(compA, "Component A", -4m, 10m, 0m); // exactly 2 × 2
+
+        dnRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<DeliveryNote> { original, ret }.AsQueryable()));
+
+        await Should.NotThrowAsync(() => manager.ValidateReturnAsync(ret));
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task DeliveryNote_ValidateReturnAsync_Throws_WhenBundleComponentOverReturned()
+    {
+        var bundleItemId = Guid.NewGuid();
+        var compA = Guid.NewGuid();
+        var bundleService = CreateBundleService(bundleItemId, (compA, 2m));
+
+        var dnRepo = Substitute.For<IRepository<DeliveryNote, Guid>>();
+        var soRepo = Substitute.For<IRepository<SalesOrder, Guid>>();
+        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
+        var itemRepo = Substitute.For<IRepository<Item, Guid>>();
+        var manager = new MyERP.Sales.DomainServices.DeliveryNoteManager(dnRepo, soRepo, companyRepo, itemRepo,
+            bundleDecompositionService: bundleService);
+
+        var origId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var original = new DeliveryNote(origId, companyId, customerId, Guid.NewGuid(), "DN-BUNDLE", DateTime.UtcNow);
+        original.AddItem(bundleItemId, "Gift Set", 2m, 90m, 0m);
+        dnRepo.GetAsync(origId).Returns(System.Threading.Tasks.Task.FromResult(original));
+
+        var ret = new DeliveryNote(Guid.NewGuid(), companyId, customerId, Guid.NewGuid(), "DN-RET", DateTime.UtcNow)
+        {
+            IsReturn = true,
+            ReturnAgainstId = origId
+        };
+        ret.AddItem(compA, "Component A", -5m, 10m, 0m); // 5 > 4
+
+        dnRepo.GetQueryableAsync().Returns(System.Threading.Tasks.Task.FromResult(
+            new List<DeliveryNote> { original, ret }.AsQueryable()));
+
+        var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => manager.ValidateReturnAsync(ret));
+        ex.Code.ShouldBe(MyERPDomainErrorCodes.ReturnQtyExceedsOriginal);
+    }
 }

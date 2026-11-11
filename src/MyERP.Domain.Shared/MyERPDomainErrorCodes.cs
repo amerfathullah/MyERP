@@ -127,6 +127,7 @@ public static class MyERPDomainErrorCodes
     public const string InterCompanyPartyMismatch = "MyERP:09001";
     public const string InterCompanyInvoiceAlreadyCreated = "MyERP:09002";
     public const string InterCompanyRateMismatch = "MyERP:09003";
+    public const string InterCompanyPriceListMustBeBuyingAndSelling = "MyERP:09004";
 
     // Returns
     public const string ReturnQtyMustBeNegative = "MyERP:08001";

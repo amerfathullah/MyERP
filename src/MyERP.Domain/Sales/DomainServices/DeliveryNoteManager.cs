@@ -26,6 +26,7 @@ public class DeliveryNoteManager : DomainService
     private readonly IRepository<Item, Guid> _itemRepository;
     private readonly IRepository<Uom, Guid>? _uomRepository;
     private readonly SerialNoValidationService? _serialNoValidationService;
+    private readonly ProductBundleDecompositionService? _bundleDecompositionService;
 
     public DeliveryNoteManager(
         IRepository<DeliveryNote, Guid> dnRepository,
@@ -33,7 +34,8 @@ public class DeliveryNoteManager : DomainService
         IRepository<Company, Guid> companyRepository,
         IRepository<Item, Guid> itemRepository,
         IRepository<Uom, Guid>? uomRepository = null,
-        SerialNoValidationService? serialNoValidationService = null)
+        SerialNoValidationService? serialNoValidationService = null,
+        ProductBundleDecompositionService? bundleDecompositionService = null)
     {
         _dnRepository = dnRepository;
         _orderRepository = orderRepository;
@@ -41,6 +43,7 @@ public class DeliveryNoteManager : DomainService
         _itemRepository = itemRepository;
         _uomRepository = uomRepository;
         _serialNoValidationService = serialNoValidationService;
+        _bundleDecompositionService = bundleDecompositionService;
     }
 
     /// <summary>
@@ -165,8 +168,27 @@ public class DeliveryNoteManager : DomainService
                 .WithData("originalCustomer", original.CustomerId);
         }
 
-        // Validate that all return items exist in the original Delivery Note (ERPNext PR #59820)
-        var validItemIds = original.Items.Select(i => i.ItemId).ToHashSet();
+        // Valid returnable items include original items AND packed Product Bundle components
+        // Per ERPNext: individual components of a Product Bundle can be returned separately.
+        var bundleService = _bundleDecompositionService ?? LazyServiceProvider?.LazyGetService<ProductBundleDecompositionService>();
+        List<DecomposedItem> originalPackedComponents = new();
+        if (bundleService != null)
+        {
+            var origBundleItems = original.Items.Select(i => new BundleTransactionItem(
+                i.ItemId,
+                Math.Abs(i.Quantity) * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m),
+                i.UnitPrice,
+                original.WarehouseId,
+                i.Id
+            )).ToList();
+            var decomp = await bundleService.DecomposeTransactionItemsAsync(origBundleItems, isReturn: true);
+            originalPackedComponents = decomp.PackedItems;
+        }
+
+        var validItemIds = original.Items.Select(i => i.ItemId)
+            .Concat(originalPackedComponents.Select(p => p.ComponentItemId))
+            .ToHashSet();
+
         foreach (var returnItem in returnDN.Items)
         {
             if (!validItemIds.Contains(returnItem.ItemId))
@@ -252,6 +274,22 @@ public class DeliveryNoteManager : DomainService
             }
         }
 
+        if (priorReturns.Count > 0 && bundleService != null)
+        {
+            var priorBundleItems = priorReturns.Select(i => new BundleTransactionItem(
+                i.ItemId,
+                Math.Abs(i.Quantity) * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m),
+                i.UnitPrice,
+                null,
+                i.Id
+            )).ToList();
+            var priorDecomp = await bundleService.DecomposeTransactionItemsAsync(priorBundleItems, isReturn: true);
+            foreach (var p in priorDecomp.PackedItems)
+            {
+                accumulatedReturnedByItem[p.ComponentItemId] = accumulatedReturnedByItem.GetValueOrDefault(p.ComponentItemId, 0m) + Math.Abs(p.Qty);
+            }
+        }
+
         foreach (var returnItem in returnDN.Items)
         {
             var returnFactor = returnItem.ConversionFactor > 0 ? returnItem.ConversionFactor : 1m;
@@ -259,9 +297,19 @@ public class DeliveryNoteManager : DomainService
             var returnStockQty = Math.Abs(returnItem.Quantity) * returnFactor;
 
             // Total delivered stock qty for this item across all original rows (PR #59820)
-            var originalItemStockQty = original.Items
-                .Where(i => i.ItemId == returnItem.ItemId)
-                .Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+            // or from decomposed bundle components if returning bundle children individually
+            decimal originalItemStockQty;
+            var origMatchingRows = original.Items.Where(i => i.ItemId == returnItem.ItemId).ToList();
+            if (origMatchingRows.Count > 0)
+            {
+                originalItemStockQty = origMatchingRows.Sum(i => i.Quantity * (i.ConversionFactor > 0 ? i.ConversionFactor : 1m));
+            }
+            else
+            {
+                originalItemStockQty = originalPackedComponents
+                    .Where(p => p.ComponentItemId == returnItem.ItemId)
+                    .Sum(p => p.Qty);
+            }
 
             var alreadyReturnedStock = accumulatedReturnedByItem.GetValueOrDefault(returnItem.ItemId, 0m);
             var maxReturnableStock = originalItemStockQty - alreadyReturnedStock;

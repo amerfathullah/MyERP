@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyERP.Core.Entities;
+using MyERP.Inventory.Entities;
 using MyERP.Purchasing.Entities;
 using MyERP.Sales.Entities;
 using Volo.Abp;
@@ -25,6 +26,10 @@ public class InterCompanyTransactionService : DomainService
     private readonly IRepository<Company, Guid> _companyRepository;
     private readonly IRepository<Customer, Guid> _customerRepository;
     private readonly IRepository<Supplier, Guid> _supplierRepository;
+    private readonly IRepository<PriceList, Guid>? _priceListRepository;
+    private readonly IRepository<Address, Guid>? _addressRepository;
+    private readonly IRepository<Accounting.Entities.AccountsSettings, Guid>? _accountsSettingsRepository;
+    private readonly TransactionValidationService? _transactionValidationService;
 
     public InterCompanyTransactionService(
         IRepository<SalesInvoice, Guid> salesInvoiceRepository,
@@ -32,7 +37,11 @@ public class InterCompanyTransactionService : DomainService
         IRepository<PurchaseOrder, Guid> purchaseOrderRepository,
         IRepository<Company, Guid> companyRepository,
         IRepository<Customer, Guid> customerRepository,
-        IRepository<Supplier, Guid> supplierRepository)
+        IRepository<Supplier, Guid> supplierRepository,
+        IRepository<PriceList, Guid>? priceListRepository = null,
+        IRepository<Address, Guid>? addressRepository = null,
+        IRepository<Accounting.Entities.AccountsSettings, Guid>? accountsSettingsRepository = null,
+        TransactionValidationService? transactionValidationService = null)
     {
         _salesInvoiceRepository = salesInvoiceRepository;
         _purchaseInvoiceRepository = purchaseInvoiceRepository;
@@ -40,6 +49,29 @@ public class InterCompanyTransactionService : DomainService
         _companyRepository = companyRepository;
         _customerRepository = customerRepository;
         _supplierRepository = supplierRepository;
+        _priceListRepository = priceListRepository;
+        _addressRepository = addressRepository;
+        _accountsSettingsRepository = accountsSettingsRepository;
+        _transactionValidationService = transactionValidationService;
+    }
+
+    /// <summary>
+    /// Price list validation: for inter-company transactions, the selected price list must have
+    /// both IsBuying and IsSelling checked (ERPNext accounts/doctype/sales_invoice/mapper.py validate_inter_company_transaction).
+    /// </summary>
+    private async Task ValidatePriceListAsync(Guid? priceListId)
+    {
+        if (!priceListId.HasValue) return;
+
+        var priceListRepo = _priceListRepository ?? LazyServiceProvider?.LazyGetService<IRepository<PriceList, Guid>>();
+        if (priceListRepo == null) return;
+
+        var priceList = await priceListRepo.FindAsync(priceListId.Value);
+        if (priceList != null && (!priceList.IsBuying || !priceList.IsSelling))
+        {
+            throw new BusinessException(MyERPDomainErrorCodes.InterCompanyPriceListMustBeBuyingAndSelling)
+                .WithData("priceList", priceList.Name);
+        }
     }
 
     /// <summary>
@@ -88,6 +120,9 @@ public class InterCompanyTransactionService : DomainService
                 .WithData("targetCompany", targetCompany.Name);
         }
 
+        // Validate price list if present
+        await ValidatePriceListAsync(si.PriceListId);
+
         // Create the PI in target company — do NOT copy party-specific fields
         var pi = new PurchaseInvoice(
             LazyServiceProvider?.LazyGetService<Volo.Abp.Guids.IGuidGenerator>()?.Create() ?? Guid.NewGuid(),
@@ -100,6 +135,7 @@ public class InterCompanyTransactionService : DomainService
         pi.DueDate = si.DueDate;
         pi.CurrencyCode = sourceCompany.CurrencyCode; // Must be source company currency
         pi.InterCompanyInvoiceId = si.Id;
+        pi.PriceListId = si.PriceListId;
 
         // Per ERPNext commit 145a6c5e2a: fetch exchange rate while creating inter-company order and invoice
         if (!string.Equals(pi.CurrencyCode, targetCompany.CurrencyCode, StringComparison.OrdinalIgnoreCase))
@@ -183,6 +219,9 @@ public class InterCompanyTransactionService : DomainService
                 .WithData("targetCompany", targetCompany.Name);
         }
 
+        // Validate price list if present
+        await ValidatePriceListAsync(pi.PriceListId);
+
         // Create the SI in target company
         var si = new SalesInvoice(
             LazyServiceProvider?.LazyGetService<Volo.Abp.Guids.IGuidGenerator>()?.Create() ?? Guid.NewGuid(),
@@ -194,6 +233,7 @@ public class InterCompanyTransactionService : DomainService
         si.DueDate = pi.DueDate;
         si.CurrencyCode = sourceCompany.CurrencyCode;
         si.InterCompanyPurchaseInvoiceId = pi.Id;
+        si.PriceListId = pi.PriceListId;
 
         // Per ERPNext commit 145a6c5e2a: fetch exchange rate while creating inter-company order and invoice
         if (!string.Equals(si.CurrencyCode, targetCompany.CurrencyCode, StringComparison.OrdinalIgnoreCase))
@@ -254,6 +294,9 @@ public class InterCompanyTransactionService : DomainService
         if (matchingSupplier == null)
             return null; // No bidirectional link configured — skip silently
 
+        // Validate price list if present
+        await ValidatePriceListAsync(salesOrder.PriceListId);
+
         var poNumber = await numberGenerator("PurchaseOrder", targetCompanyId);
 
         var po = new PurchaseOrder(
@@ -267,6 +310,7 @@ public class InterCompanyTransactionService : DomainService
         po.ExpectedDeliveryDate = salesOrder.DeliveryDate;
         po.CurrencyCode = salesOrder.CurrencyCode ?? "MYR";
         po.InterCompanySalesOrderId = salesOrder.Id;
+        po.PriceListId = salesOrder.PriceListId;
         po.Notes = $"Auto-created from inter-company Sales Order {salesOrder.OrderNumber}";
 
         // Per ERPNext commit 145a6c5e2a: fetch exchange rate while creating inter-company order and invoice
@@ -312,7 +356,8 @@ public class InterCompanyTransactionService : DomainService
         IEnumerable<(Guid ItemId, decimal UnitPrice, string? Description)> items,
         IEnumerable<string>? userRoles = null)
     {
-        var settingsRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Accounting.Entities.AccountsSettings, Guid>>();
+        var settingsRepo = _accountsSettingsRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Accounting.Entities.AccountsSettings, Guid>>();
+        if (settingsRepo == null) return;
         var settings = (await settingsRepo.GetQueryableAsync()).FirstOrDefault();
         if (settings == null || !settings.MaintainSameInternalTransactionRate)
             return;
@@ -357,8 +402,8 @@ public class InterCompanyTransactionService : DomainService
 
         if (rateLines.Count > 0)
         {
-            var validationService = LazyServiceProvider.LazyGetRequiredService<TransactionValidationService>();
-            validationService.ValidateMaintainSameRate(rateLines, action, canOverride);
+            var validationService = _transactionValidationService ?? LazyServiceProvider?.LazyGetService<TransactionValidationService>();
+            validationService?.ValidateMaintainSameRate(rateLines, action, canOverride);
         }
     }
 
@@ -369,7 +414,8 @@ public class InterCompanyTransactionService : DomainService
     private async Task<bool> ValidateAddressLinkAsync(Guid? addressId, string partyType, Guid partyId)
     {
         if (!addressId.HasValue) return false;
-        var addressRepo = LazyServiceProvider.LazyGetRequiredService<IRepository<Address, Guid>>();
+        var addressRepo = _addressRepository ?? LazyServiceProvider?.LazyGetService<IRepository<Address, Guid>>();
+        if (addressRepo == null) return false;
         var address = await addressRepo.FindAsync(addressId.Value);
         return address != null && string.Equals(address.PartyType, partyType, StringComparison.OrdinalIgnoreCase) && address.PartyId == partyId;
     }
