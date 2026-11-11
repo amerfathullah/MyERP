@@ -157,21 +157,6 @@ public class AccountingEngineRefactorTests
         Assert.NotNull(item.DeferredRevenueAccountId);
     }
 
-    [Fact]
-    public void DeferredScheduleEntry_HasRequiredProperties()
-    {
-        var entry = new DeferredScheduleEntry
-        {
-            PostingDate = new DateTime(2026, 1, 31),
-            Amount = 1000m,
-            PeriodIndex = 1,
-            TotalPeriods = 12
-        };
-        Assert.Equal(1000m, entry.Amount);
-        Assert.Equal(1, entry.PeriodIndex);
-        Assert.Equal(12, entry.TotalPeriods);
-    }
-
     // === Multi-Currency GL Fields ===
 
     [Fact]

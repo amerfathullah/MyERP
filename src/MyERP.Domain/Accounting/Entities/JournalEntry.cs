@@ -250,6 +250,7 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
             AgainstVoucherId = sourceLine.AgainstVoucherId,
             IsAdvance = sourceLine.IsAdvance,
             FinanceBook = sourceLine.FinanceBook,
+            ReferenceDetailId = sourceLine.ReferenceDetailId,
         };
         _lines.Add(line);
 
@@ -316,7 +317,8 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
             l.FinanceBook,
             l.AgainstVoucherType,
             l.AgainstVoucherId,
-            l.IsAdvance
+            l.IsAdvance,
+            l.ReferenceDetailId
         }))
         {
             var first = group.First();
@@ -341,7 +343,8 @@ public class JournalEntry : FullAuditedAggregateRoot<Guid>, IMultiTenant
                     FinanceBook = first.FinanceBook,
                     AgainstVoucherType = first.AgainstVoucherType,
                     AgainstVoucherId = first.AgainstVoucherId,
-                    IsAdvance = first.IsAdvance
+                    IsAdvance = first.IsAdvance,
+                    ReferenceDetailId = first.ReferenceDetailId
                 };
                 merged.Add(combinedLine);
             }

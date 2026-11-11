@@ -116,10 +116,18 @@ public class AccountingRuleEngine : DomainService
     /// warehouse posts byte-identical GL. A Purchase Invoice with update_stock is the case that
     /// needs the balance: stock items belong in inventory, service items stay on expense.
     /// </param>
+    /// <param name="deferredCarveOuts">
+    /// Invoice rows whose income (Sales Invoice) or expense (Purchase Invoice) is deferred: each
+    /// row's net amount leaves the rule's ItemIncome / ItemExpense leg and posts to that row's
+    /// deferred account instead, tagged with the row id. Per ERPNext SalesInvoiceGLComposer
+    /// .get_item_income_account() / PurchaseInvoiceGLComposer: a deferred row never touches the
+    /// income/expense account at invoice time — recognition moves it there period by period.
+    /// </param>
     public async Task<JournalEntry> PostDocumentAsync(
         IAccountableDocument document,
         Guid? warehouseStockAccountOverride,
-        IReadOnlyList<WarehouseStockSplitLine>? warehouseStockSplit)
+        IReadOnlyList<WarehouseStockSplitLine>? warehouseStockSplit,
+        IReadOnlyList<DeferredCarveOutLine>? deferredCarveOuts = null)
     {
         var rules = await _ruleRepository.GetListAsync(r =>
             r.CompanyId == document.CompanyId &&
@@ -146,7 +154,7 @@ public class AccountingRuleEngine : DomainService
 
         var isMultiCurrency = document.ExchangeRate != 1m;
 
-        void AddLine(Guid accountId, decimal amountInTransactionCurrency, bool isDebit)
+        void AddLine(Guid accountId, decimal amountInTransactionCurrency, bool isDebit, Guid? referenceDetailId = null)
         {
             if (isMultiCurrency)
             {
@@ -160,6 +168,7 @@ public class AccountingRuleEngine : DomainService
                 lastLine.AmountInAccountCurrency = amountInTransactionCurrency;
                 lastLine.ExchangeRate = document.ExchangeRate;
                 lastLine.FinanceBook = document.FinanceBook;
+                lastLine.ReferenceDetailId = referenceDetailId;
             }
             else
             {
@@ -169,6 +178,7 @@ public class AccountingRuleEngine : DomainService
                 // Tag with finance book if specified
                 if (document.FinanceBook != null)
                     journal.Lines[^1].FinanceBook = document.FinanceBook;
+                journal.Lines[^1].ReferenceDetailId = referenceDetailId;
             }
         }
 
@@ -180,6 +190,26 @@ public class AccountingRuleEngine : DomainService
             if (rawAmount == 0) continue;
 
             var (amountInTransactionCurrency, isDebit) = ResolveDirectionAndAmount(rawAmount, rule.IsDebit);
+
+            if (deferredCarveOuts is { Count: > 0 }
+                && rule.AccountSource is AccountSource.ItemIncome or AccountSource.ItemExpense)
+            {
+                // Deferred rows post to their own deferred account, in the leg's direction (a
+                // return's leg is already flipped above, so its rows reverse the deferred balance).
+                // Never carve more than the leg holds: the row amounts are derived from the same
+                // net total, so an overshoot can only be rounding.
+                var remaining = amountInTransactionCurrency;
+                foreach (var carveOut in deferredCarveOuts)
+                {
+                    var share = Math.Min(Math.Abs(carveOut.Value), remaining);
+                    if (share <= 0) continue;
+                    AddLine(carveOut.AccountId, share, isDebit, carveOut.ReferenceDetailId);
+                    remaining -= share;
+                }
+
+                amountInTransactionCurrency = remaining;
+                if (amountInTransactionCurrency == 0) continue;
+            }
 
             if (splitAccounts != null
                 && rule.AccountSource is AccountSource.WarehouseStock or AccountSource.ItemExpense)
@@ -385,6 +415,7 @@ public class AccountingRuleEngine : DomainService
                     AgainstVoucherType = originalLine.AgainstVoucherType,
                     AgainstVoucherId = originalLine.AgainstVoucherId,
                     IsAdvance = originalLine.IsAdvance,
+                    ReferenceDetailId = originalLine.ReferenceDetailId,
                 };
                 journal.AddLine(newLine);
             }
@@ -522,3 +553,9 @@ public class AccountingRuleEngine : DomainService
 /// warehouse and let the engine aggregate.
 /// </summary>
 public sealed record WarehouseStockSplitLine(Guid AccountId, decimal Value);
+
+/// <summary>
+/// One deferred invoice row: the deferred revenue/expense account its net amount posts to instead
+/// of income/expense, in transaction currency, and the row it belongs to.
+/// </summary>
+public sealed record DeferredCarveOutLine(Guid AccountId, decimal Value, Guid ReferenceDetailId);

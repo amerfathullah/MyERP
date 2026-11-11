@@ -2527,6 +2527,7 @@
     "MyERP:02080": "Reposting is still in progress in the background.",
     "MyERP:02081": "Reposting cannot be started when status is {status}.",
     "MyERP:02082": "{voucherType} {voucherNo} has deferred revenue/expense enabled on at least one line — reposting would conflict with its deferred recognition schedule.",
+    "MyERP:02098": "Cancel the deferred revenue entries for Sales Invoice {invoiceNumber} before cancelling this credit note.",
     "MyERP:02083": "An automated payment reconciliation is already queued or running for this party/account combination.",
     "DefaultCostCenter": "Default Cost Center",
     "DefaultCostCenterHint": "Applied automatically to Income/Expense GL lines that don't specify their own cost center.",

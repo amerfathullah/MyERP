@@ -122,114 +122,142 @@ public class CurrencyExchangeServiceTests
 }
 
 /// <summary>
-/// Tests for DeferredAccountingService — monthly proration with final-period rounding.
+/// Booking arithmetic of DeferredAccountingService — ported from ERPNext deferred_revenue.py
+/// get_booking_dates(), calculate_amount() and calculate_monthly_amount().
 /// </summary>
 public class DeferredAccountingServiceTests
 {
-    private readonly DeferredAccountingService _service;
+    private static readonly DateTime Jan1 = new(2026, 1, 1);
+    private static readonly DateTime Mar31 = new(2026, 3, 31);
 
-    public DeferredAccountingServiceTests()
+    [Fact]
+    public void GetBookingDates_FirstPeriod_RunsFromServiceStartToMonthEnd()
     {
-        var jeRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
-        var siRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
-        _service = new DeferredAccountingService(jeRepo, siRepo, null!, null!, null!);
+        var period = DeferredAccountingService.GetBookingDates(Jan1, Mar31, null, new DateTime(2026, 12, 31), null);
+        period.ShouldNotBeNull();
+        period.Value.Start.ShouldBe(Jan1);
+        period.Value.End.ShouldBe(new DateTime(2026, 1, 31));
+        period.Value.IsLast.ShouldBeFalse();
     }
 
     [Fact]
-    public void GenerateSchedule_12MonthService_12Entries()
+    public void GetBookingDates_ContinuesFromTheDayAfterTheLastBooking()
     {
-        var item = CreateDeferredItem(
-            new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), 12000m);
-        var schedule = _service.GenerateSchedule(item, new DateTime(2027, 1, 1));
-        schedule.Count.ShouldBe(12);
+        var period = DeferredAccountingService.GetBookingDates(
+            Jan1, Mar31, null, new DateTime(2026, 12, 31), new DateTime(2026, 1, 31));
+        period!.Value.Start.ShouldBe(new DateTime(2026, 2, 1));
+        period.Value.End.ShouldBe(new DateTime(2026, 2, 28));
+        period.Value.IsLast.ShouldBeFalse();
     }
 
     [Fact]
-    public void GenerateSchedule_MonthlyAmount_IsProrated()
+    public void GetBookingDates_MonthReachingServiceEnd_IsTheLastEntry()
     {
-        var item = CreateDeferredItem(
-            new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), 12000m);
-        var schedule = _service.GenerateSchedule(item, new DateTime(2027, 1, 1));
-        schedule[0].Amount.ShouldBe(1000m);
-        schedule[5].Amount.ShouldBe(1000m);
+        var period = DeferredAccountingService.GetBookingDates(
+            Jan1, Mar31, null, new DateTime(2026, 12, 31), new DateTime(2026, 2, 28));
+        period!.Value.End.ShouldBe(Mar31);
+        period.Value.IsLast.ShouldBeTrue();
     }
 
     [Fact]
-    public void GenerateSchedule_FinalPeriod_AbsorbsRounding()
+    public void GetBookingDates_ServiceStopDate_EndsTheScheduleEarly()
     {
-        // 10000 / 3 months = 3333.33 each, final = 10000 - 2*3333.33 = 3333.34
-        var item = CreateDeferredItem(
-            new DateTime(2026, 1, 1), new DateTime(2026, 3, 31), 10000m);
-        var schedule = _service.GenerateSchedule(item, new DateTime(2026, 4, 1));
-        var total = schedule.Sum(s => s.Amount);
-        total.ShouldBe(10000m); // Must equal original total exactly
+        var period = DeferredAccountingService.GetBookingDates(
+            Jan1, Mar31, new DateTime(2026, 2, 10), new DateTime(2026, 12, 31), new DateTime(2026, 1, 31));
+        period!.Value.End.ShouldBe(new DateTime(2026, 2, 10));
+        period.Value.IsLast.ShouldBeTrue();
     }
 
     [Fact]
-    public void GenerateSchedule_SingleMonth_OneEntry()
+    public void GetBookingDates_NeverRunsPastThePostingDate()
     {
-        var item = CreateDeferredItem(
-            new DateTime(2026, 7, 1), new DateTime(2026, 7, 31), 5000m);
-        var schedule = _service.GenerateSchedule(item, new DateTime(2026, 8, 1));
-        schedule.Count.ShouldBe(1);
-        schedule[0].Amount.ShouldBe(5000m);
+        var period = DeferredAccountingService.GetBookingDates(Jan1, Mar31, null, new DateTime(2026, 1, 15), null);
+        period!.Value.End.ShouldBe(new DateTime(2026, 1, 15));
+        period.Value.IsLast.ShouldBeFalse();
     }
 
     [Fact]
-    public void GenerateSchedule_PostingDate_LastDayOfMonth()
+    public void GetBookingDates_AlreadyBookedThroughPostingDate_ReturnsNothing()
     {
-        var item = CreateDeferredItem(
-            new DateTime(2026, 1, 1), new DateTime(2026, 3, 31), 9000m);
-        var schedule = _service.GenerateSchedule(item, new DateTime(2026, 4, 1));
-        schedule[0].PostingDate.ShouldBe(new DateTime(2026, 1, 31));
-        schedule[1].PostingDate.ShouldBe(new DateTime(2026, 2, 28));
-        schedule[2].PostingDate.ShouldBe(new DateTime(2026, 3, 31));
+        DeferredAccountingService.GetBookingDates(
+            Jan1, Mar31, null, new DateTime(2026, 1, 31), new DateTime(2026, 1, 31)).ShouldBeNull();
     }
 
     [Fact]
-    public void GenerateSchedule_NullDates_EmptyList()
+    public void CalculateAmount_Days_ProratesByDaysBooked()
     {
-        var item = new SalesInvoiceItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Service", 1, 1000m, 0m);
-        // No ServiceStartDate/ServiceEndDate set
-        var schedule = _service.GenerateSchedule(item, DateTime.Today);
-        schedule.Count.ShouldBe(0);
+        // 90 days of service, 31 of them in January.
+        var (amount, baseAmount) = DeferredAccountingService.CalculateAmount(
+            "Days", 9000m, 9000m, 0m, 0m, Jan1, Mar31, Jan1, new DateTime(2026, 1, 31), isLast: false);
+        amount.ShouldBe(3100m);
+        baseAmount.ShouldBe(3100m);
     }
 
     [Fact]
-    public void GenerateSchedule_6MonthService_Correct()
+    public void CalculateAmount_LastEntry_TakesTheRemainder()
     {
-        var item = CreateDeferredItem(
-            new DateTime(2026, 4, 1), new DateTime(2026, 9, 30), 6000m);
-        var schedule = _service.GenerateSchedule(item, new DateTime(2026, 10, 1));
-        schedule.Count.ShouldBe(6);
-        schedule.Sum(s => s.Amount).ShouldBe(6000m);
+        var (amount, baseAmount) = DeferredAccountingService.CalculateAmount(
+            "Days", 10000m, 10000m, 6555.56m, 6555.56m, Jan1, Mar31, new DateTime(2026, 3, 1), Mar31, isLast: true);
+        amount.ShouldBe(3444.44m);
+        baseAmount.ShouldBe(3444.44m);
     }
 
     [Fact]
-    public void DeferredScheduleEntry_Properties()
+    public void CalculateAmount_Months_BooksAnEqualSharePerMonth()
     {
-        var entry = new DeferredScheduleEntry
-        {
-            PostingDate = new DateTime(2026, 1, 31),
-            Amount = 1000m,
-            AlreadyBooked = false,
-            PeriodIndex = 1,
-            TotalPeriods = 12
-        };
-        entry.PostingDate.Day.ShouldBe(31);
-        entry.PeriodIndex.ShouldBe(1);
-        entry.TotalPeriods.ShouldBe(12);
-        entry.AlreadyBooked.ShouldBeFalse();
+        var yearEnd = new DateTime(2026, 12, 31);
+        var (january, _) = DeferredAccountingService.CalculateAmount(
+            "Months", 12000m, 12000m, 0m, 0m, Jan1, yearEnd, Jan1, new DateTime(2026, 1, 31), isLast: false);
+        var (february, _) = DeferredAccountingService.CalculateAmount(
+            "Months", 12000m, 12000m, 1000m, 1000m, Jan1, yearEnd, new DateTime(2026, 2, 1), new DateTime(2026, 2, 28), isLast: false);
+        january.ShouldBe(1000m);
+        february.ShouldBe(1000m);
     }
 
-    private SalesInvoiceItem CreateDeferredItem(DateTime start, DateTime end, decimal amount)
+    [Fact]
+    public void CalculateAmount_Months_NeverBooksPastTheRowAmount()
     {
-        var item = new SalesInvoiceItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Deferred Service", 1, amount, 0m);
-        item.EnableDeferredRevenue = true;
-        item.ServiceStartDate = start;
-        item.ServiceEndDate = end;
-        item.DeferredRevenueAccountId = Guid.NewGuid();
-        return item;
+        var (amount, _) = DeferredAccountingService.CalculateAmount(
+            "Months", 12000m, 12000m, 11500m, 11500m, Jan1, new DateTime(2026, 12, 31),
+            new DateTime(2026, 11, 1), new DateTime(2026, 11, 30), isLast: false);
+        amount.ShouldBe(500m);
+    }
+
+    [Fact]
+    public void CalculateAmount_ForeignCurrency_KeepsBothAmounts()
+    {
+        var (amount, baseAmount) = DeferredAccountingService.CalculateAmount(
+            "Days", 900m, 3960m, 0m, 0m, Jan1, Mar31, Jan1, new DateTime(2026, 1, 31), isLast: false);
+        amount.ShouldBe(310m);
+        baseAmount.ShouldBe(1364m);
+    }
+
+    [Fact]
+    public void GetRowNetAmounts_WithoutInvoiceDiscount_IsTheLineTotal()
+    {
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        var net = DeferredAccountingService.GetRowNetAmounts(new[] { (a, 1200m), (b, 300m) }, 1500m);
+        net[a].ShouldBe(1200m);
+        net[b].ShouldBe(300m);
+    }
+
+    [Fact]
+    public void GetRowNetAmounts_SpreadsAnInvoiceDiscountOverTheRows()
+    {
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        var net = DeferredAccountingService.GetRowNetAmounts(new[] { (a, 1200m), (b, 300m) }, 1350m);
+        net[a].ShouldBe(1080m);
+        net[b].ShouldBe(270m);
+    }
+
+    [Fact]
+    public void GetRowNetAmounts_CreditNote_KeepsTheNegativeSign()
+    {
+        var a = Guid.NewGuid();
+        var net = DeferredAccountingService.GetRowNetAmounts(new[] { (a, -300m) }, -300m);
+        net[a].ShouldBe(-300m);
     }
 }
 

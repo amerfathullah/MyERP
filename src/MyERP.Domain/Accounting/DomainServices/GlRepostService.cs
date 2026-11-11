@@ -42,6 +42,9 @@ public class GlRepostService : DomainService
     private readonly IRepository<FiscalYear, Guid> _fiscalYearRepository;
     private readonly IRepository<Company, Guid> _companyRepository;
 
+    private DeferredAccountingService DeferredAccounting =>
+        LazyServiceProvider.LazyGetRequiredService<DeferredAccountingService>();
+
     /// <summary>
     /// Voucher types allowed for GL repost. PaymentEntry is deliberately NOT included: its GL repost
     /// would need to also reverse+rebuild PLE across potentially multiple allocated references and
@@ -146,12 +149,17 @@ public class GlRepostService : DomainService
                 invoice.CompanyId, invoice.IssueDate, expenseItems, invoice.TenantId);
         }
 
+        // Deferred rows credit their deferred revenue account instead of income (and a credit note
+        // row reverses it only while the original row's recognition has not started).
+        var deferredCarveOuts = await DeferredAccounting.ResolveRevenueCarveOutsAsync(invoice);
+
         var journal = await _postingOrchestrator.PostSalesInvoiceAsync(
             invoice,
             receivableAccountId: receivableAccountId,
             dueDate: invoice.DueDate,
             accountCurrency: invoice.CurrencyCode,
-            exchangeRate: invoice.ExchangeRate);
+            exchangeRate: invoice.ExchangeRate,
+            deferredCarveOuts: deferredCarveOuts);
 
         var reconciliation = await _commonPartyService.ReconcileAsync(new CommonPartyReconciliationContext
         {
@@ -216,7 +224,8 @@ public class GlRepostService : DomainService
             dueDate: invoice.DueDate,
             accountCurrency: invoice.CurrencyCode,
             exchangeRate: invoice.ExchangeRate,
-            warehouseStockSplit: updateStockSplit?.Lines);
+            warehouseStockSplit: updateStockSplit?.Lines,
+            deferredCarveOuts: DeferredAccounting.ResolveExpenseCarveOuts(invoice));
 
         var reconciliation = await _commonPartyService.ReconcileAsync(new CommonPartyReconciliationContext
         {

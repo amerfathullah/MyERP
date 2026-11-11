@@ -3462,6 +3462,9 @@ namespace MyERP.Migrations
                     b.Property<Guid?>("ProjectId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ReferenceDetailId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");
@@ -23999,6 +24002,10 @@ namespace MyERP.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");
 
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<decimal>("TotalBillableHours")
                         .HasColumnType("decimal(18,2)");
 
@@ -24492,6 +24499,14 @@ namespace MyERP.Migrations
 
                     b.Property<bool>("OnHold")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("OriginalInvoiceNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("OriginalInvoiceUuid")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<Guid?>("PaymentTermsTemplateId")
                         .HasColumnType("uuid");
@@ -27442,6 +27457,9 @@ namespace MyERP.Migrations
                     b.Property<Guid?>("SalesOrderItemId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("SerialAndBatchBundleId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("SerialNoId")
                         .HasColumnType("uuid");
 
@@ -30086,6 +30104,14 @@ namespace MyERP.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("OriginalInvoiceNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("OriginalInvoiceUuid")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<Guid?>("PaymentTermsTemplateId")
                         .HasColumnType("uuid");
@@ -38821,7 +38847,7 @@ namespace MyERP.Migrations
 
                             b1.HasKey("IdentityUserPasskeyCredentialId");
 
-                            b1.ToTable("AbpUserPasskeys", (string)null);
+                            b1.ToTable("AbpUserPasskeys");
 
                             b1
                                 .ToJson("Data")

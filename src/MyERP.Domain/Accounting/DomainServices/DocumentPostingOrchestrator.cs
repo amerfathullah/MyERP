@@ -90,12 +90,14 @@ public class DocumentPostingOrchestrator : DomainService
         Guid receivableAccountId,
         DateTime? dueDate = null,
         string accountCurrency = "MYR",
-        decimal exchangeRate = 1m)
+        decimal exchangeRate = 1m,
+        IReadOnlyList<DeferredCarveOutLine>? deferredCarveOuts = null)
     {
         await ValidatePostingPeriodAsync(invoice.CompanyId, invoice.PostingDate, invoice.DocumentType);
 
-        // Step 1: Create GL entries via rule engine
-        var journal = await _ruleEngine.PostDocumentAsync(invoice);
+        // Step 1: Create GL entries via rule engine (deferred rows credit their deferred account)
+        var journal = await _ruleEngine.PostDocumentAsync(
+            invoice, warehouseStockAccountOverride: null, warehouseStockSplit: null, deferredCarveOuts);
 
         // Step 2: Validate mandatory accounting dimensions on GL lines
         await _dimensionService.ValidateMandatoryDimensionsAsync(invoice.CompanyId, journal.Lines);
@@ -139,11 +141,13 @@ public class DocumentPostingOrchestrator : DomainService
         DateTime? dueDate = null,
         string accountCurrency = "MYR",
         decimal exchangeRate = 1m,
-        IReadOnlyList<WarehouseStockSplitLine>? warehouseStockSplit = null)
+        IReadOnlyList<WarehouseStockSplitLine>? warehouseStockSplit = null,
+        IReadOnlyList<DeferredCarveOutLine>? deferredCarveOuts = null)
     {
         await ValidatePostingPeriodAsync(invoice.CompanyId, invoice.PostingDate, invoice.DocumentType);
 
-        var journal = await _ruleEngine.PostDocumentAsync(invoice, warehouseStockAccountOverride: null, warehouseStockSplit);
+        var journal = await _ruleEngine.PostDocumentAsync(
+            invoice, warehouseStockAccountOverride: null, warehouseStockSplit, deferredCarveOuts);
 
         // Validate mandatory accounting dimensions on GL lines
         await _dimensionService.ValidateMandatoryDimensionsAsync(invoice.CompanyId, journal.Lines);

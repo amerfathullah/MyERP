@@ -1440,6 +1440,18 @@ public class DocumentConversionAppService : ApplicationService, IDocumentConvers
             addedItem.SalesOrderItemId = origItem.SalesOrderItemId;
             addedItem.DeliveryNoteItemId = origItem.DeliveryNoteItemId;
             addedItem.BatchId = origItem.BatchId;
+
+            // Per ERPNext make_sales_return: the credit note row keeps the original row's deferred
+            // revenue setup — that is what lets it reverse the deferred account while the original
+            // is still unrecognized.
+            if (origItem.EnableDeferredRevenue)
+            {
+                addedItem.EnableDeferredRevenue = true;
+                addedItem.DeferredRevenueAccountId = origItem.DeferredRevenueAccountId;
+                addedItem.ServiceStartDate = origItem.ServiceStartDate;
+                addedItem.ServiceEndDate = origItem.ServiceEndDate;
+                addedItem.ServiceStopDate = origItem.ServiceStopDate;
+            }
         }
 
         if (original.DiscountAmount > 0)

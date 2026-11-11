@@ -178,11 +178,13 @@ public class ProcessDeferredAccountingAppService : MyERPAppService, IProcessDefe
         int processed = 0;
         if (entity.Type == DeferredAccountingType.Income)
         {
-            processed = await _deferredAccountingService.ProcessDeferredRevenueAsync(entity.CompanyId, entity.EndDate, CurrentTenant.Id);
+            processed = await _deferredAccountingService.ProcessDeferredRevenueAsync(
+                entity.CompanyId, entity.EndDate, CurrentTenant.Id, entity.AccountId, entity.StartDate, entity.Id);
         }
         else
         {
-            processed = await _deferredAccountingService.ProcessDeferredExpenseAsync(entity.CompanyId, entity.EndDate, CurrentTenant.Id);
+            processed = await _deferredAccountingService.ProcessDeferredExpenseAsync(
+                entity.CompanyId, entity.EndDate, CurrentTenant.Id, entity.AccountId, entity.StartDate, entity.Id);
         }
 
         entity.Submit(processed);
@@ -195,6 +197,10 @@ public class ProcessDeferredAccountingAppService : MyERPAppService, IProcessDefe
     {
         var entity = await _repository.GetAsync(id);
         entity.Cancel();
+
+        // Per ERPNext ProcessDeferredAccounting.on_cancel: take back what this run booked.
+        await _deferredAccountingService.ReverseProcessAsync(entity.Id, entity.Type == DeferredAccountingType.Income);
+
         await _repository.UpdateAsync(entity, autoSave: true);
         return await GetAsync(entity.Id);
     }
@@ -219,116 +225,28 @@ public class ProcessDeferredAccountingAppService : MyERPAppService, IProcessDefe
             EndDate = input.EndDate
         };
 
-        var jeQuery = await _journalEntryRepository.GetQueryableAsync();
-        var refType = input.Type == DeferredAccountingType.Income ? "DeferredRevenue" : "DeferredExpense";
-        var existingDeferredJes = jeQuery
-            .Where(je => je.CompanyId == input.CompanyId
-                      && je.ReferenceType == refType
-                      && je.ReferenceId.HasValue
-                      && je.Status == Core.DocumentStatus.Posted)
-            .Select(je => new { InvoiceId = je.ReferenceId!.Value, PostingDate = je.PostingDate.Date })
-            .ToList()
-            .Select(je => (je.InvoiceId, je.PostingDate))
-            .ToHashSet();
+        // Same plan the submit books from, so the preview cannot drift from what gets posted.
+        var plan = input.Type == DeferredAccountingType.Income
+            ? await _deferredAccountingService.PlanDeferredRevenueAsync(input.CompanyId, input.EndDate, input.AccountId, input.StartDate)
+            : await _deferredAccountingService.PlanDeferredExpenseAsync(input.CompanyId, input.EndDate, input.AccountId, input.StartDate);
 
-        if (input.Type == DeferredAccountingType.Income)
-        {
-            var siQuery = await _salesInvoiceRepository.GetQueryableAsync();
-            var invoices = siQuery
-                .Where(si => si.CompanyId == input.CompanyId && si.Status == Core.DocumentStatus.Posted)
-                .ToList();
-
-            var matchingInvoices = new System.Collections.Generic.HashSet<Guid>();
-
-            foreach (var invoice in invoices)
+        result.Items = plan
+            .Select(entry => new DeferredAccountingPreviewItemDto
             {
-                var deferredItems = invoice.Items
-                    .Where(i => i.EnableDeferredRevenue
-                             && i.ServiceStartDate.HasValue
-                             && i.ServiceEndDate.HasValue
-                             && i.DeferredRevenueAccountId.HasValue
-                             && (!input.AccountId.HasValue || i.DeferredRevenueAccountId == input.AccountId.Value))
-                    .ToList();
-
-                foreach (var item in deferredItems)
-                {
-                    var schedule = _deferredAccountingService.GenerateSchedule(item, input.EndDate);
-                    foreach (var entry in schedule)
-                    {
-                        if (existingDeferredJes.Contains((invoice.Id, entry.PostingDate.Date))) continue;
-                        if (entry.PostingDate > input.EndDate || entry.PostingDate < input.StartDate) continue;
-
-                        result.Items.Add(new DeferredAccountingPreviewItemDto
-                        {
-                            InvoiceId = invoice.Id,
-                            InvoiceNumber = invoice.InvoiceNumber,
-                            ItemId = item.ItemId,
-                            ItemDescription = item.Description,
-                            ServiceStartDate = item.ServiceStartDate!.Value,
-                            ServiceEndDate = item.ServiceEndDate!.Value,
-                            TotalAmount = item.LineTotal,
-                            AmountToRecognize = entry.Amount,
-                            DeferredAccountId = item.DeferredRevenueAccountId!.Value,
-                            PostingDate = entry.PostingDate
-                        });
-
-                        matchingInvoices.Add(invoice.Id);
-                    }
-                }
-            }
-
-            result.TotalInvoicesCount = matchingInvoices.Count;
-            result.TotalAmountToRecognize = result.Items.Sum(i => i.AmountToRecognize);
-        }
-        else
-        {
-            var piQuery = await _purchaseInvoiceRepository.GetQueryableAsync();
-            var invoices = piQuery
-                .Where(pi => pi.CompanyId == input.CompanyId && pi.Status == Core.DocumentStatus.Posted)
-                .ToList();
-
-            var matchingInvoices = new System.Collections.Generic.HashSet<Guid>();
-
-            foreach (var invoice in invoices)
-            {
-                var deferredItems = invoice.Items
-                    .Where(i => i.EnableDeferredExpense
-                             && i.ServiceStartDate.HasValue
-                             && i.ServiceEndDate.HasValue
-                             && i.DeferredExpenseAccountId.HasValue
-                             && (!input.AccountId.HasValue || i.DeferredExpenseAccountId == input.AccountId.Value))
-                    .ToList();
-
-                foreach (var item in deferredItems)
-                {
-                    var schedule = _deferredAccountingService.GenerateExpenseSchedule(item, input.EndDate);
-                    foreach (var entry in schedule)
-                    {
-                        if (existingDeferredJes.Contains((invoice.Id, entry.PostingDate.Date))) continue;
-                        if (entry.PostingDate > input.EndDate || entry.PostingDate < input.StartDate) continue;
-
-                        result.Items.Add(new DeferredAccountingPreviewItemDto
-                        {
-                            InvoiceId = invoice.Id,
-                            InvoiceNumber = invoice.InvoiceNumber,
-                            ItemId = item.ItemId,
-                            ItemDescription = item.Description,
-                            ServiceStartDate = item.ServiceStartDate!.Value,
-                            ServiceEndDate = item.ServiceEndDate!.Value,
-                            TotalAmount = item.LineTotal,
-                            AmountToRecognize = entry.Amount,
-                            DeferredAccountId = item.DeferredExpenseAccountId!.Value,
-                            PostingDate = entry.PostingDate
-                        });
-
-                        matchingInvoices.Add(invoice.Id);
-                    }
-                }
-            }
-
-            result.TotalInvoicesCount = matchingInvoices.Count;
-            result.TotalAmountToRecognize = result.Items.Sum(i => i.AmountToRecognize);
-        }
+                InvoiceId = entry.InvoiceId,
+                InvoiceNumber = entry.InvoiceNumber,
+                ItemId = entry.ItemId,
+                ItemDescription = entry.Description,
+                ServiceStartDate = entry.ServiceStartDate,
+                ServiceEndDate = entry.ServiceEndDate,
+                TotalAmount = entry.TotalAmount,
+                AmountToRecognize = entry.BaseAmount,
+                DeferredAccountId = entry.DeferredAccountId,
+                PostingDate = entry.PostingDate
+            })
+            .ToList();
+        result.TotalInvoicesCount = plan.Select(entry => entry.InvoiceId).Distinct().Count();
+        result.TotalAmountToRecognize = result.Items.Sum(i => i.AmountToRecognize);
 
         return result;
     }

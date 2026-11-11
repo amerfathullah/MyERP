@@ -1,27 +1,22 @@
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using MyERP.Accounting.DomainServices;
-using MyERP.Core;
 using MyERP.Sales.Entities;
 using Shouldly;
 using Xunit;
 
 namespace MyERP.Tests.Accounting;
 
+/// <summary>
+/// Recognition schedule of a deferred row, per ERPNext deferred_revenue.py: one entry per month of
+/// service, dated at the month end, the last one dated at the service end (or stop) date and
+/// taking whatever is left.
+/// </summary>
 public class DeferredAccountingTests
 {
-    private static SalesInvoiceItem CreateDeferredItem(
-        DateTime startDate, DateTime endDate, decimal amount = 12000m)
-    {
-        var item = new SalesInvoiceItem(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            "Annual Support", 1, amount, 0);
-        item.EnableDeferredRevenue = true;
-        item.DeferredRevenueAccountId = Guid.NewGuid();
-        item.ServiceStartDate = startDate;
-        item.ServiceEndDate = endDate;
-        return item;
-    }
+    private static System.Collections.Generic.List<DeferredBookingPeriod> Schedule(
+        DateTime start, DateTime end, decimal amount, string basedOn = "Days", DateTime? stop = null)
+        => DeferredAccountingService.ProjectSchedule(start, end, stop, amount, amount, basedOn, end);
 
     [Fact]
     public void SalesInvoiceItem_DeferredFields_DefaultFalse()
@@ -38,135 +33,101 @@ public class DeferredAccountingTests
     [Fact]
     public void DeferredSchedule_12MonthService_Generates12Entries()
     {
-        var service = new DeferredAccountingService(null!, null!, null!, null!, null!);
-        var item = CreateDeferredItem(
-            new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), 12000m);
-
-        var schedule = service.GenerateSchedule(item, new DateTime(2027, 1, 1));
-
-        schedule.Count.ShouldBe(12);
+        Schedule(new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), 12000m).Count.ShouldBe(12);
     }
 
     [Fact]
-    public void DeferredSchedule_MonthlyAmount_EvenDistribution()
+    public void DeferredSchedule_Months_EvenDistribution()
     {
-        var service = new DeferredAccountingService(null!, null!, null!, null!, null!);
-        var item = CreateDeferredItem(
-            new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), 12000m);
+        var schedule = Schedule(new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), 12000m, "Months");
 
-        var schedule = service.GenerateSchedule(item, new DateTime(2027, 1, 1));
-
-        // 12000 / 12 = 1000 per month
+        // 12000 / 12 = 1000 per month, whatever the month's length
         schedule[0].Amount.ShouldBe(1000m);
+        schedule[1].Amount.ShouldBe(1000m);
         schedule[5].Amount.ShouldBe(1000m);
     }
 
     [Fact]
-    public void DeferredSchedule_FinalPeriod_AbsorbsRounding()
+    public void DeferredSchedule_Days_FollowsTheLengthOfEachMonth()
     {
-        var service = new DeferredAccountingService(null!, null!, null!, null!, null!);
-        // 10000 / 3 = 3333.33... → last period absorbs remainder
-        var item = CreateDeferredItem(
-            new DateTime(2026, 1, 1), new DateTime(2026, 3, 31), 10000m);
+        var schedule = Schedule(new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), 36500m);
 
-        var schedule = service.GenerateSchedule(item, new DateTime(2026, 4, 1));
+        schedule[0].Amount.ShouldBe(3100m); // January, 31 of 365 days
+        schedule[1].Amount.ShouldBe(2800m); // February, 28 of 365 days
+    }
 
-        var total = 0m;
-        foreach (var entry in schedule)
-            total += entry.Amount;
+    [Theory]
+    [InlineData("Days")]
+    [InlineData("Months")]
+    public void DeferredSchedule_FinalPeriod_AbsorbsRounding(string basedOn)
+    {
+        var schedule = Schedule(new DateTime(2026, 1, 1), new DateTime(2026, 3, 31), 10000m, basedOn);
 
         // Total must equal exact item amount (no rounding loss)
-        total.ShouldBe(10000m);
+        schedule.Sum(entry => entry.Amount).ShouldBe(10000m);
+        schedule.Last().IsLast.ShouldBeTrue();
     }
 
     [Fact]
     public void DeferredSchedule_PostingDate_LastDayOfMonth()
     {
-        var service = new DeferredAccountingService(null!, null!, null!, null!, null!);
-        var item = CreateDeferredItem(
-            new DateTime(2026, 2, 1), new DateTime(2026, 4, 30), 3000m);
+        var schedule = Schedule(new DateTime(2026, 2, 1), new DateTime(2026, 4, 30), 3000m);
 
-        var schedule = service.GenerateSchedule(item, new DateTime(2026, 5, 1));
-
-        schedule[0].PostingDate.ShouldBe(new DateTime(2026, 2, 28));
-        schedule[1].PostingDate.ShouldBe(new DateTime(2026, 3, 31));
-        schedule[2].PostingDate.ShouldBe(new DateTime(2026, 4, 30));
+        schedule[0].End.ShouldBe(new DateTime(2026, 2, 28));
+        schedule[1].End.ShouldBe(new DateTime(2026, 3, 31));
+        schedule[2].End.ShouldBe(new DateTime(2026, 4, 30));
     }
 
     [Fact]
     public void DeferredSchedule_SingleMonth_SingleEntry()
     {
-        var service = new DeferredAccountingService(null!, null!, null!, null!, null!);
-        var item = CreateDeferredItem(
-            new DateTime(2026, 6, 1), new DateTime(2026, 6, 30), 5000m);
-
-        var schedule = service.GenerateSchedule(item, new DateTime(2026, 7, 1));
+        var schedule = Schedule(new DateTime(2026, 6, 1), new DateTime(2026, 6, 30), 5000m);
 
         schedule.Count.ShouldBe(1);
         schedule[0].Amount.ShouldBe(5000m);
     }
 
     [Fact]
-    public void DeferredSchedule_NullDates_EmptySchedule()
-    {
-        var service = new DeferredAccountingService(null!, null!, null!, null!, null!);
-        var item = new SalesInvoiceItem(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            "No dates", 1, 1000, 0);
-        item.EnableDeferredRevenue = true;
-
-        var schedule = service.GenerateSchedule(item, DateTime.Today);
-        schedule.ShouldBeEmpty();
-    }
-
-    [Fact]
     public void DeferredSchedule_SingleDayService_GeneratesSingleEntryWithExactPostingDate()
     {
-        var service = new DeferredAccountingService(null!, null!, null!, null!, null!);
         var sameDay = new DateTime(2026, 4, 15);
-        var item = CreateDeferredItem(sameDay, sameDay, 500m);
-
-        var schedule = service.GenerateSchedule(item, sameDay);
+        var schedule = Schedule(sameDay, sameDay, 500m);
 
         schedule.Count.ShouldBe(1);
         schedule[0].Amount.ShouldBe(500m);
-        schedule[0].PostingDate.ShouldBe(sameDay);
+        schedule[0].End.ShouldBe(sameDay);
     }
 
     [Fact]
     public void DeferredSchedule_MidMonthServiceEnd_LastPeriodPostingDateIsServiceEndDate()
     {
-        var service = new DeferredAccountingService(null!, null!, null!, null!, null!);
-        var start = new DateTime(2026, 4, 1);
-        var end = new DateTime(2026, 6, 15); // ends mid-month June 15
-        var item = CreateDeferredItem(start, end, 3000m);
-
-        var schedule = service.GenerateSchedule(item, new DateTime(2026, 7, 1));
+        var schedule = Schedule(new DateTime(2026, 4, 1), new DateTime(2026, 6, 15), 3000m);
 
         schedule.Count.ShouldBe(3);
-        schedule[0].PostingDate.ShouldBe(new DateTime(2026, 4, 30));
-        schedule[1].PostingDate.ShouldBe(new DateTime(2026, 5, 31));
+        schedule[0].End.ShouldBe(new DateTime(2026, 4, 30));
+        schedule[1].End.ShouldBe(new DateTime(2026, 5, 31));
         // Per ERPNext deferred_revenue.py: last posting date is clamped to service end date
-        schedule[2].PostingDate.ShouldBe(new DateTime(2026, 6, 15));
+        schedule[2].End.ShouldBe(new DateTime(2026, 6, 15));
+        schedule.Sum(entry => entry.Amount).ShouldBe(3000m);
     }
 
     [Fact]
-    public void DeferredExpenseSchedule_MidMonthServiceEnd_LastPeriodPostingDateIsServiceEndDate()
+    public void DeferredSchedule_MidMonthServiceStart_FirstPeriodStartsOnServiceStartDate()
     {
-        var service = new DeferredAccountingService(null!, null!, null!, null!, null!);
-        var start = new DateTime(2026, 4, 1);
-        var end = new DateTime(2026, 6, 15);
-        var item = new MyERP.Purchasing.Entities.PurchaseInvoiceItem(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Sub", 1, 3000m, 0m);
-        item.EnableDeferredExpense = true;
-        item.ServiceStartDate = start;
-        item.ServiceEndDate = end;
+        var schedule = Schedule(new DateTime(2026, 4, 16), new DateTime(2026, 6, 30), 7600m);
 
-        var schedule = service.GenerateExpenseSchedule(item, new DateTime(2026, 7, 1));
+        schedule[0].Start.ShouldBe(new DateTime(2026, 4, 16));
+        schedule[0].End.ShouldBe(new DateTime(2026, 4, 30));
+        schedule[0].Amount.ShouldBe(1500m); // 15 of 76 days
+    }
+
+    [Fact]
+    public void DeferredSchedule_BookedOnlyUpToThePostingDate()
+    {
+        var schedule = DeferredAccountingService.ProjectSchedule(
+            new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), null, 12000m, 12000m, "Months", new DateTime(2026, 3, 31));
 
         schedule.Count.ShouldBe(3);
-        schedule[0].PostingDate.ShouldBe(new DateTime(2026, 4, 30));
-        schedule[1].PostingDate.ShouldBe(new DateTime(2026, 5, 31));
-        schedule[2].PostingDate.ShouldBe(new DateTime(2026, 6, 15));
+        schedule.ShouldAllBe(entry => !entry.IsLast);
     }
 }

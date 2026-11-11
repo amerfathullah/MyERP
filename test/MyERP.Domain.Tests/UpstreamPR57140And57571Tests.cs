@@ -121,49 +121,30 @@ public class UpstreamPR57140And57571Tests
     }
 
     [Fact]
-    public void DeferredAccountingService_GenerateSchedule_Respects_ServiceStopDate()
+    public void DeferredAccountingService_Schedule_Respects_ServiceStopDate()
     {
-        var salesInvoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
-        var jeRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
-        var fyRepo = Substitute.For<IRepository<FiscalYear, Guid>>();
-        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
-        var piRepo = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
+        // Early termination at 4 months of a 12 month service
+        var schedule = DeferredAccountingService.ProjectSchedule(
+            new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), new DateTime(2026, 4, 30),
+            1200m, 1200m, "Days", new DateTime(2026, 12, 31));
 
-        var service = new DeferredAccountingService(jeRepo, salesInvoiceRepo, piRepo, fyRepo, companyRepo);
-
-        var item = new SalesInvoiceItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Annual SaaS", 1, 1200, 0);
-        item.EnableDeferredRevenue = true;
-        item.ServiceStartDate = new DateTime(2026, 1, 1);
-        item.ServiceEndDate = new DateTime(2026, 12, 31);
-        item.ServiceStopDate = new DateTime(2026, 4, 30); // Early termination at 4 months
-
-        var schedule = service.GenerateSchedule(item, new DateTime(2026, 1, 1));
-
-        // Total months should be truncated to 4 months (Jan-Apr) instead of 12
+        // The schedule stops at the stop date (Jan-Apr), and that last entry takes the remainder
         Assert.Equal(4, schedule.Count);
+        Assert.Equal(new DateTime(2026, 4, 30), schedule[^1].End);
+        Assert.True(schedule[^1].IsLast);
         Assert.Equal(1200m, schedule.Sum(s => s.Amount));
     }
 
     [Fact]
-    public void DeferredAccountingService_GenerateExpenseSchedule_Respects_ServiceStopDate()
+    public void DeferredAccountingService_Schedule_StopDate_Months_Mode()
     {
-        var salesInvoiceRepo = Substitute.For<IRepository<SalesInvoice, Guid>>();
-        var jeRepo = Substitute.For<IRepository<JournalEntry, Guid>>();
-        var fyRepo = Substitute.For<IRepository<FiscalYear, Guid>>();
-        var companyRepo = Substitute.For<IRepository<Company, Guid>>();
-        var piRepo = Substitute.For<IRepository<PurchaseInvoice, Guid>>();
-
-        var service = new DeferredAccountingService(jeRepo, salesInvoiceRepo, piRepo, fyRepo, companyRepo);
-
-        var item = new PurchaseInvoiceItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Support Plan", 1, 600, 0);
-        item.EnableDeferredExpense = true;
-        item.ServiceStartDate = new DateTime(2026, 1, 1);
-        item.ServiceEndDate = new DateTime(2026, 6, 30);
-        item.ServiceStopDate = new DateTime(2026, 3, 31); // Terminated at 3 months
-
-        var schedule = service.GenerateExpenseSchedule(item, new DateTime(2026, 1, 1));
+        // Terminated at 3 months of a 6 month service
+        var schedule = DeferredAccountingService.ProjectSchedule(
+            new DateTime(2026, 1, 1), new DateTime(2026, 6, 30), new DateTime(2026, 3, 31),
+            600m, 600m, "Months", new DateTime(2026, 6, 30));
 
         Assert.Equal(3, schedule.Count);
+        Assert.Equal(100m, schedule[0].Amount);
         Assert.Equal(600m, schedule.Sum(s => s.Amount));
     }
 

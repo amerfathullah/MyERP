@@ -2006,6 +2006,11 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
             }
         }
 
+        // ERPNext before_cancel validate_deferred_revenue_return_cancellation: a credit note that
+        // reversed deferred revenue cannot be cancelled once the original has recognition booked.
+        var deferredAccounting = LazyServiceProvider.LazyGetRequiredService<Accounting.DomainServices.DeferredAccountingService>();
+        await deferredAccounting.ValidateReturnCancellationAsync(invoice);
+
         invoice.Cancel();
 
         // Reverse credit note reduction on original invoice outstanding
@@ -2041,6 +2046,10 @@ public class SalesInvoiceAppService : ApplicationService, ISalesInvoiceAppServic
         await _postingOrchestrator.ReversePleForDocumentAsync("SalesInvoice", invoice.Id);
         await _postingOrchestrator.ReverseGlForDocumentAsync("SalesInvoice", invoice.Id);
         await _postingOrchestrator.ReverseExchangeGainLossJournalEntriesAsync("SalesInvoice", invoice.Id);
+        // Recognition already booked for this invoice's deferred rows goes with it (in ERPNext those
+        // are GL entries of the invoice itself and are cancelled by the same reversal).
+        await deferredAccounting.ReverseRecognitionAsync(
+            Accounting.DomainServices.DeferredAccountingService.RevenueReferenceType, invoice.Id);
 
         // Reverse stock if UpdateStock was used (in stock UOM)
         if (invoice.UpdateStock && invoice.WarehouseId.HasValue)

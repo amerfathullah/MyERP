@@ -68,6 +68,13 @@ public class JournalEntryLine : CreationAuditedEntity<Guid>, IMultiTenant
     /// <summary>Finance book for multi-depreciation support (null = default book).</summary>
     public string? FinanceBook { get; set; }
 
+    /// <summary>
+    /// Source document row this line was posted for. Maps to ERPNext GL Entry.voucher_detail_no /
+    /// Journal Entry Account.reference_detail_no. Deferred revenue/expense needs it to tell, per
+    /// invoice row, what reached the deferred account and how much of it is already recognized.
+    /// </summary>
+    public Guid? ReferenceDetailId { get; set; }
+
     protected JournalEntryLine() { }
 
     public JournalEntryLine(Guid id, Guid journalEntryId, Guid accountId, decimal amount, bool isDebit, string? description = null)
