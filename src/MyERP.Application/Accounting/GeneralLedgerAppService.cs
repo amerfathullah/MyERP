@@ -6,6 +6,7 @@ using MyERP.Accounting.DomainServices;
 using MyERP.Accounting.Entities;
 using MyERP.Permissions;
 using Microsoft.AspNetCore.Authorization;
+using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 
@@ -70,9 +71,25 @@ public class GeneralLedgerAppService : ApplicationService, IGeneralLedgerAppServ
         var company = companyRepo != null ? await companyRepo.FindAsync(input.CompanyId) : null;
         var companyCurrency = company?.CurrencyCode ?? "MYR";
 
+        // Per ERPNext general_ledger.py set_account_currency(): a ledger filtered to one foreign
+        // currency account is presented in that account's currency whether or not
+        // ConvertAtReportingDateRate is on. The flag only picks how amounts get there — the
+        // posted account-currency amounts (off) or company amounts at the reporting date rate (on).
+        // ShowAmountInCompanyCurrency is the opt-out: amounts stay in company currency, and asking
+        // for any other presentation currency alongside it is a contradiction (get_columns()).
         string? targetPresentationCurrency = input.PresentationCurrency;
-        if (input.ConvertAtReportingDateRate
-            && string.IsNullOrWhiteSpace(targetPresentationCurrency)
+        if (input.ShowAmountInCompanyCurrency)
+        {
+            if (!string.IsNullOrWhiteSpace(targetPresentationCurrency)
+                && !string.Equals(targetPresentationCurrency, companyCurrency, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessException(MyERPDomainErrorCodes.PresentationCurrencyNotCompanyCurrency)
+                    .WithData("currency", targetPresentationCurrency);
+            }
+
+            targetPresentationCurrency = companyCurrency;
+        }
+        else if (string.IsNullOrWhiteSpace(targetPresentationCurrency)
             && input.AccountId.HasValue
             && accounts.TryGetValue(input.AccountId.Value, out var acctForCurrency))
         {

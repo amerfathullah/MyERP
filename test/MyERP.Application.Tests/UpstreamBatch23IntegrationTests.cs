@@ -11,6 +11,7 @@ using MyERP.Inventory.Entities;
 using MyERP.Sales;
 using MyERP.Sales.Entities;
 using Shouldly;
+using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Modularity;
 using Xunit;
@@ -85,6 +86,66 @@ public abstract class UpstreamBatch23IntegrationTests<TStartupModule> : MyERPApp
             // Without ConvertAtReportingDateRate, opening debit shows the account currency amount (100 USD), not company currency (450 MYR)
             report.OpeningBalance.ShouldBe(100m);
             report.PresentationCurrency.ShouldBe("USD");
+        });
+    }
+
+    [Fact]
+    public async Task GeneralLedger_ForeignCurrencyAccount_ShowAmountInCompanyCurrency_KeepsCompanyCurrency()
+    {
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var companyRepo = GetRequiredService<IRepository<Company, Guid>>();
+            var accountRepo = GetRequiredService<IRepository<Account, Guid>>();
+            var journalRepo = GetRequiredService<IRepository<JournalEntry, Guid>>();
+            var glService = GetRequiredService<IGeneralLedgerAppService>();
+
+            var company = await companyRepo.InsertAsync(new Company(Guid.NewGuid(), "GL Company Ccy Co B23") { CurrencyCode = "MYR" }, autoSave: true);
+            var usdAccount = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1110-USD-CC", "USD Account CC", AccountType.Asset)
+            {
+                Currency = "USD",
+                AccountSubType = AccountSubType.BankAccount
+            }, autoSave: true);
+            var cashAccount = await accountRepo.InsertAsync(new Account(Guid.NewGuid(), company.Id, "1100-MYR-CC", "Cash CC", AccountType.Asset)
+            {
+                Currency = "MYR",
+                AccountSubType = AccountSubType.CashAccount
+            }, autoSave: true);
+
+            var today = DateTime.UtcNow.Date;
+            var fiscalYear = await GetRequiredService<IRepository<FiscalYear, Guid>>().InsertAsync(
+                new FiscalYear(Guid.NewGuid(), company.Id, "FY CC", today.AddYears(-1), today.AddYears(1)),
+                autoSave: true);
+
+            // 100 USD booked at 4.5 = 450 MYR, inside the report period.
+            var je = new JournalEntry(Guid.NewGuid(), company.Id, fiscalYear.Id, today.AddDays(-2));
+            je.AddLine(new JournalEntryLine(Guid.NewGuid(), je.Id, usdAccount.Id, 450m, true, "USD", 100m, 4.5m, "Deposit USD"));
+            je.AddLine(new JournalEntryLine(Guid.NewGuid(), je.Id, cashAccount.Id, 450m, false, "Cash Outflow"));
+            je.Post();
+            await journalRepo.InsertAsync(je, autoSave: true);
+
+            var filter = new GeneralLedgerFilterDto
+            {
+                CompanyId = company.Id,
+                AccountId = usdAccount.Id,
+                FromDate = today.AddDays(-5),
+                ToDate = today,
+            };
+
+            // Default: the foreign currency account is presented in its own currency.
+            var inAccountCurrency = await glService.GetReportAsync(filter);
+            inAccountCurrency.TotalDebit.ShouldBe(100m);
+            inAccountCurrency.PresentationCurrency.ShouldBe("USD");
+
+            // Opt-out: company currency amounts.
+            filter.ShowAmountInCompanyCurrency = true;
+            var inCompanyCurrency = await glService.GetReportAsync(filter);
+            inCompanyCurrency.TotalDebit.ShouldBe(450m);
+            inCompanyCurrency.PresentationCurrency.ShouldBe("MYR");
+
+            // The opt-out and a foreign presentation currency contradict each other.
+            filter.PresentationCurrency = "USD";
+            var exception = await Should.ThrowAsync<BusinessException>(() => glService.GetReportAsync(filter));
+            exception.Code.ShouldBe(MyERPDomainErrorCodes.PresentationCurrencyNotCompanyCurrency);
         });
     }
 

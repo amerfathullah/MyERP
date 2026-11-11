@@ -563,6 +563,7 @@ public static class MyERPDomainErrorCodes
     public const string RepostVoucherHasDeferredAccounting = "MyERP:02082";
     public const string ProcessPaymentReconciliationAlreadyActive = "MyERP:02083";
     public const string DeferredRevenueBookedOnReturnedInvoice = "MyERP:02098";
+    public const string PresentationCurrencyNotCompanyCurrency = "MyERP:02099";
 
     // Stock Reservation — Settings
     public const string StockReservationDisabled = "MyERP:05062";

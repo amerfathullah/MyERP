@@ -160,14 +160,17 @@ public abstract class UpstreamBatch10IntegrationTests<TStartupModule> : MyERPApp
             // Exchange rate today (ToDate): 1 USD = 5.0 MYR (was 4.0)
             await exchangeRepo.InsertAsync(new CurrencyExchange(Guid.NewGuid(), "USD", "MYR", 5.0m, today), autoSave: true);
 
-            // Case 1: Standard report without reporting date conversion (in company currency MYR)
+            // Case 1: Company currency view of the foreign account, no reporting date conversion.
+            // Per ERPNext this is the ShowAmountInCompanyCurrency filter — without it a ledger
+            // filtered to one foreign currency account is presented in the account's currency.
             var standardReport = await glAppService.GetReportAsync(new GeneralLedgerFilterDto
             {
                 CompanyId = company.Id,
                 AccountId = usdAccount.Id,
                 FromDate = today.AddDays(-15),
                 ToDate = today,
-                ConvertAtReportingDateRate = false
+                ConvertAtReportingDateRate = false,
+                ShowAmountInCompanyCurrency = true
             });
 
             standardReport.Entries.Count.ShouldBe(1);

@@ -55,6 +55,12 @@ public class GeneralLedgerFilterDto
     /// </summary>
     public bool ConvertAtReportingDateRate { get; set; }
     public string? PresentationCurrency { get; set; }
+    /// <summary>
+    /// Show debit / credit in company currency even when the ledger is filtered to a foreign
+    /// currency account, which is otherwise presented in the account's own currency
+    /// (ERPNext general ledger filter show_amount_in_company_currency).
+    /// </summary>
+    public bool ShowAmountInCompanyCurrency { get; set; }
 }
 
 public class VoucherLedgerEntryDto
