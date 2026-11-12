@@ -11,55 +11,65 @@ export class CommunicationMediumService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateCommunicationMediumDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CommunicationMediumDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/communication-medium',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/communication-medium/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CommunicationMediumDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/communication-medium/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getHandlingEmployeeGroup = (id: string, dayOfWeek: any, time: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, string>({
       method: 'GET',
-      responseType: 'text',
+      headers: { Accept: 'application/json' },
       url: `/api/app/communication-medium/${id}/handling-employee-group`,
       params: { dayOfWeek, time },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetCommunicationMediumListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<CommunicationMediumDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/communication-medium',
       params: { communicationMediumType: input.communicationMediumType, isDisabled: input.isDisabled, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateCommunicationMediumDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CommunicationMediumDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/communication-medium/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

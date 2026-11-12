@@ -10,11 +10,13 @@ export class StockValuationSummaryService {
   apiName = 'Default';
   
 
+  
   getSummary = (companyId: string, warehouseId?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockValuationSummaryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/stock-valuation-summary/summary',
       params: { companyId, warehouseId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

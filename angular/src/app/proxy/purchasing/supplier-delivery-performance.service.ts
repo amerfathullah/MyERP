@@ -11,11 +11,13 @@ export class SupplierDeliveryPerformanceService {
   apiName = 'Default';
   
 
+  
   getReport = (input: RegisterFilterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryPerformanceReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/supplier-delivery-performance/report',
-      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate },
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, customerId: input.customerId, customerGroupId: input.customerGroupId, supplierId: input.supplierId, supplierGroupId: input.supplierGroupId, includePayments: input.includePayments },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

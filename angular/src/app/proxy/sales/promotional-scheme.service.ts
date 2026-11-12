@@ -12,45 +12,54 @@ export class PromotionalSchemeService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdatePromotionalSchemeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PromotionalSchemeDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/promotional-scheme',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/promotional-scheme/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PromotionalSchemeDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/promotional-scheme/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PromotionalSchemeDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/promotional-scheme',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdatePromotionalSchemeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PromotionalSchemeDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/promotional-scheme/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

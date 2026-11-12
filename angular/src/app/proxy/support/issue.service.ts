@@ -11,79 +11,97 @@ export class IssueService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateIssueDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/issue',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/issue/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetIssueListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<IssueDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/issue',
       params: { status: input.status, companyId: input.companyId, filter: input.filter, priority: input.priority, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   hold = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/issue/${id}/hold`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   reopen = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/issue/${id}/reopen`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   reply = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/issue/${id}/reply`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   resetSla = (id: string, input: ResetIssueSlaDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/issue/${id}/reset-sla`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   resolve = (id: string, input: ResolveIssueDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/issue/${id}/resolve`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   split = (id: string, input: SplitIssueDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/issue/${id}/split`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

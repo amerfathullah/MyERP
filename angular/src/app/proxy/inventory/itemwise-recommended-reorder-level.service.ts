@@ -8,19 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class ItemwiseRecommendedReorderLevelService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: ItemwiseRecommendedReorderLevelFilterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemwiseRecommendedReorderLevelReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/itemwise-recommended-reorder-level/report',
-      params: {
-        companyId: input.companyId,
-        fromDate: input.fromDate,
-        toDate: input.toDate,
-        itemGroupId: input.itemGroupId,
-        brand: input.brand,
-        searchText: input.searchText,
-      },
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, itemGroupId: input.itemGroupId, brand: input.brand, searchText: input.searchText },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
 }

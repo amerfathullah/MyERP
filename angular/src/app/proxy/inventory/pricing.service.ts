@@ -11,72 +11,87 @@ export class PricingService {
   apiName = 'Default';
   
 
+  
   createItemPrice = (input: CreateUpdateItemPriceDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemPriceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pricing/item-price',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createPriceList = (input: CreateUpdatePriceListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PriceListDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pricing/price-list',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   deleteItemPrice = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/pricing/${id}/item-price`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getItemPrices = (input: GetItemPriceListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ItemPriceDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pricing/item-prices',
-      params: { itemId: input.itemId, priceListId: input.priceListId, customerId: input.customerId, supplierId: input.supplierId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+      params: { companyId: input.companyId, itemId: input.itemId, priceListId: input.priceListId, customerId: input.customerId, supplierId: input.supplierId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getItemRate = (input: GetItemRateRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemRateResultDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pricing/item-rate',
       params: { itemId: input.itemId, priceListId: input.priceListId, qty: input.qty, transactionDate: input.transactionDate, customerId: input.customerId, supplierId: input.supplierId, batchNo: input.batchNo },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPriceLists = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, PriceListDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pricing/price-lists',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   updateItemPrice = (id: string, input: CreateUpdateItemPriceDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemPriceDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pricing/${id}/item-price`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   updatePriceList = (id: string, input: CreateUpdatePriceListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PriceListDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pricing/${id}/price-list`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

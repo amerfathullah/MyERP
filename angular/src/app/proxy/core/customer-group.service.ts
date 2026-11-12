@@ -11,45 +11,54 @@ export class CustomerGroupService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateCustomerGroupDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CustomerGroupDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/customer-group',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/customer-group/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CustomerGroupDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/customer-group/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetCustomerGroupListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<CustomerGroupDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/customer-group',
       params: { parentId: input.parentId, isGroup: input.isGroup, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateCustomerGroupDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CustomerGroupDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/customer-group/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

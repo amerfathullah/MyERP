@@ -101,7 +101,7 @@ export interface CreateQualityInspectionDto {
   sampleSize?: number;
   inspectionDate?: string;
   manualInspection?: boolean;
-  status?: InspectionStatus;
+  status?: InspectionStatus | null;
   readings?: CreateQualityInspectionReadingDto[];
 }
 
@@ -115,7 +115,7 @@ export interface CreateQualityInspectionReadingDto {
   formulaBased?: boolean;
   formula?: string | null;
   manualInspection?: boolean;
-  status?: InspectionStatus;
+  status?: InspectionStatus | null;
 }
 
 export interface CreateStockReconciliationDto {
@@ -136,6 +136,7 @@ export interface CreateStockReconciliationItemDto {
   newValuationRate?: number;
   currentQuantity?: number;
   currentValuationRate?: number;
+  allowZeroValuationRate?: boolean;
   serialAndBatchBundleId?: string | null;
   currentSerialAndBatchBundleId?: string | null;
 }
@@ -163,6 +164,22 @@ export interface GetQualityInspectionListDto extends PagedAndSortedResultRequest
   itemId?: string | null;
   status?: InspectionStatus | null;
   filter?: string | null;
+}
+
+export interface GetStockBalanceForInputDto {
+  companyId?: string;
+  itemId?: string;
+  warehouseId?: string;
+  postingDate?: string;
+  batchId?: string | null;
+}
+
+export interface GetStockReconciliationItemsInputDto {
+  companyId?: string;
+  warehouseId?: string;
+  postingDate?: string;
+  itemId?: string | null;
+  ignoreEmptyStock?: boolean;
 }
 
 export interface GetStockReconciliationListDto extends PagedAndSortedResultRequestDto {
@@ -238,6 +255,16 @@ export interface QualityInspectionReadingDto extends EntityDto<string> {
   status?: InspectionStatus;
 }
 
+export interface StockBalanceForPreviewDto {
+  itemId?: string;
+  warehouseId?: string;
+  currentQuantity?: number;
+  currentValuationRate?: number;
+  batchId?: string | null;
+  batchNo?: string | null;
+  stockUom?: string | null;
+}
+
 export interface StockReconciliationDto extends EntityDto<string> {
   companyId?: string;
   reconciliationNumber?: string | null;
@@ -258,31 +285,23 @@ export interface StockReconciliationItemDto extends EntityDto<string> {
   currentValuationRate?: number;
   newQuantity?: number;
   newValuationRate?: number;
+  allowZeroValuationRate?: boolean;
   serialAndBatchBundleId?: string | null;
   currentSerialAndBatchBundleId?: string | null;
   quantityDifference?: number;
   differenceAmount?: number;
 }
 
-export interface GetStockReconciliationItemsInputDto {
-  companyId: string;
-  warehouseId: string;
-  postingDate: string;
-  itemId?: string | null;
-  ignoreEmptyStock?: boolean;
-}
-
 export interface StockReconciliationItemPreviewDto {
-  itemId: string;
-  itemCode: string;
-  itemName: string;
-  warehouseId: string;
+  itemId?: string;
+  itemCode?: string;
+  itemName?: string;
+  warehouseId?: string;
   stockUom?: string | null;
-  currentQuantity: number;
-  currentValuationRate: number;
+  currentQuantity?: number;
+  currentValuationRate?: number;
   batchId?: string | null;
   batchNo?: string | null;
-  hasBatchNo: boolean;
-  hasSerialNo: boolean;
+  hasBatchNo?: boolean;
+  hasSerialNo?: boolean;
 }
-

@@ -11,62 +11,75 @@ export class AutomationRuleService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateAutomationRuleDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AutomationRuleDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/automation-rule',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/automation-rule/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AutomationRuleDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/automation-rule/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getExecutionLogs = (ruleId: string, input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AutomationExecutionLogDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/automation-rule/execution-logs/${ruleId}`,
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AutomationRuleDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/automation-rule',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   toggleActive = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AutomationRuleDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/automation-rule/${id}/toggle-active`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: UpdateAutomationRuleDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AutomationRuleDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/automation-rule/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -11,28 +11,34 @@ export class ProductBundleService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateProductBundleDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProductBundleDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/product-bundle',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   deactivate = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProductBundleDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/product-bundle/${id}/deactivate`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ProductBundleDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/product-bundle',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

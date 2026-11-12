@@ -12,60 +12,74 @@ export class RepostItemValuationService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, RepostItemValuationDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/repost-item-valuation/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateRepostItemValuationDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, RepostItemValuationDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/repost-item-valuation',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, RepostItemValuationDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/repost-item-valuation/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<RepostItemValuationDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/repost-item-valuation',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPendingCount = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, number>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/repost-item-valuation/pending-count/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getSummary = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, RepostItemValuationSummaryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/repost-item-valuation/summary/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   restart = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, RepostItemValuationDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/repost-item-valuation/${id}/restart`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

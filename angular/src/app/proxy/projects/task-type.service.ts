@@ -11,53 +11,64 @@ export class TaskTypeService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateTaskTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, TaskTypeDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/task-type',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/task-type/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, TaskTypeDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/task-type/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getAllList = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, TaskTypeDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/task-type/list',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetTaskTypeListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<TaskTypeDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/task-type',
       params: { filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateTaskTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, TaskTypeDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/task-type/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

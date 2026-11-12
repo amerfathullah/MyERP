@@ -10,33 +10,44 @@ export class ChartOfAccountsImportService {
   apiName = 'Default';
   
 
+  
   getMalaysianTemplate = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, CoaTemplateRowDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/chart-of-accounts-import/malaysian-template',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
+  
 
-  getUsTemplate = (config?: Partial<Rest.Config>) =>
-    this.restService.request<any, CoaTemplateRowDto[]>({
-      method: 'GET',
-      url: '/api/app/chart-of-accounts-import/us-template',
-    },
-    { apiName: this.apiName,...config });
-
+  
   getTemplateByCountry = (countryCode: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CoaTemplateRowDto[]>({
       method: 'GET',
-      url: `/api/app/chart-of-accounts-import/template-by-country/${countryCode}`,
+      headers: { Accept: 'application/json' },
+      url: '/api/app/chart-of-accounts-import/template-by-country',
+      params: { countryCode },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
+  getUsTemplate = (config?: Partial<Rest.Config>) =>
+    this.restService.request<any, CoaTemplateRowDto[]>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/chart-of-accounts-import/us-template',
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
   import = (input: ImportCoaDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CoaImportResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/chart-of-accounts-import/import',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

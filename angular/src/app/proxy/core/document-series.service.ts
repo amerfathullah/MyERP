@@ -11,20 +11,24 @@ export class DocumentSeriesService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateDocumentSeriesDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DocumentSeriesDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/document-series',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<DocumentSeriesDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/document-series',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

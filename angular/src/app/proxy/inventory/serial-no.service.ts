@@ -11,19 +11,23 @@ export class SerialNoService {
   apiName = 'Default';
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SerialNoDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/serial-no/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetSerialNoListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SerialNoDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/serial-no',
       params: { itemId: input.itemId, warehouseId: input.warehouseId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

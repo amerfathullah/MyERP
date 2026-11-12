@@ -11,70 +11,82 @@ export class CompanyService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateCompanyDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CompanyDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/company',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/company/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CompanyDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/company/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<CompanyDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/company',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   repairSrbnbAndTaxPayableAccounts = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/company/repair-srbnb-and-tax-payable-accounts/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   setupNewCompany = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/company/setup-new-company/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateCompanyDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CompanyDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/company/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   updateSettings = (id: string, input: UpdateCompanySettingsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'PUT',
       url: `/api/app/company/${id}/settings`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

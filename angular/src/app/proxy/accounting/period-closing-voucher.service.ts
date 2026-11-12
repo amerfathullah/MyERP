@@ -12,61 +12,75 @@ export class PeriodClosingVoucherService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PeriodClosingVoucherDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/period-closing-voucher/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreatePeriodClosingVoucherDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PeriodClosingVoucherDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/period-closing-voucher',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PeriodClosingVoucherDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/period-closing-voucher/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getGlEntries = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PcvGlEntryDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/period-closing-voucher/${id}/gl-entries`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
-  getStockValueDifference = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PeriodClosingStockDifferenceDto>({
-      method: 'GET',
-      url: `/api/app/period-closing-voucher/${id}/stock-value-difference`,
-    },
-    { apiName: this.apiName,...config });
   
-
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PeriodClosingVoucherDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/period-closing-voucher',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
+  getStockValueDifference = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PeriodClosingStockDifferenceDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/period-closing-voucher/${id}/stock-value-difference`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
   submit = (id: string, input?: SubmitPeriodClosingVoucherDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PeriodClosingVoucherDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/period-closing-voucher/${id}/submit`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

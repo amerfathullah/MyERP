@@ -11,53 +11,64 @@ export class QuotationLostReasonService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateQuotationLostReasonDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, QuotationLostReasonDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/quotation-lost-reason',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/quotation-lost-reason/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, QuotationLostReasonDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/quotation-lost-reason/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getAllList = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, QuotationLostReasonDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/quotation-lost-reason/list',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetQuotationLostReasonListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<QuotationLostReasonDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/quotation-lost-reason',
       params: { filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateQuotationLostReasonDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, QuotationLostReasonDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/quotation-lost-reason/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -11,53 +11,64 @@ export class ItemAlternativeService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateItemAlternativeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemAlternativeDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/item-alternative',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/item-alternative/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemAlternativeDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/item-alternative/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getAlternatives = (itemId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemAlternativeDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/item-alternative/alternatives/${itemId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ItemAlternativeDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/item-alternative',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateItemAlternativeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemAlternativeDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/item-alternative/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -10,35 +10,43 @@ export class MasterDataService {
   apiName = 'Default';
   
 
+  
   getCostCenters = (companyId?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CostCenterLookupDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/master-data/cost-centers',
       params: { companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getItemGroups = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemGroupLookupDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/master-data/item-groups',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getModesOfPayment = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, ModeOfPaymentLookupDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/master-data/modes-of-payment',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPaymentTerms = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentTermsLookupDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/master-data/payment-terms',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

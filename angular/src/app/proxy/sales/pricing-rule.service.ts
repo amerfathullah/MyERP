@@ -11,45 +11,54 @@ export class PricingRuleService {
   apiName = 'Default';
   
 
+  
   apply = (input: ApplyPricingRuleDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PricingRuleResultDto[]>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pricing-rule/apply',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreatePricingRuleDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PricingRuleDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pricing-rule',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/pricing-rule/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PricingRuleDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pricing-rule/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PricingRuleDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pricing-rule',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

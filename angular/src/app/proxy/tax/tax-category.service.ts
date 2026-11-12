@@ -11,54 +11,65 @@ export class TaxCategoryService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateTaxCategoryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, TaxCategoryDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/tax-category',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/tax-category/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, TaxCategoryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/tax-category/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getDefaultTaxLines = (transactionType: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DefaultTaxLineDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/tax-category/default-tax-lines',
       params: { transactionType },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<TaxCategoryDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/tax-category',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateTaxCategoryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, TaxCategoryDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/tax-category/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

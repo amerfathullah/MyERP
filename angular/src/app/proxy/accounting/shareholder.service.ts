@@ -12,45 +12,54 @@ export class ShareholderService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateShareholderDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShareholderDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/shareholder',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/shareholder/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShareholderDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/shareholder/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ShareholderDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/shareholder',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateShareholderDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShareholderDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/shareholder/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

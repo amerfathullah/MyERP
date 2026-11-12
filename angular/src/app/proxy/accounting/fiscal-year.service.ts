@@ -11,44 +11,54 @@ export class FiscalYearService {
   apiName = 'Default';
   
 
+  
   close = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, FiscalYearDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/fiscal-year/${id}/close`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateFiscalYearDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, FiscalYearDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/fiscal-year',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, FiscalYearDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/fiscal-year/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getCurrent = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, FiscalYearDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/fiscal-year/current/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<FiscalYearDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/fiscal-year',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

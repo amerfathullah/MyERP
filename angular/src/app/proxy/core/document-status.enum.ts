@@ -13,6 +13,7 @@ export enum DocumentStatus {
   Completed = 13,
   Closed = 14,
   PartiallyBilled = 15,
+  ToPay = 16,
 }
 
 export const documentStatusOptions = mapEnumToOptions(DocumentStatus);

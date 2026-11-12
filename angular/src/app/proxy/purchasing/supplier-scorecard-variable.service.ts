@@ -11,53 +11,64 @@ export class SupplierScorecardVariableService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateSupplierScorecardVariableDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierScorecardVariableDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/supplier-scorecard-variable',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/supplier-scorecard-variable/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierScorecardVariableDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/supplier-scorecard-variable/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getAllList = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierScorecardVariableDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/supplier-scorecard-variable/list',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetSupplierScorecardVariableListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SupplierScorecardVariableDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/supplier-scorecard-variable',
       params: { filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateSupplierScorecardVariableDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierScorecardVariableDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/supplier-scorecard-variable/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -10,29 +10,35 @@ export class BatchPaymentService {
   apiName = 'Default';
   
 
+  
   createBatchPayment = (input: CreateBatchPaymentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BatchPaymentResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/batch-payment/batch-payment',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getOutstandingInvoices = (input: GetOutstandingForBatchDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BatchPaymentInvoiceDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/batch-payment/outstanding-invoices',
       params: { companyId: input.companyId, partyType: input.partyType, partyId: input.partyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPayableInvoices = (input: ValidatePayableInvoicesDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PayableInvoicePartitionDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/batch-payment/payable-invoices',
       params: { invoiceIds: input.invoiceIds },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

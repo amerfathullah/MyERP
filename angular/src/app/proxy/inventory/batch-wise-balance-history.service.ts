@@ -8,24 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class BatchWiseBalanceHistoryService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: BatchWiseBalanceHistoryFilterDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, BatchWiseBalanceHistoryReportDto>(
-      {
-        method: 'GET',
-        url: '/api/app/batch-wise-balance-history/report',
-        params: {
-          companyId: input.companyId,
-          warehouseId: input.warehouseId,
-          warehouseType: input.warehouseType,
-          itemId: input.itemId,
-          batchId: input.batchId,
-          fromDate: input.fromDate,
-          toDate: input.toDate,
-          includeZeroStockBatches: input.includeZeroStockBatches,
-          searchTerm: input.searchTerm,
-        },
-      },
-      { apiName: this.apiName, ...config }
-    );
+    this.restService.request<any, BatchWiseBalanceHistoryReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/batch-wise-balance-history/report',
+      params: { companyId: input.companyId, warehouseId: input.warehouseId, warehouseType: input.warehouseType, itemId: input.itemId, batchId: input.batchId, fromDate: input.fromDate, toDate: input.toDate, includeZeroStockBatches: input.includeZeroStockBatches, searchTerm: input.searchTerm },
+    },
+      { apiName: this.apiName,...config });
 }

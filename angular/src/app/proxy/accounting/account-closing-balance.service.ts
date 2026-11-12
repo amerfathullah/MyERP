@@ -10,28 +10,34 @@ export class AccountClosingBalanceService {
   apiName = 'Default';
   
 
+  
   getList = (companyId: string, period: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AccountClosingBalanceDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/account-closing-balance',
       params: { companyId, period },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getStatus = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ClosingBalanceStatusDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/account-closing-balance/status/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   rebuild = (input: RebuildClosingBalanceDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, number>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/account-closing-balance/rebuild',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

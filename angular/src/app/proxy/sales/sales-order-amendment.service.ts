@@ -9,11 +9,12 @@ export class SalesOrderAmendmentService {
   apiName = 'Default';
   
 
+  
   amend = (cancelledOrderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, string>({
       method: 'POST',
-      responseType: 'text',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-order-amendment/amend/${cancelledOrderId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

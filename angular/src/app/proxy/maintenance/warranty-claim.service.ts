@@ -11,62 +11,72 @@ export class WarrantyClaimService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/warranty-claim/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   close = (id: string, resolution: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/warranty-claim/${id}/close`,
       params: { resolution },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateWarrantyClaimDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WarrantyClaimDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/warranty-claim',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createMaintenanceVisit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, string>({
       method: 'POST',
-      responseType: 'text',
+      headers: { Accept: 'application/json' },
       url: `/api/app/warranty-claim/${id}/maintenance-visit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WarrantyClaimDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/warranty-claim/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetWarrantyClaimListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<WarrantyClaimDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/warranty-claim',
       params: { filter: input.filter, companyId: input.companyId, status: input.status, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   startWork = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/warranty-claim/${id}/start-work`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

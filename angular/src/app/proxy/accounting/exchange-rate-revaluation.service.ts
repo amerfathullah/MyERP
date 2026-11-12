@@ -11,38 +11,45 @@ export class ExchangeRateRevaluationService {
   apiName = 'Default';
   
 
+  
   createRevaluation = (input: CreateRevaluationDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExchangeRateRevaluationDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/exchange-rate-revaluation/revaluation',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createReversal = (revaluationJournalEntryId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, string>({
       method: 'POST',
-      responseType: 'text',
+      headers: { Accept: 'application/json' },
       url: `/api/app/exchange-rate-revaluation/reversal/${revaluationJournalEntryId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getEligibleAccounts = (companyId: string, companyCurrency: string, postingDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, EligibleAccountDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/exchange-rate-revaluation/eligible-accounts/${companyId}`,
       params: { companyCurrency, postingDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (companyId: string, maxResultCount: number = 20, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ExchangeRateRevaluationDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/exchange-rate-revaluation',
       params: { companyId, maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

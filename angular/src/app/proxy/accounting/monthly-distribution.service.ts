@@ -11,44 +11,53 @@ export class MonthlyDistributionService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateMonthlyDistributionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MonthlyDistributionDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/monthly-distribution',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/monthly-distribution/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MonthlyDistributionDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/monthly-distribution/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, ListResultDto<MonthlyDistributionDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/monthly-distribution',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateMonthlyDistributionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MonthlyDistributionDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/monthly-distribution/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

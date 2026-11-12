@@ -12,143 +12,178 @@ export class StockEntryService {
   apiName = 'Default';
   
 
-  cancel = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, StockEntryDto>({
-      method: 'POST',
-      url: `/api/app/stock-entry/${id}/cancel`,
-    },
-    { apiName: this.apiName,...config });
   
-
   autoPickBatches = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockEntryDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/stock-entry/${id}/auto-pick-batches`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
+  cancel = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryDto>({
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/stock-entry/${id}/cancel`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
   create = (input: CreateStockEntryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockEntryDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/stock-entry',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createMaterialTransferForManufacture = (workOrderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockEntryDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/stock-entry/material-transfer-for-manufacture/${workOrderId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createReceiveAtWarehouse = (outgoingStockEntryId: string, destinationWarehouseId: string, postingDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockEntryDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/stock-entry/receive-at-warehouse',
       params: { outgoingStockEntryId, destinationWarehouseId, postingDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createTransitTransfer = (input: CreateTransitTransferDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockEntryDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/stock-entry/transit-transfer',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/stock-entry/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockEntryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/stock-entry/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
-  getItemsFromMaterialRequest = (materialRequestId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, MaterialRequestItemsForSeDto>({
-      method: 'GET',
-      url: `/api/app/stock-entry/items-from-material-request/${materialRequestId}`,
-    },
-    { apiName: this.apiName,...config });
   
-
-  getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PagedResultDto<StockEntryDto>>({
-      method: 'GET',
-      url: '/api/app/stock-entry',
-      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
-    },
-    { apiName: this.apiName,...config });
-  
-
-  getManufactureItems = (workOrderId: string, produceQty: number, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, ManufactureItemsDto>({
-      method: 'GET',
-      url: `/api/app/stock-entry/manufacture-items/${workOrderId}`,
-      params: { produceQty },
-    },
-    { apiName: this.apiName,...config });
-  
-
-  getPendingTransitTransfers = (companyId: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PendingTransitTransferDto[]>({
-      method: 'GET',
-      url: `/api/app/stock-entry/pending-transit-transfers/${companyId}`,
-    },
-    { apiName: this.apiName,...config });
-  
-
-  post = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, StockEntryDto>({
-      method: 'POST',
-      url: `/api/app/stock-entry/${id}`,
-    },
-    { apiName: this.apiName,...config });
-  
-
-  submit = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, StockEntryDto>({
-      method: 'POST',
-      url: `/api/app/stock-entry/${id}/submit`,
-    },
-    { apiName: this.apiName,...config });
-  
-
-  update = (id: string, input: CreateStockEntryDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, StockEntryDto>({
-      method: 'PUT',
-      url: `/api/app/stock-entry/${id}`,
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
   getFinishedGoodMapping = (stockEntryId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockEntryFgMappingDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/stock-entry/finished-good-mapping/${stockEntryId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
+  
 
+  
+  getItemsFromMaterialRequest = (materialRequestId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, MaterialRequestItemsForSeDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/stock-entry/items-from-material-request/${materialRequestId}`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<StockEntryDto>>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/stock-entry',
+      params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  getManufactureItems = (workOrderId: string, produceQty: number, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ManufactureItemsDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/stock-entry/manufacture-items/${workOrderId}`,
+      params: { produceQty },
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  getPendingTransitTransfers = (companyId: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PendingTransitTransferDto[]>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/stock-entry/pending-transit-transfers/${companyId}`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
   mapRawMaterialsToFinishedGoods = (stockEntryId: string, input: MapRawMaterialsToFinishedGoodsInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockEntryFgMappingDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/stock-entry/map-raw-materials-to-finished-goods/${stockEntryId}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
+  
+
+  
+  post = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryDto>({
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/stock-entry/${id}`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  submit = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryDto>({
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/stock-entry/${id}/submit`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  update = (id: string, input: CreateStockEntryDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, StockEntryDto>({
+      method: 'PUT',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/stock-entry/${id}`,
+      body: input,
+    },
+      { apiName: this.apiName,...config });
 }

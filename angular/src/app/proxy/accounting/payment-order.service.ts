@@ -12,95 +12,115 @@ export class PaymentOrderService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentOrderDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/payment-order/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreatePaymentOrderDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentOrderDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/payment-order',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/payment-order/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   generateBankFile = (id: string, input?: GenerateBankFileInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankPaymentFileResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/payment-order/${id}/generate-bank-file`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentOrderDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/payment-order/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getCandidatePaymentEntries = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CandidatePaymentEntryDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/payment-order/candidate-payment-entries/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getCandidatePaymentRequests = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CandidatePaymentRequestDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/payment-order/candidate-payment-requests/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PaymentOrderDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/payment-order',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getSummary = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentOrderSummaryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/payment-order/${id}/summary`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   makePaymentRecords = (id: string, input: MakePaymentRecordsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, string>({
       method: 'POST',
-      responseType: 'text',
+      headers: { Accept: 'application/json' },
       url: `/api/app/payment-order/${id}/make-payment-records`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentOrderDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/payment-order/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

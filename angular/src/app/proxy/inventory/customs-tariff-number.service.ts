@@ -11,45 +11,54 @@ export class CustomsTariffNumberService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateCustomsTariffNumberDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CustomsTariffNumberDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/customs-tariff-number',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/customs-tariff-number/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CustomsTariffNumberDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/customs-tariff-number/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<CustomsTariffNumberDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/customs-tariff-number',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateCustomsTariffNumberDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CustomsTariffNumberDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/customs-tariff-number/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

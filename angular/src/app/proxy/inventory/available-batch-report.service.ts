@@ -1,4 +1,4 @@
-import type { AvailableBatchReportDto, AvailableBatchFilterDto } from './models';
+import type { AvailableBatchFilterDto, AvailableBatchReportDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -8,21 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class AvailableBatchReportService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: AvailableBatchFilterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AvailableBatchReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/available-batch-report/report',
-      params: {
-        companyId: input.companyId,
-        toDate: input.toDate,
-        itemId: input.itemId,
-        warehouseId: input.warehouseId,
-        warehouseType: input.warehouseType,
-        batchId: input.batchId,
-        includeExpiredBatches: input.includeExpiredBatches,
-        searchTerm: input.searchTerm,
-      },
+      params: { companyId: input.companyId, toDate: input.toDate, itemId: input.itemId, warehouseId: input.warehouseId, warehouseType: input.warehouseType, batchId: input.batchId, includeExpiredBatches: input.includeExpiredBatches, searchTerm: input.searchTerm },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
 }

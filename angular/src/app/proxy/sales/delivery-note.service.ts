@@ -12,110 +12,147 @@ export class DeliveryNoteService {
   apiName = 'Default';
   
 
+  
   amend = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-note/${id}/amend`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
-  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
+  
+  bulkSubmit = (ids: readonly string[], config?: Partial<Rest.Config>) =>
     this.restService.request<any, BulkOperationResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/delivery-note/bulk-submit',
       body: ids,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-note/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   close = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-note/${id}/close`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   closeItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-note/${id}/close-item/${itemId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateDeliveryNoteDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/delivery-note',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-note/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<DeliveryNoteDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/delivery-note',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
+  recalculateReturnedDeliveryNotesBillingStatus = (config?: Partial<Rest.Config>) =>
+    this.restService.request<any, number>({
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/delivery-note/recalculate-returned-delivery-notes-billing-status',
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
   reopen = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-note/${id}/reopen`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   reopenItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-note/${id}/reopen-item/${itemId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-note/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateDeliveryNoteDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-note/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
-  updateSalesTeam = (id: string, input: SalesTeamAllocationInputDto[], config?: Partial<Rest.Config>) =>
+      { apiName: this.apiName,...config });
+  
+
+  
+  updateSalesTeam = (id: string, input: readonly SalesTeamAllocationInputDto[], config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryNoteDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-note/${id}/sales-team`,
       body: input,
     },
-    { apiName: this.apiName,...config });
-
+      { apiName: this.apiName,...config });
 }

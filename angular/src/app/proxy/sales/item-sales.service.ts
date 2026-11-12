@@ -10,27 +10,24 @@ export class ItemSalesService {
   apiName = 'Default';
   
 
-  getReport = (input: RegisterFilterDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, ItemSalesReportDto>({
-      method: 'GET',
-      url: '/api/app/item-sales/report',
-      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate },
-    },
-    { apiName: this.apiName,...config });
-
+  
   getHistoryReport = (input: GetItemWiseSalesHistoryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemWiseSalesHistoryReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/item-sales/history-report',
-      params: {
-        companyId: input.companyId,
-        fromDate: input.fromDate,
-        toDate: input.toDate,
-        itemId: input.itemId,
-        itemCode: input.itemCode,
-        itemGroupId: input.itemGroupId,
-        customerId: input.customerId,
-      },
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, itemId: input.itemId, itemCode: input.itemCode, itemGroupId: input.itemGroupId, customerId: input.customerId },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
+  
+
+  
+  getReport = (input: RegisterFilterDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ItemSalesReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/item-sales/report',
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, customerId: input.customerId, customerGroupId: input.customerGroupId, supplierId: input.supplierId, supplierGroupId: input.supplierGroupId, includePayments: input.includePayments },
+    },
+      { apiName: this.apiName,...config });
 }

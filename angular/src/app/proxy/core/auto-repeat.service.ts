@@ -12,52 +12,61 @@ export class AutoRepeatService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateAutoRepeatDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AutoRepeatDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/auto-repeat',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/auto-repeat/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   disable = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/auto-repeat/${id}/disable`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   enable = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/auto-repeat/${id}/enable`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AutoRepeatDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/auto-repeat/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AutoRepeatDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/auto-repeat',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

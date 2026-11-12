@@ -11,62 +11,76 @@ export class LandedCostVoucherService {
   apiName = 'Default';
   
 
+  
   calculateDistribution = (input: CalculateLandedCostDistributionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LandedCostDistributionResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/landed-cost-voucher/calculate-distribution',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LandedCostVoucherDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/landed-cost-voucher/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateLandedCostVoucherDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LandedCostVoucherDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/landed-cost-voucher',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LandedCostVoucherDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/landed-cost-voucher/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetLandedCostVoucherListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<LandedCostVoucherDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/landed-cost-voucher',
       params: { companyId: input.companyId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getReceiptItems = (input: GetLandedCostReceiptItemsInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LandedCostItemDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/landed-cost-voucher/receipt-items',
       params: { companyId: input.companyId, receiptType: input.receiptType, receiptIds: input.receiptIds },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LandedCostVoucherDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/landed-cost-voucher/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

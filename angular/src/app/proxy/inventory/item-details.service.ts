@@ -10,11 +10,13 @@ export class ItemDetailsService {
   apiName = 'Default';
   
 
+  
   getItemDetails = (input: GetItemDetailsInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemDetailsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/item-details/item-details',
       params: { itemId: input.itemId, transactionType: input.transactionType, warehouseId: input.warehouseId, companyId: input.companyId, supplierId: input.supplierId, customerId: input.customerId, priceListId: input.priceListId, transactionDate: input.transactionDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

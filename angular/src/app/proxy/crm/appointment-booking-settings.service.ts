@@ -10,19 +10,23 @@ export class AppointmentBookingSettingsService {
   apiName = 'Default';
   
 
+  
   getForCompany = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AppointmentBookingSettingsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/appointment-booking-settings/for-company/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   save = (input: SaveAppointmentBookingSettingsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AppointmentBookingSettingsDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/appointment-booking-settings/save',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

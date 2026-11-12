@@ -10,20 +10,24 @@ export class PaymentLedgerRepostService {
   apiName = 'Default';
   
 
+  
   repost = (input: RepostPaymentLedgerDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentLedgerRepostResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/payment-ledger-repost/repost',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   repostForCompany = (input: RepostPaymentLedgerForCompanyDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentLedgerRepostResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/payment-ledger-repost/repost-for-company',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

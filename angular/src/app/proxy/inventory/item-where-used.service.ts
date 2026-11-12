@@ -1,4 +1,4 @@
-import type { ItemWhereUsedRequestDto, ItemWhereUsedReportDto } from './models';
+import type { ItemWhereUsedReportDto, ItemWhereUsedRequestDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -8,16 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class ItemWhereUsedService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: ItemWhereUsedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemWhereUsedReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/item-where-used/report',
-      params: {
-        itemId: input.itemId,
-        companyId: input.companyId,
-        section: input.section,
-      },
+      params: { itemId: input.itemId, companyId: input.companyId, section: input.section },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
 }

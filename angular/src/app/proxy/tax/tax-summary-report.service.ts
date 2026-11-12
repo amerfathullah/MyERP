@@ -10,20 +10,24 @@ export class TaxSummaryReportService {
   apiName = 'Default';
   
 
+  
   getSst02FilingData = (companyId: string, fromDate: string, toDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, Sst02FilingDataDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/tax-summary-report/sst02Filing-data/${companyId}`,
       params: { fromDate, toDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getTaxSummary = (companyId: string, fromDate: string, toDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, TaxSummaryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/tax-summary-report/tax-summary/${companyId}`,
       params: { fromDate, toDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

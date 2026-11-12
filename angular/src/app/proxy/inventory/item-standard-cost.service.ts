@@ -11,53 +11,65 @@ export class ItemStandardCostService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemStandardCostDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/item-standard-cost/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateItemStandardCostDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemStandardCostDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/item-standard-cost',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemStandardCostDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/item-standard-cost/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getCurrent = (itemId: string, companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemStandardCostDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/item-standard-cost/current',
       params: { itemId, companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetItemStandardCostListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ItemStandardCostDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/item-standard-cost',
       params: { itemId: input.itemId, companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemStandardCostDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/item-standard-cost/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

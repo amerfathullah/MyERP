@@ -10,29 +10,35 @@ export class StatementOfAccountsService {
   apiName = 'Default';
   
 
+  
   getCustomerStatement = (customerId: string, companyId: string, fromDate: string, toDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StatementOfAccountsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/statement-of-accounts/customer-statement',
       params: { customerId, companyId, fromDate, toDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getSupplierStatement = (supplierId: string, companyId: string, fromDate: string, toDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierStatementDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/statement-of-accounts/supplier-statement',
       params: { supplierId, companyId, fromDate, toDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   processBatchStatement = (input: BatchStatementOfAccountsInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BatchStatementOfAccountsResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/statement-of-accounts/process-batch-statement',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

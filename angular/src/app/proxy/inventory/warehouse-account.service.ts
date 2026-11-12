@@ -11,28 +11,33 @@ export class WarehouseAccountService {
   apiName = 'Default';
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/warehouse-account/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ListResultDto<WarehouseAccountDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/warehouse-account',
       params: { companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   save = (input: CreateWarehouseAccountDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WarehouseAccountDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/warehouse-account/save',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -11,11 +11,13 @@ export class UomConversionService {
   apiName = 'Default';
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<UomConversionDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/uom-conversion',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

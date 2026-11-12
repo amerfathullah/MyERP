@@ -10,19 +10,23 @@ export class VideoSettingsService {
   apiName = 'Default';
   
 
+  
   get = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, VideoSettingsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/video-settings',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (input: UpdateVideoSettingsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, VideoSettingsDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: '/api/app/video-settings',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

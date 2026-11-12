@@ -11,45 +11,54 @@ export class SalaryComponentService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateSalaryComponentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalaryComponentDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/salary-component',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/salary-component/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalaryComponentDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/salary-component/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SalaryComponentDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/salary-component',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateSalaryComponentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalaryComponentDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/salary-component/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

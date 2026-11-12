@@ -10,19 +10,23 @@ export class SupportSettingsService {
   apiName = 'Default';
   
 
+  
   getForCompany = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupportSettingsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/support-settings/for-company/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   save = (input: SaveSupportSettingsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupportSettingsDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/support-settings/save',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

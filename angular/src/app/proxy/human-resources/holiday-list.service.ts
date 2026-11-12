@@ -11,36 +11,43 @@ export class HolidayListService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateHolidayListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, HolidayListDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/holiday-list',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/holiday-list/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, HolidayListDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/holiday-list/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<HolidayListDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/holiday-list',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -10,44 +10,53 @@ export class ItemAttributeService {
   apiName = 'Default';
   
 
+  
   addValue = (id: string, input: ItemAttributeValueDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemAttributeDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/item-attribute/${id}/value`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateItemAttributeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemAttributeDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/item-attribute',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/item-attribute/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemAttributeDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/item-attribute/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemAttributeDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/item-attribute',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -11,53 +11,65 @@ export class AssetShiftAllocationService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetShiftAllocationDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-shift-allocation/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateAssetShiftAllocationDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetShiftAllocationDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-shift-allocation',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetShiftAllocationDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-shift-allocation/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AssetShiftAllocationDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-shift-allocation',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getUnbookedSchedule = (assetId: string, financeBookId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<DepreciationScheduleDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-shift-allocation/unbooked-schedule',
       params: { assetId, financeBookId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetShiftAllocationDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-shift-allocation/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

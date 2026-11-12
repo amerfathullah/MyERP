@@ -11,27 +11,33 @@ export class NotificationLogService {
   apiName = 'Default';
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, NotificationLogDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/notification-log/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getFailedCount = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, number>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/notification-log/failed-count',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetNotificationLogListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<NotificationLogDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/notification-log',
       params: { channel: input.channel, status: input.status, documentType: input.documentType, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

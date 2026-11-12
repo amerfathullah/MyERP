@@ -10,11 +10,13 @@ export class ProductionAnalyticsService {
   apiName = 'Default';
   
 
+  
   getAnalytics = (companyId: string, fromDate: string, toDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProductionAnalyticsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/production-analytics/analytics/${companyId}`,
       params: { fromDate, toDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

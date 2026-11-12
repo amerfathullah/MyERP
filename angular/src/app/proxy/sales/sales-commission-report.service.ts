@@ -10,11 +10,13 @@ export class SalesCommissionReportService {
   apiName = 'Default';
   
 
+  
   getReport = (companyId: string, fromDate: string, toDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesCommissionReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-commission-report/report/${companyId}`,
       params: { fromDate, toDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

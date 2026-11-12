@@ -12,71 +12,86 @@ export class CallLogService {
   apiName = 'Default';
   
 
+  
   completeCall = (id: string, durationSeconds: number, recordingUrl?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CallLogDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/call-log/${id}/complete-call`,
       params: { durationSeconds, recordingUrl },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateCallLogDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CallLogDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/call-log',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/call-log/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   failCall = (id: string, failureStatus: CallStatus, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CallLogDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/call-log/${id}/fail-call`,
       params: { failureStatus },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CallLogDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/call-log/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetCallLogListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<CallLogDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/call-log',
       params: { callDirection: input.callDirection, status: input.status, telephonyCallTypeId: input.telephonyCallTypeId, customerId: input.customerId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   startCall = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CallLogDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/call-log/${id}/start-call`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: UpdateCallLogDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CallLogDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/call-log/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

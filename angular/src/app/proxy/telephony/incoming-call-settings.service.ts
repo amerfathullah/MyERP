@@ -10,29 +10,34 @@ export class IncomingCallSettingsService {
   apiName = 'Default';
   
 
+  
   get = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, IncomingCallSettingsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/incoming-call-settings',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getActiveEmployeeGroup = (dayOfWeek: any, time: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, string>({
       method: 'GET',
-      responseType: 'text',
+      headers: { Accept: 'application/json' },
       url: '/api/app/incoming-call-settings/active-employee-group',
       params: { dayOfWeek, time },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (input: UpdateIncomingCallSettingsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IncomingCallSettingsDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: '/api/app/incoming-call-settings',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

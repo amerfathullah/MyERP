@@ -11,78 +11,95 @@ export class ProcessDeferredAccountingService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProcessDeferredAccountingDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/process-deferred-accounting/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateProcessDeferredAccountingDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProcessDeferredAccountingDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/process-deferred-accounting',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/process-deferred-accounting/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProcessDeferredAccountingDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/process-deferred-accounting/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: ProcessDeferredAccountingGetListInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ProcessDeferredAccountingDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/process-deferred-accounting',
       params: { filter: input.filter, companyId: input.companyId, type: input.type, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getSummary = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProcessDeferredAccountingSummaryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/process-deferred-accounting/${id}/summary`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   previewDeferredAccounting = (input: PreviewDeferredAccountingInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeferredAccountingPreviewDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/process-deferred-accounting/preview-deferred-accounting',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProcessDeferredAccountingDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/process-deferred-accounting/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: UpdateProcessDeferredAccountingDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProcessDeferredAccountingDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/process-deferred-accounting/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -11,61 +11,74 @@ export class AssetMovementService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMovementDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-movement/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateUpdateAssetMovementDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMovementDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-movement',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/asset-movement/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMovementDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-movement/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AssetMovementDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-movement',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMovementDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-movement/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateAssetMovementDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMovementDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-movement/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

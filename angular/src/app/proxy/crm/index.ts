@@ -2,6 +2,7 @@ export * from './address-and-contacts.service';
 export * from './appointment-booking-settings.service';
 export * from './appointment-status.enum';
 export * from './appointment.service';
+export * from './campaign-efficiency.service';
 export * from './campaign.service';
 export * from './competitor.service';
 export * from './contract-fulfilment-status.enum';

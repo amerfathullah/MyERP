@@ -10,18 +10,22 @@ export class PartyDashboardService {
   apiName = 'Default';
   
 
+  
   getCustomerDashboard = (customerId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PartyDashboardDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/party-dashboard/customer-dashboard/${customerId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getSupplierDashboard = (supplierId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PartyDashboardDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/party-dashboard/supplier-dashboard/${supplierId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

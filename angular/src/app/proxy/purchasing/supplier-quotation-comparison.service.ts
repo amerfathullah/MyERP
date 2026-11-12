@@ -10,20 +10,24 @@ export class SupplierQuotationComparisonService {
   apiName = 'Default';
   
 
-  getComparisonByIds = (quotationIds: string[], config?: Partial<Rest.Config>) =>
+  
+  getComparisonByIds = (quotationIds: readonly string[], status?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierQuotationComparisonDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/supplier-quotation-comparison/comparison-by-ids',
-      params: { quotationIds },
+      params: { quotationIds, status },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getComparisonByRfq = (rfqId: string, status?: string, orderStatus?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierQuotationComparisonDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/supplier-quotation-comparison/comparison-by-rfq/${rfqId}`,
       params: { status, orderStatus },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

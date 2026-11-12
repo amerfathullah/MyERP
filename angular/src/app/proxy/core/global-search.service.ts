@@ -10,11 +10,13 @@ export class GlobalSearchService {
   apiName = 'Default';
   
 
+  
   search = (input: GlobalSearchInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SearchResultDto[]>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/global-search/search',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

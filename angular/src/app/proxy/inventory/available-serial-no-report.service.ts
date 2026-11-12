@@ -8,21 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class AvailableSerialNoReportService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: AvailableSerialNoFilterDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, AvailableSerialNoReportDto>(
-      {
-        method: 'GET',
-        url: '/api/app/available-serial-no-report/report',
-        params: {
-          companyId: input.companyId,
-          warehouseId: input.warehouseId,
-          itemId: input.itemId,
-          fromDate: input.fromDate,
-          toDate: input.toDate,
-          searchTerm: input.searchTerm,
-        },
-      },
-      { apiName: this.apiName, ...config }
-    );
+    this.restService.request<any, AvailableSerialNoReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/available-serial-no-report/report',
+      params: { companyId: input.companyId, warehouseId: input.warehouseId, itemId: input.itemId, fromDate: input.fromDate, toDate: input.toDate, searchTerm: input.searchTerm },
+    },
+      { apiName: this.apiName,...config });
 }

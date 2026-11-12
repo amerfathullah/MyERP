@@ -11,53 +11,64 @@ export class ItemLeadTimeService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateItemLeadTimeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemLeadTimeDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/item-lead-time',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/item-lead-time/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemLeadTimeDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/item-lead-time/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getByItemId = (itemId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemLeadTimeDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/item-lead-time/by-item-id/${itemId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetItemLeadTimeListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ItemLeadTimeDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/item-lead-time',
       params: { filter: input.filter, itemId: input.itemId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateItemLeadTimeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemLeadTimeDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/item-lead-time/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

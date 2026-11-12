@@ -10,19 +10,23 @@ export class SubscriptionSettingsService {
   apiName = 'Default';
   
 
+  
   get = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubscriptionSettingsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/subscription-settings',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (input: UpdateSubscriptionSettingsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubscriptionSettingsDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: '/api/app/subscription-settings',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

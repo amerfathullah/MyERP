@@ -12,60 +12,73 @@ export class PackingSlipService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PackingSlipDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/packing-slip/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreatePackingSlipDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PackingSlipDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/packing-slip',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/packing-slip/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PackingSlipDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/packing-slip/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PackingSlipDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/packing-slip',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getNextCaseNo = (deliveryNoteId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, number>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/packing-slip/next-case-no/${deliveryNoteId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PackingSlipDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/packing-slip/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

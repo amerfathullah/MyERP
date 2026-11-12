@@ -11,45 +11,54 @@ export class SalesStageService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateSalesStageDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesStageDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-stage',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/sales-stage/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesStageDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-stage/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetSalesStageListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SalesStageDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-stage',
       params: { filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateSalesStageDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesStageDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-stage/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

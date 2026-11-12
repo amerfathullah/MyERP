@@ -11,45 +11,54 @@ export class OpportunityLostReasonService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateOpportunityLostReasonDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OpportunityLostReasonDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/opportunity-lost-reason',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/opportunity-lost-reason/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OpportunityLostReasonDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/opportunity-lost-reason/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetOpportunityLostReasonListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<OpportunityLostReasonDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/opportunity-lost-reason',
       params: { companyId: input.companyId, isDisabled: input.isDisabled, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateOpportunityLostReasonDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OpportunityLostReasonDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/opportunity-lost-reason/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

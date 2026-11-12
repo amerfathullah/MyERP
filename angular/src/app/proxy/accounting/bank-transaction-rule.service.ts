@@ -11,61 +11,72 @@ export class BankTransactionRuleService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateBankTransactionRuleDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankTransactionRuleDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-transaction-rule',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   disable = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/bank-transaction-rule/${id}/disable`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   enable = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/bank-transaction-rule/${id}/enable`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   evaluateRules = (input: EvaluateRulesDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AutoMatchResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-transaction-rule/evaluate-rules',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<BankTransactionRuleDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-transaction-rule',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getNextPriority = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, number>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/bank-transaction-rule/next-priority/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   reorderPriorities = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/bank-transaction-rule/reorder-priorities/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

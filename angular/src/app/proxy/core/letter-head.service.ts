@@ -11,53 +11,64 @@ export class LetterHeadService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateLetterHeadDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LetterHeadDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/letter-head',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/letter-head/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LetterHeadDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/letter-head/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetLetterHeadListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<LetterHeadDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/letter-head',
       params: { companyId: input.companyId, letterHeadFor: input.letterHeadFor, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   setDefault = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LetterHeadDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/letter-head/${id}/set-default`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateLetterHeadDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LetterHeadDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/letter-head/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

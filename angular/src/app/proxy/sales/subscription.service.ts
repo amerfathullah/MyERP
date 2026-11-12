@@ -12,69 +12,85 @@ export class SubscriptionService {
   apiName = 'Default';
   
 
+  
   advancePeriod = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubscriptionDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/subscription/${id}/advance-period`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubscriptionDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/subscription/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateSubscriptionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubscriptionDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/subscription',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   generateCatchUpInvoices = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, GeneratedInvoiceDto[]>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/subscription/${id}/generate-catch-up-invoices`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   generateInvoice = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, GeneratedInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/subscription/${id}/generate-invoice`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SubscriptionDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/subscription/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SubscriptionDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/subscription',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPlanDimensions = (itemId: string, companyId: string, partyType?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PlanDimensionsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/subscription/plan-dimensions',
       params: { itemId, companyId, partyType },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

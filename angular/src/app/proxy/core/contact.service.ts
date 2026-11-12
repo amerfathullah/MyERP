@@ -11,46 +11,55 @@ export class ContactService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateContactDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ContactDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/contact',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/contact/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getContactsForParty = (partyType: string, partyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ContactDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/contact/contacts-for-party/${partyId}`,
       params: { partyType },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (partyType: string, partyId: string, skipCount?: number, maxResultCount: number = 50, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ContactDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/contact',
       params: { partyType, partyId, skipCount, maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateContactDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ContactDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/contact/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

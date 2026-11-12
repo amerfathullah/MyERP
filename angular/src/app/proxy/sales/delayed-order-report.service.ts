@@ -8,20 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class DelayedOrderReportService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: DelayedOrderFilterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DelayedOrderReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/delayed-order-report/report',
-      params: {
-        companyId: input.companyId,
-        fromDate: input.fromDate,
-        toDate: input.toDate,
-        customerId: input.customerId,
-        consolidated: input.consolidated,
-        delayedOnly: input.delayedOnly,
-        searchText: input.searchText,
-      },
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, customerId: input.customerId, consolidated: input.consolidated, delayedOnly: input.delayedOnly, searchText: input.searchText },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
 }

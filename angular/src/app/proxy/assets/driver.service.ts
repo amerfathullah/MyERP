@@ -12,69 +12,84 @@ export class DriverService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateDriverDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DriverDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/driver',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/driver/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DriverDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/driver/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<DriverDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/driver',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   markLeft = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DriverDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/driver/${id}/mark-left`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   reinstate = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DriverDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/driver/${id}/reinstate`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   suspend = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DriverDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/driver/${id}/suspend`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateDriverDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DriverDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/driver/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

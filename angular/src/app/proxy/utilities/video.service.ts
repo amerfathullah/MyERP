@@ -11,54 +11,65 @@ export class VideoService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateVideoDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, VideoDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/video',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/video/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, VideoDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/video/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetVideoListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<VideoDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/video',
       params: { filter: input.filter, provider: input.provider, isActive: input.isActive, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateVideoDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, VideoDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/video/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   updateStats = (id: string, input: UpdateVideoStatsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, VideoDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/video/${id}/stats`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

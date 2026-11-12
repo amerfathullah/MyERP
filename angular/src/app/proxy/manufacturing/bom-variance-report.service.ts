@@ -8,12 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class BomVarianceReportService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: BomVarianceReportRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BomVarianceReportDto>({
-      method: 'POST',
+      method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bom-variance-report/report',
-      body: input,
+      params: { companyId: input.companyId, bomId: input.bomId, workOrderId: input.workOrderId, onlyOverproduced: input.onlyOverproduced, fromDate: input.fromDate, toDate: input.toDate },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
 }

@@ -11,38 +11,46 @@ export class CostCenterService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateCostCenterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CostCenterDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/cost-center',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetCostCenterListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<CostCenterDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/cost-center',
       params: { companyId: input.companyId, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getTree = (companyId: string, includeDisabled?: boolean, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CostCenterTreeNodeDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/cost-center/tree/${companyId}`,
       params: { includeDisabled },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateCostCenterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CostCenterDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/cost-center/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

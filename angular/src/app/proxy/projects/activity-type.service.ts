@@ -10,61 +10,73 @@ export class ActivityTypeService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateActivityTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ActivityTypeDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/activity-type',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/activity-type/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   deleteCost = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/activity-type/${id}/cost`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getCostsForActivity = (activityTypeId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ActivityCostDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/activity-type/costs-for-activity/${activityTypeId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, ActivityTypeDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/activity-type',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   setEmployeeCost = (input: SetActivityCostDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ActivityCostDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/activity-type/set-employee-cost',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: UpdateActivityTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ActivityTypeDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/activity-type/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

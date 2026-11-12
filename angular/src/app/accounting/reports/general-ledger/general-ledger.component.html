@@ -34,13 +34,22 @@
           </button>
         </div>
         @if (isForeignAccountSelected()) {
-          <div class="col-12 mt-1">
+          <div class="col-12 mt-1 d-flex flex-wrap gap-4">
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="convertAtReportingDateRate" formControlName="convertAtReportingDateRate" />
-              <label class="form-check-label small" for="convertAtReportingDateRate" [title]="'ConvertAtReportingDateRateDesc' | abpLocalization">
-                {{ 'ConvertAtReportingDateRate' | abpLocalization }}
+              <input class="form-check-input" type="checkbox" id="showAmountInCompanyCurrency" formControlName="showAmountInCompanyCurrency"
+                     (change)="onShowAmountInCompanyCurrencyChange()" />
+              <label class="form-check-label small" for="showAmountInCompanyCurrency">
+                {{ 'ShowAmountInCompanyCurrency' | abpLocalization }}
               </label>
             </div>
+            @if (!filters.get('showAmountInCompanyCurrency')?.value) {
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="convertAtReportingDateRate" formControlName="convertAtReportingDateRate" />
+                <label class="form-check-label small" for="convertAtReportingDateRate" [title]="'ConvertAtReportingDateRateDesc' | abpLocalization">
+                  {{ 'ConvertAtReportingDateRate' | abpLocalization }}
+                </label>
+              </div>
+            }
           </div>
         }
       </form>
@@ -73,7 +82,12 @@
 
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="fw-bold">{{ r.count }} {{ 'Entries' | abpLocalization }}</span>
+        <span class="fw-bold">
+          {{ r.count }} {{ 'Entries' | abpLocalization }}
+          @if (r.presentationCurrency) {
+            <span class="badge bg-info-subtle text-info ms-2" [title]="'Currency' | abpLocalization">{{ r.presentationCurrency }}</span>
+          }
+        </span>
         <button class="btn btn-sm btn-outline-success" (click)="exportCsv()"><i class="fa fa-download me-1"></i>{{ 'ExportCSV' | abpLocalization }}</button>
       </div>
       <div class="card-body p-0">

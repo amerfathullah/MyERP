@@ -11,61 +11,74 @@ export class BankAccountService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateBankAccountDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankAccountDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-account',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/bank-account/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   disable = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankAccountDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/bank-account/${id}/disable`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankAccountDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/bank-account/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetBankAccountListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<BankAccountDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-account',
       params: { companyId: input.companyId, filter: input.filter, isCompanyAccount: input.isCompanyAccount, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   setAsDefault = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankAccountDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/bank-account/${id}/set-as-default`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateBankAccountDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankAccountDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/bank-account/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

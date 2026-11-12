@@ -11,19 +11,23 @@ export class AccountingPeriodService {
   apiName = 'Default';
   
 
+  
   close = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AccountingPeriodDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/accounting-period/${id}/close`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AccountingPeriodDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/accounting-period',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

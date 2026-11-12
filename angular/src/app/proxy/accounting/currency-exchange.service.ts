@@ -11,37 +11,44 @@ export class CurrencyExchangeService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateCurrencyExchangeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CurrencyExchangeDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/currency-exchange',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/currency-exchange/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<CurrencyExchangeDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/currency-exchange',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getRate = (fromCurrency: string, toCurrency: string, transactionDate?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExchangeRateResultDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/currency-exchange/rate',
       params: { fromCurrency, toCurrency, transactionDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

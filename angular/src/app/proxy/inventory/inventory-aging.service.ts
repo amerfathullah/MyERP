@@ -10,11 +10,13 @@ export class InventoryAgingService {
   apiName = 'Default';
   
 
+  
   getReport = (input: InventoryAgingRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, InventoryAgingReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/inventory-aging/report',
       params: { companyId: input.companyId, slowMovingDays: input.slowMovingDays, deadStockDays: input.deadStockDays },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

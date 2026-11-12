@@ -10,11 +10,13 @@ export class BarcodeScanService {
   apiName = 'Default';
   
 
+  
   scan = (barcode: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BarcodeScanResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/barcode-scan/scan',
       params: { barcode },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

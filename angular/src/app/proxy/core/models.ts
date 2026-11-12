@@ -125,6 +125,7 @@ export interface CompanyDto extends FullAuditedEntityDto<string> {
   defaultBuyingTermsId?: string | null;
   fiscalYearStartMonth?: number;
   isActive?: boolean;
+  creditLimit?: number;
   stockFrozenUpto?: string | null;
   accountsFrozenTillDate?: string | null;
   enablePerpetualInventory?: boolean;
@@ -287,6 +288,14 @@ export interface CreateHierarchyNodeDto {
   managerId?: string | null;
 }
 
+export interface CreateTerritoryTargetDto {
+  fiscalYearId?: string | null;
+  targetQty?: number;
+  targetAmount?: number;
+  itemGroupId?: string | null;
+  distributionId?: string | null;
+}
+
 export interface CreateUpdateAddressDto {
   title: string;
   addressType?: string | null;
@@ -340,6 +349,7 @@ export interface CreateUpdateCompanyDto {
   defaultBuyingTermsId?: string | null;
   fiscalYearStartMonth?: number;
   isActive?: boolean;
+  creditLimit?: number;
   allowUomWithConversionRateDefinedInItem?: boolean;
   defaultWarehouseId?: string | null;
   sampleRetentionWarehouseId?: string | null;
@@ -975,25 +985,6 @@ export interface TermsAndConditionsDto extends FullAuditedEntityDto<string> {
   copyAttachmentsToTransaction?: boolean;
 }
 
-export interface TerritoryTargetDto extends EntityDto<string> {
-  territoryId: string;
-  fiscalYearId?: string | null;
-  fiscalYearName?: string | null;
-  targetQty: number;
-  targetAmount: number;
-  itemGroupId?: string | null;
-  itemGroupName?: string | null;
-  distributionId?: string | null;
-}
-
-export interface CreateTerritoryTargetDto {
-  fiscalYearId?: string | null;
-  targetQty: number;
-  targetAmount: number;
-  itemGroupId?: string | null;
-  distributionId?: string | null;
-}
-
 export interface TerritoryDto extends FullAuditedEntityDto<string> {
   name?: string;
   parentId?: string | null;
@@ -1002,6 +993,17 @@ export interface TerritoryDto extends FullAuditedEntityDto<string> {
   territoryManagerId?: string | null;
   territoryManagerName?: string | null;
   targets?: TerritoryTargetDto[];
+}
+
+export interface TerritoryTargetDto extends EntityDto<string> {
+  territoryId?: string;
+  fiscalYearId?: string | null;
+  fiscalYearName?: string | null;
+  targetQty?: number;
+  targetAmount?: number;
+  itemGroupId?: string | null;
+  itemGroupName?: string | null;
+  distributionId?: string | null;
 }
 
 export interface TodaysActivityDto {
@@ -1055,13 +1057,12 @@ export interface UpdateAuthorizationRuleDto {
 export interface UpdateCompanySettingsDto {
   defaultCurrency?: string | null;
   defaultSalesContact?: string | null;
-  defaultSellingTermsId?: string | null;
-  defaultBuyingTermsId?: string | null;
   fiscalYearStartMonth?: number | null;
   stockFrozenUpto?: string | null;
   accountsFrozenTillDate?: string | null;
   defaultValuationMethod?: string | null;
   enablePerpetualInventory?: boolean;
+  creditLimit?: number | null;
   overDeliveryAllowance?: number;
   overBillingAllowance?: number;
   allowUomWithConversionRateDefinedInItem?: boolean;

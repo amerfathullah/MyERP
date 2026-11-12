@@ -58,9 +58,10 @@ export interface CreateProjectTaskDto {
   subject: string;
   priority?: ProjectPriority;
   parentTaskId?: string | null;
+  taskTypeId?: string | null;
   isGroup?: boolean;
   isMilestone?: boolean;
-  taskWeight?: number;
+  taskWeight?: number | null;
   expectedStartDate?: string | null;
   expectedEndDate?: string | null;
   expectedHours?: number;
@@ -197,6 +198,7 @@ export interface ProjectTaskDto {
   status?: ProjectTaskStatus;
   priority?: ProjectPriority;
   parentTaskId?: string | null;
+  taskTypeId?: string | null;
   isGroup?: boolean;
   isMilestone?: boolean;
   taskWeight?: number;
@@ -220,6 +222,7 @@ export interface ProjectTemplateDto extends EntityDto<string> {
 export interface ProjectTemplateTaskDto {
   key?: string;
   subject?: string;
+  taskTypeId?: string | null;
   taskWeight?: number;
   expectedHours?: number;
   isMilestone?: boolean;
@@ -338,9 +341,10 @@ export interface UpdateProjectTaskDto {
   subject: string;
   priority?: ProjectPriority;
   parentTaskId?: string | null;
+  taskTypeId?: string | null;
   isGroup?: boolean;
   isMilestone?: boolean;
-  taskWeight?: number;
+  taskWeight?: number | null;
   progress?: number;
   expectedStartDate?: string | null;
   expectedEndDate?: string | null;

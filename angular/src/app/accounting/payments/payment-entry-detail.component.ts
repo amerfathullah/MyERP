@@ -233,10 +233,10 @@ import type { PaymentEntryDto, LinkedAllocationDto, UnreconcileDto } from '../..
                             <td>
                               <input type="checkbox" class="form-check-input" [checked]="alloc.selected" (change)="toggleAllocation(alloc)" />
                             </td>
-                            <td><span class="badge bg-secondary">{{ alloc.referenceType }}</span></td>
-                            <td>{{ alloc.referenceNumber || alloc.referenceId?.substring(0, 8) }}</td>
-                            <td>{{ alloc.postingDate | date:'dd/MM/yyyy' }}</td>
-                            <td class="text-end fw-bold">{{ alloc.currency }} {{ alloc.allocatedAmount | number:'1.2-2' }}</td>
+                            <td><span class="badge bg-secondary">{{ alloc.invoiceVoucherType }}</span></td>
+                            <td>{{ alloc.invoiceVoucherNumber || alloc.invoiceVoucherId?.substring(0, 8) }}</td>
+                            <td>{{ alloc.invoiceDate | date:'dd/MM/yyyy' }}</td>
+                            <td class="text-end fw-bold">{{ alloc.accountCurrency }} {{ alloc.allocatedAmount | number:'1.2-2' }}</td>
                           </tr>
                         }
                       </tbody>
@@ -314,8 +314,8 @@ export class PaymentEntryDetailComponent implements OnInit {
     const inputs: UnreconcileDto[] = selected.map(a => ({
       paymentVoucherType: 'PaymentEntry',
       paymentVoucherId: this.entry()!.id,
-      invoiceVoucherType: a.referenceType || '',
-      invoiceVoucherId: a.referenceId || '',
+      invoiceVoucherType: a.invoiceVoucherType || '',
+      invoiceVoucherId: a.invoiceVoucherId || '',
     }));
 
     this.paymentReconciliationService.unreconcileAllocations(inputs).subscribe({

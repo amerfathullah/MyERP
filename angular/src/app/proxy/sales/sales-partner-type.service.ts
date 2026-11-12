@@ -11,45 +11,54 @@ export class SalesPartnerTypeService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateSalesPartnerTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesPartnerTypeDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-partner-type',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/sales-partner-type/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesPartnerTypeDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-partner-type/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetSalesPartnerTypeListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SalesPartnerTypeDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-partner-type',
       params: { filter: input.filter, isActive: input.isActive, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateSalesPartnerTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesPartnerTypeDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-partner-type/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

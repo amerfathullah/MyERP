@@ -10,11 +10,13 @@ export class ProfitLossByCostCenterService {
   apiName = 'Default';
   
 
+  
   getReport = (companyId: string, fromDate: string, toDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProfitLossByCostCenterDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/profit-loss-by-cost-center/report/${companyId}`,
       params: { fromDate, toDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

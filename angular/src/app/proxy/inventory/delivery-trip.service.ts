@@ -11,103 +11,126 @@ export class DeliveryTripService {
   apiName = 'Default';
   
 
+  
   calculateArrivalTimes = (id: string, input: CalculateArrivalTimesInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryTripDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-trip/${id}/calculate-arrival-times`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryTripDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-trip/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   complete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryTripDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-trip/${id}/complete`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateUpdateDeliveryTripDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryTripDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/delivery-trip',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/delivery-trip/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryTripDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-trip/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<DeliveryTripDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/delivery-trip',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getStopsFromDeliveryNotes = (input: GetStopsFromDeliveryNotesInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryStopDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/delivery-trip/stops-from-delivery-notes',
       params: { companyId: input.companyId, deliveryNoteIds: input.deliveryNoteIds },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   notifyCustomers = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryTripDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-trip/${id}/notify-customers`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   schedule = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryTripDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-trip/${id}/schedule`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   startTransit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryTripDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-trip/${id}/start-transit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateDeliveryTripDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DeliveryTripDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/delivery-trip/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

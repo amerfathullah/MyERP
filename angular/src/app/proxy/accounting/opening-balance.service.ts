@@ -10,37 +10,45 @@ export class OpeningBalanceService {
   apiName = 'Default';
   
 
+  
   createOpeningJournalEntry = (input: CreateOpeningJournalEntryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OpeningBalanceResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/opening-balance/opening-journal-entry',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createOpeningPurchaseInvoices = (input: CreateOpeningInvoicesDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OpeningInvoiceResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/opening-balance/opening-purchase-invoices',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createOpeningSalesInvoices = (input: CreateOpeningInvoicesDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OpeningInvoiceResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/opening-balance/opening-sales-invoices',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getOpeningStatus = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, OpeningStatusDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/opening-balance/opening-status/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

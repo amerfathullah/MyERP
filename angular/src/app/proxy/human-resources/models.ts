@@ -58,6 +58,7 @@ export interface CreateHolidayDto {
   holidayDate?: string;
   description?: string;
   isWeeklyOff?: boolean;
+  isHalfDay?: boolean;
 }
 
 export interface CreateHolidayListDto {
@@ -356,6 +357,7 @@ export interface HolidayDto {
   holidayDate?: string;
   description?: string;
   isWeeklyOff?: boolean;
+  isHalfDay?: boolean;
 }
 
 export interface HolidayListDto extends EntityDto<string> {
@@ -364,6 +366,7 @@ export interface HolidayListDto extends EntityDto<string> {
   year?: number;
   weeklyOff?: string | null;
   isDefault?: boolean;
+  totalHolidays?: number;
   holidays?: HolidayDto[];
   creationTime?: string;
 }

@@ -10,94 +10,116 @@ export class PurchaseConversionService {
   apiName = 'Default';
   
 
+  
   convertMaterialRequestToPurchaseOrder = (materialRequestId: string, supplierId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseOrderDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-conversion/convert-material-request-to-purchase-order',
       params: { materialRequestId, supplierId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   convertMaterialRequestToRfq = (materialRequestId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, RfqDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-conversion/convert-material-request-to-rfq/${materialRequestId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   convertPurchaseInvoiceToReceipt = (purchaseInvoiceId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-conversion/convert-purchase-invoice-to-receipt/${purchaseInvoiceId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   convertPurchaseOrderToInvoice = (purchaseOrderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-conversion/convert-purchase-order-to-invoice/${purchaseOrderId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   convertPurchaseOrderToReceipt = (purchaseOrderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-conversion/convert-purchase-order-to-receipt/${purchaseOrderId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   convertPurchaseReceiptToInvoice = (purchaseReceiptId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-conversion/convert-purchase-receipt-to-invoice/${purchaseReceiptId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   convertRfqToSupplierQuotation = (rfqId: string, supplierId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierQuotationDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-conversion/convert-rfq-to-supplier-quotation',
       params: { rfqId, supplierId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   convertSupplierQuotationToPurchaseOrder = (supplierQuotationId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseOrderDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-conversion/convert-supplier-quotation-to-purchase-order/${supplierQuotationId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createPurchaseOrdersFromMaterialRequest = (input: CreatePurchaseOrdersFromMrDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SupplierSelectionResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-conversion/purchase-orders-from-material-request',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
-  makePurchaseReceiptReturn = (purchaseReceiptId: string, returnAgainstRejectedQty?: boolean, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PurchaseReceiptDto>({
-      method: 'POST',
-      url: `/api/app/purchase-conversion/make-purchase-receipt-return/${purchaseReceiptId}`,
-      params: { returnAgainstRejectedQty },
-    },
-    { apiName: this.apiName,...config });
   
-
   makePurchaseInvoiceReturn = (purchaseInvoiceId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-conversion/make-purchase-invoice-return/${purchaseInvoiceId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
+  
+
+  
+  makePurchaseReceiptReturn = (purchaseReceiptId: string, returnAgainstRejectedQty?: boolean, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PurchaseReceiptDto>({
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/purchase-conversion/make-purchase-receipt-return/${purchaseReceiptId}`,
+      params: { returnAgainstRejectedQty },
+    },
+      { apiName: this.apiName,...config });
 }

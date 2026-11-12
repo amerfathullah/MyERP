@@ -12,44 +12,54 @@ export class PosOpeningService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosOpeningDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pos-opening/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreatePosOpeningDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosOpeningDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pos-opening',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosOpeningDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pos-opening/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getCurrentOpen = (userId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosOpeningDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pos-opening/current-open/${userId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PosOpeningDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pos-opening',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

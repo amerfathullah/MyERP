@@ -10,11 +10,13 @@ export class DraftLinkGuardService {
   apiName = 'Default';
   
 
+  
   getExistingDrafts = (sourceDocType: string, sourceId: string, targetDocType: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DraftLinkDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/draft-link-guard/existing-drafts/${sourceId}`,
       params: { sourceDocType, targetDocType },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

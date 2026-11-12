@@ -11,35 +11,41 @@ export class NotificationService {
   apiName = 'Default';
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AppNotificationDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/notification',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getSummary = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, NotificationSummaryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/notification/summary',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   markAllAsRead = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: '/api/app/notification/mark-all-as-read',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   markAsRead = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/notification/${id}/mark-as-read`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

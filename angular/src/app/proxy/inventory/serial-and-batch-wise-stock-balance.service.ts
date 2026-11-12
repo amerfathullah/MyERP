@@ -8,22 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class SerialAndBatchWiseStockBalanceService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: SerialAndBatchWiseStockBalanceFilterDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, SerialAndBatchWiseStockBalanceReportDto>(
-      {
-        method: 'GET',
-        url: '/api/app/serial-and-batch-wise-stock-balance/report',
-        params: {
-          companyId: input.companyId,
-          warehouseId: input.warehouseId,
-          itemId: input.itemId,
-          fromDate: input.fromDate,
-          toDate: input.toDate,
-          includeZeroStockItems: input.includeZeroStockItems,
-          searchTerm: input.searchTerm,
-        },
-      },
-      { apiName: this.apiName, ...config }
-    );
+    this.restService.request<any, SerialAndBatchWiseStockBalanceReportDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/serial-and-batch-wise-stock-balance/report',
+      params: { companyId: input.companyId, warehouseId: input.warehouseId, itemId: input.itemId, fromDate: input.fromDate, toDate: input.toDate, includeZeroStockItems: input.includeZeroStockItems, searchTerm: input.searchTerm },
+    },
+      { apiName: this.apiName,...config });
 }

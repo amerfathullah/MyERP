@@ -12,69 +12,84 @@ export class ExpenseClaimService {
   apiName = 'Default';
   
 
+  
   approve = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExpenseClaimDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/expense-claim/${id}/approve`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExpenseClaimDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/expense-claim/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateExpenseClaimDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExpenseClaimDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/expense-claim',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExpenseClaimDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/expense-claim/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ExpenseClaimDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/expense-claim',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   reimburse = (id: string, paidFromAccountId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, string>({
       method: 'POST',
-      responseType: 'text',
+      headers: { Accept: 'application/json' },
       url: `/api/app/expense-claim/${id}/reimburse/${paidFromAccountId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   reject = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExpenseClaimDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/expense-claim/${id}/reject`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExpenseClaimDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/expense-claim/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

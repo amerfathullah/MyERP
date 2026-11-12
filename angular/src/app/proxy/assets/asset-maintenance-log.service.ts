@@ -11,70 +11,85 @@ export class AssetMaintenanceLogService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMaintenanceLogDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-maintenance-log/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   complete = (id: string, input: CompleteAssetMaintenanceLogDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMaintenanceLogDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-maintenance-log/${id}/complete`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateUpdateAssetMaintenanceLogDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMaintenanceLogDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-maintenance-log',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/asset-maintenance-log/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMaintenanceLogDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-maintenance-log/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetAssetMaintenanceLogListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AssetMaintenanceLogDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-maintenance-log',
       params: { companyId: input.companyId, assetId: input.assetId, assetMaintenanceId: input.assetMaintenanceId, status: input.status, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getLogsByAsset = (assetId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMaintenanceLogDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-maintenance-log/logs-by-asset/${assetId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateAssetMaintenanceLogDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetMaintenanceLogDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-maintenance-log/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

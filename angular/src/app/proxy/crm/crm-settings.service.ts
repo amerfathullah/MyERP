@@ -10,19 +10,23 @@ export class CrmSettingsService {
   apiName = 'Default';
   
 
+  
   get = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, CrmSettingsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/crm-settings',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (input: UpdateCrmSettingsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CrmSettingsDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: '/api/app/crm-settings',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

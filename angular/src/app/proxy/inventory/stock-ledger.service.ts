@@ -10,38 +10,46 @@ export class StockLedgerService {
   apiName = 'Default';
   
 
+  
   getForVoucher = (voucherType: string, voucherId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, VoucherStockLedgerDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/stock-ledger/for-voucher/${voucherId}`,
       params: { voucherType },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getItemMovementHistory = (itemId: string, warehouseId?: string, maxEntries: number = 20, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemMovementHistoryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/stock-ledger/item-movement-history',
       params: { itemId, warehouseId, maxEntries },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getStockLedger = (input: StockLedgerRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockLedgerReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/stock-ledger/stock-ledger',
       params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, itemId: input.itemId, warehouseId: input.warehouseId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getStockMovementSummary = (companyId: string, fromDate: string, toDate: string, warehouseId?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockMovementSummaryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/stock-ledger/stock-movement-summary',
       params: { companyId, fromDate, toDate, warehouseId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

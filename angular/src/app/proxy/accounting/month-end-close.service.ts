@@ -10,29 +10,34 @@ export class MonthEndCloseService {
   apiName = 'Default';
   
 
+  
   freeze = (input: FreezeAccountingPeriodDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: '/api/app/month-end-close/freeze',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getCloseStatus = (input: MonthEndCloseRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MonthEndCloseStatusDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/month-end-close/close-status',
       params: { companyId: input.companyId, periodEndDate: input.periodEndDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   validateReadiness = (input: MonthEndCloseRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MonthEndReadinessDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/month-end-close/validate-readiness',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

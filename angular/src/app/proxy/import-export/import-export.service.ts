@@ -11,37 +11,45 @@ export class ImportExportService {
   apiName = 'Default';
   
 
+  
   export = (input: ExportRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExportResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/import-export/export',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getImportHistory = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ImportJobDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/import-export/import-history',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getImportStatus = (jobId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ImportJobDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/import-export/import-status/${jobId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   startImport = (input: StartImportDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ImportJobDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/import-export/start-import',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -6,10 +6,10 @@ import { ToasterService } from '@abp/ng.theme.shared';
 import { MaterialRequirementsPlanningService } from '../../proxy/manufacturing/material-requirements-planning.service';
 import {
   MaterialRequirementsPlanningReportDto,
-  MrpBucketSize,
   MrpPlannedOrderRequirementDto,
   MrpOrderRowInputDto,
 } from '../../proxy/manufacturing/models';
+import { MrpBucketSize } from '../../proxy/manufacturing/mrp-bucket-size.enum';
 import { CompanyContextService } from '../../shared/services/company-context.service';
 import { exportToCsv } from '../../shared/utils/csv-export';
 

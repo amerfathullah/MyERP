@@ -84,6 +84,8 @@ export interface IssueDto extends AuditedEntityDto<string> {
   resolution?: string | null;
   firstRespondedOn?: string | null;
   totalHoldTimeSeconds?: number | null;
+  actualResolutionTimeHours?: number;
+  actualFirstResponseTimeHours?: number;
   isSlaBreach?: boolean;
   serviceLevelAgreementId?: string | null;
   firstResponseTime?: number | null;

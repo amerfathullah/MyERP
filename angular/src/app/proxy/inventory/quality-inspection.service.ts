@@ -11,44 +11,54 @@ export class QualityInspectionService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, QualityInspectionDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/quality-inspection/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateQualityInspectionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, QualityInspectionDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/quality-inspection',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, QualityInspectionDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/quality-inspection/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetQualityInspectionListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<QualityInspectionDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/quality-inspection',
       params: { companyId: input.companyId, itemId: input.itemId, status: input.status, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, QualityInspectionDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/quality-inspection/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -11,37 +11,44 @@ export class TaxRuleService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateTaxRuleDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, TaxRuleDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/tax-rule',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/tax-rule/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (taxCategoryId: string, input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<TaxRuleDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/tax-rule',
       params: { taxCategoryId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateTaxRuleDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, TaxRuleDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/tax-rule/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

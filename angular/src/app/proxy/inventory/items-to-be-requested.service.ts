@@ -8,17 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class ItemsToBeRequestedService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: ItemsToBeRequestedFilterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ItemsToBeRequestedReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/items-to-be-requested/report',
-      params: {
-        companyId: input.companyId,
-        warehouseId: input.warehouseId,
-        itemGroupId: input.itemGroupId,
-        searchTerm: input.searchTerm
-      },
+      params: { companyId: input.companyId, warehouseId: input.warehouseId, itemGroupId: input.itemGroupId, searchTerm: input.searchTerm },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

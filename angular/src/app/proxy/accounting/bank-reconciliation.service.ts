@@ -11,107 +11,142 @@ export class BankReconciliationService {
   apiName = 'Default';
   
 
+  
   autoMatch = (bankAccountId: string, companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AutoMatchResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-reconciliation/auto-match',
       params: { bankAccountId, companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createInternalTransfer = (input: CreateInternalTransferDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, InternalTransferResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-reconciliation/internal-transfer',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createJournalEntryFromTransaction = (input: CreateJEFromTransactionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, JournalEntryCreatedResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-reconciliation/journal-entry-from-transaction',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createPaymentEntryFromTransaction = (input: CreatePEFromTransactionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, VoucherCreatedResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-reconciliation/payment-entry-from-transaction',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
-  getMatchCandidates = (bankTransactionId: string, companyId: string, config?: Partial<Rest.Config>) =>
+  
+  getAccountOpeningBalance = (bankAccountId: string, tillDate: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, number>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/bank-reconciliation/account-opening-balance/${bankAccountId}`,
+      params: { tillDate },
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  getMatchCandidates = (bankTransactionId: string, companyId: string, documentTypes?: readonly string[], config?: Partial<Rest.Config>) =>
     this.restService.request<any, MatchCandidateDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-reconciliation/match-candidates',
-      params: { bankTransactionId, companyId },
+      params: { bankTransactionId, companyId, documentTypes },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getReconciliationStatement = (input: GetBankReconciliationStatementInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankReconciliationStatementDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-reconciliation/reconciliation-statement',
       params: { bankAccountId: input.bankAccountId, companyId: input.companyId, reportDate: input.reportDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getSummary = (bankAccountId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankReconciliationSummaryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/bank-reconciliation/summary/${bankAccountId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getTransactions = (input: GetBankTransactionsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<BankTransactionDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-reconciliation/transactions',
       params: { bankAccountId: input.bankAccountId, isReconciled: input.isReconciled, dateFrom: input.dateFrom, dateTo: input.dateTo, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   importTransaction = (input: ImportBankTransactionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankTransactionDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-reconciliation/import-transaction',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   reconcile = (input: ReconcileBankTransactionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankTransactionDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-reconciliation/reconcile',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   searchForMirrorTransaction = (transactionId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MirrorTransactionDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/bank-reconciliation/search-for-mirror-transaction/${transactionId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   unreconcile = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BankTransactionDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/bank-reconciliation/${id}/unreconcile`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

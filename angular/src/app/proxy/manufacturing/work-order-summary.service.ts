@@ -8,12 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class WorkOrderSummaryService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getSummary = (input: WorkOrderSummaryRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WorkOrderSummaryDto>({
-      method: 'POST',
+      method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/work-order-summary/summary',
-      body: input,
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, basedOn: input.basedOn, workOrderIds: input.workOrderIds, productionItemIds: input.productionItemIds, salesOrderIds: input.salesOrderIds, status: input.status, age: input.age, chartsBasedOn: input.chartsBasedOn },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
 }

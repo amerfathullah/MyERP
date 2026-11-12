@@ -10,37 +10,44 @@ export class AddressService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateAddressDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AddressDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/address',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/address/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getAddressesForParty = (partyType: string, partyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AddressDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/address/addresses-for-party/${partyId}`,
       params: { partyType },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateAddressDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AddressDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/address/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

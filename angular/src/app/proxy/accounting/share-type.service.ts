@@ -11,36 +11,43 @@ export class ShareTypeService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateShareTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShareTypeDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/share-type',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/share-type/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (config?: Partial<Rest.Config>) =>
     this.restService.request<any, ListResultDto<ShareTypeDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/share-type',
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateShareTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShareTypeDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/share-type/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

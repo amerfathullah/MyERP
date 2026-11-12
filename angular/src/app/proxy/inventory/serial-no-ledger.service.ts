@@ -1,4 +1,4 @@
-import type { SerialNoLedgerReportDto, SerialNoLedgerFilterDto } from './models';
+import type { SerialNoLedgerFilterDto, SerialNoLedgerReportDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -8,21 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class SerialNoLedgerService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: SerialNoLedgerFilterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SerialNoLedgerReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/serial-no-ledger/report',
-      params: {
-        companyId: input.companyId,
-        warehouseId: input.warehouseId,
-        itemId: input.itemId,
-        serialNumber: input.serialNumber,
-        fromDate: input.fromDate,
-        toDate: input.toDate,
-        voucherType: input.voucherType,
-        searchTerm: input.searchTerm,
-      },
+      params: { companyId: input.companyId, warehouseId: input.warehouseId, itemId: input.itemId, serialNumber: input.serialNumber, fromDate: input.fromDate, toDate: input.toDate, voucherType: input.voucherType, searchTerm: input.searchTerm },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
 }

@@ -26,6 +26,8 @@ export interface CreateMaterialRequestItemDto {
   salesOrderId?: string | null;
   salesOrderItemId?: string | null;
   projectId?: string | null;
+  productionPlanId?: string | null;
+  productionPlanMrItemId?: string | null;
   jobCardItemId?: string | null;
 }
 
@@ -70,6 +72,8 @@ export interface MaterialRequestItemDto {
   salesOrderId?: string | null;
   salesOrderItemId?: string | null;
   projectId?: string | null;
+  productionPlanId?: string | null;
+  productionPlanMrItemId?: string | null;
   jobCardItemId?: string | null;
 }
 

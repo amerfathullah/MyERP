@@ -1,4 +1,4 @@
-import type { ReservedStockReportDto, ReservedStockFilterDto } from './models';
+import type { ReservedStockFilterDto, ReservedStockReportDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -8,21 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class ReservedStockReportService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: ReservedStockFilterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ReservedStockReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/reserved-stock-report/report',
-      params: {
-        companyId: input.companyId,
-        fromDate: input.fromDate,
-        toDate: input.toDate,
-        itemId: input.itemId,
-        warehouseId: input.warehouseId,
-        voucherType: input.voucherType,
-        status: input.status,
-        searchTerm: input.searchTerm,
-      },
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, itemId: input.itemId, warehouseId: input.warehouseId, voucherType: input.voucherType, status: input.status, searchTerm: input.searchTerm },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
 }

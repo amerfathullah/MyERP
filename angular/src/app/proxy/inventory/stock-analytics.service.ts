@@ -8,21 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class StockAnalyticsService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: StockAnalyticsRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockAnalyticsReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/stock-analytics/report',
-      params: {
-        companyId: input.companyId,
-        fromDate: input.fromDate,
-        toDate: input.toDate,
-        range: input.range,
-        valueOrQuantity: input.valueOrQuantity,
-        warehouseId: input.warehouseId,
-        itemGroupId: input.itemGroupId,
-        searchTerm: input.searchTerm,
-      },
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, range: input.range, valueOrQuantity: input.valueOrQuantity, warehouseId: input.warehouseId, itemGroupId: input.itemGroupId, searchTerm: input.searchTerm },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

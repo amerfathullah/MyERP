@@ -10,11 +10,13 @@ export class InventoryTurnoverService {
   apiName = 'Default';
   
 
+  
   getReport = (companyId: string, fromDate: string, toDate: string, warehouseId?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, InventoryTurnoverReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/inventory-turnover/report',
       params: { companyId, fromDate, toDate, warehouseId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

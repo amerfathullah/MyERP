@@ -1,7 +1,4 @@
-import type {
-  ExponentialSmoothingForecastingFilterDto,
-  ExponentialSmoothingForecastingDto,
-} from './models';
+import type { ExponentialSmoothingForecastingDto, ExponentialSmoothingForecastingFilterDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
 
@@ -11,29 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class ExponentialSmoothingForecastingService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
-  getForecast = (
-    input: ExponentialSmoothingForecastingFilterDto,
-    config?: Partial<Rest.Config>
-  ) =>
-    this.restService.request<any, ExponentialSmoothingForecastingDto>(
-      {
-        method: 'GET',
-        url: '/api/app/exponential-smoothing-forecasting/forecast',
-        params: {
-          companyId: input.companyId,
-          basedOnDocument: input.basedOnDocument,
-          basedOnField: input.basedOnField,
-          periodicity: input.periodicity,
-          fromDate: input.fromDate,
-          toDate: input.toDate,
-          noOfYears: input.noOfYears,
-          smoothingConstant: input.smoothingConstant,
-          itemId: input.itemId,
-          warehouseId: input.warehouseId,
-          searchTerm: input.searchTerm,
-        },
-      },
-      { apiName: this.apiName, ...config }
-    );
+  
+  getForecast = (input: ExponentialSmoothingForecastingFilterDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ExponentialSmoothingForecastingDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/exponential-smoothing-forecasting/forecast',
+      params: { companyId: input.companyId, basedOnDocument: input.basedOnDocument, basedOnField: input.basedOnField, periodicity: input.periodicity, fromDate: input.fromDate, toDate: input.toDate, noOfYears: input.noOfYears, smoothingConstant: input.smoothingConstant, itemId: input.itemId, warehouseId: input.warehouseId, searchTerm: input.searchTerm },
+    },
+      { apiName: this.apiName,...config });
 }

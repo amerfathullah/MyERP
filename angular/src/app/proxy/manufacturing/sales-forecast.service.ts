@@ -12,78 +12,94 @@ export class SalesForecastService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesForecastDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-forecast/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateSalesForecastDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesForecastDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-forecast',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createMps = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, string>({
       method: 'POST',
-      responseType: 'text',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-forecast/${id}/mps`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/sales-forecast/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   generateDemand = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesForecastDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-forecast/${id}/generate-demand`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesForecastDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-forecast/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SalesForecastDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-forecast',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesForecastDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-forecast/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: UpdateSalesForecastDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesForecastDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-forecast/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -13,169 +13,209 @@ export class SalesInvoiceService {
   apiName = 'Default';
   
 
+  
   amend = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-invoice/${id}/amend`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
-  bulkPost = (ids: string[], config?: Partial<Rest.Config>) =>
+  
+  bulkPost = (ids: readonly string[], config?: Partial<Rest.Config>) =>
     this.restService.request<any, BulkOperationResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-invoice/bulk-post',
       body: ids,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
-  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
+  
+  bulkSubmit = (ids: readonly string[], config?: Partial<Rest.Config>) =>
     this.restService.request<any, BulkOperationResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-invoice/bulk-submit',
       body: ids,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-invoice/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateSalesInvoiceDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-invoice',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createDebitNote = (salesInvoiceId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-invoice/debit-note/${salesInvoiceId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createFromDeliveryNotes = (input: CreateInvoiceFromDeliveryNotesDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-invoice/from-delivery-notes',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/sales-invoice/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-invoice/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<SalesInvoiceDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-invoice',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getListSummary = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceListSummaryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-invoice/summary/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPaymentHistory = (invoiceId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, InvoicePaymentHistoryDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-invoice/payment-history/${invoiceId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPaymentSchedule = (invoiceId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentScheduleDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-invoice/payment-schedule/${invoiceId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPayments = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, InvoicePaymentDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-invoice/${id}/payments`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getUnbilledDeliveryItems = (customerId: string, companyId?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UnbilledDeliveryItemDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-invoice/unbilled-delivery-items',
       params: { customerId, companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getUnbilledOrderItems = (customerId: string, companyId?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UnbilledOrderItemDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/sales-invoice/unbilled-order-items',
       params: { customerId, companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   post = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-invoice/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-invoice/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
-  writeOff = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, SalesInvoiceDto>({
-      method: 'POST',
-      url: `/api/app/sales-invoice/${id}/write-off`,
-    },
-    { apiName: this.apiName,...config });
-  updateSalesTeam = (id: string, input: SalesTeamAllocationInputDto[], config?: Partial<Rest.Config>) =>
+  
+  updateSalesTeam = (id: string, input: readonly SalesTeamAllocationInputDto[], config?: Partial<Rest.Config>) =>
     this.restService.request<any, SalesInvoiceDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/sales-invoice/${id}/sales-team`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
+  
 
+  
+  writeOff = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, SalesInvoiceDto>({
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/sales-invoice/${id}/write-off`,
+    },
+      { apiName: this.apiName,...config });
 }

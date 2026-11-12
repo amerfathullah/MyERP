@@ -11,45 +11,54 @@ export class IssueTypeService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateIssueTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueTypeDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/issue-type',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/issue-type/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueTypeDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/issue-type/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetIssueTypeListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<IssueTypeDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/issue-type',
       params: { filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateIssueTypeDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IssueTypeDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/issue-type/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -10,19 +10,23 @@ export class AssetActivityService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateAssetActivityDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetActivityDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-activity',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getListByAsset = (assetId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetActivityDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-activity/by-asset/${assetId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

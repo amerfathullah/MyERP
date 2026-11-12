@@ -10,20 +10,23 @@ export class CompanyRestrictionService {
   apiName = 'Default';
   
 
+  
   get = (parentType: string, parentId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CompanyRestrictionDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/company-restriction',
       params: { parentType, parentId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   save = (input: SaveCompanyRestrictionDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: '/api/app/company-restriction/save',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

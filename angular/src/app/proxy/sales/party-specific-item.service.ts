@@ -11,45 +11,54 @@ export class PartySpecificItemService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdatePartySpecificItemDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PartySpecificItemDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/party-specific-item',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/party-specific-item/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PartySpecificItemDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/party-specific-item/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetPartySpecificItemListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PartySpecificItemDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/party-specific-item',
       params: { partyType: input.partyType, partyId: input.partyId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdatePartySpecificItemDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PartySpecificItemDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/party-specific-item/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -11,36 +11,43 @@ export class AccountCategoryService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateAccountCategoryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AccountCategoryDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/account-category',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/account-category/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AccountCategoryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/account-category/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AccountCategoryDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/account-category',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -10,20 +10,24 @@ export class PendingDeliveryService {
   apiName = 'Default';
   
 
+  
   createDeliveryNote = (input: CreateDnFromPendingDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CreateDeliveryNoteResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pending-delivery/delivery-note',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getReport = (input: PendingDeliveryRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PendingDeliveryReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pending-delivery/report',
       params: { companyId: input.companyId, asOfDate: input.asOfDate, customerId: input.customerId, itemId: input.itemId, overdueOnly: input.overdueOnly },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

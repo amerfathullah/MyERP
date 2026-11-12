@@ -10,11 +10,13 @@ export class CashFlowForecastService {
   apiName = 'Default';
   
 
+  
   getForecast = (input: CashFlowForecastRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CashFlowForecastDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/cash-flow-forecast/forecast',
       params: { companyId: input.companyId, asOfDate: input.asOfDate, forecastDays: input.forecastDays },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

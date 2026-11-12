@@ -179,4 +179,5 @@ export interface WarrantyClaimDto extends EntityDto<string> {
   resolutionDate?: string | null;
   status?: number;
   isUnderWarranty?: boolean;
+  serialNoOwnershipWarning?: string | null;
 }

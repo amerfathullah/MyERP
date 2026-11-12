@@ -21,6 +21,40 @@ export interface AddCrmNoteDto {
   noteText: string;
 }
 
+export interface AddressAndContactRowDto {
+  partyId?: string;
+  partyType?: string;
+  partyName?: string;
+  partyCode?: string | null;
+  partyGroup?: string | null;
+  addressId?: string | null;
+  addressTitle?: string | null;
+  addressType?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  isPrimaryAddress?: boolean;
+  contactId?: string | null;
+  contactName?: string | null;
+  designation?: string | null;
+  department?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  mobileNo?: string | null;
+  isPrimaryContact?: boolean;
+}
+
+export interface AddressAndContactsReportDto {
+  partyType?: string;
+  rows?: AddressAndContactRowDto[];
+  totalParties?: number;
+  totalAddresses?: number;
+  totalContacts?: number;
+}
+
 export interface AppointmentAvailabilityDto {
   id?: string;
   dayOfWeek?: any;
@@ -63,6 +97,34 @@ export interface CampaignDto extends AuditedEntityDto<string> {
   campaignName?: string;
   description?: string | null;
   emailSchedules?: CampaignEmailScheduleDto[];
+}
+
+export interface CampaignEfficiencyFilterDto {
+  fromDate?: string | null;
+  toDate?: string | null;
+  companyId?: string | null;
+  basedOn?: string;
+}
+
+export interface CampaignEfficiencyReportDto {
+  rows?: CampaignEfficiencyRowDto[];
+  totalLeads?: number;
+  totalOpps?: number;
+  totalQuots?: number;
+  totalOrders?: number;
+  totalOrderValue?: number;
+}
+
+export interface CampaignEfficiencyRowDto {
+  campaign?: string;
+  leadCount?: number;
+  oppCount?: number;
+  quotCount?: number;
+  orderCount?: number;
+  orderValue?: number;
+  oppLeadRate?: number;
+  quotLeadRate?: number;
+  orderQuotRate?: number;
 }
 
 export interface CampaignEmailScheduleDto {
@@ -125,16 +187,6 @@ export interface ContractTemplateFulfilmentTermDto {
   termText?: string;
 }
 
-export interface RenderContractTermsDto {
-  templateId: string;
-  context?: Record<string, string | null>;
-}
-
-export interface RenderedContractTermsDto {
-  templateId?: string;
-  contractTerms?: string | null;
-}
-
 export interface ConvertLeadToCustomerDto {
   leadId: string;
   customerName?: string | null;
@@ -150,6 +202,14 @@ export interface ConvertLeadToOpportunityDto {
   opportunityAmount?: number;
   salesStage?: string | null;
   expectedClosingDate?: string | null;
+}
+
+export interface ConvertOpportunityToCustomerDto {
+  opportunityId: string;
+  customerName?: string | null;
+  tin?: string | null;
+  customerGroupId?: string | null;
+  territoryId?: string | null;
 }
 
 export interface CreateAppointmentDto {
@@ -217,6 +277,11 @@ export interface CreateLeadDto {
   assignedUserId?: string | null;
   companyId: string;
   notes?: string | null;
+  campaignName?: string | null;
+  utmCampaign?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  disabled?: boolean;
 }
 
 export interface CreateOpportunityDto {
@@ -236,6 +301,11 @@ export interface CreateOpportunityDto {
   assignedUserId?: string | null;
   territory?: string | null;
   notes?: string | null;
+  campaignName?: string | null;
+  utmCampaign?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  conversionRate?: number;
   items?: CreateOpportunityItemDto[];
 }
 
@@ -364,6 +434,24 @@ export interface EmailCampaignDto extends AuditedEntityDto<string> {
   status?: EmailCampaignStatus;
 }
 
+export interface FirstResponseTimeReportDto {
+  data?: FirstResponseTimeRowDto[];
+  chart?: OpportunitySummaryChartDto;
+}
+
+export interface FirstResponseTimeRowDto {
+  creationDate?: string;
+  avgResponseTimeSeconds?: number;
+  formattedResponseTime?: string;
+}
+
+export interface GetAddressAndContactsInput {
+  companyId?: string;
+  partyType?: string;
+  partyId?: string | null;
+  search?: string | null;
+}
+
 export interface GetAppointmentListDto extends PagedAndSortedResultRequestDto {
   companyId?: string | null;
   status?: AppointmentStatus | null;
@@ -388,6 +476,12 @@ export interface GetEmailCampaignListDto extends PagedAndSortedResultRequestDto 
   status?: EmailCampaignStatus | null;
 }
 
+export interface GetFirstResponseTimeReportRequestDto {
+  companyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
 export interface GetIndustryTypeListDto extends PagedAndSortedResultRequestDto {
   filter?: string | null;
 }
@@ -397,6 +491,17 @@ export interface GetLeadListDto extends PagedAndSortedResultRequestDto {
   source?: LeadSource | null;
   filter?: string | null;
   companyId?: string | null;
+  disabled?: boolean | null;
+}
+
+export interface GetLostOpportunityReportRequestDto {
+  companyId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  territory?: string | null;
+  lostReason?: string | null;
+  opportunityFrom?: string | null;
+  partyId?: string | null;
 }
 
 export interface GetMarketSegmentListDto extends PagedAndSortedResultRequestDto {
@@ -415,6 +520,17 @@ export interface GetOpportunityLostReasonListDto extends PagedAndSortedResultReq
   companyId?: string | null;
   isDisabled?: boolean | null;
   filter?: string | null;
+}
+
+export interface GetOpportunitySummaryBySalesStageRequestDto {
+  companyId?: string | null;
+  basedOn?: string;
+  dataBasedOn?: string;
+  opportunityType?: OpportunityType | null;
+  opportunitySource?: string | null;
+  statuses?: OpportunityStatus[] | null;
+  fromDate?: string | null;
+  toDate?: string | null;
 }
 
 export interface GetOpportunityTypeListDto extends PagedAndSortedResultRequestDto {
@@ -453,6 +569,31 @@ export interface LeadDto extends AuditedEntityDto<string> {
   companyId?: string;
   notes?: string | null;
   fullName?: string | null;
+  campaignName?: string | null;
+  utmCampaign?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  disabled?: boolean;
+}
+
+export interface LostOpportunityReportDto {
+  data?: LostOpportunityRowDto[];
+}
+
+export interface LostOpportunityRowDto {
+  id?: string;
+  opportunityNumber?: string;
+  title?: string;
+  opportunityFrom?: string;
+  partyId?: string | null;
+  partyName?: string | null;
+  customerName?: string | null;
+  opportunityType?: string | null;
+  lostReasons?: string;
+  salesStage?: string | null;
+  territory?: string | null;
+  opportunityAmount?: number;
+  creationTime?: string;
 }
 
 export interface MarketSegmentDto extends AuditedEntityDto<string> {
@@ -479,6 +620,13 @@ export interface OpportunityDto extends AuditedEntityDto<string> {
   territory?: string | null;
   lostReason?: string | null;
   notes?: string | null;
+  campaignName?: string | null;
+  utmCampaign?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  conversionRate?: number;
+  firstRespondedOn?: string | null;
+  firstResponseTime?: number | null;
   items?: OpportunityItemDto[];
   competitors?: CompetitorDetailDto[];
 }
@@ -498,6 +646,35 @@ export interface OpportunityLostReasonDto extends FullAuditedEntityDto<string> {
   reason?: string;
   description?: string | null;
   isDisabled?: boolean;
+}
+
+export interface OpportunitySummaryBySalesStageDto {
+  columns?: OpportunitySummaryColumnDto[];
+  data?: OpportunitySummaryRowDto[];
+  chart?: OpportunitySummaryChartDto;
+}
+
+export interface OpportunitySummaryChartDatasetDto {
+  name?: string;
+  values?: number[];
+}
+
+export interface OpportunitySummaryChartDto {
+  labels?: string[];
+  datasets?: OpportunitySummaryChartDatasetDto[];
+  type?: string;
+}
+
+export interface OpportunitySummaryColumnDto {
+  label?: string;
+  fieldname?: string;
+  fieldtype?: string;
+  width?: number;
+}
+
+export interface OpportunitySummaryRowDto {
+  key?: string;
+  stageValues?: Record<string, number>;
 }
 
 export interface OpportunityTypeDto extends FullAuditedEntityDto<string> {
@@ -540,6 +717,45 @@ export interface ProspectDto extends EntityDto<string> {
   leadCount?: number;
   opportunityCount?: number;
   notes?: string | null;
+  leads?: ProspectLeadDto[];
+}
+
+export interface ProspectLeadDto extends EntityDto<string> {
+  prospectId?: string;
+  leadId?: string;
+  leadName?: string | null;
+  email?: string | null;
+  status?: LeadStatus | null;
+}
+
+export interface RenderContractTermsDto {
+  templateId?: string;
+  context?: Record<string, string>;
+}
+
+export interface RenderedContractTermsDto {
+  templateId?: string;
+  contractTerms?: string | null;
+}
+
+export interface SalesFunnelDto {
+  activeLeads?: number;
+  opportunities?: number;
+  quotations?: number;
+  converted?: number;
+  stages?: SalesFunnelStageItemDto[];
+}
+
+export interface SalesFunnelInputDto {
+  companyId: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface SalesFunnelStageItemDto {
+  title?: string;
+  value?: number;
+  color?: string;
 }
 
 export interface SalesPipelineDashboardDto {
@@ -641,6 +857,11 @@ export interface UpdateLeadDto {
   annualRevenue?: number | null;
   assignedUserId?: string | null;
   notes?: string | null;
+  campaignName?: string | null;
+  utmCampaign?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  disabled?: boolean;
 }
 
 export interface UpdateOpportunityDto {
@@ -657,6 +878,11 @@ export interface UpdateOpportunityDto {
   assignedUserId?: string | null;
   territory?: string | null;
   notes?: string | null;
+  campaignName?: string | null;
+  utmCampaign?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  conversionRate?: number;
   items?: CreateOpportunityItemDto[];
 }
 
@@ -667,53 +893,3 @@ export interface UpdateOpportunityStageDto {
 export interface VerifyAppointmentDto {
   token: string;
 }
-
-export interface ConvertOpportunityToCustomerDto {
-  opportunityId: string;
-  customerName?: string;
-  tin?: string;
-  customerGroupId?: string;
-  territoryId?: string;
-}
-
-export interface GetAddressAndContactsInput {
-  companyId: string;
-  partyType?: string;
-  partyId?: string | null;
-  search?: string | null;
-}
-
-export interface AddressAndContactRowDto {
-  partyId: string;
-  partyType: string;
-  partyName: string;
-  partyCode?: string | null;
-  partyGroup?: string | null;
-  addressId?: string | null;
-  addressTitle?: string | null;
-  addressType?: string | null;
-  addressLine1?: string | null;
-  addressLine2?: string | null;
-  city?: string | null;
-  state?: string | null;
-  postalCode?: string | null;
-  country?: string | null;
-  isPrimaryAddress: boolean;
-  contactId?: string | null;
-  contactName?: string | null;
-  designation?: string | null;
-  department?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  mobileNo?: string | null;
-  isPrimaryContact: boolean;
-}
-
-export interface AddressAndContactsReportDto {
-  partyType: string;
-  rows: AddressAndContactRowDto[];
-  totalParties: number;
-  totalAddresses: number;
-  totalContacts: number;
-}
-

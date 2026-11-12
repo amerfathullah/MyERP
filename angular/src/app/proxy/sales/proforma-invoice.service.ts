@@ -1,4 +1,4 @@
-import type { CreateProformaInvoiceDto, ProformaInvoiceDto, ProformedTotalsDto, SendProformaEmailDto } from './models';
+import type { CreateProformaInvoiceDto, ProformaEmailContentDto, ProformaInvoiceDto, ProformedTotalsDto, SendProformaEmailDto } from './models';
 import { RestService, Rest } from '@abp/ng.core';
 import type { PagedAndSortedResultRequestDto, PagedResultDto } from '@abp/ng.core';
 import { Injectable, inject } from '@angular/core';
@@ -11,61 +11,83 @@ export class ProformaInvoiceService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/proforma-invoice/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateProformaInvoiceDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProformaInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/proforma-invoice',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProformaInvoiceDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/proforma-invoice/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
+  getEmailContent = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, ProformaEmailContentDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/proforma-invoice/${id}/email-content`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
   getForSalesOrder = (salesOrderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProformaInvoiceDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/proforma-invoice/for-sales-order/${salesOrderId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ProformaInvoiceDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/proforma-invoice',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getProformedTotals = (salesOrderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ProformedTotalsDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/proforma-invoice/proformed-totals/${salesOrderId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   sendEmail = (id: string, input: SendProformaEmailDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/proforma-invoice/${id}/send-email`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

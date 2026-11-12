@@ -161,7 +161,7 @@ import { exportToCsv } from '../../../shared/utils/csv-export';
                       <span class="badge bg-secondary me-1">{{ row.voucherType }}</span>
                       <span class="fw-semibold">{{ row.voucherNumber }}</span>
                     </td>
-                    <td>{{ row.postingDate | date: 'yyyy-MM-dd' }}</td>
+                    <td>{{ row.actualDeliveryDate | date: 'yyyy-MM-dd' }}</td>
                     <td>{{ row.customerName }}</td>
                     <td>
                       @if (row.salesOrderNumber) {
@@ -266,7 +266,7 @@ export class DelayedItemReportComponent implements OnInit {
     const exportData = rows.map(r => ({
       voucherType: r.voucherType,
       voucherNumber: r.voucherNumber,
-      postingDate: r.postingDate,
+      postingDate: r.actualDeliveryDate,
       customerName: r.customerName,
       salesOrderNumber: r.salesOrderNumber || '',
       customerPoNumber: r.customerPoNumber || '',

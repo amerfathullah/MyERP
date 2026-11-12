@@ -10,11 +10,13 @@ export class UpcomingPaymentsDueService {
   apiName = 'Default';
   
 
+  
   getReport = (input: GetUpcomingPaymentsDueInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UpcomingPaymentsDueReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/upcoming-payments-due/report',
       params: { companyId: input.companyId, daysAhead: input.daysAhead, supplierId: input.supplierId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -12,68 +12,84 @@ export class PosClosingService {
   apiName = 'Default';
   
 
+  
   calculateExpectedAmounts = (posOpeningEntryId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosExpectedPaymentDto[]>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pos-closing/calculate-expected-amounts/${posOpeningEntryId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosClosingDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pos-closing/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreatePosClosingDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosClosingDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pos-closing',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosClosingDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pos-closing/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PosClosingDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pos-closing',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getUnconsolidatedInvoices = (posOpeningEntryId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosClosingInvoiceDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pos-closing/unconsolidated-invoices/${posOpeningEntryId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   retry = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosClosingDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pos-closing/${id}/retry`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PosClosingDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pos-closing/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

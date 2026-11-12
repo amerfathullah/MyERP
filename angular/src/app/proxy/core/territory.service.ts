@@ -11,60 +11,73 @@ export class TerritoryService {
   apiName = 'Default';
   
 
-  create = (input: CreateUpdateTerritoryDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, TerritoryDto>({
-      method: 'POST',
-      url: '/api/app/territory',
-      body: input,
-    },
-    { apiName: this.apiName,...config });
   
-
-  delete = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, void>({
-      method: 'DELETE',
-      url: `/api/app/territory/${id}`,
-    },
-    { apiName: this.apiName,...config });
-  
-
-  get = (id: string, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, TerritoryDto>({
-      method: 'GET',
-      url: `/api/app/territory/${id}`,
-    },
-    { apiName: this.apiName,...config });
-  
-
-  getList = (input: GetTerritoryListDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, PagedResultDto<TerritoryDto>>({
-      method: 'GET',
-      url: '/api/app/territory',
-      params: { parentId: input.parentId, isGroup: input.isGroup, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
-    },
-    { apiName: this.apiName,...config });
-  
-
-  update = (id: string, input: CreateUpdateTerritoryDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, TerritoryDto>({
-      method: 'PUT',
-      url: `/api/app/territory/${id}`,
-      body: input,
-    },
-    { apiName: this.apiName,...config });
-
   addTarget = (id: string, input: CreateTerritoryTargetDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'POST',
       url: `/api/app/territory/${id}/target`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
+  
 
+  
+  create = (input: CreateUpdateTerritoryDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, TerritoryDto>({
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/territory',
+      body: input,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  delete = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, void>({
+      method: 'DELETE',
+      url: `/api/app/territory/${id}`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  get = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, TerritoryDto>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/territory/${id}`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
+  getList = (input: GetTerritoryListDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PagedResultDto<TerritoryDto>>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/territory',
+      params: { parentId: input.parentId, isGroup: input.isGroup, filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
   removeTarget = (id: string, targetId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/territory/${id}/target/${targetId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
+  
+
+  
+  update = (id: string, input: CreateUpdateTerritoryDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, TerritoryDto>({
+      method: 'PUT',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/territory/${id}`,
+      body: input,
+    },
+      { apiName: this.apiName,...config });
 }

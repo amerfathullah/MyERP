@@ -11,38 +11,46 @@ export class LedgerHealthMonitorService {
   apiName = 'Default';
   
 
+  
   getRecords = (input: GetLedgerHealthRecordsInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<LedgerHealthRecordDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/ledger-health-monitor/records',
       params: { companyId: input.companyId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getSettings = (input: GetLedgerHealthMonitorSettingsInput, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LedgerHealthMonitorSettingsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/ledger-health-monitor/settings',
       params: { companyId: input.companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   runCheck = (input: RunLedgerHealthCheckDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LedgerHealthCheckRunResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/ledger-health-monitor/run-check',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   updateSettings = (input: UpdateLedgerHealthMonitorSettingsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LedgerHealthMonitorSettingsDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: '/api/app/ledger-health-monitor/settings',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

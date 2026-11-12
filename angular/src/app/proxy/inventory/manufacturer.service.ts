@@ -11,45 +11,54 @@ export class ManufacturerService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateManufacturerDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ManufacturerDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/manufacturer',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/manufacturer/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ManufacturerDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/manufacturer/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ManufacturerDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/manufacturer',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateManufacturerDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ManufacturerDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/manufacturer/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

@@ -11,36 +11,43 @@ export class UomService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUomDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UomDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/uom',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/uom/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UomDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/uom/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetUomListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<UomDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/uom',
       params: { filter: input.filter, isEnabled: input.isEnabled, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

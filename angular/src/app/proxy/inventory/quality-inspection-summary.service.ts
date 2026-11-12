@@ -8,12 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class QualityInspectionSummaryService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: QualityInspectionSummaryRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, QualityInspectionSummaryReportDto>({
-      method: 'POST',
+      method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/quality-inspection-summary/report',
-      body: input,
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, status: input.status, itemId: input.itemId, inspectionType: input.inspectionType, inspectedById: input.inspectedById },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
 }

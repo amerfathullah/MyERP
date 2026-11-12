@@ -11,54 +11,65 @@ export class AssetCategoryService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateAssetCategoryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetCategoryDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-category',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/asset-category/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetCategoryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-category/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getAccountForCompany = (categoryId: string, companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetCategoryAccountDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-category/account-for-company',
       params: { categoryId, companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AssetCategoryDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-category',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateAssetCategoryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetCategoryDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-category/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

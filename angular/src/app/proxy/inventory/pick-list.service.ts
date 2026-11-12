@@ -12,85 +12,125 @@ export class PickListService {
   apiName = 'Default';
   
 
+  
   allocateStock = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PickAllocationResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pick-list/${id}/allocate-stock`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PickListDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pick-list/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
+  cancelStockReservationEntries = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PickListDto>({
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/pick-list/${id}/cancel-stock-reservation-entries`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
   create = (input: CreatePickListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PickListDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pick-list',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
-  createDeliveryNoteFromPickList = (pickListId: string, config?: Partial<Rest.Config>) =>
+  
+  createDeliveryNoteFromPickList = (pickListId: string, salesOrderId?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, string>({
       method: 'POST',
-      responseType: 'text',
-      url: `/api/app/pick-list/delivery-note-from-pick-list/${pickListId}`,
+      headers: { Accept: 'application/json' },
+      url: '/api/app/pick-list/delivery-note-from-pick-list',
+      params: { pickListId, salesOrderId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
+  createStockReservationEntries = (id: string, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, PickListDto>({
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      url: `/api/app/pick-list/${id}/stock-reservation-entries`,
+    },
+      { apiName: this.apiName,...config });
+  
+
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PickListDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pick-list/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PickListDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/pick-list',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPendingTransfers = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PendingTransferDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pick-list/${id}/pending-transfers`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPickItemsFromSalesOrder = (salesOrderId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PickListOrderMappingDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pick-list/pick-items-from-sales-order/${salesOrderId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getStockAvailabilityInsight = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, StockAvailabilityInsightDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pick-list/${id}/stock-availability-insight`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PickListDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/pick-list/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

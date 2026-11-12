@@ -11,28 +11,24 @@ export class PurchaseRegisterService {
   apiName = 'Default';
   
 
-  getReport = (input: RegisterFilterDto, config?: Partial<Rest.Config>) =>
-    this.restService.request<any, RegisterReportDto<PurchaseRegisterLineDto>>({
-      method: 'GET',
-      url: '/api/app/purchase-register/report',
-      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate },
-    },
-    { apiName: this.apiName,...config });
-
+  
   getItemWiseReport = (input: ItemWiseRegisterFilterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, RegisterReportDto<ItemWisePurchaseRegisterLineDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-register/item-wise-report',
-      params: {
-        companyId: input.companyId,
-        fromDate: input.fromDate,
-        toDate: input.toDate,
-        supplierId: input.supplierId,
-        supplierGroupId: input.supplierGroupId,
-        itemId: input.itemId,
-        itemCode: input.itemCode,
-        itemGroupId: input.itemGroupId,
-      },
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, supplierId: input.supplierId, supplierGroupId: input.supplierGroupId, itemId: input.itemId, itemCode: input.itemCode, itemGroupId: input.itemGroupId },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
+  
+
+  
+  getReport = (input: RegisterFilterDto, config?: Partial<Rest.Config>) =>
+    this.restService.request<any, RegisterReportDto<PurchaseRegisterLineDto>>({
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      url: '/api/app/purchase-register/report',
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, customerId: input.customerId, customerGroupId: input.customerGroupId, supplierId: input.supplierId, supplierGroupId: input.supplierGroupId, includePayments: input.includePayments },
+    },
+      { apiName: this.apiName,...config });
 }

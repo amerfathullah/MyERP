@@ -11,61 +11,74 @@ export class AssetValueAdjustmentService {
   apiName = 'Default';
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetValueAdjustmentDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-value-adjustment/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateUpdateAssetValueAdjustmentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetValueAdjustmentDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-value-adjustment',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/asset-value-adjustment/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetValueAdjustmentDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-value-adjustment/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AssetValueAdjustmentDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/asset-value-adjustment',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetValueAdjustmentDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-value-adjustment/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateAssetValueAdjustmentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AssetValueAdjustmentDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/asset-value-adjustment/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

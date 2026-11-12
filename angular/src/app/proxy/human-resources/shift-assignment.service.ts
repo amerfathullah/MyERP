@@ -11,45 +11,54 @@ export class ShiftAssignmentService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateShiftAssignmentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShiftAssignmentDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/shift-assignment',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/shift-assignment/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShiftAssignmentDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/shift-assignment/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetShiftAssignmentListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<ShiftAssignmentDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/shift-assignment',
       params: { companyId: input.companyId, employeeId: input.employeeId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateShiftAssignmentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ShiftAssignmentDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/shift-assignment/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

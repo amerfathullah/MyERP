@@ -11,45 +11,54 @@ export class DesignationService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateDesignationDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DesignationDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/designation',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/designation/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DesignationDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/designation/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<DesignationDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/designation',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateDesignationDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DesignationDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/designation/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

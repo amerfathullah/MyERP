@@ -13,186 +13,229 @@ export class PurchaseInvoiceService {
   apiName = 'Default';
   
 
+  
   amend = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/${id}/amend`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   block = (id: string, holdComment: string, releaseDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/${id}/block`,
       params: { holdComment, releaseDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   checkDuplicateSupplierInvoice = (supplierId: string, companyId: string, supplierInvoiceNumber: string, excludeId?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DuplicateInvoiceCheckResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-invoice/check-duplicate-supplier-invoice',
       params: { supplierId, companyId, supplierInvoiceNumber, excludeId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreatePurchaseInvoiceDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-invoice',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   createDebitNote = (purchaseInvoiceId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/debit-note/${purchaseInvoiceId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/purchase-invoice/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PurchaseInvoiceDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-invoice',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getListSummary = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceListSummaryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/summary/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPaymentSchedule = (invoiceId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PaymentScheduleDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/payment-schedule/${invoiceId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPayments = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, InvoicePaymentDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/${id}/payments`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getTaxWithholdingEntries = (invoiceId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, TaxWithholdingEntryDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/tax-withholding-entries/${invoiceId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getThreeWayMatching = (invoiceId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ThreeWayMatchingItemDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/three-way-matching/${invoiceId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getUnbilledPurchaseOrderItems = (supplierId: string, companyId?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UnbilledPurchaseOrderItemDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-invoice/unbilled-purchase-order-items',
       params: { supplierId, companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getUnbilledPurchaseReceiptItems = (supplierId: string, companyId?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UnbilledPurchaseReceiptItemDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-invoice/unbilled-purchase-receipt-items',
       params: { supplierId, companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getUnbilledReceiptItems = (supplierId: string, companyId?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UnbilledReceiptItemDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-invoice/unbilled-receipt-items',
       params: { supplierId, companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   post = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   unblock = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/${id}/unblock`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreatePurchaseInvoiceDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   writeOff = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseInvoiceDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-invoice/${id}/write-off`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

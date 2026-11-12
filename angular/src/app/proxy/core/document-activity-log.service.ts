@@ -11,20 +11,24 @@ export class DocumentActivityLogService {
   apiName = 'Default';
   
 
+  
   getForDocument = (documentType: string, documentId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DocumentActivityLogDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/document-activity-log/for-document/${documentId}`,
       params: { documentType },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getRecent = (companyId: string, skipCount?: number, maxResultCount: number = 20, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<DocumentActivityLogDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/document-activity-log/recent/${companyId}`,
       params: { skipCount, maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

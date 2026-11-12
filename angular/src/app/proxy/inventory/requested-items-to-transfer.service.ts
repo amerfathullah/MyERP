@@ -8,19 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class RequestedItemsToTransferService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: RequestedItemsToTransferFilterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, RequestedItemsToTransferReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/requested-items-to-transfer/report',
-      params: {
-        companyId: input.companyId,
-        fromDate: input.fromDate,
-        toDate: input.toDate,
-        itemId: input.itemId,
-        warehouseId: input.warehouseId,
-        searchText: input.searchText,
-      },
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, itemId: input.itemId, warehouseId: input.warehouseId, searchText: input.searchText },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
 }

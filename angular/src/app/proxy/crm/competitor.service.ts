@@ -11,45 +11,54 @@ export class CompetitorService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateCompetitorDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CompetitorDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/competitor',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/competitor/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CompetitorDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/competitor/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetCompetitorListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<CompetitorDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/competitor',
       params: { filter: input.filter, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateCompetitorDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, CompetitorDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/competitor/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

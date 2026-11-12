@@ -10,7 +10,7 @@ import { GeneralLedgerService } from '../../../proxy/accounting/general-ledger.s
 import { CompanyContextService } from '../../../shared/services/company-context.service';
 import { exportToCsv } from '../../../shared/utils/csv-export';
 import type { CompanyDto } from '../../../proxy/core/models';
-import type { AccountDto, GeneralLedgerReportDto, GeneralLedgerLineDto } from '../../../proxy/accounting/models';
+import type { AccountDto, GeneralLedgerFilterDto, GeneralLedgerReportDto, GeneralLedgerLineDto } from '../../../proxy/accounting/models';
 
 @Component({
   selector: 'app-general-ledger',
@@ -34,6 +34,7 @@ export class GeneralLedgerComponent implements OnInit {
     toDate: [new Date().toISOString().split('T')[0]],
     voucherNumber: [''],
     convertAtReportingDateRate: [false],
+    showAmountInCompanyCurrency: [false],
   });
 
   companies = signal<CompanyDto[]>([]);
@@ -66,7 +67,15 @@ export class GeneralLedgerComponent implements OnInit {
   }
 
   onAccountChange(): void {
-    if (!this.isForeignAccountSelected() && this.filters.get('convertAtReportingDateRate')?.value) {
+    // Both options only mean something for a foreign currency account.
+    if (!this.isForeignAccountSelected()) {
+      this.filters.patchValue({ convertAtReportingDateRate: false, showAmountInCompanyCurrency: false });
+    }
+  }
+
+  /** Company currency amounts are shown as posted, so there is nothing to convert at the reporting date rate. */
+  onShowAmountInCompanyCurrencyChange(): void {
+    if (this.filters.get('showAmountInCompanyCurrency')?.value) {
       this.filters.patchValue({ convertAtReportingDateRate: false });
     }
   }
@@ -84,12 +93,17 @@ export class GeneralLedgerComponent implements OnInit {
   generate(): void {
     if (this.filters.invalid) { this.filters.markAllAsTouched(); return; }
     this.isLoading.set(true);
-    const { companyId, accountId, fromDate, toDate, voucherNumber, convertAtReportingDateRate } = this.filters.getRawValue();
-    const params: any = { companyId, fromDate, toDate };
+    const { companyId, accountId, fromDate, toDate, voucherNumber, convertAtReportingDateRate, showAmountInCompanyCurrency } =
+      this.filters.getRawValue();
+    const params: GeneralLedgerFilterDto = { companyId: companyId ?? undefined, fromDate, toDate };
     if (accountId) params.accountId = accountId;
     if (voucherNumber) params.voucherNumber = voucherNumber;
-    if (this.isForeignAccountSelected() && convertAtReportingDateRate) {
-      params.convertAtReportingDateRate = true;
+    if (this.isForeignAccountSelected()) {
+      if (showAmountInCompanyCurrency) {
+        params.showAmountInCompanyCurrency = true;
+      } else if (convertAtReportingDateRate) {
+        params.convertAtReportingDateRate = true;
+      }
     }
 
     this.generalLedgerService.getReport(params)

@@ -12,111 +12,137 @@ export class PurchaseReceiptService {
   apiName = 'Default';
   
 
+  
   amend = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-receipt/${id}/amend`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
-  bulkSubmit = (ids: string[], config?: Partial<Rest.Config>) =>
+  
+  bulkSubmit = (ids: readonly string[], config?: Partial<Rest.Config>) =>
     this.restService.request<any, BulkOperationResultDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-receipt/bulk-submit',
       body: ids,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   cancel = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-receipt/${id}/cancel`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   close = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-receipt/${id}/close`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   closeItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-receipt/${id}/close-item/${itemId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreatePurchaseReceiptDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-receipt',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-receipt/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: CompanyFilteredPagedRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<PurchaseReceiptDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/purchase-receipt',
       params: { companyId: input.companyId, filter: input.filter, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
-  getPutawayAllocations = (companyId: string, items: PutawayItemInput[], config?: Partial<Rest.Config>) =>
+  
+  getPutawayAllocations = (companyId: string, items: readonly PutawayItemInput[], config?: Partial<Rest.Config>) =>
     this.restService.request<any, PutawayAllocationResultDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-receipt/putaway-allocations/${companyId}`,
       params: { items },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   reopen = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-receipt/${id}/reopen`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   reopenItem = (id: string, itemId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-receipt/${id}/reopen-item/${itemId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   submit = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-receipt/${id}/submit`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreatePurchaseReceiptDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PurchaseReceiptDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/purchase-receipt/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

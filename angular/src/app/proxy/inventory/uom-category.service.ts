@@ -11,45 +11,54 @@ export class UomCategoryService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateUomCategoryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UomCategoryDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/uom-category',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/uom-category/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UomCategoryDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/uom-category/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<UomCategoryDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/uom-category',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateUomCategoryDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, UomCategoryDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/uom-category/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

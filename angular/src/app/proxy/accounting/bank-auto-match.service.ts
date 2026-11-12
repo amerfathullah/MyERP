@@ -10,20 +10,24 @@ export class BankAutoMatchService {
   apiName = 'Default';
   
 
+  
   autoMatch = (bankAccountId: string, companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AutoMatchResult>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-auto-match/auto-match',
       params: { bankAccountId, companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
-  getMatchCandidates = (bankTransactionId: string, companyId: string, config?: Partial<Rest.Config>) =>
+  
+  getMatchCandidates = (bankTransactionId: string, companyId: string, documentTypes?: readonly string[], config?: Partial<Rest.Config>) =>
     this.restService.request<any, MatchCandidate[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/bank-auto-match/match-candidates',
-      params: { bankTransactionId, companyId },
+      params: { bankTransactionId, companyId, documentTypes },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

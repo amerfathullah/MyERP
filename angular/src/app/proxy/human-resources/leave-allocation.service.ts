@@ -11,54 +11,65 @@ export class LeaveAllocationService {
   apiName = 'Default';
   
 
+  
   bulkAllocate = (input: BulkLeaveAllocationDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, number>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/leave-allocation/bulk-allocate',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateLeaveAllocationDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LeaveAllocationDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/leave-allocation',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/leave-allocation/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LeaveAllocationDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/leave-allocation/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getBalance = (employeeId: string, leaveTypeId: string, asOfDate: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, number>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/leave-allocation/balance',
       params: { employeeId, leaveTypeId, asOfDate },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetLeaveAllocationListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<LeaveAllocationDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/leave-allocation',
       params: { employeeId: input.employeeId, companyId: input.companyId, leaveTypeId: input.leaveTypeId, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

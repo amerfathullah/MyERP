@@ -11,45 +11,54 @@ export class IncotermService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateUpdateIncotermDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IncotermDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/incoterm',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/incoterm/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IncotermDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/incoterm/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<IncotermDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/incoterm',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: CreateUpdateIncotermDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, IncotermDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/incoterm/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

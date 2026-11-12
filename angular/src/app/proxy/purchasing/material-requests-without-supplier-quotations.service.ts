@@ -8,18 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class MaterialRequestsWithoutSupplierQuotationsService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: MaterialRequestsWithoutSupplierQuotationsFilterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, MaterialRequestsWithoutSupplierQuotationsReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/material-requests-without-supplier-quotations/report',
-      params: {
-        companyId: input.companyId,
-        fromDate: input.fromDate,
-        toDate: input.toDate,
-        warehouseId: input.warehouseId,
-        searchTerm: input.searchTerm,
-      },
+      params: { companyId: input.companyId, fromDate: input.fromDate, toDate: input.toDate, warehouseId: input.warehouseId, searchTerm: input.searchTerm },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

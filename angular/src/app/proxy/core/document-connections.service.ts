@@ -10,20 +10,24 @@ export class DocumentConnectionsService {
   apiName = 'Default';
   
 
+  
   getConnections = (documentType: string, documentId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, DocumentConnectionsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/document-connections/connections/${documentId}`,
       params: { documentType },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getExistingDrafts = (sourceDocType: string, sourceId: string, targetDocType: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ExistingDraftDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/document-connections/existing-drafts/${sourceId}`,
       params: { sourceDocType, targetDocType },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

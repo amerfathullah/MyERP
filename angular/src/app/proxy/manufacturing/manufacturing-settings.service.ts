@@ -10,19 +10,23 @@ export class ManufacturingSettingsService {
   apiName = 'Default';
   
 
+  
   getForCompany = (companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ManufacturingSettingsDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/manufacturing-settings/for-company/${companyId}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   save = (input: SaveManufacturingSettingsDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, ManufacturingSettingsDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/manufacturing-settings/save',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

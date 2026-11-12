@@ -8,17 +8,15 @@ import { Injectable, inject } from '@angular/core';
 export class WarehouseWiseStockBalanceService {
   private restService = inject(RestService);
   apiName = 'Default';
+  
 
+  
   getReport = (input: WarehouseWiseStockBalanceFilterDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, WarehouseWiseStockBalanceReportDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/warehouse-wise-stock-balance/report',
-      params: {
-        companyId: input.companyId,
-        warehouseId: input.warehouseId,
-        showDisabledWarehouses: input.showDisabledWarehouses,
-        asOfDate: input.asOfDate,
-      },
+      params: { companyId: input.companyId, warehouseId: input.warehouseId, showDisabledWarehouses: input.showDisabledWarehouses, asOfDate: input.asOfDate },
     },
-    { apiName: this.apiName, ...config });
+      { apiName: this.apiName,...config });
 }

@@ -10,11 +10,13 @@ export class BomStockAnalysisService {
   apiName = 'Default';
   
 
-  getAnalysis = (bomId: string, requiredQty: number = 1, config?: Partial<Rest.Config>) =>
+  
+  getAnalysis = (bomId: string, requiredQty: number = 1, warehouseId?: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, BomStockAnalysisDto>({
       method: 'GET',
-      url: `/api/app/bom-stock-analysis/analysis/${bomId}`,
-      params: { requiredQty },
+      headers: { Accept: 'application/json' },
+      url: '/api/app/bom-stock-analysis/analysis',
+      params: { bomId, requiredQty, warehouseId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

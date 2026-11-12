@@ -11,53 +11,64 @@ export class AppointmentService {
   apiName = 'Default';
   
 
+  
   close = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AppointmentDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/appointment/${id}/close`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   create = (input: CreateAppointmentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AppointmentDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/appointment',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/appointment/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AppointmentDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/appointment/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: GetAppointmentListDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<AppointmentDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/appointment',
       params: { companyId: input.companyId, status: input.status, fromDate: input.fromDate, toDate: input.toDate, sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   verify = (id: string, input: VerifyAppointmentDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, AppointmentDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: `/api/app/appointment/${id}/verify`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }

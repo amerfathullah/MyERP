@@ -11,72 +11,87 @@ export class LoyaltyProgramService {
   apiName = 'Default';
   
 
+  
   create = (input: CreateLoyaltyProgramDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LoyaltyProgramDto>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/loyalty-program',
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   delete = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, void>({
       method: 'DELETE',
       url: `/api/app/loyalty-program/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   get = (id: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LoyaltyProgramDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: `/api/app/loyalty-program/${id}`,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getCustomerBalance = (customerId: string, programId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LoyaltyBalanceDto>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/loyalty-program/customer-balance',
       params: { customerId, programId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getList = (input: PagedAndSortedResultRequestDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, PagedResultDto<LoyaltyProgramDto>>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/loyalty-program',
       params: { sorting: input.sorting, skipCount: input.skipCount, maxResultCount: input.maxResultCount },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   getPointHistory = (customerId: string, programId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LoyaltyPointEntryDto[]>({
       method: 'GET',
+      headers: { Accept: 'application/json' },
       url: '/api/app/loyalty-program/point-history',
       params: { customerId, programId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   redeemPoints = (customerId: string, programId: string, pointsToRedeem: number, companyId: string, config?: Partial<Rest.Config>) =>
     this.restService.request<any, number>({
       method: 'POST',
+      headers: { Accept: 'application/json' },
       url: '/api/app/loyalty-program/redeem-points',
       params: { customerId, programId, pointsToRedeem, companyId },
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
   
 
+  
   update = (id: string, input: UpdateLoyaltyProgramDto, config?: Partial<Rest.Config>) =>
     this.restService.request<any, LoyaltyProgramDto>({
       method: 'PUT',
+      headers: { Accept: 'application/json' },
       url: `/api/app/loyalty-program/${id}`,
       body: input,
     },
-    { apiName: this.apiName,...config });
+      { apiName: this.apiName,...config });
 }
